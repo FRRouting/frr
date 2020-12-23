@@ -456,7 +456,9 @@ def test_BGP_GR_TC_3_p0(request):
     input_dict = {
         "r1": {
             "bgp": {
-                "graceful-restart": {"disable-eor": True,},
+                "graceful-restart": {
+                    "disable-eor": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
@@ -2095,7 +2097,10 @@ def test_BGP_GR_chaos_33_p1(request):
                     "ipv4": {
                         "unicast": {
                             "advertise_networks": [
-                                {"network": "200.0.20.1/32", "no_of_network": 2,}
+                                {
+                                    "network": "200.0.20.1/32",
+                                    "no_of_network": 2,
+                                }
                             ]
                         }
                     },
@@ -2207,13 +2212,13 @@ def test_BGP_GR_chaos_33_p1(request):
             else:
                 next_hop_6 = NEXT_HOP_6[1]
 
-            result = verify_rib(tgen, addr_type, dut, input_dict_2, next_hop_6,
-                                expected=False)
-            assert result is not True,\
-                "Testcase {} :Failed \n Error {}". \
-                     format(tc_name, result)
-            logger.info(" Expected behavior: {}".\
-                format(result))
+            result = verify_rib(
+                tgen, addr_type, dut, input_dict_2, next_hop_6, expected=False
+            )
+            assert result is not True, "Testcase {} :Failed \n Error {}".format(
+                tc_name, result
+            )
+            logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Step 4] : Start BGPd daemon on R1 and R4..")
 
@@ -3960,7 +3965,13 @@ def test_BGP_GR_21_p2(request):
                 }
             }
         },
-        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r2": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                }
+            }
+        },
     }
 
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")

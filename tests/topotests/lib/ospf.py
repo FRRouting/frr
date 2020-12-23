@@ -874,7 +874,11 @@ def verify_ospf_rib(
                                     errormsg = (
                                         "[DUT: {}]: tag value {}"
                                         " is not matched for"
-                                        " route {} in RIB \n".format(dut, _tag, st_rt,)
+                                        " route {} in RIB \n".format(
+                                            dut,
+                                            _tag,
+                                            st_rt,
+                                        )
                                     )
                                     return errormsg
 
@@ -891,7 +895,11 @@ def verify_ospf_rib(
                                     errormsg = (
                                         "[DUT: {}]: metric value "
                                         "{} is not matched for "
-                                        "route {} in RIB \n".format(dut, metric, st_rt,)
+                                        "route {} in RIB \n".format(
+                                            dut,
+                                            metric,
+                                            st_rt,
+                                        )
                                     )
                                     return errormsg
 

@@ -352,9 +352,11 @@ def test_zebra_ipv4_routingTable():
             else:
                 print("r%s ok" % i)
 
-            assert failures == 0, (
-                "Zebra IPv4 Routing Table verification failed for router r%s:\n%s"
-                % (i, diff)
+            assert (
+                failures == 0
+            ), "Zebra IPv4 Routing Table verification failed for router r%s:\n%s" % (
+                i,
+                diff,
             )
 
     # Make sure that all daemons are still running

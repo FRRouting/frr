@@ -316,7 +316,9 @@ def test_BGP_GR_TC_46_p1(request):
     input_dict = {
         "r1": {
             "bgp": {
-                "graceful-restart": {"graceful-restart": True,},
+                "graceful-restart": {
+                    "graceful-restart": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
@@ -1184,8 +1186,8 @@ def test_BGP_GR_TC_53_p1(request):
 
 def test_BGP_GR_TC_4_p0(request):
     """
-     Test Objective : Verify that the restarting node sets "R" bit while sending the
-     BGP open messages after the node restart, only if GR is enabled.
+    Test Objective : Verify that the restarting node sets "R" bit while sending the
+    BGP open messages after the node restart, only if GR is enabled.
     """
 
     tgen = get_topogen()
@@ -1368,9 +1370,9 @@ def test_BGP_GR_TC_4_p0(request):
 
 def test_BGP_GR_TC_5_1_2_p1(request):
     """
-     Test Objective : Verify if restarting node resets R bit in BGP open message
-     during normal BGP session flaps as well, even when GR restarting mode is enabled.
-     Here link flap happen due to interface UP/DOWN.
+    Test Objective : Verify if restarting node resets R bit in BGP open message
+    during normal BGP session flaps as well, even when GR restarting mode is enabled.
+    Here link flap happen due to interface UP/DOWN.
 
     """
     tgen = get_topogen()
@@ -1815,8 +1817,8 @@ def test_BGP_GR_TC_6_1_2_p1(request):
 
 def test_BGP_GR_TC_8_p1(request):
     """
-     Test Objective : Verify that restarting nodes set "F" bit while sending
-      the BGP open messages after it restarts, only when BGP GR is enabled.
+    Test Objective : Verify that restarting nodes set "F" bit while sending
+     the BGP open messages after it restarts, only when BGP GR is enabled.
     """
 
     tgen = get_topogen()
@@ -1959,8 +1961,8 @@ def test_BGP_GR_TC_8_p1(request):
 
 def test_BGP_GR_TC_17_p1(request):
     """
-      Test Objective : Verify that only GR helper routers keep the stale
-       route entries, not any GR disabled router.
+    Test Objective : Verify that only GR helper routers keep the stale
+     route entries, not any GR disabled router.
     """
 
     tgen = get_topogen()
@@ -2145,8 +2147,8 @@ def test_BGP_GR_TC_17_p1(request):
 
 def test_BGP_GR_TC_19_p1(request):
     """
-      Test Objective : Verify that GR helper routers keeps all the routes received
-      from restarting node if both the routers are configured as GR restarting node.
+    Test Objective : Verify that GR helper routers keeps all the routes received
+    from restarting node if both the routers are configured as GR restarting node.
     """
 
     tgen = get_topogen()
@@ -2325,8 +2327,8 @@ def test_BGP_GR_TC_19_p1(request):
 
 def test_BGP_GR_TC_20_p1(request):
     """
-      Test Objective : Verify that GR helper routers delete all the routes
-       received from a node if both the routers are configured as GR helper node.
+    Test Objective : Verify that GR helper routers delete all the routes
+     received from a node if both the routers are configured as GR helper node.
     """
     tgen = get_topogen()
     tc_name = request.node.name
@@ -3090,8 +3092,8 @@ def test_BGP_GR_TC_31_2_p1(request):
 
 def test_BGP_GR_TC_9_p1(request):
     """
-      Test Objective : Verify that restarting nodes reset "F" bit while sending
-      the BGP open messages after it's restarts, when BGP GR is **NOT** enabled.
+    Test Objective : Verify that restarting nodes reset "F" bit while sending
+    the BGP open messages after it's restarts, when BGP GR is **NOT** enabled.
     """
 
     tgen = get_topogen()
@@ -3264,8 +3266,8 @@ def test_BGP_GR_TC_9_p1(request):
 
 def test_BGP_GR_TC_17_p1(request):
     """
-      Test Objective : Verify that only GR helper routers keep the stale
-       route entries, not any GR disabled router.
+    Test Objective : Verify that only GR helper routers keep the stale
+     route entries, not any GR disabled router.
     """
 
     tgen = get_topogen()
@@ -3467,7 +3469,13 @@ def test_BGP_GR_TC_43_p1(request):
     step("Configure R1 and R2 as GR restarting node in global level")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -3560,7 +3568,13 @@ def test_BGP_GR_TC_43_p1(request):
     step("Verify on R2 that R1 doesn't advertise any GR capabilities")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart-disable": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart-disable": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -3659,7 +3673,13 @@ def test_BGP_GR_TC_43_p1(request):
     step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -3779,7 +3799,13 @@ def test_BGP_GR_TC_44_p1(request):
     step("Verify on R2 that R1 advertises GR capabilities as a helper node")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart-helper": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart-helper": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -3849,7 +3875,13 @@ def test_BGP_GR_TC_44_p1(request):
     start_router_daemons(tgen, "r2", ["bgpd"])
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart-disable": True,}}}
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart-disable": True,
+                }
+            }
+        }
     }
 
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
@@ -3857,7 +3889,13 @@ def test_BGP_GR_TC_44_p1(request):
     step("Verify on R2 that R1 doesn't advertise any GR capabilities")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart-disable": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart-disable": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -3941,7 +3979,13 @@ def test_BGP_GR_TC_44_p1(request):
     step("Verify on R2 that R1 advertises GR capabilities as a helper node")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart-helper": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart-helper": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -4108,14 +4152,28 @@ def test_BGP_GR_TC_45_p1(request):
 
     start_router_daemons(tgen, "r1", ["bgpd"])
 
-    input_dict = {"r1": {"bgp": {"graceful-restart": {"graceful-restart": False,}}}}
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": False,
+                }
+            }
+        }
+    }
 
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
 
     step("Verify on R2 that R1 advertises GR capabilities as a helper node")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart-helper": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart-helper": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -4199,14 +4257,28 @@ def test_BGP_GR_TC_45_p1(request):
 
     start_router_daemons(tgen, "r2", ["bgpd"])
 
-    input_dict = {"r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}}}
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                }
+            }
+        }
+    }
 
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
 
     step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -4307,7 +4379,9 @@ def test_BGP_GR_TC_46_p1(request):
     input_dict = {
         "r1": {
             "bgp": {
-                "graceful-restart": {"graceful-restart": True,},
+                "graceful-restart": {
+                    "graceful-restart": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
@@ -4559,7 +4633,9 @@ def test_BGP_GR_TC_47_p1(request):
     input_dict = {
         "r1": {
             "bgp": {
-                "graceful-restart": {"graceful-restart": True,},
+                "graceful-restart": {
+                    "graceful-restart": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
@@ -4698,7 +4774,13 @@ def test_BGP_GR_TC_47_p1(request):
     step("Verify on R2 that R1 still advertises GR capabilities as a restarting node")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
     }
 
@@ -4814,7 +4896,9 @@ def test_BGP_GR_TC_48_p1(request):
     input_dict = {
         "r1": {
             "bgp": {
-                "graceful-restart": {"graceful-restart": True,},
+                "graceful-restart": {
+                    "graceful-restart": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
@@ -4960,7 +5044,13 @@ def test_BGP_GR_TC_48_p1(request):
     step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart-helper": True}}},
     }
 

@@ -1016,6 +1016,7 @@ def test_bgp_ipv6_summary():
     # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
+
 def test_nht():
     print("\n\n**** Test that nexthop tracking is at least nominally working ****\n")
 
@@ -1026,13 +1027,16 @@ def test_nht():
         expected = open(nhtFile).read().rstrip()
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-        actual = (net["r%s" %i].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip())
+        actual = net["r%s" % i].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
         actual = re.sub(r"fd [0-9][0-9]", "fd XX", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-        diff = topotest.get_textdiff(actual, expected,
-                                     title1="Actual `show ip nht`",
-                                     title2="Expected `show ip nht`")
+        diff = topotest.get_textdiff(
+            actual,
+            expected,
+            title1="Actual `show ip nht`",
+            title2="Expected `show ip nht`",
+        )
 
         if diff:
             assert 0, "r%s failed ip nht check:\n%s\n" % (i, diff)
@@ -1043,18 +1047,22 @@ def test_nht():
         expected = open(nhtFile).read().rstrip()
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-        actual = (net["r%s" %i].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip())
+        actual = net["r%s" % i].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip()
         actual = re.sub(r"fd [0-9][0-9]", "fd XX", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-        diff = topotest.get_textdiff(actual, expected,
-                                     title1="Actual `show ip nht`",
-                                     title2="Expected `show ip nht`")
+        diff = topotest.get_textdiff(
+            actual,
+            expected,
+            title1="Actual `show ip nht`",
+            title2="Expected `show ip nht`",
+        )
 
         if diff:
             assert 0, "r%s failed ipv6 nht check:\n%s\n" % (i, diff)
         else:
             print("show ipv6 nht is ok\n")
+
 
 def test_bgp_ipv4():
     global fatal_error

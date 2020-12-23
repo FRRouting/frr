@@ -609,8 +609,10 @@ def interface_set_status(node, ifacename, ifaceaction=False, vrf_name=None):
             ifacename, str_ifaceaction
         )
     else:
-        cmd = 'vtysh -c "configure terminal" -c "interface {0} vrf {1}" -c "{2}"'.format(
-            ifacename, vrf_name, str_ifaceaction
+        cmd = (
+            'vtysh -c "configure terminal" -c "interface {0} vrf {1}" -c "{2}"'.format(
+                ifacename, vrf_name, str_ifaceaction
+            )
         )
     node.run(cmd)
 
@@ -924,40 +926,44 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
         )
         if addressSanitizerLog:
             # Find Calling Test. Could be multiple steps back
-            testframe=sys._current_frames().values()[0]
-            level=0
+            testframe = sys._current_frames().values()[0]
+            level = 0
             while level < 10:
-                test=os.path.splitext(os.path.basename(testframe.f_globals["__file__"]))[0]
+                test = os.path.splitext(
+                    os.path.basename(testframe.f_globals["__file__"])
+                )[0]
                 if (test != "topotest") and (test != "topogen"):
                     # Found the calling test
-                    callingTest=os.path.basename(testframe.f_globals["__file__"])
+                    callingTest = os.path.basename(testframe.f_globals["__file__"])
                     break
-                level=level+1
-                testframe=testframe.f_back
-            if (level >= 10):
+                level = level + 1
+                testframe = testframe.f_back
+            if level >= 10:
                 # somehow couldn't find the test script.
-                callingTest="unknownTest"
+                callingTest = "unknownTest"
             #
             # Now finding Calling Procedure
-            level=0
+            level = 0
             while level < 20:
-                callingProc=sys._getframe(level).f_code.co_name
-                if ((callingProc != "processAddressSanitizerError") and
-                        (callingProc != "checkAddressSanitizerError") and
-                        (callingProc != "checkRouterCores") and
-                        (callingProc != "stopRouter") and
-                        (callingProc != "__stop_internal") and
-                        (callingProc != "stop") and
-                        (callingProc != "stop_topology") and
-                        (callingProc != "checkRouterRunning") and
-                        (callingProc != "check_router_running") and
-                        (callingProc != "routers_have_failure")):
+                callingProc = sys._getframe(level).f_code.co_name
+                if (
+                    (callingProc != "processAddressSanitizerError")
+                    and (callingProc != "checkAddressSanitizerError")
+                    and (callingProc != "checkRouterCores")
+                    and (callingProc != "stopRouter")
+                    and (callingProc != "__stop_internal")
+                    and (callingProc != "stop")
+                    and (callingProc != "stop_topology")
+                    and (callingProc != "checkRouterRunning")
+                    and (callingProc != "check_router_running")
+                    and (callingProc != "routers_have_failure")
+                ):
                     # Found the calling test
                     break
-                level=level+1
-            if (level >= 20):
+                level = level + 1
+            if level >= 20:
                 # something wrong - couldn't found the calling test function
-                callingProc="unknownProc"
+                callingProc = "unknownProc"
             with open("/tmp/AddressSanitzer.txt", "a") as addrSanFile:
                 sys.stderr.write(
                     "AddressSanitizer error in topotest `%s`, test `%s`, router `%s`\n\n"
@@ -979,7 +985,6 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
                 addrSanFile.write("\n---------------\n")
         return
 
-
     addressSanitizerError = re.search(
         "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", output
     )
@@ -989,16 +994,20 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
 
     # No Address Sanitizer Error in Output. Now check for AddressSanitizer daemon file
     if logdir:
-        filepattern=logdir+"/"+router+"/"+component+".asan.*"
-        logger.debug("Log check for %s on %s, pattern %s\n" % (component, router, filepattern))
+        filepattern = logdir + "/" + router + "/" + component + ".asan.*"
+        logger.debug(
+            "Log check for %s on %s, pattern %s\n" % (component, router, filepattern)
+        )
         for file in glob.glob(filepattern):
             with open(file, "r") as asanErrorFile:
-                asanError=asanErrorFile.read()
+                asanError = asanErrorFile.read()
             addressSanitizerError = re.search(
                 "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", asanError
-                )
+            )
             if addressSanitizerError:
-                processAddressSanitizerError(addressSanitizerError, asanError, router, component)
+                processAddressSanitizerError(
+                    addressSanitizerError, asanError, router, component
+                )
                 return True
     return False
 
@@ -1065,7 +1074,7 @@ class Router(Node):
         if self.logdir is None:
             cur_test = os.environ["PYTEST_CURRENT_TEST"]
             self.logdir = "/tmp/topotests/" + cur_test[
-                cur_test.find("/")+1 : cur_test.find(".py")
+                cur_test.find("/") + 1 : cur_test.find(".py")
             ].replace("/", ".")
 
         # If the logdir is not created, then create it and set the
@@ -1073,7 +1082,7 @@ class Router(Node):
         if not os.path.isdir(self.logdir):
             os.system("mkdir -p " + self.logdir + "/" + name)
             os.system("chmod -R go+rw /tmp/topotests")
-        # Erase logs of previous run
+            # Erase logs of previous run
             os.system("rm -rf " + self.logdir + "/" + name)
 
         self.daemondir = None

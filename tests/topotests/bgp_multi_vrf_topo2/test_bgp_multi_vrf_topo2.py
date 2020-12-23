@@ -95,7 +95,7 @@ from lib.common_config import (
     kill_router_daemons,
     start_router_daemons,
     stop_router,
-    start_router
+    start_router,
 )
 
 from lib.topolog import logger
@@ -129,7 +129,7 @@ LOOPBACK_2 = {
     "ipv4": "20.20.20.20/32",
     "ipv6": "20::20:20/128",
     "ipv4_mask": "255.255.255.255",
-    "ipv6_mask": None
+    "ipv6_mask": None,
 }
 
 MAX_PATHS = 2
@@ -724,16 +724,40 @@ def test_vrf_with_multiple_links_p1(request):
                     "local_as": "200",
                     "vrf": "RED_A",
                     "address_family": {
-                        "ipv4": {"unicast": {"maximum_paths": {"ebgp": MAX_PATHS,}}},
-                        "ipv6": {"unicast": {"maximum_paths": {"ebgp": MAX_PATHS,}}},
+                        "ipv4": {
+                            "unicast": {
+                                "maximum_paths": {
+                                    "ebgp": MAX_PATHS,
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "maximum_paths": {
+                                    "ebgp": MAX_PATHS,
+                                }
+                            }
+                        },
                     },
                 },
                 {
                     "local_as": "200",
                     "vrf": "BLUE_A",
                     "address_family": {
-                        "ipv4": {"unicast": {"maximum_paths": {"ebgp": MAX_PATHS,}}},
-                        "ipv6": {"unicast": {"maximum_paths": {"ebgp": MAX_PATHS,}}},
+                        "ipv4": {
+                            "unicast": {
+                                "maximum_paths": {
+                                    "ebgp": MAX_PATHS,
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "maximum_paths": {
+                                    "ebgp": MAX_PATHS,
+                                }
+                            }
+                        },
                     },
                 },
             ]
@@ -2148,7 +2172,7 @@ def test_restart_bgpd_daemon_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     result = verify_bgp_convergence(tgen, topo)
-    assert result is True, "Testcase () :Failed\n Error {}". format(tc_name, result)
+    assert result is True, "Testcase () :Failed\n Error {}".format(tc_name, result)
 
     step("Kill BGPd daemon on R1.")
     kill_router_daemons(tgen, "r1", ["bgpd"])

@@ -320,8 +320,10 @@ def test_ospf_link_down_kernel_route():
         # Run test function until we get an result. Wait at most 60 seconds.
         test_func = partial(compare_show_ip_route_vrf, router.name, expected)
         result, diff = topotest.run_and_expect(test_func, "", count=140, wait=0.5)
-        assertmsg = 'OSPF IPv4 route mismatch in router "{}" after link down: {}'.format(
-            router.name, diff
+        assertmsg = (
+            'OSPF IPv4 route mismatch in router "{}" after link down: {}'.format(
+                router.name, diff
+            )
         )
         assert result, assertmsg
 

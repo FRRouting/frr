@@ -2,6 +2,7 @@
 # git blame --ignore-revs-file .git-blame-ignore-revs <...>
 # or to make it permanent
 # git config blame.ignoreRevsFile .git-blame-ignore-revs
+9fa6ec14737b94fdfb41539d96c7e4f84f3514b6
 701a01920eee5431d2052aad92aefbdf50ac2139
 bf2394f08bdc91a6cbd3784a1bfa3af3247bb06f
 0157c327715ca367d13b7f02b2981f3484ccdeeb

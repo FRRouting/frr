@@ -197,6 +197,7 @@ def teardown_module(mod):
 # Test cases start here.
 # ##################################
 
+
 def test_ospf_routemaps_functionality_tc19_p0(request):
     """
     OSPF Route map - Verify OSPF route map support functionality.
@@ -215,121 +216,92 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
         "r0": {
             "static_routes": [
                 {
-                    "network": NETWORK['ipv4'][0],
+                    "network": NETWORK["ipv4"][0],
                     "no_of_ip": 5,
-                    "next_hop": 'Null0',
+                    "next_hop": "Null0",
                 }
             ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_red_r1 = {
-        "r0": {
-            "ospf": {
-                "redistribute": [{
-                    "redist_type": "static"
-                }]
-            }
-        }
-    }
+    ospf_red_r1 = {"r0": {"ospf": {"redistribute": [{"redist_type": "static"}]}}}
     result = create_router_ospf(tgen, topo, ospf_red_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    dut = 'r1'
-    lsid = NETWORK['ipv4'][0].split("/")[0]
-    rid =  routerids[0]
-    protocol = 'ospf'
+    dut = "r1"
+    lsid = NETWORK["ipv4"][0].split("/")[0]
+    rid = routerids[0]
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_red_r1 = {
         "r0": {
-            "ospf": {
-                "redistribute": [{
-                    "redist_type": "static",
-                    "del_action": True
-                }]
-            }
+            "ospf": {"redistribute": [{"redist_type": "static", "del_action": True}]}
         }
     }
     result = create_router_ospf(tgen, topo, ospf_red_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
-        'Create prefix-list in R0 to permit 10.0.20.1/32 prefix &'
-        ' deny 10.0.20.2/32')
+        "Create prefix-list in R0 to permit 10.0.20.1/32 prefix &" " deny 10.0.20.2/32"
+    )
 
     # Create ip prefix list
     pfx_list = {
         "r0": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1_ipv4": [{
-                        "seqid": 10,
-                        "network": NETWORK['ipv4'][0],
-                        "action": "permit"
-                    },
-                    {
-                        "seqid": 11,
-                        "network": "any",
-                        "action": "deny"
-                    }
+                    "pf_list_1_ipv4": [
+                        {
+                            "seqid": 10,
+                            "network": NETWORK["ipv4"][0],
+                            "action": "permit",
+                        },
+                        {"seqid": 11, "network": "any", "action": "deny"},
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     routemaps = {
-            "r0": {
-                "route_maps": {
-                    "rmap_ipv4": [{
+        "r0": {
+            "route_maps": {
+                "rmap_ipv4": [
+                    {
                         "action": "permit",
-                        "match": {
-                            "ipv4": {
-                                "prefix_lists":
-                                    "pf_list_1_ipv4"
-                            }
-                        }
-                    }]
-                }
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                    }
+                ]
             }
+        }
     }
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Configure route map rmap1 and redistribute static routes to"
-        " ospf using route map rmap1")
+        " ospf using route map rmap1"
+    )
 
     ospf_red_r1 = {
         "r0": {
             "ospf": {
-                "redistribute": [{
-                    "redist_type": "static",
-                    "route_map": "rmap_ipv4"
-                }]
+                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv4"}]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_red_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Change prefix rules to permit 10.0.20.2 and deny 10.0.20.1")
     # Create ip prefix list
@@ -337,65 +309,54 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
         "r0": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1_ipv4": [{
-                        "seqid": 10,
-                        "network": NETWORK['ipv4'][1],
-                        "action": "permit"
-                    },
-                    {
-                        "seqid": 11,
-                        "network": "any",
-                        "action": "deny"
-                    }
+                    "pf_list_1_ipv4": [
+                        {
+                            "seqid": 10,
+                            "network": NETWORK["ipv4"][1],
+                            "action": "permit",
+                        },
+                        {"seqid": 11, "network": "any", "action": "deny"},
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify that route 10.0.20.2 is allowed and 10.0.20.1 is denied.")
-    dut = 'r1'
+    dut = "r1"
     input_dict = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK['ipv4'][1],
-                    "no_of_ip": 1,
-                    "next_hop": 'Null0'
-                }
+                {"network": NETWORK["ipv4"][1], "no_of_ip": 1, "next_hop": "Null0"}
             ]
         }
     }
     result = verify_ospf_rib(tgen, dut, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK['ipv4'][0],
-                    "no_of_ip": 1,
-                    "next_hop": 'Null0'
-                }
+                {"network": NETWORK["ipv4"][0], "no_of_ip": 1, "next_hop": "Null0"}
             ]
         }
     }
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-                        expected=False)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
     step("Delete and reconfigure prefix list.")
     # Create ip prefix list
@@ -403,114 +364,101 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
         "r0": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1_ipv4": [{
-                        "seqid": 10,
-                        "network": NETWORK['ipv4'][1],
-                        "action": "permit",
-                        "delete": True
-                    },
-                    {
-                        "seqid": 11,
-                        "network": "any",
-                        "action": "deny",
-                        "delete": True
-                    }
+                    "pf_list_1_ipv4": [
+                        {
+                            "seqid": 10,
+                            "network": NETWORK["ipv4"][1],
+                            "action": "permit",
+                            "delete": True,
+                        },
+                        {
+                            "seqid": 11,
+                            "network": "any",
+                            "action": "deny",
+                            "delete": True,
+                        },
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK['ipv4'][0],
-                    "no_of_ip": 5,
-                    "next_hop": 'Null0'
-                }
+                {"network": NETWORK["ipv4"][0], "no_of_ip": 5, "next_hop": "Null0"}
             ]
         }
     }
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-                            expected=False)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
     pfx_list = {
         "r0": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1_ipv4": [{
-                        "seqid": 10,
-                        "network": NETWORK['ipv4'][1],
-                        "action": "permit"
-                    },
-                    {
-                        "seqid": 11,
-                        "network": "any",
-                        "action": "deny"
-                    }
+                    "pf_list_1_ipv4": [
+                        {
+                            "seqid": 10,
+                            "network": NETWORK["ipv4"][1],
+                            "action": "permit",
+                        },
+                        {"seqid": 11, "network": "any", "action": "deny"},
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify that route 10.0.20.2 is allowed and 10.0.20.1 is denied.")
-    dut = 'r1'
+    dut = "r1"
     input_dict = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK['ipv4'][1],
-                    "no_of_ip": 1,
-                    "next_hop": 'Null0'
-                }
+                {"network": NETWORK["ipv4"][1], "no_of_ip": 1, "next_hop": "Null0"}
             ]
         }
     }
     result = verify_ospf_rib(tgen, dut, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK['ipv4'][0],
-                    "no_of_ip": 1,
-                    "next_hop": 'Null0'
-                }
+                {"network": NETWORK["ipv4"][0], "no_of_ip": 1, "next_hop": "Null0"}
             ]
         }
     }
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-                            expected=False)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
     write_test_footer(tc_name)
 
@@ -535,7 +483,11 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     input_dict = {
         "r0": {
             "static_routes": [
-                {"network": NETWORK["ipv4"][0], "no_of_ip": 5, "next_hop": "Null0",}
+                {
+                    "network": NETWORK["ipv4"][0],
+                    "no_of_ip": 5,
+                    "next_hop": "Null0",
+                }
             ]
         }
     }
@@ -663,318 +615,229 @@ def test_ospf_routemaps_functionality_tc21_p0(request):
 
     step(
         "Create static routes(10.0.20.1/32) in R1 and redistribute "
-        "to OSPF using route map.")
+        "to OSPF using route map."
+    )
 
     # Create Static routes
     input_dict = {
         "r0": {
             "static_routes": [
                 {
-                    "network": NETWORK['ipv4'][0],
+                    "network": NETWORK["ipv4"][0],
                     "no_of_ip": 5,
-                    "next_hop": 'Null0',
+                    "next_hop": "Null0",
                 }
             ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_red_r0 = {
         "r0": {
             "ospf": {
-                "redistribute": [{
-                    "redist_type": "static",
-                    "route_map": "rmap_ipv4"
-                }]
+                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv4"}]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_red_r0)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     routemaps = {
-    "r0": {
-        "route_maps": {
-            "rmap_ipv4": [{
-                "action": "permit",
-                "seq_id": 10
-            }]
-        }
-    }
+        "r0": {"route_maps": {"rmap_ipv4": [{"action": "permit", "seq_id": 10}]}}
     }
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify that route is advertised to R2.")
-    dut = 'r1'
-    protocol = 'ospf'
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
     # Create route map
     routemaps = {
-    "r0": {
-        "route_maps": {
-            "rmap_ipv4": [{
-                "action": "permit",
-                "delete": True,
-                "seq_id": 10
-            }]
+        "r0": {
+            "route_maps": {
+                "rmap_ipv4": [{"action": "permit", "delete": True, "seq_id": 10}]
+            }
         }
     }
-    }
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step(' Configure route map with set clause (set metric)')
+    step(" Configure route map with set clause (set metric)")
     # Create route map
     routemaps = {
-    "r0": {
-        "route_maps": {
-            "rmap_ipv4": [{
-                "action": "permit",
-                "set": {
-                    "med": 123
-                },
-                "seq_id": 10
-            }]
+        "r0": {
+            "route_maps": {
+                "rmap_ipv4": [{"action": "permit", "set": {"med": 123}, "seq_id": 10}]
+            }
         }
     }
-    }
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify that configured metric is applied to ospf routes.")
-    dut = 'r1'
-    protocol = 'ospf'
+    dut = "r1"
+    protocol = "ospf"
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Configure route map with match clause (match metric) with "
-        "some actions(change metric).")
+        "some actions(change metric)."
+    )
     # Create route map
     routemaps = {
-    "r0": {
-        "route_maps": {
-            "rmap_ipv4": [{
-                "action": "permit",
-                "match": {
-                    "med": 123
-                },
-                "set": {
-                    "med": 150
-                },
-                "seq_id": 10
-            }]
+        "r0": {
+            "route_maps": {
+                "rmap_ipv4": [
+                    {
+                        "action": "permit",
+                        "match": {"med": 123},
+                        "set": {"med": 150},
+                        "seq_id": 10,
+                    }
+                ]
+            }
         }
     }
-    }
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure route map with call clause")
 
     # Create ip prefix list
     input_dict_2 = {
-        'r0': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r0": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     input_dict_3 = {
-    "r0": {
-        "route_maps": {
-            "rmap_ipv4": [{
-                "action": "permit",
-                "match": {
-                    "ipv4": {
-                    "prefix_lists": "pf_list_1_ipv4"
-                }
-                },
-                "set": {
-                    "med": 150
-                },
-                "call": "rmap_match_pf_2_ipv4",
-                "seq_id": 10
-            }],
-            "rmap_match_pf_2_ipv4": [{
-                "action": "permit",
-                "match": {
-                    "ipv4": {
-                    "prefix_lists": "pf_list_1_ipv4"
-                }
-                },
-                "set": {
-                    "med": 200
-                },
-                "seq_id": 10
-            }]
+        "r0": {
+            "route_maps": {
+                "rmap_ipv4": [
+                    {
+                        "action": "permit",
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                        "set": {"med": 150},
+                        "call": "rmap_match_pf_2_ipv4",
+                        "seq_id": 10,
+                    }
+                ],
+                "rmap_match_pf_2_ipv4": [
+                    {
+                        "action": "permit",
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                        "set": {"med": 200},
+                        "seq_id": 10,
+                    }
+                ],
+            }
         }
-    }
     }
     result = create_route_maps(tgen, input_dict_3)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_ospf_rib(tgen, dut, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-       tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
-    routemaps = {
-    "r0": {
-        "route_maps": {
-            "rmap_ipv4": [{
-                "delete": True
-            }]
-        }
-    }
-    }
+    routemaps = {"r0": {"route_maps": {"rmap_ipv4": [{"delete": True}]}}}
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure route map with continue clause")
 
     # Create route map
     input_dict_3 = {
-    "r0": {
-        "route_maps": {
-            "rmap_ipv4": [{
-                    "action": "permit",
-                    'seq_id': '10',
-                    "match": {
-                        "ipv4": {
-                        "prefix_lists": "pf_list_1_ipv4"
-                    }
+        "r0": {
+            "route_maps": {
+                "rmap_ipv4": [
+                    {
+                        "action": "permit",
+                        "seq_id": "10",
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                        "set": {"med": 150},
+                        "continue": "30",
+                        "seq_id": 10,
                     },
-                    "set": {
-                        "med": 150
+                    {
+                        "action": "permit",
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                        "set": {"med": 100},
+                        "seq_id": 20,
                     },
-                    "continue": "30",
-                    "seq_id": 10
-                },
-                {
-                    "action": "permit",
-                    "match": {
-                        "ipv4": {
-                        "prefix_lists": "pf_list_1_ipv4"
-                    }
+                    {
+                        "action": "permit",
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                        "set": {"med": 50},
+                        "seq_id": 30,
                     },
-                    "set": {
-                        "med": 100
-                    },
-                    "seq_id": 20
-                },
-                {
-                    "action": "permit",
-                    "match": {
-                        "ipv4": {
-                        "prefix_lists": "pf_list_1_ipv4"
-                    }
-                    },
-                    "set": {
-                        "med": 50
-                    },
-                    "seq_id": 30
-                }
-            ]
+                ]
+            }
         }
     }
-    }
     result = create_route_maps(tgen, input_dict_3)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_ospf_rib(tgen, dut, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-       tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure route map with goto clause")
     # Create route map
     input_dict_3 = {
-    "r0": {
-        "route_maps": {
-            "rmap_ipv4": [{
-                    "action": "permit",
-                    'seq_id': '10',
-                    "match": {
-                    "ipv4": {
-                        "prefix_lists": "pf_list_1_ipv4"
-                    }
+        "r0": {
+            "route_maps": {
+                "rmap_ipv4": [
+                    {
+                        "action": "permit",
+                        "seq_id": "10",
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                        "goto": "30",
                     },
-                    "goto": "30",
-                },
-                {
-                    "action": "permit",
-                    'seq_id': '20',
-                    "match": {
-                    "ipv4": {
-                        "prefix_lists": "pf_list_1_ipv4"
-                    }
+                    {
+                        "action": "permit",
+                        "seq_id": "20",
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                        "set": {"med": 100},
                     },
-                    "set": {
-                        "med": 100
-                    }
-                },
-                {
-                    "action": "permit",
-                    'seq_id': '30',
-                    "match": {
-                    "ipv4": {
-                        "prefix_lists": "pf_list_1_ipv4"
-                    }
+                    {
+                        "action": "permit",
+                        "seq_id": "30",
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1_ipv4"}},
+                        "set": {"med": 200},
                     },
-                    "set": {
-                        "med": 200
-                    }
-                }
-            ]
+                ]
+            }
         }
     }
-    }
     result = create_route_maps(tgen, input_dict_3)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -1003,7 +866,11 @@ def test_ospf_routemaps_functionality_tc24_p0(request):
     input_dict = {
         "r0": {
             "static_routes": [
-                {"network": NETWORK["ipv4"][0], "no_of_ip": 1, "next_hop": "Null0",}
+                {
+                    "network": NETWORK["ipv4"][0],
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                }
             ]
         }
     }
@@ -1037,9 +904,10 @@ def test_ospf_routemaps_functionality_tc24_p0(request):
 
     step("verify that prefix-list is created in R0.")
     result = verify_prefix_lists(tgen, pfx_list)
-    assert result is not True, (
-        "Testcase {} : Failed \n Prefix list not "
-        "present. Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Prefix list not " "present. Error: {}".format(
+        tc_name, result
     )
 
     # Create route map
@@ -1105,9 +973,10 @@ def test_ospf_routemaps_functionality_tc24_p0(request):
 
     step("verify that prefix-list is created in R0.")
     result = verify_prefix_lists(tgen, pfx_list)
-    assert result is not True, (
-        "Testcase {} : Failed \n Prefix list not "
-        "present. Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Prefix list not " "present. Error: {}".format(
+        tc_name, result
     )
 
     # Create route map

@@ -56,6 +56,7 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears["r2"])
         switch.add_link(tgen.gears["r3"])
 
+
 def setup_module(mod):
     tgen = Topogen(TemplateTopo, mod.__name__)
     tgen.start_topology()
@@ -113,6 +114,7 @@ def test_bgp_route():
     _, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
     assertmsg = '"r3" JSON output mismatches'
     assert result is None, assertmsg
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

@@ -282,10 +282,26 @@ def test_BGP_config_with_invalid_ASN_p2(request):
 
     # Api call to modify AS number
     input_dict = {
-        "r1": {"bgp": {"local_as": 0,}},
-        "r2": {"bgp": {"local_as": 0,}},
-        "r3": {"bgp": {"local_as": 0,}},
-        "r4": {"bgp": {"local_as": 64000,}},
+        "r1": {
+            "bgp": {
+                "local_as": 0,
+            }
+        },
+        "r2": {
+            "bgp": {
+                "local_as": 0,
+            }
+        },
+        "r3": {
+            "bgp": {
+                "local_as": 0,
+            }
+        },
+        "r4": {
+            "bgp": {
+                "local_as": 64000,
+            }
+        },
     }
     result = modify_as_number(tgen, topo, input_dict)
     try:
@@ -819,7 +835,11 @@ def test_bgp_with_loopback_interface(request):
             # Adding ['source_link'] = 'lo' key:value pair
             topo["routers"][routerN]["bgp"]["address_family"]["ipv4"]["unicast"][
                 "neighbor"
-            ][bgp_neighbor]["dest_link"] = {"lo": {"source_link": "lo",}}
+            ][bgp_neighbor]["dest_link"] = {
+                "lo": {
+                    "source_link": "lo",
+                }
+            }
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)

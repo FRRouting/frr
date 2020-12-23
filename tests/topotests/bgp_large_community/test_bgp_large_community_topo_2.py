@@ -2132,7 +2132,11 @@ def test_large_community_lists_with_rmap_match_regex(request):
                     {
                         "action": "permit",
                         "seq_id": "10",
-                        "match": {"large_community_list": {"id": "ALL",},},
+                        "match": {
+                            "large_community_list": {
+                                "id": "ALL",
+                            },
+                        },
                     }
                 ]
             }
@@ -2208,7 +2212,11 @@ def test_large_community_lists_with_rmap_match_regex(request):
                     {
                         "action": "permit",
                         "seq_id": "20",
-                        "match": {"large_community_list": {"id": "EXP_ALL",},},
+                        "match": {
+                            "large_community_list": {
+                                "id": "EXP_ALL",
+                            },
+                        },
                     }
                 ]
             }
