@@ -1189,7 +1189,8 @@ static int rpki_create_socket(struct cache *cache)
 	char *host, *port;
 	struct rpki_vrf *rpki_vrf = cache->rpki_vrf;
 	int ret, cancel_state;
-	struct timeval timeout;
+	struct timeval prev_snd_tmout, prev_rcv_tmout, timeout;
+	socklen_t optlen;
 
 	if (rpki_vrf->vrfname == NULL)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -1244,8 +1245,14 @@ static int rpki_create_socket(struct cache *cache)
 		return 0;
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
-	timeout.tv_sec  = 30;  // after 30 seconds connect() will timeout
+	timeout.tv_sec  = 30;
 	timeout.tv_usec = 0;
+
+	optlen = sizeof(prev_rcv_tmout);
+	getsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &prev_rcv_tmout, &optlen);
+	getsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &prev_snd_tmout, &optlen);
+
+	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 	setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
 	if (connect(socket, res->ai_addr, res->ai_addrlen) == -1) {
@@ -1258,6 +1265,12 @@ static int rpki_create_socket(struct cache *cache)
 	if (res)
 		freeaddrinfo(res);
 	pthread_setcancelstate(cancel_state, NULL);
+
+	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO,
+			   &prev_rcv_tmout, sizeof(prev_rcv_tmout));
+	setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO,
+			   &prev_snd_tmout, sizeof(prev_snd_tmout));
+
 	return socket;
 }
 
