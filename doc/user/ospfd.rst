@@ -322,6 +322,23 @@ To start OSPF process you have to specify the OSPF router.
 
    This feature is enabled by default.
 
+.. index:: clear ip ospf [(1-65535)] process
+.. clicmd:: clear ip ospf [(1-65535)] process
+
+   This command can be used to clear the ospf process data structures. This
+   will clear the ospf neighborship as well and it will get re-established.
+   This will clear the LSDB too. This will be helpful when there is a change
+   in router-id and if user wants the router-id change to take effect, user can
+   use this cli instead of restarting the ospfd daemon.
+
+.. index:: clear ip ospf [(1-65535)] neighbor
+.. clicmd:: clear ip ospf [(1-65535)] neighbor
+
+   This command can be used to clear the ospf neighbor data structures. This
+   will clear the ospf neighborship and it will get re-established. This
+   command can be used when the neighbor state get stuck at some state and
+   this can be used to recover it from that state.
+
 .. _ospf-area:
 
 Areas

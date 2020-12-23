@@ -750,6 +750,7 @@ void ospf_ase_unregister_external_lsa(struct ospf_lsa *lsa, struct ospf *top)
 		lst = rn->info;
 		listnode_delete(lst, lsa);
 		ospf_lsa_unlock(&lsa); /* external_lsas list */
+
 		route_unlock_node(rn);
 	}
 }

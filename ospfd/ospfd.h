@@ -571,7 +571,11 @@ extern struct ospf *ospf_lookup_by_inst_name(unsigned short instance,
 					     const char *name);
 extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);
 extern void ospf_finish(struct ospf *);
+extern void ospf_process_refresh_data(struct ospf *ospf, bool reset);
 extern void ospf_router_id_update(struct ospf *ospf);
+extern void ospf_process_reset(struct ospf *ospf);
+extern void ospf_neighbor_reset(struct ospf *ospf, struct in_addr nbr_id,
+				const char *nbr_str);
 extern int ospf_network_set(struct ospf *, struct prefix_ipv4 *, struct in_addr,
 			    int);
 extern int ospf_network_unset(struct ospf *, struct prefix_ipv4 *,
@@ -596,6 +600,7 @@ extern int ospf_area_shortcut_set(struct ospf *, struct ospf_area *, int);
 extern int ospf_area_shortcut_unset(struct ospf *, struct ospf_area *);
 extern int ospf_timers_refresh_set(struct ospf *, int);
 extern int ospf_timers_refresh_unset(struct ospf *);
+void ospf_area_lsdb_discard_delete(struct ospf_area *area);
 extern int ospf_nbr_nbma_set(struct ospf *, struct in_addr);
 extern int ospf_nbr_nbma_unset(struct ospf *, struct in_addr);
 extern int ospf_nbr_nbma_priority_set(struct ospf *, struct in_addr, uint8_t);
