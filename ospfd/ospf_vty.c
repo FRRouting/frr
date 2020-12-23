@@ -3737,6 +3737,31 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				vty_out(vty,
 					"  No backup designated router on this network\n");
 		} else {
+			nbr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi));
+			if (nbr) {
+				if (use_json) {
+					json_object_string_add(
+						json_interface_sub, "drId",
+						inet_ntop(AF_INET,
+							  &nbr->router_id, buf,
+							  sizeof(buf)));
+					json_object_string_add(
+						json_interface_sub, "drAddress",
+						inet_ntop(
+							AF_INET,
+							&nbr->address.u.prefix4,
+							buf, sizeof(buf)));
+				} else {
+					vty_out(vty,
+						"  Designated Router (ID) %pI4",
+						&nbr->router_id);
+					vty_out(vty,
+						" Interface Address %pFX\n",
+						&nbr->address);
+				}
+			}
+			nbr = NULL;
+
 			nbr = ospf_nbr_lookup_by_addr(oi->nbrs, &BDR(oi));
 			if (nbr == NULL) {
 				if (!use_json)
