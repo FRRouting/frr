@@ -719,8 +719,51 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 {
 	bool is_valid = pnhc->valid;
 
-	if (!pnhi->nhr) /* It doesn't care about non-nexthop updates */
+	/*
+	 * If we have an interface down event, let's note that
+	 * it is happening and find all the nexthops that depend
+	 * on that interface.  As that if we have an interface
+	 * flapping fast enough it means that zebra might turn
+	 * those nexthop tracking events into a no-update
+	 * So let's search and do the right thing on the
+	 * interface event.
+	 */
+	if (!pnhi->nhr && pnhi->ifp) {
+		struct connected *connected;
+		struct listnode *node;
+		struct prefix p;
+
+		switch (pnhc->nexthop.type) {
+		case NEXTHOP_TYPE_BLACKHOLE:
+			goto done;
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			is_valid = if_is_up(pnhi->ifp);
+			goto done;
+			break;
+		case NEXTHOP_TYPE_IPV4:
+			p.family = AF_INET;
+			p.prefixlen = IPV4_MAX_BITLEN;
+			p.u.prefix4 = pnhc->nexthop.gate.ipv4;
+			break;
+		case NEXTHOP_TYPE_IPV6:
+			p.family = AF_INET6;
+			p.prefixlen = IPV6_MAX_BITLEN;
+			memcpy(&p.u.prefix6, &pnhc->nexthop.gate.ipv6,
+			       sizeof(struct in6_addr));
+			break;
+		}
+
+		FOR_ALL_INTERFACES_ADDRESSES (pnhi->ifp, connected, node) {
+			if (prefix_match(connected->address, &p)) {
+				is_valid = if_is_up(pnhi->ifp);
+				break;
+			}
+		}
 		goto done;
+	}
 
 	switch (pnhi->nhr->prefix.family) {
 	case AF_INET:
@@ -983,7 +1026,6 @@ static void pbr_nht_nexthop_vrf_handle(struct hash_bucket *b, void *data)
 	struct pbr_vrf *pbr_vrf = data;
 	struct pbr_nht_individual pnhi = {};
 
-	zlog_debug("pnhgc iterating");
 	hash_iterate(pnhgc->nhh, pbr_nht_clear_looked_at, NULL);
 	memset(&pnhi, 0, sizeof(pnhi));
 	pnhi.pbr_vrf = pbr_vrf;
@@ -1097,6 +1139,7 @@ static void pbr_nht_nexthop_interface_update_lookup(struct hash_bucket *b,
 {
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
 	struct pbr_nht_individual pnhi = {};
+	struct nexthop_group nhg = {};
 	bool old_valid;
 
 	old_valid = pnhgc->valid;
@@ -1110,6 +1153,15 @@ static void pbr_nht_nexthop_interface_update_lookup(struct hash_bucket *b,
 	 * If any of the specified nexthops are valid we are valid
 	 */
 	pnhgc->valid = pnhi.valid;
+
+	pbr_nexthop_group_cache_to_nexthop_group(&nhg, pnhgc);
+
+	if (pnhgc->valid)
+		pbr_nht_install_nexthop_group(pnhgc, nhg);
+	else
+		pbr_nht_uninstall_nexthop_group(pnhgc, nhg, 0);
+
+	nexthops_free(nhg.nexthop);
 
 	if (old_valid != pnhgc->valid)
 		pbr_map_check_nh_group_change(pnhgc->name);
