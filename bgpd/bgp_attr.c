@@ -676,6 +676,10 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(transit_hash_key_make(bgp_attr_get_transit(attr)));
 	if (attr->encap_subtlvs)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
+	if (attr->srv6_l3vpn)
+		MIX(srv6_l3vpn_hash_key_make(attr->srv6_l3vpn));
+	if (attr->srv6_vpn)
+		MIX(srv6_vpn_hash_key_make(attr->srv6_vpn));
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs =
 		bgp_attr_get_vnc_subtlvs(attr);
@@ -1141,6 +1145,16 @@ void bgp_attr_undup(struct attr *new, struct attr *old)
 
 	if (new->lcommunity != old->lcommunity)
 		lcommunity_free(&new->lcommunity);
+
+	if (new->srv6_l3vpn != old->srv6_l3vpn) {
+		srv6_l3vpn_free(new->srv6_l3vpn);
+		new->srv6_l3vpn = NULL;
+	}
+
+	if (new->srv6_vpn != old->srv6_vpn) {
+		srv6_vpn_free(new->srv6_vpn);
+		new->srv6_vpn = NULL;
+	}
 }
 
 /* Free bgp attribute and aspath. */
@@ -1201,6 +1215,14 @@ void bgp_attr_flush(struct attr *attr)
 	if (attr->encap_subtlvs && !attr->encap_subtlvs->refcnt) {
 		encap_free(attr->encap_subtlvs);
 		attr->encap_subtlvs = NULL;
+	}
+	if (attr->srv6_l3vpn && !attr->srv6_l3vpn->refcnt) {
+		srv6_l3vpn_free(attr->srv6_l3vpn);
+		attr->srv6_l3vpn = NULL;
+	}
+	if (attr->srv6_vpn && !attr->srv6_vpn->refcnt) {
+		srv6_vpn_free(attr->srv6_vpn);
+		attr->srv6_vpn = NULL;
 	}
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs =
@@ -2676,6 +2698,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 					 sizeof(struct bgp_attr_srv6_vpn));
 		attr->srv6_vpn->sid_flags = sid_flags;
 		sid_copy(&attr->srv6_vpn->sid, &ipv6_sid);
+		attr->srv6_vpn = srv6_vpn_intern(attr->srv6_vpn);
 	}
 
 	/* Placeholder code for the SRv6 L3 Service type */
@@ -2718,6 +2741,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		attr->srv6_l3vpn->sid_flags = sid_flags;
 		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
 		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
+		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
 	}
 
 	/* Placeholder code for Unsupported TLV */
