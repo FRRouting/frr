@@ -140,7 +140,7 @@
  * LSP bit masks
  */
 #define LSPBIT_P   0x80
-#define LSPBIT_ATT 0x78
+#define LSPBIT_ATT 0x08 /* only use the Default ATT bit */
 #define LSPBIT_OL  0x04
 #define LSPBIT_IST 0x03
 
@@ -158,7 +158,6 @@
 #define ISIS_MASK_LSP_ATT_ERROR_BIT(x)     ((x)&0x40)
 #define ISIS_MASK_LSP_ATT_EXPENSE_BIT(x)   ((x)&0x20)
 #define ISIS_MASK_LSP_ATT_DELAY_BIT(x)     ((x)&0x10)
-#define ISIS_MASK_LSP_ATT_DEFAULT_BIT(x)   ((x)&0x8)
 
 #define LLC_LEN 3
 

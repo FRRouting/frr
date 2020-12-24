@@ -593,6 +593,10 @@ void cli_show_isis_overload(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " set-overload-bit\n");
 }
 
+#if CONFDATE > 20220119
+CPP_NOTICE(
+	"Use of `set-attached-bit` is deprecated please use attached-bit [send | receive]")
+#endif
 /*
  * XPath: /frr-isisd:isis/instance/attached
  */
@@ -600,18 +604,57 @@ DEFPY_YANG(set_attached_bit, set_attached_bit_cmd, "[no] set-attached-bit",
       "Reset attached bit\n"
       "Set attached bit to identify as L1/L2 router for inter-area traffic\n")
 {
-	nb_cli_enqueue_change(vty, "./attached", NB_OP_MODIFY,
+	vty_out(vty,
+		"set-attached-bit deprecated please use attached-bit [send | receive]\n");
+
+	return CMD_SUCCESS;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/attach-send
+ */
+DEFPY_YANG(attached_bit_send, attached_bit_send_cmd, "[no] attached-bit send",
+	   "Reset attached bit\n"
+	   "Set attached bit for inter-area traffic\n"
+	   "Set attached bit in LSP sent to L1 router\n")
+{
+	nb_cli_enqueue_change(vty, "./attach-send", NB_OP_MODIFY,
 			      no ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_attached(struct vty *vty, struct lyd_node *dnode,
-			    bool show_defaults)
+void cli_show_isis_attached_send(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
-	vty_out(vty, " set-attached-bit\n");
+	vty_out(vty, " attached-bit send\n");
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/attach-receive-ignore
+ */
+DEFPY_YANG(
+	attached_bit_receive_ignore, attached_bit_receive_ignore_cmd,
+	"[no] attached-bit receive ignore",
+	"Reset attached bit\n"
+	"Set attach bit for inter-area traffic\n"
+	"If LSP received with attached bit set, create default route to neighbor\n"
+	"Do not process attached bit\n")
+{
+	nb_cli_enqueue_change(vty, "./attach-receive-ignore", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_attached_receive(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " attached-bit receive ignore\n");
 }
 
 /*
@@ -3206,6 +3249,8 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &set_overload_bit_cmd);
 	install_element(ISIS_NODE, &set_attached_bit_cmd);
+	install_element(ISIS_NODE, &attached_bit_send_cmd);
+	install_element(ISIS_NODE, &attached_bit_receive_ignore_cmd);
 
 	install_element(ISIS_NODE, &metric_style_cmd);
 	install_element(ISIS_NODE, &no_metric_style_cmd);

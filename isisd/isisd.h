@@ -169,7 +169,8 @@ struct isis_area {
 	/* are we overloaded? */
 	char overload_bit;
 	/* L1/L2 router identifier for inter-area traffic */
-	char attached_bit;
+	char attached_bit_send;
+	char attached_bit_rcv_ignore;
 	uint16_t lsp_refresh[ISIS_LEVELS];
 	/* minimum time allowed before lsp retransmission */
 	uint16_t lsp_gen_interval[ISIS_LEVELS];
@@ -253,7 +254,9 @@ void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);
 
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
-void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit);
+void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit);
+void isis_area_attached_bit_receive_set(struct isis_area *area,
+					bool attached_bit);
 void isis_area_dynhostname_set(struct isis_area *area, bool dynhostname);
 void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
 			       bool new_metric);

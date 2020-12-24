@@ -272,9 +272,9 @@ int isis_instance_dynamic_hostname_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/attached
+ * XPath: /frr-isisd:isis/instance/attach-send
  */
-int isis_instance_attached_modify(struct nb_cb_modify_args *args)
+int isis_instance_attached_send_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	bool attached;
@@ -284,8 +284,34 @@ int isis_instance_attached_modify(struct nb_cb_modify_args *args)
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	attached = yang_dnode_get_bool(args->dnode, NULL);
-	isis_area_attached_bit_set(area, attached);
+	isis_area_attached_bit_send_set(area, attached);
 
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/attach-receive-ignore
+ */
+int isis_instance_attached_receive_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	bool attached;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	attached = yang_dnode_get_bool(args->dnode, NULL);
+	isis_area_attached_bit_receive_set(area, attached);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/attached
+ */
+int isis_instance_attached_modify(struct nb_cb_modify_args *args)
+{
 	return NB_OK;
 }
 
