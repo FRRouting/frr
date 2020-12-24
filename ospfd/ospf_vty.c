@@ -7316,8 +7316,8 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 					continue;
 				ospf_output = true;
 				ret = show_ip_ospf_database_type_adv_router_common(
-					vty, ospf, idx ? 1 : 0, argc, argv,
-					use_vrf, json, uj);
+					vty, ospf, 2, argc, argv, use_vrf, json,
+					uj);
 			}
 			if (!ospf_output)
 				vty_out(vty, "%% OSPF instance not found\n");
@@ -7329,8 +7329,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 			}
 
 			ret = show_ip_ospf_database_type_adv_router_common(
-				vty, ospf, idx ? 1 : 0, argc, argv, use_vrf,
-				json, uj);
+				vty, ospf, 2, argc, argv, use_vrf, json, uj);
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
