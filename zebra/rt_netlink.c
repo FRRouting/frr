@@ -266,6 +266,10 @@ static inline int zebra2proto(int proto)
 	case ZEBRA_ROUTE_NHG:
 		proto = RTPROT_ZEBRA;
 		break;
+	case ZEBRA_ROUTE_CONNECT:
+	case ZEBRA_ROUTE_KERNEL:
+		proto = RTPROT_KERNEL;
+		break;
 	default:
 		/*
 		 * When a user adds a new protocol this will show up
