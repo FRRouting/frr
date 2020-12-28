@@ -550,7 +550,7 @@ DEFPY_NOSH(
 	"Symbolic Name\n"
 	"Dynamic Path\n")
 {
-	char xpath[XPATH_CANDIDATE_BASELEN];
+	char xpath[XPATH_MAXLEN + XPATH_CANDIDATE_BASELEN];
 	int ret;
 
 	snprintf(xpath, sizeof(xpath), "%s/candidate-path[preference='%s']",
