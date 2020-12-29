@@ -250,8 +250,8 @@ done:
 	return ret;
 }
 
-void rib_handle_nhg_replace(struct nhg_hash_entry *old,
-			    struct nhg_hash_entry *new)
+void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
+			    struct nhg_hash_entry *new_entry)
 {
 	struct zebra_router_table *zrt;
 	struct route_node *rn;
@@ -259,15 +259,15 @@ void rib_handle_nhg_replace(struct nhg_hash_entry *old,
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: replacing routes nhe (%u) OLD %p NEW %p",
-			   __func__, new->id, new, old);
+			   __func__, new_entry->id, new_entry, old_entry);
 
 	/* We have to do them ALL */
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
 		for (rn = route_top(zrt->table); rn;
 		     rn = srcdest_route_next(rn)) {
 			RNODE_FOREACH_RE_SAFE (rn, re, next) {
-				if (re->nhe && re->nhe == old)
-					route_entry_update_nhe(re, new);
+				if (re->nhe && re->nhe == old_entry)
+					route_entry_update_nhe(re, new_entry);
 			}
 		}
 	}
