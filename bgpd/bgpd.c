@@ -1337,8 +1337,10 @@ static void bgp_srv6_init(struct bgp *bgp)
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
 {
-	list_delete(&bgp->srv6_locator_chunks);
-	list_delete(&bgp->srv6_functions);
+	if (bgp->srv6_locator_chunks)
+		list_delete(&bgp->srv6_locator_chunks);
+	if (bgp->srv6_functions)
+		list_delete(&bgp->srv6_functions);
 }
 
 /* Allocate new peer object, implicitely locked.  */
