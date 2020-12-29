@@ -9986,7 +9986,7 @@ DEFPY (show_bgp_srv6,
 	char buf_tovpn6_sid[256];
 
 	bgp = bgp_get_default();
-	if (!bgp || !bgp->srv6_locator_name)
+	if (!bgp)
 		return CMD_SUCCESS;
 
 	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
@@ -18045,7 +18045,7 @@ int bgp_config_write(struct vty *vty)
 
 		if (bgp->srv6_enabled) {
 			vty_frame(vty, " !\n segment-routing srv6\n");
-			if (bgp->srv6_locator_name)
+			if (strlen(bgp->srv6_locator_name))
 				vty_out(vty, "  locator %s\n",
 					bgp->srv6_locator_name);
 		}
