@@ -475,7 +475,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = { {0} };
-	struct in6_addr seg6_segs = {0};
+	struct in6_addr seg6_segs = { .s6_addr = {0} };
 	int num_segs = 0;
 
 	vrf_id_t nh_vrf_id = vrf_id;
@@ -557,7 +557,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = { {0} };
-	struct in6_addr seg6_segs = {0};
+	struct in6_addr seg6_segs = { .s6_addr = {0} };
 	int num_segs = 0;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
 
