@@ -40,6 +40,10 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_dplane.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "zebra/zebra_srv6_vty_clippy.c"
+#endif
+
 static int zebra_sr_config(struct vty *vty);
 
 static struct cmd_node sr_node = {
@@ -229,37 +233,24 @@ DEFUN_NOSH (srv6_locator,
 	return CMD_SUCCESS;
 }
 
-DEFUN (locator_prefix,
+DEFPY (locator_prefix,
        locator_prefix_cmd,
-       "prefix X:X::X:X/M [func-bits (8-64)]",
+       "prefix X:X::X:X/M$prefix [func-bits (16-64)$func_bit_len]",
        "Configure SRv6 locator prefix\n"
        "Specify SRv6 locator prefix\n"
        "Configure SRv6 locator function length in bits\n"
        "Specify SRv6 locator function length in bits\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
-	struct prefix_ipv6 prefix;
 	struct srv6_locator_chunk *chunk = NULL;
 	struct listnode *node = NULL;
-	uint8_t function_bits_length = 16;
-	int ret;
 
-	ret = str2prefix_ipv6(argv[1]->arg, &prefix);
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv6(&prefix);
-
-	if (argc >= 3)
-		function_bits_length = strtoul(argv[3]->arg, NULL, 10);
-
-	locator->prefix = prefix;
-	locator->function_bits_length = function_bits_length;
+	locator->prefix = *prefix;
+	locator->function_bits_length = func_bit_len;
 
 	if (list_isempty(locator->chunks)) {
 		chunk = srv6_locator_chunk_alloc();
-		chunk->prefix = prefix;
+		chunk->prefix = *prefix;
 		chunk->proto = 0;
 		listnode_add(locator->chunks, chunk);
 	} else {
@@ -270,7 +261,7 @@ DEFUN (locator_prefix,
 				struct zserv *client;
 				struct listnode *client_node;
 
-				chunk->prefix = prefix;
+				chunk->prefix = *prefix;
 				for (ALL_LIST_ELEMENTS_RO(zrouter.client_list,
 							  client_node,
 							  client)) {
