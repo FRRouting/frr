@@ -1506,7 +1506,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			if_handle_vrf_change(ifp, vrf_id);
 		} else {
-			bool was_bridge_slave, was_bond_slave;
+			bool was_bridge_slave, was_bond_slave, was_operative;
 
 			/* Interface update. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1535,6 +1535,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			netlink_interface_update_hw_addr(tb, ifp);
 
+			/* operational state prior to netlink event */
+			was_operative = if_is_operative(ifp);
+
 			if (if_is_no_ptm_operative(ifp)) {
 				ifp->flags = ifi->ifi_flags & 0x0000fffff;
 				if (!if_is_no_ptm_operative(ifp)) {
@@ -1545,13 +1548,23 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					if_down(ifp);
 					rib_update(RIB_UPDATE_KERNEL);
 				} else if (if_is_operative(ifp)) {
-					/* Must notify client daemons of new
-					 * interface status. */
+
 					if (IS_ZEBRA_DEBUG_KERNEL)
 						zlog_debug(
-							"Intf %s(%u) PTM up, notifying clients",
+							"Intf %s(%u) is operative",
 							name, ifp->ifindex);
-					zebra_interface_up_update(ifp);
+
+					/* Must notify client daemons if
+					 * operative state has changed */
+					if (!was_operative) {
+						if (IS_ZEBRA_DEBUG_KERNEL)
+							zlog_debug(
+								"Intf %s(%u) has become operative, notifying clients",
+								name,
+								ifp->ifindex);
+
+						zebra_interface_up_update(ifp);
+					}
 
 					/* Update EVPN VNI when SVI MAC change
 					 */
