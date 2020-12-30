@@ -669,7 +669,7 @@ and this section also helps that case.
    ``srv6`` commands in configure mode. If there is some SRv6-locator exist,
    SRv6 feature is looked enabled and this affects running-config.
 
-   User can enter the Locators node with ``locators`` command.
+   User can enter the Locators node with ``locators`` command
    in srv6 configure mode.
    After entering locators node, user can configure one or multi SRv6-locators.
 
@@ -693,7 +693,7 @@ and this section also helps that case.
    Usually default SID is allocated as ``PREFIX:1::``.
    (``PREFIX`` is locator's prefix)
    For example, if user configure the locator's prefix as
-   `2001:db8:a:a::/64`, then default SID will be `2001:db8:a:a:1::`)
+   ``2001:db8:a:a::/64``, then default SID will be ``2001:db8:a:a:1::``)
 
    The function bits range is 16bits by default.
    If operator want to change function bits range, they can configure
