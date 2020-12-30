@@ -1150,9 +1150,9 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 	static_attr.originator_id = bgp_vpn->router_id;
 
 	/* Set SID for SRv6 VPN */
-	if (!sid_zero(bgp_vrf->vpn_policy[afi].tovpn_sid)) {
+	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
-				sizeof(struct bgp_attr_srv6_l3vpn) * 100);
+				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
 		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
 		memcpy(&static_attr.srv6_l3vpn->sid,
