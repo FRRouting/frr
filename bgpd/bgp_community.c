@@ -24,6 +24,7 @@
 #include "hash.h"
 #include "memory.h"
 #include "jhash.h"
+#include "frrstr.h"
 
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_community.h"
@@ -648,6 +649,31 @@ enum community_token {
 	community_token_unknown
 };
 
+/* Helper to check if a given community is valid */
+static bool community_valid(const char *community)
+{
+	int octets = 0;
+	char **splits;
+	int num;
+	int invalid = 0;
+
+	frrstr_split(community, ":", &splits, &num);
+
+	for (int i = 0; i < num; i++) {
+		if (strtoul(splits[i], NULL, 10) > UINT16_MAX)
+			invalid++;
+
+		if (strlen(splits[i]) == 0)
+			invalid++;
+
+		octets++;
+		XFREE(MTYPE_TMP, splits[i]);
+	}
+	XFREE(MTYPE_TMP, splits);
+
+	return (octets < 2 || invalid) ? false : true;
+}
+
 /* Get next community token from string. */
 static const char *
 community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
@@ -780,6 +806,11 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 		uint32_t community_low = 0;
 		uint32_t community_high = 0;
 
+		if (!community_valid(p)) {
+			*token = community_token_unknown;
+			return NULL;
+		}
+
 		while (isdigit((unsigned char)*p) || *p == ':') {
 			if (*p == ':') {
 				if (separator) {
@@ -806,11 +837,6 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 			p++;
 		}
 		if (!digit) {
-			*token = community_token_unknown;
-			return NULL;
-		}
-
-		if (community_low > UINT16_MAX) {
 			*token = community_token_unknown;
 			return NULL;
 		}
