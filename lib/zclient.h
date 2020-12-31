@@ -1032,6 +1032,11 @@ extern int zapi_labels_encode(struct stream *s, int cmd,
 			      struct zapi_labels *zl);
 extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
 
+extern int zapi_srv6_locator_chunk_encode(struct stream *s,
+					  const struct srv6_locator_chunk *c);
+extern int zapi_srv6_locator_chunk_decode(struct stream *s,
+					  struct srv6_locator_chunk *c);
+
 extern enum zclient_send_status zebra_send_pw(struct zclient *zclient,
 					      int command, struct zapi_pw *pw);
 extern int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS,
