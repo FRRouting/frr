@@ -3000,53 +3000,42 @@ static int bgp_ifp_create(struct interface *ifp)
 static void bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
-	uint8_t proto;
-	uint16_t instance;
-	uint16_t len;
-	char name[256] = {0};
 	struct bgp *bgp = bgp_get_default();
 	struct listnode *node;
 	struct prefix_ipv6 *c;
-	struct prefix_ipv6 *chunk = prefix_ipv6_new();
+	struct srv6_locator_chunk s6c;
+	struct prefix_ipv6 *chunk = NULL;
 
 	s = zclient->ibuf;
-	STREAM_GETC(s, proto);
-	STREAM_GETW(s, instance);
+	memset(&s6c, 0, sizeof(s6c));
+	zapi_srv6_locator_chunk_decode(s, &s6c);
 
-	STREAM_GETW(s, len);
-	STREAM_GET(name, s, len);
-
-	STREAM_GETW(s, chunk->prefixlen);
-	STREAM_GET(&chunk->prefix, s, 16);
-
-	if (zclient->redist_default != proto) {
-		zlog_err("Got SRv6 Manager msg with wrong proto %u", proto);
+	if (zclient->redist_default != s6c.proto) {
+		zlog_err("%s: Got SRv6 Manager msg with wrong proto %u",
+			 __func__, s6c.proto);
 		return;
 	}
-	if (zclient->instance != instance) {
-		zlog_err("Got SRv6 Manager msg with wrong instance %u", proto);
+	if (zclient->instance != s6c.instance) {
+		zlog_err("%s: Got SRv6 Manager msg with wrong instance %u",
+			 __func__, s6c.instance);
 		return;
 	}
 
-	if (strcmp(bgp->srv6_locator_name, name) != 0) {
-		zlog_info("name unmatch %s:%s",
-			  bgp->srv6_locator_name, name);
+	if (strcmp(bgp->srv6_locator_name, s6c.locator_name) != 0) {
+		zlog_err("%s: Locator name unmatch %s:%s", __func__,
+			 bgp->srv6_locator_name, s6c.locator_name);
 		return;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, c)) {
-		if (!prefix_cmp(c, chunk))
+		if (!prefix_cmp(c, &s6c.prefix))
 			return;
 	}
 
+	chunk = prefix_ipv6_new();
+	*chunk = s6c.prefix;
 	listnode_add(bgp->srv6_locator_chunks, chunk);
 	vpn_leak_postchange_all();
-	return;
-
-stream_failure:
-	free(chunk);
-
-	zlog_err("%s: can't get locator_chunk!!", __func__);
 }
 
 void bgp_zebra_init(struct thread_master *master, unsigned short instance)
