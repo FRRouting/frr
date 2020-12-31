@@ -246,7 +246,26 @@ DEFPY (locator_prefix,
 	struct listnode *node = NULL;
 
 	locator->prefix = *prefix;
+
+	/*
+	 * TODO(slankdev): please support variable node-bit-length.
+	 * In draft-ietf-bess-srv6-services-05#section-3.2.1.
+	 * Locator block length and Locator node length are defined.
+	 * Which are defined as "locator-len == block-len + node-len".
+	 * In current implementation, node bits length is hardcoded as 24.
+	 * It should be supported various val.
+	 *
+	 * Cisco IOS-XR support only following pattern.
+	 *  (1) Teh locator length should be 64-bits long.
+	 *  (2) The SID block portion (MSBs) cannot exceed 40 bits.
+	 *      If this value is less than 40 bits,
+	 *      user should use a pattern of zeros as a filler.
+	 *  (3) The Node Id portion (LSBs) cannot exceed 24 bits.
+	 */
+	locator->block_bits_length = prefix->prefixlen - 24;
+	locator->node_bits_length = 24;
 	locator->function_bits_length = func_bit_len;
+	locator->argument_bits_length = 0;
 
 	if (list_isempty(locator->chunks)) {
 		chunk = srv6_locator_chunk_alloc();
