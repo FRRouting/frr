@@ -1074,6 +1074,46 @@ done:
 	return ret;
 }
 
+int zapi_srv6_locator_chunk_encode(struct stream *s,
+				   const struct srv6_locator_chunk *c)
+{
+	stream_putc(s, c->proto);
+	stream_putw(s, c->instance);
+	stream_putw(s, strlen(c->locator_name));
+	stream_put(s, c->locator_name, strlen(c->locator_name));
+	stream_putw(s, c->prefix.prefixlen);
+	stream_put(s, &c->prefix.prefix, sizeof(c->prefix.prefix));
+	stream_putc(s, c->block_bits_length);
+	stream_putc(s, c->node_bits_length);
+	stream_putc(s, c->function_bits_length);
+	stream_putc(s, c->argument_bits_length);
+	return 0;
+}
+
+int zapi_srv6_locator_chunk_decode(struct stream *s,
+				   struct srv6_locator_chunk *c)
+{
+	uint16_t len = 0;
+
+	STREAM_GETC(s, c->proto);
+	STREAM_GETW(s, c->instance);
+	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE)
+		goto stream_failure;
+
+	STREAM_GET(c->locator_name, s, len);
+	STREAM_GETW(s, c->prefix.prefixlen);
+	STREAM_GET(&c->prefix.prefix, s, sizeof(c->prefix.prefix));
+	STREAM_GETC(s, c->block_bits_length);
+	STREAM_GETC(s, c->node_bits_length);
+	STREAM_GETC(s, c->function_bits_length);
+	STREAM_GETC(s, c->argument_bits_length);
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
 static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	int i;

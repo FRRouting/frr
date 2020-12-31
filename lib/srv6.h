@@ -76,7 +76,16 @@ struct seg6local_context {
 struct srv6_locator {
 	char name[SRV6_LOCNAME_SIZE];
 	struct prefix_ipv6 prefix;
+
+	/*
+	 * Bit length of SRv6 locator described in
+	 * draft-ietf-bess-srv6-services-05#section-3.2.1
+	 */
+	uint8_t block_bits_length;
+	uint8_t node_bits_length;
 	uint8_t function_bits_length;
+	uint8_t argument_bits_length;
+
 	int algonum;
 	uint64_t current;
 	bool status_up;
@@ -87,11 +96,25 @@ struct srv6_locator {
 DECLARE_QOBJ_TYPE(srv6_locator);
 
 struct srv6_locator_chunk {
+	char locator_name[SRV6_LOCNAME_SIZE];
+	struct prefix_ipv6 prefix;
+
+	/*
+	 * Bit length of SRv6 locator described in
+	 * draft-ietf-bess-srv6-services-05#section-3.2.1
+	 */
+	uint8_t block_bits_length;
+	uint8_t node_bits_length;
+	uint8_t function_bits_length;
+	uint8_t argument_bits_length;
+
+	/*
+	 * For Zclient communication values
+	 */
 	uint8_t keep;
 	uint8_t proto;
 	uint16_t instance;
 	uint32_t session_id;
-	struct prefix_ipv6 prefix;
 };
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
