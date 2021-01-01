@@ -52,7 +52,10 @@ def closeOutputFile(f):
 def executeCommand(cmd, outputFile):
     cmd_exec_str = 'vtysh -c "' + cmd + '" '
     try:
-        cmd_output = subprocess.check_output(cmd_exec_str, shell=True)
+        cmd_output = subprocess.check_output(
+                cmd_exec_str.encode(encoding="utf-8"),
+                shell=True
+        )
         try:
             dateTime = datetime.datetime.now()
             outputFile.write(">>[" + str(dateTime) + "]" + cmd + "\n")
