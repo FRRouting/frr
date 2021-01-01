@@ -26,7 +26,7 @@
 test_isis_topo1.py: Test ISIS topology.
 """
 
-import collections
+import collections.abc
 import functools
 import json
 import os
@@ -263,7 +263,7 @@ def dict_merge(dct, merge_dct):
         if (
             k in dct
             and isinstance(dct[k], dict)
-            and isinstance(merge_dct[k], collections.Mapping)
+            and isinstance(merge_dct[k], collections.abc.Mapping)
         ):
             dict_merge(dct[k], merge_dct[k])
         else:
