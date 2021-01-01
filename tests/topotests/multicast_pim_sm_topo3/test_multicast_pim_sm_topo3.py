@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
@@ -353,7 +353,7 @@ def verify_state_incremented(state_before, state_after):
 
     for router, state_data in state_before.items():
         for state, value in state_data.items():
-            if state_before[router][state] >= state_after[router][state]:
+            if state_before[router][state]['pktsOut'] >= state_after[router][state]['pktsOut']:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"
                     " incremented, Initial value: %s, "
