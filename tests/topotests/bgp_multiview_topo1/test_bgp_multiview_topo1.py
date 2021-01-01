@@ -22,7 +22,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 test_bgp_multiview_topo1.py: Simple FRR Route-Server Test
 
 +----------+ +----------+ +----------+ +----------+ +----------+
@@ -117,10 +117,10 @@ class NetworkTopo(Topo):
         switch = {}
         # First switch is for a dummy interface (for local network)
         switch[0] = self.addSwitch("sw0", cls=topotest.LegacySwitch)
-        self.addLink(switch[0], router[1], intfName2="r1-stub")
+        self.addLink(switch[0], router[1], intfName2="r1-eth0")
         # Second switch is for connection to all peering routers
         switch[1] = self.addSwitch("sw1", cls=topotest.LegacySwitch)
-        self.addLink(switch[1], router[1], intfName2="r1-eth0")
+        self.addLink(switch[1], router[1], intfName2="r1-eth1")
         for j in range(1, 9):
             self.addLink(switch[1], peer[j], intfName2="peer%s-eth0" % j)
 
@@ -156,10 +156,18 @@ def setup_module(module):
     # Starting PE Hosts and init ExaBGP on each of them
     print("*** Starting BGP on all 8 Peers")
     for i in range(1, 9):
+        net["peer%s" % i].cmd("mkdir /etc/exabgp")
+        net["peer%s" % i].cmd("chmod 755 /etc/exabgp")
+        net["peer%s" % i].cmd("cp {}/exabgp-helper.py /etc/exabgp/".format(thisDir))
+        net["peer%s" % i].cmd(
+            "sed -i 's|<log-file>|/etc/exabgp/peer{}-exabgp.log|g' '/etc/exabgp/exabgp-helper.py'".format(
+                i
+            )
+        )
         net["peer%s" % i].cmd("cp %s/exabgp.env /etc/exabgp/exabgp.env" % thisDir)
         net["peer%s" % i].cmd("cp %s/peer%s/* /etc/exabgp/" % (thisDir, i))
         net["peer%s" % i].cmd("chmod 644 /etc/exabgp/*")
-        net["peer%s" % i].cmd("chmod 755 /etc/exabgp/*.py")
+        net["peer%s" % i].cmd("chmod a+x /etc/exabgp/*.py")
         net["peer%s" % i].cmd("chown -R exabgp:exabgp /etc/exabgp")
         net["peer%s" % i].cmd("exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg")
         print("peer%s" % i),
@@ -226,7 +234,7 @@ def test_bgp_converge():
         for i in range(1, 2):
             for view in range(1, 4):
                 notConverged = net["r%s" % i].cmd(
-                    'vtysh -c "show ip bgp view %s summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\s+(\d+)"'
+                    r'vtysh -c "show ip bgp view %s summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\s+(\d+)"'
                     % view
                 )
                 if notConverged:
