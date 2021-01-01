@@ -153,7 +153,7 @@ class TemplateTopo(Topo):
 
                         # Create temporary files in order to apply the diff
                         f_in = tempfile.NamedTemporaryFile()
-                        f_in.write(outputs[rname][step - 1][file])
+                        f_in.write(bytes(outputs[rname][step - 1][file], "ascii"))
                         f_in.flush()
                         f_out = tempfile.NamedTemporaryFile()
                         os.system(
@@ -170,11 +170,10 @@ def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(TemplateTopo, mod.__name__)
     tgen.start_topology()
-
-    router_list = tgen.routers()
+    router_list = iter(tgen.routers().items())
 
     # For all registered routers, load the zebra configuration file
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list:
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
