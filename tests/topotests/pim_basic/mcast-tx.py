@@ -56,18 +56,11 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 #
 # Bind our socket to ifname
 #
-# Note ugly python version incompatibility
-#
-if sys.version_info[0] > 2:
-    sock.setsockopt(
-        socket.SOL_SOCKET,
-        25,
-        struct.pack("%ds" % len(args.ifname), args.ifname.encode("utf-8")),
-    )
-else:
-    sock.setsockopt(
-        socket.SOL_SOCKET, 25, struct.pack("%ds" % len(args.ifname), args.ifname)
-    )
+sock.setsockopt(
+    socket.SOL_SOCKET,
+    25,
+    struct.pack("%ds" % len(args.ifname), args.ifname.encode("utf-8")),
+)
 
 # We need to make sure our sendto() finishes before we close the socket
 sock.setblocking(1)
