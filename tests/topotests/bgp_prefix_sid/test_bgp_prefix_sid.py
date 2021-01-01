@@ -141,9 +141,16 @@ def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
             ret = ret.get(nexthop)
             if ret is None:
                 continue
-            ret = ret.get(prefix)
-            if ret is None:
+
+            # Look for prefix.
+            found = False
+            for entry in ret:
+                if entry["nlri"] == prefix:
+                    found = True
+                    break
+            if not found:
                 continue
+
             return output
         return "Not found"
 
@@ -159,15 +166,11 @@ def test_peer2_receive_prefix_sid_type1():
         expected = {
             "type": "update",
             "neighbor": {
-                "ip": "10.0.0.1",
+                "address": {"peer": "10.0.0.1"},
                 "message": {
                     "update": {
-                        "attribute": {
-                            "attribute-0x28-0xE0": "0x010007000000{:08x}".format(
-                                labelindex
-                            )
-                        },
-                        "announce": {"ipv4 nlri-mpls": {"10.0.0.101": {}}},
+                        "attribute": {"bgp-prefix-sid": {"sr-label-index": labelindex}},
+                        "announce": {"ipv4 nlri-mpls": {"10.0.0.101": []}},
                     }
                 },
             },
