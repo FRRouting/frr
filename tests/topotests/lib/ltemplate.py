@@ -29,7 +29,7 @@ import os
 import sys
 import platform
 import pytest
-import imp
+import importlib
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -55,7 +55,14 @@ class LTemplate:
 
     def __init__(self, test, testdir):
         global customize
-        customize = imp.load_source("customize", os.path.join(testdir, "customize.py"))
+
+        spec = importlib.util.spec_from_file_location(
+            "customize", os.path.join(testdir, "customize.py")
+        )
+        customize = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(customize)
+        sys.modules["customize"] = customize
+
         self.test = test
         self.testdir = testdir
         self.scriptdir = testdir
@@ -278,7 +285,7 @@ def ltemplateVersionCheck(
             # collect/log info on iproute2
             cc = ltemplateRtrCmd()
             found = cc.doCmd(
-                tgen, rname, "apt-cache policy iproute2", "Installed: ([\d\.]*)"
+                tgen, rname, "apt-cache policy iproute2", r"Installed: ([\d\.]*)"
             )
             if found != None:
                 iproute2Ver = found.group(1)

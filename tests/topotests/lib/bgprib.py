@@ -34,7 +34,7 @@
 # ribRequireUnicastRoutes('r1','ipv4','','Customer routes in default',want_unicast_routes)
 #
 
-from lutil import luCommand, luResult, LUtil
+from lib.lutil import luCommand, luResult, lUtil
 import json
 import re
 

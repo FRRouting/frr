@@ -27,7 +27,7 @@ import time
 from lib.topolog import logger
 from lib.topotest import json_cmp
 from mininet.net import Mininet
-
+from lib.topotest import json_cmp
 
 # L utility functions
 #
