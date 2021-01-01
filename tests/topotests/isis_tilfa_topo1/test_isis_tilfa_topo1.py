@@ -167,7 +167,7 @@ class TemplateTopo(Topo):
 
                         # Create temporary files in order to apply the diff
                         f_in = tempfile.NamedTemporaryFile()
-                        f_in.write(outputs[rname][step - 1][file])
+                        f_in.write(bytes(outputs[rname][step - 1][file], "ascii"))
                         f_in.flush()
                         f_out = tempfile.NamedTemporaryFile()
                         os.system(
