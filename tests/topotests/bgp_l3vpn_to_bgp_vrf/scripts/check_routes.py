@@ -549,6 +549,7 @@ luCommand(
     "pass",
     "Redundant route 1 details",
 )
+
 luCommand(
     "ce4",
     'vtysh -c "show bgp vrf ce4-cust2 ipv4 6.0.1.0 json"',
