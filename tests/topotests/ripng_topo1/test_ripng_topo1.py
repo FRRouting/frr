@@ -31,7 +31,6 @@ import os
 import re
 import sys
 import pytest
-import unicodedata
 from time import sleep
 
 from mininet.topo import Topo
