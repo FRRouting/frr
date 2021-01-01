@@ -103,7 +103,7 @@ def setup_module(mod):
     router_list = tgen.routers()
     _populate_iface()
         
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, '{}/zebra.conf'.format(rname)),
@@ -140,7 +140,7 @@ def test_protocols_convergence():
     logger.info("Checking NHRP cache and IPv4 routes for convergence")
     router_list = tgen.routers()
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if rname == 'r3':
             continue
 
@@ -161,7 +161,7 @@ def test_protocols_convergence():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if rname == 'r3':
             continue
 
@@ -182,7 +182,7 @@ def test_protocols_convergence():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if rname == 'r3':
             continue
         logger.info('Dump neighbor information on {}-gre0'.format(rname))
