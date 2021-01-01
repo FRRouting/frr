@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #
 # Part of NetDEF Topology Tests
@@ -238,7 +238,7 @@ def test_bgp_peer_type_multipath_relax():
     assert res is None, assertMsg
 
     router.vtysh_cmd(
-        "conf\n router bgp 64510\n bgp bestpath peer-type multipath-relax\n"
+        r"conf t\n router bgp 64510\n bgp bestpath peer-type multipath-relax\n"
     )
     reffile = os.path.join(CWD, "r1/multipath.json")
     expected = json.loads(open(reffile).read())
@@ -284,7 +284,7 @@ def test_bgp_peer_type_multipath_relax():
 
     # When other config allows recursively resolved eBGP next hops,
     # such next hops in all-eBGP multipaths should be valid
-    router.vtysh_cmd("conf\n router bgp 64510\n neighbor 10.0.4.2 ebgp-multihop\n")
+    router.vtysh_cmd(r"conf t\n router bgp 64510\n neighbor 10.0.4.2 ebgp-multihop\n")
     reffile = os.path.join(CWD, "r1/prefix3-recursive.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
