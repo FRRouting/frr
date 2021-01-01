@@ -29,7 +29,6 @@ import pytest
 import json
 from copy import deepcopy
 from ipaddress import IPv4Address
-from lib.topotest import frr_unicode
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -235,9 +234,8 @@ def test_ospf_p2p_tc3_p0(request):
     topo_modify_change_ip = deepcopy(topo)
     intf_ip = topo_modify_change_ip["routers"]["r0"]["links"]["r3"]["ipv4"]
     topo_modify_change_ip["routers"]["r0"]["links"]["r3"]["ipv4"] = str(
-        IPv4Address(frr_unicode(intf_ip.split("/")[0])) + 3
+        IPv4Address(str(intf_ip.split("/")[0])) + 3
     ) + "/{}".format(intf_ip.split("/")[1])
-
     build_config_from_json(tgen, topo_modify_change_ip, save_bkup=False)
     step("Verify that interface is enabled in ospf.")
     dut = "r0"
@@ -286,9 +284,8 @@ def test_ospf_p2p_tc3_p0(request):
     topo_modify_change_ip = deepcopy(topo)
     intf_ip = topo_modify_change_ip["routers"]["r0"]["links"]["r3"]["ipv4"]
     topo_modify_change_ip["routers"]["r0"]["links"]["r3"]["ipv4"] = str(
-        IPv4Address(frr_unicode(intf_ip.split("/")[0])) + 3
+        IPv4Address(str(intf_ip.split("/")[0])) + 3
     ) + "/{}".format(int(intf_ip.split("/")[1]) + 1)
-
     build_config_from_json(tgen, topo_modify_change_ip, save_bkup=False)
     step("Verify that interface is enabled in ospf.")
     dut = "r0"
