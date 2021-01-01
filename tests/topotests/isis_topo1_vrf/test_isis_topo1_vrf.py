@@ -24,14 +24,13 @@
 test_isis_topo1_vrf.py: Test ISIS vrf topology.
 """
 
-import collections
 import functools
 import json
 import os
 import re
 import sys
 import pytest
-import platform
+import collections.abc
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -297,7 +296,7 @@ def dict_merge(dct, merge_dct):
         if (
             k in dct
             and isinstance(dct[k], dict)
-            and isinstance(merge_dct[k], collections.Mapping)
+            and isinstance(merge_dct[k], collections.abc.Mapping)
         ):
             dict_merge(dct[k], merge_dct[k])
         else:
