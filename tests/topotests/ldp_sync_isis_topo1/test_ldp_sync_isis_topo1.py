@@ -464,20 +464,18 @@ def parse_show_isis_ldp_sync(lines, rname):
             interface = {}
             interface_name = None
 
-            line = it.next()
-
+            line = next(it)
             if line.startswith(rname + "-eth"):
                 interface_name = line
-
-            line = it.next()
+                line = next(it)
 
             if line.startswith(" LDP-IGP Synchronization enabled: "):
                 interface["ldpIgpSyncEnabled"] = line.endswith("yes")
-                line = it.next()
+                line = next(it)
 
                 if line.startswith(" holddown timer in seconds: "):
                     interface["holdDownTimeInSec"] = int(line.split(": ")[-1])
-                    line = it.next()
+                    line = next(it)
 
                 if line.startswith(" State: "):
                     interface["ldpIgpSyncState"] = line.split(": ")[-1]
@@ -537,7 +535,7 @@ def parse_show_isis_interface_detail(lines, rname):
 
     while True:
         try:
-            line = it.next()
+            line = next(it)
 
             area_match = re.match(r"Area (.+):", line)
             if not area_match:
@@ -545,9 +543,7 @@ def parse_show_isis_interface_detail(lines, rname):
 
             area_id = area_match.group(1)
             area = {}
-
-            line = it.next()
-
+            line = next(it)
             while line.startswith(" Interface: "):
                 interface_name = re.split(":|,", line)[1].lstrip()
 
@@ -555,7 +551,7 @@ def parse_show_isis_interface_detail(lines, rname):
 
                 # Look for keyword: Level-1 or Level-2
                 while not line.startswith(" Level-"):
-                    line = it.next()
+                    line = next(it)
 
                 while line.startswith(" Level-"):
 
@@ -563,8 +559,7 @@ def parse_show_isis_interface_detail(lines, rname):
 
                     level_name = line.split()[0]
                     level["level"] = level_name
-
-                    line = it.next()
+                    line = next(it)
 
                     if line.startswith(" Metric:"):
                         level["metric"] = re.split(":|,", line)[1].lstrip()
@@ -575,7 +570,7 @@ def parse_show_isis_interface_detail(lines, rname):
                     while not line.startswith(" Level-") and not line.startswith(
                         " Interface: "
                     ):
-                        line = it.next()
+                        line = next(it)
 
                     if line.startswith(" Level-"):
                         continue
