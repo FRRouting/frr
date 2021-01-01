@@ -36,17 +36,12 @@ import traceback
 import socket
 import ipaddress
 import platform
-
-if sys.version_info[0] > 2:
-    import io
-    import configparser
-else:
-    import StringIO
-    import ConfigParser as configparser
+import io
+import configparser
 
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter, get_topogen
-from lib.topotest import interface_set_status, version_cmp, frr_unicode
+from lib.topotest import interface_set_status, version_cmp
 
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
@@ -436,12 +431,9 @@ def check_router_status(tgen):
 
 def getStrIO():
     """
-    Return a StringIO object appropriate for the current python version.
+    Return a StringIO object.
     """
-    if sys.version_info[0] > 2:
-        return io.StringIO()
-    else:
-        return StringIO.StringIO()
+    return io.StringIO()
 
 
 def reset_config_on_routers(tgen, routerName=None):
@@ -1486,13 +1478,13 @@ def generate_ips(network, no_of_ips):
             if start_ip == "0.0.0.0" and mask == 0 and no_of_ips == 1:
                 ipaddress_list.append("{}/{}".format(start_ip, mask))
                 return ipaddress_list
-            start_ip = ipaddress.IPv4Address(frr_unicode(start_ip))
+            start_ip = ipaddress.IPv4Address(str(start_ip))
             step = 2 ** (32 - mask)
         elif addr_type == "ipv6":
             if start_ip == "0::0" and mask == 0 and no_of_ips == 1:
                 ipaddress_list.append("{}/{}".format(start_ip, mask))
                 return ipaddress_list
-            start_ip = ipaddress.IPv6Address(frr_unicode(start_ip))
+            start_ip = ipaddress.IPv6Address(str(start_ip))
             step = 2 ** (128 - mask)
         else:
             return []
@@ -1635,9 +1627,7 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict
                     logger.debug("Function returned %s", ret)
                     if _return_is_str and isinstance(ret, bool) and _expected:
                         return ret
-                    if (
-                        isinstance(ret, str) or isinstance(ret, unicode)
-                    ) and _expected is False:
+                    if isinstance(ret, str) and _expected is False:
                         return ret
                     if _return_is_dict and isinstance(ret, dict):
                         return ret
@@ -2991,7 +2981,7 @@ def verify_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(str(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -3215,7 +3205,7 @@ def verify_rib(
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(str(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -3364,7 +3354,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(str(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -3469,7 +3459,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(str(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -4260,7 +4250,7 @@ def iperfSendIGMPJoin(
     if bindToAddress:
         if type(bindToAddress) is not list:
             Address = []
-            start = ipaddress.IPv4Address(frr_unicode(bindToAddress))
+            start = ipaddress.IPv4Address(str(bindToAddress))
 
             Address = [start]
             next_ip = start
@@ -4342,7 +4332,7 @@ def iperfSendTraffic(
     if bindToAddress:
         if type(bindToAddress) is not list:
             Address = []
-            start = ipaddress.IPv4Address(frr_unicode(bindToAddress))
+            start = ipaddress.IPv4Address(str(bindToAddress))
 
             Address = [start]
             next_ip = start
@@ -4472,7 +4462,7 @@ def verify_ip_nht(tgen, input_dict):
         rnode = tgen.routers()[router]
         nh_list = input_dict[router]
 
-        if validate_ip_address(nh_list.keys()[0]) is "ipv6":
+        if validate_ip_address(list(nh_list.keys())[0]) is "ipv6":
             show_ip_nht = run_frr_cmd(rnode, "show ipv6 nht")
         else:
             show_ip_nht = run_frr_cmd(rnode, "show ip nht")

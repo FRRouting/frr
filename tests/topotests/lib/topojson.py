@@ -60,13 +60,13 @@ def build_topo_from_json(tgen, topo):
     """
 
     ROUTER_LIST = sorted(
-        topo["routers"].keys(), key=lambda x: int(re_search("\d+", x).group(0))
+        topo["routers"].keys(), key=lambda x: int(re_search(r"\d+", x).group(0))
     )
 
     SWITCH_LIST = []
     if "switches" in topo:
         SWITCH_LIST = sorted(
-            topo["switches"].keys(), key=lambda x: int(re_search("\d+", x).group(0))
+            topo["switches"].keys(), key=lambda x: int(re_search(r"\d+", x).group(0))
         )
 
     listRouters = sorted(ROUTER_LIST[:])
@@ -101,7 +101,7 @@ def build_topo_from_json(tgen, topo):
         # Physical Interfaces
         if "links" in topo["routers"][curRouter]:
             for destRouterLink, data in sorted(
-                topo["routers"][curRouter]["links"].iteritems()
+                list(topo["routers"][curRouter]["links"].items())
             ):
                 currRouter_lo_json = topo["routers"][curRouter]["links"][destRouterLink]
                 # Loopback interfaces

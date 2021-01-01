@@ -30,7 +30,7 @@ Basic usage instructions:
 * see tests/topotest/simple-snmp-test/test_simple_snmp.py for example
 """
 
-from topolog import logger
+from lib.topolog import logger
 
 
 class SnmpTester(object):

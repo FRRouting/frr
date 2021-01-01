@@ -119,96 +119,96 @@ def _create_pim_config(tgen, topo, input_dict, router, build=False, load_config=
 
     result = False
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-    try:
 
-        pim_data = input_dict[router]["pim"]
+    pim_data = input_dict[router]["pim"]
 
-        for dut in tgen.routers():
-            if "pim" not in input_dict[router]:
+    for dut in tgen.routers():
+        config_data = []
+
+        if "pim" not in input_dict[router]:
+            continue
+
+        for destLink, data in topo[dut]["links"].items():
+            if "pim" not in data:
                 continue
 
-            for destLink, data in topo[dut]["links"].items():
-                if "pim" not in data:
-                    continue
+            if "rp" in pim_data:
+                rp_data = pim_data["rp"]
 
-                if "rp" in pim_data:
-                    config_data = []
-                    rp_data = pim_data["rp"]
+            for rp_dict in deepcopy(rp_data):
+                # ip address of RP
+                if "rp_addr" not in rp_dict and build:
+                    logger.error(
+                        "Router %s: 'ip address of RP' not "
+                        "present in input_dict/JSON",
+                        router,
+                    )
 
-                for rp_dict in deepcopy(rp_data):
-                    # ip address of RP
-                    if "rp_addr" not in rp_dict and build:
-                        logger.error(
-                            "Router %s: 'ip address of RP' not "
-                            "present in input_dict/JSON",
-                            router,
-                        )
+                    return False
+                rp_addr = rp_dict.setdefault("rp_addr", None)
 
-                        return False
-                    rp_addr = rp_dict.setdefault("rp_addr", None)
+                # Keep alive Timer
+                keep_alive_timer = rp_dict.setdefault("keep_alive_timer", None)
 
-                    # Keep alive Timer
-                    keep_alive_timer = rp_dict.setdefault("keep_alive_timer", None)
+                # Group Address range to cover
+                if "group_addr_range" not in rp_dict and build:
+                    logger.error(
+                        "Router %s:'Group Address range to cover'"
+                        " not present in input_dict/JSON",
+                        router,
+                    )
 
-                    # Group Address range to cover
-                    if "group_addr_range" not in rp_dict and build:
-                        logger.error(
-                            "Router %s:'Group Address range to cover'"
-                            " not present in input_dict/JSON",
-                            router,
-                        )
+                    return False
+                group_addr_range = rp_dict.setdefault("group_addr_range", None)
 
-                        return False
-                    group_addr_range = rp_dict.setdefault("group_addr_range", None)
+                # Group prefix-list filter
+                prefix_list = rp_dict.setdefault("prefix_list", None)
 
-                    # Group prefix-list filter
-                    prefix_list = rp_dict.setdefault("prefix_list", None)
+                # Delete rp config
+                del_action = rp_dict.setdefault("delete", False)
 
-                    # Delete rp config
-                    del_action = rp_dict.setdefault("delete", False)
+                if keep_alive_timer:
+                    cmd = "ip pim rp keep-alive-timer {}".format(keep_alive_timer)
+                    config_data.append(cmd)
 
-                    if keep_alive_timer:
-                        cmd = "ip pim rp keep-alive-timer {}".format(keep_alive_timer)
+                    if del_action:
+                        cmd = "no {}".format(cmd)
                         config_data.append(cmd)
 
-                        if del_action:
-                            cmd = "no {}".format(cmd)
-                            config_data.append(cmd)
+                if rp_addr:
+                    if group_addr_range:
+                        if type(group_addr_range) is not list:
+                            group_addr_range = [group_addr_range]
 
-                    if rp_addr:
-                        if group_addr_range:
-                            if type(group_addr_range) is not list:
-                                group_addr_range = [group_addr_range]
-
-                            for grp_addr in group_addr_range:
-                                cmd = "ip pim rp {} {}".format(rp_addr, grp_addr)
-                                config_data.append(cmd)
-
-                                if del_action:
-                                    cmd = "no {}".format(cmd)
-                                    config_data.append(cmd)
-
-                        if prefix_list:
-                            cmd = "ip pim rp {} prefix-list {}".format(
-                                rp_addr, prefix_list
-                            )
+                        for grp_addr in group_addr_range:
+                            cmd = "ip pim rp {} {}".format(rp_addr, grp_addr)
                             config_data.append(cmd)
 
                             if del_action:
                                 cmd = "no {}".format(cmd)
                                 config_data.append(cmd)
 
+                    if prefix_list:
+                        cmd = "ip pim rp {} prefix-list {}".format(
+                            rp_addr, prefix_list
+                        )
+                        config_data.append(cmd)
+
+                        if del_action:
+                            cmd = "no {}".format(cmd)
+                            config_data.append(cmd)
+
+        try:
             result = create_common_configuration(
                 tgen, dut, config_data, "pim", build, load_config
             )
             if result is not True:
                 return False
-
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
+        except InvalidCLIError:
+            # Traceback
+            errormsg = traceback.format_exc()
+            logger.error(errormsg)
+            return errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result

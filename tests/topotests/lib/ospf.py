@@ -23,7 +23,6 @@ import traceback
 from time import sleep
 from lib.topolog import logger
 import ipaddr
-from lib.topotest import frr_unicode
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
@@ -836,7 +835,7 @@ def verify_ospf_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(frr_unicode(st_rt)))
+                        st_rt = str(ipaddr.IPNetwork(str(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != "ipv4":

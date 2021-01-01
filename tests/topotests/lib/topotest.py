@@ -38,11 +38,8 @@ import signal
 
 from lib.topolog import logger
 from copy import deepcopy
-
-if sys.version_info[0] > 2:
-    import configparser
-else:
-    import ConfigParser as configparser
+import configparser
+from typing import NamedTuple
 
 from mininet.topo import Topo
 from mininet.net import Mininet
@@ -531,6 +528,26 @@ def is_linux():
     return False
 
 
+def linux_kernel_version():
+    """
+    Parses unix name output to gather Linux kernel version number.
+
+    Returns a NamedTuple with the major, minor and patch numbers as integers, as
+    well as the full version number string or None on failure.
+    """
+
+    if is_linux():
+        lkv = NamedTuple(
+            "LinuxKernelVersion",
+            [("major", int), ("minor", int), ("patch", int), ("str", str)],
+        )
+        lkv_str = os.uname()[2].split("-")[0]
+        lkv_nums = [int(num) for num in lkv_str.split(".")[:3]]
+        return lkv(*lkv_nums, lkv_str)
+    else:
+        return None
+
+
 def iproute2_is_vrf_capable():
     """
     Checks if the iproute2 version installed on the system is capable of
@@ -546,6 +563,7 @@ def iproute2_is_vrf_capable():
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
+                encoding="utf-8",
             )
             iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
 
@@ -966,7 +984,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
         )
         if addressSanitizerLog:
             # Find Calling Test. Could be multiple steps back
-            testframe = sys._current_frames().values()[0]
+            testframe = list(sys._current_frames().values())[0]
             level = 0
             while level < 10:
                 test = os.path.splitext(
@@ -1026,7 +1044,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
         return
 
     addressSanitizerError = re.search(
-        "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", output
+        r"(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", output
     )
     if addressSanitizerError:
         processAddressSanitizerError(addressSanitizerError, output, router, component)
@@ -1042,7 +1060,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
             with open(file, "r") as asanErrorFile:
                 asanError = asanErrorFile.read()
             addressSanitizerError = re.search(
-                "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", asanError
+                r"(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", asanError
             )
             if addressSanitizerError:
                 processAddressSanitizerError(
@@ -1924,11 +1942,3 @@ class LegacySwitch(OVSSwitch):
     def __init__(self, name, **params):
         OVSSwitch.__init__(self, name, failMode="standalone", **params)
         self.switchIP = None
-
-
-def frr_unicode(s):
-    """Convert string to unicode, depending on python version"""
-    if sys.version_info[0] > 2:
-        return s
-    else:
-        return unicode(s)
