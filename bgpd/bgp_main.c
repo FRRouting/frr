@@ -253,6 +253,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	bf_free(bm->rd_idspace);
 	list_delete(&bm->bgp);
+	list_delete(&bm->addresses);
 
 	bgp_lp_finish();
 
@@ -404,12 +405,16 @@ int main(int argc, char **argv)
 	int tmp_port;
 
 	int bgp_port = BGP_PORT_DEFAULT;
-	char *bgp_address = NULL;
+	struct list *addresses = list_new();
 	int no_fib_flag = 0;
 	int no_zebra_flag = 0;
 	int skip_runas = 0;
 	int instance = 0;
 	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
+	char *address;
+	struct listnode *node;
+
+	addresses->cmp = (int (*)(void *, void *))strcmp;
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
@@ -463,7 +468,7 @@ int main(int argc, char **argv)
 			break;
 		}
 		case 'l':
-			bgp_address = optarg;
+			listnode_add_sort_nodup(addresses, optarg);
 		/* listenon implies -n */
 		/* fallthru */
 		case 'n':
@@ -493,11 +498,10 @@ int main(int argc, char **argv)
 		memset(&bgpd_privs, 0, sizeof(bgpd_privs));
 
 	/* BGP master init. */
-	bgp_master_init(frr_init(), buffer_size);
+	bgp_master_init(frr_init(), buffer_size, addresses);
 	bm->port = bgp_port;
 	if (bgp_port == 0)
 		bgp_option_set(BGP_OPT_NO_LISTEN);
-	bm->address = bgp_address;
 	if (no_fib_flag || no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_FIB);
 	if (no_zebra_flag)
@@ -513,8 +517,16 @@ int main(int argc, char **argv)
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);
 
-	snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo), ", bgp@%s:%d",
-		 (bm->address ? bm->address : "<all>"), bm->port);
+	if (list_isempty(bm->addresses)) {
+		snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo),
+			 ", bgp@<all>:%d", bm->port);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(bm->addresses, node, address))
+			snprintf(bgpd_di.startinfo + strlen(bgpd_di.startinfo),
+				 sizeof(bgpd_di.startinfo)
+					 - strlen(bgpd_di.startinfo),
+				 ", bgp@%s:%d", address, bm->port);
+	}
 
 	frr_config_fork();
 	/* must be called after fork() */
