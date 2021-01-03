@@ -246,7 +246,7 @@ module frr-vrrpd {
           }
 
           uses ip-vrrp-state {
-            augment "./counter/tx" {
+            augment "counter/tx" {
               leaf gratuitous-arp {
                 type yang:zero-based-counter32;
                 description
@@ -266,7 +266,7 @@ module frr-vrrpd {
           }
 
           uses ip-vrrp-state {
-            augment "./counter/tx" {
+            augment "counter/tx" {
               leaf neighbor-advertisement {
                 type yang:zero-based-counter32;
                 description
