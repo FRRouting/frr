@@ -62,6 +62,8 @@
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
 
+static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
+
 /* Encoding helpers -------------------------------------------------------- */
 
 static void zserv_encode_interface(struct stream *s, struct interface *ifp)
@@ -1742,7 +1744,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 	return true;
 }
 
-int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
+static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	uint16_t i;
 	struct zapi_nexthop *znh;
