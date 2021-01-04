@@ -6292,7 +6292,11 @@ static struct peer *bgp_peer_group_peer_lookup(struct bgp *bgp,
 	struct peer_group *group = NULL;
 
 	group = peer_group_lookup(bgp, peer_str);
-	return group->conf;
+
+	if (group)
+		return group->conf;
+
+	return NULL;
 }
 
 /*

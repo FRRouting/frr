@@ -153,12 +153,10 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 		pthread_mutex_unlock(&g_router_id_v6_mtx);
 		family = "IPv6";
 	} else {
-		pthread_mutex_unlock(&g_router_id_v4_mtx);
 		zlog_warn("Unexpected router ID address family for vrf %u: %u",
 			  vrf_id, pref.family);
 		return 0;
 	}
-	pthread_mutex_unlock(&g_router_id_v4_mtx);
 	zlog_info("%s Router Id updated for VRF %u: %s", family, vrf_id, buf);
 	return 0;
 }
