@@ -1,14 +1,13 @@
 
 {
-  "routerId":"9.9.9.9",
+  "routerId":"5.5.5.5",
   "as":100,
-  "vrfName":"vrf0",
   "peerCount":1,
   "peers":{
-    "5.5.5.5":{
+    "9.9.9.9":{
       "outq":0,
       "inq":0,
-      "prefixReceivedCount":20,
+      "pfxRcd":20,
       "state":"Established"
     }
   },
