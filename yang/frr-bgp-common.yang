@@ -358,6 +358,13 @@ submodule frr-bgp-common {
         "Apply administrative shutdown to newly configured peers.";
     }
 
+    leaf suppress-duplicates {
+      type boolean;
+      default "true";
+      description
+        "Suppress duplicate updates if the route actually not changed.";
+    }
+
     leaf ebgp-requires-policy {
       type boolean;
       default "true";

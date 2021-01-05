@@ -444,6 +444,13 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 			 * yet.
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
+				/* Make sure we supress BGP UPDATES
+				 * for normal processing later again.
+				 */
+				if (!paf->t_announce_route)
+					UNSET_FLAG(paf->subgroup->sflags,
+						   SUBGRP_STATUS_FORCE_UPDATES);
+
 				if (CHECK_FLAG(peer->cap,
 					       PEER_CAP_RESTART_RCV)) {
 					if (!(PAF_SUBGRP(paf))->t_coalesce
@@ -2115,6 +2122,11 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			updgrp_peer->orf_plist[afi][safi] =
 				peer->orf_plist[afi][safi];
 		}
+
+		/* Avoid supressing duplicate routes later
+		 * when processing in subgroup_announce_table().
+		 */
+		SET_FLAG(paf->subgroup->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 
 		/* If the peer is configured for default-originate clear the
 		 * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will

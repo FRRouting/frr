@@ -127,6 +127,7 @@ int bgp_global_fast_external_failover_modify(struct nb_cb_modify_args *args);
 int bgp_global_local_pref_modify(struct nb_cb_modify_args *args);
 int bgp_global_default_shutdown_modify(struct nb_cb_modify_args *args);
 int bgp_global_ebgp_requires_policy_modify(struct nb_cb_modify_args *args);
+int bgp_global_suppress_duplicates_modify(struct nb_cb_modify_args *args);
 int bgp_global_show_hostname_modify(struct nb_cb_modify_args *args);
 int bgp_global_show_nexthop_hostname_modify(struct nb_cb_modify_args *args);
 int bgp_global_import_check_modify(struct nb_cb_modify_args *args);
@@ -3637,6 +3638,9 @@ void cli_show_router_bgp_route_selection(struct vty *vty,
 					 struct lyd_node *dnode,
 					 bool show_defaults);
 void cli_show_router_bgp_ebgp_requires_policy(struct vty *vty,
+					      struct lyd_node *dnode,
+					      bool show_defaults);
+void cli_show_router_bgp_suppress_duplicates(struct vty *vty,
 					      struct lyd_node *dnode,
 					      bool show_defaults);
 void cli_show_router_bgp_default_shutdown(struct vty *vty,

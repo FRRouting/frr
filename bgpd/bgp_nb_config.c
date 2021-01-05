@@ -1599,6 +1599,27 @@ int bgp_global_ebgp_requires_policy_modify(struct nb_cb_modify_args *args)
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/suppress-duplicates
+ */
+int bgp_global_suppress_duplicates_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-hostname
  */
 int bgp_global_show_hostname_modify(struct nb_cb_modify_args *args)

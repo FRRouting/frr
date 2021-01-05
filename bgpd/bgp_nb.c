@@ -352,6 +352,13 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/suppress-duplicates",
+			.cbs = {
+				.cli_show = cli_show_router_bgp_suppress_duplicates,
+				.modify = bgp_global_suppress_duplicates_modify,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-hostname",
 			.cbs = {
 				.cli_show = cli_show_router_bgp_show_hostname,
