@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# test_bgp_l3vpn_static_netns_leak_2.py
+# test_bgp_l3vpn_static_leak_2.py
 # Copyright 2018 6WIND S.A.
 #
 # Permission to use, copy, modify, and/or distribute this software
@@ -20,13 +20,14 @@
 #
 
 """
-test_bgp_l3vpn_static_netns_leak_2.py: Test BGP topology with IBGP on NETNS VRF
+test_bgp_l3vpn_static_leak_2.py: Test BGP topology with IBGP on VRF
 """
 
 import json
 import os
 import sys
 import functools
+import platform
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -42,6 +43,7 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+
 CustomizeVrfWithNetns = True
 
 #####################################################
@@ -50,7 +52,7 @@ CustomizeVrfWithNetns = True
 ##
 #####################################################
 
-class BGPVRFNETNS_Topo2(Topo):
+class BGPVRF_Topo2(Topo):
     "BGP BGP VRF Leak Topology 1"
 
     def build(self, **_opts):
@@ -129,6 +131,32 @@ class BGPVRFNETNS_Topo2(Topo):
         switch = tgen.gears['s5']
         switch.add_link(tgen.gears['r5'])
 
+        switch = tgen.add_switch('s11')
+        switch.add_link(tgen.gears['r1'])
+        tgen.add_router('r6')
+        switch.add_link(tgen.gears['r6'])
+        switch = tgen.add_switch('s12')
+        switch.add_link(tgen.gears['r1'])
+        tgen.add_router('r7')
+        switch.add_link(tgen.gears['r7'])
+
+        switch = tgen.add_switch('s13')
+        switch.add_link(tgen.gears['r2'])
+        tgen.add_router('r8')
+        switch.add_link(tgen.gears['r8'])
+        switch = tgen.add_switch('s14')
+        switch.add_link(tgen.gears['r2'])
+        tgen.add_router('r9')
+        switch.add_link(tgen.gears['r9'])
+
+        switch = tgen.add_switch('s15')
+        switch.add_link(tgen.gears['r5'])
+        tgen.add_router('r10')
+        switch.add_link(tgen.gears['r10'])
+        switch = tgen.add_switch('s16')
+        switch.add_link(tgen.gears['r5'])
+        tgen.add_router('r11')
+        switch.add_link(tgen.gears['r11'])
         
 #####################################################
 ##
@@ -137,27 +165,42 @@ class BGPVRFNETNS_Topo2(Topo):
 #####################################################
 
 def setup_module(module):
-    tgen = Topogen(BGPVRFNETNS_Topo2, module.__name__)
+    global CustomizeVrfWithNetns
+
+    tgen = Topogen(BGPVRF_Topo2, module.__name__)
     tgen.start_topology()
+    CustomizeVrfWithNetns = True
+    option_vrf_mode = os.getenv('VRF_MODE_PARAM', 'netns')
+    if option_vrf_mode == 'vrf-lite':
+        CustomizeVrfWithNetns = False
 
     router = tgen.gears['r1']
     # check for zebra capability
-    if CustomizeVrfWithNetns == True:
-        if router.check_capability(
-                TopoRouter.RD_ZEBRA,
-                '--vrfwnetns'
-                ) == False:
-            return  pytest.skip('Skipping BGP VRF NETNS Test. VRF NETNS backend not available on FRR')
+    if CustomizeVrfWithNetns:
         if os.system('ip netns list') != 0:
             return  pytest.skip('Skipping BGP VRF NETNS Test. NETNS not available on System')
     # retrieve VRF backend kind
-    if CustomizeVrfWithNetns == True:
+    if CustomizeVrfWithNetns:
         logger.info('Testing with VRF Namespace support')
 
     router_list = ["r1","r2", "r5"]
+    krel = platform.release()
+    l3mdev_accept = 0
+    if topotest.version_cmp(krel, '4.15') >= 0 and \
+       topotest.version_cmp(krel, '4.18') <= 0:
+        l3mdev_accept = 1
+
+    if topotest.version_cmp(krel, '5.0') >= 0:
+        l3mdev_accept = 1
+
     # sanity check - del previous vrf if any
-    cmds = ['ip netns delete {0}-cust1',
-            'ip netns delete {0}-cust2']
+    if CustomizeVrfWithNetns:
+        cmds = ['ip netns delete {0}-cust1',
+                'ip netns delete {0}-cust2']
+    else:
+        cmds = ['ip link delete {0}-cust1',
+                'ip link delete {0}-cust2',
+                'sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept)]
     for name in router_list:
         router = tgen.gears[name]
         for cmd in cmds:
@@ -167,14 +210,29 @@ def setup_module(module):
             logger.info('cmdresult: '+output);
 
     # create r1-cust1 and r1-cust2
-    cmds = ['ip netns add {0}-cust1',
-            'ip link set dev {0}-eth0 netns {0}-cust1',
-            'ip netns exec {0}-cust1 ip li set dev {0}-eth0 up',
-            'ip netns exec {0}-cust1 ip li set dev lo up',
-            'ip netns add {0}-cust2',
-            'ip link set dev {0}-eth1 netns {0}-cust2',
-            'ip netns exec {0}-cust2 ip li set dev {0}-eth1 up',
-            'ip netns exec {0}-cust2 ip li set dev lo up']
+    if CustomizeVrfWithNetns:
+        cmds = ['ip netns add {0}-cust1',
+                'ip link set dev {0}-eth0 netns {0}-cust1',
+                'ip netns exec {0}-cust1 ip li set dev {0}-eth0 up',
+                'ip netns exec {0}-cust1 ip li set dev lo up',
+                'ip netns add {0}-cust2',
+                'ip link set dev {0}-eth1 netns {0}-cust2',
+                'ip netns exec {0}-cust2 ip li set dev {0}-eth1 up',
+                'ip netns exec {0}-cust2 ip li set dev lo up',
+                'ip link set dev {0}-eth3 netns {0}-cust1',
+                'ip netns exec {0}-cust1 ip li set dev {0}-eth3 up',
+                'ip link set dev {0}-eth4 netns {0}-cust2',
+                'ip netns exec {0}-cust2 ip li set dev {0}-eth4 up']
+    else:
+        cmds = ['ip link add {0}-cust1 type vrf table 10',
+                'ip link set dev {0}-cust1 up',
+                'ip link set dev {0}-eth0 master {0}-cust1',
+                'ip link add {0}-cust2 type vrf table 20',
+                'ip link set dev {0}-cust2 up',
+                'ip link set dev {0}-eth1 master {0}-cust2',
+                'ip link set dev {0}-eth3 master {0}-cust1',
+                'ip link set dev {0}-eth4 master {0}-cust2']
+
     for name in router_list:
         router = tgen.gears[name]
         for cmd in cmds:
@@ -211,42 +269,30 @@ def setup_module(module):
             'ip link set dev vrf0 address 00:80:ed:01:01:02',
             'ip link set vrf0 netns {0}-cust2',
             'ip netns exec {0}-cust2 ip link set dev vrf0 up',
-            'ip link set dev {0}-cust2 up',
-            # loopback interface config
-            'ip link add {0}-loop1 type dummy',
-            'ip link set {0}-loop1 netns {0}-cust1',
-            'ip netns exec {0}-cust1 ip link set dev {0}-loop1 up',
-            'ip link add {0}-loop2 type dummy',
-            'ip link set {0}-loop2 netns {0}-cust2',
-            'ip netns exec {0}-cust2 ip link set dev {0}-loop2 up']
+            'ip link set dev {0}-cust2 up']
 
-    for name in router_list:
-        router = tgen.gears[name]
-        for cmd in cmds:
-            cmd = cmd.format(name)
-            logger.info('cmd: '+cmd);
-            output = router.run(cmd.format(name))
-            logger.info('cmd: '+cmd + 'result: ' +output);
+    if CustomizeVrfWithNetns:
+        for name in router_list:
+            router = tgen.gears[name]
+            for cmd in cmds:
+                cmd = cmd.format(name)
+                logger.info('cmd: '+cmd);
+                output = router.run(cmd.format(name))
+                logger.info('cmd: '+cmd + 'result: ' +output);
 
     #run daemons
-    router_list = ["r1","r2","r5"]
+    router_list = ["r1","r2","r5","r6","r7","r8","r9","r10","r11"]
     for name in router_list:
         router = tgen.gears[name]
         logger.info('running {0}/<file>.conf'.format(name))
+        zebra_option = '--vrfwnetns -o vrf0' if CustomizeVrfWithNetns else '-o vrf0'
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, '{}/zebra.conf'.format(name)),
-            '--vrfwnetns -o vrf0'
+            zebra_option
         )
-#        router.load_config(
-#            TopoRouter.RD_LDP,
-#            os.path.join(CWD, '{}/ldpd.conf'.format(name))
-#        )
-#        router.load_config(
-#            TopoRouter.RD_OSPF,
-#            os.path.join(CWD, '{}/ospfd.conf'.format(name))
-#        )
 
+    router_list = ["r1","r2","r5"]
     for name in router_list:
         router = tgen.gears[name]
         router.load_config(
@@ -256,7 +302,7 @@ def setup_module(module):
         # BGP and ZEBRA start
 
     logger.info('Launching BGP, ZEBRA')
-    router_list = ["r1","r2","r5"]
+    router_list = ["r1","r2","r5","r6","r7","r8","r9","r10","r11"]
     for name in router_list:
         router = tgen.gears[name]
         router.start()
@@ -271,33 +317,42 @@ def setup_module(module):
         logger.info(pname)
 
 def teardown_module(module):
+    global CustomizeVrfWithNetns
+
     tgen = get_topogen()
     # move back r1-eth0 to default VRF
     # delete veth pairs
     router_list = ["r1","r2","r5"]
-    cmds = ['ip link del {0}-cust1',
-            'ip link del {0}-cust2',
-            'ip link set netns exec {0}-cust1 ip link set dev {0}-cust2 netns 1',
-            'ip link del {0}-cust2',
-            # move back {0}-eth0 and {0}-eth1 to default vrf
-            'ip link set netns exec {0}-cust1 ip link set dev {0}-eth0 netns 1',
-            'ip link set netns exec {0}-cust2 ip link set dev {0}-eth1 netns 1',
-            # move back loopx interfaces to default vrf
-            'ip link set netns exec {0}-cust1 ip link set dev {0}-loop1 netns 1',
-            'ip link set netns exec {0}-cust2 ip link set dev {0}-loop2 netns 1',
-            'ip netns del {0}-cust1',
-            'ip netns del {0}-cust2',
-            'ip link del {0}-loop1',
-            'ip link del {0}-loop2',
-            'ip link del {0}-eth0',
-            'ip link del {0}-eth1']
+    if CustomizeVrfWithNetns:
+        cmds = ['ip link del {0}-cust1',
+                'ip link del {0}-cust2',
+                'ip link set netns exec {0}-cust1 ip link set dev {0}-cust2 netns 1',
+                'ip link del {0}-cust2',
+                # move back {0}-eth0 and {0}-eth1 to default vrf
+                'ip link set netns exec {0}-cust1 ip link set dev {0}-eth0 netns 1',
+                'ip link set netns exec {0}-cust2 ip link set dev {0}-eth1 netns 1',
+                'ip link set netns exec {0}-cust1 ip link set dev {0}-eth3 netns 1',
+                'ip link set netns exec {0}-cust2 ip link set dev {0}-eth4 netns 1',
+                'ip netns del {0}-cust1',
+                'ip netns del {0}-cust2',
+                'ip link del {0}-eth0',
+                'ip link del {0}-eth1',
+                'ip link del {0}-eth3',
+                'ip link del {0}-eth4']
+    else:
+        cmds = ['ip link del {0}-cust1',
+                'ip link del {0}-cust2',
+                'ip link del {0}-eth0',
+                'ip link del {0}-eth1',
+                'ip link del {0}-eth3',
+                'ip link del {0}-eth4']
     for name in router_list:
         for cmd in cmds:
             tgen.net[name].cmd(cmd.format(name))
 
     tgen.stop_topology()
 
-def test_bgp_vrf_static_netns_leak__learn():
+def test_bgp_vrf_static_leak__learn():
     "Test daemon learnt VRF context"
     tgen = get_topogen()
 
@@ -378,7 +433,9 @@ def test_bgp_convergence():
         output = tgen.gears[name].vtysh_cmd('show ip route vrf {0}-cust2'.format(name), isjson=False)
         logger.info(output)
 
-def test_bgp_vrf_static_netns_leak():
+def test_bgp_vrf_static_leak():
+    global CustomizeVrfWithNetns
+
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
@@ -434,10 +491,16 @@ def test_bgp_vrf_static_netns_leak():
             assert routeid is not None, "{0}, route 10.201.{1}.0/24 not found".format(name, j)
             nexthopid = routeid[0]['nexthops']
             assert nexthopid is not None, "{0}, nexthop for 10.201.{1}.0/24 not found".format(name, j)
-            if 'fib' not in nexthopid[0].keys():
-                assert 0, "{0}, FIB entry 10.201.{1}.0/24 not present".format(name, j)
-            fib = nexthopid[0]['fib']
-            ifacename = nexthopid[0]['interfaceName']
+            if CustomizeVrfWithNetns:
+                if 'fib' not in nexthopid[0].keys():
+                    assert 0, "{0}, FIB entry 10.201.{1}.0/24 not present".format(name, j)
+                fib = nexthopid[0]['fib']
+                ifacename = nexthopid[0]['interfaceName']
+            else:
+                if 'fib' not in nexthopid[1].keys():
+                    assert 0, "{0}, FIB entry 10.201.{1}.0/24 not present".format(name, j)
+                fib = nexthopid[1]['fib']
+                ifacename = nexthopid[0]['vrf']
             assertmsg = "{0}, unexpected nh interface name vrf for 10.201.{1}.0/24: {2}".format(name, j, ifacename)
             assert ifacename == 'vrf0', assertmsg
             assert fib == True, "{0}, FIB entry 10.201.{}.0/24 not present".format(name, i)
@@ -450,10 +513,16 @@ def test_bgp_vrf_static_netns_leak():
             routeid = donna['10.101.{}.0/24'.format(j)]
             assert routeid is not None, "{0}, route 10.101.{1}.0/24 not found".format(name, j)
             nexthopid = routeid[0]['nexthops']
-            if 'fib' not in nexthopid[0].keys():
-                assert 0, "{0}, FIB entry 10.101.{}.0/24 not present".format(name, j)
-            fib = nexthopid[0]['fib']
-            ifacename = nexthopid[0]['interfaceName']
+            if CustomizeVrfWithNetns:
+                if 'fib' not in nexthopid[0].keys():
+                    assert 0, "{0}, FIB entry 10.101.{}.0/24 not present".format(name, j)
+                fib = nexthopid[0]['fib']
+                ifacename = nexthopid[0]['interfaceName']
+            else:
+                if 'fib' not in nexthopid[1].keys():
+                    assert 0, "{0}, FIB entry 10.101.{}.0/24 not present".format(name, j)
+                fib = nexthopid[1]['fib']
+                ifacename = nexthopid[0]['vrf']
             assertmsg = "{0}, unexpected nh interface name vrf for 10.101.{1}.0/24: {2}".format(name, j, ifacename)
             assert ifacename == 'vrf0', assertmsg
             assert fib == True, "{0}, FIB entry 10.101.{}.0/24 not present".format(name, j)
@@ -467,70 +536,82 @@ def test_bgp_vrf_static_netns_leak():
     tgen.net['r2'].cmd(cmd.format('r2','2','9.9.9.9'))
 
     topotest.sleep(2)
-    logger.info('Check ping on r1 : ip netns exec r1-cust1 ping 10.101.51.3 -I 10.101.51.1 -f -c 10')
-    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.101.51.3 -I 10.101.51.1 -f -c 1000')
+    logger.info('Check ping on r6 : ping 10.101.51.6 -I 10.101.51.2 -f -c 10')
+    output = tgen.net['r6'].cmd('ping 10.101.51.6 -I 10.101.51.2 -f -c 1000')
     logger.info(output)
     if '1000 packets transmitted, 1000 received' not in output:
-        assertmsg = 'expected ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) should be ok'
+        assertmsg = 'expected ping from r1-cust1(10.101.51.2) to r2-cust1 (10.101.51.6) should be ok'
         assert 0, assertmsg
     else:
-            logger.info('Check Ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) OK')
+        logger.info('Check Ping from r1-cust1(10.101.51.2) to r2-cust1 (10.101.51.6) OK')
 
-    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.201.52.4 -I 10.101.51.1 -f -c 1000')
+    output = tgen.net['r6'].cmd('ping 10.201.52.6 -I 10.101.51.2 -f -c 1000')
     logger.info(output)
     if '1000 packets transmitted, 1000 received' not in output:
-        assertmsg = 'expected ping from r1-cust1(10.101.51.1) to remote r2-cust2 (10.201.52.4) should be ok'
+        assertmsg = 'expected ping from r1-cust1(10.101.51.2) to remote r2-cust2 (10.201.52.6) should be ok'
         assert 0, assertmsg
     else:
-            logger.info('Check Ping from r1-cust1(10.101.51.1) to remote r2-cust2 (10.201.52.4) OK')
+        logger.info('Check Ping from r1-cust1(10.101.51.2) to remote r2-cust2 (10.201.52.6) OK')
 
-    logger.info('Disabling vrf0 interface on r1-cust1')
-    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ip link set dev vrf0 down')
+    if CustomizeVrfWithNetns:
+        logger.info('Disabling vrf0 interface on r1-cust1')
+        output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ip link set dev vrf0 down')
+    else:
+        logger.info('Disabling r1-cust1 interface')
+        output = tgen.net['r1'].cmd('ip link set dev r1-cust1 down')
     logger.info(output)
     topotest.sleep(3)
-    name = 'r1'
-    donna = tgen.gears[name].vtysh_cmd('show ip route vrf {0}-cust1 json'.format(name), isjson=True)
-    for i in list_values:
-        j = int(i) + 11
-        if '10.201.{}.0/24'.format(j) in donna.keys():
-            assert 0, "{0}, route 10.201.{1}.0/24 found in RIB".format(name, j)
+    # change of behaviour with vrf-lite:
+    # if vrf interface goes down, bgp routes are still present
+    # but ping will however fail
+    if CustomizeVrfWithNetns:
+        name = 'r1'
+        donna = tgen.gears[name].vtysh_cmd('show ip route vrf {0}-cust1 json'.format(name), isjson=True)
+        for i in list_values:
+            j = int(i) + 11
+            if '10.201.{}.0/24'.format(j) in donna.keys():
+                assert 0, "{0}, route 10.201.{1}.0/24 found in RIB".format(name, j)
 
-    donna = tgen.gears[name].vtysh_cmd('show bgp vrf {0}-cust1 ipv4 json'.format(name), isjson=True)
-    routes = donna['routes']
-    for i in list_values:
-        j = int(i) + 11
-        if '10.201.{}.0/24'.format(j) not in routes.keys():
-            assert 1, "{0}, route 10.201.{1}.0/24 not found in BGP RIB".format(name, j)
-        routeid = routes['10.101.{}.0/24'.format(j)]
-        if 'vrfReachableInactive' not in routeid[0].keys():
-            if 'valid' in routeid[0].keys():
-                assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is valid".format(name, j)
-            if 'bestpath' in routeid[0].keys():
-                assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is bestpath".format(name, j)
+                donna = tgen.gears[name].vtysh_cmd('show bgp vrf {0}-cust1 ipv4 json'.format(name), isjson=True)
+                routes = donna['routes']
+                for i in list_values:
+                    j = int(i) + 11
+                    if '10.201.{}.0/24'.format(j) not in routes.keys():
+                        assert 1, "{0}, route 10.201.{1}.0/24 not found in BGP RIB".format(name, j)
+                    routeid = routes['10.101.{}.0/24'.format(j)]
+                    if 'vrfReachableInactive' not in routeid[0].keys():
+                        if 'valid' in routeid[0].keys():
+                            assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is valid".format(name, j)
+                        if 'bestpath' in routeid[0].keys():
+                            assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is bestpath".format(name, j)
 
-    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.201.52.4 -I 10.101.51.1 -f -c 1000')
+    output = tgen.net['r6'].cmd('ping 10.201.52.6 -I 10.101.51.2 -f -c 1000')
     logger.info(output)
-    if '1000 packets transmitted, 0 received, 100% packet loss' in output:
-        logger.info('Check Ping fail from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) OK')
+    if '100% packet loss' in output:
+        logger.info('Check Ping fail from r1-cust1(10.101.51.2) to r2-cust1 (10.201.52.6) OK')
     else:
         if 'connect: Network is unreachable' in output:
-            logger.info('Check Ping fail from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) OK')
+            logger.info('Check Ping fail from r1-cust1(10.101.51.2) to r2-cust1 (10.101.52.6) OK')
         else:
-            assertmsg = 'expected ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) should fail'
+            assertmsg = 'expected ping from r1-cust1(10.101.51.2) to r2-cust1 (10.101.52.6) should fail'
             assert 0, assertmsg
 
-    logger.info('Reenabling vrf0 interface on r1-cust1')
-    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ip link set dev vrf0 up')
+    if CustomizeVrfWithNetns:
+        logger.info('Reenabling vrf0 interface on r1-cust1')
+        output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ip link set dev vrf0 up')
+    else:
+        logger.info('Reenabling r1-cust1 interface')
+        output = tgen.net['r1'].cmd('ip link set dev r1-cust1 up')
     logger.info(output)
     topotest.sleep(3)
 
-    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.101.51.3 -I 10.101.51.1 -f -c 1000')
+    output = tgen.net['r6'].cmd('ping 10.101.51.6 -I 10.101.51.2 -f -c 1000')
     logger.info(output)
     if '1000 packets transmitted, 1000 received' not in output:
-        assertmsg = 'expected ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) should be ok'
+        assertmsg = 'expected ping from r1-cust1(10.101.51.2) to r2-cust1 (10.101.51.6) should be ok'
         assert 0, assertmsg
     else:
-            logger.info('Check Ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) OK')
+            logger.info('Check Ping from r1-cust1(10.101.51.2) to r2-cust1 (10.101.51.6) OK')
 
     logger.info('r1 : peering with r5. Testing multipath')
     cmd = 'vtysh -c \"configure terminal\" -c \"router bgp 100\" -c \"neighbor 15.15.15.15\" -c \"neighbor 15.15.15.15 update-source 5.5.5.5\" -c \"address-family ipv4 vpn\" -c \"neighbor 15.15.15.15 activate\"'
@@ -584,11 +665,16 @@ def test_bgp_vrf_static_netns_leak():
         assert routeid is not None, "{0}, route 10.101.{1}.0/24 not found".format(name, j)
         nexthopid = routeid[0]['nexthops']
         assert nexthopid is not None, "{0}, nexthop for 10.101.{1}.0/24 not found".format(name, j)
-        if 'fib' not in nexthopid[0].keys():
-            assert 0, "{0}, First FIB entry 10.101.{1}.0/24 not present".format(name, j)
-        if 'fib' not in nexthopid[3].keys():
-            assert 0, "{0}, Second FIB entry 10.101.{1}.0/24 not present".format(name, j)
-
+        if CustomizeVrfWithNetns:
+            if 'fib' not in nexthopid[0].keys():
+                assert 0, "{0}, First FIB entry 10.101.{1}.0/24 not present".format(name, j)
+            if 'fib' not in nexthopid[3].keys():
+                assert 0, "{0}, Second FIB entry 10.101.{1}.0/24 not present".format(name, j)
+        else:
+            if 'fib' not in nexthopid[1].keys():
+                assert 0, "{0}, First FIB entry 10.101.{1}.0/24 not present".format(name, j)
+            if 'fib' not in nexthopid[3].keys():
+                assert 0, "{0}, Second FIB entry 10.101.{1}.0/24 not present".format(name, j)
     #tgen.mininet_cli()
     cmd = 'vtysh -c \"configure terminal\" -c \"interface r2-eth2\" -c "shutdown\"'
     name = 'r2'
@@ -628,14 +714,24 @@ def test_bgp_vrf_static_netns_leak():
         assert routeid is not None, "{0}, route 10.101.{1}.0/24 not found".format(name, j)
         nexthopid = routeid[0]['nexthops']
         assert nexthopid is not None, "{0}, nexthop for 10.101.{1}.0/24 not found".format(name, j)
-        if 'fib' not in nexthopid[0].keys():
-            assert 0, "{0}, First FIB entry 10.101.{1}.0/24 not present".format(name, j)
-        if 'ip' not in nexthopid[1].keys():
-            assert 0, "{0}, Nexthop IP value for entry 10.101.{1}.0/24 not present".format(name, j)
-        if nexthopid[1]['ip'] != "15.15.15.15":
-            assert 0, "{0}, Nexthop IP value for entry 10.101.{1}.0/24 not expected {2}".format(name, j, nexthopid[1]['ip'])
-        length = len(nexthopid)
-        assert length == 3, "{0}, Nexthop entries number for 10.101.{1}.0/24 not expected {2}".format(name, j, length)
+        if CustomizeVrfWithNetns:
+            if 'fib' not in nexthopid[0].keys():
+                assert 0, "{0}, First FIB entry 10.101.{1}.0/24 not present".format(name, j)
+            if 'ip' not in nexthopid[1].keys():
+                assert 0, "{0}, Nexthop IP value for entry 10.101.{1}.0/24 not present".format(name, j)
+            if nexthopid[1]['ip'] != "15.15.15.15":
+                assert 0, "{0}, Nexthop IP value for entry 10.101.{1}.0/24 not expected {2}".format(name, j, nexthopid[1]['ip'])
+            length = len(nexthopid)
+            assert length == 3, "{0}, Nexthop entries number for 10.101.{1}.0/24 not expected {2}".format(name, j, length)
+        else:
+            if 'fib' not in nexthopid[1].keys():
+                assert 0, "{0}, First FIB entry 10.101.{1}.0/24 not present".format(name, j)
+            if 'ip' not in nexthopid[1].keys():
+                assert 0, "{0}, Nexthop IP value for entry 10.101.{1}.0/24 not present".format(name, j)
+            if nexthopid[0]['ip'] != "15.15.15.15":
+                assert 0, "{0}, Nexthop IP value for entry 10.101.{1}.0/24 not expected {2}".format(name, j, nexthopid[1]['ip'])
+            length = len(nexthopid)
+            assert length == 2, "{0}, Nexthop entries number for 10.101.{1}.0/24 not expected {2}".format(name, j, length)
 
 if __name__ == '__main__':
 

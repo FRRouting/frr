@@ -1,16 +1,18 @@
 
 {
-  "routerId":"5.5.5.5",
+"ipv4Unicast":{
+  "routerId":"1.1.1.10",
   "as":100,
-  "vrfName":"vrf0",
+  "vrfName":"r2-cust1",
   "peerCount":1,
   "peers":{
-    "9.9.9.9":{
+    "1.1.1.4":{
       "outq":0,
       "inq":0,
-      "prefixReceivedCount":20,
+      "pfxRcd":10,
       "state":"Established"
     }
   },
   "totalPeers":1
+}
 }

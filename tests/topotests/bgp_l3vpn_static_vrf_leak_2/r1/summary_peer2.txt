@@ -9,7 +9,7 @@
     "2.2.2.3":{
       "outq":0,
       "inq":0,
-      "prefixReceivedCount":10,
+      "pfxRcd":10,
       "state":"Established"
     }
   },
