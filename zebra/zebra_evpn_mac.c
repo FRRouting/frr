@@ -29,6 +29,7 @@
 #include "prefix.h"
 #include "vlan.h"
 #include "json.h"
+#include "printfrr.h"
 
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
@@ -903,14 +904,19 @@ int zebra_evpn_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
+	if (IS_ZEBRA_DEBUG_VXLAN) {
+		char flag_buf[MACIP_BUF_SIZE];
+
 		zlog_debug(
-			"Send MACIP %s f 0x%x MAC %s IP %s seq %u L2-VNI %u ESI %s to %s",
-			(cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del", flags,
+			"Send MACIP %s f %s MAC %s IP %s seq %u L2-VNI %u ESI %s to %s",
+			(cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+			zclient_evpn_dump_macip_flags(flags, flag_buf,
+						      sizeof(flag_buf)),
 			prefix_mac2str(macaddr, buf, sizeof(buf)),
 			ipaddr2str(ip, buf2, sizeof(buf2)), seq, vni,
 			es ? es->esi_str : "-",
 			zebra_route_string(client->proto));
+	}
 
 	if (cmd == ZEBRA_MACIP_ADD)
 		client->macipadd_cnt++;

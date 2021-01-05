@@ -771,8 +771,11 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 #define ZEBRA_MACIP_TYPE_PROXY_ADVERT          0x20 /* Not locally active */
 #define ZEBRA_MACIP_TYPE_SYNC_PATH             0x40 /* sync path */
 /* XXX - flags is an u8; that needs to be changed to u32 if you need
- * to allocate past 0x80
+ * to allocate past 0x80.  Additionally touch zclient_evpn_dump_macip_flags
  */
+#define MACIP_BUF_SIZE 128
+extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,
+					   size_t len);
 
 /* Zebra ES VTEP flags (ZEBRA_REMOTE_ES_VTEP_ADD) */
 /* ESR has been rxed from the VTEP. Only VTEPs that have advertised the
