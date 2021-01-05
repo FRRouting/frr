@@ -1186,12 +1186,14 @@ def add_interfaces_to_vlan(tgen, input_dict):
                             interface, vlan_intf, vlan
                         )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
                         # Bringing interface up
                         cmd = "ip link set {} up".format(vlan_intf)
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
                         # Assigning IP address
                         ifaddr = ipaddress.ip_interface(
@@ -1204,7 +1206,8 @@ def add_interfaces_to_vlan(tgen, input_dict):
                             ifaddr.version, vlan_intf, ifaddr
                         )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
 
 def tcpdump_capture_start(
