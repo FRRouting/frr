@@ -37,6 +37,7 @@ import traceback
 import socket
 import ipaddress
 import platform
+
 if sys.version_info[0] > 2:
     import configparser
 else:
@@ -150,8 +151,8 @@ class InvalidCLIError(Exception):
 
 def run_frr_cmd(rnode, cmd, isjson=False):
     """
-    Execute frr show commands in priviledged mode
-    * `rnode`: router node on which commands needs to executed
+    Execute frr show commands in privileged mode
+    * `rnode`: router node on which command needs to be executed
     * `cmd`: Command to be executed on frr
     * `isjson`: If command is to get json data or not
     :return str:
@@ -183,11 +184,11 @@ def apply_raw_config(tgen, input_dict):
 
     """
     API to configure raw configuration on device. This can be used for any cli
-    which does has not been implemented in JSON.
+    which has not been implemented in JSON.
 
     Parameters
     ----------
-    * `tgen`: tgen onject
+    * `tgen`: tgen object
     * `input_dict`: configuration that needs to be applied
 
     Usage
@@ -231,8 +232,8 @@ def create_common_configuration(
     frr_json.conf and load to router
     Parameters
     ----------
-    * `tgen`: tgen onject
-    * `data`: Congiguration data saved in a list.
+    * `tgen`: tgen object
+    * `data`: Configuration data saved in a list.
     * `router` : router id to be configured.
     * `config_type` : Syntactic information while writing configuration. Should
                       be one of the value as mentioned in the config_map below.
@@ -291,8 +292,8 @@ def create_common_configuration(
 
 def kill_router_daemons(tgen, router, daemons):
     """
-    Router's current config would be saved to /etc/frr/ for each deamon
-    and deamon would be killed forcefully using SIGKILL.
+    Router's current config would be saved to /etc/frr/ for each daemon
+    and daemon would be killed forcefully using SIGKILL.
     * `tgen`  : topogen object
     * `router`: Device under test
     * `daemons`: list of daemons to be killed
@@ -592,13 +593,13 @@ def load_config_to_router(tgen, routerName, save_bkup=False):
 
 def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
     """
-    API to get the link local ipv6 address of a perticular interface using
+    API to get the link local ipv6 address of a particular interface using
     FRR command 'show interface'
 
-    * `tgen`: tgen onject
-    * `router` : router for which hightest interface should be
+    * `tgen`: tgen object
+    * `router` : router for which highest interface should be
                  calculated
-    * `intf` : interface for which linklocal address needs to be taken
+    * `intf` : interface for which link-local address needs to be taken
     * `vrf` : VRF name
 
     Usage
@@ -687,7 +688,7 @@ def generate_support_bundle():
 def start_topology(tgen, daemon=None):
     """
     Starting topology, create tmp files which are loaded to routers
-    to start deamons and then start routers
+    to start daemons and then start routers
     * `tgen`  : topogen object
     """
 
@@ -695,7 +696,7 @@ def start_topology(tgen, daemon=None):
     # Starting topology
     tgen.start_topology()
 
-    # Starting deamons
+    # Starting daemons
 
     router_list = tgen.routers()
     ROUTER_LIST = sorted(
@@ -734,16 +735,16 @@ def start_topology(tgen, daemon=None):
         except IOError as err:
             logger.error("I/O error({0}): {1}".format(err.errno, err.strerror))
 
-        # Loading empty zebra.conf file to router, to start the zebra deamon
+        # Loading empty zebra.conf file to router, to start the zebra daemon
         router.load_config(
             TopoRouter.RD_ZEBRA, "{}/{}/zebra.conf".format(TMPDIR, rname)
         )
 
-        # Loading empty bgpd.conf file to router, to start the bgp deamon
+        # Loading empty bgpd.conf file to router, to start the bgp daemon
         router.load_config(TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(TMPDIR, rname))
 
         if daemon and "ospfd" in daemon:
-            # Loading empty ospf.conf file to router, to start the bgp deamon
+            # Loading empty ospf.conf file to router, to start the bgp daemon
             router.load_config(
                 TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(TMPDIR, rname)
             )
@@ -754,8 +755,8 @@ def start_topology(tgen, daemon=None):
 
 def stop_router(tgen, router):
     """
-    Router"s current config would be saved to /tmp/topotest/<suite>/<router> for each deamon
-    and router and its deamons would be stopped.
+    Router"s current config would be saved to /tmp/topotest/<suite>/<router> for each daemon
+    and router and its daemons would be stopped.
 
     * `tgen`  : topogen object
     * `router`: Device under test
@@ -773,8 +774,8 @@ def stop_router(tgen, router):
 
 def start_router(tgen, router):
     """
-    Router will started and config would be loaded from /tmp/topotest/<suite>/<router> for each
-    deamon
+    Router will be started and config would be loaded from /tmp/topotest/<suite>/<router> for each
+    daemon
 
     * `tgen`  : topogen object
     * `router`: Device under test
@@ -785,8 +786,8 @@ def start_router(tgen, router):
     try:
         router_list = tgen.routers()
 
-        # Router and its deamons would be started and config would
-        #  be loaded to router for each deamon from /etc/frr
+        # Router and its daemons would be started and config would
+        #  be loaded to router for each daemon from /etc/frr
         router_list[router].start()
 
         # Waiting for router to come up
@@ -1186,7 +1187,7 @@ def find_interface_with_greater_ip(topo, router, loopback=True, interface=True):
     it will return highest IP from loopback IPs otherwise from physical
     interface IPs.
     * `topo`  : json file data
-    * `router` : router for which hightest interface should be calculated
+    * `router` : router for which highest interface should be calculated
     """
 
     link_data = topo["routers"][router]["links"]
@@ -2227,9 +2228,9 @@ def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
     -----
     dut = "r3"
     intf = "r3-r1-eth0"
-    # Shut down ineterface
+    # Shut down interface
     shutdown_bringup_interface(tgen, dut, intf, False)
-    # Bring up ineterface
+    # Bring up interface
     shutdown_bringup_interface(tgen, dut, intf, True)
     Returns
     -------
@@ -2248,7 +2249,7 @@ def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
 def stop_router(tgen, router):
     """
     Router's current config would be saved to /tmp/topotest/<suite>/<router>
-    for each deamon and router and its deamons would be stopped.
+    for each daemon and router and its daemons would be stopped.
 
     * `tgen`  : topogen object
     * `router`: Device under test
@@ -2267,7 +2268,7 @@ def stop_router(tgen, router):
 def start_router(tgen, router):
     """
     Router will be started and config would be loaded from
-    /tmp/topotest/<suite>/<router> for each deamon
+    /tmp/topotest/<suite>/<router> for each daemon
 
     * `tgen`  : topogen object
     * `router`: Device under test
@@ -2278,8 +2279,8 @@ def start_router(tgen, router):
     try:
         router_list = tgen.routers()
 
-        # Router and its deamons would be started and config would
-        #  be loaded to router for each deamon from /etc/frr
+        # Router and its daemons would be started and config would
+        #  be loaded to router for each daemon from /etc/frr
         router_list[router].start()
 
     except Exception as e:
@@ -2300,7 +2301,7 @@ def addKernelRoute(
     -----------
     * `tgen`  : Topogen object
     * `router`: router for which kernal routes needs to be added
-    * `intf`: interface name, for which kernal routes needs to be added
+    * `intf`: interface name, for which kernel routes needs to be added
     * `bindToAddress`: bind to <host>, an interface or multicast
                        address
 
@@ -2363,7 +2364,7 @@ def configure_vxlan(tgen, input_dict):
     """
     Add and configure vxlan
 
-    * `tgen`: tgen onject
+    * `tgen`: tgen object
     * `input_dict` : data for vxlan config
 
     Usage:
@@ -2464,7 +2465,7 @@ def configure_brctl(tgen, topo, input_dict):
     """
     Add and configure brctl
 
-    * `tgen`: tgen onject
+    * `tgen`: tgen object
     * `input_dict` : data for brctl config
 
     Usage:
@@ -2558,7 +2559,7 @@ def configure_interface_mac(tgen, input_dict):
     """
     Add and configure brctl
 
-    * `tgen`: tgen onject
+    * `tgen`: tgen object
     * `input_dict` : data for mac config
 
     input_mac= {
