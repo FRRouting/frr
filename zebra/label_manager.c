@@ -91,11 +91,8 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 				   vrf_id_t vrf_id);
 static int label_manager_release_label_chunk(struct zserv *client,
 					     uint32_t start, uint32_t end);
-static int release_label_chunk(uint8_t proto, unsigned short instance,
-			       uint32_t session_id, uint32_t start,
-			       uint32_t end);
 
-static void delete_label_chunk(void *val)
+void delete_label_chunk(void *val)
 {
 	XFREE(MTYPE_LM_CHUNK, val);
 }
@@ -178,11 +175,9 @@ void label_manager_init(void)
 }
 
 /* alloc and fill a label chunk */
-static struct label_manager_chunk *create_label_chunk(uint8_t proto,
-						      unsigned short instance,
-						      uint32_t session_id,
-						      uint8_t keep, uint32_t start,
-						      uint32_t end)
+struct label_manager_chunk *
+create_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
+		   uint8_t keep, uint32_t start, uint32_t end)
 {
 	/* alloc chunk, fill it and return it */
 	struct label_manager_chunk *lmc =
@@ -305,11 +300,9 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
  * @param base Desired starting label of the chunk; if MPLS_LABEL_BASE_ANY it does not apply
  * @return Pointer to the assigned label chunk, or NULL if the request could not be satisfied
  */
-static struct label_manager_chunk *assign_label_chunk(uint8_t proto,
-						      unsigned short instance,
-						      uint32_t session_id,
-						      uint8_t keep, uint32_t size,
-						      uint32_t base)
+struct label_manager_chunk *
+assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
+		   uint8_t keep, uint32_t size, uint32_t base)
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
@@ -398,7 +391,7 @@ static int label_manager_release_label_chunk(struct zserv *client,
  * @param end Last label of the chunk
  * @return 0 on success, -1 otherwise
  */
-static int release_label_chunk(uint8_t proto, unsigned short instance,
+int release_label_chunk(uint8_t proto, unsigned short instance,
 			uint32_t session_id, uint32_t start, uint32_t end)
 {
 	struct listnode *node;
