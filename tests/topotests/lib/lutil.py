@@ -23,6 +23,7 @@ import time
 import datetime
 import json
 import math
+import time
 from lib.topolog import logger
 from mininet.net import Mininet
 
@@ -194,8 +195,9 @@ Total %-4d                                                           %-4d %d\n\
         if op != "wait":
             self.l_line += 1
         self.log(
-            "(#%d) %s:%s COMMAND:%s:%s:%s:%s:%s:"
+            "%s (#%d) %s:%s COMMAND:%s:%s:%s:%s:%s:"
             % (
+                time.asctime(),
                 self.l_total + 1,
                 self.l_filename,
                 self.l_line,
