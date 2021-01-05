@@ -2409,7 +2409,6 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	struct prefix p;
 	enum zapi_route_notify_owner note;
 	uint32_t table_id;
-	char buf[PREFIX_STRLEN];
 	afi_t afi;
 	safi_t safi;
 	struct bgp_dest *dest;
@@ -2431,9 +2430,6 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		return -1;
 	}
 
-	if (BGP_DEBUG(zebra, ZEBRA))
-		prefix2str(&p, buf, sizeof(buf));
-
 	/* Find the bgp route node */
 	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p,
 				   &bgp->vrf_prd);
@@ -2452,7 +2448,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 				   BGP_NODE_FIB_INSTALL_PENDING);
 			SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("route %s : INSTALLED", buf);
+				zlog_debug("route %pRN : INSTALLED", dest);
 			/* Find the best route */
 			for (pi = dest->info; pi; pi = pi->next) {
 				/* Process aggregate route */
@@ -2468,8 +2464,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 						     dest, new_select);
 			else {
 				flog_err(EC_BGP_INVALID_ROUTE,
-					 "selected route %s not found",
-					 buf);
+					 "selected route %pRN not found",
+					 dest);
 				return -1;
 			}
 		}
@@ -2480,16 +2476,24 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		 * route add later
 		 */
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("route %pRN: Removed from Fib", dest);
 		break;
 	case ZAPI_ROUTE_FAIL_INSTALL:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("route: %pRN Failed to Install into Fib",
+				   dest);
 		/* Error will be logged by zebra module */
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("route: %pRN removed due to better admin won",
+				   dest);
 		/* No action required */
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
-		zlog_warn("%s: Route %s failure to remove",
-			  __func__, buf);
+		zlog_warn("%s: Route %pRN failure to remove",
+			  __func__, dest);
 		break;
 	}
 	return 0;
