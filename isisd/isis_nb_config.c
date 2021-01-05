@@ -51,6 +51,7 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_redist.h"
 #include "isisd/isis_ldp_sync.h"
+#include "isisd/isis_dr.h"
 
 extern struct zclient *zclient;
 
@@ -213,6 +214,9 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	uint8_t buff[255];
 	struct isis_area *area;
 	const char *net_title;
+	struct listnode *cnode;
+	struct isis_circuit *circuit;
+	int lvl;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -236,6 +240,11 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	 * Last area address - reset the SystemID for this router
 	 */
 	if (listcount(area->area_addrs) == 0) {
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+			for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
+				if (circuit->u.bc.is_dr[lvl - 1])
+					isis_dr_resign(circuit, lvl);
+			}
 		memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
 		area->isis->sysid_set = 0;
 		if (IS_DEBUG_EVENTS)
