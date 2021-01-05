@@ -3304,6 +3304,8 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	bool is_ext;
 	bool is_router;
 	bool local_inactive;
+	uint32_t ext_flags = 0;
+	bool dp_static = false;
 
 	ndm = NLMSG_DATA(h);
 
@@ -3395,9 +3397,15 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		is_ext = !!(ndm->ndm_flags & NTF_EXT_LEARNED);
 		is_router = !!(ndm->ndm_flags & NTF_ROUTER);
 
+		if (tb[NDA_EXT_FLAGS]) {
+			ext_flags = *(uint32_t *)RTA_DATA(tb[NDA_EXT_FLAGS]);
+			if (ext_flags & NTF_E_MH_PEER_SYNC)
+				dp_static = true;
+		}
+
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"Rx %s family %s IF %s(%u) vrf %s(%u) IP %s MAC %s state 0x%x flags 0x%x",
+				"Rx %s family %s IF %s(%u) vrf %s(%u) IP %s MAC %s state 0x%x flags 0x%x ext_flags 0x%x",
 				nl_msg_type_to_str(h->nlmsg_type),
 				nl_family_to_str(ndm->ndm_family), ifp->name,
 				ndm->ndm_ifindex, VRF_LOGNAME(vrf), ifp->vrf_id,
@@ -3405,7 +3413,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 				mac_present
 					? prefix_mac2str(&mac, buf, sizeof(buf))
 					: "",
-				ndm->ndm_state, ndm->ndm_flags);
+				ndm->ndm_state, ndm->ndm_flags, ext_flags);
 
 		/* If the neighbor state is valid for use, process as an add or
 		 * update
@@ -3414,15 +3422,19 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		 * in re-adding the neighbor if it is a valid "remote" neighbor.
 		 */
 		if (ndm->ndm_state & NUD_VALID) {
-			local_inactive = !(ndm->ndm_state & NUD_LOCAL_ACTIVE);
+			if (zebra_evpn_mh_do_adv_reachable_neigh_only())
+				local_inactive =
+					!(ndm->ndm_state & NUD_LOCAL_ACTIVE);
+			else
+				/* If EVPN-MH is not enabled we treat STALE
+				 * neighbors as locally-active and advertise
+				 * them
+				 */
+				local_inactive = false;
 
-			/* XXX - populate dp-static based on the sync flags
-			 * in the kernel
-			 */
 			return zebra_vxlan_handle_kernel_neigh_update(
-				ifp, link_if, &ip, &mac, ndm->ndm_state,
-				is_ext, is_router, local_inactive,
-				false /* dp_static */);
+				ifp, link_if, &ip, &mac, ndm->ndm_state, is_ext,
+				is_router, local_inactive, dp_static);
 		}
 
 		return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
@@ -3693,12 +3705,12 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 		char buf2[ETHER_ADDR_STRLEN];
 
 		zlog_debug(
-			"Tx %s family %s IF %s(%u) Neigh %s MAC %s flags 0x%x state 0x%x",
+			"Tx %s family %s IF %s(%u) Neigh %s MAC %s flags 0x%x state 0x%x %sext_flags 0x%x",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
 			ipaddr2str(ip, buf, sizeof(buf)),
 			mac ? prefix_mac2str(mac, buf2, sizeof(buf2)) : "null",
-			flags, state);
+			flags, state, ext ? "ext " : "", ext_flags);
 	}
 
 	return netlink_neigh_update_msg_encode(

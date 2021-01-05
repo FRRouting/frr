@@ -417,14 +417,11 @@ void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj, vni_t vni, int detail)
 			vty_out(vty, "Type: L local, R remote\n");
 			vty_out(vty, "%-8s %-30s %-4s\n", "VNI", "ESI", "Type");
 		}
+		zebra_evpn_es_evi_show_one_evpn(zevpn, vty, json_array, detail);
 	} else {
 		if (!uj)
 			vty_out(vty, "VNI %d doesn't exist\n", vni);
-
-		return;
 	}
-
-	zebra_evpn_es_evi_show_one_evpn(zevpn, vty, json_array, detail);
 
 	if (uj) {
 		vty_out(vty, "%s\n",
@@ -1867,6 +1864,8 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 	uint16_t vid;
 	struct zebra_evpn_access_bd *acc_bd;
 
+	if (!bf_is_inited(zif->vlan_bitmap))
+		return;
 
 	bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX) {
 		acc_bd = zebra_evpn_acc_vl_find(vid);
@@ -1944,6 +1943,23 @@ static void zebra_evpn_mh_dup_addr_detect_off(void)
 	}
 }
 
+/* On config of first local-ES turn off advertisement of STALE/DELAY/PROBE
+ * neighbors
+ */
+static void zebra_evpn_mh_advertise_reach_neigh_only(void)
+{
+	if (zmh_info->flags & ZEBRA_EVPN_MH_ADV_REACHABLE_NEIGH_ONLY)
+		return;
+
+	zmh_info->flags |= ZEBRA_EVPN_MH_ADV_REACHABLE_NEIGH_ONLY;
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("evpn-mh: only REACHABLE neigh advertised");
+
+	/* XXX - if STALE/DELAY/PROBE neighs were previously advertised we
+	 * need to withdraw them
+	 */
+}
+
 static int zebra_evpn_es_df_delay_exp_cb(struct thread *t)
 {
 	struct zebra_evpn_es *es;
@@ -1969,6 +1985,7 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 			   es->nhg_id, zif->ifp->name);
 
 	zebra_evpn_mh_dup_addr_detect_off();
+	zebra_evpn_mh_advertise_reach_neigh_only();
 
 	es->flags |= ZEBRA_EVPNES_LOCAL;
 	listnode_init(&es->local_es_listnode, es);

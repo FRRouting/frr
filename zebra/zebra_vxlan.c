@@ -3678,13 +3678,13 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
 
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug(
-			"Add/Update neighbor %s MAC %s intf %s(%u) state 0x%x %s%s%s-> L2-VNI %u",
+			"Add/Update neighbor %s MAC %s intf %s(%u) state 0x%x %s%s%s%s-> L2-VNI %u",
 			ipaddr2str(ip, buf2, sizeof(buf2)),
 			prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
 			ifp->ifindex, state, is_ext ? "ext-learned " : "",
 			is_router ? "router " : "",
 			local_inactive ? "local_inactive " : "",
-			zevpn->vni);
+			dp_static ? "peer_sync " : "", zevpn->vni);
 
 	/* Is this about a local neighbor or a remote one? */
 	if (!is_ext)
