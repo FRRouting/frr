@@ -2120,7 +2120,6 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	struct interface *ifp;
 	route_map_result_t ret = RMAP_PERMITMATCH;
 	int family;
-	char buf[SRCDEST2STR_BUFFER];
 	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf;
 
@@ -2230,10 +2229,9 @@ static unsigned nexthop_active_check(struct route_node *rn,
 				    zvrf, re->tag);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
-			srcdest_rnode2str(rn, buf, sizeof(buf));
 			zlog_debug(
-				"%u:%s: Filtering out with NH out %s due to route map",
-				re->vrf_id, buf,
+				"%u:%pRN: Filtering out with NH out %s due to route map",
+				re->vrf_id, rn,
 				ifindex2ifname(nexthop->ifindex,
 					       nexthop->vrf_id));
 		}
