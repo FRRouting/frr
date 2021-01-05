@@ -340,8 +340,12 @@ struct te_link_subtlv {
 
 /* Following structure are internal use only. */
 struct ospf_mpls_te {
-	/* Status of MPLS-TE: enable or disbale */
+	/* Status of MPLS-TE: enable or disable */
 	bool enabled;
+
+	/* Traffic Engineering Database i.e. Link State */
+	struct ls_ted *ted;
+	bool export;
 
 	/* RFC5392 */
 	enum inter_as_mode inter_as;
@@ -417,5 +421,16 @@ extern void ospf_mpls_te_lsa_schedule(struct mpls_te_link *, enum lsa_opcode);
 extern void set_linkparams_llri(struct mpls_te_link *, uint32_t, uint32_t);
 extern void set_linkparams_lrrid(struct mpls_te_link *, struct in_addr,
 				 struct in_addr);
+
+struct zapi_opaque_reg_info;
+/**
+ * Call when a client send a Link State Sync message. In turn, OSPF will send
+ * the contain of the Link State Data base.
+ *
+ * @param info    ZAPI Opaque message information
+ *
+ * @return	  0 on success, -1 otherwise
+ */
+extern int ospf_te_sync_ted(struct zapi_opaque_reg_info dst);
 
 #endif /* _ZEBRA_OSPF_MPLS_TE_H */
