@@ -40,6 +40,7 @@
 #include "nexthop_group.h"
 #include "lib_errors.h"
 #include "srte.h"
+#include "printfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
@@ -4120,4 +4121,29 @@ uint32_t zclient_get_nhg_start(uint32_t proto)
 	assert(proto < ZEBRA_ROUTE_MAX);
 
 	return ZEBRA_NHG_PROTO_SPACING * proto;
+}
+
+char *zclient_dump_route_flags(uint32_t flags, char *buf, size_t len)
+{
+	if (flags == 0) {
+		snprintfrr(buf, len, "None ");
+		return buf;
+	}
+
+	snprintfrr(
+		buf, len, "%s%s%s%s%s%s%s%s%s%s",
+		CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION) ? "Recursion "
+							      : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) ? "Self " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_IBGP) ? "iBGP " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_SELECTED) ? "Selected " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_FIB_OVERRIDE) ? "Override " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE) ? "Evpn " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_RR_USE_DISTANCE) ? "RR Distance "
+							      : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_TRAPPED) ? "Trapped " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOADED) ? "Offloaded " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOAD_FAILED) ? "Offload Failed "
+							     : "");
+	return buf;
 }

@@ -479,6 +479,7 @@ struct zapi_route {
 	uint8_t type;
 	unsigned short instance;
 
+	/* If you add flags, update zclient_dump_route_flags */
 	uint32_t flags;
 /*
  * Cause Zebra to consider this routes nexthops recursively
@@ -579,6 +580,8 @@ struct zapi_route {
 		uint8_t data[ZAPI_MESSAGE_OPAQUE_LENGTH];
 	} opaque;
 };
+
+extern char *zclient_dump_route_flags(uint32_t flags, char *buf, size_t len);
 
 struct zapi_labels {
 	uint8_t message;
