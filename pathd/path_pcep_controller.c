@@ -26,6 +26,7 @@
 #include "northbound.h"
 #include "frr_pthread.h"
 #include "jhash.h"
+#include "network.h"
 
 #include "pathd/pathd.h"
 #include "pathd/path_errors.h"
@@ -1043,7 +1044,7 @@ void remove_pcc_state(struct ctrl_state *ctrl_state,
 uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t retry_count)
 {
 	uint32_t a = min(max, base * (1 << retry_count));
-	uint64_t r = rand(), m = RAND_MAX;
+	uint64_t r = frr_weak_random(), m = RAND_MAX;
 	uint32_t b = (a / 2) + (r * (a / 2)) / m;
 	return b;
 }
