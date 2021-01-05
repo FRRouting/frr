@@ -510,16 +510,18 @@ struct bgp {
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
-#define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST		(1 << 1)
-#define BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST		(1 << 2)
-#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4		(1 << 3)
-#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6		(1 << 4)
+#define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST (1 << 1)
+#define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP (1 << 2)
+#define BGP_L2VPN_EVPN_ADV_IPV6_UNICAST (1 << 3)
+#define BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP (1 << 4)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4 (1 << 5)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6 (1 << 6)
 /* import/export between address families */
-#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT		(1 << 5)
-#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT		(1 << 6)
+#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT (1 << 7)
+#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT (1 << 8)
 /* vrf-route leaking flags */
-#define BGP_CONFIG_VRF_TO_VRF_IMPORT			(1 << 7)
-#define BGP_CONFIG_VRF_TO_VRF_EXPORT			(1 << 8)
+#define BGP_CONFIG_VRF_TO_VRF_IMPORT (1 << 9)
+#define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
