@@ -1668,14 +1668,6 @@ void zebra_routemap_finish(void)
 	route_map_finish();
 }
 
-void zebra_route_map_write_delay_timer(struct vty *vty)
-{
-	if (vty && (zebra_rmap_update_timer != ZEBRA_RMAP_DEFAULT_UPDATE_TIMER))
-		vty_out(vty, "zebra route-map delay-timer %d\n",
-			zebra_rmap_update_timer);
-	return;
-}
-
 route_map_result_t
 zebra_route_map_check(int family, int rib_type, uint8_t instance,
 		      const struct prefix *p, struct nexthop *nexthop,
