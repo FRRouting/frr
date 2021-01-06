@@ -1862,7 +1862,8 @@ void zebra_routemap_config_write_protocol(struct vty *vty,
 		vty_out(vty, "%sipv6 nht %s route-map %s\n", space, "any",
 			NHT_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX));
 
-	if (zebra_rmap_update_timer != ZEBRA_RMAP_DEFAULT_UPDATE_TIMER)
+	if (zvrf_id(zvrf) == VRF_DEFAULT
+	    && zebra_rmap_update_timer != ZEBRA_RMAP_DEFAULT_UPDATE_TIMER)
 		vty_out(vty, "zebra route-map delay-timer %d\n",
 			zebra_rmap_update_timer);
 }
