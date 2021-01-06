@@ -172,9 +172,6 @@ def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True
                     if del_action:
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
-        result = create_common_configuration(
-            tgen, router, config_data, "ospf", build, load_config
-        )
 
         # summary information
         summary_data = ospf_data.setdefault("summary-address", {})
