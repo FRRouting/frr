@@ -744,7 +744,7 @@ void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 }
 
 static char *zebra_evpn_print_mac_flags(zebra_mac_t *mac, char *flags_buf,
-					uint32_t flags_buf_sz)
+					size_t flags_buf_sz)
 {
 	snprintf(flags_buf, flags_buf_sz, "%s%s%s%s",
 			mac->sync_neigh_cnt ?
