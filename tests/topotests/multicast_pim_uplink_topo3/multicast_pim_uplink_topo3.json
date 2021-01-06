@@ -1,0 +1,295 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {"ipv4": "10.0.0.0", "v4mask": 24, "link_local": "disable"},
+    "lo_prefix": {"ipv4": "1.0.", "v4mask": 32},
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r2-link1": {"ipv4": "auto", "pim": "enable"},
+                "r2-link2": {"ipv4": "auto", "pim": "enable"},
+                "r2-link3": {"ipv4": "auto", "pim": "enable"},
+                "r2-link4": {"ipv4": "auto", "pim": "enable"},
+                "r3-link1": {"ipv4": "auto", "pim": "enable"},
+                "r3-link2": {"ipv4": "auto", "pim": "enable"},
+                "r3-link3": {"ipv4": "auto", "pim": "enable"},
+                "r3-link4": {"ipv4": "auto", "pim": "enable"},
+                "r4": {"ipv4": "auto", "pim": "enable"},
+                "r5": {"ipv4": "auto", "pim": "enable"},
+                "i1": {"ipv4": "auto", "pim": "enable"},
+                "i2": {"ipv4": "auto", "pim": "enable"},
+                "i9": {"ipv4": "auto", "pim": "enable"}
+            },
+            "bgp": {
+                "local_as": "100",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                {"redist_type": "static"},
+                                {"redist_type": "connected"}
+                            ],
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {},
+                                        "r1-link2": {},
+                                        "r1-link3": {},
+                                        "r1-link4": {}
+                                    }
+                                },
+                                "r3": {
+                                    "dest_link": {
+                                        "r1-link1": {},
+                                        "r1-link2": {},
+                                        "r1-link3": {},
+                                        "r1-link4": {}
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r1": {}
+                                    }
+                                },
+                                "r5": {
+                                    "dest_link": {
+                                        "r1": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "r2": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r1-link1": {"ipv4": "auto", "pim": "enable"},
+                "r1-link2": {"ipv4": "auto", "pim": "enable"},
+                "r1-link3": {"ipv4": "auto", "pim": "enable"},
+                "r1-link4": {"ipv4": "auto", "pim": "enable"},
+                "r4-link1": {"ipv4": "auto", "pim": "enable"},
+                "r4-link2": {"ipv4": "auto", "pim": "enable"},
+                "r4-link3": {"ipv4": "auto", "pim": "enable"},
+                "r4-link4": {"ipv4": "auto", "pim": "enable"},
+                "i3": {"ipv4": "auto", "pim": "enable"},
+                "i4": {"ipv4": "auto", "pim": "enable"}
+            },
+            "bgp": {
+                "local_as": "200",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                {"redist_type": "static"},
+                                {"redist_type": "connected"}
+                            ],
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r2-link1": {},
+                                        "r2-link2": {},
+                                        "r2-link3": {},
+                                        "r2-link4": {}
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r2-link1": {},
+                                        "r2-link2": {},
+                                        "r2-link3": {},
+                                        "r2-link4": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "r3": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r1-link1": {"ipv4": "auto", "pim": "enable"},
+                "r1-link2": {"ipv4": "auto", "pim": "enable"},
+                "r1-link3": {"ipv4": "auto", "pim": "enable"},
+                "r1-link4": {"ipv4": "auto", "pim": "enable"},
+                "r4-link1": {"ipv4": "auto", "pim": "enable"},
+                "r4-link2": {"ipv4": "auto", "pim": "enable"},
+                "r4-link3": {"ipv4": "auto", "pim": "enable"},
+                "r4-link4": {"ipv4": "auto", "pim": "enable"},
+                "i5": {"ipv4": "auto", "pim": "enable"}
+            },
+            "bgp": {
+                "local_as": "300",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                {"redist_type": "static"},
+                                {"redist_type": "connected"}
+                            ],
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3-link1": {},
+                                        "r3-link2": {},
+                                        "r3-link3": {},
+                                        "r3-link4": {}
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3-link1": {},
+                                        "r3-link2": {},
+                                        "r3-link3": {},
+                                        "r3-link4": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "r4": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r2-link1": {"ipv4": "auto", "pim": "enable"},
+                "r2-link2": {"ipv4": "auto", "pim": "enable"},
+                "r2-link3": {"ipv4": "auto", "pim": "enable"},
+                "r2-link4": {"ipv4": "auto", "pim": "enable"},
+                "r3-link1": {"ipv4": "auto", "pim": "enable"},
+                "r3-link2": {"ipv4": "auto", "pim": "enable"},
+                "r3-link3": {"ipv4": "auto", "pim": "enable"},
+                "r3-link4": {"ipv4": "auto", "pim": "enable"},
+                "r1": {"ipv4": "auto", "pim": "enable"},
+                "r5": {"ipv4": "auto", "pim": "enable"},
+                "i6": {"ipv4": "auto", "pim": "enable"},
+                "i7": {"ipv4": "auto", "pim": "enable"}
+            },
+            "bgp": {
+                "local_as": "400",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                {"redist_type": "static"},
+                                {"redist_type": "connected"}
+                            ],
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r4-link1": {},
+                                        "r4-link2": {},
+                                        "r4-link3": {},
+                                        "r4-link4": {}
+                                    }
+                                },
+                                "r3": {
+                                    "dest_link": {
+                                        "r4-link1": {},
+                                        "r4-link2": {},
+                                        "r4-link3": {},
+                                        "r4-link4": {}
+                                    }
+                                },
+                                "r1": {
+                                    "dest_link": {
+                                        "r4": {}
+                                    }
+                                },
+                                "r5": {
+                                    "dest_link": {
+                                        "r4": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "r5": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r1": {"ipv4": "auto", "pim": "enable"},
+                "r4": {"ipv4": "auto", "pim": "enable"},
+                "i8": {"ipv4": "auto", "pim": "enable"}
+            },
+            "bgp": {
+                "local_as": "500",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                {"redist_type": "static"},
+                                {"redist_type": "connected"}
+                            ],
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r5": {}
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r5": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "i1": {
+            "links": {
+                "r1": {"ipv4": "auto"}
+            }
+        },
+        "i2": {
+            "links": {
+                "r1": {"ipv4": "auto"}
+            }
+        },
+        "i3": {
+            "links": {
+                "r2": {"ipv4": "auto"}
+            }
+        },
+        "i4": {
+            "links": {
+                "r2": {"ipv4": "auto"}
+            }
+        },
+        "i5": {
+            "links": {
+                "r3": {"ipv4": "auto"}
+            }
+        },
+        "i6": {
+            "links": {
+                "r4": {"ipv4": "auto"}
+            }
+        },
+        "i7": {
+            "links": {
+                "r4": {"ipv4": "auto"}
+            }
+        },
+        "i8": {
+            "links": {
+                "r5": {"ipv4": "auto"}
+            }
+        },
+        "i9": {
+            "links": {
+                "r1": {"ipv4": "auto"}
+            }
+        }
+
+    }
+}
