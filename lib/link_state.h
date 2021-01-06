@@ -53,20 +53,26 @@ extern "C" {
  * id for OSPF and the ISO System id plus the IS-IS level for IS-IS.
  */
 
+/* external reference */
+struct zapi_opaque_reg_info;
+struct zclient;
+
 /* Link State Common definitions */
 #define MAX_NAME_LENGTH		256
 #define ISO_SYS_ID_LEN		6
 
 /* Type of Node */
 enum ls_node_type {
+	NONE = 0,	/* Unknown */
 	STANDARD,	/* a P or PE node */
 	ABR,		/* an Array Border Node */
 	ASBR,		/* an Autonomous System Border Node */
-	PSEUDO,		/* a Pseudo Node */
+	RMT_ASBR,	/* Remote ASBR */
+	PSEUDO		/* a Pseudo Node */
 };
 
 /* Origin of the Link State information */
-enum ls_origin {NONE = 0, ISIS_L1, ISIS_L2, OSPFv2, DIRECT, STATIC};
+enum ls_origin { UNKNOWN = 0, ISIS_L1, ISIS_L2, OSPFv2, DIRECT, STATIC };
 
 /**
  * Link State Node Identifier as:
@@ -108,19 +114,17 @@ struct ls_node {
 	struct in_addr router_id;	/* IPv4 Router ID */
 	struct in6_addr router6_id;	/* IPv6 Router ID */
 	uint8_t node_flag;		/* IS-IS or OSPF Node flag */
-	enum node_type type;		/* Type of Node */
+	enum ls_node_type type;		/* Type of Node */
 	uint32_t as_number;		/* Local or neighbor AS number */
-	struct {			/* Segment Routing Global Block */
+	struct ls_srgb {		/* Segment Routing Global Block */
 		uint32_t lower_bound;		/* MPLS label lower bound */
 		uint32_t range_size;		/* MPLS label range size */
 		uint8_t flag;			/* IS-IS SRGB flags */
 	} srgb;
-#define LS_NODE_SRGB_SIZE	9
-	struct {			/* Segment Routing Local Block */
+	struct ls_srlb {		/* Segment Routing Local Block */
 		uint32_t lower_bound;		/* MPLS label lower bound */
 		uint32_t range_size;		/* MPLS label range size */
 	} srlb;
-#define LS_NODE_SRLB_SIZE	8
 	uint8_t algo[2];		/* Segment Routing Algorithms */
 	uint8_t msd;			/* Maximum Stack Depth */
 };
@@ -150,17 +154,17 @@ struct ls_node {
 #define LS_ATTR_AVA_BW		0x00100000
 #define LS_ATTR_RSV_BW		0x00200000
 #define LS_ATTR_USE_BW		0x00400000
-#define LS_ATTR_ADJ_SID		0x00800000
-#define LS_ATTR_BCK_ADJ_SID	0x01000000
-#define LS_ATTR_SRLG		0x02000000
+#define LS_ATTR_ADJ_SID		0x01000000
+#define LS_ATTR_BCK_ADJ_SID	0x02000000
+#define LS_ATTR_SRLG		0x10000000
 
 /* Link State Attributes */
 struct ls_attributes {
 	uint32_t flags;			/* Flag for parameters validity */
 	struct ls_node_id adv;		/* Adv. Router of this Link State */
 	char name[MAX_NAME_LENGTH];	/* Name of the Edge. Could be null */
-	struct {			/* Standard TE metrics */
-		uint32_t metric;		/* IGP standard metric */
+	uint32_t metric;		/* IGP standard metric */
+	struct ls_standard {		/* Standard TE metrics */
 		uint32_t te_metric;		/* Traffic Engineering metric */
 		uint32_t admin_group;		/* Administrative Group */
 		struct in_addr local;		/* Local IPv4 address */
@@ -176,8 +180,7 @@ struct ls_attributes {
 		struct in_addr remote_addr;	/* Remote IPv4 address */
 		struct in6_addr remote_addr6;	/* Remote IPv6 address */
 	} standard;
-#define LS_ATTR_STANDARD_SIZE	124
-	struct {		/* Extended TE Metrics */
+	struct ls_extended {		/* Extended TE Metrics */
 		uint32_t delay;		/* Unidirectional average delay */
 		uint32_t min_delay;	/* Unidirectional minimum delay */
 		uint32_t max_delay;	/* Unidirectional maximum delay */
@@ -187,8 +190,7 @@ struct ls_attributes {
 		float rsv_bw;		/* Reserved Bandwidth */
 		float used_bw;		/* Utilized Bandwidth */
 	} extended;
-#define LS_ATTR_EXTENDED_SIZE	32
-	struct {		/* (LAN)-Adjacency SID for OSPF */
+	struct ls_adjacency {		/* (LAN)-Adjacency SID for OSPF */
 		uint32_t sid;		/* SID as MPLS label or index */
 		uint8_t flags;		/* Flags */
 		uint8_t weight;		/* Administrative weight */
@@ -197,7 +199,6 @@ struct ls_attributes {
 			uint8_t sysid[ISO_SYS_ID_LEN]; /* or Sys-ID for ISIS */
 		} neighbor;
 	} adj_sid[2];		/* Primary & Backup (LAN)-Adj. SID */
-#define LS_ATTR_ADJ_SID_SIZE	120
 	uint32_t *srlgs;	/* List of Shared Risk Link Group */
 	uint8_t srlg_len;	/* number of SRLG in the list */
 };
@@ -219,7 +220,7 @@ struct ls_prefix {
 	uint32_t route_tag;		/* IGP Route Tag */
 	uint64_t extended_tag;		/* IGP Extended Route Tag */
 	uint32_t metric;		/* Route metric for this prefix */
-	struct {
+	struct ls_sid {
 		uint32_t sid;		/* Segment Routing ID */
 		uint8_t sid_flag;	/* Segment Routing Flags */
 		uint8_t algo;		/* Algorithm for Segment Routing */
@@ -273,9 +274,16 @@ extern struct ls_attributes *ls_attributes_new(struct ls_node_id adv,
 					       uint32_t local_id);
 
 /**
+ * Remove SRLGs from Link State Attributes if defined.
+ *
+ * @param attr	Pointer to a valid Link State Attribute structure
+ */
+extern void ls_attributes_srlg_del(struct ls_attributes *attr);
+
+/**
  * Remove Link State Attributes. Data structure is freed.
  *
- * @param attr		 Pointer to a valid Link State Attribute structure
+ * @param attr	Pointer to a valid Link State Attribute structure
  */
 extern void ls_attributes_del(struct ls_attributes *attr);
 
@@ -290,6 +298,34 @@ extern void ls_attributes_del(struct ls_attributes *attr);
  */
 extern int ls_attributes_same(struct ls_attributes *a1,
 			      struct ls_attributes *a2);
+
+/**
+ * Create a new Link State Prefix. Structure is dynamically allocated.
+ *
+ * @param adv	Mandatory Link State Node ID i.e. advertise router ID
+ * @param p	Mandatory Prefix
+ *
+ * @return	New Link State Prefix
+ */
+extern struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix p);
+
+/**
+ * Remove Link State Prefix. Data Structure is freed.
+ *
+ * @param pref	Pointer to a valid Link State Attribute Prefix.
+ */
+extern void ls_prefix_del(struct ls_prefix *pref);
+
+/**
+ * Check if two Link State Prefix are equal. Note that this routine has the
+ * same return value sense as '==' (which is different from a comparison).
+ *
+ * @param p1	First Link State Prefix to be compare
+ * @param p2	Second Link State Prefix to be compare
+ *
+ * @return	1 if equal, 0 otherwise
+ */
+extern int ls_prefix_same(struct ls_prefix *p1, struct ls_prefix *p2);
 
 /**
  * In addition a Graph model is defined as an overlay on top of link state
@@ -323,9 +359,14 @@ extern int ls_attributes_same(struct ls_attributes *a1,
  *
  */
 
+enum ls_status { UNSET = 0, NEW, UPDATE, DELETE, SYNC, ORPHAN };
+enum ls_type { GENERIC = 0, VERTEX, EDGE, SUBNET };
+
 /* Link State Vertex structure */
 PREDECL_RBTREE_UNIQ(vertices);
 struct ls_vertex {
+	enum ls_type type;		/* Link State Type */
+	enum ls_status status;		/* Status of the Vertex in the TED */
 	struct vertices_item entry;	/* Entry in RB Tree */
 	uint64_t key;			/* Unique Key identifier */
 	struct ls_node *node;		/* Link State Node */
@@ -337,6 +378,8 @@ struct ls_vertex {
 /* Link State Edge structure */
 PREDECL_RBTREE_UNIQ(edges);
 struct ls_edge {
+	enum ls_type type;		/* Link State Type */
+	enum ls_status status;		/* Status of the Edge in the TED */
 	struct edges_item entry;	/* Entry in RB tree */
 	uint64_t key;			/* Unique Key identifier */
 	struct ls_attributes *attributes;	/* Link State attributes */
@@ -347,10 +390,12 @@ struct ls_edge {
 /* Link State Subnet structure */
 PREDECL_RBTREE_UNIQ(subnets);
 struct ls_subnet {
+	enum ls_type type;		/* Link State Type */
+	enum ls_status status;		/* Status of the Subnet in the TED */
 	struct subnets_item entry;	/* Entry in RB tree */
 	struct prefix key;		/* Unique Key identifier */
-	struct ls_vertex *vertex;	/* Back pointer to the Vertex owner */
 	struct ls_prefix *ls_pref;	/* Link State Prefix */
+	struct ls_vertex *vertex;	/* Back pointer to the Vertex owner */
 };
 
 /* Declaration of Vertices, Edges and Prefixes RB Trees */
@@ -386,25 +431,12 @@ struct ls_ted {
 	struct subnets_head subnets;	/* List of Subnets */
 };
 
-/**
- * Create a new Link State Vertex structure and initialize is with the Link
- * State Node parameter.
- *
- * @param node	Link State Node
- *
- * @return	New Vertex
- */
-extern struct ls_vertex *ls_vertex_new(struct ls_node *node);
-
-/**
- * Delete Link State Vertex. This function clean internal Vertex lists (incoming
- * and outgoing Link State Edge and Link State Subnet). Note that referenced
- * objects of the different lists (Edges & SubNet) are not removed as they could
- * be connected to other Vertices.
- *
- * @param vertex	Link State Vertex to be removed
- */
-extern void ls_vertex_del(struct ls_vertex *vertex);
+/* Generic Link State Element */
+struct ls_element {
+	enum ls_type type;		/* Link State Element Type */
+	enum ls_status status;		/* Link State Status in the TED */
+	void *data;			/* Link State payload */
+};
 
 /**
  * Add new vertex to the Link State DB. Vertex is created from the Link State
@@ -419,6 +451,27 @@ extern struct ls_vertex *ls_vertex_add(struct ls_ted *ted,
 				       struct ls_node *node);
 
 /**
+ * Delete Link State Vertex. This function clean internal Vertex lists (incoming
+ * and outgoing Link State Edge and Link State Subnet). Vertex Data structure
+ * is freed but not the Link State Node. Link State DB is not modified if Vertex
+ * is NULL or not found in the Data Base. Note that referenced to Link State
+ * Edges & SubNets are not removed as they could be connected to other Vertices.
+ *
+ * @param ted		Traffic Engineering Database structure
+ * @param vertex	Link State Vertex to be removed
+ */
+extern void ls_vertex_del(struct ls_ted *ted, struct ls_vertex *vertex);
+
+/**
+ * Delete Link State Vertex as ls_vertex_del() but also removed associated
+ * Link State Node.
+ *
+ * @param ted		Traffic Engineering Database structure
+ * @param vertex	Link State Vertex to be removed
+ */
+extern void ls_vertex_del_all(struct ls_ted *ted, struct ls_vertex *vertex);
+
+/**
  * Update Vertex with the Link State Node. A new vertex is created if no one
  * corresponds to the Link State Node.
  *
@@ -431,15 +484,15 @@ extern struct ls_vertex *ls_vertex_update(struct ls_ted *ted,
 					  struct ls_node *node);
 
 /**
- * Remove Vertex from the Link State DB. Vertex Data structure is freed but
- * not the Link State Node. Link State DB is not modified if Vertex is NULL or
- * not found in the Data Base.
+ * Clean Vertex structure by removing all Edges and Subnets marked as ORPHAN
+ * from this vertex. Link State Update message is sent if zclient is not NULL.
  *
  * @param ted		Link State Data Base
- * @param vertex	Vertex to be removed
+ * @param vertex	Link State Vertex to be cleaned
+ * @param zclient	Reference to Zebra Client
  */
-extern void ls_vertex_remove(struct ls_ted *ted, struct ls_vertex *vertex);
-
+extern void ls_vertex_clean(struct ls_ted *ted, struct ls_vertex *vertex,
+			    struct zclient *zclient);
 /**
  * Find Vertex in the Link State DB by its unique key.
  *
@@ -498,6 +551,17 @@ extern struct ls_edge *ls_edge_update(struct ls_ted *ted,
 				      struct ls_attributes *attributes);
 
 /**
+ * Check if two Edges are equal. Note that this routine has the same return
+ * value sense as '==' (which is different from a comparison).
+ *
+ * @param e1	First edge to compare
+ * @param e2	Second edge to compare
+ *
+ * @return	1 if equal, 0 otherwise
+ */
+extern int ls_edge_same(struct ls_edge *e1, struct ls_edge *e2);
+
+/**
  * Remove Edge from the Link State DB. Edge data structure is freed but not the
  * Link State Attributes data structure. Link State DB is not modified if Edge
  * is NULL or not found in the Data Base.
@@ -506,6 +570,15 @@ extern struct ls_edge *ls_edge_update(struct ls_ted *ted,
  * @param edge	Edge to be removed
  */
 extern void ls_edge_del(struct ls_ted *ted, struct ls_edge *edge);
+
+/**
+ * Remove Edge and associated Link State Attributes from the Link State DB.
+ * Link State DB is not modified if Edge is NULL or not found.
+ *
+ * @param ted	Link State Data Base
+ * @param edge	Edge to be removed
+ */
+extern void ls_edge_del_all(struct ls_ted *ted, struct ls_edge *edge);
 
 /**
  * Find Edge in the Link State Data Base by Edge key.
@@ -520,8 +593,7 @@ extern struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted,
 
 /**
  * Find Edge in the Link State Data Base by the source (local IPv4 or IPv6
- * address or local ID) informations of the Link
- * State Attributes
+ * address or local ID) informations of the Link State Attributes
  *
  * @param ted		Link State Data Base
  * @param attributes	Link State Attributes
@@ -557,6 +629,29 @@ extern struct ls_subnet *ls_subnet_add(struct ls_ted *ted,
 				       struct ls_prefix *pref);
 
 /**
+ * Update the Link State Prefix information of an existing Subnet. If there is
+ * no corresponding Subnet in the Link State Data Base, a new Subnet is created.
+ *
+ * @param ted	Link State Data Base
+ * @param pref	Link State Prefix
+ *
+ * @return	Updated Link State Subnet, or NULL in case of error
+ */
+extern struct ls_subnet *ls_subnet_update(struct ls_ted *ted,
+					  struct ls_prefix *pref);
+
+/**
+ * Check if two Subnets are equal. Note that this routine has the same return
+ * value sense as '==' (which is different from a comparison).
+ *
+ * @param s1	First subnet to compare
+ * @param s2	Second subnet to compare
+ *
+ * @return	1 if equal, 0 otherwise
+ */
+extern int ls_subnet_same(struct ls_subnet *s1, struct ls_subnet *s2);
+
+/**
  * Remove Subnet from the Link State DB. Subnet data structure is freed but
  * not the Link State prefix data structure. Link State DB is not modified
  * if Subnet is NULL or not found in the Data Base.
@@ -565,6 +660,15 @@ extern struct ls_subnet *ls_subnet_add(struct ls_ted *ted,
  * @param subnet	Subnet to be removed
  */
 extern void ls_subnet_del(struct ls_ted *ted, struct ls_subnet *subnet);
+
+/**
+ * Remove Subnet and the associated Link State Prefix from the Link State DB.
+ * Link State DB is not modified if Subnet is NULL or not found.
+ *
+ * @param ted		Link State Data Base
+ * @param subnet	Subnet to be removed
+ */
+extern void ls_subnet_del_all(struct ls_ted *ted, struct ls_subnet *subnet);
 
 /**
  * Find Subnet in the Link State Data Base by prefix.
@@ -582,7 +686,7 @@ extern struct ls_subnet *ls_find_subnet(struct ls_ted *ted,
  *
  * @param key	Unique key of the data base. Must be different from 0
  * @param name	Name of the data base (may be NULL)
- * @param asn	AS Number for this data base. Must be different from 0
+ * @param asn	AS Number for this data base. 0 if unknown
  *
  * @return	New Link State Database or NULL in case of error
  */
@@ -590,11 +694,27 @@ extern struct ls_ted *ls_ted_new(const uint32_t key, const char *name,
 				 uint32_t asn);
 
 /**
- * Delete existing Link State Data Base.
+ * Delete existing Link State Data Base. Vertices, Edges, and Subnets are not
+ * removed.
  *
  * @param ted	Link State Data Base
  */
 extern void ls_ted_del(struct ls_ted *ted);
+
+/**
+ * Delete all Link State Vertices, Edges and SubNets and the Link State DB.
+ *
+ * @param ted	Link State Data Base
+ */
+extern void ls_ted_del_all(struct ls_ted *ted);
+
+/**
+ * Clean Link State Data Base by removing all Vertices, Edges and SubNets marked
+ * as ORPHAN.
+ *
+ * @param ted	Link State Data Base
+ */
+extern void ls_ted_clean(struct ls_ted *ted);
 
 /**
  * Connect Source and Destination Vertices by given Edge. Only non NULL source
@@ -657,6 +777,7 @@ extern void ls_disconnect_edge(struct ls_edge *edge);
  */
 
 /* ZAPI Opaque Link State Message Event */
+#define LS_MSG_EVENT_UNDEF	0
 #define LS_MSG_EVENT_SYNC	1
 #define LS_MSG_EVENT_ADD	2
 #define LS_MSG_EVENT_UPDATE	3
@@ -680,6 +801,35 @@ struct ls_message {
 };
 
 /**
+ * Register Link State daemon as a server or client for Zebra OPAQUE API.
+ *
+ * @param zclient  Zebra client structure
+ * @param server   Register daemon as a server (true) or as a client (false)
+ *
+ * @return	   0 if success, -1 otherwise
+ */
+extern int ls_register(struct zclient *zclient, bool server);
+
+/**
+ * Unregister Link State daemon as a server or client for Zebra OPAQUE API.
+ *
+ * @param zclient  Zebra client structure
+ * @param server   Unregister daemon as a server (true) or as a client (false)
+ *
+ * @return	   0 if success, -1 otherwise
+ */
+extern int ls_unregister(struct zclient *zclient, bool server);
+
+/**
+ * Send Link State SYNC message to request the complete Link State Database.
+ *
+ * @param zclient	Zebra client
+ *
+ * @return		0 if success, -1 otherwise
+ */
+extern int ls_request_sync(struct zclient *zclient);
+
+/**
  * Parse Link State Message from stream. Used this function once receiving a
  * new ZAPI Opaque message of type Link State.
  *
@@ -690,7 +840,7 @@ struct ls_message {
 extern struct ls_message *ls_parse_msg(struct stream *s);
 
 /**
- * Delete existing message, freeing all substructure.
+ * Delete existing message. Data structure is freed.
  *
  * @param msg	Link state message to be deleted
  */
@@ -751,6 +901,81 @@ extern struct ls_message *ls_subnet2msg(struct ls_message *msg,
 					struct ls_subnet *subnet);
 
 /**
+ * Convert Link State Message into Vertex and update TED accordingly to
+ * the message event: SYNC, ADD, UPDATE or DELETE.
+ *
+ * @param ted		Link State Database
+ * @param msg		Link State Message
+ * @param delete	True to delete the Link State Vertex from the Database,
+ *                      False otherwise. If true, return value is NULL in case
+ *                      of deletion.
+ *
+ * @return	Vertex if success, NULL otherwise or if Vertex is removed
+ */
+extern struct ls_vertex *ls_msg2vertex(struct ls_ted *ted,
+				       struct ls_message *msg, bool delete);
+
+/**
+ * Convert Link State Message into Edge and update TED accordingly to
+ * the message event: SYNC, ADD, UPDATE or DELETE.
+ *
+ * @param ted		Link State Database
+ * @param msg		Link State Message
+ * @param delete	True to delete the Link State Edge from the Database,
+ *                      False otherwise. If true, return value is NULL in case
+ *                      of deletion.
+ *
+ * @return	Edge if success, NULL otherwise or if Edge is removed
+ */
+extern struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
+				   bool delete);
+
+/**
+ * Convert Link State Message into Subnet and update TED accordingly to
+ * the message event: SYNC, ADD, UPDATE or DELETE.
+ *
+ * @param ted		Link State Database
+ * @param msg		Link State Message
+ * @param delete	True to delete the Link State Subnet from the Database,
+ *                      False otherwise. If true, return value is NULL in case
+ *                      of deletion.
+ *
+ * @return	Subnet if success, NULL otherwise or if Subnet is removed
+ */
+extern struct ls_subnet *ls_msg2subnet(struct ls_ted *ted,
+				       struct ls_message *msg, bool delete);
+
+/**
+ * Convert Link State Message into Link State element (Vertex, Edge or Subnet)
+ * and update TED accordingly to the message event: SYNC, ADD, UPDATE or DELETE.
+ *
+ * @param ted		Link State Database
+ * @param msg		Link State Message
+ * @param delete	True to delete the Link State Element from the Database,
+ *                      False otherwise. If true, return value is NULL in case
+ *                      of deletion.
+ *
+ * @return	Element if success, NULL otherwise or if Element is removed
+ */
+extern struct ls_element *ls_msg2ted(struct ls_ted *ted, struct ls_message *msg,
+				     bool delete);
+
+/**
+ * Convert stream buffer into Link State element (Vertex, Edge or Subnet) and
+ * update TED accordingly to the message event: SYNC, ADD, UPDATE or DELETE.
+ *
+ * @param ted		Link State Database
+ * @param s		Stream buffer
+ * @param delete	True to delete the Link State Element from the Database,
+ *                      False otherwise. If true, return value is NULL in case
+ *                      of deletion.
+ *
+ * @return	Element if success, NULL otherwise or if Element is removed
+ */
+extern struct ls_element *ls_stream2ted(struct ls_ted *ted, struct stream *s,
+					bool delete);
+
+/**
  * Send all the content of the Link State Data Base to the given destination.
  * Link State content is sent is this order: Vertices, Edges, Subnet.
  * This function must be used when a daemon request a Link State Data Base
@@ -764,6 +989,92 @@ extern struct ls_message *ls_subnet2msg(struct ls_message *msg,
  */
 extern int ls_sync_ted(struct ls_ted *ted, struct zclient *zclient,
 		       struct zapi_opaque_reg_info *dst);
+
+struct json_object;
+struct vty;
+/**
+ * Show Link State Vertex information. If both vty and json are specified,
+ * Json format output supersedes standard vty output.
+ *
+ * @param vertex	Link State Vertex to show. Must not be NULL
+ * @param vty		Pointer to vty output, could be NULL
+ * @param json		Pointer to json output, could be NULL
+ * @param verbose	Set to true for more detail
+ */
+extern void ls_show_vertex(struct ls_vertex *vertex, struct vty *vty,
+			   struct json_object *json, bool verbose);
+
+/**
+ * Show all Link State Vertices information. If both vty and json are specified,
+ * Json format output supersedes standard vty output.
+ *
+ * @param ted		Link State Data Base. Must not be NULL
+ * @param vty		Pointer to vty output, could be NULL
+ * @param json		Pointer to json output, could be NULL
+ * @param verbose	Set to true for more detail
+ */
+extern void ls_show_vertices(struct ls_ted *ted, struct vty *vty,
+			     struct json_object *json, bool verbose);
+
+/**
+ * Show Link State Edge information. If both vty and json are specified,
+ * Json format output supersedes standard vty output.
+ *
+ * @param edge		Link State Edge to show. Must not be NULL
+ * @param vty		Pointer to vty output, could be NULL
+ * @param json		Pointer to json output, could be NULL
+ * @param verbose	Set to true for more detail
+ */
+extern void ls_show_edge(struct ls_edge *edge, struct vty *vty,
+			 struct json_object *json, bool verbose);
+
+/**
+ * Show all Link State Edges information. If both vty and json are specified,
+ * Json format output supersedes standard vty output.
+ *
+ * @param ted		Link State Data Base. Must not be NULL
+ * @param vty		Pointer to vty output, could be NULL
+ * @param json		Pointer to json output, could be NULL
+ * @param verbose	Set to true for more detail
+ */
+extern void ls_show_edges(struct ls_ted *ted, struct vty *vty,
+			  struct json_object *json, bool verbose);
+
+/**
+ * Show Link State Subnets information. If both vty and json are specified,
+ * Json format output supersedes standard vty output.
+ *
+ * @param subnet	Link State Subnet to show. Must not be NULL
+ * @param vty		Pointer to vty output, could be NULL
+ * @param json		Pointer to json output, could be NULL
+ * @param verbose	Set to true for more detail
+ */
+extern void ls_show_subnet(struct ls_subnet *subnet, struct vty *vty,
+			   struct json_object *json, bool verbose);
+
+/**
+ * Show all Link State Subnet information. If both vty and json are specified,
+ * Json format output supersedes standard vty output.
+ *
+ * @param ted		Link State Data Base. Must not be NULL
+ * @param vty		Pointer to vty output, could be NULL
+ * @param json		Pointer to json output, could be NULL
+ * @param verbose	Set to true for more detail
+ */
+extern void ls_show_subnets(struct ls_ted *ted, struct vty *vty,
+			    struct json_object *json, bool verbose);
+
+/**
+ * Show Link State Data Base information. If both vty and json are specified,
+ * Json format output supersedes standard vty output.
+ *
+ * @param ted		Link State Data Base to show. Must not be NULL
+ * @param vty		Pointer to vty output, could be NULL
+ * @param json		Pointer to json output, could be NULL
+ * @param verbose	Set to true for more detail
+ */
+extern void ls_show_ted(struct ls_ted *ted, struct vty *vty,
+			struct json_object *json, bool verbose);
 
 /**
  * Dump all Link State Data Base elements for debugging purposes
