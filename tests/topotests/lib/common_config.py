@@ -31,7 +31,6 @@ from re import search as re_search
 from tempfile import mkdtemp
 
 import os
-import io
 import sys
 import traceback
 import socket
@@ -39,6 +38,7 @@ import ipaddress
 import platform
 
 if sys.version_info[0] > 2:
+    import io
     import configparser
 else:
     import StringIO
@@ -257,6 +257,7 @@ def create_common_configuration(
             "bgp": "! BGP Config\n",
             "vrf": "! VRF Config\n",
             "ospf": "! OSPF Config\n",
+            "pim": "! PIM Config\n",
         }
     )
 
@@ -389,6 +390,8 @@ def check_router_status(tgen):
                     daemons.append("bgpd")
                 if "zebra" in result:
                     daemons.append("zebra")
+                if "pimd" in result:
+                    daemons.append("pimd")
 
                 rnode.startDaemons(daemons)
 
@@ -748,7 +751,14 @@ def start_topology(tgen, daemon=None):
             router.load_config(
                 TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(TMPDIR, rname)
             )
-        # Starting routers
+
+        if daemon and "pimd" in daemon:
+            # Loading empty pimd.conf file to router, to start the pim deamon
+            router.load_config(
+                TopoRouter.RD_PIM, "{}/{}/pimd.conf".format(TMPDIR, rname)
+            )
+
+    # Starting routers
     logger.info("Starting all routers once topology is created")
     tgen.start_router()
 
@@ -835,7 +845,199 @@ def topo_daemons(tgen, topo):
         if "ospf" in topo["routers"][rtr] and "ospfd" not in daemon_list:
             daemon_list.append("ospfd")
 
+        for val in topo["routers"][rtr]["links"].values():
+            if "pim" in val and "pimd" not in daemon_list:
+                daemon_list.append("pimd")
+                break
+
     return daemon_list
+
+
+def add_interfaces_to_vlan(tgen, input_dict):
+    """
+    Add interfaces to VLAN, we need vlan pakcage to be installed on machine
+
+    * `tgen`: tgen onject
+    * `input_dict` : interfaces to be added to vlans
+
+    input_dict= {
+        "r1":{
+            "vlan":{
+                VLAN_1: [{
+                    intf_r1_s1: {
+                        "ip": "10.1.1.1",
+                        "subnet": "255.255.255.0
+                    }
+                }]
+            }
+        }
+    }
+
+    add_interfaces_to_vlan(tgen, input_dict)
+
+    """
+
+    router_list = tgen.routers()
+    for dut in input_dict.keys():
+        rnode = tgen.routers()[dut]
+
+        if "vlan" in input_dict[dut]:
+            for vlan, interfaces in input_dict[dut]["vlan"].items():
+                for intf_dict in interfaces:
+                    for interface, data in intf_dict.items():
+                        # Adding interface to VLAN
+                        cmd = "vconfig add {} {}".format(interface, vlan)
+                        logger.info("[DUT: %s]: Running command: %s", dut, cmd)
+                        rnode.run(cmd)
+
+                        vlan_intf = "{}.{}".format(interface, vlan)
+
+                        ip = data["ip"]
+                        subnet = data["subnet"]
+
+                        # Bringing interface up
+                        cmd = "ip link set up {}".format(vlan_intf)
+                        logger.info("[DUT: %s]: Running command: %s", dut, cmd)
+                        rnode.run(cmd)
+
+                        # Assigning IP address
+                        cmd = "ifconfig {} {} netmask {}".format(vlan_intf, ip, subnet)
+                        logger.info("[DUT: %s]: Running command: %s", dut, cmd)
+                        rnode.run(cmd)
+
+
+def tcpdump_capture_start(
+    tgen,
+    router,
+    intf,
+    protocol=None,
+    grepstr=None,
+    timeout=0,
+    options=None,
+    cap_file=None,
+    background=True,
+):
+    """
+    API to capture network packets using tcp dump.
+
+    Packages used :
+
+    Parameters
+    ----------
+    * `tgen`: topogen object.
+    * `router`: router on which ping has to be performed.
+    * `intf` : interface for capture.
+    * `protocol` : protocol for which packet needs to be captured.
+    * `grepstr` : string to filter out tcp dump output.
+    * `timeout` : Time for which packet needs to be captured.
+    * `options` : options for TCP dump, all tcpdump options can be used.
+    * `cap_file` : filename to store capture dump.
+    * `background` : Make tcp dump run in back ground.
+
+    Usage
+    -----
+    tcpdump_result = tcpdump_dut(tgen, 'r2', intf, protocol='tcp', timeout=20,
+        options='-A -vv -x  > r2bgp.txt ')
+    Returns
+    -------
+    1) True for successful capture
+    2) errormsg - when tcp dump fails
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[router]
+
+    if timeout > 0:
+        cmd = "timeout {}".format(timeout)
+    else:
+        cmd = ""
+
+    cmdargs = "{} tcpdump".format(cmd)
+
+    if intf:
+        cmdargs += " -i {}".format(str(intf))
+    if protocol:
+        cmdargs += " {}".format(str(protocol))
+    if options:
+        cmdargs += " -s 0 {}".format(str(options))
+
+    if cap_file:
+        file_name = os.path.join(LOGDIR, tgen.modname, router, cap_file)
+        cmdargs += " -w {}".format(str(file_name))
+        # Remove existing capture file
+        rnode.run("rm -rf {}".format(file_name))
+
+    if grepstr:
+        cmdargs += ' | grep "{}"'.format(str(grepstr))
+
+    logger.info("Running tcpdump command: [%s]", cmdargs)
+    if not background:
+        rnode.run(cmdargs)
+    else:
+        rnode.run("nohup {} & /dev/null 2>&1".format(cmdargs))
+
+    # Check if tcpdump process is running
+    if background:
+        result = rnode.run("pgrep tcpdump")
+        logger.debug("ps -ef | grep tcpdump \n {}".format(result))
+
+        if not result:
+            errormsg = "tcpdump is not running {}".format("tcpdump")
+            return errormsg
+        else:
+            logger.info("Packet capture started on %s: interface %s", router, intf)
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def tcpdump_capture_stop(tgen, router):
+    """
+    API to capture network packets using tcp dump.
+
+    Packages used :
+
+    Parameters
+    ----------
+    * `tgen`: topogen object.
+    * `router`: router on which ping has to be performed.
+    * `intf` : interface for capture.
+    * `protocol` : protocol for which packet needs to be captured.
+    * `grepstr` : string to filter out tcp dump output.
+    * `timeout` : Time for which packet needs to be captured.
+    * `options` : options for TCP dump, all tcpdump options can be used.
+    * `cap2file` : filename to store capture dump.
+    * `bakgrnd` : Make tcp dump run in back ground.
+
+    Usage
+    -----
+    tcpdump_result = tcpdump_dut(tgen, 'r2', intf, protocol='tcp', timeout=20,
+        options='-A -vv -x  > r2bgp.txt ')
+    Returns
+    -------
+    1) True for successful capture
+    2) errormsg - when tcp dump fails
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[router]
+
+    # Check if tcpdump process is running
+    result = rnode.run("ps -ef | grep tcpdump")
+    logger.debug("ps -ef | grep tcpdump \n {}".format(result))
+
+    if not re_search(r"{}".format("tcpdump"), result):
+        errormsg = "tcpdump is not running {}".format("tcpdump")
+        return errormsg
+    else:
+        ppid = tgen.net.nameToNode[rnode.name].pid
+        rnode.run("set +m; pkill -P %s tcpdump &> /dev/null" % ppid)
+        logger.info("Stopped tcpdump capture")
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
 
 
 #############################################
@@ -1137,11 +1339,11 @@ def generate_ips(network, no_of_ips):
     """
     Returns list of IPs.
     based on start_ip and no_of_ips
+
     * `network`  : from here the ip will start generating,
                    start_ip will be
     * `no_of_ips` : these many IPs will be generated
     """
-
     ipaddress_list = []
     if type(network) is not list:
         network = [network]
@@ -1293,7 +1495,6 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict
             _wait = kwargs.pop("wait", wait)
             _attempts = kwargs.pop("attempts", attempts)
             _attempts = int(_attempts)
-            expected = True
             if _attempts < 0:
                 raise ValueError("attempts must be 0 or greater")
 
@@ -1303,12 +1504,10 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict
 
             _return_is_str = kwargs.pop("return_is_str", return_is_str)
             _return_is_dict = kwargs.pop("return_is_str", return_is_dict)
+            _expected = kwargs.setdefault("expected", True)
+            kwargs.pop("expected")
             for i in range(1, _attempts + 1):
                 try:
-                    _expected = kwargs.setdefault("expected", True)
-                    if _expected is False:
-                        expected = _expected
-                    kwargs.pop("expected")
                     ret = func(*args, **kwargs)
                     logger.debug("Function returned %s", ret)
                     if _return_is_str and isinstance(ret, bool) and _expected:
@@ -1320,11 +1519,11 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict
                     if _return_is_dict and isinstance(ret, dict):
                         return ret
 
-                    if _attempts == i and expected:
+                    if _attempts == i:
                         generate_support_bundle()
                         return ret
                 except Exception as err:
-                    if _attempts == i and expected:
+                    if _attempts == i:
                         generate_support_bundle()
                         logger.info("Max number of attempts (%r) reached", _attempts)
                         raise
@@ -1364,6 +1563,17 @@ def step(msg, reset=False):
     """
     _step = Stepper()
     _step(msg, reset)
+
+
+def do_countdown(secs):
+    """
+    Countdown timer display
+    """
+    for i in range(secs, 0, -1):
+        sys.stdout.write("{} ".format(str(i)))
+        sys.stdout.flush()
+        sleep(1)
+    return
 
 
 #############################################
@@ -2855,11 +3065,7 @@ def verify_rib(
                                     errormsg = (
                                         "[DUT: {}]: tag value {}"
                                         " is not matched for"
-                                        " route {} in RIB \n".format(
-                                            dut,
-                                            _tag,
-                                            st_rt,
-                                        )
+                                        " route {} in RIB \n".format(dut, _tag, st_rt,)
                                     )
                                     return errormsg
 
@@ -2876,11 +3082,7 @@ def verify_rib(
                                     errormsg = (
                                         "[DUT: {}]: metric value "
                                         "{} is not matched for "
-                                        "route {} in RIB \n".format(
-                                            dut,
-                                            metric,
-                                            st_rt,
-                                        )
+                                        "route {} in RIB \n".format(dut, metric, st_rt,)
                                     )
                                     return errormsg
 
@@ -3919,3 +4121,215 @@ def required_linux_kernel_version(required_version):
         )
         return error_msg
     return True
+
+
+def iperfSendIGMPJoin(
+    tgen, server, bindToAddress, l4Type="UDP", join_interval=1, inc_step=0, repeat=0
+):
+    """
+    Run iperf to send IGMP join and traffic
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `l4Type`: string, one of [ TCP, UDP ]
+    * `server`: iperf server, from where IGMP join would be sent
+    * `bindToAddress`: bind to <host>, an interface or multicast
+                       address
+    * `join_interval`: seconds between periodic bandwidth reports
+    * `inc_step`: increamental steps, by default 0
+    * `repeat`: Repetition of group, by default 0
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[server]
+
+    iperfArgs = "iperf -s "
+
+    # UDP/TCP
+    if l4Type == "UDP":
+        iperfArgs += "-u "
+
+    iperfCmd = iperfArgs
+    # Group address range to cover
+    if bindToAddress:
+        if type(bindToAddress) is not list:
+            Address = []
+            start = ipaddress.IPv4Address(frr_unicode(bindToAddress))
+
+            Address = [start]
+            next_ip = start
+
+            count = 1
+            while count < repeat:
+                next_ip += inc_step
+                Address.append(next_ip)
+                count += 1
+            bindToAddress = Address
+
+    for bindTo in bindToAddress:
+        iperfArgs = iperfCmd
+        iperfArgs += "-B %s " % bindTo
+
+        # Join interval
+        if join_interval:
+            iperfArgs += "-i %d " % join_interval
+
+        iperfArgs += " &>/dev/null &"
+        # Run iperf command to send IGMP join
+        logger.debug("[DUT: {}]: Running command: [{}]".format(server, iperfArgs))
+        output = rnode.run("set +m; {} sleep 0.5".format(iperfArgs))
+
+        # Check if iperf process is running
+        if output:
+            pid = output.split()[1]
+            rnode.run("touch /var/run/frr/iperf_server.pid")
+            rnode.run("echo %s >> /var/run/frr/iperf_server.pid" % pid)
+        else:
+            errormsg = "IGMP join is not sent for {}. Error: {}".format(bindTo, output)
+            logger.error(output)
+            return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def iperfSendTraffic(
+    tgen,
+    client,
+    bindToAddress,
+    ttl,
+    time=0,
+    l4Type="UDP",
+    inc_step=0,
+    repeat=0,
+    mappedAddress=None,
+):
+    """
+    Run iperf to send IGMP join and traffic
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `l4Type`: string, one of [ TCP, UDP ]
+    * `client`: iperf client, from where iperf traffic would be sent
+    * `bindToAddress`: bind to <host>, an interface or multicast
+                       address
+    * `ttl`: time to live
+    * `time`: time in seconds to transmit for
+    * `inc_step`: increamental steps, by default 0
+    * `repeat`: Repetition of group, by default 0
+    * `mappedAddress`: Mapped Interface ip address
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[client]
+
+    iperfArgs = "iperf -c "
+
+    iperfCmd = iperfArgs
+    # Group address range to cover
+    if bindToAddress:
+        if type(bindToAddress) is not list:
+            Address = []
+            start = ipaddress.IPv4Address(frr_unicode(bindToAddress))
+
+            Address = [start]
+            next_ip = start
+
+            count = 1
+            while count < repeat:
+                next_ip += inc_step
+                Address.append(next_ip)
+                count += 1
+            bindToAddress = Address
+
+    for bindTo in bindToAddress:
+        iperfArgs = iperfCmd
+        iperfArgs += "%s " % bindTo
+
+        # Mapped Interface IP
+        if mappedAddress:
+            iperfArgs += "-B %s " % mappedAddress
+
+        # UDP/TCP
+        if l4Type == "UDP":
+            iperfArgs += "-u -b 0.012m "
+
+        # TTL
+        if ttl:
+            iperfArgs += "-T %d " % ttl
+
+        # Time
+        if time:
+            iperfArgs += "-t %d " % time
+
+        iperfArgs += " &>/dev/null &"
+
+        # Run iperf command to send multicast traffic
+        logger.debug("[DUT: {}]: Running command: [{}]".format(client, iperfArgs))
+        output = rnode.run("set +m; {} sleep 0.5".format(iperfArgs))
+
+        # Check if iperf process is running
+        if output:
+            pid = output.split()[1]
+            rnode.run("touch /var/run/frr/iperf_client.pid")
+            rnode.run("echo %s >> /var/run/frr/iperf_client.pid" % pid)
+        else:
+            errormsg = "Multicast traffic is not sent for {}. Error {}".format(
+                bindTo, output
+            )
+            logger.error(output)
+            return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def kill_iperf(tgen, dut=None, action=None):
+    """
+    Killing iperf process if running for any router in topology
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `dut`   : Any iperf hostname to send igmp prune
+    * `action`: to kill igmp join iperf action is remove_join
+                to kill traffic iperf action is remove_traffic
+
+    Usage
+    ----
+    kill_iperf(tgen, dut ="i6", action="remove_join")
+
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    router_list = tgen.routers()
+    for router, rnode in router_list.items():
+        # Run iperf command to send IGMP join
+        pid_client = rnode.run("cat /var/run/frr/iperf_client.pid")
+        pid_server = rnode.run("cat /var/run/frr/iperf_server.pid")
+        if action == "remove_join":
+            pids = pid_server
+        elif action == "remove_traffic":
+            pids = pid_client
+        else:
+            pids = "\n".join([pid_client, pid_server])
+        for pid in pids.split("\n"):
+            pid = pid.strip()
+            if pid.isdigit():
+                cmd = "set +m; kill -9 %s &> /dev/null" % pid
+                logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
+                rnode.run(cmd)
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
