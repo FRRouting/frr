@@ -907,8 +907,11 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 
 	/* Compare network mask. */
 	/* Checking is ignored for Point-to-Point and Virtual link. */
+	/* Checking is also ignored for Point-to-Multipoint with /32 prefix */
 	if (oi->type != OSPF_IFTYPE_POINTOPOINT
-	    && oi->type != OSPF_IFTYPE_VIRTUALLINK)
+	    && oi->type != OSPF_IFTYPE_VIRTUALLINK
+	    && !(oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
+		 && oi->address->prefixlen == IPV4_MAX_BITLEN))
 		if (oi->address->prefixlen != p.prefixlen) {
 			flog_warn(
 				EC_OSPF_PACKET,
@@ -2425,6 +2428,11 @@ static int ospf_check_network_mask(struct ospf_interface *oi,
 
 	if (oi->type == OSPF_IFTYPE_POINTOPOINT
 	    || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+		return 1;
+
+	/* Ignore mask check for max prefix length (32) */
+	if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
+	    && oi->address->prefixlen == IPV4_MAX_BITLEN)
 		return 1;
 
 	masklen2ip(oi->address->prefixlen, &mask);
