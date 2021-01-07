@@ -1659,7 +1659,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                             interface_data.append("no ip ospf " " hello-interval")
                         else:
                             interface_data.append(
-                                "ip ospf " " hello-interval {}".format(intf_ospf_hello)
+                                "ip ospf" " hello-interval {}".format(intf_ospf_hello)
                             )
 
                     if "dead_interval" in ospf_data:
@@ -1670,7 +1670,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                             interface_data.append("no ip ospf" " dead-interval")
                         else:
                             interface_data.append(
-                                "ip ospf " " dead-interval {}".format(intf_ospf_dead)
+                                "ip ospf" " dead-interval {}".format(intf_ospf_dead)
                             )
 
                     if "network" in ospf_data:
@@ -3065,7 +3065,11 @@ def verify_rib(
                                     errormsg = (
                                         "[DUT: {}]: tag value {}"
                                         " is not matched for"
-                                        " route {} in RIB \n".format(dut, _tag, st_rt,)
+                                        " route {} in RIB \n".format(
+                                            dut,
+                                            _tag,
+                                            st_rt,
+                                        )
                                     )
                                     return errormsg
 
@@ -3082,7 +3086,11 @@ def verify_rib(
                                     errormsg = (
                                         "[DUT: {}]: metric value "
                                         "{} is not matched for "
-                                        "route {} in RIB \n".format(dut, metric, st_rt,)
+                                        "route {} in RIB \n".format(
+                                            dut,
+                                            metric,
+                                            st_rt,
+                                        )
                                     )
                                     return errormsg
 
