@@ -30,6 +30,7 @@ test_bfd_vrf_topo1.py: Test the FRR BFD daemon.
 import os
 import sys
 import json
+import platform
 from functools import partial
 import pytest
 
@@ -48,6 +49,7 @@ from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd]
 
+CustomizeVrfWithNetns = True
 
 class BFDTopo(Topo):
     "Test topology builder"
@@ -75,37 +77,63 @@ class BFDTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    global CustomizeVrfWithNetns
+
     tgen = Topogen(BFDTopo, mod.__name__)
     tgen.start_topology()
+
+    CustomizeVrfWithNetns = True
+    option_vrf_mode = os.getenv('VRF_MODE_PARAM', 'netns')
+    if option_vrf_mode == 'vrf-lite':
+        CustomizeVrfWithNetns = False
 
     router_list = tgen.routers()
 
     # check for zebra capability
     for rname, router in router_list.items():
-        if router.check_capability(TopoRouter.RD_ZEBRA, "--vrfwnetns") == False:
+        if CustomizeVrfWithNetns:
+            if router.check_capability(TopoRouter.RD_ZEBRA, "--vrfwnetns") == False:
+                return pytest.skip(
+                    "Skipping BFD Topo1 VRF NETNS feature. VRF NETNS backend not available on FRR"
+                )
+
+    if CustomizeVrfWithNetns:
+        if os.system("ip netns list") != 0:
             return pytest.skip(
-                "Skipping BFD Topo1 VRF NETNS feature. VRF NETNS backend not available on FRR"
+                "Skipping BFD Topo1 VRF NETNS Test. NETNS not available on System"
             )
+        logger.info("Testing with VRF Namespace support")
 
-    if os.system("ip netns list") != 0:
-        return pytest.skip(
-            "Skipping BFD Topo1 VRF NETNS Test. NETNS not available on System"
-        )
+    krel = platform.release()
+    l3mdev_accept = 0
+    if topotest.version_cmp(krel, '4.15') >= 0 and \
+       topotest.version_cmp(krel, '4.18') <= 0:
+        l3mdev_accept = 1
 
-    logger.info("Testing with VRF Namespace support")
-
-    cmds = [
-        "if [ -e /var/run/netns/{0}-cust1 ] ; then ip netns del {0}-cust1 ; fi",
-        "ip netns add {0}-cust1",
-        "ip link set dev {0}-eth0 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth0 up",
-    ]
-    cmds2 = [
-        "ip link set dev {0}-eth1 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth1 up",
-        "ip link set dev {0}-eth2 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth2 up",
-    ]
+    if topotest.version_cmp(krel, '5.0') >= 0:
+        l3mdev_accept = 1
+        
+    if CustomizeVrfWithNetns:
+        cmds = [
+            "if [ -e /var/run/netns/{0}-cust1 ] ; then ip netns del {0}-cust1 ; fi",
+            "ip netns add {0}-cust1",
+            "ip link set dev {0}-eth0 netns {0}-cust1",
+            "ip netns exec {0}-cust1 ifconfig {0}-eth0 up",
+        ]
+        cmds2 = [
+            "ip link set dev {0}-eth1 netns {0}-cust1",
+            "ip netns exec {0}-cust1 ifconfig {0}-eth1 up",
+            "ip link set dev {0}-eth2 netns {0}-cust1",
+            "ip netns exec {0}-cust1 ifconfig {0}-eth2 up",
+        ]
+    else:
+        cmds = ['sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept),
+                'sysctl -w net.ipv4.udp_l3mdev_accept={}'.format(l3mdev_accept),
+                'ip link add {0}-cust1 type vrf table 10',
+                'ip link set dev {0}-cust1 up',
+                'ip link set dev {0}-eth0 master {0}-cust1']
+        cmds2 = ['ip link set dev {0}-eth1 master {0}-cust1',
+                 'ip link set dev {0}-eth2 master {0}-cust1']
 
     for rname, router in router_list.items():
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
@@ -115,11 +143,12 @@ def setup_module(mod):
             for cmd in cmds2:
                 output = tgen.net[rname].cmd(cmd.format(rname))
 
+    zebra_option = '--vrfwnetns' if CustomizeVrfWithNetns else ''
     for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname)),
-            "--vrfwnetns",
+            zebra_option
         )
         router.load_config(
             TopoRouter.RD_BFD, os.path.join(CWD, "{}/bfdd.conf".format(rname))
@@ -134,17 +163,25 @@ def setup_module(mod):
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
+    global CustomizeVrfWithNetns
+
     tgen = get_topogen()
     # move back rx-eth0 to default VRF
     # delete rx-vrf
-    cmds = [
-        "ip netns exec {0}-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns delete {0}-cust1",
-    ]
-    cmds2 = [
-        "ip netns exec {0}-cust1 ip link set {0}-eth1 netns 1",
-        "ip netns exec {0}-cust2 ip link set {0}-eth1 netns 1",
-    ]
+    if CustomizeVrfWithNetns:
+        cmds = [
+            "ip netns exec {0}-cust1 ip link set {0}-eth0 netns 1",
+            "ip netns delete {0}-cust1",
+        ]
+        cmds2 = [
+            "ip netns exec {0}-cust1 ip link set {0}-eth1 netns 1",
+            "ip netns exec {0}-cust2 ip link set {0}-eth1 netns 1",
+        ]
+    else:
+        cmds = ['ip link set dev {0}-eth0 nomaster',
+                'ip link delete {0}-cust1']
+        cmds2 = ['ip link set {0}-eth1 nomaster',
+                 'ip link set {0}-eth2 nomaster']
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
