@@ -10261,6 +10261,24 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				str, label2vni(&attr->label));
 	}
 
+	/* Output some debug about internal state of the dest flags */
+	if (json_paths) {
+		if (CHECK_FLAG(bn->flags, BGP_NODE_PROCESS_SCHEDULED))
+			json_object_boolean_true_add(json_path, "processScheduled");
+		if (CHECK_FLAG(bn->flags, BGP_NODE_USER_CLEAR))
+			json_object_boolean_true_add(json_path, "userCleared");
+		if (CHECK_FLAG(bn->flags, BGP_NODE_LABEL_CHANGED))
+			json_object_boolean_true_add(json_path, "labelChanged");
+		if (CHECK_FLAG(bn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
+			json_object_boolean_true_add(json_path, "registeredForLabel");
+		if (CHECK_FLAG(bn->flags, BGP_NODE_SELECT_DEFER))
+			json_object_boolean_true_add(json_path, "selectDefered");
+		if (CHECK_FLAG(bn->flags, BGP_NODE_FIB_INSTALLED))
+			json_object_boolean_true_add(json_path, "fibInstalled");
+		if (CHECK_FLAG(bn->flags, BGP_NODE_FIB_INSTALL_PENDING))
+			json_object_boolean_true_add(json_path, "fibPending");
+	}
+
 	/* We've constructed the json object for this path, add it to the json
 	 * array of paths
 	 */

@@ -21,6 +21,7 @@
 #include "memory.h"
 #include "log.h"
 #include "lib_errors.h"
+#include "network.h"
 
 #include "pathd/pathd.h"
 #include "pathd/path_memory.h"
@@ -480,7 +481,7 @@ struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 	candidate->preference = preference;
 	candidate->policy = policy;
 	candidate->type = SRTE_CANDIDATE_TYPE_UNDEFINED;
-	candidate->discriminator = rand();
+	candidate->discriminator = frr_weak_random();
 
 	lsp->candidate = candidate;
 	candidate->lsp = lsp;
