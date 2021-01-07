@@ -628,7 +628,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 		ifaddr = connected_src->u.prefix4;
 		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
 
-		if (PIM_DEBUG_MROUTE) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
 			zlog_debug(
 				"%s(%s): igmp kernel upcall on %s(%p) for %pI4 -> %pI4",
 				__func__, pim->vrf->name, ifp->name, igmp,
