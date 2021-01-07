@@ -1326,9 +1326,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 				   apply doesn't modify the BGP route info. */
 				local_attr = *mpinfo->attr;
 				mpinfo_cp->attr = &local_attr;
-			}
-
-			if (bgp->table_map[afi][safi].name) {
 				if (!bgp_table_map_apply(
 					    bgp->table_map[afi][safi].map, p,
 					    mpinfo_cp))
@@ -1351,13 +1348,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		} else {
 			ifindex_t ifindex = IFINDEX_INTERNAL;
 			struct in6_addr *nexthop;
-
-			if (bgp->table_map[afi][safi].name) {
-				/* Copy info and attributes, so the route-map
-				   apply doesn't modify the BGP route info. */
-				local_attr = *mpinfo->attr;
-				mpinfo_cp->attr = &local_attr;
-			}
 
 			if (bgp->table_map[afi][safi].name) {
 				/* Copy info and attributes, so the route-map
