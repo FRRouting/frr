@@ -392,6 +392,6 @@ parts:
 
 passthrough:
     layout:
-         /usr/lib/x86_64-linux-gnu/libyang:
-             bind: $SNAP/usr/lib/x86_64-linux-gnu/libyang
+         /usr/lib/x86_64-linux-gnu/libyang1:
+             bind: $SNAP/usr/lib/x86_64-linux-gnu/libyang1
 
