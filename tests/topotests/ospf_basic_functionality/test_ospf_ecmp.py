@@ -184,38 +184,6 @@ def teardown_module(mod):
     logger.info("=" * 40)
 
 
-def red_static(dut, config=True):
-    """Local def for Redstribute static routes inside ospf."""
-    global topo
-    tgen = get_topogen()
-    if config:
-        ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": "static"}]}}}
-    else:
-        ospf_red = {
-            dut: {"ospf": {"redistribute": [{"redist_type": "static", "delete": True}]}}
-        }
-    result = create_router_ospf(tgen, topo, ospf_red)
-    assert result is True, "Testcase : Failed \n Error: {}".format(result)
-
-
-def red_connected(dut, config=True):
-    """Local def for Redstribute connected routes inside ospf."""
-    global topo
-    tgen = get_topogen()
-    if config:
-        ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": "connected"}]}}}
-    else:
-        ospf_red = {
-            dut: {
-                "ospf": {
-                    "redistribute": [{"redist_type": "connected", "del_action": True}]
-                }
-            }
-        }
-    result = create_router_ospf(tgen, topo, ospf_red)
-    assert result is True, "Testcase: Failed \n Error: {}".format(result)
-
-
 def redistribute(dut, route_type, **kwargs):
     """Local def for redstribution of routes inside ospf."""
     global topo
