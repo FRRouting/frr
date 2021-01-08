@@ -951,8 +951,9 @@ int bp_peer_socket(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
-	    && bs->key.vrfname[0])
+	else if ((!vrf_is_backend_netns() && bs->vrf->vrf_id != VRF_DEFAULT)
+		 || ((CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+		      && bs->key.vrfname[0])))
 		device_to_bind = (const char *)bs->key.vrfname;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
@@ -1018,8 +1019,9 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
-	    && bs->key.vrfname[0])
+	else if ((!vrf_is_backend_netns() && bs->vrf->vrf_id != VRF_DEFAULT)
+		 || ((CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+		      && bs->key.vrfname[0])))
 		device_to_bind = (const char *)bs->key.vrfname;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
