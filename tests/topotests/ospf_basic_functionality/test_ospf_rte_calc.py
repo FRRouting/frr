@@ -61,6 +61,7 @@ from lib.ospf import (
     clear_ospf,
     verify_ospf_rib,
     create_router_ospf,
+    redistribute_ospf,
 )
 
 # Global variables
@@ -181,19 +182,6 @@ def teardown_module(mod):
         "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
     )
     logger.info("=" * 40)
-
-
-def redistribute(dut, route_type, **kwargs):
-    """Local def for redstribution of routes inside ospf."""
-    global topo
-    tgen = get_topogen()
-
-    ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": route_type}]}}}
-    for k, v in kwargs.items():
-        ospf_red[dut]["ospf"]["redistribute"][0][k] = v
-
-    result = create_router_ospf(tgen, topo, ospf_red)
-    assert result is True, "Testcase : Failed \n Error: {}".format(result)
 
 
 # ##################################
@@ -463,8 +451,8 @@ def test_ospf_redistribution_tc8_p1(request):
         "advertised/exchaged via ospf"
     )
     for rtr in topo["routers"]:
-        redistribute(rtr, "static")
-        redistribute(rtr, "connected")
+        redistribute_ospf(tgen, topo, rtr, "static")
+        redistribute_ospf(tgen, topo, rtr, "connected")
     for node in topo["routers"]:
         input_dict = {
             "r0": {
@@ -521,7 +509,7 @@ def test_ospf_redistribution_tc8_p1(request):
     )
 
     for rtr in topo["routers"]:
-        redistribute(rtr, "static", delete=True)
+        redistribute_ospf(tgen, topo, rtr, "static", delete=True)
 
     input_dict = {
         "r0": {

@@ -65,6 +65,7 @@ from lib.ospf import (
     verify_ospf_rib,
     create_router_ospf,
     verify_ospf_interface,
+    redistribute_ospf,
 )
 
 topo = None
@@ -184,19 +185,6 @@ def teardown_module(mod):
     logger.info("=" * 40)
 
 
-def redistribute(dut, route_type, **kwargs):
-    """Local def for redstribution of routes inside ospf."""
-    global topo
-    tgen = get_topogen()
-
-    ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": route_type}]}}}
-    for k, v in kwargs.items():
-        ospf_red[dut]["ospf"]["redistribute"][0][k] = v
-
-    result = create_router_ospf(tgen, topo, ospf_red)
-    assert result is True, "Testcase : Failed \n Error: {}".format(result)
-
-
 # ##################################
 # Test cases start here.
 # ##################################
@@ -245,7 +233,7 @@ def test_ospf_ecmp_tc16_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r0"
-    redistribute(dut, "static")
+    redistribute_ospf(tgen, topo, dut, "static")
 
     step("Verify that route in R2 in stalled with 8 next hops.")
     nh = []
@@ -326,7 +314,7 @@ def test_ospf_ecmp_tc16_p0(request):
     step(" Un configure static route on R0")
 
     dut = "r0"
-    redistribute(dut, "static", delete=True)
+    redistribute_ospf(tgen, topo, dut, "static", delete=True)
 
     # Wait for R0 to flush external LSAs.
     sleep(10)
@@ -357,7 +345,7 @@ def test_ospf_ecmp_tc16_p0(request):
 
     step("Re configure the static route in R0.")
     dut = "r0"
-    redistribute(dut, "static")
+    redistribute_ospf(tgen, topo, dut, "static")
 
     dut = "r1"
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
@@ -412,7 +400,7 @@ def test_ospf_ecmp_tc17_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r0"
-    redistribute(dut, "static")
+    redistribute_ospf(tgen, topo, dut, "static")
 
     step("Verify that route in R2 in stalled with 2 next hops.")
 
@@ -431,7 +419,7 @@ def test_ospf_ecmp_tc17_p0(request):
     step(" Un configure static route on R0")
 
     dut = "r0"
-    redistribute(dut, "static", delete=True)
+    redistribute_ospf(tgen, topo, dut, "static", delete=True)
     # sleep till the route gets withdrawn
     sleep(10)
 
@@ -461,7 +449,7 @@ def test_ospf_ecmp_tc17_p0(request):
 
     step("Reconfigure the static route in R0.Change ECMP value to 2.")
     dut = "r0"
-    redistribute(dut, "static")
+    redistribute_ospf(tgen, topo, dut, "static")
 
     step("Configure cost on R0 as 100")
     r0_ospf_cost = {"r0": {"links": {"r1": {"ospf": {"cost": 100}}}}}

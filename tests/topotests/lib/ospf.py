@@ -462,6 +462,32 @@ def clear_ospf(tgen, router):
     logger.debug("Exiting lib API: clear_ospf()")
 
 
+def redistribute_ospf(tgen, topo, dut, route_type, **kwargs):
+    """
+    Redstribution of routes inside ospf.
+
+    Parameters
+    ----------
+    * `tgen`: Topogen object
+    * `topo` : json file data
+    * `dut`: device under test
+    * `route_type`: "static" or "connected" or ....
+    * `kwargs`: pass extra information (see below)
+
+    Usage
+    -----
+    redistribute_ospf(tgen, topo, "r0", "static", delete=True)
+    redistribute_ospf(tgen, topo, "r0", "static", route_map="rmap_ipv4")
+    """
+
+    ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": route_type}]}}}
+    for k, v in kwargs.items():
+        ospf_red[dut]["ospf"]["redistribute"][0][k] = v
+
+    result = create_router_ospf(tgen, topo, ospf_red)
+    assert result is True, "Testcase : Failed \n Error: {}".format(result)
+
+
 ################################
 # Verification procs
 ################################

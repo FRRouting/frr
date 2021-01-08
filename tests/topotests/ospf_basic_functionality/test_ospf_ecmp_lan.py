@@ -66,6 +66,7 @@ from lib.ospf import (
     verify_ospf_rib,
     create_router_ospf,
     verify_ospf_interface,
+    redistribute_ospf,
 )
 from ipaddress import IPv4Address
 
@@ -187,19 +188,6 @@ def teardown_module():
         pass
 
 
-def redistribute(dut, route_type, **kwargs):
-    """Local def for redstribution of routes inside ospf."""
-    global topo
-    tgen = get_topogen()
-
-    ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": route_type}]}}}
-    for k, v in kwargs.items():
-        ospf_red[dut]["ospf"]["redistribute"][0][k] = v
-
-    result = create_router_ospf(tgen, topo, ospf_red)
-    assert result is True, "Testcase : Failed \n Error: {}".format(result)
-
-
 # ##################################
 # Test cases start here.
 # ##################################
@@ -252,7 +240,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
         )
 
         dut = rtr
-        redistribute(dut, "static")
+        redistribute_ospf(tgen, topo, dut, "static")
 
     step(
         "Verify that route in R0 in stalled with 8 hops. "
