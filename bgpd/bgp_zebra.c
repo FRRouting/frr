@@ -1305,40 +1305,36 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			       ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
 			api_nh->srte_color = info->attr->srte_color;
 
+		if (bgp_debug_zebra(&api.prefix)) {
+			if (mpinfo->extra) {
+				zlog_debug("%s: p=%s, bgp_is_valid_label: %d",
+					   __func__, buf_prefix,
+					   bgp_is_valid_label(
+						   &mpinfo->extra->label[0]));
+			} else {
+				zlog_debug("%s: p=%s, extra is NULL, no label",
+					   __func__, buf_prefix);
+			}
+		}
+
+		if (bgp->table_map[afi][safi].name) {
+			/* Copy info and attributes, so the route-map
+			   apply doesn't modify the BGP route info. */
+			local_attr = *mpinfo->attr;
+			mpinfo_cp->attr = &local_attr;
+			if (!bgp_table_map_apply(bgp->table_map[afi][safi].map,
+						 p, mpinfo_cp))
+				continue;
+
+			/* metric/tag is only allowed to be
+			 * overridden on 1st nexthop */
+			if (mpinfo == info) {
+				metric = mpinfo_cp->attr->med;
+				tag = mpinfo_cp->attr->tag;
+			}
+		}
+
 		if (nh_family == AF_INET) {
-			if (bgp_debug_zebra(&api.prefix)) {
-				if (mpinfo->extra) {
-					zlog_debug(
-						"%s: p=%s, bgp_is_valid_label: %d",
-						__func__, buf_prefix,
-						bgp_is_valid_label(
-							&mpinfo->extra
-								 ->label[0]));
-				} else {
-					zlog_debug(
-						"%s: p=%s, extra is NULL, no label",
-						__func__, buf_prefix);
-				}
-			}
-
-			if (bgp->table_map[afi][safi].name) {
-				/* Copy info and attributes, so the route-map
-				   apply doesn't modify the BGP route info. */
-				local_attr = *mpinfo->attr;
-				mpinfo_cp->attr = &local_attr;
-				if (!bgp_table_map_apply(
-					    bgp->table_map[afi][safi].map, p,
-					    mpinfo_cp))
-					continue;
-
-				/* metric/tag is only allowed to be
-				 * overridden on 1st nexthop */
-				if (mpinfo == info) {
-					metric = mpinfo_cp->attr->med;
-					tag = mpinfo_cp->attr->tag;
-				}
-			}
-
 			nh_updated = update_ipv4nh_for_route_install(
 					nh_othervrf,
 					nh_othervrf ?
@@ -1349,24 +1345,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			ifindex_t ifindex = IFINDEX_INTERNAL;
 			struct in6_addr *nexthop;
 
-			if (bgp->table_map[afi][safi].name) {
-				/* Copy info and attributes, so the route-map
-				   apply doesn't modify the BGP route info. */
-				local_attr = *mpinfo->attr;
-				mpinfo_cp->attr = &local_attr;
-
-				if (!bgp_table_map_apply(
-					    bgp->table_map[afi][safi].map, p,
-					    mpinfo_cp))
-					continue;
-
-				/* metric/tag is only allowed to be
-				 * overridden on 1st nexthop */
-				if (mpinfo == info) {
-					metric = mpinfo_cp->attr->med;
-					tag = mpinfo_cp->attr->tag;
-				}
-			}
 			nexthop = bgp_path_info_to_ipv6_nexthop(mpinfo_cp,
 								&ifindex);
 			nh_updated = update_ipv6nh_for_route_install(
