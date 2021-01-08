@@ -239,9 +239,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_red_r1 = {"r0": {"ospf": {"redistribute": [{"redist_type": "static"}]}}}
-    result = create_router_ospf(tgen, topo, ospf_red_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    redistribute("r0", "static")
 
     dut = "r1"
     lsid = NETWORK["ipv4"][0].split("/")[0]
@@ -253,13 +251,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_red_r1 = {
-        "r0": {
-            "ospf": {"redistribute": [{"redist_type": "static", "del_action": True}]}
-        }
-    }
-    result = create_router_ospf(tgen, topo, ospf_red_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    redistribute("r0", "static", delete=True)
 
     step(
         "Create prefix-list in R0 to permit 10.0.20.1/32 prefix &" " deny 10.0.20.2/32"
@@ -306,15 +298,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
         " ospf using route map rmap1"
     )
 
-    ospf_red_r1 = {
-        "r0": {
-            "ospf": {
-                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv4"}]
-            }
-        }
-    }
-    result = create_router_ospf(tgen, topo, ospf_red_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    redistribute("r0", "static", route_map="rmap_ipv4")
 
     step("Change prefix rules to permit 10.0.20.2 and deny 10.0.20.1")
     # Create ip prefix list
@@ -508,15 +492,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Redistribute to ospf using route map ( non existent route map)")
-    ospf_red_r1 = {
-        "r0": {
-            "ospf": {
-                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv4"}]
-            }
-        }
-    }
-    result = create_router_ospf(tgen, topo, ospf_red_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    redistribute("r0", "static", route_map="rmap_ipv4")
 
     step(
         "Verify that routes are not allowed in OSPF even tough no "
@@ -646,15 +622,7 @@ def test_ospf_routemaps_functionality_tc21_p0(request):
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_red_r0 = {
-        "r0": {
-            "ospf": {
-                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv4"}]
-            }
-        }
-    }
-    result = create_router_ospf(tgen, topo, ospf_red_r0)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    redistribute("r0", "static", route_map="rmap_ipv4")
 
     # Create route map
     routemaps = {
@@ -890,15 +858,7 @@ def test_ospf_routemaps_functionality_tc24_p0(request):
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_red_r0 = {
-        "r0": {
-            "ospf": {
-                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv4"}]
-            }
-        }
-    }
-    result = create_router_ospf(tgen, topo, ospf_red_r0)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    redistribute("r0", "static", route_map="rmap_ipv4")
 
     # Create ip prefix list
     pfx_list = {

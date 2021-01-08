@@ -499,8 +499,8 @@ def test_ospf_redistribution_tc8_p1(request):
         "advertised/exchaged via ospf"
     )
     for rtr in topo["routers"]:
-        red_static(rtr)
-        red_connected(rtr)
+        redistribute(rtr, "static")
+        redistribute(rtr, "connected")
     for node in topo["routers"]:
         input_dict = {
             "r0": {
@@ -557,13 +557,7 @@ def test_ospf_redistribution_tc8_p1(request):
     )
 
     for rtr in topo["routers"]:
-        ospf_red = {
-            rtr: {"ospf": {"redistribute": [{"redist_type": "static", "delete": True}]}}
-        }
-        result = create_router_ospf(tgen, topo, ospf_red)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
+        redistribute(rtr, "static", delete=True)
 
     input_dict = {
         "r0": {

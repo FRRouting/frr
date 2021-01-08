@@ -288,7 +288,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
         )
 
         dut = rtr
-        red_static(dut)
+        redistribute(dut, "static")
 
     step(
         "Verify that route in R0 in stalled with 8 hops. "

@@ -281,7 +281,7 @@ def test_ospf_learning_tc15_p0(request):
 
     step("Redistribute static route in R2 ospf.")
     dut = "r2"
-    red_static(dut)
+    redistribute(dut, "static")
 
     step("Verify that Type 5 LSA is originated by R2.")
     dut = "r0"
