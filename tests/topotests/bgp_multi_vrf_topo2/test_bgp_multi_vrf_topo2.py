@@ -2687,6 +2687,9 @@ def test_delete_and_re_add_vrf_p1(request):
             }
         }
 
+        result = verify_bgp_convergence(tgen, topo)
+        assert result is True, "Testcase {}: Failed\n Error {}".format(tc_name, result)
+
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_2)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
