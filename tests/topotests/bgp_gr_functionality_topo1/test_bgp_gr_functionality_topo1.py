@@ -1488,7 +1488,7 @@ def test_BGP_GR_TC_5_1_2_p1(request):
     shutdown_bringup_interface(tgen, "r2", intf)
 
     # Bring up Interface
-    shutdown_bringup_interface(tgen, dut, intf, ifaceaction=True)
+    shutdown_bringup_interface(tgen, "r2", intf, ifaceaction=True)
 
     for addr_type in ADDR_TYPES:
         result = verify_graceful_restart(
@@ -1775,7 +1775,7 @@ def test_BGP_GR_TC_6_1_2_p1(request):
     shutdown_bringup_interface(tgen, "r2", intf)
 
     # Bring up Interface
-    shutdown_bringup_interface(tgen, dut, intf, ifaceaction=True)
+    shutdown_bringup_interface(tgen, "r2", intf, ifaceaction=True)
 
     for addr_type in ADDR_TYPES:
         result = verify_graceful_restart(

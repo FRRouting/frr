@@ -2449,9 +2449,9 @@ def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
 
     router_list = tgen.routers()
     if ifaceaction:
-        logger.info("Bringing up interface : {}".format(intf_name))
+        logger.info("Bringing up interface {} : {}".format(dut, intf_name))
     else:
-        logger.info("Shutting down interface : {}".format(intf_name))
+        logger.info("Shutting down interface {} : {}".format(dut, intf_name))
 
     interface_set_status(router_list[dut], intf_name, ifaceaction)
 
