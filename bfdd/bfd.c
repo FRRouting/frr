@@ -327,14 +327,16 @@ int bfd_session_enable(struct bfd_session *bs)
 			ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
 		if (ifp == NULL) {
 			zlog_err(
-				"session-enable: specified interface doesn't exists.");
+				"session-enable: specified interface %s (VRF %s) doesn't exist.",
+				bs->key.ifname, vrf ? vrf->name : "<all>");
 			return 0;
 		}
 		if (bs->key.ifname[0] && !vrf) {
 			vrf = vrf_lookup_by_id(ifp->vrf_id);
 			if (vrf == NULL) {
 				zlog_err(
-					"session-enable: specified VRF doesn't exists.");
+					"session-enable: specified VRF %u doesn't exist.",
+					ifp->vrf_id);
 				return 0;
 			}
 		}

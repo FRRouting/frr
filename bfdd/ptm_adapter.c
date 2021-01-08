@@ -766,7 +766,8 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 static int bfd_ifp_destroy(struct interface *ifp)
 {
 	if (bglobal.debug_zebra)
-		zlog_debug("zclient: delete interface %s", ifp->name);
+		zlog_debug("zclient: delete interface %s (VRF %u)", ifp->name,
+			   ifp->vrf_id);
 
 	bfdd_sessions_disable_interface(ifp);
 
@@ -819,10 +820,10 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (bglobal.debug_zebra)
-		zlog_debug("zclient: %s local address %pFX",
+		zlog_debug("zclient: %s local address %pFX (VRF %u)",
 			   cmd == ZEBRA_INTERFACE_ADDRESS_ADD ? "add"
 							      : "delete",
-			   ifc->address);
+			   ifc->address, vrf_id);
 
 	if (cmd == ZEBRA_INTERFACE_ADDRESS_ADD)
 		bfdd_sessions_enable_address(ifc);
@@ -835,8 +836,8 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 static int bfd_ifp_create(struct interface *ifp)
 {
 	if (bglobal.debug_zebra)
-		zlog_debug("zclient: add interface %s", ifp->name);
-
+		zlog_debug("zclient: add interface %s (VRF %u)", ifp->name,
+			   ifp->vrf_id);
 	bfdd_sessions_enable_interface(ifp);
 
 	return 0;
