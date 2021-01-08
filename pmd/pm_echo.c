@@ -527,7 +527,8 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	if (pm->key.ifname[0])
 		bind_interface = (char *)pm->key.ifname;
-	else if (pm->key.vrfname[0])
+	else if (pm->key.vrfname[0] && !vrf_is_backend_netns() &&
+		 vrf->vrf_id != VRF_DEFAULT)
 		bind_interface = (char *)pm->key.vrfname;
 
 	if (sockunion_family(&pm->peer) == AF_INET) {
