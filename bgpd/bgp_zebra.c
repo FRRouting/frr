@@ -1489,9 +1489,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 				   api_nh->vrf_id, api_nh->weight,
 				   label_buf, eth_buf);
 		}
-	}
 
-	if (bgp_debug_zebra(p)) {
 		int recursion_flag = 0;
 
 		if (CHECK_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION))
