@@ -3990,6 +3990,8 @@ bool peer_active_nego(struct peer *peer)
 void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 			       enum peer_change_type type)
 {
+	struct peer_af *paf;
+
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		return;
 
@@ -4022,7 +4024,12 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	} else if (type == peer_change_reset_out) {
-		update_group_adjust_peer(peer_af_find(peer, afi, safi));
+		paf = peer_af_find(peer, afi, safi);
+		if (paf && paf->subgroup)
+			SET_FLAG(paf->subgroup->sflags,
+				 SUBGRP_STATUS_FORCE_UPDATES);
+
+		update_group_adjust_peer(paf);
 		bgp_announce_route(peer, afi, safi);
 	}
 }
