@@ -669,17 +669,24 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 	struct bfd_session *bs;
 	struct vrf *vrf;
 
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (!vrf)
+		return;
+
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
-		/* Interface name mismatch. */
-		if (strcmp(ifp->name, bs->key.ifname))
-			continue;
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
-		if (!vrf)
-			continue;
+		/* check vrf name */
 		if (bs->key.vrfname[0] &&
 		    strcmp(vrf->name, bs->key.vrfname))
 			continue;
+
+		/* If Interface matches vrfname, then bypass iface check */
+		if (vrf_is_backend_netns() || strcmp(ifp->name, vrf->name)) {
+			/* Interface name mismatch. */
+			if (strcmp(ifp->name, bs->key.ifname))
+				continue;
+		}
+
 		/* Skip enabled sessions. */
 		if (bs->sock != -1)
 			continue;
