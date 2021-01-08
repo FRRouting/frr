@@ -38,6 +38,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -410,6 +411,11 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", community %s",
 			 community_str(attr->community, false));
+
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)))
+		snprintf(buf + strlen(buf), size - strlen(buf),
+			 ", large-community %s",
+			 lcommunity_str(attr->lcommunity, false));
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
