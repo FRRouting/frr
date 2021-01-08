@@ -193,6 +193,19 @@ def teardown_module(mod):
     logger.info("=" * 40)
 
 
+def redistribute(dut, route_type, **kwargs):
+    """Local def for redstribution of routes inside ospf."""
+    global topo
+    tgen = get_topogen()
+
+    ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": route_type}]}}}
+    for k, v in kwargs.items():
+        ospf_red[dut]["ospf"]["redistribute"][0][k] = v
+
+    result = create_router_ospf(tgen, topo, ospf_red)
+    assert result is True, "Testcase : Failed \n Error: {}".format(result)
+
+
 # ##################################
 # Test cases start here.
 # ##################################
