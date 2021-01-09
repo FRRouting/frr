@@ -63,7 +63,7 @@ void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 	}
 }
 
-static void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node)
+void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node)
 {
 	if (bsgrp_node->bsrp_list)
 		list_delete(&bsgrp_node->bsrp_list);
@@ -72,7 +72,7 @@ static void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node)
 	XFREE(MTYPE_PIM_BSGRP_NODE, bsgrp_node);
 }
 
-static void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp)
+void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp)
 {
 	struct route_node *rn;
 
@@ -222,7 +222,7 @@ static int pim_on_bs_timer(struct thread *t)
 	return 0;
 }
 
-static void pim_bs_timer_stop(struct bsm_scope *scope)
+void pim_bs_timer_stop(struct bsm_scope *scope)
 {
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s : BS timer being stopped of sz: %d", __func__,

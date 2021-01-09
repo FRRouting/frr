@@ -86,4 +86,5 @@ int pim_rp_list_cmp(void *v1, void *v2);
 struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					const struct prefix *group);
 void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up);
+void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim);
 #endif

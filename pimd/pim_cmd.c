@@ -4001,6 +4001,152 @@ DEFUN (clear_ip_pim_oil,
 	return CMD_SUCCESS;
 }
 
+static void clear_pim_bsr_db(struct pim_instance *pim)
+{
+	struct route_node *rn;
+	struct route_node *rpnode;
+	struct bsgrp_node *bsgrp;
+	struct prefix nht_p;
+	struct prefix g_all;
+	struct rp_info *rp_all;
+	struct pim_upstream *up;
+	struct rp_info *rp_info;
+	bool is_bsr_tracking = true;
+
+	/* Remove next hop tracking for the bsr */
+	nht_p.family = AF_INET;
+	nht_p.prefixlen = IPV4_MAX_BITLEN;
+	nht_p.u.prefix4 = pim->global_scope.current_bsr;
+	if (PIM_DEBUG_BSM) {
+		zlog_debug("%s: Deregister BSR addr %pFX with Zebra NHT",
+			   __func__, &nht_p);
+	}
+	pim_delete_tracked_nexthop(pim, &nht_p, NULL, NULL, is_bsr_tracking);
+
+	/* Reset scope zone data */
+	pim->global_scope.accept_nofwd_bsm = false;
+	pim->global_scope.state = ACCEPT_ANY;
+	pim->global_scope.current_bsr.s_addr = INADDR_ANY;
+	pim->global_scope.current_bsr_prio = 0;
+	pim->global_scope.current_bsr_first_ts = 0;
+	pim->global_scope.current_bsr_last_ts = 0;
+	pim->global_scope.bsm_frag_tag = 0;
+	list_delete_all_node(pim->global_scope.bsm_list);
+
+	pim_bs_timer_stop(&pim->global_scope);
+
+	for (rn = route_top(pim->global_scope.bsrp_table); rn;
+	     rn = route_next(rn)) {
+		bsgrp = rn->info;
+		if (!bsgrp)
+			continue;
+
+		rpnode = route_node_lookup(pim->rp_table, &bsgrp->group);
+
+		if (!rpnode) {
+			pim_free_bsgrp_node(bsgrp->scope->bsrp_table,
+					    &bsgrp->group);
+			pim_free_bsgrp_data(bsgrp);
+			continue;
+		}
+
+		rp_info = (struct rp_info *)rpnode->info;
+
+		if ((!rp_info) || (rp_info->rp_src != RP_SRC_BSR)) {
+			pim_free_bsgrp_node(bsgrp->scope->bsrp_table,
+					    &bsgrp->group);
+			pim_free_bsgrp_data(bsgrp);
+			continue;
+		}
+
+		/* Deregister addr with Zebra NHT */
+		nht_p.family = AF_INET;
+		nht_p.prefixlen = IPV4_MAX_BITLEN;
+		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+
+		if (PIM_DEBUG_PIM_NHT_RP) {
+			zlog_debug("%s: Deregister RP addr %pFX with Zebra ",
+				   __func__, &nht_p);
+		}
+
+		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info, false);
+
+		if (!str2prefix("224.0.0.0/4", &g_all))
+			return;
+
+		rp_all = pim_rp_find_match_group(pim, &g_all);
+
+		if (rp_all == rp_info) {
+			rp_all->rp.rpf_addr.family = AF_INET;
+			rp_all->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
+			rp_all->i_am_rp = 0;
+		} else {
+			/* Delete the rp_info from rp-list */
+			listnode_delete(pim->rp_list, rp_info);
+
+			/* Delete the rp node from rp_table */
+			rpnode->info = NULL;
+			route_unlock_node(rpnode);
+			route_unlock_node(rpnode);
+		}
+
+		XFREE(MTYPE_PIM_RP, rp_info);
+
+		pim_free_bsgrp_node(bsgrp->scope->bsrp_table, &bsgrp->group);
+		pim_free_bsgrp_data(bsgrp);
+	}
+	pim_rp_refresh_group_to_rp_mapping(pim);
+
+
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+		/* Find the upstream (*, G) whose upstream address is same as
+		 * the RP
+		 */
+		if (up->sg.src.s_addr != INADDR_ANY)
+			continue;
+
+		struct prefix grp;
+		struct rp_info *trp_info;
+
+		grp.family = AF_INET;
+		grp.prefixlen = IPV4_MAX_BITLEN;
+		grp.u.prefix4 = up->sg.grp;
+
+		trp_info = pim_rp_find_match_group(pim, &grp);
+
+		/* RP not found for the group grp */
+		if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
+			pim_upstream_rpf_clear(pim, up);
+			pim_rp_set_upstream_addr(pim, &up->upstream_addr,
+						 up->sg.src, up->sg.grp);
+		} else {
+			/* RP found for the group grp */
+			pim_upstream_update(pim, up);
+		}
+	}
+}
+
+
+DEFUN (clear_ip_pim_bsr_db,
+       clear_ip_pim_bsr_db_cmd,
+       "clear ip pim [vrf NAME] bsr-data",
+       CLEAR_STR
+       IP_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset pim bsr data\n")
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	clear_pim_bsr_db(vrf->info);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_igmp_interface,
        show_ip_igmp_interface_cmd,
        "show ip igmp [vrf NAME] interface [detail|WORD] [json]",
@@ -11396,6 +11542,7 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &clear_ip_pim_interface_traffic_cmd);
 	install_element(ENABLE_NODE, &clear_ip_pim_oil_cmd);
 	install_element(ENABLE_NODE, &clear_ip_pim_statistics_cmd);
+	install_element(ENABLE_NODE, &clear_ip_pim_bsr_db_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_pim_cmd);
 

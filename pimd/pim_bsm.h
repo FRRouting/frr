@@ -195,4 +195,7 @@ int  pim_bsm_process(struct interface *ifp,
 bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
+void pim_bs_timer_stop(struct bsm_scope *scope);
+void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node);
+void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp);
 #endif
