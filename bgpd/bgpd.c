@@ -7620,6 +7620,8 @@ void bgp_init(unsigned short instance)
 	/* BFD init */
 	bgp_bfd_init();
 
+	bgp_lp_vty_init();
+
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
 }
 

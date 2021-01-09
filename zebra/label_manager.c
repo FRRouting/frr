@@ -306,7 +306,7 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
-	uint32_t prev_end = 0;
+	uint32_t prev_end = MPLS_LABEL_UNRESERVED_MIN;
 
 	/* handle chunks request with a specific base label */
 	if (base != MPLS_LABEL_BASE_ANY)
@@ -328,8 +328,7 @@ assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 		}
 		/* check if we hadve a "hole" behind us that we can squeeze into
 		 */
-		if ((lmc->start > prev_end)
-		    && (lmc->start - prev_end >= size)) {
+		if ((lmc->start > prev_end) && (lmc->start - prev_end > size)) {
 			lmc = create_label_chunk(proto, instance, session_id,
 						 keep, prev_end + 1,
 						 prev_end + size);
