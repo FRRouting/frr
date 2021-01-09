@@ -205,7 +205,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 			/* Add VNI to VxLAN encap info */
 			nhi.encap_info.vxlan_encap.vni = zl3vni->vni;
-			memcpy(&nhi.encap_info.vxlan_encap.rmac, &nexthop->rmac,
+			memcpy(&nhi.encap_info.vxlan_encap.rmac, &(nexthop->nh_encap.encap_data.rmac),
 			       ETH_ALEN);
 		}
 	}
