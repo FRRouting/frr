@@ -742,7 +742,8 @@ static int nhg_notify(uint16_t type, uint16_t instance, uint32_t id,
 static int route_notify_internal(const struct prefix *p, int type,
 				 uint16_t instance, vrf_id_t vrf_id,
 				 uint32_t table_id,
-				 enum zapi_route_notify_owner note)
+				 enum zapi_route_notify_owner note,
+				 afi_t afi, safi_t safi)
 {
 	struct zserv *client;
 	struct stream *s;
@@ -763,7 +764,11 @@ static int route_notify_internal(const struct prefix *p, int type,
 			"Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u",
 			zebra_route_string(type), p, table_id, note, vrf_id);
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	/* We're just allocating a small-ish buffer here, since we only
+	 * encode a small amount of data.
+	 */
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
@@ -778,16 +783,21 @@ static int route_notify_internal(const struct prefix *p, int type,
 
 	stream_putl(s, table_id);
 
+	/* Encode AFI, SAFI in the message */
+	stream_putc(s, afi);
+	stream_putc(s, safi);
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zserv_send_message(client, s);
 }
 
 int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
-			     enum zapi_route_notify_owner note)
+			     enum zapi_route_notify_owner note,
+			     afi_t afi, safi_t safi)
 {
 	return (route_notify_internal(p, re->type, re->instance, re->vrf_id,
-				      re->table, note));
+				      re->table, note, afi, safi));
 }
 
 /*
@@ -801,7 +811,19 @@ int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 				      dplane_ctx_get_instance(ctx),
 				      dplane_ctx_get_vrf(ctx),
 				      dplane_ctx_get_table(ctx),
-				      note));
+				      note,
+				      dplane_ctx_get_afi(ctx),
+				      dplane_ctx_get_safi(ctx)));
+}
+
+static void zread_route_notify_request(ZAPI_HANDLER_ARGS)
+{
+	uint8_t notify;
+
+	STREAM_GETC(msg, notify);
+	client->notify_owner = notify;
+stream_failure:
+	return;
 }
 
 void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
@@ -973,7 +995,6 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 int zsend_assign_label_chunk_response(struct zserv *client, vrf_id_t vrf_id,
 				      struct label_manager_chunk *lmc)
 {
-	int ret;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
@@ -993,16 +1014,13 @@ int zsend_assign_label_chunk_response(struct zserv *client, vrf_id_t vrf_id,
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	ret = writen(client->sock, s->data, stream_get_endp(s));
-	stream_free(s);
-	return ret;
+	return zserv_send_message(client, s);
 }
 
 /* Send response to a label manager connect request to client */
 int zsend_label_manager_connect_response(struct zserv *client, vrf_id_t vrf_id,
 					 unsigned short result)
 {
-	int ret;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_LABEL_MANAGER_CONNECT, vrf_id);
@@ -1019,10 +1037,7 @@ int zsend_label_manager_connect_response(struct zserv *client, vrf_id_t vrf_id,
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	ret = writen(client->sock, s->data, stream_get_endp(s));
-	stream_free(s);
-
-	return ret;
+	return zserv_send_message(client, s);
 }
 
 /* Send response to a get table chunk request to client */
@@ -1960,6 +1975,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_MTU))
 		re->mtu = api.mtu;
 
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
+		re->opaque = XMALLOC(MTYPE_OPAQUE,
+				     sizeof(struct opaque) + api.opaque.length);
+		re->opaque->length = api.opaque.length;
+		memcpy(re->opaque->data, api.opaque.data, re->opaque->length);
+	}
+
 	afi = family2afi(api.prefix.family);
 	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
 		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
@@ -2060,7 +2082,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
-		   api.distance, false, false);
+		   api.distance, false);
 
 	/* Stats */
 	switch (api.prefix.family) {
@@ -2496,6 +2518,22 @@ int zsend_sr_policy_notify_status(uint32_t color, struct ipaddr *endpoint,
 	stream_put_ipaddr(s, endpoint);
 	stream_write(s, name, SRTE_POLICY_NAME_MAX_LENGTH);
 	stream_putl(s, status);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
+/* Send client close notify to client */
+int zsend_client_close_notify(struct zserv *client, struct zserv *closed_client)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_CLIENT_CLOSE_NOTIFY, VRF_DEFAULT);
+
+	stream_putc(s, closed_client->proto);
+	stream_putw(s, closed_client->instance);
+	stream_putl(s, closed_client->session_id);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -3277,6 +3315,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,
 	[ZEBRA_NHG_DEL] = zread_nhg_del,
+	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
 };
 
 /*

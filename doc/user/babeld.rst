@@ -34,27 +34,18 @@ Configuration of *babeld* is done in its configuration file
 Babel configuration
 ===================
 
-.. index::
-   single: router babel
-   single: no router babel
-
+.. index:: router babel
 .. clicmd:: [no] router babel
 
    Enable or disable Babel routing.
 
-.. index::
-   single: babel resend-delay (20-655340)
-   single: no babel resend-delay [(20-655340)]
-
+.. index:: babel resend-delay (20-655340)
 .. clicmd:: [no] babel resend-delay (20-655340)
 
    Specifies the time after which important messages are resent when
    avoiding a black-hole. The default is 2000 ms.
 
-.. index::
-   single: babel diversity
-   single: no babel diversity
-
+.. index:: babel diversity
 .. clicmd:: [no] babel diversity
 
    Enable or disable routing using radio frequency diversity.  This is
@@ -72,11 +63,8 @@ Babel configuration
    no role in route selection; you will probably want to set that to 128
    or less on nodes with multiple independent radios.
 
-.. index::
-   single: network IFNAME
-   single: no network IFNAME
-
-.. clicmd:: no network IFNAME
+.. index:: network IFNAME
+.. clicmd:: [no] network IFNAME
 
    Enable or disable Babel on the given interface.
 
@@ -89,10 +77,7 @@ Babel configuration
    Specifying `wireless` (the default) is always correct, but may
    cause slower convergence and extra routing traffic.
 
-.. index::
-   single: babel split-horizon
-   single: no babel split-horizon
-
+.. index:: babel split-horizon
 .. clicmd:: [no] babel split-horizon
 
    Specifies whether to perform split-horizon on the interface.  Specifying
@@ -120,10 +105,7 @@ Babel configuration
    Babel makes extensive use of triggered updates, this can be set to fairly
    high values on links with little packet loss.  The default is 20000 ms.
 
-.. index::
-   single: babel channel (1-254)
-   single: babel channel interfering
-   single: babel channel noninterfering
+.. index:: babel channel
 
 .. clicmd:: babel channel (1-254)
 .. clicmd:: babel channel interfering
@@ -185,9 +167,7 @@ Babel configuration
    when the RTT is higher or equal than rtt-max.  The default is 0, which
    effectively disables the use of a RTT-based cost.
 
-.. index::
-   single: babel enable-timestamps
-   single: no babel enable-timestamps
+.. index:: babel enable-timestamps
 
 .. clicmd:: [no] babel enable-timestamps
 
@@ -216,9 +196,7 @@ Babel configuration
 Babel redistribution
 ====================
 
-.. index::
-   single: redistribute <ipv4|ipv6> KIND
-   single: no redistribute <ipv4|ipv6> KIND
+.. index:: redistribute <ipv4|ipv6> KIND
 
 .. clicmd:: [no] redistribute <ipv4|ipv6> KIND
 

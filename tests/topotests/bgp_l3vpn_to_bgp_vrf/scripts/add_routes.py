@@ -1,4 +1,4 @@
-from lutil import luCommand
+from lib.lutil import luCommand
 
 luCommand(
     "r1", 'vtysh -c "add vrf r1-cust1 prefix 99.0.0.1/32"', ".", "none", "IP Address"

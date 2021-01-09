@@ -68,17 +68,6 @@ enum route_map_cmd_result_t {
 	RMAP_ERROR
 };
 
-
-typedef enum {
-	RMAP_RIP,
-	RMAP_RIPNG,
-	RMAP_OSPF,
-	RMAP_OSPF6,
-	RMAP_BGP,
-	RMAP_ZEBRA,
-	RMAP_ISIS,
-} route_map_object_t;
-
 typedef enum { RMAP_EXIT, RMAP_GOTO, RMAP_NEXT } route_map_end_t;
 
 typedef enum {
@@ -117,7 +106,6 @@ struct route_map_rule_cmd {
 	/* Function for value set or match. */
 	enum route_map_cmd_result_t (*func_apply)(void *rule,
 						  const struct prefix *prefix,
-						  route_map_object_t type,
 						  void *object);
 
 	/* Compile argument and return result as void *. */
@@ -299,7 +287,6 @@ struct route_map *route_map_lookup_warn_noexist(struct vty *vty, const char *nam
 /* Apply route map to the object. */
 extern route_map_result_t route_map_apply(struct route_map *map,
 					  const struct prefix *prefix,
-					  route_map_object_t object_type,
 					  void *object);
 
 extern void route_map_add_hook(void (*func)(const char *));

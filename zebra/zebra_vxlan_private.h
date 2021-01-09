@@ -258,5 +258,6 @@ typedef struct zebra_vxlan_sg_ {
 extern zebra_evpn_t *zevpn_lookup(vni_t vni);
 extern void zebra_vxlan_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 		bool force_clear_static, const char *caller);
+extern bool zebra_evpn_do_dup_addr_detect(struct zebra_vrf *zvrf);
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */

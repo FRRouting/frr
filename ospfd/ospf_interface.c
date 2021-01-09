@@ -647,12 +647,8 @@ void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
 int ospf_if_new_hook(struct interface *ifp)
 {
 	int rc = 0;
-	struct ospf_if_info *oii;
 
 	ifp->info = XCALLOC(MTYPE_OSPF_IF_INFO, sizeof(struct ospf_if_info));
-
-	oii = ifp->info;
-	oii->curr_mtu = ifp->mtu;
 
 	IF_OIFS(ifp) = route_table_init();
 	IF_OIFS_PARAMS(ifp) = route_table_init();
@@ -1280,6 +1276,7 @@ static int ospf_ifp_create(struct interface *ifp)
 	struct ospf_if_params *params;
 	struct route_node *rn;
 	uint32_t count = 0;
+	struct ospf_if_info *oii;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
@@ -1290,6 +1287,9 @@ static int ospf_ifp_create(struct interface *ifp)
 			ifp->speed);
 
 	assert(ifp->info);
+
+	oii = ifp->info;
+	oii->curr_mtu = ifp->mtu;
 
 	if (IF_DEF_PARAMS(ifp)
 	    && !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {

@@ -108,9 +108,6 @@ int zebra_evpn_rem_mac_install(zebra_evpn_t *zevpn, zebra_mac_t *mac,
 	uint32_t nhg_id;
 	struct in_addr vtep_ip;
 
-	if (!(mac->flags & ZEBRA_MAC_REMOTE))
-		return 0;
-
 	zif = zevpn->vxlan_if->info;
 	if (!zif)
 		return -1;
@@ -155,7 +152,8 @@ int zebra_evpn_rem_mac_install(zebra_evpn_t *zevpn, zebra_mac_t *mac,
 /*
  * Uninstall remote MAC from the forwarding plane.
  */
-int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevpn, zebra_mac_t *mac)
+int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevpn, zebra_mac_t *mac,
+				 bool force)
 {
 	const struct zebra_if *zif, *br_zif;
 	const struct zebra_l2info_vxlan *vxl;
@@ -164,8 +162,9 @@ int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 	vlanid_t vid;
 	enum zebra_dplane_result res;
 
-	if (!(mac->flags & ZEBRA_MAC_REMOTE))
-		return 0;
+	/* If the MAC was not installed there is no need to uninstall it */
+	if (!force && mac->es && !(mac->es->flags & ZEBRA_EVPNES_NHG_ACTIVE))
+		return -1;
 
 	if (!zevpn->vxlan_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -216,7 +215,7 @@ void zebra_evpn_deref_ip2mac(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 	 */
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
 	    && remote_neigh_count(mac) == 0) {
-		zebra_evpn_rem_mac_uninstall(zevpn, mac);
+		zebra_evpn_rem_mac_uninstall(zevpn, mac, false /*force*/);
 		zebra_evpn_es_mac_deref_entry(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}
@@ -343,7 +342,7 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 	char buf1[INET6_ADDRSTRLEN];
 	bool reset_params = false;
 
-	if (!(zvrf->dup_addr_detect && do_dad))
+	if (!(zebra_evpn_do_dup_addr_detect(zvrf) && do_dad))
 		return;
 
 	/* MAC is detected as duplicate,
@@ -1006,6 +1005,14 @@ int zebra_evpn_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 			   mac->flags);
 	}
 
+	/* If the MAC is freed before the neigh we will end up
+	 * with a stale pointer against the neigh
+	 */
+	if (!list_isempty(mac->neigh_list))
+		zlog_warn("%s: MAC %pEA flags 0x%x neigh list not empty %d",
+			  __func__, &mac->macaddr, mac->flags,
+			  listcount(mac->neigh_list));
+
 	/* force de-ref any ES entry linked to the MAC */
 	zebra_evpn_es_mac_deref_entry(mac);
 
@@ -1076,7 +1083,8 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 					__func__);
 
 			if (mac->flags & ZEBRA_MAC_REMOTE)
-				zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac);
+				zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac,
+							     false /*force*/);
 		}
 
 		zebra_evpn_mac_del(wctx->zevpn, mac);
@@ -1181,10 +1189,9 @@ struct hash *zebra_mac_db_create(const char *desc)
 }
 
 /* program sync mac flags in the dataplane  */
-void zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
-				    bool force_clear_static, const char *caller)
+int zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
+				   bool force_clear_static, const char *caller)
 {
-	char macbuf[ETHER_ADDR_STRLEN];
 	struct interface *ifp;
 	bool sticky;
 	bool set_static;
@@ -1199,13 +1206,11 @@ void zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 	if (!ifp) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 			zlog_debug(
-				"%s: dp-install sync-mac vni %u mac %s es %s 0x%x %sskipped, no access-port",
-				caller, zevpn->vni,
-				prefix_mac2str(&mac->macaddr, macbuf,
-					       sizeof(macbuf)),
+				"%s: dp-install sync-mac vni %u mac %pEA es %s 0x%x %sskipped, no access-port",
+				caller, zevpn->vni, &mac->macaddr,
 				mac->es ? mac->es->esi_str : "-", mac->flags,
 				set_inactive ? "inactive " : "");
-		return;
+		return -1;
 	}
 
 	zif = ifp->info;
@@ -1213,13 +1218,11 @@ void zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 	if (!br_ifp) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 			zlog_debug(
-				"%s: dp-install sync-mac vni %u mac %s es %s 0x%x %sskipped, no br",
-				caller, zevpn->vni,
-				prefix_mac2str(&mac->macaddr, macbuf,
-					       sizeof(macbuf)),
+				"%s: dp-install sync-mac vni %u mac %pEA es %s 0x%x %sskipped, no br",
+				caller, zevpn->vni, &mac->macaddr,
 				mac->es ? mac->es->esi_str : "-", mac->flags,
 				set_inactive ? "inactive " : "");
-		return;
+		return -1;
 	}
 
 	sticky = !!CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY);
@@ -1228,17 +1231,42 @@ void zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 	else
 		set_static = zebra_evpn_mac_is_static(mac);
 
+	/* We can install a local mac that has been synced from the peer
+	 * over the VxLAN-overlay/network-port if fast failover is not
+	 * supported and if the local ES is oper-down.
+	 */
+	if (mac->es && zebra_evpn_es_local_mac_via_network_port(mac->es)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug(
+				"dp-%s sync-nw-mac vni %u mac %pEA es %s 0x%x %s",
+				set_static ? "install" : "uninstall",
+				zevpn->vni, &mac->macaddr,
+				mac->es ? mac->es->esi_str : "-", mac->flags,
+				set_inactive ? "inactive " : "");
+		if (set_static)
+			/* XXX - old_static needs to be computed more
+			 * accurately
+			 */
+			zebra_evpn_rem_mac_install(zevpn, mac,
+						   true /* old_static */);
+		else
+			zebra_evpn_rem_mac_uninstall(zevpn, mac,
+						     false /* force */);
+
+		return 0;
+	}
+
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 		zlog_debug(
-			"dp-install sync-mac vni %u mac %s es %s 0x%x %s%s",
-			zevpn->vni,
-			prefix_mac2str(&mac->macaddr, macbuf, sizeof(macbuf)),
+			"dp-install sync-mac vni %u mac %pEA es %s 0x%x %s%s",
+			zevpn->vni, &mac->macaddr,
 			mac->es ? mac->es->esi_str : "-", mac->flags,
 			set_static ? "static " : "",
 			set_inactive ? "inactive " : "");
 
 	dplane_local_mac_add(ifp, br_ifp, vid, &mac->macaddr, sticky,
 			     set_static, set_inactive);
+	return 0;
 }
 
 void zebra_evpn_mac_send_add_del_to_client(zebra_mac_t *mac, bool old_bgp_ready,
@@ -1367,16 +1395,21 @@ void zebra_evpn_sync_mac_del(zebra_mac_t *mac)
 static inline bool zebra_evpn_mac_is_bgp_seq_ok(zebra_evpn_t *zevpn,
 						zebra_mac_t *mac, uint32_t seq,
 						uint16_t ipa_len,
-						struct ipaddr *ipaddr)
+						struct ipaddr *ipaddr,
+						bool sync)
 {
 	char macbuf[ETHER_ADDR_STRLEN];
 	char ipbuf[INET6_ADDRSTRLEN];
 	uint32_t tmp_seq;
+	const char *n_type;
 
-	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
 		tmp_seq = mac->loc_seq;
-	else
+		n_type = "local";
+	} else {
 		tmp_seq = mac->rem_seq;
+		n_type = "remote";
+	}
 
 	if (seq < tmp_seq) {
 		/* if the mac was never advertised to bgp we must accept
@@ -1385,10 +1418,11 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(zebra_evpn_t *zevpn,
 		 */
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
 		    && !zebra_evpn_mac_is_ready_for_bgp(mac->flags)) {
-			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC || IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"sync-macip accept vni %u mac %s%s%s lower seq %u f 0x%x",
-					zevpn->vni,
+					"%s-macip accept vni %u %s-mac %s%s%s lower seq %u f 0x%x",
+					sync ? "sync" : "rem", zevpn->vni,
+					n_type,
 					prefix_mac2str(&mac->macaddr, macbuf,
 						       sizeof(macbuf)),
 					ipa_len ? " IP " : "",
@@ -1399,10 +1433,10 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(zebra_evpn_t *zevpn,
 			return true;
 		}
 
-		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC || IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"sync-macip ignore vni %u mac %s%s%s as existing has higher seq %u f 0x%x",
-				zevpn->vni,
+				"%s-macip ignore vni %u %s-mac %s%s%s as existing has higher seq %u f 0x%x",
+				sync ? "sync" : "rem", zevpn->vni, n_type,
 				prefix_mac2str(&mac->macaddr, macbuf,
 					       sizeof(macbuf)),
 				ipa_len ? " IP " : "",
@@ -1490,7 +1524,7 @@ zebra_evpn_proc_sync_mac_update(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 			return NULL;
 		}
 		if (!zebra_evpn_mac_is_bgp_seq_ok(zevpn, mac, seq, ipa_len,
-						  ipaddr)) {
+						  ipaddr, true)) {
 			ctx->ignore_macip = true;
 			return NULL;
 		}
@@ -1694,7 +1728,7 @@ void zebra_evpn_rem_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 	 * go away, we need to uninstall the MAC.
 	 */
 	if (remote_neigh_count(mac) == 0) {
-		zebra_evpn_rem_mac_uninstall(zevpn, mac);
+		zebra_evpn_rem_mac_uninstall(zevpn, mac, false /*force*/);
 		zebra_evpn_es_mac_deref_entry(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}
@@ -1740,7 +1774,6 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
-	uint32_t tmp_seq;
 	bool sticky;
 	bool remote_gw;
 	int update_mac = 0;
@@ -1800,8 +1833,6 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 			if (ipa_len)
 				SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 		} else {
-			zebra_evpn_es_mac_ref(mac, esi);
-
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
 			 * corresponds to "older" location of the host
@@ -1810,26 +1841,11 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 			 * the sequence number and ignore this update
 			 * if appropriate.
 			 */
-			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
-				tmp_seq = mac->loc_seq;
-			else
-				tmp_seq = mac->rem_seq;
-
-			if (seq < tmp_seq) {
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug(
-						"Ignore remote MACIP ADD VNI %u MAC %s%s%s as existing MAC has higher seq %u flags 0x%x",
-						zevpn->vni,
-						prefix_mac2str(macaddr, buf,
-							       sizeof(buf)),
-						ipa_len ? " IP " : "",
-						ipa_len ? ipaddr2str(
-								  ipaddr, buf1,
-								  sizeof(buf1))
-							: "",
-						tmp_seq, mac->flags);
+			if (!zebra_evpn_mac_is_bgp_seq_ok(
+				    zevpn, mac, seq, ipa_len, ipaddr, false))
 				return -1;
-			}
+
+			zebra_evpn_es_mac_ref(mac, esi);
 		}
 
 		/* Check MAC's curent state is local (this is the case
@@ -2091,13 +2107,12 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 	}
 
 	/* if the dataplane thinks the entry is sync but it is
-	 * not sync in zebra we need to re-install to fixup
+	 * not sync in zebra (or vice-versa) we need to re-install
+	 * to fixup
 	 */
-	if (dp_static) {
-		new_static = zebra_evpn_mac_is_static(mac);
-		if (!new_static)
-			inform_dataplane = true;
-	}
+	new_static = zebra_evpn_mac_is_static(mac);
+	if (dp_static != new_static)
+		inform_dataplane = true;
 
 	if (local_inactive)
 		SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE);
@@ -2193,8 +2208,8 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 				mac, old_bgp_ready, new_bgp_ready);
 		}
 
-		/* re-install the entry in the kernel */
-		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
+		/* re-install the inactive entry in the kernel */
+		zebra_evpn_sync_mac_dp_install(mac, true /* set_inactive */,
 					       false /* force_clear_static */,
 					       __func__);
 

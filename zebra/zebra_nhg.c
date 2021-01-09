@@ -450,12 +450,13 @@ static void *zebra_nhg_hash_alloc(void *arg)
 					 nhe->nhg.nexthop->vrf_id);
 		if (ifp)
 			zebra_nhg_set_if(nhe, ifp);
-		else
-			flog_err(
-				EC_ZEBRA_IF_LOOKUP_FAILED,
-				"Zebra failed to lookup an interface with ifindex=%d in vrf=%u for NHE id=%u",
-				nhe->nhg.nexthop->ifindex,
-				nhe->nhg.nexthop->vrf_id, nhe->id);
+		else {
+			if (IS_ZEBRA_DEBUG_NHG)
+				zlog_debug(
+					"Failed to lookup an interface with ifindex=%d in vrf=%u for NHE id=%u",
+					nhe->nhg.nexthop->ifindex,
+					nhe->nhg.nexthop->vrf_id, nhe->id);
+		}
 	}
 
 	return nhe;
@@ -2649,10 +2650,11 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		nhe = zebra_nhg_lookup_id(id);
 
 		if (!nhe) {
-			flog_err(
-				EC_ZEBRA_NHG_SYNC,
-				"%s operation preformed on Nexthop ID (%u) in the kernel, that we no longer have in our table",
-				dplane_op2str(op), id);
+			if (IS_ZEBRA_DEBUG_NHG)
+				zlog_debug(
+					"%s operation preformed on Nexthop ID (%u) in the kernel, that we no longer have in our table",
+					dplane_op2str(op), id);
+
 			break;
 		}
 

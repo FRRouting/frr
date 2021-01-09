@@ -492,11 +492,11 @@ terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
     graph_new_node (ctx->graph, (void *)element, NULL);
 
   if (ctx->docstr && strlen (ctx->docstr) > 1) {
-    zlog_debug ("Excessive docstring while parsing '%s'", ctx->el->string);
-    zlog_debug ("----------");
+    zlog_err ("Excessive docstring while parsing '%s'", ctx->el->string);
+    zlog_err ("----------");
     while (ctx->docstr && ctx->docstr[1] != '\0')
-      zlog_debug ("%s", strsep(&ctx->docstr, "\n"));
-    zlog_debug ("----------\n");
+      zlog_err ("%s", strsep(&ctx->docstr, "\n"));
+    zlog_err ("----------\n");
   }
 
   graph_add_edge (finalnode, end_token_node);
@@ -509,7 +509,7 @@ doc_next (struct parser_ctx *ctx)
   const char *piece = ctx->docstr ? strsep (&ctx->docstr, "\n") : "";
   if (*piece == 0x03)
   {
-    zlog_debug ("Ran out of docstring while parsing '%s'", ctx->el->string);
+    zlog_err ("Ran out of docstring while parsing '%s'", ctx->el->string);
     piece = "";
   }
 

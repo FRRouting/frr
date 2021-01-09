@@ -32,7 +32,7 @@ OSPF6 router
 .. index:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
 .. clicmd:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
 
-.. index:: no timers throttle spf
+.. index:: timers throttle spf
 .. clicmd:: no timers throttle spf
 
    This command sets the initial `delay`, the `initial-holdtime`
@@ -71,7 +71,7 @@ OSPF6 router
 .. index:: auto-cost reference-bandwidth COST
 .. clicmd:: auto-cost reference-bandwidth COST
 
-.. index:: no auto-cost reference-bandwidth
+.. index:: auto-cost reference-bandwidth
 .. clicmd:: no auto-cost reference-bandwidth
 
    This sets the reference bandwidth for cost calculations, where this
@@ -163,26 +163,36 @@ Redistribute routes to OSPF6
 Showing OSPF6 information
 =========================
 
-.. index:: show ipv6 ospf6 [INSTANCE_ID]
-.. clicmd:: show ipv6 ospf6 [INSTANCE_ID]
+.. index:: show ipv6 ospf6 [INSTANCE_ID] [json]
+.. clicmd:: show ipv6 ospf6 [INSTANCE_ID] [json]
 
    INSTANCE_ID is an optional OSPF instance ID. To see router ID and OSPF
-   instance ID, simply type "show ipv6 ospf6 <cr>".
+   instance ID, simply type "show ipv6 ospf6 <cr>". JSON output can be
+   obtained by appending 'json' to the end of command.
 
 .. index:: show ipv6 ospf6 database
 .. clicmd:: show ipv6 ospf6 database
 
    This command shows LSA database summary. You can specify the type of LSA.
 
-.. index:: show ipv6 ospf6 interface
-.. clicmd:: show ipv6 ospf6 interface
+.. index:: show ipv6 ospf6 interface [json]
+.. clicmd:: show ipv6 ospf6 interface [json]
 
-   To see OSPF interface configuration like costs.
+   To see OSPF interface configuration like costs. JSON output can be
+   obtained by appending "json" in the end.
 
-.. index:: show ipv6 ospf6 neighbor
-.. clicmd:: show ipv6 ospf6 neighbor
+.. index:: show ipv6 ospf6 neighbor [json]
+.. clicmd:: show ipv6 ospf6 neighbor [json]
 
-   Shows state and chosen (Backup) DR of neighbor.
+   Shows state and chosen (Backup) DR of neighbor. JSON output can be
+   obtained by appending 'json' at the end.
+
+.. index:: show ipv6 ospf6 interface traffic [json]
+.. clicmd:: show ipv6 ospf6 interface traffic [json]
+
+   Shows counts of different packets that have been recieved and transmitted
+   by the interfaces. JSON output can be obtained by appending "json" at the
+   end.
 
 .. index:: show ipv6 ospf6 request-list A.B.C.D
 .. clicmd:: show ipv6 ospf6 request-list A.B.C.D
@@ -194,10 +204,17 @@ Showing OSPF6 information
 
    This command shows internal routing table.
 
-.. index:: show ipv6 ospf6 zebra
-.. clicmd:: show ipv6 ospf6 zebra
+.. index:: show ipv6 ospf6 zebra [json]
+.. clicmd:: show ipv6 ospf6 zebra [json]
 
-   Shows state about what is being redistributed between zebra and OSPF6
+   Shows state about what is being redistributed between zebra and OSPF6.
+   JSON output can be obtained by appending "json" at the end.
+
+.. index:: show ipv6 ospf6 redistribute [json]
+.. clicmd:: show ipv6 ospf6 redistribute [json]
+
+   Shows the routes which are redistributed by the router. JSON output can
+   be obtained by appending 'json' at the end.
 
 OSPF6 Configuration Examples
 ============================

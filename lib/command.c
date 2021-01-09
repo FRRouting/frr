@@ -154,7 +154,8 @@ static bool vty_check_node_for_xpath_decrement(enum node_type target_node,
 		|| node == BGP_IPV4M_NODE || node == BGP_IPV6M_NODE
 		|| node == BGP_VPNV4_NODE || node == BGP_VPNV6_NODE
 		|| node == BGP_EVPN_NODE || node == BGP_IPV4L_NODE
-		|| node == BGP_IPV6L_NODE ))
+		|| node == BGP_IPV6L_NODE || node == BGP_FLOWSPECV4_NODE
+		|| node == BGP_FLOWSPECV6_NODE))
 		return false;
 
 	return true;
@@ -861,6 +862,30 @@ enum node_type node_parent(enum node_type node)
 		break;
 	case BFD_PROFILE_NODE:
 		ret = BFD_NODE;
+		break;
+	case SR_TRAFFIC_ENG_NODE:
+		ret = SEGMENT_ROUTING_NODE;
+		break;
+	case SR_SEGMENT_LIST_NODE:
+		ret = SR_TRAFFIC_ENG_NODE;
+		break;
+	case SR_POLICY_NODE:
+		ret = SR_TRAFFIC_ENG_NODE;
+		break;
+	case SR_CANDIDATE_DYN_NODE:
+		ret = SR_POLICY_NODE;
+		break;
+	case PCEP_NODE:
+		ret = SR_TRAFFIC_ENG_NODE;
+		break;
+	case PCEP_PCE_CONFIG_NODE:
+		ret = PCEP_NODE;
+		break;
+	case PCEP_PCE_NODE:
+		ret = PCEP_NODE;
+		break;
+	case PCEP_PCC_NODE:
+		ret = PCEP_NODE;
 		break;
 	default:
 		ret = CONFIG_NODE;

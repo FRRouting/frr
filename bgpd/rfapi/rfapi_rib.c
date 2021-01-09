@@ -622,7 +622,8 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 	ri->lifetime = lifetime;
 
 	/* This loop based on rfapiRouteInfo2NextHopEntry() */
-	for (pEncap = bpi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
+	for (pEncap = bgp_attr_get_vnc_subtlvs(bpi->attr); pEncap;
+	     pEncap = pEncap->next) {
 		struct bgp_tea_options *hop;
 
 		switch (pEncap->type) {

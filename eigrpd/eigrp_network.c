@@ -292,7 +292,7 @@ void eigrp_if_update(struct interface *ifp)
 			continue;
 
 		/* EIGRP must be on and Router-ID must be configured. */
-		if (eigrp->router_id.s_addr == 0)
+		if (eigrp->router_id.s_addr == INADDR_ANY)
 			continue;
 
 		/* Run each network for this interface. */

@@ -33,8 +33,9 @@ BUILT_SOURCES += vtysh/vtysh_daemons.h
 # force vtysh_daemons.h
 $(vtysh_vtysh_OBJECTS): vtysh/vtysh_daemons.h
 
+CLEANFILES += vtysh/vtysh_daemons.h
 vtysh/vtysh_daemons.h:
-	$(PERL) vtysh/daemons.pl $(vtysh_daemons) > vtysh/vtysh_daemons.h
+	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > vtysh/vtysh_daemons.h
 
 AM_V_EXTRACT = $(am__v_EXTRACT_$(V))
 am__v_EXTRACT_ = $(am__v_EXTRACT_$(AM_DEFAULT_VERBOSITY))

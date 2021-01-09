@@ -1,0 +1,63 @@
+{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "eth-rt1",
+        "vrf": "default",
+        "state": {
+          "frr-isisd:isis": {
+            "adjacencies": {
+              "adjacency": [
+                {
+                  "neighbor-sys-type": "level-1",
+                  "neighbor-sysid": "0000.0000.0001",
+                  "hold-timer": 9,
+                  "neighbor-priority": 0,
+                  "state": "up"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "eth-rt2",
+        "vrf": "default",
+        "state": {
+          "frr-isisd:isis": {
+            "adjacencies": {
+              "adjacency": [
+                {
+                  "neighbor-sys-type": "level-1",
+                  "neighbor-sysid": "0000.0000.0002",
+                  "hold-timer": 9,
+                  "neighbor-priority": 0,
+                  "state": "up"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "eth-rt7",
+        "vrf": "default",
+        "state": {
+          "frr-isisd:isis": {
+            "adjacencies": {
+              "adjacency": [
+                {
+                  "neighbor-sys-type": "level-1",
+                  "neighbor-sysid": "0000.0000.0007",
+                  "hold-timer": 9,
+                  "neighbor-priority": 0,
+                  "state": "up"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

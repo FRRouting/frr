@@ -1,5 +1,5 @@
---- rt4/step6/show_mpls_table.ref	2020-09-25 17:51:14.481381312 -0300
-+++ rt4/step7/show_mpls_table.ref	2020-09-25 17:52:01.385994037 -0300
+--- a/rt4/step6/show_mpls_table.ref
++++ b/rt4/step7/show_mpls_table.ref
 @@ -171,50 +171,6 @@
        }
      ]
@@ -21,7 +21,7 @@
 -    "backupNexthops":[
 -      {
 -        "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16050,
 -        "nexthop":"10.0.7.6"
 -      }
 -    ]
@@ -43,7 +43,7 @@
 -    "backupNexthops":[
 -      {
 -        "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16051,
 -        "interface":"eth-rt6"
 -      }
 -    ]

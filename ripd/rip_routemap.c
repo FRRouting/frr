@@ -43,27 +43,23 @@ struct rip_metric_modifier {
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_metric(void *rule, const struct prefix *prefix,
-		   route_map_object_t type, void *object)
+route_match_metric(void *rule, const struct prefix *prefix, void *object)
 {
 	uint32_t *metric;
 	uint32_t check;
 	struct rip_info *rinfo;
 
-	if (type == RMAP_RIP) {
-		metric = rule;
-		rinfo = object;
+	metric = rule;
+	rinfo = object;
 
-		/* If external metric is available, the route-map should
-		   work on this one (for redistribute purpose)  */
-		check = (rinfo->external_metric) ? rinfo->external_metric
-						 : rinfo->metric;
-		if (check == *metric)
-			return RMAP_MATCH;
-		else
-			return RMAP_NOMATCH;
-	}
-	return RMAP_NOMATCH;
+	/* If external metric is available, the route-map should
+	   work on this one (for redistribute purpose)  */
+	check = (rinfo->external_metric) ? rinfo->external_metric
+					 : rinfo->metric;
+	if (check == *metric)
+		return RMAP_MATCH;
+	else
+		return RMAP_NOMATCH;
 }
 
 /* Route map `match metric' match statement. `arg' is METRIC value */
@@ -98,29 +94,25 @@ static const struct route_map_rule_cmd route_match_metric_cmd = {
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_interface(void *rule, const struct prefix *prefix,
-		      route_map_object_t type, void *object)
+route_match_interface(void *rule, const struct prefix *prefix, void *object)
 {
 	struct rip_info *rinfo;
 	struct interface *ifp;
 	char *ifname;
 
-	if (type == RMAP_RIP) {
-		ifname = rule;
-		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+	ifname = rule;
+	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 
-		if (!ifp)
-			return RMAP_NOMATCH;
+	if (!ifp)
+		return RMAP_NOMATCH;
 
-		rinfo = object;
+	rinfo = object;
 
-		if (rinfo->ifindex_out == ifp->ifindex
-		    || rinfo->nh.ifindex == ifp->ifindex)
-			return RMAP_MATCH;
-		else
-			return RMAP_NOMATCH;
-	}
-	return RMAP_NOMATCH;
+	if (rinfo->ifindex_out == ifp->ifindex
+	    || rinfo->nh.ifindex == ifp->ifindex)
+		return RMAP_MATCH;
+	else
+		return RMAP_NOMATCH;
 }
 
 /* Route map `match interface' match statement. `arg' is IFNAME value */
@@ -148,30 +140,25 @@ static const struct route_map_rule_cmd route_match_interface_cmd = {
 
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_ip_next_hop(void *rule, const struct prefix *prefix,
-			route_map_object_t type, void *object)
+route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
 	struct rip_info *rinfo;
 	struct prefix_ipv4 p;
 
-	if (type == RMAP_RIP) {
-		rinfo = object;
-		p.family = AF_INET;
-		p.prefix = (rinfo->nh.gate.ipv4.s_addr != INADDR_ANY)
-				   ? rinfo->nh.gate.ipv4
-				   : rinfo->from;
-		p.prefixlen = IPV4_MAX_BITLEN;
+	rinfo = object;
+	p.family = AF_INET;
+	p.prefix = (rinfo->nh.gate.ipv4.s_addr != INADDR_ANY)
+			   ? rinfo->nh.gate.ipv4
+			   : rinfo->from;
+	p.prefixlen = IPV4_MAX_BITLEN;
 
-		alist = access_list_lookup(AFI_IP, (char *)rule);
-		if (alist == NULL)
-			return RMAP_NOMATCH;
+	alist = access_list_lookup(AFI_IP, (char *)rule);
+	if (alist == NULL)
+		return RMAP_NOMATCH;
 
-		return (access_list_apply(alist, &p) == FILTER_DENY
-				? RMAP_NOMATCH
-				: RMAP_MATCH);
-	}
-	return RMAP_NOMATCH;
+	return (access_list_apply(alist, &p) == FILTER_DENY ? RMAP_NOMATCH
+							    : RMAP_MATCH);
 }
 
 /* Route map `ip next-hop' match statement.  `arg' should be
@@ -199,29 +186,25 @@ static const struct route_map_rule_cmd route_match_ip_next_hop_cmd = {
 
 static enum route_map_cmd_result_t
 route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
-				    route_map_object_t type, void *object)
+				    void *object)
 {
 	struct prefix_list *plist;
 	struct rip_info *rinfo;
 	struct prefix_ipv4 p;
 
-	if (type == RMAP_RIP) {
-		rinfo = object;
-		p.family = AF_INET;
-		p.prefix = (rinfo->nh.gate.ipv4.s_addr != INADDR_ANY)
-				   ? rinfo->nh.gate.ipv4
-				   : rinfo->from;
-		p.prefixlen = IPV4_MAX_BITLEN;
+	rinfo = object;
+	p.family = AF_INET;
+	p.prefix = (rinfo->nh.gate.ipv4.s_addr != INADDR_ANY)
+			   ? rinfo->nh.gate.ipv4
+			   : rinfo->from;
+	p.prefixlen = IPV4_MAX_BITLEN;
 
-		plist = prefix_list_lookup(AFI_IP, (char *)rule);
-		if (plist == NULL)
-			return RMAP_NOMATCH;
+	plist = prefix_list_lookup(AFI_IP, (char *)rule);
+	if (plist == NULL)
+		return RMAP_NOMATCH;
 
-		return (prefix_list_apply(plist, &p) == PREFIX_DENY
-				? RMAP_NOMATCH
-				: RMAP_MATCH);
-	}
-	return RMAP_NOMATCH;
+	return (prefix_list_apply(plist, &p) == PREFIX_DENY ? RMAP_NOMATCH
+							    : RMAP_MATCH);
 }
 
 static void *route_match_ip_next_hop_prefix_list_compile(const char *arg)
@@ -246,11 +229,11 @@ static const struct route_map_rule_cmd
 
 static enum route_map_cmd_result_t
 route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
-			     route_map_object_t type, void *object)
+			     void *object)
 {
 	struct rip_info *rinfo;
 
-	if (type == RMAP_RIP && prefix->family == AF_INET) {
+	if (prefix->family == AF_INET) {
 		rinfo = (struct rip_info *)object;
 		if (!rinfo)
 			return RMAP_NOMATCH;
@@ -284,21 +267,16 @@ static const struct route_map_rule_cmd
 /* Match function should return 1 if match is success else return
    zero. */
 static enum route_map_cmd_result_t
-route_match_ip_address(void *rule, const struct prefix *prefix,
-		       route_map_object_t type, void *object)
+route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
 
-	if (type == RMAP_RIP) {
-		alist = access_list_lookup(AFI_IP, (char *)rule);
-		if (alist == NULL)
-			return RMAP_NOMATCH;
+	alist = access_list_lookup(AFI_IP, (char *)rule);
+	if (alist == NULL)
+		return RMAP_NOMATCH;
 
-		return (access_list_apply(alist, prefix) == FILTER_DENY
-				? RMAP_NOMATCH
-				: RMAP_MATCH);
-	}
-	return RMAP_NOMATCH;
+	return (access_list_apply(alist, prefix) == FILTER_DENY ? RMAP_NOMATCH
+								: RMAP_MATCH);
 }
 
 /* Route map `ip address' match statement.  `arg' should be
@@ -326,20 +304,16 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 
 static enum route_map_cmd_result_t
 route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
-				   route_map_object_t type, void *object)
+				   void *object)
 {
 	struct prefix_list *plist;
 
-	if (type == RMAP_RIP) {
-		plist = prefix_list_lookup(AFI_IP, (char *)rule);
-		if (plist == NULL)
-			return RMAP_NOMATCH;
+	plist = prefix_list_lookup(AFI_IP, (char *)rule);
+	if (plist == NULL)
+		return RMAP_NOMATCH;
 
-		return (prefix_list_apply(plist, prefix) == PREFIX_DENY
-				? RMAP_NOMATCH
-				: RMAP_MATCH);
-	}
-	return RMAP_NOMATCH;
+	return (prefix_list_apply(plist, prefix) == PREFIX_DENY ? RMAP_NOMATCH
+								: RMAP_MATCH);
 }
 
 static void *route_match_ip_address_prefix_list_compile(const char *arg)
@@ -363,25 +337,21 @@ static const struct route_map_rule_cmd
 /* `match tag TAG' */
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_tag(void *rule, const struct prefix *p, route_map_object_t type,
-		void *object)
+route_match_tag(void *rule, const struct prefix *p, void *object)
 {
 	route_tag_t *tag;
 	struct rip_info *rinfo;
 	route_tag_t rinfo_tag;
 
-	if (type == RMAP_RIP) {
-		tag = rule;
-		rinfo = object;
+	tag = rule;
+	rinfo = object;
 
-		/* The information stored by rinfo is host ordered. */
-		rinfo_tag = rinfo->tag;
-		if (rinfo_tag == *tag)
-			return RMAP_MATCH;
-		else
-			return RMAP_NOMATCH;
-	}
-	return RMAP_NOMATCH;
+	/* The information stored by rinfo is host ordered. */
+	rinfo_tag = rinfo->tag;
+	if (rinfo_tag == *tag)
+		return RMAP_MATCH;
+	else
+		return RMAP_NOMATCH;
 }
 
 /* Route map commands for tag matching. */
@@ -396,33 +366,30 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 
 /* Set metric to attribute. */
 static enum route_map_cmd_result_t
-route_set_metric(void *rule, const struct prefix *prefix,
-		 route_map_object_t type, void *object)
+route_set_metric(void *rule, const struct prefix *prefix, void *object)
 {
-	if (type == RMAP_RIP) {
-		struct rip_metric_modifier *mod;
-		struct rip_info *rinfo;
+	struct rip_metric_modifier *mod;
+	struct rip_info *rinfo;
 
-		mod = rule;
-		rinfo = object;
+	mod = rule;
+	rinfo = object;
 
-		if (!mod->used)
-			return RMAP_OKAY;
+	if (!mod->used)
+		return RMAP_OKAY;
 
-		if (mod->type == metric_increment)
-			rinfo->metric_out += mod->metric;
-		else if (mod->type == metric_decrement)
-			rinfo->metric_out -= mod->metric;
-		else if (mod->type == metric_absolute)
-			rinfo->metric_out = mod->metric;
+	if (mod->type == metric_increment)
+		rinfo->metric_out += mod->metric;
+	else if (mod->type == metric_decrement)
+		rinfo->metric_out -= mod->metric;
+	else if (mod->type == metric_absolute)
+		rinfo->metric_out = mod->metric;
 
-		if ((signed int)rinfo->metric_out < 1)
-			rinfo->metric_out = 1;
-		if (rinfo->metric_out > RIP_METRIC_INFINITY)
-			rinfo->metric_out = RIP_METRIC_INFINITY;
+	if ((signed int)rinfo->metric_out < 1)
+		rinfo->metric_out = 1;
+	if (rinfo->metric_out > RIP_METRIC_INFINITY)
+		rinfo->metric_out = RIP_METRIC_INFINITY;
 
-		rinfo->metric_set = 1;
-	}
+	rinfo->metric_set = 1;
 	return RMAP_OKAY;
 }
 
@@ -495,22 +462,20 @@ static const struct route_map_rule_cmd route_set_metric_cmd = {
 /* `set ip next-hop IP_ADDRESS' */
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
-static enum route_map_cmd_result_t route_set_ip_nexthop(void *rule,
-						    const struct prefix *prefix,
-						    route_map_object_t type,
-						    void *object)
+static enum route_map_cmd_result_t
+route_set_ip_nexthop(void *rule, const struct prefix *prefix,
+
+		     void *object)
 {
 	struct in_addr *address;
 	struct rip_info *rinfo;
 
-	if (type == RMAP_RIP) {
-		/* Fetch routemap's rule information. */
-		address = rule;
-		rinfo = object;
+	/* Fetch routemap's rule information. */
+	address = rule;
+	rinfo = object;
 
-		/* Set next hop value. */
-		rinfo->nexthop_out = *address;
-	}
+	/* Set next hop value. */
+	rinfo->nexthop_out = *address;
 
 	return RMAP_OKAY;
 }
@@ -552,20 +517,17 @@ static const struct route_map_rule_cmd route_set_ip_nexthop_cmd = {
 
 /* Set tag to object.  ojbect must be pointer to struct attr. */
 static enum route_map_cmd_result_t
-route_set_tag(void *rule, const struct prefix *prefix, route_map_object_t type,
-	      void *object)
+route_set_tag(void *rule, const struct prefix *prefix, void *object)
 {
 	route_tag_t *tag;
 	struct rip_info *rinfo;
 
-	if (type == RMAP_RIP) {
-		/* Fetch routemap's rule information. */
-		tag = rule;
-		rinfo = object;
+	/* Fetch routemap's rule information. */
+	tag = rule;
+	rinfo = object;
 
-		/* Set next hop value. */
-		rinfo->tag_out = *tag;
-	}
+	/* Set next hop value. */
+	rinfo->tag_out = *tag;
 
 	return RMAP_OKAY;
 }

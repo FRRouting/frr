@@ -255,7 +255,7 @@ struct rfapi {
 
 #define RFAPI_0_PREFIX(prefix)                                                 \
 	((((prefix)->family == AF_INET)                                        \
-		  ? (prefix)->u.prefix4.s_addr == 0                            \
+		  ? (prefix)->u.prefix4.s_addr == INADDR_ANY                   \
 		  : (((prefix)->family == AF_INET6)                            \
 			     ? (IN6_IS_ADDR_UNSPECIFIED(&(prefix)->u.prefix6)) \
 			     : 0)))

@@ -41,6 +41,16 @@ TESTS_OSPF6D =
 IGNORE_OSPF6D = --ignore=ospf6d/
 endif
 
+if ZEBRA
+TESTS_ZEBRA = \
+	tests/zebra/test_lm_plugin \
+	#end
+IGNORE_ZEBRA =
+else
+TESTS_ZEBRA =
+IGNORE_ZEBRA = --ignore=zebra/
+endif
+
 clippy_scan += \
 	tests/lib/cli/test_cli.c \
 	tests/ospf6d/test_lsdb.c \
@@ -81,6 +91,7 @@ check_PROGRAMS = \
 	$(TESTS_BGPD) \
 	$(TESTS_ISISD) \
 	$(TESTS_OSPF6D) \
+	$(TESTS_ZEBRA) \
 	# end
 
 if ZEROMQ
@@ -135,6 +146,7 @@ ALL_TESTS_LDADD = lib/libfrr.la $(LIBCAP)
 BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) -lm
 ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
 OSPF6_TEST_LDADD = ospf6d/libospf6.a $(ALL_TESTS_LDADD)
+ZEBRA_TEST_LDADD = zebra/label_manager.o $(ALL_TESTS_LDADD)
 
 tests_bgpd_test_aspath_CFLAGS = $(TESTS_CFLAGS)
 tests_bgpd_test_aspath_CPPFLAGS = $(TESTS_CPPFLAGS)
@@ -336,6 +348,11 @@ tests_ospf6d_test_lsdb_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_ospf6d_test_lsdb_LDADD = $(OSPF6_TEST_LDADD)
 tests_ospf6d_test_lsdb_SOURCES = tests/ospf6d/test_lsdb.c tests/lib/cli/common_cli.c
 
+tests_zebra_test_lm_plugin_CFLAGS = $(TESTS_CFLAGS)
+tests_zebra_test_lm_plugin_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_zebra_test_lm_plugin_LDADD = $(ZEBRA_TEST_LDADD)
+tests_zebra_test_lm_plugin_SOURCES = tests/zebra/test_lm_plugin.c
+
 EXTRA_DIST += \
 	tests/runtests.py \
 	tests/bgpd/test_aspath.py \
@@ -383,6 +400,8 @@ EXTRA_DIST += \
 	tests/ospf6d/test_lsdb.py \
 	tests/ospf6d/test_lsdb.in \
 	tests/ospf6d/test_lsdb.refout \
+	tests/zebra/test_lm_plugin.py \
+	tests/zebra/test_lm_plugin.refout \
 	# end
 
 .PHONY: tests/tests.xml

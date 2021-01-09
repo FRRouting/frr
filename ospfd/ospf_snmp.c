@@ -1405,7 +1405,8 @@ static int ospf_snmp_if_update(struct interface *ifp)
 		} else {
 			/* Unnumbered interfaces --> Sort them based on
 			 * interface indexes */
-			if (osif->addr.s_addr != 0 || osif->ifindex > ifindex)
+			if (osif->addr.s_addr != INADDR_ANY
+			    || osif->ifindex > ifindex)
 				break;
 		}
 		pn = node;
@@ -2003,11 +2004,12 @@ static struct ospf_neighbor *ospf_snmp_nbr_lookup(struct ospf *ospf,
 
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
 		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-			if ((nbr = rn->info) != NULL && nbr != oi->nbr_self
+			if ((nbr = rn->info) != NULL
+			    && nbr != oi->nbr_self
 			    /* If EXACT match is needed, provide ALL entry found
 					&& nbr->state != NSM_Down
 			     */
-			    && nbr->src.s_addr != 0) {
+			    && nbr->src.s_addr != INADDR_ANY) {
 				if (IPV4_ADDR_SAME(&nbr->src, nbr_addr)) {
 					route_unlock_node(rn);
 					return nbr;
@@ -2033,7 +2035,8 @@ static struct ospf_neighbor *ospf_snmp_nbr_lookup_next(struct in_addr *nbr_addr,
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, nn, oi)) {
 		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
 			if ((nbr = rn->info) != NULL && nbr != oi->nbr_self
-			    && nbr->state != NSM_Down && nbr->src.s_addr != 0) {
+			    && nbr->state != NSM_Down
+			    && nbr->src.s_addr != INADDR_ANY) {
 				if (first) {
 					if (!min)
 						min = nbr;

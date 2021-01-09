@@ -175,11 +175,9 @@ void label_manager_init(void)
 }
 
 /* alloc and fill a label chunk */
-struct label_manager_chunk *create_label_chunk(uint8_t proto,
-					       unsigned short instance,
-					       uint32_t session_id,
-					       uint8_t keep, uint32_t start,
-					       uint32_t end)
+struct label_manager_chunk *
+create_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
+		   uint8_t keep, uint32_t start, uint32_t end)
 {
 	/* alloc chunk, fill it and return it */
 	struct label_manager_chunk *lmc =
@@ -302,11 +300,9 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
  * @param base Desired starting label of the chunk; if MPLS_LABEL_BASE_ANY it does not apply
  * @return Pointer to the assigned label chunk, or NULL if the request could not be satisfied
  */
-struct label_manager_chunk *assign_label_chunk(uint8_t proto,
-					       unsigned short instance,
-					       uint32_t session_id,
-					       uint8_t keep, uint32_t size,
-					       uint32_t base)
+struct label_manager_chunk *
+assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
+		   uint8_t keep, uint32_t size, uint32_t base)
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
@@ -390,6 +386,7 @@ static int label_manager_release_label_chunk(struct zserv *client,
  *
  * @param proto Daemon protocol of client, to identify the owner
  * @param instance Instance, to identify the owner
+ * @param session_id Zclient session ID, to identify the zclient session
  * @param start First label of the chunk
  * @param end Last label of the chunk
  * @return 0 on success, -1 otherwise

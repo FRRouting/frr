@@ -109,9 +109,9 @@ daemons using a single configuration file through the integrated configuration
 mode. This avoids the overhead of maintaining a separate configuration file for
 each daemon.
 
-FRR is currently currently implementing a new internal configuration system
-based on YANG data models. When this work is completed, FRR will be a fully
-programmable routing stack.
+FRR is currently implementing a new internal configuration system based on YANG
+data models. When this work is completed, FRR will be a fully programmable
+routing stack.
 
 
 .. _supported-platforms:

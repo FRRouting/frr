@@ -2014,16 +2014,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop)) {
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
-		/* Check for available encapsulations. */
-		if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
-			continue;
-
-		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
-		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
-			nexthop->nh_encap_type = NET_VXLAN;
-			nexthop->nh_encap.vni = zl3vni->vni;
-		}
-
 		/* Optionally capture extra interface info while we're in the
 		 * main zebra pthread - a plugin has to ask for this info.
 		 */
@@ -2043,6 +2033,16 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 				TAILQ_INSERT_TAIL(&ctx->u.rinfo.intf_extra_q,
 						  if_extra, link);
 			}
+		}
+
+		/* Check for available evpn encapsulations. */
+		if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
+			continue;
+
+		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
+		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
+			nexthop->nh_encap_type = NET_VXLAN;
+			nexthop->nh_encap.vni = zl3vni->vni;
 		}
 	}
 
@@ -3900,6 +3900,12 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 	return ret;
 }
 
+uint32_t dplane_provider_out_ctx_queue_len(struct zebra_dplane_provider *prov)
+{
+	return atomic_load_explicit(&(prov->dp_out_counter),
+				    memory_order_relaxed);
+}
+
 /*
  * Enqueue and maintain associated counter
  */
@@ -4325,6 +4331,49 @@ static void dplane_provider_init(void)
 		zlog_err("Unable to register test dplane provider: %d",
 			 ret);
 #endif	/* DPLANE_TEST_PROVIDER */
+}
+
+/*
+ * Allow zebra code to walk the queue of pending contexts, evaluate each one
+ * using a callback function. If the function returns 'true', the context
+ * will be dequeued and freed without being processed.
+ */
+int dplane_clean_ctx_queue(bool (*context_cb)(struct zebra_dplane_ctx *ctx,
+					      void *arg), void *val)
+{
+	struct zebra_dplane_ctx *ctx, *temp;
+	struct dplane_ctx_q work_list;
+
+	TAILQ_INIT(&work_list);
+
+	if (context_cb == NULL)
+		goto done;
+
+	/* Walk the pending context queue under the dplane lock. */
+	DPLANE_LOCK();
+
+	TAILQ_FOREACH_SAFE(ctx, &zdplane_info.dg_update_ctx_q, zd_q_entries,
+			   temp) {
+		if (context_cb(ctx, val)) {
+			TAILQ_REMOVE(&zdplane_info.dg_update_ctx_q, ctx,
+				     zd_q_entries);
+			TAILQ_INSERT_TAIL(&work_list, ctx, zd_q_entries);
+		}
+	}
+
+	DPLANE_UNLOCK();
+
+	/* Now free any contexts selected by the caller, without holding
+	 * the lock.
+	 */
+	TAILQ_FOREACH_SAFE(ctx, &work_list, zd_q_entries, temp) {
+		TAILQ_REMOVE(&work_list, ctx, zd_q_entries);
+		dplane_ctx_fini(&ctx);
+	}
+
+done:
+
+	return 0;
 }
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be

@@ -115,8 +115,8 @@ struct thread {
 
 struct cpu_thread_history {
 	int (*func)(struct thread *);
-	atomic_uint_fast32_t total_calls;
-	atomic_uint_fast32_t total_active;
+	atomic_size_t total_calls;
+	atomic_size_t total_active;
 	struct time_stats {
 		atomic_size_t total, max;
 	} real;

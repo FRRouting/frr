@@ -140,6 +140,8 @@ struct isis_circuit *isis_circuit_new(struct isis *isis)
 #endif /* ifndef FABRICD */
 
 	circuit_mt_init(circuit);
+	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL1);
+	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL2);
 
 	QOBJ_REG(circuit, isis_circuit);
 
@@ -156,6 +158,8 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	isis_circuit_if_unbind(circuit, circuit->interface);
 
 	circuit_mt_finish(circuit);
+	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
+	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
 
 	/* and lastly the circuit itself */
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit);

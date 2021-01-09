@@ -279,8 +279,12 @@ struct irdp_interface;
 /* Ethernet segment info used for setting up EVPN multihoming */
 struct zebra_evpn_es;
 struct zebra_es_if_info {
+	/* type-3 esi config */
 	struct ethaddr sysmac;
 	uint32_t lid; /* local-id; has to be unique per-ES-sysmac */
+
+	esi_t esi;
+
 	uint16_t df_pref;
 	struct zebra_evpn_es *es; /* local ES */
 };

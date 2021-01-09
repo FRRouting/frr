@@ -50,6 +50,40 @@ may also be specified (:ref:`common-invocation-options`).
    This option overrides the location addition that the -N option provides
    to the bfdd.sock
 
+.. option:: --dplaneaddr <type>:<address>[<:port>]
+
+   Configure the distributed BFD data plane listening socket bind address.
+
+   One would expect the data plane to run in the same machine as FRR, so
+   the suggested configuration would be:
+
+      --dplaneaddr unix:/var/run/frr/bfdd_dplane.sock
+
+   Or using IPv4:
+
+      --dplaneaddr ipv4:127.0.0.1
+
+   Or using IPv6:
+
+      --dplaneaddr ipv6:[::1]
+
+   It is also possible to specify a port (for IPv4/IPv6 only):
+
+     --dplaneaddr ipv6:[::1]:50701
+
+   (if ommited the default port is ``50700``).
+
+   It is also possible to operate in client mode (instead of listening for
+   connections). To connect to a data plane server append the letter 'c' to
+   the protocol, example:
+
+     --dplaneaddr ipv4c:127.0.0.1
+
+.. note::
+
+   When using UNIX sockets don't forget to check the file permissions
+   before attempting to use it.
+
 
 .. _bfd-commands:
 
@@ -79,7 +113,7 @@ BFDd Commands
 
    `vrf` selects which domain we want to use.
 
-.. index:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
+.. index:: peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
 .. clicmd:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
 
     Stops and removes the selected peer.
@@ -91,7 +125,7 @@ BFDd Commands
    Creates a peer profile that can be configured in multiple peers.
 
 
-.. index:: no profile WORD
+.. index:: profile WORD
 .. clicmd:: no profile WORD
 
    Deletes a peer profile. Any peer using the profile will have their
@@ -112,6 +146,12 @@ BFDd Commands
 .. clicmd:: show bfd [vrf NAME] peers brief [json]
 
     Show all configured BFD peers information and current status in brief.
+
+.. index:: show bfd distributed
+.. clicmd:: show bfd distributed
+
+   Show the BFD data plane (distributed BFD) statistics.
+
 
 .. _bfd-peer-config:
 
@@ -151,7 +191,7 @@ BFD peers and profiles share the same BFD session configuration commands.
    Configures the minimal echo receive transmission interval that this
    system is capable of handling.
 
-.. index:: [no] echo-mode
+.. index:: echo-mode
 .. clicmd:: [no] echo-mode
 
    Enables or disables the echo transmission mode. This mode is disabled
@@ -164,14 +204,14 @@ BFD peers and profiles share the same BFD session configuration commands.
    Echo mode is not supported on multi-hop setups (see :rfc:`5883`
    section 3).
 
-.. index:: [no] shutdown
+.. index:: shutdown
 .. clicmd:: [no] shutdown
 
    Enables or disables the peer. When the peer is disabled an
    'administrative down' message is sent to the remote peer.
 
 
-.. index:: [no] passive-mode
+.. index:: passive-mode
 .. clicmd:: [no] passive-mode
 
    Mark session as passive: a passive session will not attempt to start
@@ -184,7 +224,7 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    The default is active-mode (or ``no passive-mode``).
 
-.. index:: [no] minimum-ttl (1-254)
+.. index:: minimum-ttl (1-254)
 .. clicmd:: [no] minimum-ttl (1-254)
 
    For multi hop sessions only: configure the minimum expected TTL for
@@ -238,7 +278,7 @@ The following commands are available inside the BGP configuration node.
    the connection with its neighbor and, when it goes back up, notify
    BGP to try to connect to it.
 
-.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 .. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 
    Removes any notification registration for this neighbor.
@@ -253,7 +293,7 @@ The following commands are available inside the BGP configuration node.
    This is the case when graceful restart is enabled, and it is wished to
    ignore the BD event while waiting for the remote router to restart.
 
-.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
 .. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
 
    Disallow to write CBIT independence in BFD outgoing packets. Also disallow
@@ -267,7 +307,7 @@ The following commands are available inside the BGP configuration node.
    BFD profile to the sessions it creates or that already exist.
 
 
-.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
 .. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
 
    Removes the BFD profile configuration from peer session(s).
@@ -287,7 +327,7 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: no isis bfd
+.. index:: isis bfd
 .. clicmd:: no isis bfd
 
    Removes any notification registration for this interface peers.
@@ -301,7 +341,7 @@ The following commands are available inside the interface configuration node.
 
    Use a BFD profile BFDPROF as provided in the BFD configuration.
 
-.. index:: no isis bfd profile BFDPROF
+.. index:: isis bfd profile BFDPROF
 .. clicmd:: no isis bfd profile BFDPROF
 
    Removes any BFD profile if present.
@@ -320,7 +360,7 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: no ip ospf bfd
+.. index:: ip ospf bfd
 .. clicmd:: no ip ospf bfd
 
    Removes any notification registration for this interface peers.
@@ -340,7 +380,7 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: no ipv6 ospf6 bfd
+.. index:: ipv6 ospf6 bfd
 .. clicmd:: no ipv6 ospf6 bfd
 
    Removes any notification registration for this interface peers.
@@ -360,7 +400,7 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: no ip pim bfd
+.. index:: ip pim bfd
 .. clicmd:: no ip pim bfd
 
    Removes any notification registration for this interface peers.
@@ -603,6 +643,68 @@ You can also clear packet counters per session with the following commands, only
                 Session down events: 0
                 Zebra notifications: 4
 
+
+.. _bfd-distributed:
+
+Distributed BFD
+===============
+
+The distributed BFD is the separation of the BFD protocol control plane from
+the data plane. FRR implements its own BFD data plane protocol so vendors can
+study and include it in their own software/hardware without having to modify
+the FRR source code. The protocol definitions can be found at
+``bfdd/bfddp_packet.h`` header (or the installed
+``/usr/include/frr/bfdd/bfddp_packet.h``).
+
+To use this feature the BFD daemon needs to be started using the command line
+option :option:`--dplaneaddr`. When operating using this option the BFD daemon
+will not attempt to establish BFD sessions, but it will offload all its work to
+the data plane that is (or will be) connected. Data plane reconnection is also
+supported.
+
+The BFD data plane will be responsible for:
+
+* Sending/receiving the BFD protocol control/echo packets
+
+* Notifying BFD sessions state changes
+
+* Keeping the number of packets/bytes received/transmitted per session
+
+
+The FRR BFD daemon will be responsible for:
+
+* Adding/updating BFD session settings
+
+* Asking for BFD session counters
+
+* Redistributing the state changes to the integrated protocols (``bgpd``,
+  ``ospfd`` etc...)
+
+
+BFD daemon will also keep record of data plane communication statistics with
+the command :clicmd:`show bfd distributed`.
+
+Sample output:
+
+::
+
+   frr# show bfd distributed
+               Data plane
+               ==========
+          File descriptor: 16
+              Input bytes: 1296
+         Input bytes peak: 72
+           Input messages: 42
+      Input current usage: 0
+             Output bytes: 568
+        Output bytes peak: 136
+          Output messages: 19
+       Output full events: 0
+     Output current usage: 0
+
+
+.. _bfd-debugging:
+
 Debugging
 =========
 
@@ -619,19 +721,29 @@ sure you have `debugging` level enabled:
 You may also fine tune the debug messages by selecting one or more of the
 debug levels:
 
-.. index:: [no] debug bfd network
+.. index:: debug bfd distributed
+.. clicmd:: [no] debug bfd distributed
+
+   Toggle BFD data plane (distributed BFD) debugging.
+
+   Activates the following debug messages:
+
+   * Data plane received / send messages
+   * Connection events
+
+.. index:: debug bfd network
 .. clicmd:: [no] debug bfd network
 
    Toggle network events: show messages about socket failures and unexpected
    BFD messages that may not belong to registered peers.
 
-.. index:: [no] debug bfd peer
+.. index:: debug bfd peer
 .. clicmd:: [no] debug bfd peer
 
    Toggle peer event log messages: show messages about peer creation/removal
    and state changes.
 
-.. index:: [no] debug bfd zebra
+.. index:: debug bfd zebra
 .. clicmd:: [no] debug bfd zebra
 
    Toggle zebra message events: show messages about interfaces, local

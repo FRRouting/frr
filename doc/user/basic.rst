@@ -25,10 +25,35 @@ forms the initial command set for a routing beast as it is starting.
 
 Config files are generally found in |INSTALL_PREFIX_ETC|.
 
-Each of the daemons has its own config file. The daemon name plus ``.conf`` is
-the default config file name. For example, zebra's default config file name is
-:file:`zebra.conf`. You can specify a config file using the :option:`-f` or
-:option:`--config_file` options when starting the daemon.
+Config Methods
+--------------
+
+There are two ways of configuring FRR.
+
+Traditionally each of the daemons had its own config file. The daemon name plus
+``.conf`` was the default config file name. For example, zebra's default config
+file was :file:`zebra.conf`. This method is deprecated.
+
+Because of the amount of config files this creates, and the tendency of one
+daemon to rely on others for certain functionality, most deployments now use
+"integrated" configuration. In this setup all configuration goes into a single
+file, typically :file:`/etc/frr/frr.conf`. When starting up FRR using an init
+script or systemd, ``vtysh`` is invoked to read the config file and send the
+appropriate portions to only the daemons interested in them. Running
+configuration updates are persisted back to this single file using ``vtysh``.
+This is the recommended method. To use this method, add the following line to
+:file:`/etc/frr/vtysh.conf`:
+
+.. code-block:: frr
+
+   service integrated-vtysh-config
+
+If you installed from source or used a package, this is probably already
+present.
+
+If desired, you can specify a config file using the :option:`-f` or
+:option:`--config_file` options when starting a daemon.
+
 
 .. _basic-config-commands:
 
@@ -40,28 +65,19 @@ Basic Config Commands
 
    Set hostname of the router.
 
-.. index::
-   single: no password PASSWORD
-   single: password PASSWORD
-
+.. index:: password PASSWORD
 .. clicmd:: [no] password PASSWORD
 
    Set password for vty interface. The ``no`` form of the command deletes the
    password. If there is no password, a vty won't accept connections.
 
-.. index::
-   single: no enable password PASSWORD
-   single: enable password PASSWORD
-
+.. index:: enable password PASSWORD
 .. clicmd:: [no] enable password PASSWORD
 
    Set enable password. The ``no`` form of the command deletes the enable
    password.
 
-.. index::
-   single: no log trap [LEVEL]
-   single: log trap LEVEL
-
+.. index:: log trap LEVEL
 .. clicmd:: [no] log trap LEVEL
 
    These commands are deprecated and are present only for historical
@@ -72,9 +88,7 @@ Basic Config Commands
    future logging commands to debugging, but it does not change the logging
    level of existing logging destinations.
 
-.. index::
-   single: no log stdout [LEVEL]
-   single: log stdout [LEVEL]
+.. index:: log stdout [LEVEL]
 
 .. clicmd:: [no] log stdout LEVEL
 
@@ -95,10 +109,7 @@ Basic Config Commands
       terminal output.  Use a log file and ``tail -f`` if this rare chance is
       inacceptable to your setup.
 
-.. index::
-   single: no log file [FILENAME [LEVEL]]
-   single: log file FILENAME [LEVEL]
-
+.. index:: log file FILENAME [LEVEL]
 .. clicmd:: [no] log file [FILENAME [LEVEL]]
 
    If you want to log into a file, please specify ``filename`` as
@@ -113,10 +124,7 @@ Basic Config Commands
    deprecated ``log trap`` command) will be used. The ``no`` form of the command
    disables logging to a file.
 
-.. index::
-   single: no log syslog [LEVEL]
-   single: log syslog [LEVEL]
-
+.. index:: log syslog [LEVEL]
 .. clicmd:: [no] log syslog [LEVEL]
 
    Enable logging output to syslog. If the optional second argument specifying
@@ -124,10 +132,7 @@ Basic Config Commands
    debugging, but can be changed using the deprecated ``log trap`` command) will
    be used. The ``no`` form of the command disables logging to syslog.
 
-.. index::
-   single: no log monitor [LEVEL]
-   single: log monitor [LEVEL]
-
+.. index:: log monitor [LEVEL]
 .. clicmd:: [no] log monitor [LEVEL]
 
    Enable logging output to vty terminals that have enabled logging using the
@@ -138,20 +143,14 @@ Basic Config Commands
    level (typically debugging) will be used. The ``no`` form of the command
    disables logging to terminal monitors.
 
-.. index::
-   single: no log facility [FACILITY]
-   single: log facility [FACILITY]
-
+.. index:: log facility [FACILITY]
 .. clicmd:: [no] log facility [FACILITY]
 
    This command changes the facility used in syslog messages. The default
    facility is ``daemon``. The ``no`` form of the command resets the facility
    to the default ``daemon`` facility.
 
-.. index::
-   single: no log record-priority
-   single: log record-priority
-
+.. index:: log record-priority
 .. clicmd:: [no] log record-priority
 
    To include the severity in all messages logged to a file, to stdout, or to
@@ -162,10 +161,7 @@ Basic Config Commands
    versions of syslogd can be configured to include the facility and
    level in the messages emitted.
 
-.. index::
-   single: log timestamp precision (0-6)
-   single: [no] log timestamp precision (0-6)
-
+.. index:: log timestamp precision (0-6)
 .. clicmd:: [no] log timestamp precision [(0-6)]
 
    This command sets the precision of log message timestamps to the given
@@ -181,7 +177,7 @@ Basic Config Commands
    In this example, the precision is set to provide timestamps with
    millisecond accuracy.
 
-.. index:: [no] log commands
+.. index:: log commands
 .. clicmd:: [no] log commands
 
    This command enables the logging of all commands typed by a user to all
@@ -190,10 +186,7 @@ Basic Config Commands
    is used to start the daemon then this command is turned on by default
    and cannot be turned off and the [no] form of the command is dissallowed.
 
-.. index::
-   single: no log-filter WORD [DAEMON]
-   single: log-filter WORD [DAEMON]
-
+.. index:: log-filter WORD [DAEMON]
 .. clicmd:: [no] log-filter WORD [DAEMON]
 
    This command forces logs to be filtered on a specific string. A log message
@@ -250,7 +243,7 @@ Basic Config Commands
 
    Set motd string from an input.
 
-.. index:: no banner motd
+.. index:: banner motd
 .. clicmd:: no banner motd
 
    No motd banner string will be printed.
@@ -263,7 +256,7 @@ Basic Config Commands
    used for timeout value in seconds. Default timeout value is 10 minutes.
    When timeout value is zero, it means no timeout.
 
-.. index:: no exec-timeout
+.. index:: exec-timeout
 .. clicmd:: no exec-timeout
 
    Do not perform timeout at all. This command is as same as
@@ -556,6 +549,11 @@ Terminal Mode Commands
    When executing this command from ``vtysh``, each of the daemons' memory
    usage is printed sequentially.
 
+.. index:: show history
+.. clicmd:: show history
+
+   Dump the vtysh cli history.
+
 .. index:: logmsg LEVEL MESSAGE
 .. clicmd:: logmsg LEVEL MESSAGE
 
@@ -686,6 +684,12 @@ These options apply to all |PACKAGE_NAME| daemons.
 .. option:: --tcli
 
    Enable the transactional CLI mode.
+
+.. option:: --limit-fds <number>
+
+   Limit the number of file descriptors that will be used internally
+   by the FRR daemons. By default, the daemons use the system ulimit
+   value.
 
 .. _loadable-module-support:
 

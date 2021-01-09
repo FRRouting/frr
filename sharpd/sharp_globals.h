@@ -45,6 +45,8 @@ struct sharp_routes {
 
 	struct timeval t_start;
 	struct timeval t_end;
+
+	char opaque[ZAPI_MESSAGE_OPAQUE_LENGTH];
 };
 
 struct sharp_global {

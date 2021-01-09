@@ -902,8 +902,7 @@ int ospf_external_info_apply_default_routemap(struct ospf *ospf,
 	if (red && ROUTEMAP_NAME(red)) {
 		route_map_result_t ret;
 
-		ret = route_map_apply(ROUTEMAP(red), (struct prefix *)p,
-				      RMAP_OSPF, ei);
+		ret = route_map_apply(ROUTEMAP(red), (struct prefix *)p, ei);
 
 		if (ret == RMAP_DENYMATCH) {
 			ei->route_map_set = save_values;
@@ -1056,8 +1055,7 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 	if (red && ROUTEMAP_NAME(red)) {
 		route_map_result_t ret;
 
-		ret = route_map_apply(ROUTEMAP(red), (struct prefix *)p,
-				      RMAP_OSPF, ei);
+		ret = route_map_apply(ROUTEMAP(red), (struct prefix *)p, ei);
 
 		if (ret == RMAP_DENYMATCH) {
 			ei->route_map_set = save_values;
@@ -1917,7 +1915,7 @@ int ospf_zebra_label_manager_connect(void)
 	set_nonblocking(zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	if (zclient_send_hello(zclient_sync) < 0) {
+	if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
 		zlog_warn("%s: failed sending hello for synchronous zclient!",
 			  __func__);
 		close(zclient_sync->sock);
@@ -1958,7 +1956,6 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
-	struct ldp_igp_sync_hello hello;
 	int ret = 0;
 
 	s = zclient->ibuf;
@@ -1975,15 +1972,25 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		STREAM_GET(&announce, s, sizeof(announce));
 		ret = ospf_ldp_sync_announce_update(announce);
 		break;
-	case LDP_IGP_SYNC_HELLO_UPDATE:
-		STREAM_GET(&hello, s, sizeof(hello));
-		ret = ospf_ldp_sync_hello_update(hello);
-		break;
 	default:
 		break;
 	}
 
 stream_failure:
+
+	return ret;
+}
+
+static int ospf_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
+{
+	int ret = 0;
+
+	struct zapi_client_close_info info;
+
+	if (zapi_client_close_notify_decode(zclient->ibuf, &info) < 0)
+		return -1;
+
+	ospf_ldp_sync_handle_client_close(&info);
 
 	return ret;
 }
@@ -2023,6 +2030,8 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	prefix_list_delete_hook(ospf_prefix_list_update);
 
 	zclient->opaque_msg_handler = ospf_opaque_msg_handler;
+
+	zclient->zebra_client_close_notify = ospf_zebra_client_close_notify;
 }
 
 void ospf_zebra_send_arp(const struct interface *ifp, const struct prefix *p)

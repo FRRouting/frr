@@ -22,6 +22,7 @@
 #define OSPF_AREA_H
 
 #include "ospf6_top.h"
+#include "lib/json.h"
 
 struct ospf6_area {
 	/* Reference to Top data structure */
@@ -143,7 +144,8 @@ extern struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id);
 extern void ospf6_area_enable(struct ospf6_area *);
 extern void ospf6_area_disable(struct ospf6_area *);
 
-extern void ospf6_area_show(struct vty *, struct ospf6_area *);
+extern void ospf6_area_show(struct vty *, struct ospf6_area *,
+			    json_object *json_areas, bool use_json);
 
 extern void ospf6_area_plist_update(struct prefix_list *plist, int add);
 extern void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6);

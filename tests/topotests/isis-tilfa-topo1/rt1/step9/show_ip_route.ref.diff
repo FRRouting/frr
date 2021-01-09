@@ -1,5 +1,5 @@
---- rt1/step8/show_ip_route.ref	2020-09-25 17:53:20.003021800 -0300
-+++ rt1/step9/show_ip_route.ref	2020-09-25 17:54:37.700038367 -0300
+--- a/rt1/step8/show_ip_route.ref
++++ b/rt1/step9/show_ip_route.ref
 @@ -85,7 +85,7 @@
            "interfaceName":"eth-sw1",
            "active":true,

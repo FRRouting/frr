@@ -210,13 +210,14 @@ struct zebra_router {
 	 * Does the underlying system provide an asic offload
 	 */
 	bool asic_offloaded;
+	bool notify_on_ack;
 };
 
 #define GRACEFUL_RESTART_TIME 60
 
 extern struct zebra_router zrouter;
 
-extern void zebra_router_init(void);
+extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
@@ -254,6 +255,8 @@ static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
 extern void multicast_mode_ipv4_set(enum multicast_mode mode);
 
 extern enum multicast_mode multicast_mode_ipv4_get(void);
+
+extern bool zebra_router_notify_on_ack(void);
 
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;

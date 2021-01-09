@@ -118,7 +118,12 @@ def test_zebra_netlink_batching():
     r1.vtysh_cmd("sharp install routes 2.1.3.7 nexthop 192.168.1.1 100")
     json_file = "{}/r1/v4_route.json".format(CWD)
     expected = json.loads(open(json_file).read())
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route json", expected,)
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route json",
+        expected,
+    )
     _, result = topotest.run_and_expect(test_func, None, count=2, wait=0.5)
     assertmsg = '"r1" JSON output mismatches'
     assert result is None, assertmsg

@@ -1480,17 +1480,17 @@ struct in_addr ospf_get_nssa_ip(struct ospf_area *area)
 			if (oi->area->external_routing == OSPF_AREA_NSSA)
 				if (oi->address
 				    && oi->address->family == AF_INET) {
-					if (best_default.s_addr == 0)
+					if (best_default.s_addr == INADDR_ANY)
 						best_default =
 							oi->address->u.prefix4;
 					if (oi->area == area)
 						return oi->address->u.prefix4;
 				}
 	}
-	if (best_default.s_addr != 0)
+	if (best_default.s_addr != INADDR_ANY)
 		return best_default;
 
-	if (best_default.s_addr != 0)
+	if (best_default.s_addr != INADDR_ANY)
 		return best_default;
 
 	return fwd;
@@ -1708,11 +1708,11 @@ static void ospf_install_flood_nssa(struct ospf *ospf, struct ospf_lsa *lsa,
 			/* kevinm: not updating lsa anymore, just new */
 			extlsa = (struct as_external_lsa *)(new->data);
 
-			if (extlsa->e[0].fwd_addr.s_addr == 0)
+			if (extlsa->e[0].fwd_addr.s_addr == INADDR_ANY)
 				extlsa->e[0].fwd_addr = ospf_get_nssa_ip(
 					area); /* this NSSA area in ifp */
 
-			if (extlsa->e[0].fwd_addr.s_addr == 0) {
+			if (extlsa->e[0].fwd_addr.s_addr == INADDR_ANY) {
 				if (IS_DEBUG_OSPF_NSSA)
 					zlog_debug(
 						"LSA[Type-7]: Could not build FWD-ADDR");
@@ -2300,9 +2300,9 @@ struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
 		if (!ospf_redistribute_check(ospf, ei, &changed)) {
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 				zlog_debug(
-					"LSA[Type%d:%s] Could not be refreshed, redist check fail",
+					"LSA[Type%d:%pI4] Could not be refreshed, redist check fail",
 					lsa->data->type,
-					inet_ntoa(lsa->data->id));
+					&lsa->data->id);
 
 			ospf_external_lsa_flush(ospf, ei->type, &ei->p,
 						ei->ifindex /*, ei->nexthop */);

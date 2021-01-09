@@ -94,7 +94,7 @@ RIP Configuration
    `no router rip` command. RIP must be enabled before carrying out any of the
    RIP commands.
 
-.. index:: no router rip
+.. index:: router rip
 .. clicmd:: no router rip
 
    Disable RIP.
@@ -102,7 +102,7 @@ RIP Configuration
 .. index:: network NETWORK
 .. clicmd:: network NETWORK
 
-.. index:: no network NETWORK
+.. index:: network NETWORK
 .. clicmd:: no network NETWORK
 
    Set the RIP enable interface by NETWORK. The interfaces which have addresses
@@ -117,7 +117,7 @@ RIP Configuration
 .. index:: network IFNAME
 .. clicmd:: network IFNAME
 
-.. index:: no network IFNAME
+.. index:: network IFNAME
 .. clicmd:: no network IFNAME
 
    Set a RIP enabled interface by IFNAME. Both the sending and
@@ -128,7 +128,7 @@ RIP Configuration
 .. index:: neighbor A.B.C.D
 .. clicmd:: neighbor A.B.C.D
 
-.. index:: no neighbor A.B.C.D
+.. index:: neighbor A.B.C.D
 .. clicmd:: no neighbor A.B.C.D
 
    Specify RIP neighbor. When a neighbor doesn't understand multicast, this
@@ -155,7 +155,7 @@ RIP Configuration
 .. index:: passive-interface (IFNAME|default)
 .. clicmd:: passive-interface (IFNAME|default)
 
-.. index:: no passive-interface IFNAME
+.. index:: passive-interface IFNAME
 .. clicmd:: no passive-interface IFNAME
 
    This command sets the specified interface to passive mode. On passive mode
@@ -169,7 +169,7 @@ RIP Configuration
 .. index:: ip split-horizon
 .. clicmd:: ip split-horizon
 
-.. index:: no ip split-horizon
+.. index:: ip split-horizon
 .. clicmd:: no ip split-horizon
 
    Control split-horizon on the interface. Default is `ip split-horizon`. If
@@ -203,7 +203,7 @@ discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
 
    Default: Send Version 2, and accept either version.
 
-.. index:: no version
+.. index:: version
 .. clicmd:: no version
 
    Reset the global version setting back to the default.
@@ -246,7 +246,7 @@ How to Announce RIP route
 .. index:: redistribute kernel route-map ROUTE-MAP
 .. clicmd:: redistribute kernel route-map ROUTE-MAP
 
-.. index:: no redistribute kernel
+.. index:: redistribute kernel
 .. clicmd:: no redistribute kernel
 
    `redistribute kernel` redistributes routing information from kernel route
@@ -261,7 +261,7 @@ How to Announce RIP route
 .. index:: redistribute static route-map ROUTE-MAP
 .. clicmd:: redistribute static route-map ROUTE-MAP
 
-.. index:: no redistribute static
+.. index:: redistribute static
 .. clicmd:: no redistribute static
 
    `redistribute static` redistributes routing information from static route
@@ -276,7 +276,7 @@ How to Announce RIP route
 .. index:: redistribute connected route-map ROUTE-MAP
 .. clicmd:: redistribute connected route-map ROUTE-MAP
 
-.. index:: no redistribute connected
+.. index:: redistribute connected
 .. clicmd:: no redistribute connected
 
    Redistribute connected routes into the RIP tables. `no redistribute
@@ -293,7 +293,7 @@ How to Announce RIP route
 .. index:: redistribute ospf route-map ROUTE-MAP
 .. clicmd:: redistribute ospf route-map ROUTE-MAP
 
-.. index:: no redistribute ospf
+.. index:: redistribute ospf
 .. clicmd:: no redistribute ospf
 
    `redistribute ospf` redistributes routing information from ospf route
@@ -308,7 +308,7 @@ How to Announce RIP route
 .. index:: redistribute bgp route-map ROUTE-MAP
 .. clicmd:: redistribute bgp route-map ROUTE-MAP
 
-.. index:: no redistribute bgp
+.. index:: redistribute bgp
 .. clicmd:: no redistribute bgp
 
    `redistribute bgp` redistributes routing information from bgp route entries
@@ -322,7 +322,7 @@ How to Announce RIP route
 .. index:: route A.B.C.D/M
 .. clicmd:: route A.B.C.D/M
 
-.. index:: no route A.B.C.D/M
+.. index:: route A.B.C.D/M
 .. clicmd:: no route A.B.C.D/M
 
    This command is specific to FRR. The `route` command makes a static route
@@ -384,7 +384,7 @@ received. Redistributed routes' metric is set to 1.
 .. index:: default-metric (1-16)
 .. clicmd:: default-metric (1-16)
 
-.. index:: no default-metric (1-16)
+.. index:: default-metric (1-16)
 .. clicmd:: no default-metric (1-16)
 
    This command modifies the default metric value for redistributed routes.
@@ -410,7 +410,7 @@ Distance value is used in zebra daemon. Default RIP distance is 120.
 .. index:: distance (1-255)
 .. clicmd:: distance (1-255)
 
-.. index:: no distance (1-255)
+.. index:: distance (1-255)
 .. clicmd:: no distance (1-255)
 
    Set default RIP distance to specified value.
@@ -418,7 +418,7 @@ Distance value is used in zebra daemon. Default RIP distance is 120.
 .. index:: distance (1-255) A.B.C.D/M
 .. clicmd:: distance (1-255) A.B.C.D/M
 
-.. index:: no distance (1-255) A.B.C.D/M
+.. index:: distance (1-255) A.B.C.D/M
 .. clicmd:: no distance (1-255) A.B.C.D/M
 
    Set default RIP distance to specified value when the route's source IP
@@ -427,7 +427,7 @@ Distance value is used in zebra daemon. Default RIP distance is 120.
 .. index:: distance (1-255) A.B.C.D/M ACCESS-LIST
 .. clicmd:: distance (1-255) A.B.C.D/M ACCESS-LIST
 
-.. index:: no distance (1-255) A.B.C.D/M ACCESS-LIST
+.. index:: distance (1-255) A.B.C.D/M ACCESS-LIST
 .. clicmd:: no distance (1-255) A.B.C.D/M ACCESS-LIST
 
    Set default RIP distance to specified value when the route's source IP
@@ -539,7 +539,7 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 .. index:: ip rip authentication mode md5
 .. clicmd:: ip rip authentication mode md5
 
-.. index:: no ip rip authentication mode md5
+.. index:: ip rip authentication mode md5
 .. clicmd:: no ip rip authentication mode md5
 
    Set the interface with RIPv2 MD5 authentication.
@@ -547,7 +547,7 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 .. index:: ip rip authentication mode text
 .. clicmd:: ip rip authentication mode text
 
-.. index:: no ip rip authentication mode text
+.. index:: ip rip authentication mode text
 .. clicmd:: no ip rip authentication mode text
 
    Set the interface with RIPv2 simple password authentication.
@@ -555,7 +555,7 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 .. index:: ip rip authentication string STRING
 .. clicmd:: ip rip authentication string STRING
 
-.. index:: no ip rip authentication string STRING
+.. index:: ip rip authentication string STRING
 .. clicmd:: no ip rip authentication string STRING
 
    RIP version 2 has simple text authentication. This command sets
@@ -564,7 +564,7 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 .. index:: ip rip authentication key-chain KEY-CHAIN
 .. clicmd:: ip rip authentication key-chain KEY-CHAIN
 
-.. index:: no ip rip authentication key-chain KEY-CHAIN
+.. index:: ip rip authentication key-chain KEY-CHAIN
 .. clicmd:: no ip rip authentication key-chain KEY-CHAIN
 
    Specify Keyed MD5 chain.
@@ -610,7 +610,7 @@ RIP Timers
    The ``timers basic`` command allows the the default values of the timers
    listed above to be changed.
 
-.. index:: no timers basic
+.. index:: timers basic
 .. clicmd:: no timers basic
 
    The `no timers basic` command will reset the timers to the default settings

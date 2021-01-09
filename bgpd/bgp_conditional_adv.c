@@ -19,8 +19,7 @@
  */
 
 #include "bgpd/bgp_conditional_adv.h"
-
-const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
+#include "bgpd/bgp_vty.h"
 
 static route_map_result_t
 bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
@@ -47,10 +46,11 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
-			ret = route_map_apply(rmap, dest_p, RMAP_BGP, &path);
+			ret = route_map_apply(rmap, dest_p, &path);
 			if (ret != RMAP_PERMITMATCH)
 				bgp_attr_flush(&dummy_attr);
 			else {
+				bgp_dest_unlock_node(dest);
 				if (BGP_DEBUG(update, UPDATE_OUT))
 					zlog_debug(
 						"%s: Condition map routes present in BGP table",
@@ -112,7 +112,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
-			if (route_map_apply(rmap, dest_p, RMAP_BGP, &path)
+			if (route_map_apply(rmap, dest_p, &path)
 			    != RMAP_PERMITMATCH) {
 				bgp_attr_flush(&dummy_attr);
 				continue;
@@ -197,10 +197,6 @@ static int bgp_conditional_adv_timer(struct thread *t)
 			continue;
 
 		FOREACH_AFI_SAFI (afi, safi) {
-			if (strmatch(get_afi_safi_str(afi, safi, true),
-				     "Unknown"))
-				continue;
-
 			if (!peer->afc_nego[afi][safi])
 				continue;
 

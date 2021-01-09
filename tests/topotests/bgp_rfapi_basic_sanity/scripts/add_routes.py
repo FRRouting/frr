@@ -1,4 +1,4 @@
-from lutil import luCommand
+from lib.lutil import luCommand
 
 holddownFactorSet = luCommand(
     "r1",

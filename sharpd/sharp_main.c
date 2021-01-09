@@ -139,6 +139,16 @@ static void sharp_global_init(void)
 	sg.nhs = list_new();
 }
 
+static void sharp_start_configuration(void)
+{
+	zlog_debug("Configuration has started to be read");
+}
+
+static void sharp_end_configuration(void)
+{
+	zlog_debug("Configuration has finished being read");
+}
+
 int main(int argc, char **argv, char **envp)
 {
 	frr_preinit(&sharpd_di, argc, argv);
@@ -163,6 +173,8 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
+	cmd_init_config_callbacks(sharp_start_configuration,
+				  sharp_end_configuration);
 	sharp_global_init();
 
 	sharp_nhgroup_init();

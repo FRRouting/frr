@@ -252,7 +252,11 @@ def test_ospf_ecmp_tc16_p0(request):
     input_dict = {
         "r0": {
             "static_routes": [
-                {"network": NETWORK["ipv4"][0], "no_of_ip": 5, "next_hop": "Null0",}
+                {
+                    "network": NETWORK["ipv4"][0],
+                    "no_of_ip": 5,
+                    "next_hop": "Null0",
+                }
             ]
         }
     }
@@ -415,7 +419,11 @@ def test_ospf_ecmp_tc17_p0(request):
     input_dict = {
         "r0": {
             "static_routes": [
-                {"network": NETWORK["ipv4"][0], "no_of_ip": 5, "next_hop": "Null0",}
+                {
+                    "network": NETWORK["ipv4"][0],
+                    "no_of_ip": 5,
+                    "next_hop": "Null0",
+                }
             ]
         }
     }

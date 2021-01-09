@@ -73,7 +73,7 @@ EIGRP Configuration
    carrying out any of the EIGRP commands.  Specify vrf NAME if you want
    eigrp to work within the specified vrf.
 
-.. index:: no router eigrp (1-65535) [vrf NAME]
+.. index:: router eigrp (1-65535) [vrf NAME]
 .. clicmd:: no router eigrp (1-65535) [vrf NAME]
 
    Disable EIGRP.
@@ -81,7 +81,7 @@ EIGRP Configuration
 .. index:: network NETWORK
 .. clicmd:: network NETWORK
 
-.. index:: no network NETWORK
+.. index:: network NETWORK
 .. clicmd:: no network NETWORK
 
    Set the EIGRP enable interface by `network`. The interfaces which
@@ -107,7 +107,7 @@ EIGRP Configuration
 .. index:: passive-interface (IFNAME|default)
 .. clicmd:: passive-interface (IFNAME|default)
 
-.. index:: no passive-interface IFNAME
+.. index:: passive-interface IFNAME
 .. clicmd:: no passive-interface IFNAME
 
    This command sets the specified interface to passive mode. On passive mode
@@ -129,7 +129,7 @@ How to Announce EIGRP route
 .. index:: redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. clicmd:: redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-.. index:: no redistribute kernel
+.. index:: redistribute kernel
 .. clicmd:: no redistribute kernel
 
    `redistribute kernel` redistributes routing information from kernel route
@@ -141,7 +141,7 @@ How to Announce EIGRP route
 .. index:: redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. clicmd:: redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-.. index:: no redistribute static
+.. index:: redistribute static
 .. clicmd:: no redistribute static
 
    `redistribute static` redistributes routing information from static route
@@ -153,7 +153,7 @@ How to Announce EIGRP route
 .. index:: redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. clicmd:: redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-.. index:: no redistribute connected
+.. index:: redistribute connected
 .. clicmd:: no redistribute connected
 
    Redistribute connected routes into the EIGRP tables. `no redistribute
@@ -167,7 +167,7 @@ How to Announce EIGRP route
 .. index:: redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. clicmd:: redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-.. index:: no redistribute ospf
+.. index:: redistribute ospf
 .. clicmd:: no redistribute ospf
 
    `redistribute ospf` redistributes routing information from ospf route
@@ -179,7 +179,7 @@ How to Announce EIGRP route
 .. index:: redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. clicmd:: redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-.. index:: no redistribute bgp
+.. index:: redistribute bgp
 .. clicmd:: no redistribute bgp
 
    `redistribute bgp` redistributes routing information from bgp route entries

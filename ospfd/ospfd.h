@@ -303,7 +303,7 @@ struct ospf {
 	uint32_t rx_lsa_count;
 
 	/* Counter of "ip ospf area x.x.x.x" used
-	 * for multual exclusion of network command under
+	 * for mutual exclusion of network command under
 	 * router ospf or ip ospf area x under interface. */
 	uint32_t if_ospf_cli_count;
 
@@ -604,7 +604,6 @@ extern int ospf_nbr_nbma_poll_interval_set(struct ospf *, struct in_addr,
 					   unsigned int);
 extern int ospf_nbr_nbma_poll_interval_unset(struct ospf *, struct in_addr);
 extern void ospf_prefix_list_update(struct prefix_list *);
-extern void ospf_init(void);
 extern void ospf_if_update(struct ospf *, struct interface *);
 extern void ospf_ls_upd_queue_empty(struct ospf_interface *);
 extern void ospf_terminate(void);

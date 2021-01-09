@@ -1,5 +1,5 @@
---- rt2/step8/show_ip_route.ref	2020-09-25 17:53:20.207024469 -0300
-+++ rt2/step9/show_ip_route.ref	2020-09-25 17:54:37.908041089 -0300
+--- a/rt2/step8/show_ip_route.ref
++++ b/rt2/step9/show_ip_route.ref
 @@ -31,7 +31,7 @@
            "interfaceName":"eth-rt4-1",
            "active":true,
@@ -72,7 +72,7 @@
            ]
          }
        ]
-@@ -271,7 +271,7 @@
+@@ -274,7 +274,7 @@
            "interfaceName":"eth-rt4-1",
            "active":true,
            "labels":[
@@ -81,7 +81,7 @@
            ]
          },
          {
-@@ -280,7 +280,7 @@
+@@ -283,7 +283,7 @@
            "interfaceName":"eth-rt4-2",
            "active":true,
            "labels":[
@@ -90,7 +90,7 @@
            ]
          }
        ]
-@@ -318,7 +318,7 @@
+@@ -321,7 +321,7 @@
            "interfaceName":"eth-sw1",
            "active":true,
            "labels":[
@@ -99,7 +99,7 @@
            ]
          }
        ]
-@@ -356,7 +356,7 @@
+@@ -359,7 +359,7 @@
            "interfaceName":"eth-sw1",
            "active":true,
            "labels":[
@@ -108,7 +108,7 @@
            ]
          }
        ]
-@@ -517,7 +517,7 @@
+@@ -520,7 +520,7 @@
            "interfaceName":"eth-sw1",
            "active":true,
            "labels":[

@@ -110,7 +110,8 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_route_notify_owner note;
 	uint32_t table_id;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
+				      NULL, NULL))
 		return -1;
 
 	switch (note) {
@@ -330,7 +331,8 @@ void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *nh,
 		static_nht_hash_free(nhtd);
 	}
 
-	if (zclient_send_rnh(zclient, cmd, &p, false, nh->nh_vrf_id) < 0)
+	if (zclient_send_rnh(zclient, cmd, &p, false, nh->nh_vrf_id)
+	    == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 /*

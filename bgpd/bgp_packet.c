@@ -279,18 +279,17 @@ static void bgp_update_explicit_eors(struct peer *peer)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("Peer %s: Checking explicit EORs", peer->host);
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (peer->afc_nego[afi][safi]
-			    && !CHECK_FLAG(peer->af_sflags[afi][safi],
-					   PEER_STATUS_EOR_RECEIVED)) {
-				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"   afi %d safi %d didn't receive EOR",
-						afi, safi);
-				return;
-			}
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (peer->afc_nego[afi][safi]
+		    && !CHECK_FLAG(peer->af_sflags[afi][safi],
+				   PEER_STATUS_EOR_RECEIVED)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"   afi %d safi %d didn't receive EOR",
+					afi, safi);
+			return;
 		}
+	}
 
 	peer->update_delay_over = 1;
 	peer->bgp->explicit_eors++;
@@ -445,6 +444,13 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 			 * yet.
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
+				/* Make sure we supress BGP UPDATES
+				 * for normal processing later again.
+				 */
+				if (!paf->t_announce_route)
+					UNSET_FLAG(paf->subgroup->sflags,
+						   SUBGRP_STATUS_FORCE_UPDATES);
+
 				if (CHECK_FLAG(peer->cap,
 					       PEER_CAP_RESTART_RCV)) {
 					if (!(PAF_SUBGRP(paf))->t_coalesce
@@ -1394,13 +1400,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	    || peer->afc_nego[AFI_IP][SAFI_ENCAP]) {
 		if (peer->nexthop.v4.s_addr == INADDR_ANY) {
 #if defined(HAVE_CUMULUS)
-			flog_err(
-				EC_BGP_SND_FAIL,
-				"%s: No local IPv4 addr resetting connection, fd %d",
-				peer->host, peer->fd);
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			return BGP_Stop;
+			zlog_warn("%s: No local IPv4 addr, BGP routing may not work",
+				  peer->host);
 #endif
 		}
 	}
@@ -1411,13 +1412,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]) {
 		if (IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_global)) {
 #if defined(HAVE_CUMULUS)
-			flog_err(
-				EC_BGP_SND_FAIL,
-				"%s: No local IPv6 addr resetting connection, fd %d",
-				peer->host, peer->fd);
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			return BGP_Stop;
+			zlog_warn("%s: No local IPv6 address, BGP routing may not work",
+				  peer->host);
 #endif
 		}
 	}
@@ -2127,6 +2123,11 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 				peer->orf_plist[afi][safi];
 		}
 
+		/* Avoid supressing duplicate routes later
+		 * when processing in subgroup_announce_table().
+		 */
+		SET_FLAG(paf->subgroup->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+
 		/* If the peer is configured for default-originate clear the
 		 * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will
 		 * re-advertise the
@@ -2230,12 +2231,13 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			/* Address family check.  */
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s CAPABILITY has %s MP_EXT CAP for afi/safi: %u/%u",
+					"%s CAPABILITY has %s MP_EXT CAP for afi/safi: %s/%s",
 					peer->host,
 					action == CAPABILITY_ACTION_SET
 						? "Advertising"
 						: "Removing",
-					pkt_afi, pkt_safi);
+					iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
 
 			if (action == CAPABILITY_ACTION_SET) {
 				peer->afc_recv[afi][safi] = 1;

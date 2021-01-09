@@ -265,7 +265,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	if (STREAM_READABLE(data) != 0) {
 		flog_err(
 			EC_BGP_UPDATE_RCV,
-			"%s [Error] Update packet error / VPN (%td data remaining after parsing)",
+			"%s [Error] Update packet error / VPN (%zu data remaining after parsing)",
 			peer->host, STREAM_READABLE(data));
 		return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 	}
@@ -744,7 +744,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		info.attr = &static_attr;
 		ret = route_map_apply(
 			bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN],
-			p, RMAP_BGP, &info);
+			p, &info);
 		if (RMAP_DENYMATCH == ret) {
 			bgp_attr_flush(&static_attr); /* free any added parts */
 			if (debug)
@@ -1190,7 +1190,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 		info.extra = path_vpn->extra; /* Used for source-vrf filter */
 		ret = route_map_apply(bgp_vrf->vpn_policy[afi]
 					      .rmap[BGP_VPN_POLICY_DIR_FROMVPN],
-				      p, RMAP_BGP, &info);
+				      p, &info);
 		if (RMAP_DENYMATCH == ret) {
 			bgp_attr_flush(&static_attr); /* free any added parts */
 			if (debug)
@@ -1703,6 +1703,8 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	if (!is_inst_match)
 		listnode_add(to_bgp->vpn_policy[afi].import_vrf,
 				     vname);
+	else
+		XFREE(MTYPE_TMP, vname);
 
 	/* Check if the source vrf already exports to any vrf,
 	 * first time export requires to setup auto derived RD/RT values.
@@ -1725,6 +1727,9 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	if (!is_inst_match)
 		listnode_add(from_bgp->vpn_policy[afi].export_vrf,
 			     vname);
+	else
+		XFREE(MTYPE_TMP, vname);
+
 	/* Update import RT for current VRF using export RT of the VRF we're
 	 * importing from. First though, make sure "import_vrf" has that
 	 * set.
@@ -1755,19 +1760,26 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 
 	if (debug) {
 		const char *from_name;
+		char *ecom1, *ecom2;
 
 		from_name = from_bgp->name ? from_bgp->name :
 			VRF_DEFAULT_NAME;
-		zlog_debug("%s from %s to %s first_export %u import-rt %s export-rt %s",
-			   __func__, from_name, export_name, first_export,
-			   to_bgp->vpn_policy[afi].rtlist[idir] ?
-			   (ecommunity_ecom2str(to_bgp->vpn_policy[afi].
-						rtlist[idir],
-					ECOMMUNITY_FORMAT_ROUTE_MAP, 0)) : " ",
-			   to_bgp->vpn_policy[afi].rtlist[edir] ?
-			   (ecommunity_ecom2str(to_bgp->vpn_policy[afi].
-						rtlist[edir],
-					ECOMMUNITY_FORMAT_ROUTE_MAP, 0)) : " ");
+
+		ecom1 = ecommunity_ecom2str(
+			to_bgp->vpn_policy[afi].rtlist[idir],
+			ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+
+		ecom2 = ecommunity_ecom2str(
+			to_bgp->vpn_policy[afi].rtlist[edir],
+			ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+
+		zlog_debug(
+			"%s from %s to %s first_export %u import-rt %s export-rt %s",
+			__func__, from_name, export_name, first_export, ecom1,
+			ecom2);
+
+		ecommunity_strfree(&ecom1);
+		ecommunity_strfree(&ecom2);
 	}
 
 	/* Does "import_vrf" first need to export its routes or that

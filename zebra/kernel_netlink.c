@@ -712,7 +712,11 @@ static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
 
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
 		zlog_debug("%s: >> netlink message dump [sent]", __func__);
+#ifdef NETLINK_DEBUG
+		nl_dump(buf, buflen);
+#else
 		zlog_hexdump(buf, buflen);
+#endif /* NETLINK_DEBUG */
 	}
 
 	if (status == -1) {
@@ -770,7 +774,11 @@ static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
 
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
 		zlog_debug("%s: << netlink message dump [recv]", __func__);
+#ifdef NETLINK_DEBUG
+		nl_dump(buf, status);
+#else
 		zlog_hexdump(buf, status);
+#endif /* NETLINK_DEBUG */
 	}
 
 	return status;

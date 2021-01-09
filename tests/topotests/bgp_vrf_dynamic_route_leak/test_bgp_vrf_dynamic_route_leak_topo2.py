@@ -943,9 +943,10 @@ def test_modify_route_map_match_set_clauses_p1(request):
         }
 
         result = verify_bgp_rib(tgen, addr_type, "r1", input_routes_r1, expected=False)
-        assert result is not True, (
-            "Testcase {} : Failed \n Error : Routes are still "
-            "present {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n Error : Routes are still " "present {}".format(
+            tc_name, result
         )
 
     write_test_footer(tc_name)

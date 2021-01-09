@@ -1,5 +1,5 @@
---- rt1/step4/show_ipv6_route.ref	2020-09-25 17:49:02.791663194 -0300
-+++ rt1/step5/show_ipv6_route.ref	2020-09-25 17:50:13.428584346 -0300
+--- a/rt1/step4/show_ipv6_route.ref
++++ b/rt1/step5/show_ipv6_route.ref
 @@ -57,7 +57,10 @@
            "fib":true,
            "afi":"ipv6",

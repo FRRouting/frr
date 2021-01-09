@@ -84,6 +84,11 @@ struct rnh {
 
 PREDECL_LIST(re_list)
 
+struct opaque {
+	uint16_t length;
+	uint8_t data[];
+};
+
 struct route_entry {
 	/* Link list. */
 	struct re_list_item next;
@@ -157,6 +162,8 @@ struct route_entry {
 
 	/* Distance. */
 	uint8_t distance;
+
+	struct opaque *opaque;
 };
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
@@ -336,8 +343,8 @@ int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe);
 
 /* NHG replace has happend, we have to update route_entry pointers to new one */
-void rib_handle_nhg_replace(struct nhg_hash_entry *old,
-			    struct nhg_hash_entry *new);
+void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
+			    struct nhg_hash_entry *new_entry);
 
 #define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
 extern void _route_entry_dump(const char *func, union prefixconstptr pp,
@@ -386,7 +393,7 @@ extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       struct prefix *p, struct prefix_ipv6 *src_p,
 		       const struct nexthop *nh, uint32_t nhe_id,
 		       uint32_t table_id, uint32_t metric, uint8_t distance,
-		       bool fromkernel, bool connected_down);
+		       bool fromkernel);
 
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     union g_addr *addr,

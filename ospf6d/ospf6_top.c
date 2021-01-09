@@ -29,6 +29,7 @@
 #include "thread.h"
 #include "command.h"
 #include "defaults.h"
+#include "lib/json.h"
 #include "lib_errors.h"
 
 #include "ospf6_proto.h"
@@ -123,12 +124,9 @@ struct ospf6 *ospf6_lookup_by_vrf_name(const char *name)
 
 static void ospf6_top_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
-	struct ospf6 *ospf6 = NULL;
-
 	switch (ntohs(lsa->header->type)) {
 	case OSPF6_LSTYPE_AS_EXTERNAL:
-		ospf6 = ospf6_get_by_lsdb(lsa);
-		ospf6_asbr_lsa_add(lsa, ospf6);
+		ospf6_asbr_lsa_add(lsa);
 		break;
 
 	default:
@@ -148,24 +146,27 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa *lsa)
 	}
 }
 
-static void ospf6_top_route_hook_add(struct ospf6_route *route,
-				     struct ospf6 *ospf6)
+static void ospf6_top_route_hook_add(struct ospf6_route *route)
 {
+	struct ospf6 *ospf6 = route->table->scope;
+
 	ospf6_abr_originate_summary(route, ospf6);
 	ospf6_zebra_route_update_add(route, ospf6);
 }
 
-static void ospf6_top_route_hook_remove(struct ospf6_route *route,
-					struct ospf6 *ospf6)
+static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 {
+	struct ospf6 *ospf6 = route->table->scope;
+
 	route->flag |= OSPF6_ROUTE_REMOVE;
 	ospf6_abr_originate_summary(route, ospf6);
 	ospf6_zebra_route_update_remove(route, ospf6);
 }
 
-static void ospf6_top_brouter_hook_add(struct ospf6_route *route,
-				       struct ospf6 *ospf6)
+static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 {
+	struct ospf6 *ospf6 = route->table->scope;
+
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) ||
 	    IS_OSPF6_DEBUG_BROUTER) {
 		uint32_t brouter_id;
@@ -185,9 +186,10 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route,
 	ospf6_abr_originate_summary(route, ospf6);
 }
 
-static void ospf6_top_brouter_hook_remove(struct ospf6_route *route,
-					  struct ospf6 *ospf6)
+static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 {
+	struct ospf6 *ospf6 = route->table->scope;
+
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) ||
 	    IS_OSPF6_DEBUG_BROUTER) {
 		uint32_t brouter_id;
@@ -300,6 +302,8 @@ void ospf6_delete(struct ospf6 *o)
 	ospf6_disable(o);
 	ospf6_del(o);
 
+	ospf6_serv_close(&o->fd);
+
 	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa))
 		ospf6_area_delete(oa);
 
@@ -309,10 +313,10 @@ void ospf6_delete(struct ospf6 *o)
 	ospf6_lsdb_delete(o->lsdb);
 	ospf6_lsdb_delete(o->lsdb_self);
 
-	ospf6_route_table_delete(o->route_table, o);
-	ospf6_route_table_delete(o->brouter_table, o);
+	ospf6_route_table_delete(o->route_table);
+	ospf6_route_table_delete(o->brouter_table);
 
-	ospf6_route_table_delete(o->external_table, o);
+	ospf6_route_table_delete(o->external_table);
 	route_table_finish(o->external_id_table);
 
 	ospf6_distance_reset(o);
@@ -334,11 +338,12 @@ static void ospf6_disable(struct ospf6 *o)
 			ospf6_area_disable(oa);
 
 		/* XXX: This also changes persistent settings */
-		ospf6_asbr_redistribute_reset(o->vrf_id);
+		/* Unregister redistribution */
+		ospf6_asbr_redistribute_reset(o);
 
 		ospf6_lsdb_remove_all(o->lsdb);
-		ospf6_route_remove_all(o->route_table, o);
-		ospf6_route_remove_all(o->brouter_table, o);
+		ospf6_route_remove_all(o->route_table);
+		ospf6_route_remove_all(o->brouter_table);
 
 		THREAD_OFF(o->maxage_remover);
 		THREAD_OFF(o->t_spf_calc);
@@ -456,7 +461,6 @@ DEFUN (no_router_ospf6,
 	if (ospf6 == NULL)
 		vty_out(vty, "OSPFv3 is not configured\n");
 	else {
-		ospf6_serv_close(&ospf6->fd);
 		ospf6_delete(ospf6);
 		ospf6 = NULL;
 	}
@@ -845,7 +849,7 @@ DEFUN (no_ospf6_interface_area,
 		return CMD_SUCCESS;
 	}
 
-	thread_execute(master, interface_down, oi, 0);
+	ospf6_interface_disable(oi);
 
 	oa = oi->area;
 	listnode_delete(oi->area->if_list, oi);
@@ -856,6 +860,7 @@ DEFUN (no_ospf6_interface_area,
 		UNSET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
 		ospf6_abr_disable_area(oa);
 	}
+	ospf6_interface_delete(oi);
 
 	return CMD_SUCCESS;
 }
@@ -954,90 +959,207 @@ DEFUN (no_ospf6_stub_router_shutdown,
 }
 #endif
 
-static void ospf6_show(struct vty *vty, struct ospf6 *o)
+
+static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
+		       bool use_json)
 {
 	struct listnode *n;
 	struct ospf6_area *oa;
 	char router_id[16], duration[32];
 	struct timeval now, running, result;
 	char buf[32], rbuf[32];
+	json_object *json_areas = NULL;
+	const char *adjacency;
 
-	/* process id, router id */
-	inet_ntop(AF_INET, &o->router_id, router_id, sizeof(router_id));
-	vty_out(vty, " OSPFv3 Routing Process (0) with Router-ID %s\n",
-		router_id);
+	if (use_json) {
+		json_areas = json_object_new_object();
 
-	/* running time */
-	monotime(&now);
-	timersub(&now, &o->starttime, &running);
-	timerstring(&running, duration, sizeof(duration));
-	vty_out(vty, " Running %s\n", duration);
+		/* process id, router id */
+		inet_ntop(AF_INET, &o->router_id, router_id, sizeof(router_id));
+		json_object_string_add(json, "routerId", router_id);
 
-	/* Redistribute configuration */
-	/* XXX */
+		/* running time */
+		monotime(&now);
+		timersub(&now, &o->starttime, &running);
+		timerstring(&running, duration, sizeof(duration));
+		json_object_string_add(json, "running", duration);
 
-	vty_out(vty, " LSA minimum arrival %d msecs\n", o->lsa_minarrival);
+		/* Redistribute configuration */
+		/* XXX */
+		json_object_int_add(json, "lsaMinimumArrivalMsecs",
+				    o->lsa_minarrival);
 
-	/* Show SPF parameters */
-	vty_out(vty,
-		" Initial SPF scheduling delay %d millisec(s)\n"
-		" Minimum hold time between consecutive SPFs %d millsecond(s)\n"
-		" Maximum hold time between consecutive SPFs %d millsecond(s)\n"
-		" Hold time multiplier is currently %d\n",
-		o->spf_delay, o->spf_holdtime, o->spf_max_holdtime,
-		o->spf_hold_multiplier);
+		/* Show SPF parameters */
+		json_object_int_add(json, "spfScheduleDelayMsecs",
+				    o->spf_delay);
+		json_object_int_add(json, "holdTimeMinMsecs", o->spf_holdtime);
+		json_object_int_add(json, "holdTimeMaxMsecs",
+				    o->spf_max_holdtime);
+		json_object_int_add(json, "holdTimeMultiplier",
+				    o->spf_hold_multiplier);
 
-	vty_out(vty, " SPF algorithm ");
-	if (o->ts_spf.tv_sec || o->ts_spf.tv_usec) {
-		timersub(&now, &o->ts_spf, &result);
-		timerstring(&result, buf, sizeof(buf));
-		ospf6_spf_reason_string(o->last_spf_reason, rbuf, sizeof(rbuf));
-		vty_out(vty, "last executed %s ago, reason %s\n", buf, rbuf);
-		vty_out(vty, " Last SPF duration %lld sec %lld usec\n",
-			(long long)o->ts_spf_duration.tv_sec,
-			(long long)o->ts_spf_duration.tv_usec);
-	} else
-		vty_out(vty, "has not been run\n");
-	threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
-	vty_out(vty, " SPF timer %s%s\n", (o->t_spf_calc ? "due in " : "is "),
-		buf);
 
-	if (CHECK_FLAG(o->flag, OSPF6_STUB_ROUTER))
-		vty_out(vty, " Router Is Stub Router\n");
+		if (o->ts_spf.tv_sec || o->ts_spf.tv_usec) {
+			timersub(&now, &o->ts_spf, &result);
+			timerstring(&result, buf, sizeof(buf));
+			ospf6_spf_reason_string(o->last_spf_reason, rbuf,
+						sizeof(rbuf));
+			json_object_boolean_true_add(json, "spfHasRun");
+			json_object_string_add(json, "spfLastExecutedMsecs",
+					       buf);
+			json_object_string_add(json, "spfLastExecutedReason",
+					       rbuf);
 
-	/* LSAs */
-	vty_out(vty, " Number of AS scoped LSAs is %u\n", o->lsdb->count);
+			json_object_int_add(
+				json, "spfLastDurationSecs",
+				(long long)o->ts_spf_duration.tv_sec);
 
-	/* Areas */
-	vty_out(vty, " Number of areas in this router is %u\n",
-		listcount(o->area_list));
+			json_object_int_add(
+				json, "spfLastDurationMsecs",
+				(long long)o->ts_spf_duration.tv_usec);
+		} else
+			json_object_boolean_false_add(json, "spfHasRun");
 
-	if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
-		if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-			vty_out(vty, " All adjacency changes are logged\n");
-		else
-			vty_out(vty, " Adjacency changes are logged\n");
+
+		threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
+		if (o->t_spf_calc) {
+			long time_store;
+
+			json_object_boolean_true_add(json, "spfTimerActive");
+			time_store =
+				monotime_until(&o->t_spf_calc->u.sands, NULL)
+				/ 1000LL;
+			json_object_int_add(json, "spfTimerDueInMsecs",
+					    time_store);
+		} else
+			json_object_boolean_false_add(json, "spfTimerActive");
+
+		json_object_boolean_add(json, "routerIsStubRouter",
+					CHECK_FLAG(o->flag, OSPF6_STUB_ROUTER));
+
+		/* LSAs */
+		json_object_int_add(json, "numberOfAsScopedLsa",
+				    o->lsdb->count);
+		/* Areas */
+		json_object_int_add(json, "numberOfAreaInRouter",
+				    listcount(o->area_list));
+
+		if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
+			if (CHECK_FLAG(o->config_flags,
+				       OSPF6_LOG_ADJACENCY_DETAIL))
+				adjacency = "LoggedAll";
+			else
+				adjacency = "Logged";
+		} else
+			adjacency = "NotLogged";
+		json_object_string_add(json, "adjacencyChanges", adjacency);
+
+		for (ALL_LIST_ELEMENTS_RO(o->area_list, n, oa))
+			ospf6_area_show(vty, oa, json_areas, use_json);
+
+		json_object_object_add(json, "areas", json_areas);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+
+	} else {
+		/* process id, router id */
+		inet_ntop(AF_INET, &o->router_id, router_id, sizeof(router_id));
+		vty_out(vty, " OSPFv3 Routing Process (0) with Router-ID %s\n",
+			router_id);
+
+		/* running time */
+		monotime(&now);
+		timersub(&now, &o->starttime, &running);
+		timerstring(&running, duration, sizeof(duration));
+		vty_out(vty, " Running %s\n", duration);
+
+		/* Redistribute configuration */
+		/* XXX */
+		vty_out(vty, " LSA minimum arrival %d msecs\n",
+			o->lsa_minarrival);
+
+
+		/* Show SPF parameters */
+		vty_out(vty,
+			" Initial SPF scheduling delay %d millisec(s)\n"
+			" Minimum hold time between consecutive SPFs %d millsecond(s)\n"
+			" Maximum hold time between consecutive SPFs %d millsecond(s)\n"
+			" Hold time multiplier is currently %d\n",
+			o->spf_delay, o->spf_holdtime, o->spf_max_holdtime,
+			o->spf_hold_multiplier);
+
+
+		vty_out(vty, " SPF algorithm ");
+		if (o->ts_spf.tv_sec || o->ts_spf.tv_usec) {
+			timersub(&now, &o->ts_spf, &result);
+			timerstring(&result, buf, sizeof(buf));
+			ospf6_spf_reason_string(o->last_spf_reason, rbuf,
+						sizeof(rbuf));
+			vty_out(vty, "last executed %s ago, reason %s\n", buf,
+				rbuf);
+			vty_out(vty, " Last SPF duration %lld sec %lld usec\n",
+				(long long)o->ts_spf_duration.tv_sec,
+				(long long)o->ts_spf_duration.tv_usec);
+		} else
+			vty_out(vty, "has not been run\n");
+
+		threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
+		vty_out(vty, " SPF timer %s%s\n",
+			(o->t_spf_calc ? "due in " : "is "), buf);
+
+		if (CHECK_FLAG(o->flag, OSPF6_STUB_ROUTER))
+			vty_out(vty, " Router Is Stub Router\n");
+
+		/* LSAs */
+		vty_out(vty, " Number of AS scoped LSAs is %u\n",
+			o->lsdb->count);
+
+		/* Areas */
+		vty_out(vty, " Number of areas in this router is %u\n",
+			listcount(o->area_list));
+
+		if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
+			if (CHECK_FLAG(o->config_flags,
+				       OSPF6_LOG_ADJACENCY_DETAIL))
+				vty_out(vty,
+					" All adjacency changes are logged\n");
+			else
+				vty_out(vty, " Adjacency changes are logged\n");
+		}
+
+
+		vty_out(vty, "\n");
+
+		for (ALL_LIST_ELEMENTS_RO(o->area_list, n, oa))
+			ospf6_area_show(vty, oa, json_areas, use_json);
 	}
-
-	vty_out(vty, "\n");
-
-	for (ALL_LIST_ELEMENTS_RO(o->area_list, n, oa))
-		ospf6_area_show(vty, oa);
 }
 
 /* show top level structures */
-DEFUN (show_ipv6_ospf6,
-       show_ipv6_ospf6_cmd,
-       "show ipv6 ospf6",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR)
+DEFUN(show_ipv6_ospf6,
+      show_ipv6_ospf6_cmd,
+      "show ipv6 ospf6 [json]",
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      JSON_STR)
 {
 	struct ospf6 *ospf6;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
-	ospf6_show(vty, ospf6);
+
+	if (uj)
+		json = json_object_new_object();
+
+	ospf6_show(vty, ospf6, json, uj);
+
+	if (uj)
+		json_object_free(json);
 	return CMD_SUCCESS;
 }
 

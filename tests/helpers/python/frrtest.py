@@ -168,8 +168,8 @@ class TestMultiOut(_TestMultiOut):
 
 class TestRefMismatch(Exception):
     def __init__(self, _test, outtext, reftext):
-        self.outtext = outtext.decode("utf8") if type(outtext) is bytes else outtext
-        self.reftext = reftext.decode("utf8") if type(reftext) is bytes else reftext
+        self.outtext = outtext
+        self.reftext = reftext
 
     def __str__(self):
         rv = "Expected output and actual output differ:\n"
@@ -214,7 +214,12 @@ class TestRefOut(object):
             [binpath(program)], stdin=subprocess.PIPE, stdout=subprocess.PIPE
         )
         outtext, _ = proc.communicate(intext)
-        if outtext != reftext:
-            raise TestRefMismatch(self, outtext, reftext)
+
+        # Get rid of newline problems (Windows vs Unix Style)
+        outtext_str = outtext.decode("utf8").replace("\r\n", "\n").replace("\r", "\n")
+        reftext_str = reftext.decode("utf8").replace("\r\n", "\n").replace("\r", "\n")
+
+        if outtext_str != reftext_str:
+            raise TestRefMismatch(self, outtext_str, reftext_str)
         if proc.wait() != 0:
             raise TestExitNonzero(self)

@@ -141,7 +141,7 @@ twice the traffic, or slow down the traffic (filtering costs). To limit
 Flowspec to one specific interface, use the following command, under
 `flowspec address-family` node.
 
-.. index:: [no] local-install <IFNAME | any>
+.. index:: local-install <IFNAME | any>
 .. clicmd:: [no] local-install <IFNAME | any>
 
 By default, Flowspec is activated on all interfaces. Installing it to a named
@@ -168,7 +168,7 @@ following:
 - The first VRF with the matching Route Target will be selected to route traffic
   to. Use the following command under ipv4 unicast address-family node
 
-.. index:: [no] rt redirect import RTLIST...
+.. index:: rt redirect import RTLIST...
 .. clicmd:: [no] rt redirect import RTLIST...
 
 In order to illustrate, if the Route Target configured in the Flowspec entry is
@@ -241,14 +241,14 @@ match.
    ``TABLEID`` is the table number identifier referencing the non standard
    routing table used in this example.
 
-.. index:: [no] debug bgp flowspec
+.. index:: debug bgp flowspec
 .. clicmd:: [no] debug bgp flowspec
 
    You can troubleshoot Flowspec, or BGP policy based routing. For instance, if
    you encounter some issues when decoding a Flowspec entry, you should enable
    :clicmd:`debug bgp flowspec`.
 
-.. index:: [no] debug bgp pbr [error]
+.. index:: debug bgp pbr [error]
 .. clicmd:: [no] debug bgp pbr [error]
 
    If you fail to apply the flowspec entry into *zebra*, there should be some

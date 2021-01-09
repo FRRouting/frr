@@ -748,8 +748,7 @@ static void ripng_route_process(struct rte *rte, struct sockaddr_in6 *from,
 	/* Modify entry. */
 	if (ri->routemap[RIPNG_FILTER_IN]) {
 		ret = route_map_apply(ri->routemap[RIPNG_FILTER_IN],
-				      (struct prefix *)&p, RMAP_RIPNG,
-				      &newinfo);
+				      (struct prefix *)&p, &newinfo);
 
 		if (ret == RMAP_DENYMATCH) {
 			if (IS_RIPNG_DEBUG_PACKET)
@@ -1661,7 +1660,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 			if (ri->routemap[RIPNG_FILTER_OUT]) {
 				ret = route_map_apply(
 					ri->routemap[RIPNG_FILTER_OUT],
-					(struct prefix *)p, RMAP_RIPNG, rinfo);
+					(struct prefix *)p, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIPNG_DEBUG_PACKET)
@@ -1677,7 +1676,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 				ret = route_map_apply(ripng->redist[rinfo->type]
 							      .route_map.map,
 						      (struct prefix *)p,
-						      RMAP_RIPNG, rinfo);
+						      rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIPNG_DEBUG_PACKET)
@@ -1773,8 +1772,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 
 				ret = route_map_apply(
 					ri->routemap[RIPNG_FILTER_OUT],
-					(struct prefix *)p, RMAP_RIPNG,
-					&newinfo);
+					(struct prefix *)p, &newinfo);
 
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIPNG_DEBUG_PACKET)

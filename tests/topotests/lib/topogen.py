@@ -336,7 +336,9 @@ class Topogen(object):
         for gear in self.gears.values():
             errors += gear.stop()
         if len(errors) > 0:
-            assert "Errors found post shutdown - details follow:" == 0, errors
+            logger.error(
+                "Errors found post shutdown - details follow: {}".format(errors)
+            )
 
         self.net.stop()
 
@@ -552,6 +554,7 @@ class TopoRouter(TopoGear):
     RD_SHARP = 14
     RD_BABEL = 15
     RD_PBRD = 16
+    RD_PATH = 17
     RD = {
         RD_ZEBRA: "zebra",
         RD_RIP: "ripd",
@@ -569,6 +572,7 @@ class TopoRouter(TopoGear):
         RD_SHARP: "sharpd",
         RD_BABEL: "babeld",
         RD_PBRD: "pbrd",
+        RD_PATH: 'pathd',
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -714,7 +718,7 @@ class TopoRouter(TopoGear):
         """
         self.logger.debug("stopping")
         self.__stop_internal(False, False)
-        return self.__stop_internal()
+        return self.__stop_internal(True, False)
 
     def startDaemons(self, daemons):
         """
@@ -1114,6 +1118,7 @@ def diagnose_env_linux():
             logger.warning(
                 "BGP topologies are still using exabgp version 3, expect failures"
             )
+        p.close()
 
     # We want to catch all exceptions
     # pylint: disable=W0702
@@ -1122,6 +1127,7 @@ def diagnose_env_linux():
 
     # After we logged the output to file, remove the handler.
     logger.removeHandler(fhandler)
+    fhandler.close()
 
     return ret
 

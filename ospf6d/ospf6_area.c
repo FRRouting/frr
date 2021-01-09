@@ -115,23 +115,25 @@ static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa *lsa)
 	}
 }
 
-static void ospf6_area_route_hook_add(struct ospf6_route *route,
-				      struct ospf6 *ospf6)
+static void ospf6_area_route_hook_add(struct ospf6_route *route)
 {
+	struct ospf6_area *oa = route->table->scope;
+	struct ospf6 *ospf6 = oa->ospf6;
 	struct ospf6_route *copy;
 
 	copy = ospf6_route_copy(route);
-	ospf6_route_add(copy, ospf6->route_table, ospf6);
+	ospf6_route_add(copy, ospf6->route_table);
 }
 
-static void ospf6_area_route_hook_remove(struct ospf6_route *route,
-					 struct ospf6 *ospf6)
+static void ospf6_area_route_hook_remove(struct ospf6_route *route)
 {
+	struct ospf6_area *oa = route->table->scope;
+	struct ospf6 *ospf6 = oa->ospf6;
 	struct ospf6_route *copy;
 
 	copy = ospf6_route_lookup_identical(route, ospf6->route_table);
 	if (copy)
-		ospf6_route_remove(copy, ospf6->route_table, ospf6);
+		ospf6_route_remove(copy, ospf6->route_table);
 }
 
 static void ospf6_area_stub_update(struct ospf6_area *area)
@@ -284,13 +286,13 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	ospf6_lsdb_delete(oa->lsdb_self);
 	ospf6_lsdb_delete(oa->temp_router_lsa_lsdb);
 
-	ospf6_spf_table_finish(oa->spf_table, oa->ospf6);
-	ospf6_route_table_delete(oa->spf_table, oa->ospf6);
-	ospf6_route_table_delete(oa->route_table, oa->ospf6);
+	ospf6_spf_table_finish(oa->spf_table);
+	ospf6_route_table_delete(oa->spf_table);
+	ospf6_route_table_delete(oa->route_table);
 
-	ospf6_route_table_delete(oa->range_table, oa->ospf6);
-	ospf6_route_table_delete(oa->summary_prefix, oa->ospf6);
-	ospf6_route_table_delete(oa->summary_router, oa->ospf6);
+	ospf6_route_table_delete(oa->range_table);
+	ospf6_route_table_delete(oa->summary_prefix);
+	ospf6_route_table_delete(oa->summary_router);
 
 	listnode_delete(oa->ospf6->area_list, oa);
 	oa->ospf6 = NULL;
@@ -351,48 +353,102 @@ void ospf6_area_disable(struct ospf6_area *oa)
 	ospf6_lsdb_remove_all(oa->lsdb);
 	ospf6_lsdb_remove_all(oa->lsdb_self);
 
-	ospf6_spf_table_finish(oa->spf_table, oa->ospf6);
-	ospf6_route_remove_all(oa->route_table, oa->ospf6);
+	ospf6_spf_table_finish(oa->spf_table);
+	ospf6_route_remove_all(oa->route_table);
 
 	THREAD_OFF(oa->thread_router_lsa);
 	THREAD_OFF(oa->thread_intra_prefix_lsa);
 }
 
 
-void ospf6_area_show(struct vty *vty, struct ospf6_area *oa)
+void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
+		     json_object *json_areas, bool use_json)
 {
 	struct listnode *i;
 	struct ospf6_interface *oi;
 	unsigned long result;
+	json_object *json_area;
+	json_object *array_interfaces;
 
-	if (!IS_AREA_STUB(oa))
-		vty_out(vty, " Area %s\n", oa->name);
-	else {
-		if (oa->no_summary) {
-			vty_out(vty, " Area %s[Stub, No Summary]\n", oa->name);
-		} else {
-			vty_out(vty, " Area %s[Stub]\n", oa->name);
+	if (use_json) {
+		json_area = json_object_new_object();
+		json_object_boolean_add(json_area, "areaIsStub",
+					IS_AREA_STUB(oa));
+		if (IS_AREA_STUB(oa)) {
+			json_object_boolean_add(json_area, "areaNoSummary",
+						oa->no_summary);
 		}
+
+		json_object_int_add(json_area, "numberOfAreaScopedLsa",
+				    oa->lsdb->count);
+
+		/* Interfaces Attached */
+		array_interfaces = json_object_new_array();
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
+			json_object_array_add(
+				array_interfaces,
+				json_object_new_string(oi->interface->name));
+
+		json_object_object_add(json_area, "interfacesAttachedToArea",
+				       array_interfaces);
+
+		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
+			json_object_boolean_true_add(json_area, "spfHasRun");
+			result = monotime_since(&oa->ts_spf, NULL);
+			if (result / TIMER_SECOND_MICRO > 0) {
+				json_object_int_add(
+					json_area, "spfLastExecutedSecs",
+					result / TIMER_SECOND_MICRO);
+
+				json_object_int_add(
+					json_area, "spfLastExecutedMicroSecs",
+					result % TIMER_SECOND_MICRO);
+			} else {
+				json_object_int_add(json_area,
+						    "spfLastExecutedSecs", 0);
+				json_object_int_add(json_area,
+						    "spfLastExecutedMicroSecs",
+						    result);
+			}
+		} else
+			json_object_boolean_false_add(json_area, "spfHasRun");
+
+
+		json_object_object_add(json_areas, oa->name, json_area);
+
+	} else {
+
+		if (!IS_AREA_STUB(oa))
+			vty_out(vty, " Area %s\n", oa->name);
+		else {
+			if (oa->no_summary) {
+				vty_out(vty, " Area %s[Stub, No Summary]\n",
+					oa->name);
+			} else {
+				vty_out(vty, " Area %s[Stub]\n", oa->name);
+			}
+		}
+		vty_out(vty, "     Number of Area scoped LSAs is %u\n",
+			oa->lsdb->count);
+
+		vty_out(vty, "     Interface attached to this area:");
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
+			vty_out(vty, " %s", oi->interface->name);
+		vty_out(vty, "\n");
+
+		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
+			result = monotime_since(&oa->ts_spf, NULL);
+			if (result / TIMER_SECOND_MICRO > 0) {
+				vty_out(vty, "SPF last executed %ld.%lds ago\n",
+					result / TIMER_SECOND_MICRO,
+					result % TIMER_SECOND_MICRO);
+			} else {
+				vty_out(vty, "SPF last executed %ldus ago\n",
+					result);
+			}
+		} else
+			vty_out(vty, "SPF has not been run\n");
 	}
-	vty_out(vty, "     Number of Area scoped LSAs is %u\n",
-		oa->lsdb->count);
-
-	vty_out(vty, "     Interface attached to this area:");
-	for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
-		vty_out(vty, " %s", oi->interface->name);
-	vty_out(vty, "\n");
-
-	if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
-		result = monotime_since(&oa->ts_spf, NULL);
-		if (result / TIMER_SECOND_MICRO > 0) {
-			vty_out(vty, "SPF last executed %ld.%lds ago\n",
-				result / TIMER_SECOND_MICRO,
-				result % TIMER_SECOND_MICRO);
-		} else {
-			vty_out(vty, "SPF last executed %ldus ago\n", result);
-		}
-	} else
-		vty_out(vty, "SPF has not been run\n");
 }
 
 DEFUN (area_range,
@@ -454,7 +510,7 @@ DEFUN (area_range,
 	zlog_debug("%s: for prefix %s, flag = %x", __func__,
 		   argv[idx_ipv6_prefixlen]->arg, range->flag);
 	if (range->rnode == NULL) {
-		ospf6_route_add(range, oa->range_table, oa->ospf6);
+		ospf6_route_add(range, oa->range_table);
 	}
 
 	if (ospf6_is_router_abr(ospf6)) {
@@ -515,7 +571,7 @@ DEFUN (no_area_range,
 		/* purge the old aggregated summary LSA */
 		ospf6_abr_originate_summary(range, oa->ospf6);
 	}
-	ospf6_route_remove(range, oa->range_table, oa->ospf6);
+	ospf6_route_remove(range, oa->range_table);
 
 	return CMD_SUCCESS;
 }
@@ -924,15 +980,15 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 
 	route = ospf6_route_lookup(&prefix, spf_table);
 	if (route == NULL) {
-		ospf6_spf_table_finish(spf_table, ospf6);
-		ospf6_route_table_delete(spf_table, ospf6);
+		ospf6_spf_table_finish(spf_table);
+		ospf6_route_table_delete(spf_table);
 		return CMD_SUCCESS;
 	}
 	root = (struct ospf6_vertex *)route->route_option;
 	ospf6_spf_display_subtree(vty, "", 0, root);
 
-	ospf6_spf_table_finish(spf_table, ospf6);
-	ospf6_route_table_delete(spf_table, ospf6);
+	ospf6_spf_table_finish(spf_table);
+	ospf6_route_table_delete(spf_table);
 
 	return CMD_SUCCESS;
 }

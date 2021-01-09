@@ -27,6 +27,7 @@
 #include "bitfield.h"
 #include "zebra_vxlan.h"
 #include "zebra_vxlan_private.h"
+#include "zebra_nhg.h"
 
 #define EVPN_MH_VTY_STR "Multihoming\n"
 
@@ -87,6 +88,13 @@ struct zebra_evpn_es {
 	 * advertised via the ESR
 	 */
 	uint16_t df_pref;
+
+	/* When a new ES is configured it is held in a non-DF state
+	 * for 3 seconds. This allows the peer Type-4 routes to be
+	 * imported before running the DF election.
+	 */
+#define ZEBRA_EVPN_MH_DF_DELAY_TIME 3 /* seconds */
+	struct thread *df_delay_timer;
 };
 RB_HEAD(zebra_es_rb_head, zebra_evpn_es);
 RB_PROTOTYPE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
@@ -123,6 +131,19 @@ struct zebra_evpn_es_evi {
 	struct listnode es_listnode;
 };
 
+/* A single L2 nexthop is allocated across all ESs with the same PE/VTEP
+ * nexthop
+ */
+struct zebra_evpn_l2_nh {
+	struct in_addr vtep_ip;
+
+	/* MAC nexthop id */
+	uint32_t nh_id;
+
+	/* es_vtep entries using this nexthop */
+	uint32_t ref_cnt;
+};
+
 /* PE attached to an ES */
 struct zebra_evpn_es_vtep {
 	struct zebra_evpn_es *es; /* parent ES */
@@ -133,11 +154,11 @@ struct zebra_evpn_es_vtep {
 #define ZEBRA_EVPNES_VTEP_RXED_ESR (1 << 0)
 #define ZEBRA_EVPNES_VTEP_DEL_IN_PROG (1 << 1)
 
+	/* MAC nexthop info */
+	struct zebra_evpn_l2_nh *nh;
+
 	/* memory used for adding the entry to es->es_vtep_list */
 	struct listnode es_listnode;
-
-	/* MAC nexthop */
-	uint32_t nh_id;
 
 	/* Parameters for DF election */
 	uint8_t df_alg;
@@ -164,6 +185,22 @@ struct zebra_evpn_access_bd {
 /* multihoming information stored in zrouter */
 #define zmh_info (zrouter.mh_info)
 struct zebra_evpn_mh_info {
+	uint32_t flags;
+/* If the dataplane is not capable of handling a backup NHG on an access
+ * port we will need to explicitly failover each MAC entry on
+ * local ES down
+ */
+#define ZEBRA_EVPN_MH_REDIRECT_OFF (1 << 0)
+/* DAD support for EVPN-MH is yet to be added. So on detection of
+ * first local ES, DAD is turned off
+ */
+#define ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF (1 << 1)
+/* If EVPN MH is enabled we only advertise REACHABLE neigh entries as Type-2
+ * routes. As there is no global config knob for enabling EVPN MH we turn
+ * this flag when the first local ES is detected.
+ */
+#define ZEBRA_EVPN_MH_ADV_REACHABLE_NEIGH_ONLY (1 << 2)
+
 	/* RB tree of Ethernet segments (used for EVPN-MH)  */
 	struct zebra_es_rb_head es_rb_tree;
 	/* List of local ESs */
@@ -181,18 +218,21 @@ struct zebra_evpn_mh_info {
 	struct in_addr es_originator_ip;
 
 	/* L2 NH and NHG ids -
-	 * Most significant 8 bits is type. Lower 24 bits is the value
+	 * Most significant 4 bits is type. Lower 28 bits is the value
 	 * allocated from the nh_id_bitmap.
 	 */
 	bitfield_t nh_id_bitmap;
 #define EVPN_NH_ID_MAX       (16*1024)
 #define EVPN_NH_ID_VAL_MASK  0xffffff
-#define EVPN_NH_ID_TYPE_POS  24
 /* The purpose of using different types for NHG and NH is NOT to manage the
  * id space separately. It is simply to make debugging easier.
  */
-#define EVPN_NH_ID_TYPE_BIT  (1 << EVPN_NH_ID_TYPE_POS)
-#define EVPN_NHG_ID_TYPE_BIT (2 << EVPN_NH_ID_TYPE_POS)
+#define EVPN_NH_ID_TYPE_BIT (NHG_TYPE_L2_NH << NHG_ID_TYPE_POS)
+#define EVPN_NHG_ID_TYPE_BIT (NHG_TYPE_L2 << NHG_ID_TYPE_POS)
+	/* L2-NHG table - key: nhg_id, data: zebra_evpn_es */
+	struct hash *nhg_table;
+	/* L2-NH table - key: vtep_up, data: zebra_evpn_nh */
+	struct hash *nh_ip_table;
 
 	/* XXX - re-visit the default hold timer value */
 	int mac_hold_time;
@@ -227,6 +267,24 @@ static inline bool zebra_evpn_mh_is_fdb_nh(uint32_t id)
 	return ((id & EVPN_NHG_ID_TYPE_BIT) ||
 			(id & EVPN_NH_ID_TYPE_BIT));
 }
+
+static inline bool
+zebra_evpn_es_local_mac_via_network_port(struct zebra_evpn_es *es)
+{
+	return !(es->flags & ZEBRA_EVPNES_OPER_UP)
+	       && (zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF);
+}
+
+static inline bool zebra_evpn_mh_do_dup_addr_detect(void)
+{
+	return !(zmh_info->flags & ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF);
+}
+
+static inline bool zebra_evpn_mh_do_adv_reachable_neigh_only(void)
+{
+	return !!(zmh_info->flags & ZEBRA_EVPN_MH_ADV_REACHABLE_NEIGH_ONLY);
+}
+
 
 /*****************************************************************************/
 extern esi_t *zero_esi;
@@ -284,5 +342,20 @@ extern bool zebra_evpn_is_es_bond(struct interface *ifp);
 extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
 extern void zebra_evpn_mh_print(struct vty *vty);
 extern void zebra_evpn_mh_json(json_object *json);
+extern bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
+				       struct zebra_evpn_es **local_es);
+extern int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off);
+extern int zebra_evpn_mh_startup_delay_update(struct vty *vty,
+					      uint32_t duration,
+					      bool set_default);
+extern void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif);
+extern void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif,
+						    bool clear,
+						    const char *caller);
+extern bool zebra_evpn_is_es_bond(struct interface *ifp);
+extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
+extern void zebra_evpn_mh_print(struct vty *vty);
+extern void zebra_evpn_mh_json(json_object *json);
+extern void zebra_evpn_l2_nh_show(struct vty *vty, bool uj);
 
 #endif /* _ZEBRA_EVPN_MH_H */

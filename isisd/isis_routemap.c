@@ -49,13 +49,9 @@
 #include "isis_routemap.h"
 
 static enum route_map_cmd_result_t
-route_match_ip_address(void *rule, const struct prefix *prefix,
-		       route_map_object_t type, void *object)
+route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
-
-	if (type != RMAP_ISIS)
-		return RMAP_NOMATCH;
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
 	if (access_list_apply(alist, prefix) != FILTER_DENY)
@@ -85,12 +81,9 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 
 static enum route_map_cmd_result_t
 route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
-				   route_map_object_t type, void *object)
+				   void *object)
 {
 	struct prefix_list *plist;
-
-	if (type != RMAP_ISIS)
-		return RMAP_NOMATCH;
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
 	if (prefix_list_apply(plist, prefix) != PREFIX_DENY)
@@ -120,13 +113,9 @@ static const struct route_map_rule_cmd
 /* ------------------------------------------------------------*/
 
 static enum route_map_cmd_result_t
-route_match_ipv6_address(void *rule, const struct prefix *prefix,
-			 route_map_object_t type, void *object)
+route_match_ipv6_address(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
-
-	if (type != RMAP_ISIS)
-		return RMAP_NOMATCH;
 
 	alist = access_list_lookup(AFI_IP6, (char *)rule);
 	if (access_list_apply(alist, prefix) != FILTER_DENY)
@@ -156,12 +145,9 @@ static const struct route_map_rule_cmd route_match_ipv6_address_cmd = {
 
 static enum route_map_cmd_result_t
 route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
-				     route_map_object_t type, void *object)
+				     void *object)
 {
 	struct prefix_list *plist;
-
-	if (type != RMAP_ISIS)
-		return RMAP_NOMATCH;
 
 	plist = prefix_list_lookup(AFI_IP6, (char *)rule);
 	if (prefix_list_apply(plist, prefix) != PREFIX_DENY)
@@ -191,18 +177,16 @@ static const struct route_map_rule_cmd
 /* ------------------------------------------------------------*/
 
 static enum route_map_cmd_result_t
-route_set_metric(void *rule, const struct prefix *prefix,
-		 route_map_object_t type, void *object)
+route_set_metric(void *rule, const struct prefix *prefix, void *object)
 {
 	uint32_t *metric;
 	struct isis_ext_info *info;
 
-	if (type == RMAP_ISIS) {
-		metric = rule;
-		info = object;
+	metric = rule;
+	info = object;
 
-		info->metric = *metric;
-	}
+	info->metric = *metric;
+
 	return RMAP_OKAY;
 }
 

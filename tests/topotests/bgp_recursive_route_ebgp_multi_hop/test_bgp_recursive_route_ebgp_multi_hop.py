@@ -1042,9 +1042,10 @@ def test_next_hop_with_recursive_lookup_p1(request):
             next_hop=next_hop,
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "Route is still present \n Error : {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "Route is still present \n Error : {}".format(
+            tc_name, result
         )
 
     step("Re-apply redistribution on R4.")
@@ -1125,9 +1126,10 @@ def test_next_hop_with_recursive_lookup_p1(request):
             next_hop=next_hop,
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "Route is still present \n Error : {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "Route is still present \n Error : {}".format(
+            tc_name, result
         )
 
     shutdown_bringup_interface(tgen, "r3", intf_r3_r4, True)
@@ -1182,9 +1184,10 @@ def test_next_hop_with_recursive_lookup_p1(request):
             next_hop=next_hop,
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "Route is still present \n Error : {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "Route is still present \n Error : {}".format(
+            tc_name, result
         )
 
     shutdown_bringup_interface(tgen, "r4", intf_r4_r3, True)
@@ -2101,8 +2104,20 @@ def test_BGP_active_standby_preemption_and_ecmp_p1(request):
         "r4": {
             "bgp": {
                 "address_family": {
-                    "ipv4": {"unicast": {"maximum_paths": {"ebgp": 1,}}},
-                    "ipv6": {"unicast": {"maximum_paths": {"ebgp": 1,}}},
+                    "ipv4": {
+                        "unicast": {
+                            "maximum_paths": {
+                                "ebgp": 1,
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "maximum_paths": {
+                                "ebgp": 1,
+                            }
+                        }
+                    },
                 }
             }
         }
@@ -2131,8 +2146,20 @@ def test_BGP_active_standby_preemption_and_ecmp_p1(request):
         "r4": {
             "bgp": {
                 "address_family": {
-                    "ipv4": {"unicast": {"maximum_paths": {"ebgp": 2,}}},
-                    "ipv6": {"unicast": {"maximum_paths": {"ebgp": 2,}}},
+                    "ipv4": {
+                        "unicast": {
+                            "maximum_paths": {
+                                "ebgp": 2,
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "maximum_paths": {
+                                "ebgp": 2,
+                            }
+                        }
+                    },
                 }
             }
         }

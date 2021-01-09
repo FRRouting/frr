@@ -269,6 +269,9 @@ def test_error_messages_daemons():
                 error_logs += log
 
         log = net["r1"].getStdErr("nhrpd")
+        # NHRPD shows YANG model not embedded messages
+        # Ignore these
+        log = re.sub(r".*YANG model.*not embedded.*", "", log).rstrip()
         if log:
             error_logs += "r%s NHRPd StdErr Output:\n" % i
             error_logs += log
@@ -285,7 +288,7 @@ def test_error_messages_daemons():
 
         log = net["r%s" % i].getStdErr("zebra")
         if log:
-            error_logs += "r%s Zebra StdErr Output:\n"
+            error_logs += "r%s Zebra StdErr Output:\n" % i
             error_logs += log
 
     if error_logs:
@@ -1014,6 +1017,53 @@ def test_bgp_ipv6_summary():
     # CLI(net)
 
 
+def test_nht():
+    print("\n\n**** Test that nexthop tracking is at least nominally working ****\n")
+
+    thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    for i in range(1, 2):
+        nhtFile = "%s/r%s/ip_nht.ref" % (thisDir, i)
+        expected = open(nhtFile).read().rstrip()
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        actual = net["r%s" % i].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
+        actual = re.sub(r"fd [0-9][0-9]", "fd XX", actual)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        diff = topotest.get_textdiff(
+            actual,
+            expected,
+            title1="Actual `show ip nht`",
+            title2="Expected `show ip nht`",
+        )
+
+        if diff:
+            assert 0, "r%s failed ip nht check:\n%s\n" % (i, diff)
+        else:
+            print("show ip nht is ok\n")
+
+        nhtFile = "%s/r%s/ipv6_nht.ref" % (thisDir, i)
+        expected = open(nhtFile).read().rstrip()
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        actual = net["r%s" % i].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip()
+        actual = re.sub(r"fd [0-9][0-9]", "fd XX", actual)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        diff = topotest.get_textdiff(
+            actual,
+            expected,
+            title1="Actual `show ip nht`",
+            title2="Expected `show ip nht`",
+        )
+
+        if diff:
+            assert 0, "r%s failed ipv6 nht check:\n%s\n" % (i, diff)
+        else:
+            print("show ipv6 nht is ok\n")
+
+
 def test_bgp_ipv4():
     global fatal_error
     global net
@@ -1065,7 +1115,7 @@ def test_bgp_ipv4():
 
         if not success:
             resultstr = "No template matched.\n"
-            for f in diffresult.iterkeys():
+            for f in diffresult.keys():
                 resultstr += "template %s: r%s failed SHOW BGP IPv4 check:\n%s\n" % (
                     f,
                     i,
@@ -1134,7 +1184,7 @@ def test_bgp_ipv6():
 
         if not success:
             resultstr = "No template matched.\n"
-            for f in diffresult.iterkeys():
+            for f in diffresult.keys():
                 resultstr += "template %s: r%s failed SHOW BGP IPv6 check:\n%s\n" % (
                     f,
                     i,

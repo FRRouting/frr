@@ -315,6 +315,7 @@ static void updgrp_show_adj(struct bgp *bgp, afi_t afi, safi_t safi,
 static int subgroup_coalesce_timer(struct thread *thread)
 {
 	struct update_subgroup *subgrp;
+	struct bgp *bgp;
 
 	subgrp = THREAD_ARG(thread);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
@@ -323,6 +324,7 @@ static int subgroup_coalesce_timer(struct thread *thread)
 			   subgrp->v_coalesce);
 	subgrp->t_coalesce = NULL;
 	subgrp->v_coalesce = 0;
+	bgp = SUBGRP_INST(subgrp);
 	subgroup_announce_route(subgrp);
 
 
@@ -334,7 +336,8 @@ static int subgroup_coalesce_timer(struct thread *thread)
 	 * to
 	 * announce, this is the method currently employed to trigger the EOR.
 	 */
-	if (!bgp_update_delay_active(SUBGRP_INST(subgrp))) {
+	if (!bgp_update_delay_active(SUBGRP_INST(subgrp)) &&
+	    !(BGP_SUPPRESS_FIB_ENABLED(bgp))) {
 		struct peer_af *paf;
 		struct peer *peer;
 
@@ -458,10 +461,15 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
+	struct peer *adv_peer;
+	struct peer_af *paf;
+	struct bgp *bgp;
+	uint32_t attr_hash = attrhash_key_make(attr);
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
 	safi = SUBGRP_SAFI(subgrp);
+	bgp = SUBGRP_INST(subgrp);
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
@@ -480,6 +488,26 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			return;
 	}
 
+	/* Check if we are sending the same route. This is needed to
+	 * avoid duplicate UPDATES. For instance, filtering communities
+	 * at egress, neighbors will see duplicate UPDATES despite
+	 * the route wasn't changed actually.
+	 * Do not suppress BGP UPDATES for route-refresh.
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)
+	    && !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES)
+	    && adj->attr_hash == attr_hash) {
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			char attr_str[BUFSIZ] = {0};
+
+			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+
+			zlog_debug("%s suppress UPDATE w/ attr: %s", peer->host,
+				   attr_str);
+		}
+		return;
+	}
+
 	if (adj->adv)
 		bgp_advertise_clean_subgroup(subgrp, adj);
 	adj->adv = bgp_advertise_new();
@@ -495,6 +523,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	else
 		adv->baa = baa_new();
 	adv->adj = adj;
+	adj->attr_hash = attr_hash;
 
 	/* Add new advertisement to advertisement attribute list. */
 	bgp_advertise_add(adv->baa, adv);
@@ -504,9 +533,21 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * mrai timers so the socket writes can happen.
 	 */
 	if (!bgp_adv_fifo_count(&subgrp->sync->update)) {
-		struct peer_af *paf;
-
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
+			/* If there are no routes in the withdraw list, set
+			 * the flag PEER_STATUS_ADV_DELAY which will allow
+			 * more routes to be sent in the update message
+			 */
+			if (BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+				adv_peer = PAF_PEER(paf);
+				if (!bgp_adv_fifo_count(
+						&subgrp->sync->withdraw))
+					SET_FLAG(adv_peer->thread_flags,
+						 PEER_THREAD_SUBGRP_ADV_DELAY);
+				else
+					UNSET_FLAG(adv_peer->thread_flags,
+						PEER_THREAD_SUBGRP_ADV_DELAY);
+			}
 			bgp_adjust_routeadv(PAF_PEER(paf));
 		}
 	}
@@ -617,10 +658,13 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	afi_t afi;
 	safi_t safi;
 	int addpath_capable;
+	struct bgp *bgp;
+	bool advertise;
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
 	safi = SUBGRP_SAFI(subgrp);
+	bgp = SUBGRP_INST(subgrp);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
 	if (safi == SAFI_LABELED_UNICAST)
@@ -637,6 +681,9 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
+		/* Check if the route can be advertised */
+		advertise = bgp_check_advertise(bgp, dest);
+
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next)
 
 			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
@@ -646,10 +693,14 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 					   ri))) {
 				if (subgroup_announce_check(dest, ri, subgrp,
 							    dest_p, &attr,
-							    false))
-					bgp_adj_out_set_subgroup(dest, subgrp,
-								 &attr, ri);
-				else {
+							    false)) {
+					/* Check if route can be advertised */
+					if (advertise)
+						bgp_adj_out_set_subgroup(dest,
+									 subgrp,
+									 &attr,
+									 ri);
+				} else {
 					/* If default originate is enabled for
 					 * the peer, do not send explicit
 					 * withdraw. This will prevent deletion
@@ -794,8 +845,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 				ret = route_map_apply(
 					peer->default_rmap[afi][safi].map,
-					bgp_dest_get_prefix(dest), RMAP_BGP,
-					&tmp_pi);
+					bgp_dest_get_prefix(dest), &tmp_pi);
 
 				if (ret == RMAP_DENYMATCH) {
 					bgp_attr_flush(&tmp_attr);
@@ -813,8 +863,10 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					break;
 				}
 			}
-			if (ret == RMAP_PERMITMATCH)
+			if (ret == RMAP_PERMITMATCH) {
+				bgp_dest_unlock_node(dest);
 				break;
+			}
 		}
 		bgp->peer_self->rmap_type = 0;
 
@@ -944,6 +996,13 @@ void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	struct updwalk_context ctx;
 	ctx.pi = pi;
 	ctx.dest = dest;
+
+	/* If suppress fib is enabled, the route will be advertised when
+	 * FIB status is received
+	 */
+	if (!bgp_check_advertise(bgp, dest))
+		return;
+
 	update_group_af_walk(bgp, afi, safi, group_announce_route_walkcb, &ctx);
 }
 

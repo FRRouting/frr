@@ -109,7 +109,7 @@ struct pim_vxlan {
  */
 static inline bool pim_vxlan_is_orig_mroute(struct pim_vxlan_sg *vxlan_sg)
 {
-	return (vxlan_sg->sg.src.s_addr != 0);
+	return (vxlan_sg->sg.src.s_addr != INADDR_ANY);
 }
 
 static inline bool pim_vxlan_is_local_sip(struct pim_upstream *up)

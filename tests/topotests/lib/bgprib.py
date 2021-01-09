@@ -45,7 +45,7 @@ class BgpRib:
 
     def routes_include_wanted(self, pfxtbl, want, debug):
         # helper function to RequireVpnRoutes
-        for pfx in pfxtbl.iterkeys():
+        for pfx in pfxtbl.keys():
             if debug:
                 self.log("trying pfx %s" % pfx)
             if pfx != want["p"]:
@@ -107,7 +107,7 @@ class BgpRib:
             found = 0
             if debug:
                 self.log("want rd %s" % want["rd"])
-            for rd in rds.iterkeys():
+            for rd in rds.keys():
                 if rd != want["rd"]:
                     continue
                 if debug:

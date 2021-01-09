@@ -41,6 +41,8 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_msdp_packet.c \
 	pimd/pim_msdp_socket.c \
 	pimd/pim_msg.c \
+	pimd/pim_nb.c \
+	pimd/pim_nb_config.c \
 	pimd/pim_neighbor.c \
 	pimd/pim_nht.c \
 	pimd/pim_oil.c \
@@ -59,13 +61,15 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_tlv.c \
 	pimd/pim_upstream.c \
 	pimd/pim_util.c \
-	pimd/pim_version.c \
 	pimd/pim_vty.c \
 	pimd/pim_zebra.c \
 	pimd/pim_zlookup.c \
 	pimd/pim_vxlan.c \
 	pimd/pim_zpthread.c \
 	pimd/pimd.c \
+	yang/frr-pim.yang.c \
+	yang/frr-pim-rp.yang.c \
+	yang/frr-igmp.yang.c \
 	# end
 
 noinst_HEADERS += \
@@ -96,6 +100,7 @@ noinst_HEADERS += \
 	pimd/pim_msdp_packet.h \
 	pimd/pim_msdp_socket.h \
 	pimd/pim_msg.h \
+	pimd/pim_nb.h \
 	pimd/pim_neighbor.h \
 	pimd/pim_nht.h \
 	pimd/pim_oil.h \
@@ -113,7 +118,6 @@ noinst_HEADERS += \
 	pimd/pim_tlv.h \
 	pimd/pim_upstream.h \
 	pimd/pim_util.h \
-	pimd/pim_version.h \
 	pimd/pim_vty.h \
 	pimd/pim_zebra.h \
 	pimd/pim_zlookup.h \

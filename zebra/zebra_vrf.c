@@ -107,6 +107,8 @@ static int zebra_vrf_new(struct vrf *vrf)
 	zvrf = zebra_vrf_alloc();
 	vrf->info = zvrf;
 	zvrf->vrf = vrf;
+	if (!vrf_is_backend_netns())
+		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 
 	otable_init(&zvrf->other_tables);
 

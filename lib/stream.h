@@ -262,6 +262,16 @@ extern int stream_empty(struct stream *); /* is the stream empty? */
 /* debugging */
 extern void stream_hexdump(const struct stream *s);
 
+/**
+ * Reorganize the buffer data so it can fit more. This function is normally
+ * called right after stream data is consumed so we can read more data
+ * (the functions that consume data start with `stream_get*()` and macros
+ * `STREAM_GET*()`).
+ *
+ * \param s stream pointer.
+ */
+extern void stream_pulldown(struct stream *s);
+
 /* deprecated */
 extern uint8_t *stream_pnt(struct stream *);
 

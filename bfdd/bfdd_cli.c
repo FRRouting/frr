@@ -51,6 +51,11 @@
 /*
  * Prototypes.
  */
+static bool
+bfd_cli_is_single_hop(struct vty *vty)
+{
+	return strstr(VTY_CURR_XPATH, "/single-hop") != NULL;
+}
 
 /*
  * Functions.
@@ -293,6 +298,11 @@ DEFPY_YANG(
 	"Expect packets with at least this TTL\n"
 	"Minimum TTL expected\n")
 {
+	if (bfd_cli_is_single_hop(vty)) {
+		vty_out(vty, "%% Minimum TTL is only available for multi hop sessions.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (no)
 		nb_cli_enqueue_change(vty, "./minimum-ttl", NB_OP_DESTROY,
 				      NULL);
@@ -408,6 +418,11 @@ DEFPY_YANG(
 	NO_STR
 	"Configure echo mode\n")
 {
+	if (!bfd_cli_is_single_hop(vty)) {
+		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	nb_cli_enqueue_change(vty, "./echo-mode", NB_OP_MODIFY,
 			      no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
@@ -430,6 +445,11 @@ DEFPY_YANG(
 	"Configure peer echo interval value in milliseconds\n")
 {
 	char value[32];
+
+	if (!bfd_cli_is_single_hop(vty)) {
+		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	snprintf(value, sizeof(value), "%ld", interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",

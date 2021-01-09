@@ -397,7 +397,9 @@ void nhrp_shortcut_initiate(union sockunion *addr)
 	struct prefix p;
 	struct nhrp_shortcut *s;
 
-	sockunion2hostprefix(addr, &p);
+	if (!sockunion2hostprefix(addr, &p))
+		return;
+
 	s = nhrp_shortcut_get(&p);
 	if (s && s->type != NHRP_CACHE_INCOMPLETE) {
 		s->addr = *addr;

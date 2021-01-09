@@ -463,6 +463,18 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Change one of the two router-id's",
 	},
 	{
+		.code = EC_BGP_INVALID_BGP_INSTANCE,
+		.title = "BGP instance for the specifc vrf is invalid",
+		.description = "Indicates that specified bgp instance is NULL",
+		.suggestion = "Get log files from router and open an issue",
+	},
+	{
+		.code = EC_BGP_INVALID_ROUTE,
+		.title = "BGP route node is invalid",
+		.description = "BGP route for the specified AFI/SAFI is NULL",
+		.suggestion = "Get log files from router and open an issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };

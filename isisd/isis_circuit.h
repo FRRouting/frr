@@ -141,6 +141,8 @@ struct isis_circuit {
 	bool disable_threeway_adj;
 	struct bfd_info *bfd_info;
 	struct ldp_sync_info *ldp_sync_info;
+	bool lfa_protection[ISIS_LEVELS];
+	struct hash *lfa_excluded_ifaces[ISIS_LEVELS];
 	bool tilfa_protection[ISIS_LEVELS];
 	bool tilfa_node_protection[ISIS_LEVELS];
 	/*

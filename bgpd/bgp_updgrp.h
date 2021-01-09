@@ -252,18 +252,12 @@ struct update_subgroup {
 	uint64_t id;
 
 	uint16_t sflags;
+#define SUBGRP_STATUS_DEFAULT_ORIGINATE (1 << 0)
+#define SUBGRP_STATUS_FORCE_UPDATES (1 << 1)
 
-	/* Subgroup flags, see below  */
 	uint16_t flags;
+#define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
 };
-
-/*
- * We need to do an outbound refresh to get this subgroup into a
- * consistent state.
- */
-#define SUBGRP_FLAG_NEEDS_REFRESH         (1 << 0)
-
-#define SUBGRP_STATUS_DEFAULT_ORIGINATE   (1 << 0)
 
 /*
  * Add the given value to the specified counter on a subgroup and its

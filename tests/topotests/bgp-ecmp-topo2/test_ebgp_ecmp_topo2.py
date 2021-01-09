@@ -273,8 +273,20 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
         "r3": {
             "bgp": {
                 "address_family": {
-                    "ipv4": {"unicast": {"maximum_paths": {"ebgp": ecmp_num,}}},
-                    "ipv6": {"unicast": {"maximum_paths": {"ebgp": ecmp_num,}}},
+                    "ipv4": {
+                        "unicast": {
+                            "maximum_paths": {
+                                "ebgp": ecmp_num,
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "maximum_paths": {
+                                "ebgp": ecmp_num,
+                            }
+                        }
+                    },
                 }
             }
         }
@@ -292,6 +304,10 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
         input_dict_1 = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
 
         logger.info("Verifying %s routes on r3", addr_type)
+
+        # Only test the count of nexthops; the actual nexthop addresses
+        # can vary and are not deterministic.
+        #
         result = verify_rib(
             tgen,
             addr_type,
@@ -299,16 +315,18 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
             input_dict_1,
             next_hop=NEXT_HOPS[addr_type][: int(ecmp_num)],
             protocol=protocol,
+            count_only=True,
         )
+
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
 
     write_test_footer(tc_name)
 
-
+@pytest.mark.parametrize("ecmp_num", ["8", "16", "32"])
 @pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
-def test_ecmp_after_clear_bgp(request, test_type):
+def test_ecmp_after_clear_bgp(request, ecmp_num, test_type):
     """ Verify BGP table and RIB in DUT after clear BGP routes and neighbors"""
 
     tc_name = request.node.name
@@ -331,7 +349,7 @@ def test_ecmp_after_clear_bgp(request, test_type):
             addr_type,
             dut,
             input_dict_1,
-            next_hop=NEXT_HOPS[addr_type],
+            next_hop=NEXT_HOPS[addr_type][:int(ecmp_num)],
             protocol=protocol,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
@@ -354,7 +372,7 @@ def test_ecmp_after_clear_bgp(request, test_type):
             addr_type,
             dut,
             input_dict_1,
-            next_hop=NEXT_HOPS[addr_type],
+            next_hop=NEXT_HOPS[addr_type][:int(ecmp_num)],
             protocol=protocol,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
@@ -365,8 +383,8 @@ def test_ecmp_after_clear_bgp(request, test_type):
 
 
 def test_ecmp_remove_redistribute_static(request):
-    """ Verify routes are cleared from BGP and RIB table of DUT when
-        redistribute static configuration is removed."""
+    """Verify routes are cleared from BGP and RIB table of DUT when
+    redistribute static configuration is removed."""
 
     tc_name = request.node.name
     write_test_header(tc_name)
@@ -475,8 +493,8 @@ def test_ecmp_remove_redistribute_static(request):
 
 @pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
 def test_ecmp_shut_bgp_neighbor(request, test_type):
-    """ Shut BGP neigbors one by one and verify BGP and routing table updated
-        accordingly in DUT """
+    """Shut BGP neigbors one by one and verify BGP and routing table updated
+    accordingly in DUT"""
 
     tc_name = request.node.name
     write_test_header(tc_name)

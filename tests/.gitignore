@@ -51,3 +51,4 @@
 /lib/test_zmq
 /ospf6d/test_lsdb
 /ospf6d/test_lsdb_clippy.c
+/zebra/test_lm_plugin

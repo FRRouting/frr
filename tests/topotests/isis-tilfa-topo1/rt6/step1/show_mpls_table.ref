@@ -7,13 +7,13 @@
         "type":"SR (IS-IS)",
         "outLabel":16010,
         "installed":true,
-        "nexthop":"10.0.7.4"
+        "nexthop":"10.0.8.5"
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16010,
         "installed":true,
-        "nexthop":"10.0.8.5"
+        "nexthop":"10.0.7.4"
       }
     ]
   },
@@ -25,13 +25,13 @@
         "type":"SR (IS-IS)",
         "outLabel":16011,
         "installed":true,
-        "interface":"eth-rt4"
+        "interface":"eth-rt5"
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16011,
         "installed":true,
-        "interface":"eth-rt5"
+        "interface":"eth-rt4"
       }
     ]
   },
@@ -52,7 +52,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16020,
         "nexthop":"10.0.8.5"
       }
     ]
@@ -74,7 +74,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16021,
         "interface":"eth-rt5"
       }
     ]
@@ -96,7 +96,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16030,
         "nexthop":"10.0.7.4"
       }
     ]
@@ -118,7 +118,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16031,
         "interface":"eth-rt4"
       }
     ]
@@ -140,7 +140,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16040,
         "nexthop":"10.0.8.5"
       }
     ]
@@ -162,7 +162,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16041,
         "interface":"eth-rt5"
       }
     ]
@@ -184,7 +184,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16050,
         "nexthop":"10.0.7.4"
       }
     ]
@@ -206,7 +206,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16051,
         "interface":"eth-rt4"
       }
     ]

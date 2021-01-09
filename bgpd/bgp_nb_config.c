@@ -173,7 +173,6 @@ int bgp_router_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_APPLY:
 		bgp = nb_running_unset_entry(args->dnode);
 
-		bgp_vpn_leak_unimport(bgp);
 		bgp_delete(bgp);
 
 		break;
@@ -280,7 +279,7 @@ int bgp_global_router_id_destroy(struct nb_cb_destroy_args *args)
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 
-	router_id.s_addr = 0;
+	router_id.s_addr = INADDR_ANY;
 	bgp_router_id_static_set(bgp, router_id);
 
 	return NB_OK;
@@ -1426,8 +1425,8 @@ int bgp_global_global_config_timers_hold_time_modify(
 		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
 		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
 
-		bgp_timers_set(bgp, keepalive, holdtime,
-			       DFLT_BGP_CONNECT_RETRY);
+		bgp_timers_set(bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY,
+			       BGP_DEFAULT_DELAYOPEN);
 
 		break;
 	}
@@ -1467,8 +1466,8 @@ int bgp_global_global_config_timers_keepalive_modify(
 		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
 		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
 
-		bgp_timers_set(bgp, keepalive, holdtime,
-			       DFLT_BGP_CONNECT_RETRY);
+		bgp_timers_set(bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY,
+			       BGP_DEFAULT_DELAYOPEN);
 
 		break;
 	}
@@ -1594,6 +1593,27 @@ int bgp_global_ebgp_requires_policy_modify(struct nb_cb_modify_args *args)
 		SET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
 	else
 		UNSET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/suppress-duplicates
+ */
+int bgp_global_suppress_duplicates_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
 
 	return NB_OK;
 }
@@ -2090,18 +2110,73 @@ int bgp_global_afi_safis_afi_safi_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static struct peer *bgp_neighbor_peer_lookup(struct bgp *bgp,
+					     const char *peer_str, char *errmsg,
+					     size_t errmsg_len)
+{
+	struct peer *peer = NULL;
+	union sockunion su;
+
+	str2sockunion(peer_str, &su);
+	peer = peer_lookup(bgp, &su);
+	if (!peer) {
+		snprintf(errmsg, errmsg_len,
+			 "Specify remote-as or peer-group commands first");
+		return NULL;
+	}
+	if (peer_dynamic_neighbor(peer)) {
+		snprintf(errmsg, errmsg_len,
+			 "Operation not allowed on a dynamic neighbor\n");
+		return NULL;
+	}
+	return peer;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor
  */
 int bgp_neighbors_neighbor_create(struct nb_cb_create_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	union sockunion su;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+
+		peer_str =
+			yang_dnode_get_string(args->dnode, "./remote-address");
+
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		str2sockunion(peer_str, &su);
+		if (peer_address_self_check(bgp, &su)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Can not configure the local system as neighbor");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		/* Once bgp instance available check self peer addr */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		peer_str =
+			yang_dnode_get_string(args->dnode, "./remote-address");
+		str2sockunion(peer_str, &su);
+		if (peer_address_self_check(bgp, &su)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Can not configure the local system as neighbor");
+			return NB_ERR_INCONSISTENCY;
+		}
 		break;
 	}
 
@@ -2110,12 +2185,65 @@ int bgp_neighbors_neighbor_create(struct nb_cb_create_args *args)
 
 int bgp_neighbors_neighbor_destroy(struct nb_cb_destroy_args *args)
 {
+
+	struct bgp *bgp;
+	const char *peer_str;
+	union sockunion su;
+	struct peer *peer = NULL;
+	struct peer *other;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		peer_str =
+			yang_dnode_get_string(args->dnode, "./remote-address");
+		str2sockunion(peer_str, &su);
+
+		peer = peer_lookup(bgp, &su);
+		if (peer) {
+			if (peer_dynamic_neighbor(peer)) {
+				snprintf(
+					args->errmsg, args->errmsg_len,
+					"Operation not allowed on a dynamic neighbor");
+				return NB_ERR_VALIDATION;
+			}
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		peer_str =
+			yang_dnode_get_string(args->dnode, "./remote-address");
+		str2sockunion(peer_str, &su);
+
+		peer = peer_lookup(bgp, &su);
+		if (peer) {
+			if (peer_dynamic_neighbor(peer)) {
+				snprintf(
+					args->errmsg, args->errmsg_len,
+					"Operation not allowed on a dynamic neighbor");
+				return NB_ERR_INCONSISTENCY;
+			}
+
+			other = peer->doppelganger;
+
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+				bgp_zebra_terminate_radv(peer->bgp, peer);
+
+			peer_notify_unconfig(peer);
+			peer_delete(peer);
+			if (other && other->status != Deleted) {
+				peer_notify_unconfig(other);
+				peer_delete(other);
+			}
+		}
+
 		break;
 	}
 
@@ -2129,12 +2257,38 @@ int bgp_neighbors_neighbor_destroy(struct nb_cb_destroy_args *args)
 int bgp_neighbors_neighbor_local_interface_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *intf_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP invalid peer %s", peer_str);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		if (peer->conf_if) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP invalid peer %s", peer_str);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		intf_str = yang_dnode_get_string(args->dnode, NULL);
+
+		peer_interface_set(peer, intf_str);
+
 		break;
 	}
 
@@ -2144,12 +2298,35 @@ int bgp_neighbors_neighbor_local_interface_modify(
 int bgp_neighbors_neighbor_local_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP invalid peer %s", peer_str);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		if (peer->conf_if) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP invalid peer %s", peer_str);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		peer_interface_unset(peer);
+
 		break;
 	}
 
@@ -2162,12 +2339,31 @@ int bgp_neighbors_neighbor_local_interface_destroy(
  */
 int bgp_neighbors_neighbor_local_port_modify(struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t port;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP invalid peer %s", peer_str);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		port = yang_dnode_get_uint16(args->dnode, NULL);
+		peer_port_set(peer, port);
+
 		break;
 	}
 
@@ -2176,12 +2372,33 @@ int bgp_neighbors_neighbor_local_port_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_local_port_destroy(struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t port;
+	struct servent *sp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP invalid peer %s", peer_str);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		sp = getservbyname("bgp", "tcp");
+		port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs(sp->s_port);
+		peer_port_set(peer, port);
+
 		break;
 	}
 
@@ -2194,12 +2411,67 @@ int bgp_neighbors_neighbor_local_port_destroy(struct nb_cb_destroy_args *args)
  */
 int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *peer_grp_str;
+	struct peer *peer;
+	struct peer_group *group;
+	union sockunion su;
+	as_t as;
+	int ret = 0;
+	char prgrp_xpath[XPATH_MAXLEN];
+	const struct lyd_node *bgp_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		peer_grp_str = yang_dnode_get_string(args->dnode, NULL);
+		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
+		snprintf(prgrp_xpath, sizeof(prgrp_xpath),
+			 FRR_BGP_PEER_GROUP_XPATH, peer_grp_str, "");
+
+		if (!yang_dnode_exists(bgp_dnode, prgrp_xpath)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Configure the peer-group first %s",
+				 peer_grp_str);
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		str2sockunion(peer_str, &su);
+
+		peer_grp_str = yang_dnode_get_string(args->dnode, NULL);
+		group = peer_group_lookup(bgp, peer_grp_str);
+		if (!group) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Configure the peer-group first %s",
+				 peer_grp_str);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		ret = peer_group_bind(bgp, &su, peer, group, &as);
+
+		if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n",
+				as);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -2208,12 +2480,33 @@ int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_zebra_terminate_radv(peer->bgp, peer);
+
+		peer_notify_unconfig(peer);
+		ret = peer_delete(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -2226,12 +2519,29 @@ int bgp_neighbors_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
  */
 int bgp_neighbors_neighbor_password_modify(struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *passwrd_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
+
+		peer_password_set(peer, passwrd_str);
+
 		break;
 	}
 
@@ -2240,12 +2550,26 @@ int bgp_neighbors_neighbor_password_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_password_destroy(struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_password_unset(peer);
+
 		break;
 	}
 
@@ -2258,12 +2582,44 @@ int bgp_neighbors_neighbor_password_destroy(struct nb_cb_destroy_args *args)
  */
 int bgp_neighbors_neighbor_ttl_security_modify(struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+	uint8_t gtsm_hops;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		gtsm_hops = yang_dnode_get_uint8(args->dnode, NULL);
+		/*
+		 * If 'neighbor swpX', then this is for directly connected
+		 * peers, we should not accept a ttl-security hops value greater
+		 * than 1.
+		 */
+		if (peer->conf_if && (gtsm_hops > BGP_GTSM_HOPS_CONNECTED)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%d is directly connected peer, hops cannot exceed 1\n",
+				gtsm_hops);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		ret = peer_ttl_security_hops_set(peer, gtsm_hops);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret))
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -2272,12 +2628,31 @@ int bgp_neighbors_neighbor_ttl_security_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_ttl_security_destroy(struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ttl_security_hops_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+
 		break;
 	}
 
@@ -2309,12 +2684,28 @@ int bgp_neighbors_neighbor_solo_modify(struct nb_cb_modify_args *args)
 int bgp_neighbors_neighbor_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_ENFORCE_FIRST_AS, enable,
+				    args->errmsg, args->errmsg_len);
 		break;
 	}
 
@@ -2327,12 +2718,30 @@ int bgp_neighbors_neighbor_enforce_first_as_modify(
  */
 int bgp_neighbors_neighbor_description_modify(struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *desc_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		desc_str = yang_dnode_get_string(args->dnode, NULL);
+
+		peer_description_set(peer, desc_str);
+
 		break;
 	}
 
@@ -2341,12 +2750,26 @@ int bgp_neighbors_neighbor_description_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_description_destroy(struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_description_unset(peer);
+
 		break;
 	}
 
@@ -2359,12 +2782,32 @@ int bgp_neighbors_neighbor_description_destroy(struct nb_cb_destroy_args *args)
  */
 int bgp_neighbors_neighbor_passive_mode_modify(struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_PASSIVE,
+					set, args->errmsg, args->errmsg_len)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -2378,12 +2821,29 @@ int bgp_neighbors_neighbor_passive_mode_modify(struct nb_cb_modify_args *args)
 int bgp_neighbors_neighbor_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_DYNAMIC_CAPABILITY, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -2397,12 +2857,29 @@ int bgp_neighbors_neighbor_capability_options_dynamic_capability_modify(
 int bgp_neighbors_neighbor_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_STRICT_CAP_MATCH, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -2416,12 +2893,29 @@ int bgp_neighbors_neighbor_capability_options_strict_capability_modify(
 int bgp_neighbors_neighbor_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_CAPABILITY_ENHE, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -2454,12 +2948,29 @@ int bgp_neighbors_neighbor_capability_options_capability_negotiate_modify(
 int bgp_neighbors_neighbor_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_OVERRIDE_CAPABILITY, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -2473,12 +2984,30 @@ int bgp_neighbors_neighbor_capability_options_override_capability_modify(
 int bgp_neighbors_neighbor_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str, *source_str;
+	struct peer *peer;
+	union sockunion su;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+
+		str2sockunion(source_str, &su);
+		peer_update_source_addr_set(peer, &su);
+
 		break;
 	}
 
@@ -2488,12 +3017,26 @@ int bgp_neighbors_neighbor_update_source_ip_modify(
 int bgp_neighbors_neighbor_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_update_source_unset(peer);
+
 		break;
 	}
 
@@ -2507,12 +3050,36 @@ int bgp_neighbors_neighbor_update_source_ip_destroy(
 int bgp_neighbors_neighbor_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str, *source_str;
+	struct peer *peer;
+	struct prefix p;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+		if (str2prefix(source_str, &p)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid update-source, remove prefix length");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+
+		peer_update_source_if_set(peer, source_str);
+
 		break;
 	}
 
@@ -2522,12 +3089,26 @@ int bgp_neighbors_neighbor_update_source_interface_modify(
 int bgp_neighbors_neighbor_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_update_source_unset(peer);
+
 		break;
 	}
 
@@ -2540,6 +3121,46 @@ int bgp_neighbors_neighbor_update_source_interface_destroy(
  */
 int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify(
 	struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	int as_type = AS_SPECIFIED;
+	union sockunion su;
+	int ret;
+	as_t as = 0;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		as_type = yang_dnode_get_enum(args->dnode, "../remote-as-type");
+		/* When remote-as-type is as-specified, the peer will be
+		 * created in remote_as_modify callback */
+		if (yang_dnode_exists(args->dnode, "../remote-as"))
+			return NB_OK;
+
+		str2sockunion(peer_str, &su);
+		ret = peer_remote_as(bgp, &su, NULL, &as, as_type, AFI_IP,
+				     SAFI_UNICAST);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2560,12 +3181,34 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify(
 int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	int as_type = AS_SPECIFIED;
+	union sockunion su;
+	int ret;
+	as_t as = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		as_type = yang_dnode_get_enum(args->dnode, "../remote-as-type");
+		as = yang_dnode_get_uint32(args->dnode, NULL);
+
+		str2sockunion(peer_str, &su);
+		ret = peer_remote_as(bgp, &su, NULL, &as, as_type, AFI_IP,
+				     SAFI_UNICAST);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+
 		break;
 	}
 
@@ -2594,12 +3237,46 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_destroy(
 int bgp_neighbors_neighbor_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+	int ret = 0;
+	uint8_t ttl = MAXTTL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		if (peer->conf_if) {
+			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
+			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
+					     ret);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (set)
+			ret = peer_ebgp_multihop_set(peer, ttl);
+		else
+			ret = peer_ebgp_multihop_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+
 		break;
 	}
 
@@ -2609,12 +3286,32 @@ int bgp_neighbors_neighbor_ebgp_multihop_enabled_modify(
 int bgp_neighbors_neighbor_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ebgp_multihop_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+
 		break;
 	}
 
@@ -2628,12 +3325,39 @@ int bgp_neighbors_neighbor_ebgp_multihop_enabled_destroy(
 int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+	uint8_t ttl = MAXTTL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		if (peer->conf_if) {
+			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
+			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
+					     ret);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		ttl = yang_dnode_get_uint8(args->dnode, NULL);
+
+		ret = peer_ebgp_multihop_set(peer, ttl);
+
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -2643,12 +3367,29 @@ int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_modify(
 int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ebgp_multihop_unset(peer);
+
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -2662,16 +3403,72 @@ int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_destroy(
 int bgp_neighbors_neighbor_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (peer_flag_modify_nb(bgp, peer_str, peer,
+					PEER_FLAG_DISABLE_CONNECTED_CHECK, set,
+					args->errmsg, args->errmsg_len)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as
+ */
+void bgp_neighbors_neighbor_local_as_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	int ret;
+	as_t as = 0;
+	const char *peer_str;
+	struct peer *peer = NULL;
+	bool no_prepend = 0;
+	bool replace_as = 0;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	peer_str = yang_dnode_get_string(args->dnode, "../remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+
+	if (yang_dnode_exists(args->dnode, "./local-as"))
+		as = yang_dnode_get_uint32(args->dnode, "./local-as");
+	if (yang_dnode_exists(args->dnode, "./no-prepend"))
+		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
+	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
+		replace_as =
+			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+
+	if (!as && !no_prepend && !replace_as)
+		ret = peer_local_as_unset(peer);
+	else
+		ret = peer_local_as_set(peer, as, no_prepend, replace_as);
+	bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
 }
 
 /*
@@ -2687,6 +3484,40 @@ int bgp_neighbors_neighbor_local_as_local_as_modify(
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_local_as_local_as_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	int ret;
+	const char *peer_str;
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+
+
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		ret = peer_local_as_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+
 		break;
 	}
 
@@ -2937,10 +3768,53 @@ int bgp_neighbors_neighbor_bfd_options_check_cp_failure_destroy(
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown
+ */
+void bgp_neighbors_neighbor_admin_shutdown_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+	const char *message;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	peer_str = yang_dnode_get_string(args->dnode, "../remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+
+	if (yang_dnode_exists(args->dnode, "./message")) {
+		message = yang_dnode_get_string(args->dnode, "./message");
+		peer_tx_shutdown_message_set(peer, message);
+	}
+	enable = yang_dnode_get_bool(args->dnode, "./enable");
+
+	peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_SHUTDOWN, enable,
+			    args->errmsg, args->errmsg_len);
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown/enable
  */
 int bgp_neighbors_neighbor_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_admin_shutdown_enable_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -3097,12 +3971,30 @@ int bgp_neighbors_neighbor_graceful_restart_graceful_restart_disable_destroy(
 int bgp_neighbors_neighbor_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t routeadv;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		routeadv = yang_dnode_get_uint16(args->dnode, NULL);
+
+		ret = peer_advertise_interval_set(peer, routeadv);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3112,12 +4004,28 @@ int bgp_neighbors_neighbor_timers_advertise_interval_modify(
 int bgp_neighbors_neighbor_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		ret = peer_advertise_interval_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3131,12 +4039,30 @@ int bgp_neighbors_neighbor_timers_advertise_interval_destroy(
 int bgp_neighbors_neighbor_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t connect;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		connect = yang_dnode_get_uint16(args->dnode, NULL);
+
+		ret = peer_timers_connect_set(peer, connect);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3146,12 +4072,28 @@ int bgp_neighbors_neighbor_timers_connect_time_modify(
 int bgp_neighbors_neighbor_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+
+		ret = peer_timers_connect_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3165,12 +4107,37 @@ int bgp_neighbors_neighbor_timers_connect_time_destroy(
 int bgp_neighbors_neighbor_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t keepalive = 0;
+	uint16_t holdtime = 0;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
+		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+
+		if (keepalive != BGP_DEFAULT_KEEPALIVE
+		    && holdtime != BGP_DEFAULT_HOLDTIME) {
+			ret = peer_timers_set(peer, keepalive, holdtime);
+		} else
+			ret = peer_timers_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3184,12 +4151,44 @@ int bgp_neighbors_neighbor_timers_hold_time_modify(
 int bgp_neighbors_neighbor_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t keepalive = 0, curr_keep = 0;
+	uint16_t holdtime = 0;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../remote-address");
+		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						args->errmsg_len);
+		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
+		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
+
+		if (keepalive != BGP_DEFAULT_KEEPALIVE
+		    && holdtime != BGP_DEFAULT_HOLDTIME) {
+			if (peer->holdtime == holdtime) {
+				curr_keep = (keepalive < holdtime / 3
+						     ? keepalive
+						     : holdtime / 3);
+				if (curr_keep == keepalive)
+					return NB_OK;
+			}
+			ret = peer_timers_set(peer, keepalive, holdtime);
+		} else
+			ret = peer_timers_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3237,6 +4236,49 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_destroy(
 int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	bool activate = false;
+	int ret = 0;
+	union sockunion su;
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		af_name =
+			yang_dnode_get_string(args->dnode, "../afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../../remote-address");
+		str2sockunion(peer_str, &su);
+		peer = peer_lookup(bgp, &su);
+
+		activate = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (activate)
+			ret = peer_activate(peer, afi, safi);
+		else
+			ret = peer_deactivate(peer, afi, safi);
+
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_destroy(
+	struct nb_cb_destroy_args *args)
+{
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -3247,6 +4289,30 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_modify(
 	}
 
 	return NB_OK;
+}
+
+static struct peer *bgp_unnumbered_neighbor_peer_lookup(struct bgp *bgp,
+							const char *peer_str,
+							char *errmsg,
+							size_t errmsg_len)
+{
+	struct peer *peer = NULL;
+
+	/* Not IP, could match either peer configured on interface or a
+	 * group. */
+	peer = peer_lookup_by_conf_if(bgp, peer_str);
+	if (!peer) {
+		snprintf(errmsg, errmsg_len,
+			 "Specify remote-as or peer-group commands first");
+		return NULL;
+	}
+	if (peer_dynamic_neighbor(peer)) {
+		snprintf(errmsg, errmsg_len,
+			 "Operation not allowed on a dynamic neighbor\n");
+		return NULL;
+	}
+
+	return peer;
 }
 
 /*
@@ -3255,12 +4321,61 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_modify(
  */
 int bgp_neighbors_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *peer_grp_str = NULL;
+	bool v6_only = false;
+	int as_type = AS_UNSPECIFIED;
+	as_t as = 0;
+	char prgrp_xpath[XPATH_MAXLEN];
+	const struct lyd_node *bgp_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		peer_str = yang_dnode_get_string(args->dnode, "./interface");
+		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
+		snprintf(prgrp_xpath, sizeof(prgrp_xpath),
+			 FRR_BGP_PEER_GROUP_XPATH, peer_str, "");
+
+		if (yang_dnode_exists(bgp_dnode, prgrp_xpath)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Name conflict with peer-group: %s", peer_str);
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "./interface");
+
+		if (yang_dnode_exists(args->dnode, "./peer-group"))
+			peer_grp_str = yang_dnode_get_string(args->dnode,
+							     "./peer-group");
+
+		if (yang_dnode_exists(args->dnode, "./v6-only"))
+			v6_only = yang_dnode_get_bool(args->dnode, "./v6-only");
+
+		if (yang_dnode_exists(args->dnode,
+				      "./neighbor-remote-as/remote-as-type")) {
+			as_type = yang_dnode_get_enum(
+				args->dnode,
+				"./neighbor-remote-as/remote-as-type");
+			if (yang_dnode_exists(args->dnode,
+					      "./neighbor-remote-as/remote-as"))
+				as = yang_dnode_get_uint32(
+					args->dnode,
+					"./neighbor-remote-as/remote-as");
+		}
+
+		if (peer_conf_interface_create(bgp, peer_str, AFI_IP,
+					       SAFI_UNICAST, v6_only,
+					       peer_grp_str, as_type, as,
+					       args->errmsg, args->errmsg_len))
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3269,12 +4384,34 @@ int bgp_neighbors_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 
 int bgp_neighbors_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		peer_str = yang_dnode_get_string(args->dnode, "./interface");
+		/* look up for neighbor by interface name config. */
+		peer = peer_lookup_by_conf_if(bgp, peer_str);
+		if (peer) {
+			/* Request zebra to terminate IPv6 RAs on this
+			 * interface. */
+			if (peer->ifp)
+				bgp_zebra_terminate_radv(peer->bgp, peer);
+			peer_notify_unconfig(peer);
+			peer_delete(peer);
+		} else {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Create the peer-group first");
+			return NB_ERR_INCONSISTENCY;
+		}
+
 		break;
 	}
 
@@ -3288,12 +4425,26 @@ int bgp_neighbors_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args)
 int bgp_neighbors_unnumbered_neighbor_v6only_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	bool v6_only = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+
+		v6_only = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (peer_conf_interface_create(
+			    bgp, peer_str, AFI_IP, SAFI_UNICAST, v6_only, NULL,
+			    AS_UNSPECIFIED, 0, args->errmsg, args->errmsg_len))
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3307,12 +4458,60 @@ int bgp_neighbors_unnumbered_neighbor_v6only_modify(
 int bgp_neighbors_unnumbered_neighbor_peer_group_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *peer_grp_str;
+	struct peer *peer;
+	struct peer_group *group;
+	union sockunion su;
+	as_t as;
+	int ret = 0;
+	char prgrp_xpath[XPATH_MAXLEN];
+	const struct lyd_node *bgp_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		peer_grp_str = yang_dnode_get_string(args->dnode, NULL);
+		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
+		snprintf(prgrp_xpath, sizeof(prgrp_xpath),
+			 FRR_BGP_PEER_GROUP_XPATH, peer_grp_str, "");
+
+		if (!yang_dnode_exists(bgp_dnode, prgrp_xpath)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Configure the peer-group first %s",
+				 peer_grp_str);
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+
+		peer_grp_str = yang_dnode_get_string(args->dnode, NULL);
+		group = peer_group_lookup(bgp, peer_grp_str);
+		if (!group) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Configure the peer-group first\n");
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		ret = peer_group_bind(bgp, &su, peer, group, &as);
+		if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n",
+				as);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -3322,12 +4521,33 @@ int bgp_neighbors_unnumbered_neighbor_peer_group_modify(
 int bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../remote-address");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_zebra_terminate_radv(peer->bgp, peer);
+
+		peer_notify_unconfig(peer);
+		ret = peer_delete(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3341,12 +4561,27 @@ int bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
 int bgp_neighbors_unnumbered_neighbor_password_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *passwrd_str;
+	struct peer *peer = NULL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
+		peer_password_set(peer, passwrd_str);
+
 		break;
 	}
 
@@ -3356,12 +4591,25 @@ int bgp_neighbors_unnumbered_neighbor_password_modify(
 int bgp_neighbors_unnumbered_neighbor_password_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer = NULL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_password_unset(peer);
+
 		break;
 	}
 
@@ -3375,12 +4623,44 @@ int bgp_neighbors_unnumbered_neighbor_password_destroy(
 int bgp_neighbors_unnumbered_neighbor_ttl_security_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+	uint8_t gtsm_hops;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		gtsm_hops = yang_dnode_get_uint8(args->dnode, NULL);
+		/*
+		 * If 'neighbor swpX', then this is for directly connected
+		 * peers, we should not accept a ttl-security hops value greater
+		 * than 1.
+		 */
+		if (peer->conf_if && (gtsm_hops > BGP_GTSM_HOPS_CONNECTED)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%d is directly connected peer, hops cannot exceed 1\n",
+				gtsm_hops);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		ret = peer_ttl_security_hops_set(peer, gtsm_hops);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3390,12 +4670,27 @@ int bgp_neighbors_unnumbered_neighbor_ttl_security_modify(
 int bgp_neighbors_unnumbered_neighbor_ttl_security_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ttl_security_hops_unset(peer);
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -3428,12 +4723,28 @@ int bgp_neighbors_unnumbered_neighbor_solo_modify(
 int bgp_neighbors_unnumbered_neighbor_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_ENFORCE_FIRST_AS, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -3447,12 +4758,29 @@ int bgp_neighbors_unnumbered_neighbor_enforce_first_as_modify(
 int bgp_neighbors_unnumbered_neighbor_description_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *desc_str;
+	struct peer *peer = NULL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		desc_str = yang_dnode_get_string(args->dnode, NULL);
+
+		peer_description_set(peer, desc_str);
+
 		break;
 	}
 
@@ -3462,12 +4790,26 @@ int bgp_neighbors_unnumbered_neighbor_description_modify(
 int bgp_neighbors_unnumbered_neighbor_description_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer = NULL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_description_unset(peer);
+
 		break;
 	}
 
@@ -3481,12 +4823,31 @@ int bgp_neighbors_unnumbered_neighbor_description_destroy(
 int bgp_neighbors_unnumbered_neighbor_passive_mode_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode, "../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_PASSIVE,
+					set, args->errmsg, args->errmsg_len)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -3500,12 +4861,31 @@ int bgp_neighbors_unnumbered_neighbor_passive_mode_modify(
 int bgp_neighbors_unnumbered_neighbor_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_DYNAMIC_CAPABILITY, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -3519,12 +4899,31 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_dynamic_capability_modi
 int bgp_neighbors_unnumbered_neighbor_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_STRICT_CAP_MATCH, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -3538,12 +4937,31 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_strict_capability_modif
 int bgp_neighbors_unnumbered_neighbor_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_CAPABILITY_ENHE, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -3576,12 +4994,29 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_capability_negotiate_mo
 int bgp_neighbors_unnumbered_neighbor_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_OVERRIDE_CAPABILITY, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -3595,12 +5030,30 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_override_capability_mod
 int bgp_neighbors_unnumbered_neighbor_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str, *source_str;
+	struct peer *peer;
+	union sockunion su;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+
+		str2sockunion(source_str, &su);
+		peer_update_source_addr_set(peer, &su);
+
 		break;
 	}
 
@@ -3610,12 +5063,26 @@ int bgp_neighbors_unnumbered_neighbor_update_source_ip_modify(
 int bgp_neighbors_unnumbered_neighbor_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_update_source_unset(peer);
+
 		break;
 	}
 
@@ -3629,12 +5096,36 @@ int bgp_neighbors_unnumbered_neighbor_update_source_ip_destroy(
 int bgp_neighbors_unnumbered_neighbor_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str, *source_str;
+	struct peer *peer;
+	struct prefix p;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+		if (str2prefix(source_str, &p)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid update-source, remove prefix length");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+
+		peer_update_source_if_set(peer, source_str);
+
 		break;
 	}
 
@@ -3644,16 +5135,65 @@ int bgp_neighbors_unnumbered_neighbor_update_source_interface_modify(
 int bgp_neighbors_unnumbered_neighbor_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_update_source_unset(peer);
+
 		break;
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/neighbor-remote-as
+ */
+void bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	int as_type = AS_SPECIFIED;
+	int ret;
+	as_t as = 0;
+	struct peer *peer = NULL;
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	peer_str = yang_dnode_get_string(args->dnode, "../interface");
+	as_type = yang_dnode_get_enum(args->dnode, "./remote-as-type");
+	if (yang_dnode_exists(args->dnode, "./remote-as"))
+		as = yang_dnode_get_uint32(args->dnode, "./remote-as");
+
+	peer = peer_lookup_by_conf_if(bgp, peer_str);
+
+	ret = peer_remote_as(bgp, NULL, peer_str, &as, as_type, afi, safi);
+
+	if (ret < 0 && !peer) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Create the peer-group or interface first");
+		return;
+	}
+
+	bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
 }
 
 /*
@@ -3669,6 +5209,34 @@ int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_modify(
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = peer_lookup_by_conf_if(bgp, peer_str);
+
+		/* remote-as set to 0 and as_type to unspecified */
+		if (peer)
+			peer_as_change(peer, 0, AS_UNSPECIFIED);
+
 		break;
 	}
 
@@ -3716,12 +5284,42 @@ int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_destroy(
 int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+	int ret = 0;
+	uint8_t ttl = MAXTTL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = peer_lookup_by_conf_if(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		if (peer->conf_if) {
+			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
+			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
+					     ret);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (set)
+			ret = peer_ebgp_multihop_set(peer, ttl);
+		else
+			ret = peer_ebgp_multihop_unset(peer);
+
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -3731,12 +5329,28 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_modify(
 int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = peer_lookup_by_conf_if(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ebgp_multihop_unset(peer);
+
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -3750,12 +5364,38 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_destroy(
 int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+	uint8_t ttl = MAXTTL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = peer_lookup_by_conf_if(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		if (peer->conf_if) {
+			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
+			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
+					     ret);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		ttl = yang_dnode_get_uint8(args->dnode, NULL);
+
+		ret = peer_ebgp_multihop_set(peer, ttl);
+
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -3765,12 +5405,28 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_modify(
 int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = peer_lookup_by_conf_if(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ebgp_multihop_unset(peer);
+
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -3784,6 +5440,82 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_destroy(
 int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = peer_lookup_by_conf_if(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (peer_flag_modify_nb(bgp, peer_str, peer,
+					PEER_FLAG_DISABLE_CONNECTED_CHECK, set,
+					args->errmsg, args->errmsg_len)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as
+ */
+void bgp_neighbors_unnumbered_neighbor_local_as_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	int ret;
+	as_t as = 0;
+	const char *peer_str;
+	struct peer *peer = NULL;
+	bool no_prepend = 0;
+	bool replace_as = 0;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	peer_str = yang_dnode_get_string(args->dnode, "../interface");
+
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+
+	if (yang_dnode_exists(args->dnode, "./local-as"))
+		as = yang_dnode_get_uint32(args->dnode, "./local-as");
+	if (yang_dnode_exists(args->dnode, "./no-prepend"))
+		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
+	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
+		replace_as =
+			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+
+	if (!as && !no_prepend && !replace_as)
+		ret = peer_local_as_unset(peer);
+	else
+		ret = peer_local_as_set(peer, as, no_prepend, replace_as);
+
+	bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/local-as
+ */
+int bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
+	struct nb_cb_modify_args *args)
+{
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -3796,12 +5528,8 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_disable_connected_check_modi
 	return NB_OK;
 }
 
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/local-as
- */
-int bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
-	struct nb_cb_modify_args *args)
+int bgp_neighbors_unnumbered_neighbor_local_as_local_as_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4059,10 +5787,53 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_destroy(
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown
+ */
+void bgp_neighbors_unnumbered_neighbor_admin_shutdown_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+	const char *message;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	peer_str = yang_dnode_get_string(args->dnode, "../interface");
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+
+	if (yang_dnode_exists(args->dnode, "./message")) {
+		message = yang_dnode_get_string(args->dnode, "./message");
+		peer_tx_shutdown_message_set(peer, message);
+	}
+	enable = yang_dnode_get_bool(args->dnode, "./enable");
+
+	peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_SHUTDOWN, enable,
+			    args->errmsg, args->errmsg_len);
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown/enable
  */
 int bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4219,12 +5990,28 @@ int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_disable_
 int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t routeadv;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		routeadv = yang_dnode_get_uint16(args->dnode, NULL);
+
+		ret = peer_advertise_interval_set(peer, routeadv);
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -4234,12 +6021,26 @@ int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_modify(
 int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+
+		ret = peer_advertise_interval_unset(peer);
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -4253,12 +6054,28 @@ int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_destroy(
 int bgp_neighbors_unnumbered_neighbor_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t connect;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		connect = yang_dnode_get_uint16(args->dnode, NULL);
+
+		ret = peer_timers_connect_set(peer, connect);
+		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+
 		break;
 	}
 
@@ -4268,12 +6085,27 @@ int bgp_neighbors_unnumbered_neighbor_timers_connect_time_modify(
 int bgp_neighbors_unnumbered_neighbor_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+		ret = peer_timers_connect_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4287,12 +6119,38 @@ int bgp_neighbors_unnumbered_neighbor_timers_connect_time_destroy(
 int bgp_neighbors_unnumbered_neighbor_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t keepalive = 0;
+	uint16_t holdtime = 0;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+
+		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
+		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+
+		if (keepalive != BGP_DEFAULT_KEEPALIVE
+		    && holdtime != BGP_DEFAULT_HOLDTIME) {
+			ret = peer_timers_set(peer, keepalive, holdtime);
+		} else
+			ret = peer_timers_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4306,12 +6164,45 @@ int bgp_neighbors_unnumbered_neighbor_timers_hold_time_modify(
 int bgp_neighbors_unnumbered_neighbor_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t keepalive = 0, curr_keep = 0;
+	uint16_t holdtime = 0;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str =
+			yang_dnode_get_string(args->dnode, "../../interface");
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+
+		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
+		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
+
+		if (keepalive != BGP_DEFAULT_KEEPALIVE
+		    && holdtime != BGP_DEFAULT_HOLDTIME) {
+			if (peer->holdtime == holdtime) {
+				curr_keep = (keepalive < holdtime / 3
+						     ? keepalive
+						     : holdtime / 3);
+				if (curr_keep == keepalive)
+					return NB_OK;
+			}
+			ret = peer_timers_set(peer, keepalive, holdtime);
+		} else
+			ret = peer_timers_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4359,6 +6250,51 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_destroy(
 int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	bool activate = false;
+	int ret = 0;
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		af_name =
+			yang_dnode_get_string(args->dnode, "../afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../../interface");
+
+		peer = bgp_unnumbered_neighbor_peer_lookup(
+			bgp, peer_str, args->errmsg, args->errmsg_len);
+
+		activate = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (activate)
+			ret = peer_activate(peer, afi, safi);
+		else
+			ret = peer_deactivate(peer, afi, safi);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_destroy(
+	struct nb_cb_destroy_args *args)
+{
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -4369,6 +6305,19 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_modify(
 	}
 
 	return NB_OK;
+}
+
+static struct peer *bgp_peer_group_peer_lookup(struct bgp *bgp,
+					       const char *peer_str)
+{
+	struct peer_group *group = NULL;
+
+	group = peer_group_lookup(bgp, peer_str);
+
+	if (group)
+		return group->conf;
+
+	return NULL;
 }
 
 /*
@@ -4377,12 +6326,49 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_modify(
  */
 int bgp_peer_groups_peer_group_create(struct nb_cb_create_args *args)
 {
+	const char *peer_grp_str;
+	struct peer *peer;
+	struct peer_group *group;
+	struct bgp *bgp;
+	char unnbr_xpath[XPATH_MAXLEN];
+	const struct lyd_node *bgp_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		peer_grp_str =
+			yang_dnode_get_string(args->dnode, "./peer-group-name");
+		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
+		snprintf(unnbr_xpath, sizeof(unnbr_xpath),
+			 FRR_BGP_NEIGHBOR_UNNUM_XPATH, peer_grp_str, "");
+
+		if (yang_dnode_exists(bgp_dnode, unnbr_xpath)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Name conflict with interface: %s",
+				 peer_grp_str);
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_grp_str =
+			yang_dnode_get_string(args->dnode, "./peer-group-name");
+		peer = peer_lookup_by_conf_if(bgp, peer_grp_str);
+		if (peer) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Name conflict with interface:");
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		group = peer_group_get(bgp, peer_grp_str);
+		if (!group) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP failed to find or create peer-group");
+			return NB_ERR_INCONSISTENCY;
+		}
 		break;
 	}
 
@@ -4391,12 +6377,26 @@ int bgp_peer_groups_peer_group_create(struct nb_cb_create_args *args)
 
 int bgp_peer_groups_peer_group_destroy(struct nb_cb_destroy_args *args)
 {
+	const char *peer_grp_str;
+	struct peer_group *group;
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_grp_str =
+			yang_dnode_get_string(args->dnode, "./peer-group-name");
+
+		group = peer_group_lookup(bgp, peer_grp_str);
+		if (group) {
+			peer_group_notify_unconfig(group);
+			peer_group_delete(group);
+		}
+
 		break;
 	}
 
@@ -4477,12 +6477,25 @@ int bgp_peer_groups_peer_group_ipv6_listen_range_destroy(
  */
 int bgp_peer_groups_peer_group_password_modify(struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *passwrd_str;
+	struct peer *peer = NULL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
+		peer_password_set(peer, passwrd_str);
+
 		break;
 	}
 
@@ -4491,12 +6504,23 @@ int bgp_peer_groups_peer_group_password_modify(struct nb_cb_modify_args *args)
 
 int bgp_peer_groups_peer_group_password_destroy(struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer = NULL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		peer_password_unset(peer);
+
 		break;
 	}
 
@@ -4510,12 +6534,44 @@ int bgp_peer_groups_peer_group_password_destroy(struct nb_cb_destroy_args *args)
 int bgp_peer_groups_peer_group_ttl_security_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+	uint8_t gtsm_hops;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		gtsm_hops = yang_dnode_get_uint8(args->dnode, NULL);
+		/*
+		 * If 'neighbor swpX', then this is for directly connected
+		 * peers, we should not accept a ttl-security hops value greater
+		 * than 1.
+		 */
+		if (peer->conf_if && (gtsm_hops > BGP_GTSM_HOPS_CONNECTED)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%d is directly connected peer, hops cannot exceed 1\n",
+				gtsm_hops);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		ret = peer_ttl_security_hops_set(peer, gtsm_hops);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4525,12 +6581,29 @@ int bgp_peer_groups_peer_group_ttl_security_modify(
 int bgp_peer_groups_peer_group_ttl_security_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ttl_security_hops_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4562,12 +6635,28 @@ int bgp_peer_groups_peer_group_solo_modify(struct nb_cb_modify_args *args)
 int bgp_peer_groups_peer_group_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_ENFORCE_FIRST_AS, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -4581,12 +6670,26 @@ int bgp_peer_groups_peer_group_enforce_first_as_modify(
 int bgp_peer_groups_peer_group_description_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *desc_str;
+	struct peer *peer = NULL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		desc_str = yang_dnode_get_string(args->dnode, NULL);
+
+		peer_description_set(peer, desc_str);
+
 		break;
 	}
 
@@ -4596,12 +6699,25 @@ int bgp_peer_groups_peer_group_description_modify(
 int bgp_peer_groups_peer_group_description_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer = NULL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_description_unset(peer);
+
 		break;
 	}
 
@@ -4615,12 +6731,31 @@ int bgp_peer_groups_peer_group_description_destroy(
 int bgp_peer_groups_peer_group_passive_mode_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_PASSIVE,
+					set, args->errmsg, args->errmsg_len)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4634,12 +6769,30 @@ int bgp_peer_groups_peer_group_passive_mode_modify(
 int bgp_peer_groups_peer_group_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_DYNAMIC_CAPABILITY, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -4653,12 +6806,30 @@ int bgp_peer_groups_peer_group_capability_options_dynamic_capability_modify(
 int bgp_peer_groups_peer_group_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_STRICT_CAP_MATCH, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -4672,12 +6843,30 @@ int bgp_peer_groups_peer_group_capability_options_strict_capability_modify(
 int bgp_peer_groups_peer_group_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_CAPABILITY_ENHE, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -4710,12 +6899,30 @@ int bgp_peer_groups_peer_group_capability_options_capability_negotiate_modify(
 int bgp_peer_groups_peer_group_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		peer_flag_modify_nb(bgp, peer_str, peer,
+				    PEER_FLAG_OVERRIDE_CAPABILITY, enable,
+				    args->errmsg, args->errmsg_len);
+
 		break;
 	}
 
@@ -4729,12 +6936,29 @@ int bgp_peer_groups_peer_group_capability_options_override_capability_modify(
 int bgp_peer_groups_peer_group_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str, *source_str;
+	struct peer *peer;
+	union sockunion su;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+
+		str2sockunion(source_str, &su);
+		peer_update_source_addr_set(peer, &su);
+
 		break;
 	}
 
@@ -4744,12 +6968,25 @@ int bgp_peer_groups_peer_group_update_source_ip_modify(
 int bgp_peer_groups_peer_group_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_update_source_unset(peer);
+
 		break;
 	}
 
@@ -4763,12 +7000,35 @@ int bgp_peer_groups_peer_group_update_source_ip_destroy(
 int bgp_peer_groups_peer_group_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str, *source_str;
+	struct peer *peer;
+	struct prefix p;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+		if (str2prefix(source_str, &p)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid update-source, remove prefix length");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		source_str = yang_dnode_get_string(args->dnode, NULL);
+
+		peer_update_source_if_set(peer, source_str);
+
 		break;
 	}
 
@@ -4778,16 +7038,56 @@ int bgp_peer_groups_peer_group_update_source_interface_modify(
 int bgp_peer_groups_peer_group_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		peer_update_source_unset(peer);
+
 		break;
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/neighbor-remote-as
+ */
+void bgp_peer_group_neighbor_remote_as_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	int as_type = AS_SPECIFIED;
+	int ret;
+	as_t as = 0;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	peer_str = yang_dnode_get_string(args->dnode, "../peer-group-name");
+	as_type = yang_dnode_get_enum(args->dnode, "./remote-as-type");
+	if (yang_dnode_exists(args->dnode, "./remote-as"))
+		as = yang_dnode_get_uint32(args->dnode, "./remote-as");
+
+	ret = peer_group_remote_as(bgp, peer_str, &as, as_type);
+	if (ret < 0) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Create the peer-group or interface first");
+		return;
+	}
 }
 
 /*
@@ -4803,6 +7103,32 @@ int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_modify(
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer_group *group;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		group = peer_group_lookup(bgp, peer_str);
+		if (group)
+			peer_group_remote_as_delete(group);
+
 		break;
 	}
 
@@ -4850,12 +7176,44 @@ int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_destroy(
 int bgp_peer_groups_peer_group_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+	int ret = 0;
+	uint8_t ttl = MAXTTL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		if (peer->conf_if) {
+			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
+			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
+					     ret);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (set)
+			ret = peer_ebgp_multihop_set(peer, ttl);
+		else
+			ret = peer_ebgp_multihop_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4865,12 +7223,30 @@ int bgp_peer_groups_peer_group_ebgp_multihop_enabled_modify(
 int bgp_peer_groups_peer_group_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ebgp_multihop_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4884,12 +7260,40 @@ int bgp_peer_groups_peer_group_ebgp_multihop_enabled_destroy(
 int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+	uint8_t ttl = MAXTTL;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		if (peer->conf_if) {
+			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
+			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
+					     ret);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		ttl = yang_dnode_get_uint8(args->dnode, NULL);
+
+		ret = peer_ebgp_multihop_set(peer, ttl);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4899,12 +7303,30 @@ int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_modify(
 int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		ret = peer_ebgp_multihop_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -4918,16 +7340,75 @@ int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_destroy(
 int bgp_peer_groups_peer_group_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool set = false;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		set = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (peer_flag_modify_nb(bgp, peer_str, peer,
+					PEER_FLAG_DISABLE_CONNECTED_CHECK, set,
+					args->errmsg, args->errmsg_len)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as
+ */
+void bgp_peer_groups_peer_group_local_as_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	int ret;
+	as_t as = 0;
+	const char *peer_str;
+	struct peer *peer = NULL;
+	bool no_prepend = false;
+	bool replace_as = false;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	peer_str = yang_dnode_get_string(args->dnode, "../peer-group-name");
+
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+	if (yang_dnode_exists(args->dnode, "./local-as"))
+		as = yang_dnode_get_uint32(args->dnode, "./local-as");
+
+	if (yang_dnode_exists(args->dnode, "./local-as"))
+		as = yang_dnode_get_uint32(args->dnode, "./local-as");
+	if (yang_dnode_exists(args->dnode, "./no-prepend"))
+		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
+	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
+		replace_as =
+			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+
+	if (!as && !no_prepend && !replace_as)
+		ret = peer_local_as_unset(peer);
+	else
+		ret = peer_local_as_set(peer, as, no_prepend, replace_as);
+
+	bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
 }
 
 /*
@@ -4943,6 +7424,36 @@ int bgp_peer_groups_peer_group_local_as_local_as_modify(
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_local_as_local_as_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		ret = peer_local_as_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -5193,10 +7704,52 @@ int bgp_peer_groups_peer_group_bfd_options_check_cp_failure_destroy(
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown
+ */
+void bgp_peer_groups_peer_group_admin_shutdown_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	bool enable = false;
+	const char *message;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	peer_str = yang_dnode_get_string(args->dnode, "../peer-group-name");
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+	if (yang_dnode_exists(args->dnode, "./message")) {
+		message = yang_dnode_get_string(args->dnode, "./message");
+		peer_tx_shutdown_message_set(peer, message);
+	}
+	enable = yang_dnode_get_bool(args->dnode, "./enable");
+
+	peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_SHUTDOWN, enable,
+			    args->errmsg, args->errmsg_len);
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown/enable
  */
 int bgp_peer_groups_peer_group_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_admin_shutdown_enable_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -5353,12 +7906,29 @@ int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_disable_destroy
 int bgp_peer_groups_peer_group_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t routeadv;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		routeadv = yang_dnode_get_uint16(args->dnode, NULL);
+
+		ret = peer_advertise_interval_set(peer, routeadv);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -5368,12 +7938,27 @@ int bgp_peer_groups_peer_group_timers_advertise_interval_modify(
 int bgp_peer_groups_peer_group_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		ret = peer_advertise_interval_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -5387,12 +7972,29 @@ int bgp_peer_groups_peer_group_timers_advertise_interval_destroy(
 int bgp_peer_groups_peer_group_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t connect;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+		connect = yang_dnode_get_uint16(args->dnode, NULL);
+
+		ret = peer_timers_connect_set(peer, connect);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -5402,12 +8004,27 @@ int bgp_peer_groups_peer_group_timers_connect_time_modify(
 int bgp_peer_groups_peer_group_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		ret = peer_timers_connect_unset(peer);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -5421,12 +8038,37 @@ int bgp_peer_groups_peer_group_timers_connect_time_destroy(
 int bgp_peer_groups_peer_group_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t keepalive = 0;
+	uint16_t holdtime = 0;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
+		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+
+		if (keepalive != BGP_DEFAULT_KEEPALIVE
+		    && holdtime != BGP_DEFAULT_HOLDTIME) {
+			ret = peer_timers_set(peer, keepalive, holdtime);
+		} else
+			ret = peer_timers_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -5440,12 +8082,49 @@ int bgp_peer_groups_peer_group_timers_hold_time_modify(
 int bgp_peer_groups_peer_group_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	uint16_t keepalive = 0, curr_keep = 0;
+	uint16_t holdtime = 0;
+	int ret = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
+		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
+
+		if (keepalive != BGP_DEFAULT_KEEPALIVE
+		    && holdtime != BGP_DEFAULT_HOLDTIME) {
+			if (peer->holdtime == holdtime) {
+				curr_keep = (keepalive < holdtime / 3
+						     ? keepalive
+						     : holdtime / 3);
+				if (curr_keep == keepalive) {
+					// zlog_debug("%s holdtime %u keepalive
+					// %u value is already set, skipping
+					// update.",
+					//   __func__, holdtime, keepalive);
+					return NB_OK;
+				}
+			}
+			ret = peer_timers_set(peer, keepalive, holdtime);
+		} else
+			ret = peer_timers_unset(peer);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -5492,6 +8171,48 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_destroy(
  */
 int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	bool activate = false;
+	int ret = 0;
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		af_name =
+			yang_dnode_get_string(args->dnode, "../afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		peer_str = yang_dnode_get_string(args->dnode,
+						 "../../../peer-group-name");
+		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+		activate = yang_dnode_get_bool(args->dnode, NULL);
+		if (activate)
+			ret = peer_activate(peer, afi, safi);
+		else
+			ret = peer_deactivate(peer, afi, safi);
+
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
+		    < 0)
+			return NB_ERR_INCONSISTENCY;
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -6149,7 +8870,7 @@ bgp_global_afi_safi_route_flap_validation(struct nb_cb_modify_args *args)
 	int reuse;
 	int suppress;
 
-	if (yang_dnode_exists(args->dnode, "../supress-above")
+	if (yang_dnode_exists(args->dnode, "../suppress-above")
 	    && yang_dnode_exists(args->dnode, "../reuse-above")) {
 		suppress =
 			yang_dnode_get_uint16(args->dnode, "../suppress-above");
@@ -6384,10 +9105,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_p
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > MULTIPATH_NUM) {
+		if (maxpaths > multipath_num) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 MULTIPATH_NUM);
+				 multipath_num);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -6455,10 +9176,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_maximum_p
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > MULTIPATH_NUM) {
+		if (maxpaths > multipath_num) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 MULTIPATH_NUM);
+				 multipath_num);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -8302,10 +11023,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ebgp_maximum_p
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > MULTIPATH_NUM) {
+		if (maxpaths > multipath_num) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 MULTIPATH_NUM);
+				 multipath_num);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -9064,10 +11785,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ebgp_m
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > MULTIPATH_NUM) {
+		if (maxpaths > multipath_num) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 MULTIPATH_NUM);
+				 multipath_num);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -9302,10 +12023,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_m
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > MULTIPATH_NUM) {
+		if (maxpaths > multipath_num) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 MULTIPATH_NUM);
+				 multipath_num);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -9332,10 +12053,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_m
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > MULTIPATH_NUM) {
+		if (maxpaths > multipath_num) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 MULTIPATH_NUM);
+				 multipath_num);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -11165,6 +13886,36 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_multicast_common_c
 	return NB_OK;
 }
 
+static int bgp_neighbor_afi_safi_flag_modify(struct nb_cb_modify_args *args,
+					     uint32_t flags, bool set)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+
+	if (peer_af_flag_modify_nb(peer, afi, safi, flags, set, args->errmsg,
+				   args->errmsg_len)
+	    < 0)
+		return NB_ERR_INCONSISTENCY;
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/path-type
@@ -11263,19 +14014,87 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_repla
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
 	return NB_OK;
 }
 
+static int
+bgp_peer_afi_safi_default_originate_apply(struct nb_cb_apply_finish_args *args,
+					  struct peer *peer, afi_t afi,
+					  safi_t safi)
+{
+	bool originate = false;
+	int ret = 0;
+	struct route_map *route_map = NULL;
+	const char *rmap = NULL;
+
+	originate = yang_dnode_get_bool(args->dnode, "./originate");
+
+	if (yang_dnode_exists(args->dnode, "./route-map")) {
+		rmap = yang_dnode_get_string(args->dnode, "./route-map");
+		route_map = route_map_lookup_by_name(rmap);
+		if (!route_map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "The route-map '%s' does not exist.", rmap);
+			return -1;
+		}
+	}
+
+	// zlog_debug("%s: originate %u route-map %s", __func__, originate,
+	// rmap);
+	if (originate)
+		ret = peer_default_originate_set(peer, afi, safi, rmap,
+						 route_map);
+	else
+		ret = peer_default_originate_unset(peer, afi, safi);
+
+	return bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+}
+
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
+void bgp_neighbor_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_default_originate_apply(args, peer, afi, safi);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/originate
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_originate_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11292,9 +14111,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_opt
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/route-map
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11309,7 +14128,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_opt
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11318,6 +14137,46 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_opt
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int
+bgp_neighbor_afi_safi_prefix_limit_list_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int direction;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+	if (!peer)
+		return NB_ERR_INCONSISTENCY;
+
+	direction = yang_dnode_get_enum(args->dnode, "./direction");
+
+	switch (direction) {
+	case 1:
+		peer_maximum_prefix_unset(peer, afi, safi);
+		break;
+	case 2:
+		UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
+		peer->pmax_out[afi][safi] = 0;
 		break;
 	}
 
@@ -11350,12 +14209,99 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
+}
+
+static void
+bgp_peer_afi_safi_maximum_prefix_set(struct nb_cb_apply_finish_args *args,
+				     struct peer *peer, afi_t afi, safi_t safi)
+{
+	int direction;
+	uint32_t max;
+	uint8_t threshold = MAXIMUM_PREFIX_THRESHOLD_DEFAULT;
+	uint16_t restart = 0;
+	bool warning = false;
+	bool force;
+
+	max = yang_dnode_get_uint32(args->dnode, "./max-prefixes");
+	direction = yang_dnode_get_enum(args->dnode, "./direction");
+	switch (direction) {
+	case 1:
+		force = yang_dnode_get_bool(args->dnode, "./force-check");
+
+		if (yang_dnode_exists(args->dnode,
+				      "./options/shutdown-threshold-pct"))
+			threshold = yang_dnode_get_uint8(
+				args->dnode,
+				"./options/shutdown-threshold-pct");
+		if (yang_dnode_exists(args->dnode,
+				      "./options/tw-shutdown-threshold-pct"))
+			threshold = yang_dnode_get_uint8(
+				args->dnode,
+				"./options/tw-shutdown-threshold-pct");
+		if (yang_dnode_exists(args->dnode,
+				      "./options/tr-shutdown-threshold-pct"))
+			threshold = yang_dnode_get_uint8(
+				args->dnode,
+				"./options/tr-shutdown-threshold-pct");
+
+		if (yang_dnode_exists(args->dnode, "./options/warning-only"))
+			warning = yang_dnode_get_bool(args->dnode,
+						      "./options/warning-only");
+		if (yang_dnode_exists(args->dnode, "./options/tw-warning-only"))
+			warning = yang_dnode_get_bool(
+				args->dnode, "./options/tw-warning-only");
+
+		if (yang_dnode_exists(args->dnode, "./options/restart-timer"))
+			restart = yang_dnode_get_uint16(
+				args->dnode, "./options/restart-timer");
+		if (yang_dnode_exists(args->dnode,
+				      "./options/tr-restart-timer"))
+			restart = yang_dnode_get_uint16(
+				args->dnode, "./options/tr-restart-timer");
+
+		peer_maximum_prefix_set(peer, afi, safi, max, threshold,
+					warning, restart, force);
+
+		break;
+	case 2:
+		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
+		peer->pmax_out[afi][safi] = max;
+
+		break;
+	}
+}
+
+void bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_maximum_prefix_set(args, peer, afi, safi);
 }
 
 /*
@@ -11379,9 +14325,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11396,7 +14342,26 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11413,9 +14378,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11430,7 +14395,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11447,9 +14412,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11464,7 +14429,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11481,9 +14446,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11498,7 +14463,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11515,9 +14480,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11532,7 +14497,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11549,9 +14514,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11566,7 +14531,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11583,9 +14548,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11600,7 +14565,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11626,8 +14591,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11645,8 +14614,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11664,8 +14637,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11683,8 +14660,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11702,8 +14683,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11721,10 +14706,75 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
+
+	return NB_OK;
+}
+
+static int bgp_neighbor_afi_safi_weight_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	uint16_t weight;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+
+	weight = yang_dnode_get_uint16(args->dnode, NULL);
+
+	ret = peer_weight_set(peer, afi, safi, weight);
+	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
+		return NB_ERR_INCONSISTENCY;
+
+	return NB_OK;
+}
+
+static int bgp_neighbor_afi_safi_weight_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+
+	ret = peer_weight_unset(peer, afi, safi);
+	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -11740,8 +14790,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -11755,8 +14807,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -11774,8 +14828,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_reflector_route
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11793,8 +14851,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_server_route_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11812,8 +14874,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11831,8 +14897,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_e
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11850,8 +14920,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_l
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11869,8 +14943,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11888,8 +14966,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_pat
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11907,8 +14989,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -11926,8 +15012,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_un
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -12310,9 +15400,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-import
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12327,7 +15417,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupre
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12344,9 +15434,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupre
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12361,7 +15451,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupre
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12493,6 +15583,63 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_repla
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/default-originate/originate
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/default-originate/route-map
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -12512,8 +15659,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_pat
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -12531,8 +15682,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -12550,8 +15705,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_un
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -12686,9 +15845,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -12715,9 +15874,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12732,7 +15891,26 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12749,9 +15927,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12766,7 +15944,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12783,9 +15961,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12800,7 +15978,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12817,9 +15995,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12834,7 +16012,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12851,9 +16029,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12868,7 +16046,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12885,9 +16063,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12902,7 +16080,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12919,9 +16097,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12936,7 +16114,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12962,8 +16140,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -12981,8 +16163,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13000,8 +16186,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13019,8 +16209,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13038,8 +16232,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13057,8 +16255,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13076,8 +16278,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_reflector_route
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13095,8 +16301,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_server_route_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13114,8 +16324,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13133,8 +16347,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_e
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13152,8 +16370,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_l
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13171,8 +16393,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13190,8 +16416,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -13205,8 +16433,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -13311,6 +16541,63 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_rep
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/default-originate/originate
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/default-originate/route-map
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -13330,8 +16617,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13349,8 +16640,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13368,8 +16663,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13504,9 +16803,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -13533,9 +16832,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13550,7 +16849,26 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13567,9 +16885,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13584,7 +16902,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13601,9 +16919,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13618,7 +16936,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13635,9 +16953,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13652,7 +16970,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13669,9 +16987,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13686,7 +17004,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13703,9 +17021,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13720,7 +17038,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13737,9 +17055,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13754,7 +17072,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13780,8 +17098,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13799,8 +17121,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13818,8 +17144,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13837,8 +17167,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13856,8 +17190,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13875,8 +17213,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13894,8 +17236,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_reflector_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13913,8 +17259,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_server_route_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13932,8 +17282,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13951,8 +17305,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13970,8 +17328,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -13989,8 +17351,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguratio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14008,8 +17374,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -14023,8 +17391,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -14129,6 +17499,63 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_rep
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/default-originate/originate
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/default-originate/route-map
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -14148,8 +17575,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14167,8 +17598,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14186,8 +17621,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14322,9 +17761,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -14351,9 +17790,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14368,7 +17807,26 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14385,9 +17843,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14402,7 +17860,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14419,9 +17877,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14436,7 +17894,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14453,9 +17911,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14470,7 +17928,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14487,9 +17945,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14504,7 +17962,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14521,9 +17979,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14538,7 +17996,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14555,9 +18013,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14572,7 +18030,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14598,8 +18056,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14617,8 +18079,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14636,8 +18102,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14655,8 +18125,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14674,8 +18148,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14693,8 +18171,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14712,8 +18194,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_reflector_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14731,8 +18217,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_server_route_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14750,8 +18240,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14769,8 +18263,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14788,8 +18286,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14807,8 +18309,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguratio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14826,8 +18332,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -14841,8 +18349,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -14947,6 +18457,63 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_optio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/originate
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/route-map
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -14966,8 +18533,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -14985,8 +18556,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15004,8 +18579,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15140,9 +18719,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -15169,9 +18748,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15186,7 +18765,26 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15203,9 +18801,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15220,7 +18818,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15237,9 +18835,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15254,7 +18852,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15271,9 +18869,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15288,7 +18886,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15305,9 +18903,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15322,7 +18920,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15339,9 +18937,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15356,7 +18954,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15373,9 +18971,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15390,7 +18988,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15416,8 +19014,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15435,8 +19037,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15454,8 +19060,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15473,8 +19083,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15492,8 +19106,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15511,8 +19129,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15530,8 +19152,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflect
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15549,8 +19175,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15568,8 +19198,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15587,8 +19221,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15606,8 +19244,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15625,8 +19267,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15644,8 +19290,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -15659,8 +19307,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -15765,6 +19415,63 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_optio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/originate
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/route-map
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -15784,8 +19491,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15803,8 +19514,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15822,8 +19537,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -15958,9 +19677,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -15987,9 +19706,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16004,7 +19723,26 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16021,9 +19759,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16038,7 +19776,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16055,9 +19793,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16072,7 +19810,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16089,9 +19827,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16106,7 +19844,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16123,9 +19861,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16140,7 +19878,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16157,9 +19895,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16174,7 +19912,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16191,9 +19929,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16208,7 +19946,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16234,8 +19972,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16253,8 +19995,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16272,8 +20018,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16291,8 +20041,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16310,8 +20064,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16329,8 +20087,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16348,8 +20110,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflect
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16367,8 +20133,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16386,8 +20156,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16405,8 +20179,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16424,8 +20202,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16443,8 +20225,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16462,8 +20248,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -16477,8 +20265,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -16583,8 +20373,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16602,8 +20396,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16621,8 +20419,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16640,8 +20442,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16674,9 +20480,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -16703,9 +20509,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16720,7 +20526,26 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16737,9 +20562,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16754,7 +20579,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16771,9 +20596,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16788,7 +20613,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16805,9 +20630,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16822,7 +20647,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16839,9 +20664,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16856,7 +20681,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16873,9 +20698,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16890,7 +20715,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16907,9 +20732,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16924,7 +20749,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16950,8 +20775,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16969,8 +20798,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -16988,8 +20821,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17007,8 +20844,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17026,8 +20867,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17045,8 +20890,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17064,8 +20913,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17083,8 +20936,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17102,8 +20959,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17121,8 +20982,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17140,8 +21005,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17159,8 +21028,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfigur
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17178,8 +21051,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -17193,8 +21068,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -17299,8 +21176,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17318,8 +21199,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17337,8 +21222,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17356,8 +21245,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17390,9 +21283,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -17419,9 +21312,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17436,7 +21329,26 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17453,9 +21365,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17470,7 +21382,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17487,9 +21399,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17504,7 +21416,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17521,9 +21433,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17538,7 +21450,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17555,9 +21467,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17572,7 +21484,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17589,9 +21501,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17606,7 +21518,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17623,9 +21535,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17640,7 +21552,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17666,8 +21578,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17685,8 +21601,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17704,8 +21624,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17723,8 +21647,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17742,8 +21670,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17761,8 +21693,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17780,8 +21716,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17799,8 +21739,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17818,8 +21762,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17837,8 +21785,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17856,8 +21808,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17875,8 +21831,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfigur
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -17894,8 +21854,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -17909,8 +21871,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -17996,8 +21960,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18015,8 +21983,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18034,8 +22006,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18053,8 +22029,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18072,8 +22052,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18091,8 +22075,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18110,8 +22098,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18129,8 +22121,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server_route_serv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18148,8 +22144,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_mo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18167,8 +22167,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_reflector_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18186,8 +22190,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_server_route_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18205,8 +22213,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18224,8 +22236,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_reflector_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18243,8 +22259,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_server_route_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18262,10 +22282,45 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
+
+	return NB_OK;
+}
+
+static int
+bgp_unnumbered_neighbor_afi_safi_flag_modify(struct nb_cb_modify_args *args,
+					     uint32_t flags, bool set)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+
+	if (peer_af_flag_modify_nb(peer, afi, safi, flags, set, args->errmsg,
+				   args->errmsg_len)
+	    < 0)
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -18368,8 +22423,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18378,9 +22437,40 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
+void bgp_unnumbered_neighbor_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_default_originate_apply(args, peer, afi, safi);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/originate
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_originate_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18397,9 +22487,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/route-map
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18414,7 +22504,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18423,6 +22513,46 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int direction;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+	if (!peer)
+		return NB_ERR_INCONSISTENCY;
+
+	direction = yang_dnode_get_enum(args->dnode, "./direction");
+
+	switch (direction) {
+	case 1:
+		peer_maximum_prefix_unset(peer, afi, safi);
+		break;
+	case 2:
+		UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
+		peer->pmax_out[afi][safi] = 0;
 		break;
 	}
 
@@ -18455,12 +22585,40 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+			args);
 	}
 
 	return NB_OK;
+}
+
+void bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_maximum_prefix_set(args, peer, afi, safi);
 }
 
 /*
@@ -18484,9 +22642,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18501,7 +22659,26 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18518,9 +22695,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18535,7 +22712,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18552,9 +22729,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18569,7 +22746,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18586,9 +22763,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18603,7 +22780,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18620,9 +22797,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18637,7 +22814,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18654,9 +22831,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18671,7 +22848,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18688,9 +22865,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18705,7 +22882,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18731,8 +22908,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18750,8 +22931,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18769,8 +22954,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18788,8 +22977,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18807,8 +23000,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18826,10 +23023,76 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
+
+	return NB_OK;
+}
+
+static int
+bgp_unnumbered_neighbor_afi_safi_weight_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const char *af_name;
+	uint16_t weight;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *nbr_af_dnode;
+	int ret;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+
+	weight = yang_dnode_get_uint16(args->dnode, NULL);
+
+	ret = peer_weight_set(peer, afi, safi, weight);
+	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
+		return NB_ERR_INCONSISTENCY;
+
+	return NB_OK;
+}
+
+static int
+bgp_unnumbered_neighbor_afi_safi_weight_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	nbr_dnode = yang_dnode_get_parent(args->dnode, "unnumbered-neighbor");
+	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	ret = peer_weight_unset(peer, afi, safi);
+	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -18845,8 +23108,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_wei
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -18860,8 +23125,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_wei
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -18879,8 +23146,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_refl
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18898,8 +23169,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_serv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18917,8 +23192,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18936,8 +23215,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18955,8 +23238,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18974,8 +23261,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_recon
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -18993,8 +23284,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -19012,8 +23307,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -19031,8 +23330,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -19415,9 +23718,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-import
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19432,7 +23735,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19449,9 +23752,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19466,7 +23769,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19598,6 +23901,63 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_op
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/default-originate/originate
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/default-originate/route-map
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -19617,8 +23977,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -19636,8 +24000,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -19655,8 +24023,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -19791,9 +24163,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -19820,9 +24193,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19837,7 +24210,26 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19854,9 +24246,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19871,7 +24263,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19888,9 +24280,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19905,7 +24297,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19922,9 +24314,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19939,7 +24331,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19956,9 +24348,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19973,7 +24365,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19990,9 +24382,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20007,7 +24399,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20024,9 +24416,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20041,7 +24433,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20067,8 +24459,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20086,8 +24482,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20105,8 +24505,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20124,8 +24528,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20143,8 +24551,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20162,8 +24574,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20181,8 +24597,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_refl
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20200,8 +24620,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_serv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20219,8 +24643,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20238,8 +24666,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20257,8 +24689,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20276,8 +24712,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_recon
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20295,8 +24735,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_wei
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -20310,8 +24752,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_wei
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -20416,6 +24860,63 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/default-originate/originate
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/default-originate/route-map
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -20435,8 +24936,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20454,8 +24959,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20473,8 +24982,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20609,9 +25122,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -20638,9 +25152,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20655,7 +25169,26 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20672,9 +25205,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20689,7 +25222,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20706,9 +25239,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20723,7 +25256,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20740,9 +25273,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20757,7 +25290,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20774,9 +25307,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20791,7 +25324,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20808,9 +25341,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20825,7 +25358,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20842,9 +25375,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20859,7 +25392,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20885,8 +25418,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20904,8 +25441,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20923,8 +25464,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20942,8 +25487,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20961,8 +25510,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20980,8 +25533,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -20999,8 +25556,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21018,8 +25579,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21037,8 +25602,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21056,8 +25625,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21075,8 +25648,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21094,8 +25671,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_rec
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21113,8 +25694,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_w
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -21128,8 +25711,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_w
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -21234,6 +25819,63 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/default-originate/originate
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/default-originate/route-map
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -21253,8 +25895,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21272,8 +25918,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21291,8 +25941,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21427,9 +26081,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -21456,9 +26111,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21473,7 +26128,26 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21490,9 +26164,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21507,7 +26181,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21524,9 +26198,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21541,7 +26215,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21558,9 +26232,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21575,7 +26249,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21592,9 +26266,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21609,7 +26283,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21626,9 +26300,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21643,7 +26317,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21660,9 +26334,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21677,7 +26351,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21703,8 +26377,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21722,8 +26400,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21741,8 +26423,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21760,8 +26446,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21779,8 +26469,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21798,8 +26492,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21817,8 +26515,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21836,8 +26538,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21855,8 +26561,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21874,8 +26584,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21893,8 +26607,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21912,8 +26630,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_rec
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -21931,8 +26653,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_w
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -21946,8 +26670,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_w
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -22052,6 +26778,63 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/originate
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/route-map
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -22071,8 +26854,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22090,8 +26877,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22109,8 +26900,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22245,9 +27040,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -22274,9 +27070,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22291,7 +27087,26 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22308,9 +27123,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22325,7 +27140,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22342,9 +27157,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22359,7 +27174,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22376,9 +27191,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22393,7 +27208,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22410,9 +27225,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22427,7 +27242,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22444,9 +27259,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22461,7 +27276,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22478,9 +27293,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22495,7 +27310,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22521,8 +27336,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22540,8 +27359,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22559,8 +27382,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22578,8 +27405,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22597,8 +27428,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22616,8 +27451,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22635,8 +27474,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22654,8 +27497,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22673,8 +27520,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22692,8 +27543,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22711,8 +27566,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22730,8 +27589,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_so
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22749,8 +27612,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -22764,8 +27629,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -22870,6 +27737,63 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/originate
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/route-map
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -22889,8 +27813,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22908,8 +27836,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -22927,8 +27859,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23063,9 +27999,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -23092,9 +28029,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23109,7 +28046,26 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23126,9 +28082,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23143,7 +28099,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23160,9 +28116,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23177,7 +28133,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23194,9 +28150,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23211,7 +28167,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23228,9 +28184,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23245,7 +28201,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23262,9 +28218,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23279,7 +28235,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23296,9 +28252,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23313,7 +28269,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23339,8 +28295,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23358,8 +28318,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23377,8 +28341,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23396,8 +28364,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23415,8 +28387,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23434,8 +28410,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23453,8 +28433,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23472,8 +28456,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23491,8 +28479,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23510,8 +28502,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23529,8 +28525,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23548,8 +28548,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_so
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23567,8 +28571,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -23582,8 +28588,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -23688,8 +28696,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23707,8 +28719,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23726,8 +28742,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23745,8 +28765,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -23779,9 +28803,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -23808,9 +28833,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23825,7 +28850,26 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23842,9 +28886,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23859,7 +28903,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23876,9 +28920,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23893,7 +28937,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23910,9 +28954,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23927,7 +28971,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23944,9 +28988,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23961,7 +29005,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23978,9 +29022,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23995,7 +29039,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24012,9 +29056,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24029,7 +29073,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24055,8 +29099,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24074,8 +29122,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24093,8 +29145,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24112,8 +29168,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24131,8 +29191,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24150,8 +29214,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24169,8 +29237,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24188,8 +29260,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24207,8 +29283,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24226,8 +29306,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24245,8 +29329,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24264,8 +29352,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24283,8 +29375,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -24298,8 +29392,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -24404,8 +29500,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24423,8 +29523,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24442,8 +29546,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24461,8 +29569,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24495,9 +29607,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -24524,9 +29637,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24541,7 +29654,26 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24558,9 +29690,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24575,7 +29707,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24592,9 +29724,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24609,7 +29741,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24626,9 +29758,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24643,7 +29775,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24660,9 +29792,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24677,7 +29809,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24694,9 +29826,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24711,7 +29843,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24728,9 +29860,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24745,7 +29877,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24771,8 +29903,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24790,8 +29926,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24809,8 +29949,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24828,8 +29972,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24847,8 +29995,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24866,8 +30018,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24885,8 +30041,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24904,8 +30064,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24923,8 +30087,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24942,8 +30110,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24961,8 +30133,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24980,8 +30156,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -24999,8 +30179,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -25014,8 +30196,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -25101,8 +30285,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_opti
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25120,8 +30308,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25139,8 +30331,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25158,8 +30354,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25177,8 +30377,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25196,8 +30400,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25215,8 +30423,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflec
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25234,8 +30446,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25253,8 +30469,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25272,8 +30492,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_ref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25291,8 +30515,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_ser
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25310,8 +30538,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reco
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25329,8 +30561,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_ref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25348,8 +30584,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_ser
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25367,10 +30607,42 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reco
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
+
+	return NB_OK;
+}
+
+static int bgp_peer_group_afi_safi_flag_modify(struct nb_cb_modify_args *args,
+					       uint32_t flags, bool set)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+	if (peer_af_flag_modify_nb(peer, afi, safi, flags, set, args->errmsg,
+				   args->errmsg_len)
+	    < 0)
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -25473,8 +30745,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25483,9 +30759,39 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_r
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
+void bgp_peer_group_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_default_originate_apply(args, peer, afi, safi);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate/originate
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_originate_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25502,9 +30808,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate/route-map
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25519,7 +30825,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25534,6 +30840,44 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
 	return NB_OK;
 }
 
+static int bgp_peer_group_afi_safi_prefix_limit_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int direction;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+	if (!peer)
+		return NB_ERR_INCONSISTENCY;
+
+	direction = yang_dnode_get_enum(args->dnode, "./direction");
+
+	switch (direction) {
+	case 1:
+		peer_maximum_prefix_unset(peer, afi, safi);
+		break;
+	case 2:
+		UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
+		peer->pmax_out[afi][safi] = 0;
+		break;
+	}
+
+	return NB_OK;
+}
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list
@@ -25560,14 +30904,39 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
 }
 
+void bgp_peer_group_afi_safi_prefix_limit_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_maximum_prefix_set(args, peer, afi, safi);
+}
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/max-prefixes
@@ -25589,9 +30958,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25606,7 +30975,26 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25623,9 +31011,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25640,7 +31028,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25657,9 +31045,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25674,7 +31062,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25691,9 +31079,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25708,7 +31096,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25725,9 +31113,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25742,7 +31130,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25759,9 +31147,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25776,7 +31164,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25793,9 +31181,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25810,7 +31198,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25836,8 +31224,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25855,8 +31247,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25874,8 +31270,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25893,8 +31293,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25912,8 +31316,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -25931,10 +31339,73 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
+
+	return NB_OK;
+}
+
+static int bgp_peer_group_afi_safi_weight_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	uint16_t weight;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(args->dnode, "peer-group");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+	weight = yang_dnode_get_uint16(args->dnode, NULL);
+
+	ret = peer_weight_set(peer, afi, safi, weight);
+	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
+		return NB_ERR_INCONSISTENCY;
+
+	return NB_OK;
+}
+
+static int
+bgp_peer_group_afi_safi_weight_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+
+	ret = peer_weight_unset(peer, afi, safi);
+	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -25950,8 +31421,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_att
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -25965,8 +31438,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_att
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -25984,8 +31459,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_reflector_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26003,8 +31482,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_server_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26022,8 +31505,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26041,8 +31528,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26060,8 +31551,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26079,8 +31574,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_soft_reconfigurat
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26098,8 +31597,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26117,8 +31620,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26136,8 +31643,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_me
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26520,9 +32031,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-import
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26537,7 +32048,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26554,9 +32065,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26571,7 +32082,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26703,6 +32214,63 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/default-originate/originate
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/default-originate/route-map
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -26722,8 +32290,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26741,8 +32313,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26760,8 +32336,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_me
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -26896,9 +32476,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -26925,9 +32505,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26942,7 +32522,26 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26959,9 +32558,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26976,7 +32575,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26993,9 +32592,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27010,7 +32609,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27027,9 +32626,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27044,7 +32643,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27061,9 +32660,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27078,7 +32677,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27095,9 +32694,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27112,7 +32711,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27129,9 +32728,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27146,7 +32745,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27172,8 +32771,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27191,8 +32794,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27210,8 +32817,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27229,8 +32840,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27248,8 +32863,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27267,8 +32886,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27286,8 +32909,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_reflector_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27305,8 +32932,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_server_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27324,8 +32955,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27343,8 +32978,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27362,8 +33001,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27381,8 +33024,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_soft_reconfigurat
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27400,8 +33047,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_att
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -27415,8 +33064,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_att
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -27521,6 +33172,63 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/default-originate/originate
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/default-originate/route-map
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -27540,8 +33248,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27559,8 +33271,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27578,8 +33294,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -27714,9 +33434,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -27743,9 +33463,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/force-check
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27760,7 +33480,26 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27777,9 +33516,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27794,7 +33533,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27811,9 +33550,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27828,7 +33567,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27845,9 +33584,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27862,7 +33601,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27879,9 +33618,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27896,7 +33635,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27913,9 +33652,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27930,7 +33669,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27947,9 +33686,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27964,7 +33703,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27990,8 +33729,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28009,8 +33752,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28028,8 +33775,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28047,8 +33798,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28066,8 +33821,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28085,8 +33844,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28104,8 +33867,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_reflector
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28123,8 +33890,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_server_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28142,8 +33913,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28161,8 +33936,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28180,8 +33959,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28199,8 +33982,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_soft_reconfigur
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28218,8 +34005,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -28233,8 +34022,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -28339,6 +34130,63 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/default-originate/originate
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/default-originate/route-map
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -28358,8 +34206,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28377,8 +34229,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28396,8 +34252,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28532,9 +34392,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -28561,9 +34421,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/force-check
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28578,7 +34438,26 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28595,9 +34474,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28612,7 +34491,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28629,9 +34508,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28646,7 +34525,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28663,9 +34542,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28680,7 +34559,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28697,9 +34576,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28714,7 +34593,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28731,9 +34610,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28748,7 +34627,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28765,9 +34644,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28782,7 +34661,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28808,8 +34687,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28827,8 +34710,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28846,8 +34733,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28865,8 +34756,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28884,8 +34779,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28903,8 +34802,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28922,8 +34825,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_reflector
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28941,8 +34848,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_server_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28960,8 +34871,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28979,8 +34894,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -28998,8 +34917,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29017,8 +34940,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_soft_reconfigur
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29036,8 +34963,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -29051,8 +34980,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -29157,6 +35088,63 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_o
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/originate
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/route-map
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -29176,8 +35164,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29195,8 +35187,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29214,8 +35210,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29350,9 +35350,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -29379,9 +35379,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29396,7 +35396,26 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29413,9 +35432,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29430,7 +35449,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29447,9 +35466,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29464,7 +35483,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29481,9 +35500,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29498,7 +35517,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29515,9 +35534,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29532,7 +35551,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29549,9 +35568,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29566,7 +35585,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29583,9 +35602,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29600,7 +35619,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29626,8 +35645,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29645,8 +35668,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29664,8 +35691,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29683,8 +35714,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29702,8 +35737,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29721,8 +35760,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29740,8 +35783,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_ref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29759,8 +35806,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_ser
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29778,8 +35829,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29797,8 +35852,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29816,8 +35875,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29835,8 +35898,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reco
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -29854,8 +35921,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -29869,8 +35938,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -29975,6 +36046,63 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_o
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/originate
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_originate_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/route-map
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
 		break;
@@ -29994,8 +36122,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30013,8 +36145,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30032,8 +36168,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30168,9 +36308,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -30197,9 +36337,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30214,7 +36354,26 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30231,9 +36390,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30248,7 +36407,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30265,9 +36424,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30282,7 +36441,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30299,9 +36458,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30316,7 +36475,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30333,9 +36492,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30350,7 +36509,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30367,9 +36526,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30384,7 +36543,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30401,9 +36560,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30418,7 +36577,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30444,8 +36603,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30463,8 +36626,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30482,8 +36649,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30501,8 +36672,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30520,8 +36695,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30539,8 +36718,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30558,8 +36741,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_ref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30577,8 +36764,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_ser
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30596,8 +36787,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30615,8 +36810,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30634,8 +36833,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30653,8 +36856,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reco
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30672,8 +36879,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -30687,8 +36896,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -30793,8 +37004,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_opt
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30812,8 +37027,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30831,8 +37050,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30850,8 +37073,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -30884,9 +37111,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -30913,9 +37140,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30930,7 +37157,26 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30947,9 +37193,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30964,7 +37210,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30981,9 +37227,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30998,7 +37244,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31015,9 +37261,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31032,7 +37278,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31049,9 +37295,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31066,7 +37312,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31083,9 +37329,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31100,7 +37346,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31117,9 +37363,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31134,7 +37380,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31160,8 +37406,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_sel
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31179,8 +37429,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_sel
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31198,8 +37452,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31217,8 +37475,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31236,8 +37498,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31255,8 +37521,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31274,8 +37544,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_refle
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31293,8 +37567,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_serve
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31312,8 +37590,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31331,8 +37613,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31350,8 +37636,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31369,8 +37659,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31388,8 +37682,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -31403,8 +37699,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -31509,8 +37807,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_opt
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31528,8 +37830,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31547,8 +37853,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31566,8 +37876,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31600,9 +37914,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
 	}
 
 	return NB_OK;
@@ -31629,9 +37943,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/force-check
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_force_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31646,7 +37960,26 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/warning-only
+ */
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_warning_only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31663,9 +37996,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31680,7 +38013,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31697,9 +38030,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31714,7 +38047,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31731,9 +38064,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31748,7 +38081,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31765,9 +38098,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31782,7 +38115,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31799,9 +38132,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31816,7 +38149,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31833,9 +38166,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -31850,7 +38183,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -31876,8 +38209,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_sel
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31895,8 +38232,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_sel
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31914,8 +38255,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31933,8 +38278,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31952,8 +38301,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31971,8 +38324,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -31990,8 +38347,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_refle
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32009,8 +38370,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_serve
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32028,8 +38393,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32047,8 +38416,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_EXT_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32066,8 +38439,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32085,8 +38462,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32104,8 +38485,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_modify(args);
+
 		break;
 	}
 
@@ -32119,8 +38502,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_weight_destroy(args);
+
 		break;
 	}
 
@@ -32206,8 +38591,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_rep
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_OVERRIDE,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32225,8 +38614,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_AS_PATH_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32244,8 +38637,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32263,8 +38660,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_MED_UNCHANGED,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32282,8 +38683,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32301,8 +38706,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32320,8 +38729,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_reflector_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32339,8 +38752,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_server_route_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32358,8 +38775,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguratio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32377,8 +38798,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_reflector_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32396,8 +38821,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_server_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32415,8 +38844,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_soft_reconfigura
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32434,8 +38867,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_reflector_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_REFLECTOR_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32453,8 +38890,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_server_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_RSERVER_CLIENT,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 
@@ -32472,8 +38913,12 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_soft_reconfigura
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_peer_group_afi_safi_flag_modify(
+			args, PEER_FLAG_SOFT_RECONFIG,
+			yang_dnode_get_bool(args->dnode, NULL));
+
 		break;
 	}
 

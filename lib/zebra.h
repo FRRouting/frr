@@ -359,6 +359,10 @@ typedef enum {
 	SAFI_MAX = 8
 } safi_t;
 
+#define FOREACH_AFI_SAFI(afi, safi)                                            \
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
 #define ZEBRA_CONNECT_DISTANCE_DEFAULT     0

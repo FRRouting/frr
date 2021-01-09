@@ -42,6 +42,9 @@ struct isis_area_address {
 	uint8_t len;
 };
 
+#define ISIS_WIDE_METRIC_INFINITY   0xFFFFFE
+#define ISIS_NARROW_METRIC_INFINITY 62
+
 struct isis_oldstyle_reach;
 struct isis_oldstyle_reach {
 	struct isis_oldstyle_reach *next;

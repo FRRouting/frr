@@ -173,4 +173,5 @@ int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
 			  const struct pim_ifchannel *ch2);
 
 unsigned int pim_ifchannel_hash_key(const void *arg);
+void delete_on_noinfo(struct pim_ifchannel *ch);
 #endif /* PIM_IFCHANNEL_H */

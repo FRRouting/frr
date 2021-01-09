@@ -407,7 +407,13 @@ def test_ospf_redistribution_tc6_p0(request):
 
     protocol = "ospf"
     result = verify_rib(
-        tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh, expected=False,
+        tgen,
+        "ipv4",
+        dut,
+        input_dict,
+        protocol=protocol,
+        next_hop=nh,
+        expected=False,
     )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
@@ -549,7 +555,11 @@ def test_ospf_redistribution_tc8_p1(request):
     input_dict = {
         "r0": {
             "static_routes": [
-                {"network": NETWORK["ipv4"][0], "no_of_ip": 5, "next_hop": "Null0",}
+                {
+                    "network": NETWORK["ipv4"][0],
+                    "no_of_ip": 5,
+                    "next_hop": "Null0",
+                }
             ]
         }
     }

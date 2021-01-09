@@ -122,15 +122,20 @@ def run_one_setup(r1, s):
     expected_installed = s["expect_in"]
     expected_removed = s["expect_rem"]
 
-    count = s["count"]
+    retries = s["retries"]
     wait = s["wait"]
 
-    logger.info("Testing 1 million routes X {} ecmp".format(s["ecmp"]))
+    for d in expected_installed["routes"]:
+        if d["type"] == "sharp":
+            count = d["rib"]
+            break
+
+    logger.info("Testing {} routes X {} ecmp".format(count, s["ecmp"]))
 
     r1.vtysh_cmd(
         "sharp install route 1.0.0.0 \
-                  nexthop-group {} 1000000".format(
-            s["nhg"]
+                  nexthop-group {} {}".format(
+            s["nhg"], count
         ),
         isjson=False,
     )
@@ -138,21 +143,21 @@ def run_one_setup(r1, s):
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route summary json", expected_installed
     )
-    success, result = topotest.run_and_expect(test_func, None, count, wait)
+    success, result = topotest.run_and_expect(test_func, None, retries, wait)
     assert success, "Route scale test install failed:\n{}".format(result)
 
     output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes X {} ecmp installed".format(s["ecmp"]))
+    logger.info("{} routes X {} ecmp installed".format(count, s["ecmp"]))
     logger.info(output)
-    r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
+    r1.vtysh_cmd("sharp remove route 1.0.0.0 {}".format(count), isjson=False)
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route summary json", expected_removed
     )
-    success, result = topotest.run_and_expect(test_func, None, count, wait)
+    success, result = topotest.run_and_expect(test_func, None, retries, wait)
     assert success, "Route scale test remove failed:\n{}".format(result)
 
     output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes x {} ecmp removed".format(s["ecmp"]))
+    logger.info("{} routes x {} ecmp removed".format(count, s["ecmp"]))
     logger.info(output)
 
 
@@ -174,7 +179,7 @@ def test_route_install():
 
     # dict keys of params: ecmp number, corresponding nhg name, timeout,
     # number of times to wait
-    scale_keys = ["ecmp", "nhg", "wait", "count", "expect_in", "expect_rem"]
+    scale_keys = ["ecmp", "nhg", "wait", "retries", "expect_in", "expect_rem"]
 
     # Table of defaults, used for timeout values and 'expected' objects
     scale_defaults = dict(

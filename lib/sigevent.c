@@ -250,6 +250,8 @@ core_handler(int signo, siginfo_t *siginfo, void *context)
 
 	/* dump memory stats on core */
 	log_memstats(stderr, "core_handler");
+
+	zlog_tls_buffer_fini();
 	abort();
 }
 

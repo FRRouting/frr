@@ -316,8 +316,7 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 }
 
 static int ospf6_spf_install(struct ospf6_vertex *v,
-			     struct ospf6_route_table *result_table,
-			     struct ospf6 *ospf6)
+			     struct ospf6_route_table *result_table)
 {
 	struct ospf6_route *route, *parent_route;
 	struct ospf6_vertex *prev;
@@ -417,12 +416,11 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 		listnode_add_sort(v->parent->child_list, v);
 	route->route_option = v;
 
-	ospf6_route_add(route, result_table, ospf6);
+	ospf6_route_add(route, result_table);
 	return 0;
 }
 
-void ospf6_spf_table_finish(struct ospf6_route_table *result_table,
-			    struct ospf6 *ospf6)
+void ospf6_spf_table_finish(struct ospf6_route_table *result_table)
 {
 	struct ospf6_route *route, *nroute;
 	struct ospf6_vertex *v;
@@ -430,7 +428,7 @@ void ospf6_spf_table_finish(struct ospf6_route_table *result_table,
 		nroute = ospf6_route_next(route);
 		v = (struct ospf6_vertex *)route->route_option;
 		ospf6_vertex_delete(v);
-		ospf6_route_remove(route, result_table, ospf6);
+		ospf6_route_remove(route, result_table);
 	}
 }
 
@@ -468,7 +466,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 	struct ospf6_lsa *lsa;
 	struct in6_addr address;
 
-	ospf6_spf_table_finish(result_table, oa->ospf6);
+	ospf6_spf_table_finish(result_table);
 
 	/* Install the calculating router itself as the root of the SPF tree */
 	/* construct root vertex */
@@ -497,7 +495,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 	while ((v = vertex_pqueue_pop(&candidate_list))) {
 		/* installing may result in merging or rejecting of the vertex
 		 */
-		if (ospf6_spf_install(v, result_table, oa->ospf6) < 0)
+		if (ospf6_spf_install(v, result_table) < 0)
 			continue;
 
 		/* Skip overloaded routers */

@@ -153,7 +153,8 @@ static void usage(int status)
 			progname);
 	else
 		printf("Usage : %s [OPTION...]\n\n"
-		       "Integrated shell for FRR. \n\n"
+		       "Integrated shell for FRR (version " FRR_VERSION "). \n"
+		       "Configured with:\n    " FRR_CONFIG_ARGS "\n\n"
 		       "-b, --boot               Execute boot startup configuration\n"
 		       "-c, --command            Execute argument as command\n"
 		       "-d, --daemon             Connect only to the specified daemon\n"
@@ -458,7 +459,7 @@ int main(int argc, char **argv, char **env)
 		/* Read vtysh configuration file before connecting to daemons.
 		 * (file may not be readable to calling user in SUID mode) */
 		suid_on();
-		vtysh_read_config(vtysh_config);
+		vtysh_read_config(vtysh_config, dryrun);
 		suid_off();
 	}
 	/* Error code library system */
@@ -477,9 +478,9 @@ int main(int argc, char **argv, char **env)
 	/* Start execution only if not in dry-run mode */
 	if (dryrun && !cmd) {
 		if (inputfile) {
-			ret = vtysh_read_config(inputfile);
+			ret = vtysh_read_config(inputfile, dryrun);
 		} else {
-			ret = vtysh_read_config(frr_config);
+			ret = vtysh_read_config(frr_config, dryrun);
 		}
 
 		exit(ret);
@@ -560,7 +561,7 @@ int main(int argc, char **argv, char **env)
 
 	if (inputfile) {
 		vtysh_flock_config(inputfile);
-		ret = vtysh_read_config(inputfile);
+		ret = vtysh_read_config(inputfile, dryrun);
 		vtysh_unflock_config();
 		exit(ret);
 	}
@@ -669,7 +670,7 @@ int main(int argc, char **argv, char **env)
 	/* Boot startup configuration file. */
 	if (boot_flag) {
 		vtysh_flock_config(frr_config);
-		ret = vtysh_read_config(frr_config);
+		ret = vtysh_read_config(frr_config, dryrun);
 		vtysh_unflock_config();
 		if (ret) {
 			fprintf(stderr,

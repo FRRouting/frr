@@ -22,6 +22,7 @@
 #include "ldpe.h"
 #include "lde.h"
 #include "log.h"
+#include "printfrr.h"
 
 #include <lib/log.h>
 
@@ -44,12 +45,12 @@ vlog(int pri, const char *fmt, va_list ap)
 
 	switch (ldpd_process) {
 	case PROC_LDE_ENGINE:
-		vsnprintf(buf, sizeof(buf), fmt, ap);
+		vsnprintfrr(buf, sizeof(buf), fmt, ap);
 		lde_imsg_compose_parent_sync(IMSG_LOG, pri, buf,
 		    strlen(buf) + 1);
 		break;
 	case PROC_LDP_ENGINE:
-		vsnprintf(buf, sizeof(buf), fmt, ap);
+		vsnprintfrr(buf, sizeof(buf), fmt, ap);
 		ldpe_imsg_compose_parent_sync(IMSG_LOG, pri, buf,
 		    strlen(buf) + 1);
 		break;

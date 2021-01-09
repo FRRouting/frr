@@ -1,6 +1,6 @@
---- rt4/step6/show_ipv6_route.ref	2020-09-25 17:51:16.969413804 -0300
-+++ rt4/step7/show_ipv6_route.ref	2020-09-25 17:52:03.854026287 -0300
-@@ -148,9 +148,6 @@
+--- a/rt4/step6/show_ipv6_route.ref
++++ b/rt4/step7/show_ipv6_route.ref
+@@ -151,9 +151,6 @@
            "active":true,
            "backupIndex":[
              0
@@ -10,3 +10,15 @@
            ]
          }
        ],
+@@ -161,10 +158,7 @@
+         {
+           "afi":"ipv6",
+           "interfaceName":"eth-rt6",
+-          "active":true,
+-          "labels":[
+-            16051
+-          ]
++          "active":true
+         }
+       ]
+     }

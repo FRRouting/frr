@@ -1,5 +1,5 @@
---- rt3/step8/show_ip_route.ref	2020-09-25 17:53:20.419027241 -0300
-+++ rt3/step9/show_ip_route.ref	2020-09-25 17:54:38.112043759 -0300
+--- a/rt3/step8/show_ip_route.ref
++++ b/rt3/step9/show_ip_route.ref
 @@ -185,7 +185,7 @@
            "active":true,
            "labels":[

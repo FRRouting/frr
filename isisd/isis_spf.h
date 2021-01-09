@@ -39,13 +39,14 @@ struct isis_spf_adj {
 	struct isis_adjacency *adj;
 	uint32_t metric;
 	struct isis_ext_subtlvs *subtlvs;
+	struct isis_lsp *lsp;
 	struct {
 		uint8_t desig_is_id[ISIS_SYS_ID_LEN + 1];
-		struct isis_lsp *lsp_pseudo;
 	} lan;
 	uint8_t flags;
 #define F_ISIS_SPF_ADJ_BROADCAST 0x01
 #define F_ISIS_SPF_ADJ_OLDMETRIC 0x02
+#define F_ISIS_SPF_ADJ_METRIC_INFINITY 0x04
 };
 
 struct isis_spftree *isis_spftree_new(struct isis_area *area,
@@ -53,6 +54,8 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area,
 				      const uint8_t *sysid, int level,
 				      enum spf_tree_id tree_id,
 				      enum spf_type type, uint8_t flags);
+struct isis_vertex *isis_spf_prefix_sid_lookup(struct isis_spftree *spftree,
+					       struct isis_prefix_sid *psid);
 void isis_spf_invalidate_routes(struct isis_spftree *tree);
 void isis_spf_verify_routes(struct isis_area *area,
 			    struct isis_spftree **trees);
@@ -76,4 +79,5 @@ struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 					   uint8_t *sysid,
 					   struct isis_spftree *spftree);
 
+void isis_spf_timer_free(void *run);
 #endif /* _ZEBRA_ISIS_SPF_H */

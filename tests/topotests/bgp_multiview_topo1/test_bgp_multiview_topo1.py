@@ -226,7 +226,7 @@ def test_bgp_converge():
         for i in range(1, 2):
             for view in range(1, 4):
                 notConverged = net["r%s" % i].cmd(
-                    'vtysh -c "show ip bgp view %s summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\s+(\d+)$"'
+                    'vtysh -c "show ip bgp view %s summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\s+(\d+)"'
                     % view
                 )
                 if notConverged:
@@ -332,7 +332,7 @@ def test_bgp_routingTable():
 
             if not success:
                 resultstr = "No template matched.\n"
-                for f in diffresult.iterkeys():
+                for f in diffresult.keys():
                     resultstr += (
                         "template %s: r%s failed Routing Table Check for view %s:\n%s\n"
                         % (f, i, view, diffresult[f])

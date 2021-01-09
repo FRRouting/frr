@@ -1,4 +1,4 @@
-from lutil import luCommand
+from lib.lutil import luCommand
 
 luCommand("ce1", "ping 192.168.1.1 -c 1", " 0. packet loss", "pass", "CE->PE ping")
 luCommand("ce2", "ping 192.168.1.1 -c 1", " 0. packet loss", "pass", "CE->PE ping")

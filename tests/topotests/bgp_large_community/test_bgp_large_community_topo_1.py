@@ -1174,6 +1174,39 @@ def test_large_community_boundary_values(request):
     )
 
 
+def test_large_community_invalid_chars(request):
+    """
+    BGP canonical lcommunities must only be digits
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    input_dict = {
+        "r4": {
+            "bgp_community_lists": [
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "ANY",
+                    "value": "1:a:2",
+                    "large": True,
+                }
+            ]
+        }
+    }
+
+    step("Checking boundary value for community 1:a:2")
+    result = create_bgp_community_lists(tgen, input_dict)
+    assert result is not True, "Test case {} : Failed \n Error: {}".format(
+        tc_name, result
+    )
+
+
 def test_large_community_after_clear_bgp(request):
     """
     Clear BGP neighbor-ship and check if large community and community

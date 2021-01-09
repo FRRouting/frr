@@ -72,6 +72,19 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    option and we will use Route Replace Semantics instead of delete
    than add.
 
+.. option:: --asic-offload [notify_on_offload|notify_on_ack]
+
+   The linux kernel has the ability to use asic-offload ( see switchdev
+   development ).  When the operator knows that FRR will be working in
+   this way, allow them to specify this with FRR.  At this point this
+   code only supports asynchronous notification of the offload state.
+   In other words the initial ACK received for linux kernel installation
+   does not give zebra any data about what the state of the offload
+   is.  This option takes the optional paramegers notify_on_offload
+   or notify_on_ack.  This signals to zebra to notify upper level
+   protocols about route installation/update on ack received from
+   the linux kernel or from offload notification.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour
@@ -113,7 +126,7 @@ Standard Commands
 .. index:: shutdown
 
 .. clicmd:: shutdown
-.. index:: no shutdown
+.. index:: shutdown
 
 .. clicmd:: no shutdown
 
@@ -125,10 +138,10 @@ Standard Commands
 .. index:: ipv6 address ADDRESS/PREFIX
 
 .. clicmd:: ipv6 address ADDRESS/PREFIX
-.. index:: no ip address ADDRESS/PREFIX
+.. index:: ip address ADDRESS/PREFIX
 
 .. clicmd:: no ip address ADDRESS/PREFIX
-.. index:: no ipv6 address ADDRESS/PREFIX
+.. index:: ipv6 address ADDRESS/PREFIX
 
 .. clicmd:: no ipv6 address ADDRESS/PREFIX
 
@@ -137,7 +150,7 @@ Standard Commands
 .. index:: ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
 .. clicmd:: ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
-.. index:: no ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
+.. index:: ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
 .. clicmd:: no ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
@@ -158,7 +171,7 @@ Standard Commands
 .. index:: multicast
 
 .. clicmd:: multicast
-.. index:: no multicast
+.. index:: multicast
 
 .. clicmd:: no multicast
 
@@ -167,7 +180,7 @@ Standard Commands
 .. index:: bandwidth (1-10000000)
 
 .. clicmd:: bandwidth (1-10000000)
-.. index:: no bandwidth (1-10000000)
+.. index:: bandwidth (1-10000000)
 
 .. clicmd:: no bandwidth (1-10000000)
 
@@ -178,7 +191,7 @@ Standard Commands
 .. index:: link-detect
 
 .. clicmd:: link-detect
-.. index:: no link-detect
+.. index:: link-detect
 
 .. clicmd:: no link-detect
 
@@ -202,7 +215,7 @@ Link Parameters Commands
 .. index:: link-params
 .. clicmd:: link-params
 
-.. index:: no link-param
+.. index:: link-param
 .. clicmd:: no link-param
 
    Enter into the link parameters sub node. At least 'enable' must be
@@ -347,6 +360,25 @@ we read the metric value as a uint32_t.  The top byte of the value
 is interpreted as the Administrative Distance and the low three bytes
 are read in as the metric.  This special case is to facilitate VRF
 default routes.
+
+Route Replace Semantics
+=======================
+
+When using the Linux Kernel as a forwarding plane, routes are installed
+with a metric of 20 to the kernel.  Please note that the kernel's metric
+value bears no resemblence to FRR's RIB metric or admin distance.  It
+merely is a way for the Linux Kernel to decide which route to use if it
+has multiple routes for the same prefix from multiple sources.  An example
+here would be if someone else was running another routing suite besides
+FRR at the same time, the kernel must choose what route to use to forward
+on.  FRR choose the value of 20 because of two reasons.  FRR wanted a
+value small enough to be choosen but large enough that the operator could
+allow route prioritization by the kernel when multiple routing suites are
+being run and FRR wanted to take advantage of Route Replace semantics that
+the linux kernel offers.  In order for Route Replacement semantics to
+work FRR must use the same metric when issuing the replace command.
+Currently FRR only supports Route Replace semantics using the Linux
+Kernel.
 
 Virtual Routing and Forwarding
 ==============================
@@ -497,7 +529,7 @@ The push action is generally used for LER devices, which want to encapsulate
 all traffic for a wished destination into an MPLS label. This action is stored
 in routing entry, and can be configured like a route:
 
-.. index:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
+.. index:: ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 .. clicmd:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 
    NETWORK and MASK stand for the IP prefix entry to be added as static
@@ -528,7 +560,7 @@ The swap action is generally used for LSR devices, which swap a packet with a
 label, with an other label. The Pop action is used on LER devices, at the
 termination of the MPLS traffic; this is used to remove MPLS header.
 
-.. index:: [no] mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
+.. index:: mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
 .. clicmd:: [no] mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
 
    INCOMING_LABEL and OUTGOING_LABEL are MPLS labels with values ranging from 16
@@ -579,7 +611,7 @@ unicast topology!
 .. index:: ip multicast rpf-lookup-mode MODE
 .. clicmd:: ip multicast rpf-lookup-mode MODE
 
-.. index:: no ip multicast rpf-lookup-mode [MODE]
+.. index:: ip multicast rpf-lookup-mode [MODE]
 .. clicmd:: no ip multicast rpf-lookup-mode [MODE]
 
    MODE sets the method used to perform RPF lookups. Supported modes:
@@ -642,7 +674,7 @@ unicast topology!
 .. index:: ip mroute PREFIX NEXTHOP [DISTANCE]
 .. clicmd:: ip mroute PREFIX NEXTHOP [DISTANCE]
 
-.. index:: no ip mroute PREFIX NEXTHOP [DISTANCE]
+.. index:: ip mroute PREFIX NEXTHOP [DISTANCE]
 .. clicmd:: no ip mroute PREFIX NEXTHOP [DISTANCE]
 
    Adds a static route entry to the Multicast RIB. This performs exactly as the
@@ -803,7 +835,7 @@ FPM Commands
    ``127.0.0.1`` port ``2620``.
 
 
-.. index:: no fpm connection ip A.B.C.D port (1-65535)
+.. index:: fpm connection ip A.B.C.D port (1-65535)
 .. clicmd:: no fpm connection ip A.B.C.D port (1-65535)
 
   Configure ``zebra`` to connect to the default FPM server at ``127.0.0.1``
@@ -863,7 +895,7 @@ FPM Commands
    to connect to it immediately.
 
 
-.. index:: no fpm address [<A.B.C.D|X:X::X:X> [port (1-65535)]]
+.. index:: fpm address [<A.B.C.D|X:X::X:X> [port (1-65535)]]
 .. clicmd:: no fpm address [<A.B.C.D|X:X::X:X> [port (1-65535)]]
 
    Disables FPM entirely. ``zebra`` will close any current connections and
@@ -877,7 +909,7 @@ FPM Commands
    group repeated route next hop information.
 
 
-.. index:: no fpm use-next-hop-groups
+.. index:: fpm use-next-hop-groups
 .. clicmd:: no fpm use-next-hop-groups
 
    Use the old known FPM behavior of including next hop information in the
@@ -1051,13 +1083,13 @@ Many routing protocols require a router-id to be configured. To have a
 consistent router-id across all daemons, the following commands are available
 to configure and display the router-id:
 
-.. index:: [no] [ip] router-id A.B.C.D
+.. index:: router-id A.B.C.D
 .. clicmd:: [no] [ip] router-id A.B.C.D
 
    Allow entering of the router-id.  This command also works under the
    vrf subnode, to allow router-id's per vrf.
 
-.. index:: [no] [ip] router-id A.B.C.D vrf NAME
+.. index:: router-id A.B.C.D vrf NAME
 .. clicmd:: [no] [ip] router-id A.B.C.D vrf NAME
 
    Configure the router-id of this router from the configure NODE.
@@ -1072,7 +1104,7 @@ to configure and display the router-id:
 
 For protocols requiring an IPv6 router-id, the following commands are available:
 
-.. index:: [no] ipv6 router-id X:X::X:X
+.. index:: ipv6 router-id X:X::X:X
 .. clicmd:: [no] ipv6 router-id X:X::X:X
 
    Configure the IPv6 router-id of this router. Like its IPv4 counterpart,

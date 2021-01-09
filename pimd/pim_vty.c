@@ -275,6 +275,13 @@ int pim_interface_config_write(struct vty *vty)
 			continue;
 
 		FOR_ALL_INTERFACES (pim->vrf, ifp) {
+			/* pim is enabled internally/implicitly on the vxlan
+			 * termination device ipmr-lo. skip displaying that
+			 * config to avoid confusion
+			 */
+			if (pim_vxlan_is_term_dev_cfg(pim, ifp))
+				continue;
+
 			/* IF name */
 			if (vrf->vrf_id == VRF_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);

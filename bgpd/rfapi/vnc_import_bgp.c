@@ -357,7 +357,7 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 		memset(&info, 0, sizeof(info));
 		info.peer = peer;
 		info.attr = &hattr;
-		ret = route_map_apply(rmap, prefix, RMAP_BGP, &info);
+		ret = route_map_apply(rmap, prefix, &info);
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			vnc_zlog_debug_verbose(
@@ -468,7 +468,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 		plifetime = &lifetime;
 	}
 
-	encaptlvs = bpi->attr->vnc_subtlvs;
+	encaptlvs = bgp_attr_get_vnc_subtlvs(bpi->attr);
 	if (bpi->attr->encap_tunneltype != BGP_ENCAP_TYPE_RESERVED
 	    && bpi->attr->encap_tunneltype != BGP_ENCAP_TYPE_MPLS) {
 		opt = &optary[cur_opt++];
@@ -784,7 +784,7 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 		memset(&info, 0, sizeof(info));
 		info.peer = peer;
 		info.attr = &hattr;
-		ret = route_map_apply(rmap, prefix, RMAP_BGP, &info);
+		ret = route_map_apply(rmap, prefix, &info);
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			vnc_zlog_debug_verbose(
@@ -977,7 +977,7 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 		memset(&path, 0, sizeof(path));
 		path.peer = peer;
 		path.attr = &hattr;
-		ret = route_map_apply(rmap, prefix, RMAP_BGP, &path);
+		ret = route_map_apply(rmap, prefix, &path);
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			vnc_zlog_debug_verbose(

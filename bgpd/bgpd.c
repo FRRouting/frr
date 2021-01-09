@@ -109,6 +109,9 @@ struct community_list_handler *bgp_clist;
 
 unsigned int multipath_num = MULTIPATH_NUM;
 
+/* Number of bgp instances configured for suppress fib config */
+unsigned int bgp_suppress_fib_count;
+
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
 
@@ -390,6 +393,66 @@ void bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 			  true /* is config */);
 }
 
+void bm_wait_for_fib_set(bool set)
+{
+	bool send_msg = false;
+
+	if (bm->wait_for_fib == set)
+		return;
+
+	bm->wait_for_fib = set;
+	if (set) {
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+		bgp_suppress_fib_count++;
+	} else {
+		bgp_suppress_fib_count--;
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+	}
+
+	if (send_msg && zclient)
+		zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
+					zclient, set);
+}
+
+/* Set the suppress fib pending for the bgp configuration */
+void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
+{
+	bool send_msg = false;
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+		return;
+
+	if (set) {
+		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+		/* Send msg to zebra for the first instance of bgp enabled
+		 * with suppress fib
+		 */
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+		bgp_suppress_fib_count++;
+	} else {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+		bgp_suppress_fib_count--;
+
+		/* Send msg to zebra if there are no instances enabled
+		 * with suppress fib
+		 */
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+	}
+	/* Send route notify request to RIB */
+	if (send_msg) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Sending ZEBRA_ROUTE_NOTIFY_REQUEST");
+
+		if (zclient)
+			zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
+					zclient, set);
+	}
+}
+
 /* BGP's cluster-id control. */
 int bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id)
 {
@@ -451,12 +514,13 @@ time_t bgp_clock(void)
 
 /* BGP timer configuration.  */
 void bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime,
-		    uint32_t connect_retry)
+		    uint32_t connect_retry, uint32_t delayopen)
 {
 	bgp->default_keepalive =
 		(keepalive < holdtime / 3 ? keepalive : holdtime / 3);
 	bgp->default_holdtime = holdtime;
 	bgp->default_connect_retry = connect_retry;
+	bgp->default_delayopen = delayopen;
 }
 
 /* mostly for completeness - CLI uses its own defaults */
@@ -465,6 +529,7 @@ void bgp_timers_unset(struct bgp *bgp)
 	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
 	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
 	bgp->default_connect_retry = BGP_DEFAULT_CONNECT_RETRY;
+	bgp->default_delayopen = BGP_DEFAULT_DELAYOPEN;
 }
 
 /* BGP confederation configuration.  */
@@ -1054,6 +1119,15 @@ static void peer_free(struct peer *peer)
 		bgp_delete_connected_nexthop(family2afi(peer->su.sa.sa_family),
 					     peer);
 
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (peer->filter[afi][safi].advmap.aname)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      peer->filter[afi][safi].advmap.aname);
+		if (peer->filter[afi][safi].advmap.cname)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      peer->filter[afi][safi].advmap.cname);
+	}
+
 	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
 
 	XFREE(MTYPE_PEER_DESC, peer->desc);
@@ -1081,12 +1155,8 @@ static void peer_free(struct peer *peer)
 
 	bfd_info_free(&(peer->bfd_info));
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			bgp_addpath_set_peer_type(peer, afi, safi,
-						 BGP_ADDPATH_NONE);
-		}
-	}
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE);
 
 	bgp_unlock(peer->bgp);
 
@@ -1365,10 +1435,12 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->holdtime = peer_src->holdtime;
 	peer_dst->keepalive = peer_src->keepalive;
 	peer_dst->connect = peer_src->connect;
+	peer_dst->delayopen = peer_src->delayopen;
 	peer_dst->v_holdtime = peer_src->v_holdtime;
 	peer_dst->v_keepalive = peer_src->v_keepalive;
 	peer_dst->routeadv = peer_src->routeadv;
 	peer_dst->v_routeadv = peer_src->v_routeadv;
+	peer_dst->v_delayopen = peer_src->v_delayopen;
 
 	/* password apply */
 	if (peer_src->password && !peer_dst->password)
@@ -2532,6 +2604,14 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 			peer->v_connect = peer->bgp->default_connect_retry;
 	}
 
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TIMER_DELAYOPEN)) {
+		PEER_ATTR_INHERIT(peer, group, delayopen);
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			peer->v_delayopen = conf->delayopen;
+		else
+			peer->v_delayopen = peer->bgp->default_delayopen;
+	}
+
 	/* advertisement-interval apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_ROUTEADV)) {
 		PEER_ATTR_INHERIT(peer, group, routeadv);
@@ -2757,8 +2837,8 @@ int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
 		if (!peer_dynamic_neighbor(peer))
 			continue;
 
-		sockunion2hostprefix(&peer->su, &prefix2);
-		if (prefix_match(prefix, &prefix2)) {
+		if (sockunion2hostprefix(&peer->su, &prefix2)
+		    && prefix_match(prefix, &prefix2)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"Deleting dynamic neighbor %s group %s upon delete of listen range %pFX",
@@ -3022,7 +3102,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->gr_info[afi][safi].eor_received = 0;
 		bgp->gr_info[afi][safi].t_select_deferral = NULL;
 		bgp->gr_info[afi][safi].t_route_select = NULL;
-		bgp->gr_info[afi][safi].route_list = list_new();
+		bgp->gr_info[afi][safi].gr_deferred = 0;
 	}
 
 	bgp->v_update_delay = bm->v_update_delay;
@@ -3111,6 +3191,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 				 sizeof(struct bgp_evpn_info));
 
 	bgp_evpn_init(bgp);
+	bgp_evpn_vrf_es_init(bgp);
 	bgp_pbr_init(bgp);
 
 	/*initilize global GR FSM */
@@ -3382,6 +3463,14 @@ int bgp_delete(struct bgp *bgp)
 
 	assert(bgp);
 
+	/* make sure we withdraw any exported routes */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+			   bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
+			   bgp);
+
+	bgp_vpn_leak_unimport(bgp);
+
 	hook_call(bgp_inst_delete, bgp);
 
 	THREAD_OFF(bgp->t_startup);
@@ -3394,14 +3483,21 @@ int bgp_delete(struct bgp *bgp)
 
 	/* Delete the graceful restart info */
 	FOREACH_AFI_SAFI (afi, safi) {
+		struct thread *t;
+
 		gr_info = &bgp->gr_info[afi][safi];
 		if (!gr_info)
 			continue;
 
 		BGP_TIMER_OFF(gr_info->t_select_deferral);
+
+		t = gr_info->t_route_select;
+		if (t) {
+			void *info = THREAD_ARG(t);
+
+			XFREE(MTYPE_TMP, info);
+		}
 		BGP_TIMER_OFF(gr_info->t_route_select);
-		if (gr_info->route_list)
-			list_delete(&gr_info->route_list);
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
@@ -3774,7 +3870,8 @@ struct peer *peer_lookup_dynamic_neighbor(struct bgp *bgp, union sockunion *su)
 	int dncount;
 	char buf[PREFIX2STR_BUFFER];
 
-	sockunion2hostprefix(su, &prefix);
+	if (!sockunion2hostprefix(su, &prefix))
+		return NULL;
 
 	/* See if incoming connection matches a configured listen range. */
 	group = peer_group_lookup_dynamic_neighbor(bgp, &prefix, &listen_range);
@@ -3893,6 +3990,8 @@ bool peer_active_nego(struct peer *peer)
 void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 			       enum peer_change_type type)
 {
+	struct peer_af *paf;
+
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		return;
 
@@ -3925,7 +4024,12 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	} else if (type == peer_change_reset_out) {
-		update_group_adjust_peer(peer_af_find(peer, afi, safi));
+		paf = peer_af_find(peer, afi, safi);
+		if (paf && paf->subgroup)
+			SET_FLAG(paf->subgroup->sflags,
+				 SUBGRP_STATUS_FORCE_UPDATES);
+
+		update_group_adjust_peer(paf);
 		bgp_announce_route(peer, afi, safi);
 	}
 }
@@ -3956,6 +4060,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_ROUTEADV, 0, peer_change_none},
 	{PEER_FLAG_TIMER, 0, peer_change_none},
 	{PEER_FLAG_TIMER_CONNECT, 0, peer_change_none},
+	{PEER_FLAG_TIMER_DELAYOPEN, 0, peer_change_none},
 	{PEER_FLAG_PASSWORD, 0, peer_change_none},
 	{PEER_FLAG_LOCAL_AS, 0, peer_change_none},
 	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_none},
@@ -4496,6 +4601,10 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 	struct peer *peer1;
 
 	if (peer->sort == BGP_PEER_IBGP || peer->conf_if)
+		return 0;
+
+	/* is there anything to do? */
+	if (peer->ttl == ttl)
 		return 0;
 
 	/* see comment in peer_ttl_security_hops_set() */
@@ -5337,6 +5446,90 @@ int peer_advertise_interval_unset(struct peer *peer)
 	return 0;
 }
 
+/* set the peers RFC 4271 DelayOpen session attribute flag and DelayOpenTimer
+ * interval
+ */
+int peer_timers_delayopen_set(struct peer *peer, uint32_t delayopen)
+{
+	struct peer *member;
+	struct listnode *node;
+
+	/* Set peers session attribute flag and timer interval. */
+	peer_flag_set(peer, PEER_FLAG_TIMER_DELAYOPEN);
+	peer->delayopen = delayopen;
+	peer->v_delayopen = delayopen;
+
+	/* Skip group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return 0;
+
+	/* Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override,
+			       PEER_FLAG_TIMER_DELAYOPEN))
+			continue;
+
+		/* Set session attribute flag and timer intervals on peer-group
+		 * member.
+		 */
+		SET_FLAG(member->flags, PEER_FLAG_TIMER_DELAYOPEN);
+		member->delayopen = delayopen;
+		member->v_delayopen = delayopen;
+	}
+
+	return 0;
+}
+
+/* unset the peers RFC 4271 DelayOpen session attribute flag and reset the
+ * DelayOpenTimer interval to the default value.
+ */
+int peer_timers_delayopen_unset(struct peer *peer)
+{
+	struct peer *member;
+	struct listnode *node;
+
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_TIMER_DELAYOPEN);
+		PEER_ATTR_INHERIT(peer, peer->group, delayopen);
+	} else {
+		/* Otherwise remove session attribute flag and set timer
+		 * interval to default value.
+		 */
+		peer_flag_unset(peer, PEER_FLAG_TIMER_DELAYOPEN);
+		peer->delayopen = peer->bgp->default_delayopen;
+	}
+
+	/* Set timer value to zero */
+	peer->v_delayopen = 0;
+
+	/* Skip peer-group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return 0;
+
+	/* Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override,
+			       PEER_FLAG_TIMER_DELAYOPEN))
+			continue;
+
+		/* Remove session attribute flag, reset the timer interval to
+		 * the default value and set the timer value to zero.
+		 */
+		UNSET_FLAG(member->flags, PEER_FLAG_TIMER_DELAYOPEN);
+		member->delayopen = peer->bgp->default_delayopen;
+		member->v_delayopen = 0;
+	}
+
+	return 0;
+}
+
 /* neighbor interface */
 void peer_interface_set(struct peer *peer, const char *str)
 {
@@ -5478,8 +5671,8 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
-int peer_local_as_set(struct peer *peer, as_t as, int no_prepend,
-		      int replace_as)
+int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
+		      bool replace_as)
 {
 	bool old_no_prepend, old_replace_as;
 	struct bgp *bgp = peer->bgp;
@@ -6911,8 +7104,8 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 	struct listnode *node, *nnode;
 	int ret;
 
-	zlog_debug("peer_ttl_security_hops_set: set gtsm_hops to %d for %s",
-		   gtsm_hops, peer->host);
+	zlog_debug("%s: set gtsm_hops to %d for %s", __func__, gtsm_hops,
+		   peer->host);
 
 	/* We cannot configure ttl-security hops when ebgp-multihop is already
 	   set.  For non peer-groups, the check is simple.  For peer-groups,
@@ -7014,8 +7207,7 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 	struct listnode *node, *nnode;
 	int ret = 0;
 
-	zlog_debug("peer_ttl_security_hops_unset: set gtsm_hops to zero for %s",
-		   peer->host);
+	zlog_debug("%s: set gtsm_hops to zero for %s", __func__, peer->host);
 
 	/* if a peer-group member, then reset to peer-group default rather than
 	 * 0 */
@@ -7251,6 +7443,9 @@ void bgp_master_init(struct thread_master *master, const int buffer_size)
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEF;
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
+	bm->wait_for_fib = false;
+
+	SET_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA);
 
 	bgp_mac_init();
 	/* init the rd id space.
@@ -7263,6 +7458,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size)
 	/* mpls label dynamic allocation pool */
 	bgp_lp_init(bm->master, &bm->labelpool);
 
+	bgp_l3nhg_init();
 	bgp_evpn_mh_init();
 	QOBJ_REG(bm, bgp_master);
 }

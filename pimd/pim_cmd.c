@@ -64,6 +64,9 @@
 #include "pim_mlag.h"
 #include "bfd.h"
 #include "pim_bsm.h"
+#include "lib/northbound_cli.h"
+#include "pim_errors.h"
+#include "pim_nb.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim_cmd_clippy.c"
@@ -99,94 +102,6 @@ static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 			argv[*idx]->arg);
 
 	return vrf;
-}
-
-static void pim_if_membership_clear(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ifp->info;
-	zassert(pim_ifp);
-
-	if (PIM_IF_TEST_PIM(pim_ifp->options)
-	    && PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		return;
-	}
-
-	pim_ifchannel_membership_clear(ifp);
-}
-
-/*
-  When PIM is disabled on interface, IGMPv3 local membership
-  information is not injected into PIM interface state.
-
-  The function pim_if_membership_refresh() fetches all IGMPv3 local
-  membership information into PIM. It is intented to be called
-  whenever PIM is enabled on the interface in order to collect missed
-  local membership information.
- */
-static void pim_if_membership_refresh(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-
-	pim_ifp = ifp->info;
-	zassert(pim_ifp);
-
-	if (!PIM_IF_TEST_PIM(pim_ifp->options))
-		return;
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options))
-		return;
-
-	/*
-	  First clear off membership from all PIM (S,G) entries on the
-	  interface
-	*/
-
-	pim_ifchannel_membership_clear(ifp);
-
-	/*
-	  Then restore PIM (S,G) membership from all IGMPv3 (S,G) entries on
-	  the interface
-	*/
-
-	/* scan igmp sockets */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		struct listnode *grpnode;
-		struct igmp_group *grp;
-
-		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grpnode,
-					  grp)) {
-			struct listnode *srcnode;
-			struct igmp_source *src;
-
-			/* scan group sources */
-			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						  srcnode, src)) {
-
-				if (IGMP_SOURCE_TEST_FORWARDING(
-					    src->source_flags)) {
-					struct prefix_sg sg;
-
-					memset(&sg, 0,
-					       sizeof(struct prefix_sg));
-					sg.src = src->source_addr;
-					sg.grp = grp->group_addr;
-					pim_ifchannel_local_membership_add(ifp,
-						&sg, false /*is_vxlan*/);
-				}
-
-			} /* scan group sources */
-		}	 /* scan igmp groups */
-	}		  /* scan igmp sockets */
-
-	/*
-	  Finally delete every PIM (S,G) entry lacking all state info
-	 */
-
-	pim_ifchannel_delete_on_noinfo(ifp);
 }
 
 static void pim_show_assert_helper(struct vty *vty,
@@ -261,7 +176,7 @@ static void pim_show_assert_internal_helper(struct vty *vty,
 		PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags) ? "yes" : "no",
 		pim_macro_ch_could_assert_eval(ch) ? "yes" : "no",
 		PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(ch->flags) ? "yes"
-								    : "no",
+		: "no",
 		pim_macro_assert_tracking_desired_eval(ch) ? "yes" : "no");
 }
 
@@ -455,8 +370,8 @@ static void pim_show_membership_helper(struct vty *vty,
 	json_object_string_add(json_row, "group", ch_grp_str);
 	json_object_string_add(json_row, "localMembership",
 			       ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO
-				       ? "NOINFO"
-				       : "INCLUDE");
+			       ? "NOINFO"
+			       : "INCLUDE");
 	json_object_object_add(json_iface, ch_grp_str, json_row);
 }
 static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
@@ -483,7 +398,7 @@ static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 	} else {
 		vty_out(vty,
 			"Interface         Address          Source           Group            Membership\n");
@@ -642,14 +557,14 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 					"%-16s  %5s  %15s  %d  %7s  %11s  %8s\n",
 					ifp->name,
 					if_is_up(ifp)
-						? (igmp->mtrace_only ? "mtrc"
-								     : "up")
-						: "down",
+					? (igmp->mtrace_only ? "mtrc"
+					   : "up")
+					: "down",
 					inet_ntop(AF_INET, &igmp->ifaddr,
 						  buf, sizeof(buf)),
 					pim_ifp->igmp_version,
 					igmp->t_igmp_query_timer ? "local"
-								 : "other",
+					: "other",
 					query_hhmmss, uptime);
 			}
 		}
@@ -657,7 +572,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -738,7 +653,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				* 100;
 
 			qri_msec = pim_ifp->igmp_query_max_response_time_dsec
-				   * 100;
+				* 100;
 			if (pim_ifp->pim_sock_fd >= 0)
 				mloop = pim_socket_mcastloop_get(
 					pim_ifp->pim_sock_fd);
@@ -753,8 +668,8 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 						       uptime);
 				json_object_string_add(json_row, "querier",
 						       igmp->t_igmp_query_timer
-							       ? "local"
-							       : "other");
+						       ? "local"
+						       : "other");
 				json_object_int_add(json_row, "queryStartCount",
 						    igmp->startup_query_count);
 				json_object_string_add(json_row,
@@ -807,10 +722,10 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 			} else {
 				vty_out(vty, "Interface : %s\n", ifp->name);
 				vty_out(vty, "State     : %s\n",
-					if_is_up(ifp)
-						? (igmp->mtrace_only ? "mtrace"
-								     : "up")
-						: "down");
+					if_is_up(ifp) ? (igmp->mtrace_only ?
+							 "mtrace"
+							 : "up")
+					: "down");
 				vty_out(vty, "Address   : %pI4\n",
 					&pim_ifp->primary_address);
 				vty_out(vty, "Uptime    : %s\n", uptime);
@@ -823,7 +738,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				vty_out(vty, "-------\n");
 				vty_out(vty, "Querier     : %s\n",
 					igmp->t_igmp_query_timer ? "local"
-								 : "other");
+					: "other");
 				vty_out(vty, "Start Count : %d\n",
 					igmp->startup_query_count);
 				vty_out(vty, "Query Timer : %s\n",
@@ -872,7 +787,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (!found_ifname)
@@ -1245,7 +1160,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 
 				if (strcmp(ifp->name,
 					   up->rpf.source_nexthop
-						   .interface->name)
+					   .interface->name)
 				    != 0)
 					continue;
 
@@ -1327,7 +1242,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (!found_ifname)
@@ -1386,7 +1301,7 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 		json_object_object_add(json, ifname ? ifname : "global",
 				       json_row);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		vty_out(vty, "IGMP RX statistics\n");
@@ -1459,7 +1374,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 	} else {
 		vty_out(vty,
 			"Interface         State          Address  PIM Nbrs           PIM DR  FHR IfChannels\n");
@@ -1561,11 +1476,11 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 			json_object_int_add(json_row, "assertRx",
 					    pim_ifp->pim_ifstat_assert_recv);
 			json_object_int_add(json_row, "assertTx",
-					pim_ifp->pim_ifstat_assert_send);
+					    pim_ifp->pim_ifstat_assert_send);
 			json_object_int_add(json_row, "bsmRx",
-					pim_ifp->pim_ifstat_bsm_rx);
+					    pim_ifp->pim_ifstat_bsm_rx);
 			json_object_int_add(json_row, "bsmTx",
-					pim_ifp->pim_ifstat_bsm_tx);
+					    pim_ifp->pim_ifstat_bsm_tx);
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
 			vty_out(vty,
@@ -1588,7 +1503,7 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 	}
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -1681,7 +1596,7 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 	}
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (!found_ifname)
@@ -1794,7 +1709,7 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -1997,7 +1912,7 @@ static void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		{
@@ -2041,8 +1956,8 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		first_oif = 1;
 
 		if ((c_oil->up &&
-			PIM_UPSTREAM_FLAG_TEST_USE_RPT(c_oil->up->flags)) ||
-			c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+		     PIM_UPSTREAM_FLAG_TEST_USE_RPT(c_oil->up->flags)) ||
+		    c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
 			isRpt = true;
 		else
 			isRpt = false;
@@ -2102,10 +2017,10 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						    c_oil->installed);
 				if (isRpt)
 					json_object_boolean_true_add(
-							json_source, "isRpt");
+						json_source, "isRpt");
 				else
 					json_object_boolean_false_add(
-							json_source, "isRpt");
+						json_source, "isRpt");
 				json_object_int_add(json_source, "RefCount",
 						    c_oil->oil_ref_count);
 				json_object_int_add(json_source, "OilListSize",
@@ -2125,8 +2040,8 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			}
 		} else {
 			vty_out(vty, "%-6d %-15s  %-15s  %-3s  %-16s  ",
-					c_oil->installed, src_str, grp_str,
-					isRpt ? "y" : "n", in_ifname);
+				c_oil->installed, src_str, grp_str,
+				isRpt ? "y" : "n", in_ifname);
 		}
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
@@ -2173,47 +2088,47 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						out_ifname,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_IGMP)
-							? 'I'
-							: ' ',
+						? 'I'
+						: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_PIM)
-							? 'J'
-							: ' ',
+						? 'J'
+						: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_VXLAN)
-							? 'V'
-							: ' ',
+						? 'V'
+						: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_STAR)
-							? '*'
-							: ' ',
+						? '*'
+						: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_MUTE)
-							? 'M'
-							: ' ');
+						? 'M'
+						: ' ');
 				} else
 					vty_out(vty, ", %s(%c%c%c%c%c)",
 						out_ifname,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_IGMP)
-							? 'I'
-							: ' ',
+						? 'I'
+						: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_PIM)
-							? 'J'
-							: ' ',
+						? 'J'
+						: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_VXLAN)
-							? 'V'
-							: ' ',
+						? 'V'
+						: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_STAR)
-							? '*'
-							: ' ',
+						? '*'
+						: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_MUTE)
-							? 'M'
-							: ' ');
+						? 'M'
+						: ' ');
 			}
 		}
 
@@ -2224,7 +2139,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		vty_out(vty, "\n");
@@ -2308,7 +2223,7 @@ static void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -2546,8 +2461,8 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			json_row = json_object_new_object();
 			json_object_pim_upstream_add(json_row, up);
 			json_object_string_add(
-			    json_row, "inboundInterface",
-			    up->rpf.source_nexthop.interface
+				json_row, "inboundInterface",
+				up->rpf.source_nexthop.interface
 				? up->rpf.source_nexthop.interface->name
 				: "Unknown");
 
@@ -2600,8 +2515,8 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			vty_out(vty,
 				"%-16s%-15s %-15s %-11s %-8s %-9s %-9s %-9s %6d\n",
 				up->rpf.source_nexthop.interface
-				    ? up->rpf.source_nexthop.interface->name
-				    : "Unknown",
+				? up->rpf.source_nexthop.interface->name
+				: "Unknown",
 				src_str, grp_str, state_str, uptime, join_timer,
 				rs_timer, ka_timer, up->ref_count);
 		}
@@ -2609,16 +2524,16 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
 
 static void pim_show_channel_helper(struct pim_instance *pim,
-					 struct vty *vty,
-					 struct pim_interface *pim_ifp,
-					 struct pim_ifchannel *ch,
-					 json_object *json, bool uj)
+				    struct vty *vty,
+				    struct pim_interface *pim_ifp,
+				    struct pim_ifchannel *ch,
+				    json_object *json, bool uj)
 {
 	struct pim_upstream *up = ch->upstream;
 	json_object *json_group = NULL;
@@ -2666,15 +2581,15 @@ static void pim_show_channel_helper(struct pim_instance *pim,
 			pim_macro_chisin_joins(ch) ? "yes" : "no",
 			pim_macro_chisin_pim_include(ch) ? "yes" : "no",
 			PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(up->flags)
-				? "yes"
-				: "no",
+			? "yes"
+			: "no",
 			pim_upstream_evaluate_join_desired(pim, up) ? "yes"
-								    : "no");
+			: "no");
 	}
 }
 
 static void pim_show_channel(struct pim_instance *pim, struct vty *vty,
-				  bool uj)
+			     bool uj)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -2698,13 +2613,13 @@ static void pim_show_channel(struct pim_instance *pim, struct vty *vty,
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			/* scan all interfaces */
 			pim_show_channel_helper(pim, vty, pim_ifp, ch,
-						     json, uj);
+						json, uj);
 		}
 	}
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -2745,7 +2660,7 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 		vty_out(vty, "%-15s %-15s %-6s\n",
 			src_str, grp_str,
 			pim_upstream_evaluate_join_desired(pim, up) ? "yes"
-								    : "no");
+			: "no");
 	}
 }
 
@@ -2765,12 +2680,12 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		/* scan all interfaces */
 		pim_show_join_desired_helper(pim, vty, up,
-				json, uj);
+					     json, uj);
 	}
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -2838,7 +2753,7 @@ static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -2981,7 +2896,7 @@ static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -3183,7 +3098,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -3333,7 +3248,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -3408,7 +3323,7 @@ static void pim_show_statistics(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -3507,9 +3422,9 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 						json_groups =
 							json_object_new_array();
 						json_object_object_add(
-								json_iface,
-								"groups",
-								json_groups);
+							json_iface,
+							"groups",
+							json_groups);
 					}
 
 					json_group = json_object_new_object();
@@ -3524,20 +3439,20 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 						json_object_string_add(
 							json_group, "mode",
 							grp->group_filtermode_isexcl
-								? "EXCLUDE"
-								: "INCLUDE");
+							? "EXCLUDE"
+							: "INCLUDE");
 
 					json_object_string_add(json_group,
 							       "timer", hhmmss);
 					json_object_int_add(
 						json_group, "sourcesCount",
 						grp->group_source_list
-							? listcount(
-								  grp->group_source_list)
-							: 0);
+						? listcount(
+							grp->group_source_list)
+						: 0);
 					json_object_int_add(
-							json_group, "version",
-							grp->igmp_version);
+						json_group, "version",
+						grp->igmp_version);
 					json_object_string_add(
 						json_group, "uptime", uptime);
 					json_object_array_add(json_groups,
@@ -3548,15 +3463,15 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 						ifp->name, ifaddr_str,
 						group_str,
 						grp->igmp_version == 3
-							? (grp->group_filtermode_isexcl
-								   ? "EXCL"
-								   : "INCL")
-							: "----",
+						? (grp->group_filtermode_isexcl
+						   ? "EXCL"
+						   : "INCL")
+						: "----",
 						hhmmss,
 						grp->group_source_list
-							? listcount(
-								  grp->group_source_list)
-							: 0,
+						? listcount(
+							grp->group_source_list)
+						: 0,
 						grp->igmp_version, uptime);
 				}
 			} /* scan igmp groups */
@@ -3565,7 +3480,7 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -3700,8 +3615,8 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 						group_str, source_str, mmss,
 						IGMP_SOURCE_TEST_FORWARDING(
 							src->source_flags)
-							? "Y"
-							: "N",
+						? "Y"
+						: "N",
 						uptime);
 
 				} /* scan group sources */
@@ -3839,7 +3754,7 @@ static void pim_show_bsr(struct pim_instance *pim,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -3872,12 +3787,12 @@ static void clear_interfaces(struct pim_instance *pim)
 	clear_pim_interfaces(pim);
 }
 
-#define PIM_GET_PIM_INTERFACE(pim_ifp, ifp)                                     \
-	pim_ifp = ifp->info;                                                    \
-	if (!pim_ifp) {                                                         \
-		vty_out(vty,                                                    \
+#define PIM_GET_PIM_INTERFACE(pim_ifp, ifp)				\
+	pim_ifp = ifp->info;						\
+	if (!pim_ifp) {							\
+		vty_out(vty,						\
 			"%% Enable PIM and/or IGMP on this interface first\n"); \
-		return CMD_WARNING_CONFIG_FAILED;                               \
+		return CMD_WARNING_CONFIG_FAILED;			\
 	}
 
 DEFUN (clear_ip_interfaces,
@@ -3963,7 +3878,7 @@ static void clear_mroute(struct pim_instance *pim)
 		/* clean up all igmp groups */
 		/* scan igmp sockets */
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
-					igmp)) {
+					  igmp)) {
 
 			struct igmp_group *grp;
 
@@ -3979,9 +3894,9 @@ static void clear_mroute(struct pim_instance *pim)
 	}
 
 	/* clean up all upstreams*/
-	while ((up = rb_pim_upstream_first(&pim->upstream_head))) {
+	while ((up = rb_pim_upstream_first(&pim->upstream_head)))
 		pim_upstream_del(pim, up, __func__);
-	}
+
 }
 
 DEFUN (clear_ip_mroute,
@@ -4374,83 +4289,83 @@ DEFUN (show_ip_pim_mlag_summary,
 		if (router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)
 			json_object_boolean_true_add(json, "mlagPeerZebraUp");
 		json_object_string_add(json, "mlagRole",
-				mlag_role2str(router->mlag_role,
-					role_buf, sizeof(role_buf)));
+				       mlag_role2str(router->mlag_role,
+						     role_buf, sizeof(role_buf)));
 		inet_ntop(AF_INET, &router->local_vtep_ip,
-				addr_buf, INET_ADDRSTRLEN);
+			  addr_buf, INET_ADDRSTRLEN);
 		json_object_string_add(json, "localVtepIp", addr_buf);
 		inet_ntop(AF_INET, &router->anycast_vtep_ip,
-				addr_buf, INET_ADDRSTRLEN);
+			  addr_buf, INET_ADDRSTRLEN);
 		json_object_string_add(json, "anycastVtepIp", addr_buf);
 		json_object_string_add(json, "peerlinkRif",
-				router->peerlink_rif);
+				       router->peerlink_rif);
 
 		json_stat = json_object_new_object();
 		json_object_int_add(json_stat, "mlagConnFlaps",
-				router->mlag_stats.mlagd_session_downs);
+				    router->mlag_stats.mlagd_session_downs);
 		json_object_int_add(json_stat, "mlagPeerConnFlaps",
-				router->mlag_stats.peer_session_downs);
+				    router->mlag_stats.peer_session_downs);
 		json_object_int_add(json_stat, "mlagPeerZebraFlaps",
-				router->mlag_stats.peer_zebra_downs);
+				    router->mlag_stats.peer_zebra_downs);
 		json_object_int_add(json_stat, "mrouteAddRx",
-				router->mlag_stats.msg.mroute_add_rx);
+				    router->mlag_stats.msg.mroute_add_rx);
 		json_object_int_add(json_stat, "mrouteAddTx",
-				router->mlag_stats.msg.mroute_add_tx);
+				    router->mlag_stats.msg.mroute_add_tx);
 		json_object_int_add(json_stat, "mrouteDelRx",
-				router->mlag_stats.msg.mroute_del_rx);
+				    router->mlag_stats.msg.mroute_del_rx);
 		json_object_int_add(json_stat, "mrouteDelTx",
-				router->mlag_stats.msg.mroute_del_tx);
+				    router->mlag_stats.msg.mroute_del_tx);
 		json_object_int_add(json_stat, "mlagStatusUpdates",
-				router->mlag_stats.msg.mlag_status_updates);
+				    router->mlag_stats.msg.mlag_status_updates);
 		json_object_int_add(json_stat, "peerZebraStatusUpdates",
-			router->mlag_stats.msg.peer_zebra_status_updates);
+				    router->mlag_stats.msg.peer_zebra_status_updates);
 		json_object_int_add(json_stat, "pimStatusUpdates",
-				router->mlag_stats.msg.pim_status_updates);
+				    router->mlag_stats.msg.pim_status_updates);
 		json_object_int_add(json_stat, "vxlanUpdates",
-				router->mlag_stats.msg.vxlan_updates);
+				    router->mlag_stats.msg.vxlan_updates);
 		json_object_object_add(json, "connStats", json_stat);
 
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 		return CMD_SUCCESS;
 	}
 
 	vty_out(vty, "MLAG daemon connection: %s\n",
 		(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)
-			? "up" : "down");
+		? "up" : "down");
 	vty_out(vty, "MLAG peer state: %s\n",
 		(router->mlag_flags & PIM_MLAGF_PEER_CONN_UP)
-			? "up" : "down");
+		? "up" : "down");
 	vty_out(vty, "Zebra peer state: %s\n",
 		(router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)
-			? "up" : "down");
+		? "up" : "down");
 	vty_out(vty, "MLAG role: %s\n",
 		mlag_role2str(router->mlag_role, role_buf, sizeof(role_buf)));
 	inet_ntop(AF_INET, &router->local_vtep_ip,
-			addr_buf, INET_ADDRSTRLEN);
+		  addr_buf, INET_ADDRSTRLEN);
 	vty_out(vty, "Local VTEP IP: %s\n", addr_buf);
 	inet_ntop(AF_INET, &router->anycast_vtep_ip,
-			addr_buf, INET_ADDRSTRLEN);
+		  addr_buf, INET_ADDRSTRLEN);
 	vty_out(vty, "Anycast VTEP IP: %s\n", addr_buf);
 	vty_out(vty, "Peerlink: %s\n", router->peerlink_rif);
 	vty_out(vty, "Session flaps: mlagd: %d mlag-peer: %d zebra-peer: %d\n",
-			router->mlag_stats.mlagd_session_downs,
-			router->mlag_stats.peer_session_downs,
-			router->mlag_stats.peer_zebra_downs);
+		router->mlag_stats.mlagd_session_downs,
+		router->mlag_stats.peer_session_downs,
+		router->mlag_stats.peer_zebra_downs);
 	vty_out(vty, "Message Statistics:\n");
 	vty_out(vty, "  mroute adds: rx: %d, tx: %d\n",
-			router->mlag_stats.msg.mroute_add_rx,
-			router->mlag_stats.msg.mroute_add_tx);
+		router->mlag_stats.msg.mroute_add_rx,
+		router->mlag_stats.msg.mroute_add_tx);
 	vty_out(vty, "  mroute dels: rx: %d, tx: %d\n",
-			router->mlag_stats.msg.mroute_del_rx,
-			router->mlag_stats.msg.mroute_del_tx);
+		router->mlag_stats.msg.mroute_del_rx,
+		router->mlag_stats.msg.mroute_del_tx);
 	vty_out(vty, "  peer zebra status updates: %d\n",
-			router->mlag_stats.msg.peer_zebra_status_updates);
+		router->mlag_stats.msg.peer_zebra_status_updates);
 	vty_out(vty, "  PIM status updates: %d\n",
-			router->mlag_stats.msg.pim_status_updates);
+		router->mlag_stats.msg.pim_status_updates);
 	vty_out(vty, "  VxLAN updates: %d\n",
-			router->mlag_stats.msg.vxlan_updates);
+		router->mlag_stats.msg.vxlan_updates);
 
 	return CMD_SUCCESS;
 }
@@ -4645,8 +4560,8 @@ DEFPY (show_ip_pim_join,
 		return CMD_WARNING;
 	}
 
-	if (s_or_g.s_addr != 0) {
-		if (g.s_addr != 0) {
+	if (s_or_g.s_addr != INADDR_ANY) {
+		if (g.s_addr != INADDR_ANY) {
 			sg.src = s_or_g;
 			sg.grp = g;
 		} else
@@ -4692,10 +4607,10 @@ DEFUN (show_ip_pim_join_vrf_all,
 }
 
 static void pim_show_jp_agg_helper(struct vty *vty,
-		struct interface *ifp,
-		struct pim_neighbor *neigh,
-		struct pim_upstream *up,
-		int is_join)
+				   struct interface *ifp,
+				   struct pim_neighbor *neigh,
+				   struct pim_upstream *up,
+				   int is_join)
 {
 	char src_str[INET_ADDRSTRLEN];
 	char grp_str[INET_ADDRSTRLEN];
@@ -4703,12 +4618,12 @@ static void pim_show_jp_agg_helper(struct vty *vty,
 
 	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
 	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
-			/* pius->address.s_addr */
+	/* pius->address.s_addr */
 	pim_inet4_dump("<rpf?>", neigh->source_addr, rpf_str, sizeof(rpf_str));
 
 	vty_out(vty, "%-16s %-15s %-15s %-15s %5s\n",
-			ifp->name, rpf_str, src_str,
-			grp_str, is_join?"J":"P");
+		ifp->name, rpf_str, src_str,
+		grp_str, is_join?"J":"P");
 }
 
 static void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
@@ -4723,7 +4638,7 @@ static void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 	struct pim_jp_sources *js;
 
 	vty_out(vty,
-			"Interface        RPF Nbr         Source          Group           State\n");
+		"Interface        RPF Nbr         Source          Group           State\n");
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
@@ -4731,14 +4646,14 @@ static void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list,
-					n_node, neigh)) {
+					  n_node, neigh)) {
 			for (ALL_LIST_ELEMENTS_RO(neigh->upstream_jp_agg,
-						jag_node, jag)) {
+						  jag_node, jag)) {
 				for (ALL_LIST_ELEMENTS_RO(jag->sources,
-							js_node, js)) {
+							  js_node, js)) {
 					pim_show_jp_agg_helper(vty,
-							ifp, neigh, js->up,
-							js->is_join);
+							       ifp, neigh, js->up,
+							       js->is_join);
 				}
 			}
 		}
@@ -4798,8 +4713,10 @@ DEFUN (show_ip_pim_local_membership,
 }
 
 static void pim_show_mlag_up_entry_detail(struct vrf *vrf,
-		struct vty *vty, struct pim_upstream *up,
-		char *src_str, char *grp_str, json_object *json)
+					  struct vty *vty,
+					  struct pim_upstream *up,
+					  char *src_str, char *grp_str,
+					  json_object *json)
 {
 	if (json) {
 		json_object *json_row = NULL;
@@ -4811,7 +4728,7 @@ static void pim_show_mlag_up_entry_detail(struct vrf *vrf,
 		if (!json_group) {
 			json_group = json_object_new_object();
 			json_object_object_add(json, grp_str,
-					json_group);
+					       json_group);
 		}
 
 		json_row = json_object_new_object();
@@ -4821,19 +4738,19 @@ static void pim_show_mlag_up_entry_detail(struct vrf *vrf,
 		own_list = json_object_new_array();
 		if (pim_up_mlag_is_local(up))
 			json_object_array_add(own_list,
-					json_object_new_string("local"));
+					      json_object_new_string("local"));
 		if (up->flags & (PIM_UPSTREAM_FLAG_MASK_MLAG_PEER))
 			json_object_array_add(own_list,
-					json_object_new_string("peer"));
+					      json_object_new_string("peer"));
 		if (up->flags & (PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE))
 			json_object_array_add(
 				own_list, json_object_new_string("Interface"));
 		json_object_object_add(json_row, "owners", own_list);
 
 		json_object_int_add(json_row, "localCost",
-				pim_up_mlag_local_cost(up));
+				    pim_up_mlag_local_cost(up));
 		json_object_int_add(json_row, "peerCost",
-				pim_up_mlag_peer_cost(up));
+				    pim_up_mlag_peer_cost(up));
 		if (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags))
 			json_object_boolean_false_add(json_row, "df");
 		else
@@ -4851,18 +4768,18 @@ static void pim_show_mlag_up_entry_detail(struct vrf *vrf,
 			strlcat(own_str, "I", sizeof(own_str));
 		/* XXX - fixup, print paragraph output */
 		vty_out(vty,
-				"%-15s %-15s %-6s %-11u %-10d %2s\n",
-				src_str, grp_str, own_str,
-				pim_up_mlag_local_cost(up),
-				pim_up_mlag_peer_cost(up),
-				PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags)
-				? "n" : "y");
+			"%-15s %-15s %-6s %-11u %-10d %2s\n",
+			src_str, grp_str, own_str,
+			pim_up_mlag_local_cost(up),
+			pim_up_mlag_peer_cost(up),
+			PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags)
+			? "n" : "y");
 	}
 }
 
 static void pim_show_mlag_up_detail(struct vrf *vrf,
-		struct vty *vty, const char *src_or_group,
-		const char *group, bool uj)
+				    struct vty *vty, const char *src_or_group,
+				    const char *group, bool uj)
 {
 	char src_str[INET_ADDRSTRLEN];
 	char grp_str[INET_ADDRSTRLEN];
@@ -4938,7 +4855,7 @@ static void pim_show_mlag_up_vrf(struct vrf *vrf, struct vty *vty, bool uj)
 			if (!json_group) {
 				json_group = json_object_new_object();
 				json_object_object_add(json, grp_str,
-						json_group);
+						       json_group);
 			}
 
 			json_row = json_object_new_object();
@@ -4950,18 +4867,20 @@ static void pim_show_mlag_up_vrf(struct vrf *vrf, struct vty *vty, bool uj)
 			if (pim_up_mlag_is_local(up)) {
 
 				json_object_array_add(own_list,
-					json_object_new_string("local"));
+						      json_object_new_string(
+							      "local"));
 			}
 			if (up->flags & (PIM_UPSTREAM_FLAG_MASK_MLAG_PEER)) {
 				json_object_array_add(own_list,
-					json_object_new_string("peer"));
+						      json_object_new_string(
+							      "peer"));
 			}
 			json_object_object_add(json_row, "owners", own_list);
 
 			json_object_int_add(json_row, "localCost",
-					pim_up_mlag_local_cost(up));
+					    pim_up_mlag_local_cost(up));
 			json_object_int_add(json_row, "peerCost",
-					pim_up_mlag_peer_cost(up));
+					    pim_up_mlag_peer_cost(up));
 			if (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags))
 				json_object_boolean_false_add(json_row, "df");
 			else
@@ -4983,12 +4902,12 @@ static void pim_show_mlag_up_vrf(struct vrf *vrf, struct vty *vty, bool uj)
 				pim_up_mlag_local_cost(up),
 				pim_up_mlag_peer_cost(up),
 				PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags)
-					? "n" : "y");
+				? "n" : "y");
 		}
 	}
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -5261,8 +5180,8 @@ DEFPY (show_ip_pim_upstream,
 		return CMD_WARNING;
 	}
 
-	if (s_or_g.s_addr != 0) {
-		if (g.s_addr != 0) {
+	if (s_or_g.s_addr != INADDR_ANY) {
+		if (g.s_addr != INADDR_ANY) {
 			sg.src = s_or_g;
 			sg.grp = g;
 		} else
@@ -5939,7 +5858,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty, "IP Multicast Routing Table\n");
 		vty_out(vty, "Flags: S - Sparse, C - Connected, P - Pruned\n");
 		vty_out(vty,
-			"       R - RP-bit set, F - Register flag, T - SPT-bit set\n");
+			"       R - SGRpt Pruned, F - Register flag, T - SPT-bit set\n");
 		vty_out(vty,
 			"\nSource          Group           Flags   Proto  Input            Output           TTL  Uptime\n");
 	}
@@ -5953,11 +5872,11 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		if (!c_oil->installed)
 			continue;
 
-		if (sg->grp.s_addr != 0 &&
-		    sg->grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr)
+		if (sg->grp.s_addr != INADDR_ANY
+		    && sg->grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr)
 			continue;
-		if (sg->src.s_addr != 0 &&
-		    sg->src.s_addr != c_oil->oil.mfcc_origin.s_addr)
+		if (sg->src.s_addr != INADDR_ANY
+		    && sg->src.s_addr != c_oil->oil.mfcc_origin.s_addr)
 			continue;
 
 		pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str,
@@ -6042,12 +5961,12 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 
 			/* do not display muted OIFs */
 			if (c_oil->oif_flags[oif_vif_index]
-					& PIM_OIF_FLAG_MUTE)
+			    & PIM_OIF_FLAG_MUTE)
 				continue;
 
 			if (c_oil->oil.mfcc_parent == oif_vif_index &&
-					!pim_mroute_allow_iif_in_oil(c_oil,
-						oif_vif_index))
+			    !pim_mroute_allow_iif_in_oil(c_oil,
+							 oif_vif_index))
 				continue;
 
 			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
@@ -6109,6 +6028,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 				json_object_object_add(json_oil, out_ifname,
 						       json_ifp_out);
 			} else {
+				proto[0] = '\0';
 				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_PIM) {
 					strlcpy(proto, "PIM", sizeof(proto));
@@ -6215,8 +6135,8 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			pim_time_uptime(
 				oif_uptime, sizeof(oif_uptime),
 				now
-					- s_route->c_oil
-						  .oif_creation[oif_vif_index]);
+				- s_route->c_oil
+				.oif_creation[oif_vif_index]);
 			found_oif = 1;
 
 			if (ifp_out)
@@ -6278,7 +6198,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -6312,8 +6232,8 @@ DEFPY (show_ip_mroute,
 		return CMD_WARNING;
 	}
 
-	if (s_or_g.s_addr != 0) {
-		if (g.s_addr != 0) {
+	if (s_or_g.s_addr != INADDR_ANY) {
+		if (g.s_addr != INADDR_ANY) {
 			sg.src = s_or_g;
 			sg.grp = g;
 		} else
@@ -6609,8 +6529,8 @@ static void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 				    starg_hw_mroute_cnt + sg_hw_mroute_cnt);
 		json_object_int_add(json, "totalNumOfMroutes",
 				    starg_sw_mroute_cnt + starg_hw_mroute_cnt
-					    + sg_sw_mroute_cnt
-					    + sg_hw_mroute_cnt);
+				    + sg_sw_mroute_cnt
+				    + sg_hw_mroute_cnt);
 	}
 }
 
@@ -6796,83 +6716,6 @@ DEFUN (show_ip_ssmpingd,
 	return CMD_SUCCESS;
 }
 
-static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
-			     const char *rp, const char *group,
-			     const char *plist)
-{
-	int result;
-
-	result = pim_rp_new_config(pim, rp, group, plist);
-
-	if (result == PIM_GROUP_BAD_ADDR_MASK_COMBO) {
-		vty_out(vty, "%% Inconsistent address and mask: %s\n",
-			group ? group : "No Group Address");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_GROUP_BAD_ADDRESS) {
-		vty_out(vty, "%% Bad group address specified: %s\n",
-			group ? group : "No Group Address");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_RP_BAD_ADDRESS) {
-		vty_out(vty, "%% Bad RP address specified: %s\n", rp);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_RP_NO_PATH) {
-		vty_out(vty, "%% No Path to RP address specified: %s\n", rp);
-		return CMD_WARNING;
-	}
-
-	if (result == PIM_GROUP_OVERLAP) {
-		vty_out(vty,
-			"%% Group range specified cannot exact match another\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_GROUP_PFXLIST_OVERLAP) {
-		vty_out(vty,
-			"%% This group is already covered by a RP prefix-list\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_RP_PFXLIST_IN_USE) {
-		vty_out(vty,
-			"%% The same prefix-list cannot be applied to multiple RPs\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-static int pim_cmd_spt_switchover(struct pim_instance *pim,
-				  enum pim_spt_switchover spt,
-				  const char *plist)
-{
-	pim->spt.switchover = spt;
-
-	switch (pim->spt.switchover) {
-	case PIM_SPT_IMMEDIATE:
-		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
-
-		pim_upstream_add_lhr_star_pimreg(pim);
-		break;
-	case PIM_SPT_INFINITY:
-		pim_upstream_remove_lhr_star_pimreg(pim, plist);
-
-		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
-
-		if (plist)
-			pim->spt.plist =
-				XSTRDUP(MTYPE_PIM_PLIST_NAME, plist);
-		break;
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (ip_pim_spt_switchover_infinity,
        ip_pim_spt_switchover_infinity_cmd,
        "ip pim spt-switchover infinity-and-beyond",
@@ -6881,8 +6724,45 @@ DEFUN (ip_pim_spt_switchover_infinity,
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY, NULL);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	if (yang_dnode_exists(vty->candidate_config->dnode, spt_plist_xpath))
+		nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY,
+				      NULL);
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			      "PIM_SPT_INFINITY");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_spt_switchover_infinity_plist,
@@ -6895,8 +6775,44 @@ DEFUN (ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY, argv[5]->arg);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			      "PIM_SPT_INFINITY");
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY,
+			      argv[5]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity,
@@ -6908,8 +6824,43 @@ DEFUN (no_ip_pim_spt_switchover_infinity,
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			      "PIM_SPT_IMMEDIATE");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity_plist,
@@ -6923,8 +6874,43 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			      "PIM_SPT_IMMEDIATE");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (pim_register_accept_list,
@@ -6936,15 +6922,37 @@ DEFPY (pim_register_accept_list,
        "Only accept registers from a specific source prefix list\n"
        "Prefix-List name\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char reg_alist_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(reg_alist_xpath, sizeof(reg_alist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(reg_alist_xpath, "/register-accept-list",
+		sizeof(reg_alist_xpath));
 
 	if (no)
-		XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
-	else {
-		XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
-		pim->register_plist = XSTRDUP(MTYPE_PIM_PLIST_NAME, word);
-	}
-	return CMD_SUCCESS;
+		nb_cli_enqueue_change(vty, reg_alist_xpath,
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, reg_alist_xpath,
+				      NB_OP_MODIFY, word);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_joinprune_time,
@@ -6955,9 +6963,10 @@ DEFUN (ip_pim_joinprune_time,
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->t_periodic = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "/frr-pim:pim/join-prune-interval",
+			      NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_joinprune_time,
@@ -6969,9 +6978,15 @@ DEFUN (no_ip_pim_joinprune_time,
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
-	return CMD_SUCCESS;
+	char jp_default_timer[5];
+
+	snprintf(jp_default_timer, sizeof(jp_default_timer), "%d",
+		 PIM_DEFAULT_T_PERIODIC);
+
+	nb_cli_enqueue_change(vty, "/frr-pim:pim/join-prune-interval",
+			      NB_OP_MODIFY, jp_default_timer);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_register_suppress,
@@ -6982,9 +6997,10 @@ DEFUN (ip_pim_register_suppress,
        "Register Suppress Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->register_suppress_time = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "/frr-pim:pim/register-suppress-time",
+			      NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_register_suppress,
@@ -6996,9 +7012,15 @@ DEFUN (no_ip_pim_register_suppress,
        "Register Suppress Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
-	return CMD_SUCCESS;
+	char rs_default_timer[5];
+
+	snprintf(rs_default_timer, sizeof(rs_default_timer), "%d",
+		 PIM_REGISTER_SUPPRESSION_TIME_DEFAULT);
+
+	nb_cli_enqueue_change(vty, "/frr-pim:pim/register-suppress-time",
+			      NB_OP_MODIFY, rs_default_timer);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_rp_keep_alive,
@@ -7010,9 +7032,32 @@ DEFUN (ip_pim_rp_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->rp_keep_alive_time = atoi(argv[4]->arg);
-	return CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char rp_ka_timer_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
+		 FRR_PIM_XPATH, "frr-pim:pimd", "pim", vrfname);
+	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
+		sizeof(rp_ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
+			      argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_rp_keep_alive,
@@ -7025,9 +7070,36 @@ DEFUN (no_ip_pim_rp_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->rp_keep_alive_time = PIM_KEEPALIVE_PERIOD;
-	return CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char rp_ka_timer[5];
+	char rp_ka_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+
+	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
+		 FRR_PIM_XPATH, "frr-pim:pimd", "pim", vrfname);
+	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
+		sizeof(rp_ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
+			      rp_ka_timer);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_keep_alive,
@@ -7038,9 +7110,31 @@ DEFUN (ip_pim_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->keep_alive_time = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
+			      argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_keep_alive,
@@ -7052,9 +7146,34 @@ DEFUN (no_ip_pim_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
-	return CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ka_timer[5];
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(ka_timer, sizeof(ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
+			      ka_timer);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_packets,
@@ -7065,9 +7184,10 @@ DEFUN (ip_pim_packets,
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->packet_process = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "/frr-pim:pim/packets", NB_OP_MODIFY,
+			      argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_packets,
@@ -7079,9 +7199,15 @@ DEFUN (no_ip_pim_packets,
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
-	return CMD_SUCCESS;
+	char default_packet[3];
+
+	snprintf(default_packet, sizeof(default_packet), "%d",
+		 PIM_DEFAULT_PACKET_PROCESS);
+
+	nb_cli_enqueue_change(vty, "/frr-pim:pim/packets", NB_OP_MODIFY,
+			      default_packet);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (igmp_group_watermark,
@@ -7120,10 +7246,33 @@ DEFUN (ip_pim_v6_secondary,
        "pim multicast routing\n"
        "Send v6 secondary addresses\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->send_v6_secondary = 1;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char send_v6_secondary_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(send_v6_secondary_xpath, "/send-v6-secondary",
+		sizeof(send_v6_secondary_xpath));
+
+	nb_cli_enqueue_change(vty, send_v6_secondary_xpath, NB_OP_MODIFY,
+			      "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_v6_secondary,
@@ -7134,10 +7283,33 @@ DEFUN (no_ip_pim_v6_secondary,
        "pim multicast routing\n"
        "Send v6 secondary addresses\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->send_v6_secondary = 0;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char send_v6_secondary_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(send_v6_secondary_xpath, "/send-v6-secondary",
+		sizeof(send_v6_secondary_xpath));
+
+	nb_cli_enqueue_change(vty, send_v6_secondary_xpath, NB_OP_MODIFY,
+			      "false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_rp,
@@ -7149,15 +7321,66 @@ DEFUN (ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	int idx_ipv4 = 3;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	int idx_rp = 3, idx_group = 4;
+	char rp_group_xpath[XPATH_MAXLEN];
+	int result = 0;
+	struct prefix group;
+	struct in_addr rp_addr;
+	const char *group_str =
+		(argc == 5) ? argv[idx_group]->arg : "224.0.0.0/4";
 
-	if (argc == (idx_ipv4 + 1))
-		return pim_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg, NULL,
-					 NULL);
-	else
-		return pim_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg,
-					 argv[idx_ipv4 + 1]->arg, NULL);
+	result = str2prefix(group_str, &group);
+	if (result) {
+		struct prefix temp;
+
+		prefix_copy(&temp, &group);
+		apply_mask(&temp);
+		if (!prefix_same(&group, &temp)) {
+			vty_out(vty, "%% Inconsistent address and mask: %s\n",
+				group_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (!result) {
+		vty_out(vty, "%% Bad group address specified: %s\n",
+			group_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	result = inet_pton(AF_INET, argv[idx_rp]->arg, &rp_addr);
+	if (result <= 0) {
+		vty_out(vty, "%% Bad RP address specified: %s\n",
+			argv[idx_rp]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(rp_group_xpath, sizeof(rp_group_xpath),
+		 FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+	strlcat(rp_group_xpath, "/group-list", sizeof(rp_group_xpath));
+
+	nb_cli_enqueue_change(vty, rp_group_xpath, NB_OP_CREATE, group_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_rp_prefix_list,
@@ -7170,33 +7393,36 @@ DEFUN (ip_pim_rp_prefix_list,
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_rp_cmd_worker(pim, vty, argv[3]->arg, NULL, argv[5]->arg);
-}
+	int idx_rp = 3, idx_plist = 5;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char rp_plist_xpath[XPATH_MAXLEN];
 
-static int pim_no_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
-				const char *rp, const char *group,
-				const char *plist)
-{
-	int result = pim_rp_del_config(pim, rp, group, plist);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
 
-	if (result == PIM_GROUP_BAD_ADDRESS) {
-		vty_out(vty, "%% Bad group address specified: %s\n",
-			group ? group : "No Group Address");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-	if (result == PIM_RP_BAD_ADDRESS) {
-		vty_out(vty, "%% Bad RP address specified: %s\n", rp);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	if (result == PIM_RP_NOT_FOUND) {
-		vty_out(vty, "%% Unable to find specified RP\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
+		 FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+	strlcat(rp_plist_xpath, "/prefix-list", sizeof(rp_plist_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, rp_plist_xpath, NB_OP_MODIFY,
+			      argv[idx_plist]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_rp,
@@ -7209,15 +7435,55 @@ DEFUN (no_ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	int idx_ipv4 = 4, idx_group = 0;
+	int idx_rp = 4, idx_group = 5;
+	const char *group_str =
+		(argc == 6) ? argv[idx_group]->arg : "224.0.0.0/4";
+	char group_list_xpath[XPATH_MAXLEN + 32];
+	char group_xpath[XPATH_MAXLEN + 64];
+	char rp_xpath[XPATH_MAXLEN];
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	const struct lyd_node *group_dnode;
 
-	if (argv_find(argv, argc, "A.B.C.D/M", &idx_group))
-		return pim_no_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg,
-					    argv[idx_group]->arg, NULL);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+
+	snprintf(group_list_xpath, sizeof(group_list_xpath), "%s/group-list",
+		 rp_xpath);
+
+	snprintf(group_xpath, sizeof(group_xpath), "%s[.='%s']",
+		 group_list_xpath, group_str);
+
+	if (!yang_dnode_exists(vty->candidate_config->dnode, group_xpath)) {
+		vty_out(vty, "%% Unable to find specified RP\n");
+		return NB_OK;
+	}
+
+	group_dnode = yang_dnode_get(vty->candidate_config->dnode, group_xpath);
+
+	if (yang_is_last_list_dnode(group_dnode))
+		nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
 	else
-		return pim_no_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg, NULL,
-					    NULL);
+		nb_cli_enqueue_change(vty, group_list_xpath, NB_OP_DESTROY,
+				      group_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_rp_prefix_list,
@@ -7231,32 +7497,52 @@ DEFUN (no_ip_pim_rp_prefix_list,
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_no_rp_cmd_worker(pim, vty, argv[4]->arg, NULL, argv[6]->arg);
-}
+	int idx_rp = 4;
+	int idx_plist = 6;
+	char rp_xpath[XPATH_MAXLEN];
+	char plist_xpath[XPATH_MAXLEN];
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	const struct lyd_node *plist_dnode;
+	const char *plist;
 
-static int pim_ssm_cmd_worker(struct pim_instance *pim, struct vty *vty,
-			      const char *plist)
-{
-	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
-	int ret = CMD_WARNING_CONFIG_FAILED;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	if (result == PIM_SSM_ERR_NONE)
-		return CMD_SUCCESS;
+	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
 
-	switch (result) {
-	case PIM_SSM_ERR_NO_VRF:
-		vty_out(vty, "%% VRF doesn't exist\n");
-		break;
-	case PIM_SSM_ERR_DUP:
-		vty_out(vty, "%% duplicate config\n");
-		ret = CMD_WARNING;
-		break;
-	default:
-		vty_out(vty, "%% ssm range config failed\n");
+	snprintf(plist_xpath, sizeof(plist_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+	strlcat(plist_xpath, "/prefix-list", sizeof(plist_xpath));
+
+	plist_dnode = yang_dnode_get(vty->candidate_config->dnode, plist_xpath);
+	if (!plist_dnode) {
+		vty_out(vty, "%% Unable to find specified RP\n");
+		return NB_OK;
 	}
 
-	return ret;
+	plist = yang_dnode_get_string(plist_dnode, plist_xpath);
+	if (strcmp(argv[idx_plist]->arg, plist)) {
+		vty_out(vty, "%% Unable to find specified RP\n");
+		return NB_OK;
+	}
+
+	nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_ssm_prefix_list,
@@ -7268,8 +7554,30 @@ DEFUN (ip_pim_ssm_prefix_list,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_ssm_cmd_worker(pim, vty, argv[4]->arg);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ssm_plist_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
+
+	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_MODIFY, argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list,
@@ -7281,8 +7589,31 @@ DEFUN (no_ip_pim_ssm_prefix_list,
        "Source Specific Multicast\n"
        "group range prefix-list filter\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_ssm_cmd_worker(pim, vty, NULL);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ssm_plist_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
+
+	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list_name,
@@ -7295,11 +7626,50 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	struct pim_ssm *ssm = pim->ssm_info;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	const struct lyd_node *ssm_plist_dnode;
+	char ssm_plist_xpath[XPATH_MAXLEN];
+	const char *ssm_plist_name;
 
-	if (ssm->plist_name && !strcmp(ssm->plist_name, argv[5]->arg))
-		return pim_ssm_cmd_worker(pim, vty, NULL);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
+	ssm_plist_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					 ssm_plist_xpath);
+
+	if (!ssm_plist_dnode) {
+		vty_out(vty,
+			"%% pim ssm prefix-list %s doesn't exist\n",
+			argv[5]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ssm_plist_name = yang_dnode_get_string(ssm_plist_dnode, ".");
+
+	if (ssm_plist_name && !strcmp(ssm_plist_name, argv[5]->arg)) {
+		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY,
+				      NULL);
+
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[5]->arg);
 
@@ -7318,7 +7688,7 @@ static void ip_pim_ssm_show_group_range(struct pim_instance *pim,
 		json = json_object_new_object();
 		json_object_string_add(json, "ssmGroups", range_str);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "SSM group range : %s\n", range_str);
@@ -7370,7 +7740,7 @@ static void ip_pim_ssm_show_group_type(struct pim_instance *pim,
 		json = json_object_new_object();
 		json_object_string_add(json, "groupType", type_str);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "Group type : %s\n", type_str);
@@ -7428,27 +7798,35 @@ DEFUN (ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
 	int idx_ipv4 = 2;
-	int result;
-	struct in_addr source_addr;
 	const char *source_str = (argc == 3) ? argv[idx_ipv4]->arg : "0.0.0.0";
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = pim_ssmpingd_start(pim, source_addr);
-	if (result) {
-		vty_out(vty, "%% Failure starting ssmpingd for source %s: %d\n",
-			source_str, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
+		sizeof(ssmpingd_ip_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, NB_OP_CREATE,
+			      source_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_ssmpingd,
@@ -7459,27 +7837,35 @@ DEFUN (no_ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
 	int idx_ipv4 = 3;
-	int result;
-	struct in_addr source_addr;
 	const char *source_str = (argc == 4) ? argv[idx_ipv4]->arg : "0.0.0.0";
+	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = pim_ssmpingd_stop(pim, source_addr);
-	if (result) {
-		vty_out(vty, "%% Failure stopping ssmpingd for source %s: %d\n",
-			source_str, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
+		sizeof(ssmpingd_ip_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, NB_OP_DESTROY,
+			      source_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_ecmp,
@@ -7489,10 +7875,29 @@ DEFUN (ip_pim_ecmp,
        "pim multicast routing\n"
        "Enable PIM ECMP \n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = true;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ecmp_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
+
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_ecmp,
@@ -7503,10 +7908,30 @@ DEFUN (no_ip_pim_ecmp,
        "pim multicast routing\n"
        "Disable PIM ECMP \n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = false;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ecmp_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
+
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_ecmp_rebalance,
@@ -7517,11 +7942,37 @@ DEFUN (ip_pim_ecmp_rebalance,
        "Enable PIM ECMP \n"
        "Enable PIM ECMP Rebalance\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = true;
-	pim->ecmp_rebalance_enable = true;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ecmp_xpath[XPATH_MAXLEN];
+	char ecmp_rebalance_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
+	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
+		 FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_rebalance_xpath, "/ecmp-rebalance",
+		sizeof(ecmp_rebalance_xpath));
+
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, ecmp_rebalance_xpath, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_ecmp_rebalance,
@@ -7533,46 +7984,32 @@ DEFUN (no_ip_pim_ecmp_rebalance,
        "Disable PIM ECMP \n"
        "Disable PIM ECMP Rebalance\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_rebalance_enable = false;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ecmp_rebalance_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
-}
-
-static int pim_cmd_igmp_start(struct vty *vty, struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	uint8_t need_startup = 0;
-
-	pim_ifp = ifp->info;
-
-	if (!pim_ifp) {
-		pim = pim_get_pim_instance(ifp->vrf_id);
-		/* Limit mcast interfaces to number of vifs available */
-		if (pim->mcast_if_count == MAXVIFS) {
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
 			vty_out(vty,
-				"Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s\n",
-				MAXVIFS, ifp->name);
+				"%% Failed to get vrf dnode in candidate db\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		(void)pim_if_new(ifp, true, false, false, false);
-		need_startup = 1;
-	} else {
-		if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-			PIM_IF_DO_IGMP(pim_ifp->options);
-			need_startup = 1;
-		}
-	}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	/* 'ip igmp' executed multiple times, with need_startup
-	  avoid multiple if add all and membership refresh */
-	if (need_startup) {
-		pim_if_addr_add_all(ifp);
-		pim_if_membership_refresh(ifp);
-	}
+	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
+		 FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_rebalance_xpath, "/ecmp-rebalance",
+		sizeof(ecmp_rebalance_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, ecmp_rebalance_xpath, NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (interface_ip_igmp,
@@ -7581,9 +8018,9 @@ DEFUN (interface_ip_igmp,
        IP_STR
        IFACE_IGMP_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
 
-	return pim_cmd_igmp_start(vty, ifp);
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp,
@@ -7593,23 +8030,28 @@ DEFUN (interface_no_ip_igmp,
        IP_STR
        IFACE_IGMP_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *pim_enable_dnode;
+	char pim_if_xpath[XPATH_MAXLEN + 20];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
+		 "%s/frr-pim:pim", VTY_CURR_XPATH);
 
-	PIM_IF_DONT_IGMP(pim_ifp->options);
-
-	pim_if_membership_clear(ifp);
-
-	pim_if_addr_del_all_igmp(ifp);
-
-	if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
-		pim_if_delete(ifp);
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					  "%s/pim-enable", pim_if_xpath);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY,
+					      NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					      NB_OP_MODIFY, "false");
 	}
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_join,
@@ -7621,46 +8063,28 @@ DEFUN (interface_ip_igmp_join,
        "Multicast group address\n"
        "Source address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = 3;
-	int idx_ipv4_2 = 4;
-	const char *group_str;
+	int idx_group = 3;
+	int idx_source = 4;
 	const char *source_str;
-	struct in_addr group_addr;
-	struct in_addr source_addr;
-	int result;
+	char xpath[XPATH_MAXLEN];
 
-	/* Group address */
-	group_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, group_str, &group_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", group_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (argc == 5) {
+		source_str = argv[idx_source]->arg;
 
-	/* Source address */
-	if (argc == (idx_ipv4_2 + 1)) {
-		source_str = argv[idx_ipv4_2]->arg;
-		result = inet_pton(AF_INET, source_str, &source_addr);
-		if (result <= 0) {
-			vty_out(vty, "Bad source address %s: errno=%d: %s\n",
-				source_str, errno, safe_strerror(errno));
+		if (strcmp(source_str, "0.0.0.0") == 0) {
+			vty_out(vty, "Bad source address %s\n",
+				argv[idx_source]->arg);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		/* Reject 0.0.0.0. Reserved for any source. */
-		if (source_addr.s_addr == INADDR_ANY) {
-			vty_out(vty, "Bad source address %s\n", source_str);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else {
-		source_addr.s_addr = INADDR_ANY;
-	}
+	} else
+		source_str = "0.0.0.0";
 
-	CMD_FERR_RETURN(pim_if_igmp_join_add(ifp, group_addr, source_addr),
-			"Failure joining IGMP group: $ERR");
+	snprintf(xpath, sizeof(xpath), FRR_IGMP_JOIN_XPATH,
+		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (interface_no_ip_igmp_join,
@@ -7673,189 +8097,29 @@ DEFUN (interface_no_ip_igmp_join,
        "Multicast group address\n"
        "Source address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = 4;
-	int idx_ipv4_2 = 5;
-	const char *group_str;
+	int idx_group = 4;
+	int idx_source = 5;
 	const char *source_str;
-	struct in_addr group_addr;
-	struct in_addr source_addr;
-	int result;
+	char xpath[XPATH_MAXLEN];
 
-	/* Group address */
-	group_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, group_str, &group_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", group_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (argc == 6) {
+		source_str = argv[idx_source]->arg;
 
-	/* Source address */
-	if (argc == (idx_ipv4_2 + 1)) {
-		source_str = argv[idx_ipv4_2]->arg;
-		result = inet_pton(AF_INET, source_str, &source_addr);
-		if (result <= 0) {
-			vty_out(vty, "Bad source address %s: errno=%d: %s\n",
-				source_str, errno, safe_strerror(errno));
+		if (strcmp(source_str, "0.0.0.0") == 0) {
+			vty_out(vty, "Bad source address %s\n",
+				argv[idx_source]->arg);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		/* Reject 0.0.0.0. Reserved for any source. */
-		if (source_addr.s_addr == INADDR_ANY) {
-			vty_out(vty, "Bad source address %s\n", source_str);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else {
-		source_str = "*";
-		source_addr.s_addr = INADDR_ANY;
-	}
+	} else
+		source_str = "0.0.0.0";
 
-	result = pim_if_igmp_join_del(ifp, group_addr, source_addr);
-	if (result) {
-		vty_out(vty,
-			"%% Failure leaving IGMP group %s source %s on interface %s: %d\n",
-			group_str, source_str, ifp->name, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(xpath, sizeof(xpath), FRR_IGMP_JOIN_XPATH,
+		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
-
-/*
-  CLI reconfiguration affects the interface level (struct pim_interface).
-  This function propagates the reconfiguration to every active socket
-  for that interface.
- */
-static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
-{
-	struct interface *ifp;
-	struct pim_interface *pim_ifp;
-
-	zassert(igmp);
-
-	/* other querier present? */
-
-	if (igmp->t_other_querier_timer)
-		return;
-
-	/* this is the querier */
-
-	zassert(igmp->interface);
-	zassert(igmp->interface->info);
-
-	ifp = igmp->interface;
-	pim_ifp = ifp->info;
-
-	if (PIM_DEBUG_IGMP_TRACE) {
-		char ifaddr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-			       sizeof(ifaddr_str));
-		zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
-			   __func__, ifaddr_str, ifp->name,
-			   pim_ifp->igmp_default_query_interval);
-	}
-
-	/*
-	  igmp_startup_mode_on() will reset QQI:
-
-	  igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
-	*/
-	igmp_startup_mode_on(igmp);
-}
-
-static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
-{
-	if (igmp->mtrace_only)
-		return;
-
-	if (igmp->t_igmp_query_timer) {
-		/* other querier present */
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
-
-		pim_igmp_general_query_off(igmp);
-		pim_igmp_general_query_on(igmp);
-
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
-	} else {
-		/* this is the querier */
-
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
-
-		pim_igmp_other_querier_timer_off(igmp);
-		pim_igmp_other_querier_timer_on(igmp);
-
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
-	}
-}
-
-static void change_query_interval(struct pim_interface *pim_ifp,
-				  int query_interval)
-{
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-
-	pim_ifp->igmp_default_query_interval = query_interval;
-
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		igmp_sock_query_interval_reconfig(igmp);
-		igmp_sock_query_reschedule(igmp);
-	}
-}
-
-static void change_query_max_response_time(struct pim_interface *pim_ifp,
-					   int query_max_response_time_dsec)
-{
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-
-	pim_ifp->igmp_query_max_response_time_dsec =
-		query_max_response_time_dsec;
-
-	/*
-	  Below we modify socket/group/source timers in order to quickly
-	  reflect the change. Otherwise, those timers would eventually catch
-	  up.
-	 */
-
-	/* scan all sockets */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		struct listnode *grp_node;
-		struct igmp_group *grp;
-
-		/* reschedule socket general query */
-		igmp_sock_query_reschedule(igmp);
-
-		/* scan socket groups */
-		for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grp_node,
-					  grp)) {
-			struct listnode *src_node;
-			struct igmp_source *src;
-
-			/* reset group timers for groups in EXCLUDE mode */
-			if (grp->group_filtermode_isexcl) {
-				igmp_group_reset_gmi(grp);
-			}
-
-			/* scan group sources */
-			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						  src_node, src)) {
-
-				/* reset source timers for sources with running
-				 * timers */
-				if (src->t_source_timer) {
-					igmp_source_reset_gmi(igmp, grp, src);
-				}
-			}
-		}
-	}
-}
-
-#define IGMP_QUERY_INTERVAL_MIN (1)
-#define IGMP_QUERY_INTERVAL_MAX (1800)
 
 DEFUN (interface_ip_igmp_query_interval,
        interface_ip_igmp_query_interval_cmd,
@@ -7865,50 +8129,24 @@ DEFUN (interface_ip_igmp_query_interval,
        IFACE_IGMP_QUERY_INTERVAL_STR
        "Query interval in seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int query_interval;
-	int query_interval_dsec;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					  "%s/frr-pim:pim/pim-enable",
+					  VTY_CURR_XPATH);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				      "true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					      NB_OP_MODIFY, "true");
 	}
 
-	query_interval = atoi(argv[3]->arg);
-	query_interval_dsec = 10 * query_interval;
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
+			      argv[3]->arg);
 
-	/*
-	  It seems we don't need to check bounds since command.c does it
-	  already, but we verify them anyway for extra safety.
-	*/
-	if (query_interval < IGMP_QUERY_INTERVAL_MIN) {
-		vty_out(vty,
-			"General query interval %d lower than minimum %d\n",
-			query_interval, IGMP_QUERY_INTERVAL_MIN);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (query_interval > IGMP_QUERY_INTERVAL_MAX) {
-		vty_out(vty,
-			"General query interval %d higher than maximum %d\n",
-			query_interval, IGMP_QUERY_INTERVAL_MAX);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (query_interval_dsec <= pim_ifp->igmp_query_max_response_time_dsec) {
-		vty_out(vty,
-			"Can't set general query interval %d dsec <= query max response time %d dsec.\n",
-			query_interval_dsec,
-			pim_ifp->igmp_query_max_response_time_dsec);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	change_query_interval(pim_ifp, query_interval);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_query_interval,
@@ -7919,27 +8157,15 @@ DEFUN (interface_no_ip_igmp_query_interval,
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_INTERVAL_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int default_query_interval_dsec;
+	char default_query_interval[5];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_query_interval, sizeof(default_query_interval), "%d",
+		 IGMP_GENERAL_QUERY_INTERVAL);
 
-	default_query_interval_dsec = IGMP_GENERAL_QUERY_INTERVAL * 10;
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
+			      default_query_interval);
 
-	if (default_query_interval_dsec
-	    <= pim_ifp->igmp_query_max_response_time_dsec) {
-		vty_out(vty,
-			"Can't set default general query interval %d dsec <= query max response time %d dsec.\n",
-			default_query_interval_dsec,
-			pim_ifp->igmp_query_max_response_time_dsec);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	change_query_interval(pim_ifp, IGMP_GENERAL_QUERY_INTERVAL);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_version,
@@ -7950,36 +8176,11 @@ DEFUN (interface_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int igmp_version, old_version = 0;
-	int ret;
+	nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+			      "true");
+	nb_cli_enqueue_change(vty, "./version", NB_OP_MODIFY, argv[3]->arg);
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
-	}
-
-	igmp_version = atoi(argv[3]->arg);
-	old_version = pim_ifp->igmp_version;
-	pim_ifp->igmp_version = igmp_version;
-
-	// Check if IGMP is Enabled otherwise, enable on interface
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		PIM_IF_DO_IGMP(pim_ifp->options);
-		pim_if_addr_add_all(ifp);
-		pim_if_membership_refresh(ifp);
-		old_version = igmp_version;
-		// avoid refreshing membership again.
-	}
-	/* Current and new version is different refresh existing
-	   membership. Going from 3 -> 2 or 2 -> 3. */
-	if (old_version != igmp_version)
-		pim_if_membership_refresh(ifp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_version,
@@ -7991,19 +8192,10 @@ DEFUN (interface_no_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./version", NB_OP_DESTROY, NULL);
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
-
-	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
-
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC (10)
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MAX_DSEC (250)
 
 DEFUN (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
@@ -8013,32 +8205,25 @@ DEFUN (interface_ip_igmp_query_max_response_time,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        "Query response value in deci-seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int query_max_response_time;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					  "%s/frr-pim:pim/pim-enable",
+					  VTY_CURR_XPATH);
+
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				      "true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					      NB_OP_MODIFY, "true");
 	}
 
-	query_max_response_time = atoi(argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
+			      argv[3]->arg);
 
-	if (query_max_response_time
-	    >= pim_ifp->igmp_default_query_interval * 10) {
-		vty_out(vty,
-			"Can't set query max response time %d sec >= general query interval %d sec\n",
-			query_max_response_time,
-			pim_ifp->igmp_default_query_interval);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	change_query_max_response_time(pim_ifp, query_max_response_time);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
@@ -8050,20 +8235,16 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        "Time for response in deci-seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_query_max_response_time[4];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_query_max_response_time,
+		 sizeof(default_query_max_response_time),
+		 "%d", IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
 
-	change_query_max_response_time(pim_ifp,
-				       IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
+			      default_query_max_response_time);
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
-
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC (10)
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MAX_DSEC (250)
 
 DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      interface_ip_igmp_query_max_response_time_dsec_cmd,
@@ -8073,34 +8254,24 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
 	      "Query response value in deciseconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int query_max_response_time_dsec;
-	int default_query_interval_dsec;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					  "%s/frr-pim:pim/pim-enable",
+					  VTY_CURR_XPATH);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				      "true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					      NB_OP_MODIFY, "true");
 	}
 
-	query_max_response_time_dsec = atoi(argv[4]->arg);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
+			      argv[3]->arg);
 
-	default_query_interval_dsec = 10 * pim_ifp->igmp_default_query_interval;
-
-	if (query_max_response_time_dsec >= default_query_interval_dsec) {
-		vty_out(vty,
-			"Can't set query max response time %d dsec >= general query interval %d dsec\n",
-			query_max_response_time_dsec,
-			default_query_interval_dsec);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	change_query_max_response_time(pim_ifp, query_max_response_time_dsec);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
@@ -8111,20 +8282,17 @@ DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	      IFACE_IGMP_STR
 	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_query_max_response_time[4];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_query_max_response_time,
+		 sizeof(default_query_max_response_time),
+		 "%d", IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
 
-	change_query_max_response_time(pim_ifp,
-				       IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
+			      default_query_max_response_time);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
-
-#define IGMP_LAST_MEMBER_QUERY_COUNT_MIN (1)
-#define IGMP_LAST_MEMBER_QUERY_COUNT_MAX (7)
 
 DEFUN (interface_ip_igmp_last_member_query_count,
        interface_ip_igmp_last_member_query_count_cmd,
@@ -8134,23 +8302,24 @@ DEFUN (interface_ip_igmp_last_member_query_count,
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
        "Last member query count\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int last_member_query_count;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					  "%s/frr-pim:pim/pim-enable",
+					  VTY_CURR_XPATH);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				      "true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					      NB_OP_MODIFY, "true");
 	}
 
-	last_member_query_count = atoi(argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
+			      argv[3]->arg);
 
-	pim_ifp->igmp_last_member_query_count = last_member_query_count;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
@@ -8161,20 +8330,16 @@ DEFUN (interface_no_ip_igmp_last_member_query_count,
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_robustness[2];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_robustness, sizeof(default_robustness), "%d",
+		 IGMP_DEFAULT_ROBUSTNESS_VARIABLE);
 
-	pim_ifp->igmp_last_member_query_count =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
+			      default_robustness);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
-
-#define IGMP_LAST_MEMBER_QUERY_INTERVAL_MIN (1)
-#define IGMP_LAST_MEMBER_QUERY_INTERVAL_MAX (255)
 
 DEFUN (interface_ip_igmp_last_member_query_interval,
        interface_ip_igmp_last_member_query_interval_cmd,
@@ -8184,23 +8349,24 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
        "Last member query interval in deciseconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int last_member_query_interval;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					  "%s/frr-pim:pim/pim-enable",
+					  VTY_CURR_XPATH);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				      "true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					      NB_OP_MODIFY, "true");
 	}
 
-	last_member_query_interval = atoi(argv[3]->arg);
-	pim_ifp->igmp_specific_query_max_response_time_dsec
-		= last_member_query_interval;
+	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
+			      argv[3]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_interval,
@@ -8211,16 +8377,16 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_last_member_query_count[4];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_last_member_query_count,
+		 sizeof(default_last_member_query_count),
+		 "%d", IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC);
 
-	pim_ifp->igmp_specific_query_max_response_time_dsec =
-		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
+			      default_last_member_query_count);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_pim_drprio,
@@ -8231,26 +8397,12 @@ DEFUN (interface_ip_pim_drprio,
        "Set the Designated Router Election Priority\n"
        "Value of the new DR Priority\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
-	struct pim_interface *pim_ifp = ifp->info;
-	uint32_t old_dr_prio;
 
-	if (!pim_ifp) {
-		vty_out(vty, "Please enable PIM on interface, first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
+			      argv[idx_number]->arg);
 
-	old_dr_prio = pim_ifp->pim_dr_priority;
-
-	pim_ifp->pim_dr_priority = strtol(argv[idx_number]->arg, NULL, 10);
-
-	if (old_dr_prio != pim_ifp->pim_dr_priority) {
-		pim_if_dr_election(ifp);
-		pim_hello_restart_now(ifp);
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_no_ip_pim_drprio,
@@ -8262,31 +8414,25 @@ DEFUN (interface_no_ip_pim_drprio,
        "Revert the Designated Router Priority to default\n"
        "Old Value of the Priority\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_priority[10];
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(default_priority, sizeof(default_priority), "%d",
+		 PIM_DEFAULT_DR_PRIORITY);
 
-	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
-		pim_ifp->pim_dr_priority = PIM_DEFAULT_DR_PRIORITY;
-		pim_if_dr_election(ifp);
-		pim_hello_restart_now(ifp);
-	}
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
+			      default_priority);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFPY_HIDDEN (interface_ip_igmp_query_generate,
-       interface_ip_igmp_query_generate_cmd,
-       "ip igmp generate-query-once [version (2-3)]",
-       IP_STR
-       IFACE_IGMP_STR
-       "Generate igmp general query once\n"
-       "IGMP version\n"
-       "IGMP version number\n")
+	      interface_ip_igmp_query_generate_cmd,
+	      "ip igmp generate-query-once [version (2-3)]",
+	      IP_STR
+	      IFACE_IGMP_STR
+	      "Generate igmp general query once\n"
+	      "IGMP version\n"
+	      "IGMP version number\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int igmp_version = 2;
@@ -8303,30 +8449,6 @@ DEFPY_HIDDEN (interface_ip_igmp_query_generate,
 	igmp_send_query_on_intf(ifp, igmp_version);
 
 	return CMD_SUCCESS;
-}
-
-static int pim_cmd_interface_add(struct vty *vty, struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-	struct pim_instance *pim;
-
-	if (!pim_ifp) {
-		pim = pim_get_pim_instance(ifp->vrf_id);
-		/* Limiting mcast interfaces to number of VIFs */
-		if (pim->mcast_if_count == MAXVIFS) {
-			vty_out(vty, "Max multicast interfaces(%d) reached.",
-				MAXVIFS);
-			return 0;
-		}
-		pim_ifp = pim_if_new(ifp, false, true, false, false);
-	} else
-		PIM_IF_DO_PIM(pim_ifp->options);
-
-	pim_if_addr_add_all(ifp);
-	pim_if_membership_refresh(ifp);
-
-	pim_if_create_pimreg(pim_ifp->pim);
-	return 1;
 }
 
 DEFPY_HIDDEN (pim_test_sg_keepalive,
@@ -8387,77 +8509,52 @@ DEFPY (interface_ip_pim_activeactive,
        PIM_STR
        "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp;
+	if (no)
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
+				      "false");
+	else {
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
 
-	if (!no && !pim_cmd_interface_add(vty, ifp)) {
-		vty_out(vty,
-			"Could not enable PIM SM active-active on interface %s\n",
-			ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
+				      "true");
 	}
 
-
-	if (PIM_DEBUG_MLAG)
-		zlog_debug("%sConfiguring PIM active-active on Interface: %s",
-			   no ? "Un-" : " ", ifp->name);
-
-	pim_ifp = ifp->info;
-	if (no)
-		pim_if_unconfigure_mlag_dualactive(pim_ifp);
-	else
-		pim_if_configure_mlag_dualactive(pim_ifp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_ip_pim_ssm,
-       interface_ip_pim_ssm_cmd,
-       "ip pim ssm",
-       IP_STR
-       PIM_STR
-       IFACE_PIM_STR)
+	      interface_ip_pim_ssm_cmd,
+	      "ip pim ssm",
+	      IP_STR
+	      PIM_STR
+	      IFACE_PIM_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int ret;
 
-	if (!pim_cmd_interface_add(vty, ifp)) {
-		vty_out(vty, "Could not enable PIM SM on interface %s\n",
-			ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
+
+	ret = nb_cli_apply_changes(vty, "./frr-pim:pim");
+
+	if (ret != NB_OK)
+		return ret;
 
 	vty_out(vty,
 		"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
-	return CMD_SUCCESS;
-}
 
-static int interface_ip_pim_helper(struct vty *vty)
-{
-	struct pim_interface *pim_ifp;
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	if (!pim_cmd_interface_add(vty, ifp)) {
-		vty_out(vty, "Could not enable PIM SM on interface %s\n",
-			ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	pim_ifp = ifp->info;
-
-	pim_if_create_pimreg(pim_ifp->pim);
-
-	return CMD_SUCCESS;
+	return NB_OK;
 }
 
 DEFUN_HIDDEN (interface_ip_pim_sm,
-       interface_ip_pim_sm_cmd,
-       "ip pim sm",
-       IP_STR
-       PIM_STR
-       IFACE_PIM_SM_STR)
+	      interface_ip_pim_sm_cmd,
+	      "ip pim sm",
+	      IP_STR
+	      PIM_STR
+	      IFACE_PIM_SM_STR)
 {
-	return interface_ip_pim_helper(vty);
+	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_ip_pim,
@@ -8466,65 +8563,73 @@ DEFUN (interface_ip_pim,
        IP_STR
        PIM_STR)
 {
-	return interface_ip_pim_helper(vty);
-}
+	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
 
-static int pim_cmd_interface_delete(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (!pim_ifp)
-		return 1;
-
-	PIM_IF_DONT_PIM(pim_ifp->options);
-
-	pim_if_membership_clear(ifp);
-
-	/*
-	  pim_sock_delete() removes all neighbors from
-	  pim_ifp->pim_neighbor_list.
-	 */
-	pim_sock_delete(ifp, "pim unconfigured on interface");
-
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		pim_if_addr_del_all(ifp);
-		pim_if_delete(ifp);
-	}
-
-	return 1;
-}
-
-static int interface_no_ip_pim_helper(struct vty *vty)
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	if (!pim_cmd_interface_delete(ifp)) {
-		vty_out(vty, "Unable to delete interface information\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_ssm,
-       interface_no_ip_pim_ssm_cmd,
-       "no ip pim ssm",
-       NO_STR
-       IP_STR
-       PIM_STR
-       IFACE_PIM_STR)
+	      interface_no_ip_pim_ssm_cmd,
+	      "no ip pim ssm",
+	      NO_STR
+	      IP_STR
+	      PIM_STR
+	      IFACE_PIM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+	const struct lyd_node *igmp_enable_dnode;
+	char igmp_if_xpath[XPATH_MAXLEN + 20];
+
+	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/igmp-enable", igmp_if_xpath);
+
+	if (!igmp_enable_dnode) {
+		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
+					      NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "false");
+	}
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_sm,
-       interface_no_ip_pim_sm_cmd,
-       "no ip pim sm",
-       NO_STR
-       IP_STR
-       PIM_STR
-       IFACE_PIM_SM_STR)
+	      interface_no_ip_pim_sm_cmd,
+	      "no ip pim sm",
+	      NO_STR
+	      IP_STR
+	      PIM_STR
+	      IFACE_PIM_SM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+	const struct lyd_node *igmp_enable_dnode;
+	char igmp_if_xpath[XPATH_MAXLEN + 20];
+
+	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/igmp-enable", igmp_if_xpath);
+
+	if (!igmp_enable_dnode) {
+		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
+					      NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "false");
+	}
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_no_ip_pim,
@@ -8534,7 +8639,28 @@ DEFUN (interface_no_ip_pim,
        IP_STR
        PIM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+	const struct lyd_node *igmp_enable_dnode;
+	char igmp_if_xpath[XPATH_MAXLEN + 20];
+
+	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/igmp-enable", igmp_if_xpath);
+
+	if (!igmp_enable_dnode) {
+		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
+					      NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "false");
+	}
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 /* boundaries */
@@ -8547,22 +8673,13 @@ DEFUN(interface_ip_pim_boundary_oil,
       "Filter OIL by group using prefix list\n"
       "Prefix list to filter OIL with\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	int idx = 0;
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_MODIFY,
+			      argv[4]->arg);
 
-	argv_find(argv, argc, "WORD", &idx);
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-
-	if (pim_ifp->boundary_oil_plist)
-		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
-	pim_ifp->boundary_oil_plist =
-		XSTRDUP(MTYPE_PIM_INTERFACE, argv[idx]->arg);
-
-	/* Interface will be pruned from OIL on next Join */
-	return CMD_SUCCESS;
 }
 
 DEFUN(interface_no_ip_pim_boundary_oil,
@@ -8575,18 +8692,12 @@ DEFUN(interface_no_ip_pim_boundary_oil,
       "Filter OIL by group using prefix list\n"
       "Prefix list to filter OIL with\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	int idx = 0;
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_DESTROY,
+			      NULL);
 
-	argv_find(argv, argc, "WORD", &idx);
-
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-
-	if (pim_ifp->boundary_oil_plist)
-		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_mroute,
@@ -8598,56 +8709,22 @@ DEFUN (interface_ip_mroute,
        "Group address\n"
        "Source address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
 	int idx_interface = 2;
 	int idx_ipv4 = 3;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	const char *src_str;
-	struct in_addr src_addr;
-	int result;
+	const char *source_str;
 
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
+	if (argc == (idx_ipv4 + 1))
+		source_str = "0.0.0.0";
+	else
+		source_str = argv[idx_ipv4 + 1]->arg;
 
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
-	}
+	nb_cli_enqueue_change(vty, "./oif", NB_OP_MODIFY,
+			      argv[idx_interface]->arg);
 
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-        if (argc == (idx_ipv4 + 1)) {
-                src_addr.s_addr = INADDR_ANY;
-        }
-        else {
-                src_str = argv[idx_ipv4 + 1]->arg;
-                result = inet_pton(AF_INET, src_str, &src_addr);
-                if (result <= 0) {
-                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-                                errno, safe_strerror(errno));
-                        return CMD_WARNING;
-                }
-        }
-
-	if (pim_static_add(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to add static mroute\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']/mroute[source-addr='%s'][group-addr='%s']",
+				    "frr-routing:ipv4", source_str,
+				    argv[idx_ipv4]->arg);
 }
 
 DEFUN (interface_no_ip_mroute,
@@ -8660,56 +8737,20 @@ DEFUN (interface_no_ip_mroute,
        "Group Address\n"
        "Source Address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	int idx_interface = 3;
 	int idx_ipv4 = 4;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	const char *src_str;
-	struct in_addr src_addr;
-	int result;
+	const char *source_str;
 
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
+	if (argc == (idx_ipv4 + 1))
+		source_str = "0.0.0.0";
+	else
+		source_str = argv[idx_ipv4 + 1]->arg;
 
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
-	}
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-        if (argc == (idx_ipv4 + 1)) {
-                src_addr.s_addr = INADDR_ANY;
-        }
-        else {
-                src_str = argv[idx_ipv4 + 1]->arg;
-                result = inet_pton(AF_INET, src_str, &src_addr);
-                if (result <= 0) {
-                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-                                errno, safe_strerror(errno));
-                        return CMD_WARNING;
-                }
-        }
-
-	if (pim_static_del(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to remove static mroute\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']/mroute[source-addr='%s'][group-addr='%s']",
+				    "frr-routing:ipv4", source_str,
+				    argv[idx_ipv4]->arg);
 }
 
 DEFUN (interface_ip_pim_hello,
@@ -8721,28 +8762,30 @@ DEFUN (interface_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_time = 3;
 	int idx_hold = 4;
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *igmp_enable_dnode;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/frr-igmp:igmp/igmp-enable",
+					   VTY_CURR_XPATH);
+	if (!igmp_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	} else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
 	}
 
-	pim_ifp = ifp->info;
-	pim_ifp->pim_hello_period = strtol(argv[idx_time]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY,
+			      argv[idx_time]->arg);
 
 	if (argc == idx_hold + 1)
-		pim_ifp->pim_default_holdtime =
-			strtol(argv[idx_hold]->arg, NULL, 10);
+		nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_MODIFY,
+				      argv[idx_hold]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_no_ip_pim_hello,
@@ -8755,18 +8798,16 @@ DEFUN (interface_no_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char hello_default_timer[3];
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(hello_default_timer, sizeof(hello_default_timer), "%d",
+		 PIM_DEFAULT_HELLO_PERIOD);
 
-	pim_ifp->pim_hello_period = PIM_DEFAULT_HELLO_PERIOD;
-	pim_ifp->pim_default_holdtime = -1;
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY,
+			      hello_default_timer);
+	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (debug_igmp,
@@ -9403,40 +9444,6 @@ DEFUN_NOSH (show_debugging_pim,
 	return CMD_SUCCESS;
 }
 
-static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
-{
-	int result;
-	struct in_addr source_addr;
-	int ret = CMD_SUCCESS;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	result = inet_pton(AF_INET, source, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", source,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_update_source_set(ifp, source_addr);
-	switch (result) {
-	case PIM_SUCCESS:
-		break;
-	case PIM_IFACE_NOT_FOUND:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "Pim not enabled on this interface\n");
-		break;
-	case PIM_UPDATE_SOURCE_DUP:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% Source already set to %s\n", source);
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Source set failed\n");
-	}
-
-	return ret;
-}
-
 DEFUN (interface_pim_use_source,
        interface_pim_use_source_cmd,
        "ip pim use-source A.B.C.D",
@@ -9445,7 +9452,11 @@ DEFUN (interface_pim_use_source,
        "Configure primary IP address\n"
        "source ip address\n")
 {
-	return interface_pim_use_src_cmd_worker(vty, argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./use-source", NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_pim_use_source,
@@ -9457,7 +9468,11 @@ DEFUN (interface_no_pim_use_source,
        "Delete source IP address\n"
        "source ip address\n")
 {
-	return interface_pim_use_src_cmd_worker(vty, "0.0.0.0");
+	nb_cli_enqueue_change(vty, "./use-source", NB_OP_MODIFY, "0.0.0.0");
+
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 DEFUN (ip_pim_bfd,
@@ -9467,27 +9482,50 @@ DEFUN (ip_pim_bfd,
        PIM_STR
        "Enables BFD support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
 	struct bfd_info *bfd_info = NULL;
+	char default_rx_interval[5];
+	char default_tx_interval[5];
+	char default_detect_mult[3];
+	const struct lyd_node *igmp_enable_dnode;
+	char bfd_xpath[XPATH_MAXLEN + 20];
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING;
-		}
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/frr-igmp:igmp/igmp-enable",
+					   VTY_CURR_XPATH);
+	if (!igmp_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
 	}
-	pim_ifp = ifp->info;
 
-	bfd_info = pim_ifp->bfd_info;
+	snprintf(default_rx_interval, sizeof(default_rx_interval), "%d",
+		 BFD_DEF_MIN_RX);
+	snprintf(default_tx_interval, sizeof(default_tx_interval), "%d",
+		 BFD_DEF_MIN_TX);
+	snprintf(default_detect_mult, sizeof(default_detect_mult), "%d",
+		 BFD_DEF_DETECT_MULT);
 
-	if (!bfd_info || !CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
-		pim_bfd_if_param_set(ifp, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-				     BFD_DEF_DETECT_MULT, 1);
+	snprintf(bfd_xpath, sizeof(bfd_xpath), "%s/frr-pim:pim/bfd",
+		 VTY_CURR_XPATH);
+	bfd_info = nb_running_get_entry(NULL, bfd_xpath, false);
 
-	return CMD_SUCCESS;
+	if (!bfd_info ||
+	    !CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+		nb_cli_enqueue_change(vty, "./bfd/min-rx-interval",
+				      NB_OP_MODIFY, default_rx_interval);
+		nb_cli_enqueue_change(vty, "./bfd/min-tx-interval",
+				      NB_OP_MODIFY, default_tx_interval);
+		nb_cli_enqueue_change(vty, "./bfd/detect_mult",
+				      NB_OP_MODIFY,
+				      default_detect_mult);
+
+		return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	}
+
+	return NB_OK;
 }
 
 DEFUN (no_ip_pim_bfd,
@@ -9498,20 +9536,9 @@ DEFUN (no_ip_pim_bfd,
        PIM_STR
        "Disables BFD support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./bfd", NB_OP_DESTROY, NULL);
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	if (pim_ifp->bfd_info) {
-		pim_bfd_reg_dereg_all_nbr(ifp, ZEBRA_BFD_DEST_DEREGISTER);
-		bfd_info_free(&(pim_ifp->bfd_info));
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (ip_pim_bsm,
@@ -9521,22 +9548,23 @@ DEFUN (ip_pim_bsm,
        PIM_STR
        "Enables BSM support on the interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *igmp_enable_dnode;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING;
-		}
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/frr-igmp:igmp/igmp-enable",
+					   VTY_CURR_XPATH);
+	if (!igmp_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
 	}
 
-	pim_ifp = ifp->info;
-	pim_ifp->bsm_enable = true;
+	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (no_ip_pim_bsm,
@@ -9547,17 +9575,9 @@ DEFUN (no_ip_pim_bsm,
        PIM_STR
        "Disables BSM support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "false");
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	pim_ifp->bsm_enable = false;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (ip_pim_ucast_bsm,
@@ -9567,22 +9587,23 @@ DEFUN (ip_pim_ucast_bsm,
        PIM_STR
        "Accept/Send unicast BSM on the interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *igmp_enable_dnode;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING;
-		}
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/frr-igmp:igmp/igmp-enable",
+					   VTY_CURR_XPATH);
+	if (!igmp_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
 	}
 
-	pim_ifp = ifp->info;
-	pim_ifp->ucast_bsm_accept = true;
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (no_ip_pim_ucast_bsm,
@@ -9593,44 +9614,35 @@ DEFUN (no_ip_pim_ucast_bsm,
        PIM_STR
        "Block send/receive unicast BSM on this interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "false");
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	pim_ifp->ucast_bsm_accept = false;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 #if HAVE_BFDD > 0
 DEFUN_HIDDEN(
-       ip_pim_bfd_param,
-       ip_pim_bfd_param_cmd,
-       "ip pim bfd (2-255) (50-60000) (50-60000)",
-       IP_STR
-       PIM_STR
-       "Enables BFD support\n"
-       "Detect Multiplier\n"
-       "Required min receive interval\n"
-       "Desired min transmit interval\n")
+	ip_pim_bfd_param,
+	ip_pim_bfd_param_cmd,
+	"ip pim bfd (2-255) (50-60000) (50-60000)",
+	IP_STR
+	PIM_STR
+	"Enables BFD support\n"
+	"Detect Multiplier\n"
+	"Required min receive interval\n"
+	"Desired min transmit interval\n")
 #else
-DEFUN(
-       ip_pim_bfd_param,
-       ip_pim_bfd_param_cmd,
-       "ip pim bfd (2-255) (50-60000) (50-60000)",
-       IP_STR
-       PIM_STR
-       "Enables BFD support\n"
-       "Detect Multiplier\n"
-       "Required min receive interval\n"
-       "Desired min transmit interval\n")
+	DEFUN(
+		ip_pim_bfd_param,
+		ip_pim_bfd_param_cmd,
+		"ip pim bfd (2-255) (50-60000) (50-60000)",
+		IP_STR
+		PIM_STR
+		"Enables BFD support\n"
+		"Detect Multiplier\n"
+		"Required min receive interval\n"
+		"Desired min transmit interval\n")
 #endif /* HAVE_BFDD */
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
@@ -9638,26 +9650,35 @@ DEFUN(
 	uint32_t tx_val;
 	uint8_t dm_val;
 	int ret;
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *igmp_enable_dnode;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING;
-		}
-	}
-
-	if ((ret = bfd_validate_param(
-		     vty, argv[idx_number]->arg, argv[idx_number_2]->arg,
-		     argv[idx_number_3]->arg, &dm_val, &rx_val, &tx_val))
+	if ((ret = bfd_validate_param(vty, argv[idx_number]->arg,
+				      argv[idx_number_2]->arg,
+				      argv[idx_number_3]->arg, &dm_val, &rx_val,
+				      &tx_val))
 	    != CMD_SUCCESS)
 		return ret;
 
-	pim_bfd_if_param_set(ifp, rx_val, tx_val, dm_val, 0);
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/frr-igmp:igmp/igmp-enable",
+					   VTY_CURR_XPATH);
+	if (!igmp_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
+	}
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./bfd/min-rx-interval", NB_OP_MODIFY,
+			      argv[idx_number_2]->arg);
+	nb_cli_enqueue_change(vty, "./bfd/min-tx-interval", NB_OP_MODIFY,
+			      argv[idx_number_3]->arg);
+	nb_cli_enqueue_change(vty, "./bfd/detect_mult", NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 #if HAVE_BFDD == 0
@@ -9669,92 +9690,47 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Desired min transmit interval\n")
 #endif /* !HAVE_BFDD */
 
-static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
-				   const char *peer, const char *local)
+	DEFUN (ip_msdp_peer,
+	       ip_msdp_peer_cmd,
+	       "ip msdp peer A.B.C.D source A.B.C.D",
+	       IP_STR
+	       CFG_MSDP_STR
+	       "Configure MSDP peer\n"
+	       "peer ip address\n"
+	       "Source address for TCP connection\n"
+	       "local ip address\n")
 {
-	enum pim_msdp_err result;
-	struct in_addr peer_addr;
-	struct in_addr local_addr;
-	int ret = CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char temp_xpath[XPATH_MAXLEN];
+	char msdp_peer_source_xpath[XPATH_MAXLEN];
 
-	result = inet_pton(AF_INET, peer, &peer_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad peer address %s: errno=%d: %s\n", peer,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = inet_pton(AF_INET, local, &local_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", local,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(msdp_peer_source_xpath, sizeof(msdp_peer_source_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	snprintf(temp_xpath, sizeof(temp_xpath),
+		 "/msdp-peer[peer-ip='%s']/source-ip",
+		 argv[3]->arg);
+	strlcat(msdp_peer_source_xpath, temp_xpath,
+		sizeof(msdp_peer_source_xpath));
 
-	result = pim_msdp_peer_add(pim, peer_addr, local_addr, "default",
-				   NULL /* mp_p */);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_PEER_EXISTS:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% Peer exists\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% peer add failed\n");
-	}
+	nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY,
+			      argv[5]->arg);
 
-	return ret;
-}
-
-DEFUN (ip_msdp_peer,
-       ip_msdp_peer_cmd,
-       "ip msdp peer A.B.C.D source A.B.C.D",
-       IP_STR
-       CFG_MSDP_STR
-       "Configure MSDP peer\n"
-       "peer ip address\n"
-       "Source address for TCP connection\n"
-       "local ip address\n")
-{
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_peer_cmd_worker(pim, vty, argv[3]->arg, argv[5]->arg);
-}
-
-static int ip_no_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
-				      const char *peer)
-{
-	enum pim_msdp_err result;
-	struct in_addr peer_addr;
-
-	result = inet_pton(AF_INET, peer, &peer_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad peer address %s: errno=%d: %s\n", peer,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_peer_del(pim, peer_addr);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_PEER:
-		vty_out(vty, "%% Peer does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% peer del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_msdp_peer,
@@ -9766,47 +9742,36 @@ DEFUN (no_ip_msdp_peer,
        "Delete MSDP peer\n"
        "peer ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_no_msdp_peer_cmd_worker(pim, vty, argv[4]->arg);
-}
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char msdp_peer_xpath[XPATH_MAXLEN];
+	char temp_xpath[XPATH_MAXLEN];
 
-static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
-						struct vty *vty, const char *mg,
-						const char *mbr)
-{
-	enum pim_msdp_err result;
-	struct in_addr mbr_ip;
-	int ret = CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = inet_pton(AF_INET, mbr, &mbr_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad member address %s: errno=%d: %s\n", mbr,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(msdp_peer_xpath, sizeof(msdp_peer_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	snprintf(temp_xpath, sizeof(temp_xpath),
+		 "/msdp-peer[peer-ip='%s']",
+		 argv[4]->arg);
 
-	result = pim_msdp_mg_mbr_add(pim, mg, mbr_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_MG_MBR_EXISTS:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% mesh-group member exists\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% member add failed\n");
-	}
+	strlcat(msdp_peer_xpath, temp_xpath, sizeof(msdp_peer_xpath));
 
-	return ret;
+	nb_cli_enqueue_change(vty, msdp_peer_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_msdp_mesh_group_member,
@@ -9819,42 +9784,44 @@ DEFUN (ip_msdp_mesh_group_member,
        "mesh group member\n"
        "peer ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_mesh_group_member_cmd_worker(pim, vty, argv[3]->arg,
-						    argv[5]->arg);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char msdp_mesh_group_name_xpath[XPATH_MAXLEN];
+	char msdp_mesh_group_member_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(msdp_mesh_group_name_xpath, sizeof(msdp_mesh_group_name_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
+		sizeof(msdp_mesh_group_name_xpath));
+	snprintf(msdp_mesh_group_member_xpath,
+		 sizeof(msdp_mesh_group_member_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_group_member_xpath, "/msdp-mesh-group/member-ip",
+		sizeof(msdp_mesh_group_member_xpath));
+
+	nb_cli_enqueue_change(vty, msdp_mesh_group_name_xpath, NB_OP_MODIFY,
+			      argv[3]->arg);
+	nb_cli_enqueue_change(vty, msdp_mesh_group_member_xpath, NB_OP_CREATE,
+			      argv[5]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-static int ip_no_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
-						   struct vty *vty,
-						   const char *mg,
-						   const char *mbr)
-{
-	enum pim_msdp_err result;
-	struct in_addr mbr_ip;
-
-	result = inet_pton(AF_INET, mbr, &mbr_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad member address %s: errno=%d: %s\n", mbr,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_mg_mbr_del(pim, mg, mbr_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	case PIM_MSDP_ERR_NO_MG_MBR:
-		vty_out(vty, "%% mesh-group member does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group member del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
 DEFUN (no_ip_msdp_mesh_group_member,
        no_ip_msdp_mesh_group_member_cmd,
        "no ip msdp mesh-group WORD member A.B.C.D",
@@ -9866,42 +9833,83 @@ DEFUN (no_ip_msdp_mesh_group_member,
        "mesh group member\n"
        "peer ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_no_msdp_mesh_group_member_cmd_worker(pim, vty, argv[4]->arg,
-						       argv[6]->arg);
-}
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char pim_af_xpath[XPATH_MAXLEN];
+	char mesh_group_xpath[XPATH_MAXLEN + 32];
+	char group_member_list_xpath[XPATH_MAXLEN + 64];
+	char group_member_xpath[XPATH_MAXLEN + 128];
+	char source_xpath[XPATH_MAXLEN + 64];
+	char mesh_group_name_xpath[XPATH_MAXLEN + 64];
+	const char *mesh_group_name;
+	const struct lyd_node *member_dnode;
 
-static int ip_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
-						struct vty *vty, const char *mg,
-						const char *src)
-{
-	enum pim_msdp_err result;
-	struct in_addr src_ip;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = inet_pton(AF_INET, src, &src_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", src,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	snprintf(pim_af_xpath, sizeof(pim_af_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+
+	snprintf(mesh_group_xpath, sizeof(mesh_group_xpath),
+		 "%s/msdp-mesh-group", pim_af_xpath);
+
+	snprintf(group_member_list_xpath, sizeof(group_member_list_xpath),
+		 "%s/msdp-mesh-group/member-ip", pim_af_xpath);
+
+	snprintf(group_member_xpath, sizeof(group_member_xpath), "%s[.='%s']",
+		 group_member_list_xpath, argv[6]->arg);
+
+	snprintf(source_xpath, sizeof(source_xpath),
+		 "%s/msdp-mesh-group/source-ip", pim_af_xpath);
+
+	snprintf(mesh_group_name_xpath, sizeof(mesh_group_name_xpath),
+		 "%s/msdp-mesh-group/mesh-group-name", pim_af_xpath);
+
+	if (yang_dnode_exists(running_config->dnode, mesh_group_name_xpath)
+	    == true) {
+		mesh_group_name = yang_dnode_get_string(running_config->dnode,
+							mesh_group_name_xpath);
+		if (strcmp(mesh_group_name, argv[4]->arg)) {
+			vty_out(vty, "%% mesh-group does not exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
-	result = pim_msdp_mg_src_add(pim, mg, src_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		vty_out(vty, "%% source add failed\n");
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      group_member_xpath)) {
+		if (!yang_dnode_exists(vty->candidate_config->dnode,
+				       source_xpath)) {
+			member_dnode = yang_dnode_get(
+				vty->candidate_config->dnode,
+				group_member_xpath);
+			if (yang_is_last_list_dnode(member_dnode)) {
+				nb_cli_enqueue_change(vty, mesh_group_xpath,
+						      NB_OP_DESTROY, NULL);
+				return nb_cli_apply_changes(vty, NULL);
+			}
+			nb_cli_enqueue_change(vty, group_member_list_xpath,
+					      NB_OP_DESTROY, argv[6]->arg);
+			return nb_cli_apply_changes(vty, NULL);
+		}
+		nb_cli_enqueue_change(vty, group_member_list_xpath,
+				      NB_OP_DESTROY, argv[6]->arg);
+		return nb_cli_apply_changes(vty, NULL);
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
+	vty_out(vty, "%% mesh-group member does not exist\n");
 
+	return CMD_SUCCESS;
+}
 
 DEFUN (ip_msdp_mesh_group_source,
        ip_msdp_mesh_group_source_cmd,
@@ -9913,48 +9921,42 @@ DEFUN (ip_msdp_mesh_group_source,
        "mesh group local address\n"
        "source ip address for the TCP connection\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_mesh_group_source_cmd_worker(pim, vty, argv[3]->arg,
-						    argv[5]->arg);
-}
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char msdp_mesh_source_ip_xpath[XPATH_MAXLEN];
+	char msdp_mesh_group_name_xpath[XPATH_MAXLEN];
 
-static int ip_no_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
-						   struct vty *vty,
-						   const char *mg)
-{
-	enum pim_msdp_err result;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = pim_msdp_mg_src_del(pim, mg);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group source del failed\n");
-	}
+	snprintf(msdp_mesh_group_name_xpath, sizeof(msdp_mesh_group_name_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
+		sizeof(msdp_mesh_group_name_xpath));
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
+	snprintf(msdp_mesh_source_ip_xpath, sizeof(msdp_mesh_source_ip_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_source_ip_xpath, "/msdp-mesh-group/source-ip",
+		sizeof(msdp_mesh_source_ip_xpath));
 
-static int ip_no_msdp_mesh_group_cmd_worker(struct pim_instance *pim,
-					    struct vty *vty, const char *mg)
-{
-	enum pim_msdp_err result;
+	nb_cli_enqueue_change(vty, msdp_mesh_group_name_xpath, NB_OP_MODIFY,
+			      argv[3]->arg);
+	nb_cli_enqueue_change(vty, msdp_mesh_source_ip_xpath, NB_OP_MODIFY,
+			      argv[5]->arg);
 
-	result = pim_msdp_mg_del(pim, mg);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group source del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_msdp_mesh_group_source,
@@ -9968,9 +9970,69 @@ DEFUN (no_ip_msdp_mesh_group_source,
        "mesh group source\n"
        "mesh group local address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char msdp_mesh_xpath[XPATH_MAXLEN];
+	char source_xpath[XPATH_MAXLEN];
+	char group_member_xpath[XPATH_MAXLEN];
+	char mesh_group_name_xpath[XPATH_MAXLEN];
+	const char *mesh_group_name;
 
-	return ip_no_msdp_mesh_group_source_cmd_worker(pim, vty, argv[4]->arg);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(msdp_mesh_xpath, sizeof(msdp_mesh_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_xpath, "/msdp-mesh-group", sizeof(msdp_mesh_xpath));
+
+	snprintf(source_xpath, sizeof(source_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(source_xpath, "/msdp-mesh-group/source-ip",
+		sizeof(source_xpath));
+
+	snprintf(group_member_xpath,
+		 sizeof(group_member_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(group_member_xpath, "/msdp-mesh-group/member-ip",
+		sizeof(group_member_xpath));
+
+	snprintf(mesh_group_name_xpath, sizeof(mesh_group_name_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
+		sizeof(mesh_group_name_xpath));
+
+	if (yang_dnode_exists(running_config->dnode, mesh_group_name_xpath)
+	    == true) {
+		mesh_group_name = yang_dnode_get_string(running_config->dnode,
+							mesh_group_name_xpath);
+		if (strcmp(mesh_group_name, argv[4]->arg)) {
+			vty_out(vty, "%% mesh-group does not exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (!yang_dnode_exists(vty->candidate_config->dnode,
+			       group_member_xpath)) {
+		nb_cli_enqueue_change(vty, msdp_mesh_xpath, NB_OP_DESTROY,
+				      NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+	nb_cli_enqueue_change(vty, source_xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_msdp_mesh_group,
@@ -9982,12 +10044,50 @@ DEFUN (no_ip_msdp_mesh_group,
        "Delete MSDP mesh-group\n"
        "mesh group name")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	const char *mesh_group_name;
+	char xpath[XPATH_MAXLEN];
+	char msdp_mesh_xpath[XPATH_MAXLEN];
 
-	if (argc == 5)
-		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, argv[4]->arg);
-	else
-		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, NULL);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+				       VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	if (argc == 5) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_AF_XPATH, "frr-pim:pimd",
+			 "pim", vrfname, "frr-routing:ipv4");
+		strlcat(xpath, "/msdp-mesh-group/mesh-group-name",
+			sizeof(xpath));
+
+		if (yang_dnode_exists(running_config->dnode, xpath) == true) {
+			mesh_group_name =
+				yang_dnode_get_string(running_config->dnode,
+						      xpath);
+
+			if (strcmp(mesh_group_name, argv[4]->arg)) {
+				vty_out(vty, "%% mesh-group does not exist\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
+	}
+
+	snprintf(msdp_mesh_xpath, sizeof(msdp_mesh_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_xpath, "/msdp-mesh-group", sizeof(msdp_mesh_xpath));
+
+	nb_cli_enqueue_change(vty, msdp_mesh_xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void print_empty_json_obj(struct vty *vty)
@@ -10062,7 +10162,7 @@ static void ip_msdp_show_mesh_group(struct pim_instance *pim, struct vty *vty,
 	if (uj) {
 		json_object_object_add(json, mg->mesh_group_name, json_mg_row);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -10170,7 +10270,7 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -10275,7 +10375,7 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -10423,7 +10523,7 @@ static void ip_msdp_show_sa(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -10516,7 +10616,7 @@ static void ip_msdp_show_sa_detail(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -10601,7 +10701,7 @@ static void ip_msdp_show_sa_addr(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -10630,7 +10730,7 @@ static void ip_msdp_show_sa_sg(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -10657,10 +10757,10 @@ DEFUN (show_ip_msdp_sa_sg,
 		return CMD_WARNING;
 
 	char *src_ip = argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx++]->arg
-							      : NULL;
+		: NULL;
 	char *grp_ip = idx < argc && argv_find(argv, argc, "A.B.C.D", &idx)
-			       ? argv[idx]->arg
-			       : NULL;
+		? argv[idx]->arg
+		: NULL;
 
 	if (src_ip && grp_ip)
 		ip_msdp_show_sa_sg(vrf->info, vty, src_ip, grp_ip, uj);
@@ -10690,10 +10790,10 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 	int idx = 2;
 
 	char *src_ip = argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx++]->arg
-							      : NULL;
+		: NULL;
 	char *grp_ip = idx < argc && argv_find(argv, argc, "A.B.C.D", &idx)
-			       ? argv[idx]->arg
-			       : NULL;
+		? argv[idx]->arg
+		: NULL;
 
 	if (uj)
 		vty_out(vty, "{ ");
@@ -10728,7 +10828,7 @@ struct pim_sg_cache_walk_data {
 };
 
 static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
-			 struct pim_sg_cache_walk_data *cwd)
+				    struct pim_sg_cache_walk_data *cwd)
 {
 	struct vty *vty = cwd->vty;
 	json_object *json = cwd->json;
@@ -10745,7 +10845,7 @@ static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
 		oif_name = vxlan_sg->term_oif?vxlan_sg->term_oif->name:"";
 
 	if (cwd->addr_match && (vxlan_sg->sg.src.s_addr != cwd->addr.s_addr) &&
-			(vxlan_sg->sg.grp.s_addr != cwd->addr.s_addr)) {
+	    (vxlan_sg->sg.grp.s_addr != cwd->addr.s_addr)) {
 		return;
 	}
 	pim_inet4_dump("<src?>", vxlan_sg->sg.src, src_str, sizeof(src_str));
@@ -10756,7 +10856,7 @@ static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
 		if (!cwd->json_group) {
 			cwd->json_group = json_object_new_object();
 			json_object_object_add(json, grp_str,
-					cwd->json_group);
+					       cwd->json_group);
 		}
 
 		json_row = json_object_new_object();
@@ -10771,19 +10871,19 @@ static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
 		json_object_object_add(cwd->json_group, src_str, json_row);
 	} else {
 		vty_out(vty, "%-15s %-15s %-15s %-15s %-5s\n",
-				src_str, grp_str, iif_name, oif_name,
-				installed?"I":"");
+			src_str, grp_str, iif_name, oif_name,
+			installed?"I":"");
 	}
 }
 
 static void pim_show_vxlan_sg_hash_entry(struct hash_bucket *backet, void *arg)
 {
 	pim_show_vxlan_sg_entry((struct pim_vxlan_sg *)backet->data,
-		 (struct pim_sg_cache_walk_data *)arg);
+				(struct pim_sg_cache_walk_data *)arg);
 }
 
 static void pim_show_vxlan_sg(struct pim_instance *pim,
-		struct vty *vty, bool uj)
+			      struct vty *vty, bool uj)
 {
 	json_object *json = NULL;
 	struct pim_sg_cache_walk_data cwd;
@@ -10803,13 +10903,14 @@ static void pim_show_vxlan_sg(struct pim_instance *pim,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
 
 static void pim_show_vxlan_sg_match_addr(struct pim_instance *pim,
-		struct vty *vty, char *addr_str, bool uj)
+					 struct vty *vty, char *addr_str,
+					 bool uj)
 {
 	json_object *json = NULL;
 	struct pim_sg_cache_walk_data cwd;
@@ -10819,7 +10920,7 @@ static void pim_show_vxlan_sg_match_addr(struct pim_instance *pim,
 	result = inet_pton(AF_INET, addr_str, &cwd.addr);
 	if (result <= 0) {
 		vty_out(vty, "Bad address %s: errno=%d: %s\n", addr_str,
-				errno, safe_strerror(errno));
+			errno, safe_strerror(errno));
 		return;
 	}
 
@@ -10838,13 +10939,14 @@ static void pim_show_vxlan_sg_match_addr(struct pim_instance *pim,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
 
 static void pim_show_vxlan_sg_one(struct pim_instance *pim,
-		struct vty *vty, char *src_str, char *grp_str, bool uj)
+				  struct vty *vty, char *src_str, char *grp_str,
+				  bool uj)
 {
 	json_object *json = NULL;
 	struct prefix_sg sg;
@@ -10857,13 +10959,13 @@ static void pim_show_vxlan_sg_one(struct pim_instance *pim,
 	result = inet_pton(AF_INET, src_str, &sg.src);
 	if (result <= 0) {
 		vty_out(vty, "Bad src address %s: errno=%d: %s\n", src_str,
-				errno, safe_strerror(errno));
+			errno, safe_strerror(errno));
 		return;
 	}
 	result = inet_pton(AF_INET, grp_str, &sg.grp);
 	if (result <= 0) {
 		vty_out(vty, "Bad grp address %s: errno=%d: %s\n", grp_str,
-				errno, safe_strerror(errno));
+			errno, safe_strerror(errno));
 		return;
 	}
 
@@ -10893,7 +10995,7 @@ static void pim_show_vxlan_sg_one(struct pim_instance *pim,
 				json_object_boolean_true_add(json, "installed");
 			else
 				json_object_boolean_false_add(json,
-					"installed");
+							      "installed");
 		} else {
 			vty_out(vty, "SG : %s\n", vxlan_sg->sg_str);
 			vty_out(vty, "  Input     : %s\n", iif_name);
@@ -10905,7 +11007,7 @@ static void pim_show_vxlan_sg_one(struct pim_instance *pim,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -10947,7 +11049,7 @@ DEFUN (show_ip_pim_vxlan_sg,
 }
 
 static void pim_show_vxlan_sg_work(struct pim_instance *pim,
-		struct vty *vty, bool uj)
+				   struct vty *vty, bool uj)
 {
 	json_object *json = NULL;
 	struct pim_sg_cache_walk_data cwd;
@@ -10970,7 +11072,7 @@ static void pim_show_vxlan_sg_work(struct pim_instance *pim,
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -11000,86 +11102,108 @@ DEFUN_HIDDEN (show_ip_pim_vxlan_sg_work,
 }
 
 DEFUN_HIDDEN (no_ip_pim_mlag,
-       no_ip_pim_mlag_cmd,
-       "no ip pim mlag",
-       NO_STR
-       IP_STR
-       PIM_STR
-       "MLAG\n")
+	      no_ip_pim_mlag_cmd,
+	      "no ip pim mlag",
+	      NO_STR
+	      IP_STR
+	      PIM_STR
+	      "MLAG\n")
 {
-	struct in_addr addr;
+	char mlag_xpath[XPATH_MAXLEN];
 
-	addr.s_addr = 0;
-	pim_vxlan_mlag_update(true/*mlag_enable*/,
-		false/*peer_state*/, MLAG_ROLE_NONE,
-		NULL/*peerlink*/, &addr);
+	snprintf(mlag_xpath, sizeof(mlag_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_xpath, "/mlag", sizeof(mlag_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, mlag_xpath, NB_OP_DESTROY, NULL);
+
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_HIDDEN (ip_pim_mlag,
-       ip_pim_mlag_cmd,
-       "ip pim mlag INTERFACE role [primary|secondary] state [up|down] addr A.B.C.D",
-       IP_STR
-       PIM_STR
-       "MLAG\n"
-       "peerlink sub interface\n"
-       "MLAG role\n"
-       "MLAG role primary\n"
-       "MLAG role secondary\n"
-       "peer session state\n"
-       "peer session state up\n"
-       "peer session state down\n"
-       "configure PIP\n"
-       "unique ip address\n")
+	      ip_pim_mlag_cmd,
+	      "ip pim mlag INTERFACE role [primary|secondary] state [up|down] addr A.B.C.D",
+	      IP_STR
+	      PIM_STR
+	      "MLAG\n"
+	      "peerlink sub interface\n"
+	      "MLAG role\n"
+	      "MLAG role primary\n"
+	      "MLAG role secondary\n"
+	      "peer session state\n"
+	      "peer session state up\n"
+	      "peer session state down\n"
+	      "configure PIP\n"
+	      "unique ip address\n")
 {
-	struct interface *ifp;
-	const char *peerlink;
-	uint32_t role;
 	int idx;
-	bool peer_state;
-	int result;
-	struct in_addr reg_addr;
+	char mlag_peerlink_rif_xpath[XPATH_MAXLEN];
+	char mlag_my_role_xpath[XPATH_MAXLEN];
+	char mlag_peer_state_xpath[XPATH_MAXLEN];
+	char mlag_reg_address_xpath[XPATH_MAXLEN];
+
+	snprintf(mlag_peerlink_rif_xpath, sizeof(mlag_peerlink_rif_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_peerlink_rif_xpath, "/mlag/peerlink-rif",
+		sizeof(mlag_peerlink_rif_xpath));
 
 	idx = 3;
-	peerlink = argv[idx]->arg;
-	ifp = if_lookup_by_name(peerlink, VRF_DEFAULT);
-	if (!ifp) {
-		vty_out(vty, "No such interface name %s\n", peerlink);
-		return CMD_WARNING;
-	}
+	nb_cli_enqueue_change(vty, mlag_peerlink_rif_xpath, NB_OP_MODIFY,
+			      argv[idx]->arg);
+
+	snprintf(mlag_my_role_xpath, sizeof(mlag_my_role_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_my_role_xpath, "/mlag/my-role",
+		sizeof(mlag_my_role_xpath));
 
 	idx += 2;
 	if (!strcmp(argv[idx]->arg, "primary")) {
-		role = MLAG_ROLE_PRIMARY;
+		nb_cli_enqueue_change(vty, mlag_my_role_xpath, NB_OP_MODIFY,
+				      "MLAG_ROLE_PRIMARY");
+
 	} else if (!strcmp(argv[idx]->arg, "secondary")) {
-		role = MLAG_ROLE_SECONDARY;
+		nb_cli_enqueue_change(vty, mlag_my_role_xpath, NB_OP_MODIFY,
+				      "MLAG_ROLE_SECONDARY");
+
 	} else {
 		vty_out(vty, "unknown MLAG role %s\n", argv[idx]->arg);
 		return CMD_WARNING;
 	}
 
+	snprintf(mlag_peer_state_xpath, sizeof(mlag_peer_state_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_peer_state_xpath, "/mlag/peer-state",
+		sizeof(mlag_peer_state_xpath));
+
 	idx += 2;
 	if (!strcmp(argv[idx]->arg, "up")) {
-		peer_state = true;
+		nb_cli_enqueue_change(vty, mlag_peer_state_xpath, NB_OP_MODIFY,
+				      "true");
+
 	} else if (strcmp(argv[idx]->arg, "down")) {
-		peer_state = false;
+		nb_cli_enqueue_change(vty, mlag_peer_state_xpath, NB_OP_MODIFY,
+				      "false");
+
 	} else {
 		vty_out(vty, "unknown MLAG state %s\n", argv[idx]->arg);
 		return CMD_WARNING;
 	}
 
-	idx += 2;
-	result = inet_pton(AF_INET, argv[idx]->arg, &reg_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad reg address %s: errno=%d: %s\n",
-			argv[idx]->arg,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	pim_vxlan_mlag_update(true, peer_state, role, ifp, &reg_addr);
+	snprintf(mlag_reg_address_xpath, sizeof(mlag_reg_address_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_reg_address_xpath, "/mlag/reg-address",
+		sizeof(mlag_reg_address_xpath));
 
-	return CMD_SUCCESS;
+	idx += 2;
+	nb_cli_enqueue_change(vty, mlag_reg_address_xpath, NB_OP_MODIFY,
+			      argv[idx]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void pim_cmd_init(void)

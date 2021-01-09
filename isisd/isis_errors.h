@@ -27,6 +27,7 @@ enum isis_log_refs {
 	EC_ISIS_PACKET = ISIS_FERR_START,
 	EC_ISIS_CONFIG,
 	EC_ISIS_SID_OVERFLOW,
+	EC_ISIS_SID_COLLISION,
 };
 
 extern void isis_error_init(void);

@@ -1,0 +1,6 @@
+{
+  "192.168.101.2":{
+    "remoteAs":65100,
+    "bgpTimerDelayOpenTimeMsecs":240000
+  }
+}

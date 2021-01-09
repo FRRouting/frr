@@ -212,6 +212,57 @@ DEFUN (frr_version,
 	return CMD_SUCCESS;
 }
 
+static struct call_back {
+	time_t readin_time;
+
+	void (*start_config)(void);
+	void (*end_config)(void);
+} callback;
+
+
+DEFUN_HIDDEN (start_config,
+	      start_config_cmd,
+	      "XFRR_start_configuration",
+	      "The Beginning of Configuration\n")
+{
+	callback.readin_time = monotime(NULL);
+
+	if (callback.start_config)
+		(*callback.start_config)();
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (end_config,
+	      end_config_cmd,
+	      "XFRR_end_configuration",
+	      "The End of Configuration\n")
+{
+	time_t readin_time;
+	char readin_time_str[MONOTIME_STRLEN];
+
+	readin_time = monotime(NULL);
+	readin_time -= callback.readin_time;
+
+	frrtime_to_interval(readin_time, readin_time_str,
+			    sizeof(readin_time_str));
+
+	zlog_info("Configuration Read in Took: %s", readin_time_str);
+
+	if (callback.end_config)
+		(*callback.end_config)();
+
+	return CMD_SUCCESS;
+}
+
+void cmd_init_config_callbacks(void (*start_config_cb)(void),
+			       void (*end_config_cb)(void))
+{
+	callback.start_config = start_config_cb;
+	callback.end_config = end_config_cb;
+}
+
+
 static void defaults_autocomplete(vector comps, struct cmd_token *token)
 {
 	const char **p;
@@ -234,6 +285,9 @@ void lib_cmd_init(void)
 
 	install_element(VIEW_NODE, &show_memory_cmd);
 	install_element(VIEW_NODE, &show_modules_cmd);
+
+	install_element(CONFIG_NODE, &start_config_cmd);
+	install_element(CONFIG_NODE, &end_config_cmd);
 }
 
 /* Stats querying from users */

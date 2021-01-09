@@ -1,5 +1,5 @@
---- rt3/step8/show_mpls_table.ref	2020-09-25 17:53:19.135010448 -0300
-+++ rt3/step9/show_mpls_table.ref	2020-09-25 17:54:36.852027268 -0300
+--- a/rt3/step8/show_mpls_table.ref
++++ b/rt3/step9/show_mpls_table.ref
 @@ -159,13 +159,13 @@
        }
      ]
@@ -31,7 +31,7 @@
        {
          "type":"SR (IS-IS)",
 -        "outLabel":16040,
-+        "outLabel":3,
++        "outLabel":16060,
          "nexthop":"10.0.1.2"
        }
      ]
@@ -63,7 +63,7 @@
        {
          "type":"SR (IS-IS)",
 -        "outLabel":16041,
-+        "outLabel":3,
++        "outLabel":16061,
          "interface":"eth-sw1"
        }
      ]
@@ -94,7 +94,7 @@
      "backupNexthops":[
        {
          "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16060,
 +        "outLabel":16040,
          "nexthop":"10.0.1.2"
        }
@@ -126,7 +126,7 @@
      "backupNexthops":[
        {
          "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16061,
 +        "outLabel":16041,
          "interface":"eth-sw1"
        }

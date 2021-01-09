@@ -136,7 +136,7 @@ static void ospf_ase_complete_direct_routes(struct ospf_route *ro,
 	struct ospf_path *op;
 
 	for (ALL_LIST_ELEMENTS_RO(ro->paths, node, op))
-		if (op->nexthop.s_addr == 0)
+		if (op->nexthop.s_addr == INADDR_ANY)
 			op->nexthop.s_addr = nexthop.s_addr;
 }
 
@@ -191,7 +191,7 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
       return NULL;
     }
 
-  if (al->e[0].fwd_addr.s_addr != 0)
+  if (al->e[0].fwd_addr.s_addr != INADDR_ANY)
     {
       if (IS_DEBUG_OSPF (lsa, LSA))
 	zlog_debug ("ospf_ase_calculate(): Forwarding address is not 0.0.0.0.");

@@ -1,5 +1,5 @@
---- rt1/step8/show_ipv6_route.ref	2020-09-25 17:53:21.239037966 -0300
-+++ rt1/step9/show_ipv6_route.ref	2020-09-25 17:54:38.912054230 -0300
+--- a/rt1/step8/show_ipv6_route.ref
++++ b/rt1/step9/show_ipv6_route.ref
 @@ -81,7 +81,7 @@
            "interfaceName":"eth-sw1",
            "active":true,

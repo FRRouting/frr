@@ -681,7 +681,7 @@ void ospf_route_table_print(struct vty *vty, struct route_table *rt)
 					or->cost);
 				for (ALL_LIST_ELEMENTS_RO(or->paths, pnode,
 							  path))
-					if (path->nexthop.s_addr != 0)
+					if (path->nexthop.s_addr != INADDR_ANY)
 						vty_out(vty, "  -> %pI4\n",
 							&path->nexthop);
 					else

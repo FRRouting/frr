@@ -1,5 +1,5 @@
---- rt2/step2/show_mpls_table.ref	2020-09-25 17:46:56.086013807 -0300
-+++ rt2/step3/show_mpls_table.ref	2020-09-25 17:48:03.994897300 -0300
+--- a/rt2/step2/show_mpls_table.ref
++++ b/rt2/step3/show_mpls_table.ref
 @@ -7,7 +7,23 @@
          "type":"SR (IS-IS)",
          "outLabel":3,

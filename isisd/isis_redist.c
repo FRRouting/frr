@@ -167,8 +167,7 @@ static void isis_redist_update_ext_reach(struct isis_area *area, int level,
 	area_info.metric = redist->metric;
 
 	if (redist->map_name) {
-		map_ret =
-			route_map_apply(redist->map, p, RMAP_ISIS, &area_info);
+		map_ret = route_map_apply(redist->map, p, &area_info);
 		if (map_ret == RMAP_DENYMATCH)
 			area_info.distance = 255;
 	}
@@ -378,6 +377,19 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 			else
 				isis_zebra_redistribute_unset(afi, type);
 		}
+}
+
+void isis_redist_free(struct isis *isis)
+{
+	int i;
+
+	for (i = 0; i < REDIST_PROTOCOL_COUNT; i++) {
+		if (!isis->ext_info[i])
+			continue;
+
+		route_table_finish(isis->ext_info[i]);
+		isis->ext_info[i] = NULL;
+	}
 }
 
 void isis_redist_set(struct isis_area *area, int level, int family, int type,

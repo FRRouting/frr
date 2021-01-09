@@ -494,28 +494,42 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[0]);
 	union sockunion proto_addr, nbma_addr;
+	struct nhrp_cache_config *cc;
 	struct nhrp_cache *c;
+	enum nhrp_cache_type type;
 
 	if (str2sockunion(argv[3]->arg, &proto_addr) < 0
 	    || afi2family(afi) != sockunion_family(&proto_addr))
 		return nhrp_vty_return(vty, NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH);
+
+	if (strmatch(argv[4]->text, "local"))
+		type = NHRP_CACHE_LOCAL;
+	else {
+		if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)
+			return nhrp_vty_return(vty, NHRP_ERR_FAIL);
+		type = NHRP_CACHE_STATIC;
+	}
+	cc = nhrp_cache_config_get(ifp, &proto_addr, 1);
+	if (!cc)
+		return nhrp_vty_return(vty, NHRP_ERR_FAIL);
+	cc->nbma = nbma_addr;
+	cc->type = type;
+	/* gre layer not ready */
+	if (ifp->ifindex == IFINDEX_INTERNAL)
+		return CMD_SUCCESS;
 
 	c = nhrp_cache_get(ifp, &proto_addr, 1);
 	if (!c)
 		return nhrp_vty_return(vty, NHRP_ERR_FAIL);
 
 	c->map = 1;
-	if (strmatch(argv[4]->text, "local")) {
+	if (type == NHRP_CACHE_LOCAL)
 		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0,
 					  NULL);
-	} else {
-		if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)
-			return nhrp_vty_return(vty, NHRP_ERR_FAIL);
+	else
 		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0,
 					  nhrp_peer_get(ifp, &nbma_addr), 0,
 					  NULL);
-	}
-
 	return CMD_SUCCESS;
 }
 
@@ -533,15 +547,22 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[1]);
 	union sockunion proto_addr, nbma_addr;
+	struct nhrp_cache_config *cc;
 	struct nhrp_cache *c;
 
 	if (str2sockunion(argv[4]->arg, &proto_addr) < 0
 	    || afi2family(afi) != sockunion_family(&proto_addr))
 		return nhrp_vty_return(vty, NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH);
 
+	cc = nhrp_cache_config_get(ifp, &proto_addr, 0);
+	if (!cc)
+		return nhrp_vty_return(vty, NHRP_ERR_FAIL);
+	nhrp_cache_config_free(cc);
+
 	c = nhrp_cache_get(ifp, &proto_addr, 0);
+	/* silently return */
 	if (!c || !c->map)
-		return nhrp_vty_return(vty, NHRP_ERR_ENTRY_NOT_FOUND);
+		return CMD_SUCCESS;
 
 	nhrp_cache_update_binding(c, c->cur.type, -1,
 				  nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
@@ -997,23 +1018,19 @@ struct write_map_ctx {
 	const char *aficmd;
 };
 
-static void interface_config_write_nhrp_map(struct nhrp_cache *c, void *data)
+static void interface_config_write_nhrp_map(struct nhrp_cache_config *c, void *data)
 {
 	struct write_map_ctx *ctx = data;
 	struct vty *vty = ctx->vty;
 	char buf[2][SU_ADDRSTRLEN];
 
-	if (!c->map)
-		return;
 	if (sockunion_family(&c->remote_addr) != ctx->family)
 		return;
 
 	vty_out(vty, " %s nhrp map %s %s\n", ctx->aficmd,
 		sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
-		c->cur.type == NHRP_CACHE_LOCAL
-			? "local"
-			: sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
-					sizeof(buf[1])));
+		c->type == NHRP_CACHE_LOCAL
+		? "local" : sockunion2str(&c->nbma, buf[1], sizeof(buf[1])));
 }
 
 static int interface_config_write(struct vty *vty)
@@ -1076,8 +1093,8 @@ static int interface_config_write(struct vty *vty)
 				.family = afi2family(afi),
 				.aficmd = aficmd,
 			};
-			nhrp_cache_foreach(ifp, interface_config_write_nhrp_map,
-					   &mapctx);
+			nhrp_cache_config_foreach(ifp, interface_config_write_nhrp_map,
+						  &mapctx);
 
 			list_for_each_entry(nhs, &ad->nhslist_head,
 					    nhslist_entry)

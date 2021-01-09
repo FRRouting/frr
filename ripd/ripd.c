@@ -462,7 +462,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	if (ri->routemap[RIP_FILTER_IN]) {
 		/* The object should be of the type of rip_info */
 		ret = route_map_apply(ri->routemap[RIP_FILTER_IN],
-				      (struct prefix *)&p, RMAP_RIP, &newinfo);
+				      (struct prefix *)&p, &newinfo);
 
 		if (ret == RMAP_DENYMATCH) {
 			if (IS_RIP_DEBUG_PACKET)
@@ -495,7 +495,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		rte->metric = RIP_METRIC_INFINITY;
 
 	/* Set nexthop pointer. */
-	if (rte->nexthop.s_addr == 0)
+	if (rte->nexthop.s_addr == INADDR_ANY)
 		nexthop = &from->sin_addr;
 	else
 		nexthop = &rte->nexthop;
@@ -592,7 +592,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 			/* Only routes directly connected to an interface
 			 * (nexthop == 0)
 			 * may have a valid NULL distance */
-			if (rinfo->nh.gate.ipv4.s_addr != 0)
+			if (rinfo->nh.gate.ipv4.s_addr != INADDR_ANY)
 				old_dist = old_dist
 						   ? old_dist
 						   : ZEBRA_RIP_DISTANCE_DEFAULT;
@@ -2156,7 +2156,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					memcpy(&classfull, &rp->p,
 					       sizeof(struct prefix_ipv4));
 					apply_classful_mask_ipv4(&classfull);
-					if (rp->p.u.prefix4.s_addr != 0
+					if (rp->p.u.prefix4.s_addr != INADDR_ANY
 					    && classfull.prefixlen
 						       != rp->p.prefixlen)
 						continue;
@@ -2251,7 +2251,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			if (ri->routemap[RIP_FILTER_OUT]) {
 				ret = route_map_apply(
 					ri->routemap[RIP_FILTER_OUT],
-					(struct prefix *)p, RMAP_RIP, rinfo);
+					(struct prefix *)p, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIP_DEBUG_PACKET)
@@ -2267,7 +2267,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			    && rinfo->sub_type != RIP_ROUTE_INTERFACE) {
 				ret = route_map_apply(
 					rip->redist[rinfo->type].route_map.map,
-					(struct prefix *)p, RMAP_RIP, rinfo);
+					(struct prefix *)p, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIP_DEBUG_PACKET)

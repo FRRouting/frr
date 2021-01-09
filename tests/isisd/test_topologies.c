@@ -531,6 +531,34 @@
  * |         +---------------------+         |
  * |         |                     |         |
  * +---------+                     +---------+
+
+ * Test topology 14:
+ * =================
+ *
+ * +---------+              +---------+
+ * |         |              |         |
+ * |   RT1   |              |   RT2   |
+ * |         +--------------+         |
+ * |         |              |         |
+ * +----+----+              +----+----+
+ *      |                        |
+ *      |                        |
+ *      |                        |
+ *      |                   +----+----+
+ *      |                   |         |
+ *      |                   |   RT3   |
+ *      +-------------------+         |
+ *      |                   |         |
+ *      |                   +----+----+
+ *      |                        |
+ *      |                        |50
+ *      |                        |
+ * +----+----+              +----+----+
+ * |         |              |         |
+ * |   RT4   |              |   RT5   |
+ * |         +--------------+         |
+ * |         |              |         |
+ * +---------+              +---------+
  */
 
 struct isis_topology test_topologies[] = {
@@ -3298,6 +3326,158 @@ struct isis_topology test_topologies[] = {
 					},
 				},
 				.flags = F_ISIS_TEST_NODE_SR,
+			},
+		},
+	},
+	{
+		.number = 14,
+		.nodes = {
+			{
+				.hostname = "rt1",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.1",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.networks = {
+					"10.0.255.1/32",
+					"2001:db8::1/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.pseudonode_id = 1,
+						.metric = 10,
+					},
+					{
+						.hostname = "rt2",
+						.metric = 10,
+					},
+				},
+			},
+			{
+				.hostname = "rt2",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.2",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.networks = {
+					"10.0.255.2/32",
+					"2001:db8::2/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.metric = 20,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 10,
+					},
+				},
+			},
+			{
+				.hostname = "rt3",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x03},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.3",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.networks = {
+					"10.0.255.3/32",
+					"2001:db8::3/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.pseudonode_id = 1,
+						.metric = 10,
+					},
+					{
+						.hostname = "rt2",
+						.metric = 10,
+					},
+					{
+						.hostname = "rt5",
+						.metric = 50,
+					},
+				},
+			},
+			{
+				.hostname = "rt4",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x04},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.4",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.networks = {
+					"10.0.255.4/32",
+					"2001:db8::4/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.pseudonode_id = 1,
+						.metric = 10,
+					},
+					{
+						.hostname = "rt5",
+						.metric = 10,
+					},
+				},
+			},
+			{
+				.hostname = "rt5",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x05},
+				.level = IS_LEVEL_1,
+				.router_id = "10.0.255.5",
+				.protocols = {
+					.ipv4 = true,
+					.ipv6 = true,
+				},
+				.networks = {
+					"10.0.255.5/32",
+					"2001:db8::5/128",
+				},
+				.adjacencies = {
+					{
+						.hostname = "rt4",
+						.metric = 10,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 50,
+					},
+				},
+			},
+			{
+				.hostname = "rt1",
+				.sysid = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+				.pseudonode_id = 1,
+				.level = IS_LEVEL_1,
+				.adjacencies = {
+					{
+						.hostname = "rt1",
+						.metric = 0,
+					},
+					{
+						.hostname = "rt3",
+						.metric = 0,
+					},
+					{
+						.hostname = "rt4",
+						.metric = 0,
+					},
+				},
 			},
 		},
 	},

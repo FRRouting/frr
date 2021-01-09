@@ -691,7 +691,7 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 	return 0;
 }
 
-/* If the interface is and es bond member then it must follow EVPN's
+/* If the interface is an es bond member then it must follow EVPN's
  * protodown setting
  */
 static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,

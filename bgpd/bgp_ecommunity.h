@@ -227,7 +227,7 @@ extern struct ecommunity *ecommunity_merge(struct ecommunity *,
 extern struct ecommunity *ecommunity_uniq_sort(struct ecommunity *);
 extern struct ecommunity *ecommunity_intern(struct ecommunity *);
 extern bool ecommunity_cmp(const void *arg1, const void *arg2);
-extern void ecommunity_unintern(struct ecommunity **);
+extern void ecommunity_unintern(struct ecommunity **ecommunity);
 extern unsigned int ecommunity_hash_make(const void *);
 extern struct ecommunity *ecommunity_str2com(const char *, int, int);
 extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,

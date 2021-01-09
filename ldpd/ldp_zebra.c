@@ -51,8 +51,6 @@ static void 	ldp_zebra_opaque_register(void);
 static void 	ldp_zebra_opaque_unregister(void);
 static int 	ldp_sync_zebra_send_announce(void);
 static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
-static void 	ldp_sync_zebra_start_hello_timer(void);
-static int 	ldp_sync_zebra_hello(struct thread *thread);
 static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
@@ -127,8 +125,12 @@ ldp_zebra_opaque_unregister(void)
 int
 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
 {
-        return zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE,
-		(const uint8_t *) state, sizeof(*state));
+	if (zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE,
+				(const uint8_t *)state, sizeof(*state))
+	    == ZCLIENT_SEND_FAILURE)
+		return -1;
+	else
+		return 0;
 }
 
 static int
@@ -137,8 +139,12 @@ ldp_sync_zebra_send_announce(void)
 	struct ldp_igp_sync_announce announce;
 	announce.proto = ZEBRA_ROUTE_LDP;
 
-        return zclient_send_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE,
-		(const uint8_t *) &announce, sizeof(announce));
+	if (zclient_send_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE,
+				(const uint8_t *)&announce, sizeof(announce))
+	    == ZCLIENT_SEND_FAILURE)
+		return -1;
+	else
+		return 0;
 }
 
 static int
@@ -168,38 +174,10 @@ stream_failure:
 }
 
 static void
-ldp_sync_zebra_start_hello_timer(void)
-{
-	thread_add_timer_msec(master, ldp_sync_zebra_hello, NULL, 250, NULL);
-}
-
-static int
-ldp_sync_zebra_hello(struct thread *thread)
-{
-	static unsigned int sequence = 0;
-	struct ldp_igp_sync_hello hello;
-
-	sequence++;
-
-	hello.proto = ZEBRA_ROUTE_LDP;
-	hello.sequence = sequence;
-
-	zclient_send_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE,
-		(const uint8_t *) &hello, sizeof(hello));
-
-	ldp_sync_zebra_start_hello_timer();
-
-	return (0);
-}
-
-static void
 ldp_sync_zebra_init(void)
 {
 	ldp_sync_zebra_send_announce();
-
-	ldp_sync_zebra_start_hello_timer();
 }
-
 
 static int
 ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
@@ -272,7 +250,10 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	znh->label_num = 1;
 	znh->labels[0] = kr->remote_label;
 
-	return zebra_send_mpls_labels(zclient, cmd, &zl);
+	if (zebra_send_mpls_labels(zclient, cmd, &zl) == ZCLIENT_SEND_FAILURE)
+		return -1;
+
+	return 0;
 }
 
 int
@@ -293,7 +274,8 @@ kmpw_add(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (add)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return (zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw));
+	return zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw)
+	       == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -302,7 +284,8 @@ kmpw_del(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (del)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return (zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw));
+	return zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw)
+	       == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -312,7 +295,8 @@ kmpw_set(struct zapi_pw *zpw)
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop),
 	    zpw->local_label, zpw->remote_label);
 
-	return (zebra_send_pw(zclient, ZEBRA_PW_SET, zpw));
+	return zebra_send_pw(zclient, ZEBRA_PW_SET, zpw)
+	       == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -321,7 +305,8 @@ kmpw_unset(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (unset)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return (zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw));
+	return zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw)
+	       == ZCLIENT_SEND_FAILURE;
 }
 
 void

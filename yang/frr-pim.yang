@@ -82,24 +82,17 @@ module frr-pim {
       "A grouping defining pim global attributes.";
 
     leaf ecmp {
-      type empty;
+      type boolean;
+      default "false";
       description
         "Enable PIM ECMP.";
     }
 
     leaf ecmp-rebalance {
-      type empty;
+      type boolean;
+      default "false";
       description
         "Enable PIM ECMP Rebalance.";
-    }
-
-    leaf join-prune-interval {
-      type uint16 {
-        range "60..600";
-      }
-      default "60";
-      description
-        "Join Prune Send Interval in seconds.";
     }
 
     leaf keep-alive-timer {
@@ -119,26 +112,7 @@ module frr-pim {
       description
         "RP keep alive Timer in seconds.";
     }
-
-    leaf packets {
-      type uint8 {
-        range "1..100";
-      }
-      default "3";
-      description
-        "Number of packets to process at one time per fd.";
-    }
-
-    leaf register-suppress-time {
-      type uint16 {
-        range "5..60000";
-      }
-      default "60";
-      description
-        "Register Suppress Timer.";
-    }
   }
-
   grouping per-af-global-pim-config-attributes {
     description
       "A grouping defining per address family pim global attributes";
@@ -148,7 +122,8 @@ module frr-pim {
         description
           "Only applicable to IPv4 address family.";
       }
-      type empty;
+      type boolean;
+      default "true";
       description
         "Send v6 secondary addresses.";
     }
@@ -241,7 +216,7 @@ module frr-pim {
     }
 
     container mlag {
-      description
+      presence
         "Multi-chassis link aggregation.";
 
      leaf peerlink-rif {
@@ -300,22 +275,14 @@ module frr-pim {
       "A grouping defining pim interface attributes.";
 
     leaf pim-enable {
-      type empty;
+      type boolean;
+      default "false";
       description
         "Enable PIM flag on the interface.";
     }
 
-    leaf dr-priority {
-      type uint32 {
-        range "1..4294967295";
-      }
-      default 1;
-      description
-        "DR (Designated Router) priority";
-    }
-
     leaf hello-interval {
-      type uint16 {
+      type uint8 {
         range "1..180";
       }
       default "30";
@@ -324,7 +291,7 @@ module frr-pim {
     }
 
     leaf hello-holdtime {
-      type uint16 {
+      type uint8 {
         range "1..180";
       }
       description
@@ -364,21 +331,33 @@ module frr-pim {
     }
 
     leaf bsm {
-      type empty;
+      type boolean;
+      default "false";
       description
         "Enables BSM support on the interface.";
     }
 
     leaf unicast-bsm {
-      type empty;
+      type boolean;
+      default "false";
       description
         "Accept/Send unicast BSM on the interface.";
     }
 
     leaf active-active {
-      type empty;
+      type boolean;
+      default "false";
       description
         "Mark interface as Active-Active for MLAG operations.";
+    }
+
+    leaf dr-priority {
+      type uint32 {
+        range "1..4294967295";
+      }
+      default 1;
+      description
+        "DR (Designated Router) priority";
     }
   } // interface-pim-config-attributes
 
@@ -455,8 +434,8 @@ module frr-pim {
    */
   augment "/frr-interface:lib/frr-interface:interface" {
     container pim {
-      description
-        "PIM interface parameters.";
+      presence
+        "Configure PIM on an interface.";
       uses interface-pim-config-attributes;
       list address-family {
         key "address-family";
@@ -467,5 +446,33 @@ module frr-pim {
       }
     }
   }
-}
 
+  container pim {
+    description
+      "PIM router parameters.";
+    leaf packets {
+      type uint8 {
+        range "1..100";
+      }
+      default "3";
+      description
+        "Number of packets to process at one time per fd.";
+    }
+    leaf join-prune-interval {
+      type uint16 {
+        range "60..600";
+      }
+      default "60";
+      description
+        "Join Prune Send Interval in seconds.";
+    }
+    leaf register-suppress-time {
+      type uint16 {
+        range "5..60000";
+      }
+      default "60";
+      description
+        "Register Suppress Timer.";
+    }
+  }
+}

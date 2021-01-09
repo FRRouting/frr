@@ -529,16 +529,21 @@ static void zebra_evpn_local_neigh_deref_mac(zebra_neigh_t *n,
 }
 
 bool zebra_evpn_neigh_is_bgp_seq_ok(zebra_evpn_t *zevpn, zebra_neigh_t *n,
-				    struct ethaddr *macaddr, uint32_t seq)
+				    struct ethaddr *macaddr, uint32_t seq,
+				    bool sync)
 {
 	char macbuf[ETHER_ADDR_STRLEN];
 	char ipbuf[INET6_ADDRSTRLEN];
 	uint32_t tmp_seq;
+	const char *n_type;
 
-	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 		tmp_seq = n->loc_seq;
-	else
+		n_type = "local";
+	} else {
 		tmp_seq = n->rem_seq;
+		n_type = "remote";
+	}
 
 	if (seq < tmp_seq) {
 		/* if the neigh was never advertised to bgp we must accept
@@ -547,10 +552,12 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 		 */
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)
 		    && !zebra_evpn_neigh_is_ready_for_bgp(n)) {
-			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
+			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH
+			    || IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"sync-macip accept vni %u mac %s IP %s lower seq %u f 0x%x",
-					zevpn->vni,
+					"%s-macip accept vni %u %s mac %s IP %s lower seq %u f 0x%x",
+					sync ? "sync" : "remote", zevpn->vni,
+					n_type,
 					prefix_mac2str(macaddr, macbuf,
 						       sizeof(macbuf)),
 					ipaddr2str(&n->ip, ipbuf,
@@ -559,10 +566,10 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 			return true;
 		}
 
-		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
+		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH || IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"sync-macip ignore vni %u mac %s IP %s as existing has higher seq %u f 0x%x",
-				zevpn->vni,
+				"%s-macip ignore vni %u %s mac %s IP %s as existing has higher seq %u f 0x%x",
+				sync ? "sync" : "remote", zevpn->vni, n_type,
 				prefix_mac2str(macaddr, macbuf, sizeof(macbuf)),
 				ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
 				tmp_seq, n->flags);
@@ -984,7 +991,8 @@ void zebra_evpn_process_neigh_on_local_mac_change(zebra_evpn_t *zevpn,
 			    || es_change) {
 				ZEBRA_NEIGH_SET_ACTIVE(n);
 				n->loc_seq = zmac->loc_seq;
-				if (!(zvrf->dup_addr_detect && zvrf->dad_freeze
+				if (!(zebra_evpn_do_dup_addr_detect(zvrf)
+				      && zvrf->dad_freeze
 				      && !!CHECK_FLAG(n->flags,
 						      ZEBRA_NEIGH_DUPLICATE)))
 					zebra_evpn_neigh_send_add_to_client(
@@ -1106,7 +1114,7 @@ static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 	bool is_old_mac_dup = false;
 	bool is_new_mac_dup = false;
 
-	if (!zvrf->dup_addr_detect)
+	if (!zebra_evpn_do_dup_addr_detect(zvrf))
 		return 0;
 	/* Check old or new MAC is detected as duplicate
 	 * mark this neigh as duplicate
@@ -1203,7 +1211,7 @@ zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, zebra_neigh_t *nbr,
 	char buf1[INET6_ADDRSTRLEN];
 	bool reset_params = false;
 
-	if (!zvrf->dup_addr_detect)
+	if (!zebra_evpn_do_dup_addr_detect(zvrf))
 		return;
 
 	/* IP is detected as duplicate or inherit dup
@@ -1452,11 +1460,14 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 				new_bgp_ready =
 					zebra_evpn_neigh_is_ready_for_bgp(n);
 
+				if (dp_static != new_static)
+					inform_dataplane = true;
+
 				/* Neigh is in freeze state and freeze action
 				 * is enabled, do not send update to client.
 				 */
 				is_neigh_freezed =
-					(zvrf->dup_addr_detect
+					(zebra_evpn_do_dup_addr_detect(zvrf)
 					 && zvrf->dad_freeze
 					 && CHECK_FLAG(n->flags,
 						       ZEBRA_NEIGH_DUPLICATE));
@@ -1465,6 +1476,12 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 					"local", n, is_router, local_inactive,
 					old_bgp_ready, new_bgp_ready, false,
 					false, "flag-update");
+
+				if (inform_dataplane)
+					zebra_evpn_sync_neigh_dp_install(
+						n, false /* set_inactive */,
+						false /* force_clear_static */,
+						__func__);
 
 				/* if the neigh can no longer be advertised
 				 * remove it from bgp
@@ -1577,15 +1594,11 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 	else
 		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
 
-	/* if the dataplane thinks that this is a sync entry but
-	 * zebra doesn't we need to re-concile the diff
-	 * by re-installing the dataplane entry
-	 */
-	if (dp_static) {
-		new_static = zebra_evpn_neigh_is_static(n);
-		if (!new_static)
-			inform_dataplane = true;
-	}
+	/* if zebra and dataplane don't agree this is a sync entry
+	 * re-install in the dataplane */
+	new_static = zebra_evpn_neigh_is_static(n);
+	if (dp_static != new_static)
+		inform_dataplane = true;
 
 	/* Check old and/or new MAC detected as duplicate mark
 	 * the neigh as duplicate
@@ -2127,7 +2140,6 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 {
 	zebra_neigh_t *n;
 	int update_neigh = 0;
-	uint32_t tmp_seq;
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
 	zebra_mac_t *old_mac = NULL;
@@ -2164,8 +2176,6 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 			}
 
 		} else {
-			const char *n_type;
-
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
 			 * corresponds to "older" location of the host
@@ -2174,27 +2184,10 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 			 * the sequence number and ignore this update
 			 * if appropriate.
 			 */
-			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
-				tmp_seq = n->loc_seq;
-				n_type = "local";
-			} else {
-				tmp_seq = n->rem_seq;
-				n_type = "remote";
-			}
-			if (seq < tmp_seq) {
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug(
-						"Ignore remote MACIP ADD VNI %u MAC %s%s%s as existing %s Neigh has higher seq %u",
-						zevpn->vni,
-						prefix_mac2str(&mac->macaddr,
-							       buf,
-							       sizeof(buf)),
-						" IP ",
-						ipaddr2str(ipaddr, buf1,
-							   sizeof(buf1)),
-						n_type, tmp_seq);
+
+			if (!zebra_evpn_neigh_is_bgp_seq_ok(
+				    zevpn, n, &mac->macaddr, seq, false))
 				return;
-			}
 			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 				old_static = zebra_evpn_neigh_is_static(n);
 				if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)

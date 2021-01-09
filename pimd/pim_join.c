@@ -350,8 +350,11 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 					    == PIM_IFJOIN_PRUNE_PENDING_TMP)
 						THREAD_OFF(
 							child->t_ifjoin_prune_pending_timer);
+					THREAD_OFF(
+						child->t_ifjoin_expiry_timer);
 					PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
 					child->ifjoin_state = PIM_IFJOIN_NOINFO;
+					delete_on_noinfo(child);
 				}
 			}
 

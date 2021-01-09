@@ -9,6 +9,7 @@ FRRouting Developer's Guide
    packaging
    process-architecture
    library
+   fuzzing
    tracing
    testing
    bgpd
@@ -17,3 +18,4 @@ FRRouting Developer's Guide
    ospf
    zebra
    vtysh
+   pathd

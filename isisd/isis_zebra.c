@@ -95,9 +95,9 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 #ifdef EXTREME_DEBUG
-	if (p->family == AF_INET)
+	if (c->address->family == AF_INET)
 		zlog_debug("connected IP address %pFX", c->address);
-	if (p->family == AF_INET6)
+	if (c->address->family == AF_INET6)
 		zlog_debug("connected IPv6 address %pFX", c->address);
 #endif /* EXTREME_DEBUG */
 
@@ -122,9 +122,9 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 #ifdef EXTREME_DEBUG
-	if (p->family == AF_INET)
+	if (c->address->family == AF_INET)
 		zlog_debug("disconnected IP address %pFX", c->address);
-	if (p->family == AF_INET6)
+	if (c->address->family == AF_INET6)
 		zlog_debug("disconnected IPv6 address %pFX", c->address);
 #endif /* EXTREME_DEBUG */
 
@@ -207,35 +207,30 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 		api_nh->ifindex = nexthop->ifindex;
 
 		/* Add MPLS label(s). */
-		switch (type) {
-		case ISIS_NEXTHOP_MAIN:
-			if (nexthop->sr.present) {
-				api_nh->label_num = 1;
-				api_nh->labels[0] = nexthop->sr.label;
-			} else if (mpls_lsp)
+		if (nexthop->label_stack) {
+			api_nh->label_num = nexthop->label_stack->num_labels;
+			memcpy(api_nh->labels, nexthop->label_stack->label,
+			       sizeof(mpls_label_t) * api_nh->label_num);
+		} else if (nexthop->sr.present) {
+			api_nh->label_num = 1;
+			api_nh->labels[0] = nexthop->sr.label;
+		} else if (mpls_lsp) {
+			switch (type) {
+			case ISIS_NEXTHOP_MAIN:
 				/*
 				 * Do not use non-SR enabled nexthops to prevent
 				 * broken LSPs from being formed.
 				 */
 				continue;
-			break;
-		case ISIS_NEXTHOP_BACKUP:
-			if (nexthop->label_stack) {
-				api_nh->label_num =
-					nexthop->label_stack->num_labels;
-				memcpy(api_nh->labels,
-				       nexthop->label_stack->label,
-				       sizeof(mpls_label_t)
-					       * api_nh->label_num);
-			} else if (mpls_lsp) {
+			case ISIS_NEXTHOP_BACKUP:
 				/*
 				 * This is necessary because zebra requires
 				 * the nexthops of MPLS LSPs to be labeled.
 				 */
 				api_nh->label_num = 1;
 				api_nh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+				break;
 			}
-			break;
 		}
 
 		/* Backup nexthop handling. */
@@ -263,8 +258,14 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 	struct zapi_route api;
 	int count = 0;
 
-	if (zclient->sock < 0 || list_isempty(route_info->nexthops))
+	if (zclient->sock < 0)
 		return;
+
+	/* Uninstall the route if it doesn't have any valid nexthop. */
+	if (list_isempty(route_info->nexthops)) {
+		isis_zebra_route_del_route(isis, prefix, src_p, route_info);
+		return;
+	}
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = isis->vrf_id;
@@ -618,7 +619,7 @@ int isis_zebra_label_manager_connect(void)
 	set_nonblocking(zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	if (zclient_send_hello(zclient_sync) < 0) {
+	if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
 		zlog_warn("%s: failed sending hello for synchronous zclient!",
 			  __func__);
 		close(zclient_sync->sock);
@@ -669,7 +670,6 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
-	struct ldp_igp_sync_hello hello;
 	int ret = 0;
 
 	s = zclient->ibuf;
@@ -685,15 +685,25 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		STREAM_GET(&announce, s, sizeof(announce));
 		ret = isis_ldp_sync_announce_update(announce);
 		break;
-	case LDP_IGP_SYNC_HELLO_UPDATE:
-		STREAM_GET(&hello, s, sizeof(hello));
-		ret = isis_ldp_sync_hello_update(hello);
-		break;
 	default:
 		break;
 	}
 
 stream_failure:
+
+	return ret;
+}
+
+static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
+{
+	int ret = 0;
+
+	struct zapi_client_close_info info;
+
+	if (zapi_client_close_notify_decode(zclient->ibuf, &info) < 0)
+		return -1;
+
+	isis_ldp_sync_handle_client_close(&info);
 
 	return ret;
 }
@@ -726,6 +736,8 @@ void isis_zebra_init(struct thread_master *master, int instance)
 	zclient_sync->privs = &isisd_privs;
 
 	zclient->opaque_msg_handler = isis_opaque_msg_handler;
+
+	zclient->zebra_client_close_notify = isis_zebra_client_close_notify;
 }
 
 void isis_zebra_stop(void)

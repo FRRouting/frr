@@ -193,9 +193,9 @@ struct ospf6_route_table {
 	bitfield_t idspace;
 
 	/* hooks */
-	void (*hook_add)(struct ospf6_route *, struct ospf6 *);
+	void (*hook_add)(struct ospf6_route *);
 	void (*hook_change)(struct ospf6_route *);
-	void (*hook_remove)(struct ospf6_route *, struct ospf6 *);
+	void (*hook_remove)(struct ospf6_route *);
 };
 
 #define OSPF6_SCOPE_TYPE_NONE      0
@@ -280,7 +280,7 @@ extern int ospf6_route_cmp_nexthops(struct ospf6_route *a,
 				    struct ospf6_route *b);
 extern void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 					    struct zapi_nexthop nexthops[],
-					    int entries);
+					    int entries, vrf_id_t vrf_id);
 extern int ospf6_route_get_first_nh_index(struct ospf6_route *route);
 
 /* Hide abstraction of nexthop implementation in route from outsiders */
@@ -307,11 +307,9 @@ ospf6_route_lookup_bestmatch(struct prefix *prefix,
 			     struct ospf6_route_table *table);
 
 extern struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
-					   struct ospf6_route_table *table,
-					   struct ospf6 *ospf6);
+					   struct ospf6_route_table *table);
 extern void ospf6_route_remove(struct ospf6_route *route,
-			       struct ospf6_route_table *table,
-			       struct ospf6 *ospf6);
+			       struct ospf6_route_table *table);
 
 extern struct ospf6_route *ospf6_route_head(struct ospf6_route_table *table);
 extern struct ospf6_route *ospf6_route_next(struct ospf6_route *route);
@@ -322,10 +320,9 @@ ospf6_route_match_head(struct prefix *prefix, struct ospf6_route_table *table);
 extern struct ospf6_route *ospf6_route_match_next(struct prefix *prefix,
 						  struct ospf6_route *route);
 
-extern void ospf6_route_remove_all(struct ospf6_route_table *, struct ospf6 *);
+extern void ospf6_route_remove_all(struct ospf6_route_table *table);
 extern struct ospf6_route_table *ospf6_route_table_create(int s, int t);
-extern void ospf6_route_table_delete(struct ospf6_route_table *,
-				     struct ospf6 *);
+extern void ospf6_route_table_delete(struct ospf6_route_table *table);
 extern void ospf6_route_dump(struct ospf6_route_table *table);
 
 

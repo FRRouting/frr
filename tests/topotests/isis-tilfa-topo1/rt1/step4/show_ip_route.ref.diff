@@ -1,5 +1,5 @@
---- rt1/step3/show_ip_route.ref	2020-09-25 17:48:05.062911204 -0300
-+++ rt1/step4/show_ip_route.ref	2020-09-25 17:49:01.563647190 -0300
+--- a/rt1/step3/show_ip_route.ref
++++ b/rt1/step4/show_ip_route.ref
 @@ -60,10 +60,7 @@
            "ip":"10.0.1.2",
            "afi":"ipv4",
