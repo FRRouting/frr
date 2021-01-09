@@ -1101,6 +1101,7 @@ void pcep_pcc_copy_pcc_info(struct pcc_state **pcc,
 	pcc_info->status = pcc_state->status;
 	pcc_info->pcc_id = pcc_state->id;
 	pcc_info->is_best_multi_pce = pcc_state->is_best;
+	pcc_info->previous_best = pcc_state->previous_best;
 	pcc_info->precedence =
 		pcc_state->pce_opts ? pcc_state->pce_opts->precedence : 0;
 	memcpy(&pcc_info->pcc_addr, &pcc_state->pcc_addr_tr,

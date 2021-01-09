@@ -99,6 +99,7 @@ struct pcep_pcc_info {
 	uint32_t next_reqid;
 	uint32_t next_plspid;
 	bool is_best_multi_pce;
+	bool previous_best;
 	uint8_t precedence;
 };
 
