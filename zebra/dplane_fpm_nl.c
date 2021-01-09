@@ -1467,6 +1467,10 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 		thread_add_timer(fnc->fthread->master, fpm_process_queue,
 				 fnc, 0, &fnc->t_dequeue);
 
+	/* Ensure dataplane thread is rescheduled if we hit the work limit */
+	if (counter >= limit)
+		dplane_provider_work_ready();
+
 	return 0;
 }
 

@@ -4537,6 +4537,7 @@ static int dplane_thread_loop(struct thread *event)
 	struct zebra_dplane_ctx *ctx, *tctx;
 	int limit, counter, error_counter;
 	uint64_t curr, high;
+	bool reschedule = false;
 
 	/* Capture work limit per cycle */
 	limit = zdplane_info.dg_updates_per_cycle;
@@ -4673,6 +4674,9 @@ static int dplane_thread_loop(struct thread *event)
 
 		dplane_provider_unlock(prov);
 
+		if (counter >= limit)
+			reschedule = true;
+
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			zlog_debug("dplane dequeues %d completed work from provider %s",
 				   counter, dplane_provider_get_name(prov));
@@ -4682,6 +4686,13 @@ static int dplane_thread_loop(struct thread *event)
 		prov = TAILQ_NEXT(prov, dp_prov_link);
 		DPLANE_UNLOCK();
 	}
+
+	/*
+	 * We hit the work limit while processing at least one provider's
+	 * output queue - ensure we come back and finish it.
+	 */
+	if (reschedule)
+		dplane_provider_work_ready();
 
 	/* After all providers have been serviced, enqueue any completed
 	 * work and any errors back to zebra so it can process the results.
