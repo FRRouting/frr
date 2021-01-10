@@ -35,17 +35,40 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 {
 	struct route_node *rn;
 	struct static_path *pn;
+	const struct lyd_node *vrf_dnode;
+	const char *vrf;
 	uint8_t distance;
+	uint32_t table_id;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		vrf_dnode = yang_dnode_get_parent(args->dnode,
+						  "control-plane-protocol");
+		vrf = yang_dnode_get_string(vrf_dnode, "./vrf");
+		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+
+		/*
+		 * TableId is not applicable for VRF. Consider the case of
+		 * l3mdev, there is one uint32_t space to work with.
+		 * A l3mdev device points at a specific table that it
+		 * relates to and a set of interfaces it belongs to.
+		 */
+		if (table_id && (strcmp(vrf, vrf_get_default_name()) != 0)
+		    && !vrf_is_backend_netns()) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%% table param only available when running on netns-based vrfs");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_ABORT:
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
 		rn = nb_running_get_entry(args->dnode, NULL, true);
 		distance = yang_dnode_get_uint8(args->dnode, "./distance");
-		pn = static_add_path(rn, distance);
+		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+		pn = static_add_path(rn, table_id, distance);
 		nb_running_set_entry(args->dnode, pn);
 	}
 
@@ -78,44 +101,6 @@ static void static_path_list_tag_modify(struct nb_cb_modify_args *args,
 	rn = nb_running_get_entry(rn_dnode, NULL, true);
 
 	static_install_path(rn, pn, info->safi, info->svrf);
-}
-
-static int static_path_list_tableid_modify(struct nb_cb_modify_args *args,
-					   const struct lyd_node *rn_dnode,
-					   struct stable_info *info)
-{
-	struct static_path *pn;
-	struct route_node *rn;
-	uint32_t table_id;
-	const struct lyd_node *vrf_dnode;
-	const char *vrf;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		vrf_dnode = yang_dnode_get_parent(args->dnode,
-						  "control-plane-protocol");
-		vrf = yang_dnode_get_string(vrf_dnode, "./vrf");
-		table_id = yang_dnode_get_uint32(args->dnode, NULL);
-		if (table_id && (strcmp(vrf, vrf_get_default_name()) != 0)
-		    && !vrf_is_backend_netns()) {
-			snprintf(args->errmsg, args->errmsg_len,
-				"%% table param only available when running on netns-based vrfs");
-			return NB_ERR_VALIDATION;
-		}
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		table_id = yang_dnode_get_uint32(args->dnode, NULL);
-		pn = nb_running_get_entry(args->dnode, NULL, true);
-		pn->table_id = table_id;
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		static_install_path(rn, pn, info->safi, info->svrf);
-		break;
-	}
-
-	return NB_OK;
 }
 
 static bool static_nexthop_create(struct nb_cb_create_args *args,
@@ -580,38 +565,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/table-id
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_table_id_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (static_path_list_tableid_modify(args, NULL, NULL) != NB_OK)
-			return NB_ERR_VALIDATION;
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-
-		if (static_path_list_tableid_modify(args, rn_dnode, info)
-		    != NB_OK)
-			return NB_ERR_VALIDATION;
-		break;
-	}
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop
  */
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_create(
@@ -1016,41 +969,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 		rn = nb_running_get_entry(rn_dnode, NULL, true);
 		info = route_table_get_info(rn->table);
 		static_path_list_tag_modify(args, srn_dnode, info);
-		break;
-	}
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/table-id
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_table_id_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	const struct lyd_node *src_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (static_path_list_tableid_modify(args, NULL, NULL) != NB_OK)
-			return NB_ERR_VALIDATION;
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		src_dnode = yang_dnode_get_parent(args->dnode, "src-list");
-		rn_dnode = yang_dnode_get_parent(src_dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-
-		if (static_path_list_tableid_modify(args, src_dnode, info)
-		    != NB_OK)
-			return NB_ERR_VALIDATION;
-
 		break;
 	}
 	return NB_OK;

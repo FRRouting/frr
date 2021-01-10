@@ -161,7 +161,8 @@ bool static_add_nexthop_validate(struct static_vrf *svrf, static_types type,
 	return true;
 }
 
-struct static_path *static_add_path(struct route_node *rn, uint8_t distance)
+struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
+				    uint8_t distance)
 {
 	struct static_path *pn;
 	struct static_route_info *si;
@@ -172,6 +173,7 @@ struct static_path *static_add_path(struct route_node *rn, uint8_t distance)
 	pn = XCALLOC(MTYPE_STATIC_PATH, sizeof(struct static_path));
 
 	pn->distance = distance;
+	pn->table_id = table_id;
 	static_nexthop_list_init(&(pn->nexthop_list));
 
 	si = rn->info;
