@@ -35,6 +35,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	union sockunion cie_nbma, cie_proto, *proto;
 	char buf[64];
 	int ok = 0, holdtime;
+	unsigned short mtu = 0;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &r->reqid);
 
@@ -57,6 +58,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 		      || (cie->code == NHRP_CODE_ADMINISTRATIVELY_PROHIBITED
 			  && nhs->hub)))
 			ok = 0;
+		mtu = ntohs(cie->mtu);
+		debugf(NHRP_DEBUG_COMMON, "NHS: CIE MTU: %d", mtu);
 	}
 
 	if (!ok)
@@ -96,7 +99,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
 	if (c)
 		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, holdtime,
-					  nhrp_peer_ref(r->peer), 0, NULL);
+					  nhrp_peer_ref(r->peer), mtu, NULL);
 }
 
 static int nhrp_reg_timeout(struct thread *t)
@@ -197,7 +200,8 @@ static int nhrp_reg_send_req(struct thread *t)
 
 	/* FIXME: push CIE for each local protocol address */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, NULL, NULL);
-	cie->prefix_length = 0xff;
+	/* RFC2332 5.2.1 if unique is set then prefix length must be 0xff */
+	cie->prefix_length = (if_ad->flags & NHRP_IFF_REG_NO_UNIQUE) ? 8 * sockunion_get_addrlen(dst_proto) : 0xff;
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 
@@ -376,6 +380,24 @@ int nhrp_nhs_free(struct nhrp_nhs *nhs)
 	free((void *)nhs->nbma_fqdn);
 	XFREE(MTYPE_NHRP_NHS, nhs);
 	return 0;
+}
+
+void nhrp_nhs_interface_del(struct interface *ifp)
+{
+	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_nhs *nhs, *tmp;
+	afi_t afi;
+
+	for (afi = 0; afi < AFI_MAX; afi++) {
+		debugf(NHRP_DEBUG_COMMON, "Cleaning up nhs entries (%d)",
+		       !list_empty(&nifp->afi[afi].nhslist_head));
+
+		list_for_each_entry_safe(nhs, tmp, &nifp->afi[afi].nhslist_head,
+					 nhslist_entry)
+		{
+			nhrp_nhs_free(nhs);
+		}
+	}
 }
 
 void nhrp_nhs_terminate(void)
