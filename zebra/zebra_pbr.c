@@ -500,8 +500,6 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 	 */
 	found = pbr_rule_lookup_unique(rule);
 
-	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
-
 	/* If found, this is an update */
 	if (found) {
 		if (IS_ZEBRA_DEBUG_PBR)
@@ -526,6 +524,8 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 
 		(void)dplane_pbr_rule_add(rule);
 	}
+
+	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
 }
 
 void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
