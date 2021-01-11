@@ -286,7 +286,11 @@ def test_error_messages_daemons():
             error_logs += "r%s PBRd StdErr Output:\n" % i
             error_logs += log
 
+        # ZEBRA netns mode may trigger a message
+        # 2021/01/11 16:43:53 warnings: ZEBRA: NS notify : NS vrf0 is already default VRF.Cancel VRF Creation
+        # Remove this messages
         log = net["r%s" % i].getStdErr("zebra")
+        log = re.sub(r'^.*is already default VRF.Cancel VRF Creation\r\n$', r'', log).rstrip()
         if log:
             error_logs += "r%s Zebra StdErr Output:\n" % i
             error_logs += log
