@@ -53,6 +53,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_nht.h"
 
 /*
  * Definitions and external declarations.
@@ -2402,6 +2403,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	bool new_pi = false;
 	bool use_l3nhg = false;
 	bool is_l3nhg_active = false;
+	char buf1[INET6_ADDRSTRLEN];
 
 	memset(pp, 0, sizeof(struct prefix));
 	ip_prefix_from_evpn_prefix(evp, pp);
@@ -2432,10 +2434,36 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	 * make sure to set the flag for next hop attribute.
 	 */
 	attr = *parent_pi->attr;
-	if (afi == AFI_IP6)
-		evpn_convert_nexthop_to_ipv6(&attr);
-	else
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+	if (attr.evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP) {
+		if (afi == AFI_IP6)
+			evpn_convert_nexthop_to_ipv6(&attr);
+		else
+			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+	} else {
+
+		/*
+		 * If gateway IP overlay index is specified in the NLRI of
+		 * EVPN RT-5, this gateway IP should be used as the nexthop
+		 * for the prefix in the VRF
+		 */
+		if (bgp_debug_zebra(NULL)) {
+			zlog_debug(
+				"Install gateway IP %s as nexthop for prefix %pFX in vrf %s",
+				inet_ntop(pp->family, &attr.evpn_overlay.gw_ip,
+					  buf1, sizeof(buf1)), pp,
+					  vrf_id_to_name(bgp_vrf->vrf_id));
+		}
+
+		if (afi == AFI_IP6) {
+			memcpy(&attr.mp_nexthop_global,
+			       &attr.evpn_overlay.gw_ip.ipv6,
+			       sizeof(struct in6_addr));
+			attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
+		} else {
+			attr.nexthop = attr.evpn_overlay.gw_ip.ipv4;
+			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		}
+	}
 
 	bgp_evpn_es_vrf_use_nhg(bgp_vrf, &parent_pi->attr->esi, &use_l3nhg,
 				&is_l3nhg_active, NULL);
@@ -2481,8 +2509,27 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi->attr = attr_new;
 		pi->uptime = bgp_clock();
 	}
-	/* as it is an importation, change nexthop */
-	bgp_path_info_set_flag(dest, pi, BGP_PATH_ANNC_NH_SELF);
+
+	/* Gateway IP nexthop should be resolved */
+	if (attr.evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
+		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi,
+					    NULL, 0))
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+		else {
+			if (BGP_DEBUG(nht, NHT)) {
+				inet_ntop(pp->family,
+					  &attr.evpn_overlay.gw_ip,
+					  buf1, sizeof(buf1));
+				zlog_debug("%s: gateway IP NH unresolved",
+					   buf1);
+			}
+			bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
+		}
+	} else {
+
+		/* as it is an importation, change nexthop */
+		bgp_path_info_set_flag(dest, pi, BGP_PATH_ANNC_NH_SELF);
+	}
 
 	/* Link path to evpn nexthop */
 	bgp_evpn_path_nh_add(bgp_vrf, pi);

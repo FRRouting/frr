@@ -942,6 +942,9 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		 * In case of unicast routes that were imported from vpn
 		 * and that have labels, they are valid only if there are
 		 * nexthops with labels
+		 *
+		 * If the nexthop is EVPN gateway-IP,
+		 * do not check for a valid label.
 		 */
 
 		bool bnc_is_valid_nexthop = false;
@@ -950,8 +953,9 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		if (safi == SAFI_UNICAST &&
 			path->sub_type == BGP_ROUTE_IMPORTED &&
 			path->extra &&
-			path->extra->num_labels) {
-
+			path->extra->num_labels &&
+			path->attr->evpn_overlay.type !=
+				OVERLAY_INDEX_GATEWAY_IP) {
 			bnc_is_valid_nexthop =
 				bgp_isvalid_labeled_nexthop(bnc) ? true : false;
 		} else {
