@@ -62,6 +62,7 @@ RB_PROTOTYPE(bgp_es_evi_rb_head, bgp_evpn_es_evi, rb_node,
 struct bgpevpn {
 	vni_t vni;
 	vrf_id_t tenant_vrf_id;
+	ifindex_t svi_ifindex;
 	uint32_t flags;
 #define VNI_FLAG_CFGD              0x1  /* VNI is user configured */
 #define VNI_FLAG_LIVE              0x2  /* VNI is "live" */
@@ -612,7 +613,8 @@ extern struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni);
 extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 		struct in_addr originator_ip,
 		vrf_id_t tenant_vrf_id,
-		struct in_addr mcast_grp);
+		struct in_addr mcast_grp,
+		ifindex_t svi_ifindex);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
 extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);

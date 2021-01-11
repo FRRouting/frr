@@ -5230,7 +5230,8 @@ struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni)
 struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 		struct in_addr originator_ip,
 		vrf_id_t tenant_vrf_id,
-		struct in_addr mcast_grp)
+		struct in_addr mcast_grp,
+		ifindex_t svi_ifindex)
 {
 	struct bgpevpn *vpn;
 
@@ -5244,6 +5245,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->originator_ip = originator_ip;
 	vpn->tenant_vrf_id = tenant_vrf_id;
 	vpn->mcast_grp = mcast_grp;
+	vpn->svi_ifindex = svi_ifindex;
 
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
@@ -5699,6 +5701,7 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 	 */
 	delete_routes_for_vni(bgp, vpn);
 
+	vpn->svi_ifindex = 0;
 	/*
 	 * tunnel is no longer active, del tunnel ip address from tip_hash
 	 */
@@ -5719,8 +5722,8 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 			   struct in_addr originator_ip,
 			   vrf_id_t tenant_vrf_id,
-			   struct in_addr mcast_grp)
-
+			   struct in_addr mcast_grp,
+			   ifindex_t svi_ifindex)
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
@@ -5732,12 +5735,15 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		if (is_vni_live(vpn)
 		    && IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip)
 		    && IPV4_ADDR_SAME(&vpn->mcast_grp, &mcast_grp)
-		    && vpn->tenant_vrf_id == tenant_vrf_id)
+		    && vpn->tenant_vrf_id == tenant_vrf_id
+		    && vpn->svi_ifindex == svi_ifindex)
 			/* Probably some other param has changed that we don't
 			 * care about. */
 			return 0;
 
 		bgp_evpn_mcast_grp_change(bgp, vpn, mcast_grp);
+
+		vpn->svi_ifindex = svi_ifindex;
 
 		/* Update tenant_vrf_id if it has changed. */
 		if (vpn->tenant_vrf_id != tenant_vrf_id) {
@@ -5762,7 +5768,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	/* Create or update as appropriate. */
 	if (!vpn) {
 		vpn = bgp_evpn_new(bgp, vni, originator_ip, tenant_vrf_id,
-				mcast_grp);
+				mcast_grp, svi_ifindex);
 		if (!vpn) {
 			flog_err(
 				EC_BGP_VNI,
