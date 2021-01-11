@@ -684,26 +684,6 @@ end
                 log.debug("LINE %-50s: entering new context, %-50s", line, ctx_keys)
 
             elif (
-                line.startswith("peer ")
-                and len(ctx_keys) == 4
-                and ctx_keys[0].startswith("segment-routing")
-                and ctx_keys[1].startswith("traffic-eng")
-                and ctx_keys[2].startswith("pcep")
-                and ctx_keys[3].startswith("pcc")
-            ):
-                # If there is no precedence, we add the default one (255) so
-                # the line is not removed and added back
-                m = re.search('peer ([^ ]*)', line)
-                if (m != None):
-                    (name,) = m.groups()
-                    line = "peer %s precedence 255" % (name,)
-
-                current_context_lines.append(line)
-                log.debug(
-                    "LINE %-50s: append to current_context_lines, %-50s", line, ctx_keys
-                )
-
-            elif (
                 line.startswith("address-family ")
                 or line.startswith("vnc defaults")
                 or line.startswith("vnc l2-group")
@@ -1413,6 +1393,8 @@ def compare_context_objects(newconf, running):
     lines_to_del = []
     pollist_to_del = []
     seglist_to_del = []
+    pceconf_to_del = []
+    pcclist_to_del = []
     candidates_to_add = []
     delete_bgpd = False
 
@@ -1498,9 +1480,8 @@ def compare_context_objects(newconf, running):
 
             # Segment routing and traffic engineering never need to be deleted
             elif (
-                len(running_ctx_keys) > 1
+                running_ctx_keys[0].startswith('segment-routing')
                 and len(running_ctx_keys) < 3
-                and running_ctx_keys[0].startswith('segment-routing')
             ):
                 continue
 
@@ -1508,7 +1489,7 @@ def compare_context_objects(newconf, running):
             elif (
                 len(running_ctx_keys) == 3
                 and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[2].startswith('pcep4')
+                and running_ctx_keys[2].startswith('pcep')
             ):
                 continue
 
@@ -1529,6 +1510,23 @@ def compare_context_objects(newconf, running):
                 and running_ctx_keys[2].startswith('policy')
             ):
                 pollist_to_del.append((running_ctx_keys, None))
+
+            # pce-config must be deleted after the pce, to be sure we add them
+            # to a separate array that is going to be appended at the end
+            elif (
+                len(running_ctx_keys) >= 4
+                and running_ctx_keys[0].startswith('segment-routing')
+                and running_ctx_keys[3].startswith('pce-config')
+            ):
+                pceconf_to_del.append((running_ctx_keys, None))
+
+            # pcc must be deleted after the pce and pce-config too
+            elif (
+                len(running_ctx_keys) >= 4
+                and running_ctx_keys[0].startswith('segment-routing')
+                and running_ctx_keys[3].startswith('pcc')
+            ):
+                pcclist_to_del.append((running_ctx_keys, None))
 
             # Non-global context
             elif running_ctx_keys and not any(
@@ -1551,6 +1549,14 @@ def compare_context_objects(newconf, running):
     # if we have some segment list commands to delete, append them to lines_to_del
     if len(seglist_to_del) > 0:
         lines_to_del.extend(seglist_to_del)
+
+    # if we have some pce list commands to delete, append them to lines_to_del
+    if len(pceconf_to_del) > 0:
+        lines_to_del.extend(pceconf_to_del)
+
+    # if we have some pcc list commands to delete, append them to lines_to_del
+    if len(pcclist_to_del) > 0:
+        lines_to_del.extend(pcclist_to_del)
 
     # Find the lines within each context to add
     # Find the lines within each context to del
@@ -1765,6 +1771,7 @@ if __name__ == "__main__":
         "vrrpd",
         "ldpd",
         "pathd",
+        "bfdd",
     ]:
         msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
         print(msg)

@@ -1482,7 +1482,8 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 
 		csnprintfrr(buf, sizeof(buf), "    peer %s",
 			    pce_opts->pce_name);
-		if (pce_opts->precedence > 0) {
+		if (pce_opts->precedence > 0
+		    && pce_opts->precedence != DEFAULT_PCE_PRECEDENCE) {
 			csnprintfrr(buf, sizeof(buf), " %s %d",
 				    PCEP_VTYSH_ARG_PRECEDENCE,
 				    pce_opts->precedence);
