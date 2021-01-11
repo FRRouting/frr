@@ -2119,7 +2119,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 {
 	struct interface *ifp;
 	route_map_result_t ret = RMAP_PERMITMATCH;
-	int family;
+	afi_t family;
 	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf;
 
