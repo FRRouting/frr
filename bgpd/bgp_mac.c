@@ -200,8 +200,8 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 						AFI_L2VPN, SAFI_EVPN, &prd,
 						p, label_pnt, num_labels,
 						pi->addpath_rx_id ? 1 : 0,
-						pi->addpath_rx_id, pfx_buf,
-						sizeof(pfx_buf));
+						pi->addpath_rx_id, NULL,
+						pfx_buf, sizeof(pfx_buf));
 					zlog_debug(
 						   "%s skip update of %s marked as removed",
 						   peer->host, pfx_buf);
