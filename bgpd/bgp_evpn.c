@@ -3972,7 +3972,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	mpls_label_t label; /* holds the VNI as in the packet */
 	int ret;
 	afi_t gw_afi;
-	bool is_valid_update = false;
+	bool is_valid_update = true;
 
 	/* Type-5 route should be 34 or 58 bytes:
 	 * RD (8), ESI (10), Eth Tag (4), IP len (1), IP (4 or 16),
@@ -4001,9 +4001,9 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	/* Additional information outside of prefix - ESI and GW IP */
 	memset(&evpn, 0, sizeof(evpn));
 
-	/* Fetch ESI */
+	/* Fetch ESI overlay index */
 	if (attr)
-		memcpy(&attr->esi, pfx, sizeof(esi_t));
+		memcpy(&evpn.eth_s_id, pfx, sizeof(esi_t));
 	pfx += ESI_BYTES;
 
 	/* Fetch Ethernet Tag. */
@@ -4052,25 +4052,53 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * field
 	 */
 
+	/*
+	 * An update containing a non-zero gateway IP and a non-zero ESI
+	 * at the same time is should be treated as withdraw
+	 */
+	if (bgp_evpn_is_esi_valid(&evpn.eth_s_id)
+	    && !is_zero_gw_ip(&evpn.gw_ip, gw_afi)) {
+		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
+			 "%s - Rx EVPN Type-5 ESI and gateway-IP both non-zero.",
+			 peer->host);
+		is_valid_update = false;
+	} else if (bgp_evpn_is_esi_valid(&evpn.eth_s_id))
+		evpn.type = OVERLAY_INDEX_ESI;
+	else if (!is_zero_gw_ip(&evpn.gw_ip, gw_afi))
+		evpn.type = OVERLAY_INDEX_GATEWAY_IP;
 	if (attr) {
-		is_valid_update = true;
-		if (is_zero_mac(&attr->rmac) &&
-		    is_zero_gw_ip(&evpn.gw_ip, gw_afi))
+		if (is_zero_mac(&attr->rmac)
+		    && !bgp_evpn_is_esi_valid(&evpn.eth_s_id)
+		    && is_zero_gw_ip(&evpn.gw_ip, gw_afi) && label == 0) {
+			flog_err(EC_BGP_EVPN_ROUTE_INVALID,
+				 "%s - Rx EVPN Type-5 ESI, gateway-IP, RMAC and label all zero",
+				 peer->host);
 			is_valid_update = false;
+		}
 
 		if (is_mcast_mac(&attr->rmac) || is_bcast_mac(&attr->rmac))
 			is_valid_update = false;
 	}
 
 	/* Process the route. */
-	if (is_valid_update)
+	if (attr && is_valid_update)
 		ret = bgp_update(peer, (struct prefix *)&p, addpath_id, attr,
 				 afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 				 &prd, &label, 1, 0, &evpn);
-	else
+	else {
+		if (!is_valid_update) {
+			char attr_str[BUFSIZ] = {0};
+
+			bgp_dump_attr(attr, attr_str, BUFSIZ);
+			zlog_warn(
+				"Invalid update from peer %s vrf %u prefix %pFX attr %s - treat as withdraw",
+				peer->hostname, peer->bgp->vrf_id, &p,
+				attr_str);
+		}
 		ret = bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr,
 				   afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 				   &prd, &label, 1, &evpn);
+	}
 
 	return ret;
 }
