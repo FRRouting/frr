@@ -3867,7 +3867,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					bgp_debug_rdpfxpath2str(
 						afi, safi, prd, p, label,
 						num_labels, addpath_id ? 1 : 0,
-						addpath_id, pfx_buf,
+						addpath_id, NULL, pfx_buf,
 						sizeof(pfx_buf));
 					zlog_debug("%s rcvd %s", peer->host,
 						   pfx_buf);
@@ -3893,7 +3893,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					bgp_debug_rdpfxpath2str(
 						afi, safi, prd, p, label,
 						num_labels, addpath_id ? 1 : 0,
-						addpath_id, pfx_buf,
+						addpath_id, NULL, pfx_buf,
 						sizeof(pfx_buf));
 					zlog_debug(
 						"%s rcvd %s...duplicate ignored",
@@ -3920,8 +3920,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (bgp_debug_update(peer, p, NULL, 1)) {
 				bgp_debug_rdpfxpath2str(
 					afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 				zlog_debug(
 					"%s rcvd %s, flapped quicker than processing",
 					peer->host, pfx_buf);
@@ -3934,7 +3934,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (bgp_debug_update(peer, p, NULL, 1)) {
 			bgp_debug_rdpfxpath2str(afi, safi, prd, p, label,
 						num_labels, addpath_id ? 1 : 0,
-						addpath_id, pfx_buf,
+						addpath_id, NULL, pfx_buf,
 						sizeof(pfx_buf));
 			zlog_debug("%s rcvd %s", peer->host, pfx_buf);
 		}
@@ -4207,8 +4207,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s rcvd %s", peer->host, pfx_buf);
 	}
 
@@ -4353,8 +4353,8 @@ filtered:
 		}
 
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s rcvd UPDATE about %s -- DENIED due to: %s",
 			   peer->host, pfx_buf, reason);
 	}
@@ -4438,8 +4438,8 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (bgp_debug_update(peer, p, NULL, 1)) {
 				bgp_debug_rdpfxpath2str(
 					afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 				zlog_debug(
 					"%s withdrawing route %s not in adj-in",
 					peer->host, pfx_buf);
@@ -4458,8 +4458,8 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Logging. */
 	if (bgp_debug_update(peer, p, NULL, 1)) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s rcvd UPDATE about %s -- withdrawn", peer->host,
 			   pfx_buf);
 	}
@@ -4479,8 +4479,8 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 	} else if (bgp_debug_update(peer, p, NULL, 1)) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s Can't find the route %s", peer->host, pfx_buf);
 	}
 

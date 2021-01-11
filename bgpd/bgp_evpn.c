@@ -1261,7 +1261,8 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 
 /* update evpn type-5 route entry */
 static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
-				   struct attr *src_attr)
+				   struct attr *src_attr, afi_t src_afi,
+				   safi_t src_safi)
 {
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
@@ -1314,6 +1315,26 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 			&attr.nexthop);
 
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+
+	if (src_afi == AFI_IP6 &&
+	    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)) {
+		if (src_attr &&
+		    !IN6_IS_ADDR_UNSPECIFIED(&src_attr->mp_nexthop_global)) {
+			attr.evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
+			memcpy(&attr.evpn_overlay.gw_ip.ipv6,
+			       &src_attr->mp_nexthop_global,
+			       sizeof(struct in6_addr));
+		}
+	} else if (src_afi == AFI_IP &&
+		   CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			      BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)) {
+		if (src_attr && src_attr->nexthop.s_addr != 0) {
+			attr.evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
+			memcpy(&attr.evpn_overlay.gw_ip.ipv4,
+			       &src_attr->nexthop, sizeof(struct in_addr));
+		}
+	}
 
 	/* Setup RT and encap extended community */
 	build_evpn_type5_route_extcomm(bgp_vrf, &attr);
@@ -4078,7 +4099,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 	/* Prefix contains RD, ESI, EthTag, IP length, IP, GWIP and VNI */
 	stream_putc(s, 8 + 10 + 4 + 1 + len + 3);
 	stream_put(s, prd->val, 8);
-	if (attr)
+	if (attr && attr->evpn_overlay.type == OVERLAY_INDEX_ESI)
 		stream_put(s, &attr->esi, sizeof(esi_t));
 	else
 		stream_put(s, 0, sizeof(esi_t));
@@ -4088,7 +4109,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 		stream_put_ipv4(s, p_evpn_p->prefix_addr.ip.ipaddr_v4.s_addr);
 	else
 		stream_put(s, &p_evpn_p->prefix_addr.ip.ipaddr_v6, 16);
-	if (attr) {
+	if (attr && attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
 		const struct bgp_route_evpn *evpn_overlay =
 			bgp_attr_get_evpn_overlay(attr);
 
@@ -4301,7 +4322,7 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, const struct prefix *p,
 	struct prefix_evpn evp;
 
 	build_type5_prefix_from_ip_prefix(&evp, p);
-	ret = update_evpn_type5_route(bgp_vrf, &evp, src_attr);
+	ret = update_evpn_type5_route(bgp_vrf, &evp, src_attr, afi, safi);
 	if (ret)
 		flog_err(EC_BGP_EVPN_ROUTE_CREATE,
 			 "%u: Failed to create type-5 route for prefix %pFX",
