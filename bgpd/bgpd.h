@@ -640,6 +640,14 @@ struct bgp {
 	/* EVI hash table */
 	struct hash *vnihash;
 
+	/*
+	 * VNI hash table based on SVI ifindex as its key.
+	 * We use SVI ifindex as key to lookup a VNI table for gateway IP
+	 * overlay index recursive lookup.
+	 * For this purpose, a hashtable is added which optimizes this lookup.
+	 */
+	struct hash *vni_svi_hash;
+
 	/* EVPN enable - advertise gateway macip routes */
 	int advertise_gw_macip;
 

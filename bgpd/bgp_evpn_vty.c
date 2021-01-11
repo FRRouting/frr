@@ -4360,6 +4360,61 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 	return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN(show_bgp_l2vpn_evpn_vni_remote_ip_hash,
+	     show_bgp_l2vpn_evpn_vni_remote_ip_hash_cmd,
+	     "show bgp l2vpn evpn vni remote-ip-hash",
+	     SHOW_STR
+	     BGP_STR
+	     L2VPN_HELP_STR
+	     EVPN_HELP_STR
+	     "Show VNI\n"
+	     "Remote IP hash\n")
+{
+	struct bgp *bgp_evpn;
+	int idx = 0;
+
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn)
+		return CMD_WARNING;
+
+	if (!argv_find(argv, argc, "evpn", &idx))
+		return CMD_WARNING;
+
+	hash_iterate(bgp_evpn->vnihash,
+		     (void (*)(struct hash_bucket *,
+			       void *))bgp_evpn_show_remote_ip_hash,
+		     vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN(show_bgp_l2vpn_evpn_vni_svi_hash,
+	     show_bgp_l2vpn_evpn_vni_svi_hash_cmd,
+	     "show bgp l2vpn evpn vni-svi-hash",
+	     SHOW_STR
+	     BGP_STR
+	     L2VPN_HELP_STR
+	     EVPN_HELP_STR
+	     "Show vni-svi-hash\n")
+{
+	struct bgp *bgp_evpn;
+	int idx = 0;
+
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn)
+		return CMD_WARNING;
+
+	if (!argv_find(argv, argc, "evpn", &idx))
+		return CMD_WARNING;
+
+	hash_iterate(bgp_evpn->vni_svi_hash,
+		     (void (*)(struct hash_bucket *,
+			       void *))bgp_evpn_show_vni_svi_hash,
+		     vty);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_bgp_l2vpn_evpn_es_evi,
       show_bgp_l2vpn_evpn_es_evi_cmd,
       "show bgp l2vpn evpn es-evi [vni (1-16777215)$vni] [json$uj] [detail$detail]",
@@ -6400,6 +6455,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_es_vrf_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_nh_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vni_cmd);
+	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vni_remote_ip_hash_cmd);
+	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vni_svi_hash_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_summary_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_rd_cmd);

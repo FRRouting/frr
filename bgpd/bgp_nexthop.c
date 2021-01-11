@@ -835,6 +835,18 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			bnc->metric, bnc->path_count);
 		if (peer)
 			vty_out(vty, ", peer %s", peer->host);
+		if (bnc->is_evpn_gwip_nexthop)
+			vty_out(vty, " EVPN Gateway IP");
+		vty_out(vty, "\n");
+		bgp_show_nexthops_detail(vty, bgp, bnc);
+	} else if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE)) {
+		vty_out(vty,
+			" %s overlay index unresolved [IGP metric %d], #paths %d",
+			inet_ntop(bnc->prefix.family, &bnc->prefix.u.prefix,
+				  buf, sizeof(buf)),
+			bnc->metric, bnc->path_count);
+		if (bnc->is_evpn_gwip_nexthop)
+			vty_out(vty, " EVPN Gateway IP");
 		vty_out(vty, "\n");
 		bgp_show_nexthops_detail(vty, bgp, bnc);
 	} else {
@@ -844,6 +856,8 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			bnc->path_count);
 		if (peer)
 			vty_out(vty, ", peer %s", peer->host);
+		if (bnc->is_evpn_gwip_nexthop)
+			vty_out(vty, " EVPN Gateway IP");
 		vty_out(vty, "\n");
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
 			vty_out(vty, "  Must be Connected\n");

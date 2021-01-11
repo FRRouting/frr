@@ -53,7 +53,6 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
 			       int is_bgp_static_route);
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 				 int is_bgp_static_route);
-static void evaluate_paths(struct bgp_nexthop_cache *bnc);
 static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
 static int bgp_nht_ifp_initial(struct thread *thread);
 
@@ -244,6 +243,9 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		}
 	}
 
+	if (pi && is_route_parent_evpn(pi))
+		bnc->is_evpn_gwip_nexthop = true;
+
 	if (is_bgp_static_route) {
 		SET_FLAG(bnc->flags, BGP_STATIC_ROUTE);
 
@@ -331,7 +333,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		return 1;
 	else if (safi == SAFI_UNICAST && pi
 		 && pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra
-		 && pi->extra->num_labels) {
+		 && pi->extra->num_labels && !bnc->is_evpn_gwip_nexthop) {
 		return bgp_isvalid_labeled_nexthop(bnc);
 	} else
 		return (bgp_isvalid_nexthop(bnc));
@@ -387,6 +389,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	struct nexthop *nhlist_head = NULL;
 	struct nexthop *nhlist_tail = NULL;
 	int i;
+	bool evpn_resolved = false;
 
 	bnc->last_update = bgp_clock();
 	bnc->change_flags = 0;
@@ -417,7 +420,8 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		if (!bnc->nexthop_num)
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 
-		bnc->flags |= BGP_NEXTHOP_VALID;
+		if (!bnc->is_evpn_gwip_nexthop)
+			bnc->flags |= BGP_NEXTHOP_VALID;
 		bnc->metric = nhr->metric;
 		bnc->nexthop_num = nhr->nexthop_num;
 
@@ -488,7 +492,40 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		}
 		bnc_nexthop_free(bnc);
 		bnc->nexthop = nhlist_head;
+
+		/*
+		 * Gateway IP nexthop is L3 reachable. Mark it as
+		 * BGP_NEXTHOP_VALID only if it is recursively resolved with a
+		 * remote EVPN RT-2.
+		 * Else, mark it as BGP_NEXTHOP_EVPN_INCOMPLETE.
+		 * When its mapping with EVPN RT-2 is established, unset
+		 * BGP_NEXTHOP_EVPN_INCOMPLETE and set BGP_NEXTHOP_VALID.
+		 */
+		if (bnc->is_evpn_gwip_nexthop) {
+			evpn_resolved = bgp_evpn_is_gateway_ip_resolved(bnc);
+
+			if (BGP_DEBUG(nht, NHT)) {
+				char buf2[PREFIX2STR_BUFFER];
+
+				prefix2str(&bnc->prefix, buf2, sizeof(buf2));
+				zlog_debug(
+					"EVPN gateway IP %s recursive MAC/IP lookup %s",
+					buf2,
+					(evpn_resolved ? "successful"
+						       : "failed"));
+			}
+
+			if (evpn_resolved) {
+				bnc->flags |= BGP_NEXTHOP_VALID;
+				bnc->flags &= ~BGP_NEXTHOP_EVPN_INCOMPLETE;
+				bnc->change_flags |= BGP_NEXTHOP_MACIP_CHANGED;
+			} else {
+				bnc->flags |= BGP_NEXTHOP_EVPN_INCOMPLETE;
+				bnc->flags &= ~BGP_NEXTHOP_VALID;
+			}
+		}
 	} else {
+		bnc->flags &= ~BGP_NEXTHOP_EVPN_INCOMPLETE;
 		bnc->flags &= ~BGP_NEXTHOP_VALID;
 		bnc->flags &= ~BGP_NEXTHOP_LABELED_VALID;
 		bnc->nexthop_num = nhr->nexthop_num;
@@ -694,6 +731,7 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
 		}
 	}
 }
@@ -888,7 +926,7 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
  * RETURNS:
  *   void.
  */
-static void evaluate_paths(struct bgp_nexthop_cache *bnc)
+void evaluate_paths(struct bgp_nexthop_cache *bnc)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *path;
@@ -950,12 +988,10 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		bool bnc_is_valid_nexthop = false;
 		bool path_valid = false;
 
-		if (safi == SAFI_UNICAST &&
-			path->sub_type == BGP_ROUTE_IMPORTED &&
-			path->extra &&
-			path->extra->num_labels &&
-			path->attr->evpn_overlay.type !=
-				OVERLAY_INDEX_GATEWAY_IP) {
+		if (safi == SAFI_UNICAST && path->sub_type == BGP_ROUTE_IMPORTED
+		    && path->extra && path->extra->num_labels
+		    && (path->attr->evpn_overlay.type
+			!= OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop =
 				bgp_isvalid_labeled_nexthop(bnc) ? true : false;
 		} else {
