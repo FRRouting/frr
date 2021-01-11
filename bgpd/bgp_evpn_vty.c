@@ -531,6 +531,9 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		else
 			json_object_string_add(json, "advertiseSviMacIp",
 					       "Disabled");
+		json_object_string_add(
+			json, "sviInterface",
+			ifindex2ifname(vpn->svi_ifindex, vpn->tenant_vrf_id));
 	} else {
 		vty_out(vty, "VNI: %d", vpn->vni);
 		if (is_vni_live(vpn))
@@ -564,6 +567,8 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		else
 			vty_out(vty, "  Advertise-svi-macip : %s\n",
 				"Disabled");
+		vty_out(vty, "  SVI interface : %s\n",
+			ifindex2ifname(vpn->svi_ifindex, vpn->tenant_vrf_id));
 	}
 
 	if (!json)
@@ -2290,7 +2295,7 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 		/* tenant vrf will be updated when we get local_vni_add from
 		 * zebra
 		 */
-		vpn = bgp_evpn_new(bgp, vni, bgp->router_id, 0, mcast_grp);
+		vpn = bgp_evpn_new(bgp, vni, bgp->router_id, 0, mcast_grp, 0);
 		if (!vpn) {
 			flog_err(
 				EC_BGP_VNI,
