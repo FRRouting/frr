@@ -103,6 +103,15 @@ struct bgpevpn {
 	struct list *import_rtl;
 	struct list *export_rtl;
 
+	/*
+	 * EVPN route that uses gateway IP overlay index as its nexthop
+	 * needs to do a recursive lookup.
+	 * A remote MAC/IP entry should be present for the gateway IP.
+	 * Maintain a hash of the addresses received via remote MAC/IP routes
+	 * for efficient gateway IP recursive lookup in this EVI
+	 */
+	struct hash *remote_ip_hash;
+
 	/* Route table for EVPN routes for
 	 * this VNI. */
 	struct bgp_table *route_table;
@@ -177,6 +186,12 @@ struct bgp_evpn_info {
 	struct ethaddr pip_rmac_static;
 	struct ethaddr pip_rmac_zebra;
 	bool is_anycast_mac;
+};
+
+/* This structure defines an entry in remote_ip_hash */
+struct evpn_remote_ip {
+	struct ipaddr addr;
+	struct list *macip_path_list;
 };
 
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)

@@ -211,4 +211,9 @@ extern void bgp_evpn_init(struct bgp *bgp);
 extern int bgp_evpn_get_type5_prefixlen(const struct prefix *pfx);
 extern bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx);
 extern void update_advertise_vrf_routes(struct bgp *bgp_vrf);
+extern void bgp_evpn_show_remote_ip_hash(struct hash_bucket *bucket,
+					 void *args);
+extern void bgp_evpn_show_vni_svi_hash(struct hash_bucket *bucket, void *args);
+extern bool bgp_evpn_is_gateway_ip_resolved(struct bgp_nexthop_cache *bnc);
+
 #endif /* _QUAGGA_BGP_EVPN_H */
