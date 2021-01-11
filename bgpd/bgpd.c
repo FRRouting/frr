@@ -5039,20 +5039,20 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 			continue;
 
 		/* Remove flag and configuration on peer-group member. */
-		UNSET_FLAG(peer->af_flags[afi][safi],
+		UNSET_FLAG(member->af_flags[afi][safi],
 			   PEER_FLAG_DEFAULT_ORIGINATE);
-		if (peer->default_rmap[afi][safi].name)
+		if (member->default_rmap[afi][safi].name)
 			XFREE(MTYPE_ROUTE_MAP_NAME,
-			      peer->default_rmap[afi][safi].name);
-		route_map_counter_decrement(peer->default_rmap[afi][safi].map);
-		peer->default_rmap[afi][safi].name = NULL;
-		peer->default_rmap[afi][safi].map = NULL;
+			      member->default_rmap[afi][safi].name);
+		route_map_counter_decrement(member->default_rmap[afi][safi].map);
+		member->default_rmap[afi][safi].name = NULL;
+		member->default_rmap[afi][safi].map = NULL;
 
 		/* Update peer route announcements. */
-		if (peer->status == Established && peer->afc_nego[afi][safi]) {
-			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, 1);
-			bgp_announce_route(peer, afi, safi);
+		if (member->status == Established && member->afc_nego[afi][safi]) {
+			update_group_adjust_peer(peer_af_find(member, afi, safi));
+			bgp_default_originate(member, afi, safi, 1);
+			bgp_announce_route(member, afi, safi);
 		}
 	}
 
