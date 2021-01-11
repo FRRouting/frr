@@ -9647,6 +9647,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		json_nexthop_global = json_object_new_object();
 	}
 
+	if (safi == SAFI_EVPN) {
+		if (!json_paths)
+			vty_out(vty, "  Route %pRN", bn);
+	}
+
 	if (path->extra) {
 		char tag_buf[30];
 
@@ -9658,12 +9663,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 		if (safi == SAFI_EVPN) {
 			if (!json_paths) {
-				vty_out(vty, "  Route %pFX",
-					(struct prefix_evpn *)
-						bgp_dest_get_prefix(bn));
 				if (tag_buf[0] != '\0')
 					vty_out(vty, " VNI %s", tag_buf);
-				vty_out(vty, "\n");
 			} else {
 				if (tag_buf[0])
 					json_object_string_add(json_path, "VNI",
@@ -9709,6 +9710,27 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			}
 		}
 	}
+
+	if (safi == SAFI_EVPN
+	    && attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
+		char gwip_buf[INET6_ADDRSTRLEN];
+
+		if (is_evpn_prefix_ipaddr_v4((struct prefix_evpn *)&bn->p))
+			inet_ntop(AF_INET, &attr->evpn_overlay.gw_ip.ipv4,
+				  gwip_buf, sizeof(gwip_buf));
+		else
+			inet_ntop(AF_INET6, &attr->evpn_overlay.gw_ip.ipv6,
+				  gwip_buf, sizeof(gwip_buf));
+
+		if (json_paths)
+			json_object_string_add(json_path, "gatewayIP",
+					       gwip_buf);
+		else
+			vty_out(vty, " Gateway IP %s", gwip_buf);
+	}
+
+	if (safi == SAFI_EVPN)
+		vty_out(vty, "\n");
 
 	/* Line1 display AS-path, Aggregator */
 	if (attr->aspath) {
