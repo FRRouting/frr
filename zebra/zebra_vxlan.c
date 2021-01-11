@@ -1842,6 +1842,27 @@ static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
 	return zl3vni;
 }
 
+vni_t vni_id_from_svi(struct interface *ifp, struct interface *br_if)
+{
+	vni_t vni = 0;
+	zebra_evpn_t *zevpn = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
+
+	/* Check if an L3VNI belongs to this SVI interface.
+	 * If not, check if an L2VNI belongs to this SVI interface.
+	 */
+	zl3vni = zl3vni_from_svi(ifp, br_if);
+	if (zl3vni)
+		vni = zl3vni->vni;
+	else {
+		zevpn = zebra_evpn_from_svi(ifp, br_if);
+		if (zevpn)
+			vni = zevpn->vni;
+	}
+
+	return vni;
+}
+
 static inline void zl3vni_get_vrr_rmac(zebra_l3vni_t *zl3vni,
 				       struct ethaddr *rmac)
 {
