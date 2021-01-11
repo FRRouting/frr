@@ -887,8 +887,9 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 	} /* for (iflist) */
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }

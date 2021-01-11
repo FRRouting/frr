@@ -389,10 +389,15 @@ cause great confusion.
 
    Display IGMP interface information.
 
-.. index:: show ip igmp join
-.. clicmd:: show ip igmp join
+.. index:: show ip igmp [vrf NAME] join [json]
+.. clicmd:: show ip igmp [vrf NAME] join [json]
 
-   Display IGMP static join information.
+   Display IGMP static join information for a specific vrf.
+
+.. index:: show ip igmp vrf all join [json]
+.. clicmd:: show ip igmp vrf all join [json]
+
+   Display IGMP static join information for all vrfs.
 
 .. index:: show ip igmp groups
 .. clicmd:: show ip igmp groups
