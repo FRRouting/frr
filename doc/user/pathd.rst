@@ -115,19 +115,19 @@ Configuration Commands
 
    Configure segment routing traffic engineering.
 
-.. index:: [no] segment-list NAME
+.. index:: segment-list NAME
 .. clicmd:: [no] segment-list NAME
 
    Delete or start a segment list definition.
 
 
-.. index:: [no] index INDEX mpls label LABEL [nai node ADDRESS]
+.. index:: index INDEX mpls label LABEL [nai node ADDRESS]
 .. clicmd:: [no] index INDEX mpls label LABEL [nai node ADDRESS]
 
    Delete or specify a segment in a segment list definition.
 
 
-.. index:: [no] policy color COLOR endpoint ENDPOINT
+.. index:: policy color COLOR endpoint ENDPOINT
 .. clicmd:: [no] policy color COLOR endpoint ENDPOINT
 
    Delete or start a policy definition.
@@ -145,31 +145,31 @@ Configuration Commands
    Specify the policy SID.
 
 
-.. index:: [no] candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
+.. index:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 .. clicmd:: [no] candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 
    Delete or define an explicit candidate path.
 
 
-.. index:: [no] candidate-path preference PREFERENCE name NAME dynamic
+.. index:: candidate-path preference PREFERENCE name NAME dynamic
 .. clicmd:: [no] candidate-path preference PREFERENCE name NAME dynamic
 
    Delete or start a dynamic candidate path definition.
 
 
-.. index:: [no] affinity {exclude-any|include-any|include-all} BITPATTERN
+.. index:: affinity {exclude-any|include-any|include-all} BITPATTERN
 .. clicmd:: [no] affinity {exclude-any|include-any|include-all} BITPATTERN
 
    Delete or specify an affinity constraint for a dynamic candidate path.
 
 
-.. index:: [no] bandwidth BANDWIDTH [required]
+.. index:: bandwidth BANDWIDTH [required]
 .. clicmd:: [no] bandwidth BANDWIDTH [required]
 
    Delete or specify a bandwidth constraint for a dynamic candidate path.
 
 
-.. index:: [no] metric [bound] METRIC VALUE [required]
+.. index:: metric [bound] METRIC VALUE [required]
 .. clicmd:: [no] metric [bound] METRIC VALUE [required]
 
    Delete or specify a metric constraint for a dynamic candidate path.
@@ -198,7 +198,7 @@ Configuration Commands
     - bnc: Border Node Count metric
 
 
-.. index:: [no] objective-function OBJFUN1 [required]
+.. index:: objective-function OBJFUN1 [required]
 .. clicmd:: [no] objective-function OBJFUN1 [required]
 
    Delete or specify a PCEP objective function constraint for a dynamic
@@ -224,7 +224,7 @@ Configuration Commands
      - msn: Minimize the number of Shared Nodes [RFC8800]
 
 
-.. index:: [no] debug pathd pcep [basic|path|message|pceplib]
+.. index:: debug pathd pcep [basic|path|message|pceplib]
 .. clicmd:: [no] debug pathd pcep [basic|path|message|pceplib]
 
    Enable or disable debugging for the pcep module:
@@ -241,14 +241,14 @@ Configuration Commands
    Configure PCEP support.
 
 
-.. index:: [no] cep-config NAME
+.. index:: cep-config NAME
 .. clicmd:: [no] pce-config NAME
 
    Define a shared PCE configuration that can be used in multiple PCE
    declarations.
 
 
-.. index:: [no] pce NAME
+.. index:: pce NAME
 .. clicmd:: [no] pce NAME
 
    Define or delete a PCE definition.
@@ -321,7 +321,7 @@ Configuration Commands
    configuration group.
 
 
-.. index:: [no] pcc
+.. index:: pcc
 .. clicmd:: [no] pcc
 
    Disable or start the definition of a PCC.
@@ -333,7 +333,7 @@ Configuration Commands
    Specify the maximum SID depth in a PCC definition.
 
 
-.. index:: [no] peer WORD [precedence (1-255)]
+.. index:: peer WORD [precedence (1-255)]
 .. clicmd:: [no] peer WORD [precedence (1-255)]
 
    Specify a peer and its precedence in a PCC definition.
