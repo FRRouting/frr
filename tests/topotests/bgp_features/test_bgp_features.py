@@ -33,6 +33,7 @@ import sys
 import pytest
 import re
 import time
+from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -64,6 +65,14 @@ class BGPFeaturesTopo1(Topo):
         for rtrNum in range(1, 6):
             tgen.add_router("r{}".format(rtrNum))
 
+        # create ExaBGP peers
+        for peer_num in range(1, 5):
+            tgen.add_exabgp_peer(
+                "peer{}".format(peer_num),
+                ip="192.168.101.{}".format(peer_num + 2),
+                defaultRoute="via 192.168.101.1",
+            )
+
         # Setup Switches and connections
         for swNum in range(1, 11):
             tgen.add_switch("sw{}".format(swNum))
@@ -88,6 +97,12 @@ class BGPFeaturesTopo1(Topo):
         tgen.gears["r4"].add_link(tgen.gears["sw4"])
         tgen.gears["r2"].add_link(tgen.gears["sw5"])
         tgen.gears["r5"].add_link(tgen.gears["sw5"])
+
+        # Add ExaBGP peers to sw4
+        tgen.gears["peer1"].add_link(tgen.gears["sw4"])
+        tgen.gears["peer2"].add_link(tgen.gears["sw4"])
+        tgen.gears["peer3"].add_link(tgen.gears["sw4"])
+        tgen.gears["peer4"].add_link(tgen.gears["sw4"])
 
 
 #####################################################
@@ -1091,6 +1106,662 @@ def test_bgp_delayopen_dual():
     # tgen.mininet_cli()
 
     # end test_bgp_delayopen_dual
+
+
+def test_bgp_dampening_setup():
+    "BGP route-flap dampening test setup"
+
+    # This test starts four ExaBGP peers, adds them as neighbors to the
+    # configuration of router r1 and checks if connections get established.
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Starting BGP route-flap dampening test setup")
+
+    # Start ExaBGP peers connected to r1 via switch 4
+    logger.info("Starting ExaBGP peers")
+    for peer_num in range(1, 5):
+        logger.info("Creating named pipe for ExaBGP peer peer{}".format(peer_num))
+        fifo_in = "/var/run/exabgp_peer{}.in".format(peer_num)
+        if os.path.exists(fifo_in):
+            os.remove(fifo_in)
+        os.mkfifo(fifo_in, 0o777)
+        logger.info("Starting ExaBGP on peer peer{}".format(peer_num))
+        peer = tgen.gears["peer{}".format(peer_num)]
+        peer_dir = os.path.join(CWD, "peer{}".format(peer_num))
+        env_file = os.path.join(CWD, "exabgp.env")
+        peer.start(peer_dir, env_file)
+
+    # Add ExaBGP peers to configuration of router r2
+    logger.info("Adding ExaBGP peers as neighbors to configuration of router r2")
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.3 remote-as 65403"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.3 route-map testmap-in"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.3 route-map testmap-out"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.4 remote-as 65404"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.4 route-map testmap-in"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.4 route-map testmap-out"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.5 remote-as 65405"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.5 route-map testmap-in"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.5 route-map testmap-out"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.6 remote-as 65406"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.6 route-map testmap-in"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.6 route-map testmap-out"'
+    )
+
+    # Check if exabgp peers are up and running
+    logger.info("Checking for established connections to ExaBGP peers on router r1")
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/bgp_damp_setup.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp, router, "show ip bgp summary json", expected
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertmsg = (
+        "BGP session on r1 did not establish connections with one ore more ExaBGP peers"
+    )
+    assert res is None, assertmsg
+
+    # end test_bgp_dampening_setup
+
+
+def test_bgp_dampening_route_announce():
+    "Test of BGP route-flap dampening route announcement"
+
+    # This test checks if the four ExaBGP peers can announce routes to router
+    # r1 and if these routes get forwarded to router r2.
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Starting test of BGP route-flap dampening route announcement")
+
+    # Announce routes on exabgp peers to r2
+    logger.info("Announcing routes on ExaBGP peers to r1")
+    for prefix_iter in range(1, 5):
+        for peer_num in range(1, 5):
+            pipe = open("/run/exabgp_peer{}.in".format(peer_num), "w")
+            with pipe:
+                pipe.write(
+                    "announce route 192.168.{}{}.0/24 next-hop 192.168.101.{}\n".format(
+                        (peer_num + 2), prefix_iter, (peer_num + 2)
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+
+    # Check if routes announced by ExaBGP peers are present in RIB of router r1
+    logger.info(
+        "Checking if routes announced by ExaBGP peers are present in RIB of router r1"
+    )
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/bgp_damp_announced.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp, router, "show ip bgp json", expected
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertmsg = (
+        "BGP session on router r1 did not receive routes announced by ExaBGP peers"
+    )
+    assert res is None, assertmsg
+
+    # Check if routes announced by ExaBGP peers to router r1 have been forwarded
+    # and are now present in RIB of router r2
+    logger.info(
+        "Checking if forwarded routes announced by ExaBGP peers are present in RIB of router r2"
+    )
+    router = tgen.gears["r2"]
+    reffile = os.path.join(CWD, "r2/bgp_damp_announced.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp, router, "show ip bgp json", expected
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertmsg = "BGP session on router r2 did not receive routes announced by ExaBGP peers forwarded by router r1"
+    assert res is None, assertmsg
+
+    # end test_bgp_dampening_route_announce
+
+
+def test_bgp_dampening_disabled():
+    "Test of BGP route-flapping with dampening disabled"
+
+    # This test verifies that flapped routes do not get withdrawn from the RIB
+    # of router r1 if dampening is disabled.
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Starting test of BGP route-flapping with dampening disabled")
+
+    # Flapping routes on ExaBGP peer peer1
+    logger.info(
+        "Flapping routes on ExaBGP peer peer1 with route-flap dampening disabled"
+    )
+    for _ in range(1, 5):
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer1.in", "w")
+            with pipe:
+                pipe.write(
+                    "withdraw route 192.168.3{}.0/24 next-hop 192.168.101.3\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+        sleep(1)  # Give the BGP session on router r1 time to process routes
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer1.in", "w")
+            with pipe:
+                pipe.write(
+                    "announce route 192.168.3{}.0/24 next-hop 192.168.101.3\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+
+    # Verify flapped routes are still present in RIB of router r1
+    logger.info(
+        "Verifying that the flapped routes are still present in RIB of router r1"
+    )
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/bgp_damp_announced.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp, router, "show ip bgp json", expected
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertmsg = "BGP session on router r1 removed flapped routes despite route-flap dampening being disabled"
+    assert res is None, assertmsg
+
+    # end test_bgp_dampening_disabled
+
+
+def test_bgp_dampening_config():
+    "Test of BGP route-flap dampening configuration"
+
+    # This test adds peer-group group1 with peers peer1 and peer2 to the
+    # configuration of router r1, sets up dampening configurations with
+    # different profiles and verifies the configured dampening parameters.
+
+    tgen = get_topogen()
+    r_1 = tgen.net["r1"]
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Starting test of BGP route-flap dampening configuration")
+
+    # Add peer-group group1 with peers peer1 and peer2
+    logger.info(
+        "Creating peer-group group1 and adding ExaBGP peers peer1 and peer2 to it"
+    )
+    r_1.cmd('vtysh -c "conf t" -c "router bgp 65000" -c "neighbor group1 peer-group"')
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.3 peer-group group1"'
+    )  # peer1
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.4 peer-group group1"'
+    )  # peer2
+
+    # Enable different dampening profiles for peer1, peer3, group1 and global
+    # configuration
+    logger.info(
+        "Enabling different dampening profiles for peer1, peer3, group1 and global configuration"
+    )
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "bgp dampening 30 300 900 90"'
+    )
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor group1 dampening 20 200 600 60"'
+    )
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.3 dampening 10 100 300 30"'
+    )  # peer1
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "neighbor 192.168.101.5 dampening 10 100 300 30"'
+    )  # peer3
+
+    # Verify route-flap dampening configuration
+    logger.info("Verifying route-flap dampening configuration on router r1")
+    vtyout = r_1.cmd('vtysh -c "show running-config"')
+    assertmsg = "BGP Session on r1 does not show enabled global route-flap dampening in running configuration"
+    assert re.search("bgp dampening 30 300 900 90", vtyout), assertmsg
+    assertmsg = "BGP Session on r1 does not show route-flap dampening enabled for peer-group group1 in running configuration"
+    assert re.search("neighbor group1 dampening 20 200 600 60", vtyout), assertmsg
+    assertmsg = "BGP Session on r1 does not show route-flap dampening enabled for peer peer1 in running configuration"
+    assert re.search(
+        "neighbor 192.168.101.3 dampening 10 100 300 30", vtyout
+    ), assertmsg
+    assertmsg = "BGP Session on r1 does not show route-flap dampening enabled for peer peer3 in running configuration"
+    assert re.search(
+        "neighbor 192.168.101.5 dampening 10 100 300 30", vtyout
+    ), assertmsg
+
+    # end test_bgp_dampening_config
+
+
+def test_bgp_dampening_profile_peer_over_group():
+    "Test of BGP route-flap dampening profile preferences: peer over group"
+
+    # This test verifies that the dampening profile of a peer takes precedence
+    # over the dampening profile of its peer-group by flapping the peers routes
+    # until dampened and comparing the reuse times to the one specified in the
+    # dampening configuration.
+
+    tgen = get_topogen()
+    r_1 = tgen.net["r1"]
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Starting test of BGP route-flap dampening profile preferences: peer over group"
+    )
+
+    # Flapping routes on ExaBGP peer peer1
+    logger.info(
+        "Flapping routes on ExaBGP peer peer1 with route-flap dampening enabled"
+    )
+    for _ in range(1, 5):
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer1.in", "w")
+            with pipe:
+                pipe.write(
+                    "withdraw route 192.168.3{}.0/24 next-hop 192.168.101.3\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+        sleep(1)  # Give the BGP session on router r1 time to process routes
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer1.in", "w")
+            with pipe:
+                pipe.write(
+                    "announce route 192.168.3{}.0/24 next-hop 192.168.101.3\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+
+    # Check damped paths on r1 for routes of peer1 witn peer profile
+    logger.info(
+        "Checking if router r1 used the correct dampening profile on routes flapped by ExaBGP peer peer1"
+    )
+    sleep(5)  # Wait 5 seconds for paths to show up in dampened-paths list
+    vtyout = r_1.cmd('vtysh -c "show ip bgp dampening dampened-paths"')
+    routes = re.findall(r"\*d 192\.168\.3\d\.0\/24.*", vtyout)
+    assertmsg = (
+        "BGP session on router r1 did not dampen routes flapped by ExaBGP peer peer1"
+    )
+    assert len(routes) == 4, assertmsg
+    assertmsg = "BGP session on router r1 used wrong dampening profile for a route flapped by ExaBGP peer peer1"
+    for route in routes:
+        assert (int(route.split()[3].split(":")[0]) == 0) and (  # hours of reuse time
+            35 > int(route.split()[3].split(":")[1]) > 25
+        ), assertmsg  # minutes of reuse time
+
+    # end test_bgp_dampening_profile_peer_over_group
+
+
+def test_bgp_dampening_profile_group_over_global():
+    "Test of BGP route-flap dampening profile preferences: group over global"
+
+    # This test verifies that the dampening profile of a peer-group takes
+    # precedence over the global dampening profile by flapping the routes of a
+    # peer-group member until dampened and comparing the reuse times to the one
+    # specified in the dampening configuration.
+
+    tgen = get_topogen()
+    r_1 = tgen.net["r1"]
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Starting test of BGP route-flap dampening profile preferences: group over global"
+    )
+
+    # Flapping routes on ExaBGP peer peer2
+    logger.info(
+        "Flapping routes on ExaBGP peer peer2 with route-flap dampening enabled"
+    )
+    for _ in range(1, 5):
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer2.in", "w")
+            with pipe:
+                pipe.write(
+                    "withdraw route 192.168.4{}.0/24 next-hop 192.168.101.4\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+        sleep(1)  # Give the BGP session on router r1 time to process routes
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer2.in", "w")
+            with pipe:
+                pipe.write(
+                    "announce route 192.168.4{}.0/24 next-hop 192.168.101.4\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+
+    # Check damped paths on r1 for routes of peer2 witn group profile
+    logger.info(
+        "Checking if router r1 used the correct dampening profile on routes flapped by ExaBGP peer peer2"
+    )
+    sleep(5)  # wait 5 seconds for paths to shop up in damp list
+    vtyout = r_1.cmd('vtysh -c "show ip bgp dampening dampened-paths"')
+    routes = re.findall(r"\*d 192\.168\.4\d\.0\/24.*", vtyout)
+    assertmsg = (
+        "BGP session on router r1 did not dampen routes flapped by ExaBGP peer peer2"
+    )
+    assert len(routes) == 4, assertmsg
+    assertmsg = "BGP session on router r1 used wrong dampening profile for a route flapped by ExaBGP peer peer2"
+    for route in routes:
+        assert (int(route.split()[3].split(":")[0]) == 0) and (  # hours of reuse time
+            65 > int(route.split()[3].split(":")[1]) > 55
+        ), assertmsg  # minutes of reuse time
+
+    # end test_bgp_dampening_profile_group_over_global
+
+
+def test_bgp_dampening_profile_peer_over_global():
+    "Test of BGP route-flap dampening profile preferences: peer over global"
+
+    # This test verifies that the dampening profile of a peer takes precedence
+    # over the global dampening profile by flapping the routes of the peer until
+    # dampened and comparing the reuse times to the one specified in the
+    # dampening configuration.
+
+    tgen = get_topogen()
+    r_1 = tgen.net["r1"]
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Starting test of BGP route-flap dampening profile preferences: peer over global"
+    )
+
+    # Flapping routes on ExaBGP peer peer3
+    logger.info(
+        "Flapping routes on ExaBGP peer peer3 with route-flap dampening enabled"
+    )
+    for _ in range(1, 5):
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer3.in", "w")
+            with pipe:
+                pipe.write(
+                    "withdraw route 192.168.5{}.0/24 next-hop 192.168.101.5\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+        sleep(1)  # Give the BGP session on router r1 time to process routes
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer3.in", "w")
+            with pipe:
+                pipe.write(
+                    "announce route 192.168.5{}.0/24 next-hop 192.168.101.5\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+
+    # Check damped paths on r1 for routes of peer3 witn peer profile
+    logger.info(
+        "Checking if router r1 used the correct dampening profile on routes flapped by ExaBGP peer peer3"
+    )
+    sleep(5)  # wait 5 seconds for paths to shop up in damp list
+    vtyout = r_1.cmd('vtysh -c "show ip bgp dampening dampened-paths"')
+    routes = re.findall(r"\*d 192\.168\.5\d\.0\/24.*", vtyout)
+    assertmsg = (
+        "BGP session on router r1 did not dampen routes flapped by ExaBGP peer peer3"
+    )
+    assert len(routes) == 4, assertmsg
+    assertmsg = "BGP session on router r1 used wrong dampening profile for a route flapped by ExaBGP peer peer3"
+    for route in routes:
+        assert (int(route.split()[3].split(":")[0]) == 0) and (  # hours of reuse time
+            35 > int(route.split()[3].split(":")[1]) > 25
+        ), assertmsg  # minutes of reuse time
+
+    # end test_bgp_dampening_profile_peer_over_global
+
+
+def test_bgp_dampening_profile_global():
+    "Test of BGP route-flap dampening global profile"
+
+    # This test verifies the application of the global dampening profile by
+    # flapping the routes of a peer until dampened and comparing the reuse times
+    # to the one specified in the dampening configuration.
+
+    tgen = get_topogen()
+    r_1 = tgen.net["r1"]
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Starting test of BGP route-flap dampening global profile")
+
+    # Flapping routes on ExaBGP peer peer4
+    logger.info(
+        "Flapping routes on ExaBGP peer peer4 with route-flap dampening enabled"
+    )
+    for _ in range(1, 5):
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer4.in", "w")
+            with pipe:
+                pipe.write(
+                    "withdraw route 192.168.6{}.0/24 next-hop 192.168.101.6\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+        sleep(1)  # Give the BGP session on router r1 time to process routes
+        for prefix_iter in range(1, 5):
+            pipe = open("/run/exabgp_peer4.in", "w")
+            with pipe:
+                pipe.write(
+                    "announce route 192.168.6{}.0/24 next-hop 192.168.101.6\n".format(
+                        prefix_iter
+                    )
+                )
+                pipe.close()
+                sleep(0.1)  # ExaBGP API command processing delay
+
+    # Check damped paths on r1 for routes of peer4 witn global profile
+    logger.info(
+        "Checking if router r1 used the global dampening profile on routes flapped by ExaBGP peer peer4"
+    )
+    sleep(5)  # wait 5 seconds for paths to shop up in damp list
+    vtyout = r_1.cmd('vtysh -c "show ip bgp dampening dampened-paths"')
+    routes = re.findall(r"\*d 192\.168\.6\d\.0\/24.*", vtyout)
+    assertmsg = (
+        "BGP session on router r1 did not dampen routes flapped by ExaBGP peer peer4"
+    )
+    assert len(routes) == 4, assertmsg
+    assertmsg = "BGP session on router r1 did not use the global dampening profile for a route flapped by ExaBGP peer peer4"
+    for route in routes:
+        assert (int(route.split()[3].split(":")[0]) == 1) and (  # hours of reuse time
+            35 > int(route.split()[3].split(":")[1]) > 25
+        ), assertmsg  # minutes of reuse time
+
+    # end test_bgp_dampening_profile_global
+
+
+def test_bgp_dampening_withdaw():
+    "Test BGP route-flap dampening route withdraw"
+
+    # This test verifies that the withrawl of dampened routes from the RIB of
+    # router r1 was propagated to router r2.
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Starting test of BGP route-flap dampening route withdraw")
+
+    # Check if routes dampened on router r1 have been withdrawn from the RIB on
+    # router r2
+    logger.info(
+        "Checking if routes dampened on router r1 have been withdrawn of RIB on router r2"
+    )
+    reffile = os.path.join(CWD, "r2/bgp_damp_withdrawn.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp, tgen.gears["r2"], "show ip bgp json", expected
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
+    assertmsg = "BGP session on router r2 did not receive withdraw of routes dampened on router r1"
+    assert res is None, assertmsg
+
+    # end test_bgp_dampening_withdaw
+
+
+def test_bgp_dampening_cleanup():
+    "BGP route-flap dampening test cleanup"
+
+    # This test cleans up after other tests associated with route-flap dampening
+    # by disabling all dampening configurations, removing added peers and
+    # peer-groups from the configuration on router r1, and shutting down ExaBGP
+    # peers peer1, peer2 and peer3.
+
+    tgen = get_topogen()
+    r_1 = tgen.net["r1"]
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Starting BGP route-flap dampening test cleanup")
+
+    # Disable all dampening configurations
+    logger.info("Disabling all dampening configurations")
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "no bgp dampening"'
+    )
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "no neighbor group1 dampening"'
+    )
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "no neighbor 192.168.101.3 dampening"'
+    )
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "address-family ipv4 unicast" -c "no neighbor 192.168.101.5 dampening"'
+    )
+
+    # Remove ExaBGP peers from configuration of router r1
+    logger.info("Removing ExaBGP peers from configuration of router r1")
+    for router_num in range(3, 7):
+        r_1.cmd(
+            'vtysh -c "conf t" -c "router bgp 65000" -c "no neighbor 192.168.101.{}"'.format(
+                router_num
+            )
+        )
+
+    # Remove peer-group group1 from configuration of router r1
+    logger.info("Removing peer-group group1 peers from configuration of router r1")
+    r_1.cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "no neighbor group1 peer-group"'
+    )
+
+    # Stop ExaBGP peers and remove associated named pipes
+    logger.info("Stopping ExaBGP peers and removing associated named pipes")
+    for peer_num in range(1, 5):
+        logger.info("Terminating ExaBGP on peer peer{}".format(peer_num))
+        peer = tgen.gears["peer{}".format(peer_num)]
+        logger.info("Removing named pipe of ExaBGP peer peer{}".format(peer_num))
+        fifo_in = "/var/run/exabgp_peer{}.in".format(peer_num)
+        peer.stop()
+        if os.path.exists(fifo_in):
+            os.remove(fifo_in)
+
+    # end test_bgp_dampening_cleanup
+
+
+def test_bgp_dampening_aftermath():
+    "BGP route-flap dampening aftermath test"
+
+    # This test verifies routers r1 and r2 not being affected by the route-flap
+    # dampening test series.
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check BGP Summary on routers r1 and r2
+    for rtr_num in [1, 2]:
+        logger.info(
+            "Checking if BGP router on r{} remains unaffected by route-flap dampening tests".format(
+                rtr_num
+            )
+        )
+        router = tgen.gears["r{}".format(rtr_num)]
+        reffile = os.path.join(CWD, "r{}/show_bgp.json".format(rtr_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(
+            topotest.router_json_cmp, router, "show ip bgp json", expected
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
+        assertmsg = "BGP routes on router r{} are wrong after route-flap dampening tests".format(
+            rtr_num
+        )
+        assert res is None, assertmsg
+
+    # end test_bgp_dampening_aftermath
 
 
 if __name__ == "__main__":
