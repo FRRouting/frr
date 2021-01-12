@@ -894,6 +894,19 @@ However, it MUST defer route selection for an address family until it either.
 
    This is command, will set the time for which stale routes are kept in RIB.
 
+.. index:: bgp graceful-restart stalepath-time (1-4095)
+.. clicmd:: bgp graceful-restart stalepath-time (1-4095)
+
+   This is command, will set the max time (in seconds) to hold onto
+   restarting peer's stale paths.
+
+   It also controls Enhanced Route-Refresh timer.
+
+   If this command is configured and the router does not receive a Route-Refresh EoRR
+   message, the router removes the stale routes from the BGP table after the timer
+   expires. The stale path timer is started when the router receives a Route-Refresh
+   BoRR message.
+
 .. _bgp-per-peer-graceful-restart:
 
 BGP Per Peer Graceful Restart

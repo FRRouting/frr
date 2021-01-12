@@ -4012,7 +4012,8 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 	} else if (type == peer_change_reset_in) {
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
 		    || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0);
+			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+					       BGP_ROUTE_REFRESH_NORMAL);
 		else {
 			if ((peer->doppelganger)
 			    && (peer->doppelganger->status != Deleted)
@@ -5090,7 +5091,8 @@ static void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 			bgp_soft_reconfig_in(peer, afi, safi);
 		else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
 			 || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0);
+			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+					       BGP_ROUTE_REFRESH_NORMAL);
 	}
 }
 
@@ -7338,19 +7340,23 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 					       PEER_STATUS_ORF_PREFIX_SEND))
 					bgp_route_refresh_send(
 						peer, afi, safi, prefix_type,
-						REFRESH_DEFER, 1);
-				bgp_route_refresh_send(peer, afi, safi,
-						       prefix_type,
-						       REFRESH_IMMEDIATE, 0);
+						REFRESH_DEFER, 1,
+						BGP_ROUTE_REFRESH_NORMAL);
+				bgp_route_refresh_send(
+					peer, afi, safi, prefix_type,
+					REFRESH_IMMEDIATE, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 			} else {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
 					       PEER_STATUS_ORF_PREFIX_SEND))
 					bgp_route_refresh_send(
 						peer, afi, safi, prefix_type,
-						REFRESH_IMMEDIATE, 1);
+						REFRESH_IMMEDIATE, 1,
+						BGP_ROUTE_REFRESH_NORMAL);
 				else
-					bgp_route_refresh_send(peer, afi, safi,
-							       0, 0, 0);
+					bgp_route_refresh_send(
+						peer, afi, safi, 0, 0, 0,
+						BGP_ROUTE_REFRESH_NORMAL);
 			}
 			return 0;
 		}
@@ -7369,8 +7375,9 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			   message to the peer. */
 			if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
 			    || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-				bgp_route_refresh_send(peer, afi, safi, 0, 0,
-						       0);
+				bgp_route_refresh_send(
+					peer, afi, safi, 0, 0, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 			else
 				return BGP_ERR_SOFT_RECONFIG_UNCONFIGURED;
 		}

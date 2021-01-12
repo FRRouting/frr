@@ -469,6 +469,7 @@ void bgp_timer_set(struct peer *peer)
 		BGP_TIMER_OFF(peer->t_gr_restart);
 		BGP_TIMER_OFF(peer->t_gr_stale);
 		BGP_TIMER_OFF(peer->t_pmax_restart);
+		BGP_TIMER_OFF(peer->t_refresh_stalepath);
 	/* fallthru */
 	case Clearing:
 		BGP_TIMER_OFF(peer->t_start);
@@ -1283,6 +1284,16 @@ int bgp_stop(struct peer *peer)
 					peer->nsf[afi][safi] = 0;
 		}
 
+		/* Stop route-refresh stalepath timer */
+		if (peer->t_refresh_stalepath) {
+			BGP_TIMER_OFF(peer->t_refresh_stalepath);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s: route-refresh restart stalepath timer stopped",
+					peer->host);
+		}
+
 		/* If peer reset before receiving EOR, decrement EOR count and
 		 * cancel the selection deferral timer if there are no
 		 * pending EOR messages to be received
@@ -2066,14 +2077,16 @@ static int bgp_establish(struct peer *peer)
 			       PEER_CAP_ORF_PREFIX_SM_ADV)) {
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_RM_RCV))
-				bgp_route_refresh_send(peer, afi, safi,
-						       ORF_TYPE_PREFIX,
-						       REFRESH_IMMEDIATE, 0);
+				bgp_route_refresh_send(
+					peer, afi, safi, ORF_TYPE_PREFIX,
+					REFRESH_IMMEDIATE, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 			else if (CHECK_FLAG(peer->af_cap[afi][safi],
 					    PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
-				bgp_route_refresh_send(peer, afi, safi,
-						       ORF_TYPE_PREFIX_OLD,
-						       REFRESH_IMMEDIATE, 0);
+				bgp_route_refresh_send(
+					peer, afi, safi, ORF_TYPE_PREFIX_OLD,
+					REFRESH_IMMEDIATE, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 		}
 	}
 

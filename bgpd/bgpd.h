@@ -1063,6 +1063,8 @@ struct peer {
 #define PEER_CAP_ENHE_RCV                   (1U << 14) /* Extended nexthop received */
 #define PEER_CAP_HOSTNAME_ADV               (1U << 15) /* hostname advertised */
 #define PEER_CAP_HOSTNAME_RCV               (1U << 16) /* hostname received */
+#define PEER_CAP_ENHANCED_RR_ADV (1U << 17) /* enhanced rr advertised */
+#define PEER_CAP_ENHANCED_RR_RCV (1U << 18) /* enhanced rr received */
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1264,6 +1266,11 @@ struct peer {
 #define PEER_STATUS_PREFIX_LIMIT      (1U << 3) /* exceed prefix-limit */
 #define PEER_STATUS_EOR_SEND          (1U << 4) /* end-of-rib send to peer */
 #define PEER_STATUS_EOR_RECEIVED      (1U << 5) /* end-of-rib received from peer */
+#define PEER_STATUS_ENHANCED_REFRESH (1U << 6) /* Enhanced Route Refresh */
+#define PEER_STATUS_BORR_SEND (1U << 7) /* BoRR send to peer */
+#define PEER_STATUS_BORR_RECEIVED (1U << 8) /* BoRR received from peer */
+#define PEER_STATUS_EORR_SEND (1U << 9) /* EoRR send to peer */
+#define PEER_STATUS_EORR_RECEIVED (1U << 10) /* EoRR received from peer */
 
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
@@ -1297,6 +1304,7 @@ struct peer {
 	struct thread *t_gr_stale;
 	struct thread *t_generate_updgrp_packets;
 	struct thread *t_process_packet;
+	struct thread *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
@@ -1621,7 +1629,7 @@ struct bgp_nlri {
 #define BGP_NOTIFY_HOLD_ERR                      4
 #define BGP_NOTIFY_FSM_ERR                       5
 #define BGP_NOTIFY_CEASE                         6
-#define BGP_NOTIFY_CAPABILITY_ERR                7
+#define BGP_NOTIFY_ROUTE_REFRESH_ERR             7
 
 /* Subcodes for BGP Finite State Machine Error */
 #define BGP_NOTIFY_FSM_ERR_SUBCODE_UNSPECIFIC  0
@@ -1669,10 +1677,13 @@ struct bgp_nlri {
 #define BGP_NOTIFY_CEASE_COLLISION_RESOLUTION    7
 #define BGP_NOTIFY_CEASE_OUT_OF_RESOURCE         8
 
-/* BGP_NOTIFY_CAPABILITY_ERR sub codes (draft-ietf-idr-dynamic-cap-02). */
-#define BGP_NOTIFY_CAPABILITY_INVALID_ACTION     1
-#define BGP_NOTIFY_CAPABILITY_INVALID_LENGTH     2
-#define BGP_NOTIFY_CAPABILITY_MALFORMED_CODE     3
+/* BGP_NOTIFY_ROUTE_REFRESH_ERR sub codes (RFC 7313). */
+#define BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN 1
+
+/* BGP route refresh optional subtypes. */
+#define BGP_ROUTE_REFRESH_NORMAL 0
+#define BGP_ROUTE_REFRESH_BORR 1
+#define BGP_ROUTE_REFRESH_EORR 2
 
 /* BGP timers default value.  */
 #define BGP_INIT_START_TIMER                     1

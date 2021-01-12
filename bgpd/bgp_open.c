@@ -760,6 +760,7 @@ static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_REFRESH_OLD, "Route Refresh (Old)"},
 	{CAPABILITY_CODE_ORF_OLD, "ORF (Old)"},
 	{CAPABILITY_CODE_FQDN, "FQDN"},
+	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
 	{0}};
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
@@ -776,6 +777,7 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_REFRESH_OLD] = CAPABILITY_CODE_REFRESH_LEN,
 		[CAPABILITY_CODE_ORF_OLD] = CAPABILITY_CODE_ORF_LEN,
 		[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
+		[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
 };
 
 /* value the capability must be a multiple of.
@@ -796,6 +798,7 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_REFRESH_OLD] = 1,
 		[CAPABILITY_CODE_ORF_OLD] = 1,
 		[CAPABILITY_CODE_FQDN] = 1,
+		[CAPABILITY_CODE_ENHANCED_RR] = 1,
 };
 
 /**
@@ -863,6 +866,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_DYNAMIC_OLD:
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_FQDN:
+		case CAPABILITY_CODE_ENHANCED_RR:
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
@@ -913,10 +917,13 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 				ret = 0; /* Don't return error for this */
 			}
 		} break;
+		case CAPABILITY_CODE_ENHANCED_RR:
 		case CAPABILITY_CODE_REFRESH:
 		case CAPABILITY_CODE_REFRESH_OLD: {
 			/* BGP refresh capability */
-			if (caphdr.code == CAPABILITY_CODE_REFRESH_OLD)
+			if (caphdr.code == CAPABILITY_CODE_ENHANCED_RR)
+				SET_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV);
+			else if (caphdr.code == CAPABILITY_CODE_REFRESH_OLD)
 				SET_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV);
 			else
 				SET_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV);
@@ -1449,6 +1456,13 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 	stream_putc(s, CAPABILITY_CODE_REFRESH_LEN + 2);
 	stream_putc(s, CAPABILITY_CODE_REFRESH);
 	stream_putc(s, CAPABILITY_CODE_REFRESH_LEN);
+
+	/* Enhanced Route Refresh. */
+	SET_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_ADV);
+	stream_putc(s, BGP_OPEN_OPT_CAP);
+	stream_putc(s, CAPABILITY_CODE_ENHANCED_LEN + 2);
+	stream_putc(s, CAPABILITY_CODE_ENHANCED_RR);
+	stream_putc(s, CAPABILITY_CODE_ENHANCED_LEN);
 
 	/* AS4 */
 	SET_FLAG(peer->cap, PEER_CAP_AS4_ADV);

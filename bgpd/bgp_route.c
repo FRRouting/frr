@@ -4601,8 +4601,10 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 			continue;
 
 		/* graceful restart STALE flag set. */
-		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)
-		    && peer->nsf[afi][safi]
+		if (((CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)
+		      && peer->nsf[afi][safi])
+		     || CHECK_FLAG(peer->af_sflags[afi][safi],
+				   PEER_STATUS_ENHANCED_REFRESH))
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_STALE)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_STALE);
@@ -4853,7 +4855,7 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 	struct bgp_path_info *pi;
 	struct bgp_table *table;
 
-	if (safi == SAFI_MPLS_VPN) {
+	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
 			struct bgp_dest *rm;
@@ -4889,6 +4891,81 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 				bgp_rib_remove(dest, pi, peer, afi, safi);
 				break;
 			}
+	}
+}
+
+void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct bgp_dest *dest, *ndest;
+	struct bgp_path_info *pi;
+	struct bgp_table *table;
+
+	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
+		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
+		     dest = bgp_route_next(dest)) {
+			table = bgp_dest_get_bgp_table_info(dest);
+			if (!table)
+				continue;
+
+			for (ndest = bgp_table_top(table); ndest;
+			     ndest = bgp_route_next(ndest)) {
+				for (pi = bgp_dest_get_bgp_path_info(ndest); pi;
+				     pi = pi->next) {
+					if (pi->peer != peer)
+						continue;
+
+					if ((CHECK_FLAG(
+						    peer->af_sflags[afi][safi],
+						    PEER_STATUS_ENHANCED_REFRESH))
+					    && !CHECK_FLAG(pi->flags,
+							   BGP_PATH_STALE)
+					    && !CHECK_FLAG(
+						       pi->flags,
+						       BGP_PATH_UNUSEABLE)) {
+						if (bgp_debug_neighbor_events(
+							    peer))
+							zlog_debug(
+								"%s: route-refresh for %s/%s, marking prefix %pFX as stale",
+								peer->host,
+								afi2str(afi),
+								safi2str(safi),
+								bgp_dest_get_prefix(
+									ndest));
+
+						bgp_path_info_set_flag(
+							ndest, pi,
+							BGP_PATH_STALE);
+					}
+				}
+			}
+		}
+	} else {
+		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
+		     dest = bgp_route_next(dest)) {
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next) {
+				if (pi->peer != peer)
+					continue;
+
+				if ((CHECK_FLAG(peer->af_sflags[afi][safi],
+						PEER_STATUS_ENHANCED_REFRESH))
+				    && !CHECK_FLAG(pi->flags, BGP_PATH_STALE)
+				    && !CHECK_FLAG(pi->flags,
+						   BGP_PATH_UNUSEABLE)) {
+					if (bgp_debug_neighbor_events(peer))
+						zlog_debug(
+							"%s: route-refresh for %s/%s, marking prefix %pFX as stale",
+							peer->host,
+							afi2str(afi),
+							safi2str(safi),
+							bgp_dest_get_prefix(
+								dest));
+
+					bgp_path_info_set_flag(dest, pi,
+							       BGP_PATH_STALE);
+				}
+			}
+		}
 	}
 }
 

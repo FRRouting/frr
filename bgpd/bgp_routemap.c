@@ -3503,8 +3503,9 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 					zlog_debug(
 						"Processing route_map %s update on peer %s (inbound, route-refresh)",
 						rmap_name, peer->host);
-				bgp_route_refresh_send(peer, afi, safi, 0, 0,
-						       0);
+				bgp_route_refresh_send(
+					peer, afi, safi, 0, 0, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 			}
 		}
 	}

@@ -119,7 +119,7 @@ static const struct message bgp_notify_msg[] = {
 	{BGP_NOTIFY_HOLD_ERR, "Hold Timer Expired"},
 	{BGP_NOTIFY_FSM_ERR, "Neighbor Events Error"},
 	{BGP_NOTIFY_CEASE, "Cease"},
-	{BGP_NOTIFY_CAPABILITY_ERR, "CAPABILITY Message Error"},
+	{BGP_NOTIFY_ROUTE_REFRESH_ERR, "ROUTE-REFRESH Message Error"},
 	{0}};
 
 static const struct message bgp_notify_head_msg[] = {
@@ -167,11 +167,9 @@ static const struct message bgp_notify_cease_msg[] = {
 	{BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resource"},
 	{0}};
 
-static const struct message bgp_notify_capability_msg[] = {
+static const struct message bgp_notify_route_refresh_msg[] = {
 	{BGP_NOTIFY_SUBCODE_UNSPECIFIC, "/Unspecific"},
-	{BGP_NOTIFY_CAPABILITY_INVALID_ACTION, "/Invalid Action Value"},
-	{BGP_NOTIFY_CAPABILITY_INVALID_LENGTH, "/Invalid Capability Length"},
-	{BGP_NOTIFY_CAPABILITY_MALFORMED_CODE, "/Malformed Capability Value"},
+	{BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN, "/Invalid Message Length"},
 	{0}};
 
 static const struct message bgp_notify_fsm_msg[] = {
@@ -493,8 +491,8 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 	case BGP_NOTIFY_CEASE:
 		return lookup_msg(bgp_notify_cease_msg, subcode,
 				  "Unrecognized Error Subcode");
-	case BGP_NOTIFY_CAPABILITY_ERR:
-		return lookup_msg(bgp_notify_capability_msg, subcode,
+	case BGP_NOTIFY_ROUTE_REFRESH_ERR:
+		return lookup_msg(bgp_notify_route_refresh_msg, subcode,
 				  "Unrecognized Error Subcode");
 	}
 	return "";
