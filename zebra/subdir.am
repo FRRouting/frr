@@ -40,6 +40,11 @@ if LINUX
 module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
 endif
 
+# Dataplane sample plugin
+if DEV_BUILD
+module_LTLIBRARIES += zebra/dplane_sample_plugin.la
+endif
+
 man8 += $(MANBUILD)/frr-zebra.8
 ## endif ZEBRA
 endif
@@ -204,6 +209,12 @@ if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
 zebra/zebra_fpm_dt.lo: fpm/fpm.pb-c.h qpb/qpb.pb-c.h
 endif
+endif
+
+# Sample dataplane plugin
+if DEV_BUILD
+zebra_dplane_sample_plugin_la_SOURCES = zebra/sample_plugin.c
+zebra_dplane_sample_plugin_la_LDFLAGS = -module -shared -avoid-version -export-dynamic
 endif
 
 nodist_zebra_zebra_SOURCES = \
