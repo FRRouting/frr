@@ -36,6 +36,7 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/notification.c \
 	ldpd/packet.c \
 	ldpd/pfkey.c \
+	ldpd/rlfa.c \
 	ldpd/socket.c \
 	ldpd/util.c \
 	# end
@@ -53,6 +54,7 @@ noinst_HEADERS += \
 	ldpd/ldpd.h \
 	ldpd/ldpe.h \
 	ldpd/log.h \
+	ldpd/rlfa.h \
 	# end
 
 ldpd_ldpd_SOURCES = ldpd/ldpd.c

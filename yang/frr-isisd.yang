@@ -248,6 +248,10 @@ module frr-isisd {
     type string;
   }
 
+  typedef prefix-list-ref {
+    type string;
+  }
+
   grouping redistribute-attributes {
     description
       "Common optional attributes of any redistribute entry.";
@@ -410,6 +414,19 @@ module frr-isisd {
     }
   }
 
+  grouping global-config-remote-lfa {
+    container remote-lfa {
+      description
+        "Remote LFA configuration.";
+
+      leaf prefix-list {
+        type prefix-list-ref;
+        description
+          "Filter PQ node router ID based on prefix list.";
+      }
+    }
+  }
+
   grouping interface-config-lfa {
     container lfa {
       description
@@ -424,6 +441,32 @@ module frr-isisd {
         type frr-interface:interface-ref;
         description
           "Exclude an interface from computation.";
+      }
+    }
+  }
+
+  grouping interface-config-remote-lfa {
+    container remote-lfa {
+      description
+        "Remote LFA configuration.";
+
+      leaf enable {
+        type boolean;
+        default false;
+        description
+          "Enables remote LFA computation using LDP tunnels.";
+        must ". = 'false' or ../../lfa/enable = 'true'" {
+          error-message
+            "Remote LFA depends on classic LFA being configured in the interface.";
+        }
+
+      }
+      leaf maximum-metric {
+        type uint32 {
+          range "1..16777215";
+        }
+        description
+          "Limit remote LFA node selection within the metric.";
       }
     }
   }
@@ -761,6 +804,7 @@ module frr-isisd {
             "Can't enable both classic LFA and TI-LFA in the same interface.";
         }
         uses interface-config-lfa;
+        uses interface-config-remote-lfa;
         uses interface-config-ti-lfa;
       }
       container level-2 {
@@ -771,6 +815,7 @@ module frr-isisd {
             "Can't enable both classic LFA and TI-LFA in the same interface.";
         }
         uses interface-config-lfa;
+        uses interface-config-remote-lfa;
         uses interface-config-ti-lfa;
       }
     }
@@ -1394,11 +1439,13 @@ module frr-isisd {
           description
             "Level-1 IP Fast-reroute configuration.";
           uses global-config-lfa;
+          uses global-config-remote-lfa;
         }
         container level-2 {
           description
             "Level-2 IP Fast-reroute configuration.";
           uses global-config-lfa;
+          uses global-config-remote-lfa;
         }
       }
 

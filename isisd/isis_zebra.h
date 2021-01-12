@@ -59,6 +59,8 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra);
 int isis_distribute_list_update(int routetype);
 void isis_zebra_redistribute_set(afi_t afi, int type);
 void isis_zebra_redistribute_unset(afi_t afi, int type);
+int isis_zebra_rlfa_register(struct isis_spftree *spftree, struct rlfa *rlfa);
+void isis_zebra_rlfa_unregister_all(struct isis_spftree *spftree);
 bool isis_zebra_label_manager_ready(void);
 int isis_zebra_label_manager_connect(void);
 int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size);

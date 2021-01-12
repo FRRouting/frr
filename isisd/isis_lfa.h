@@ -21,8 +21,10 @@
 #define _FRR_ISIS_LFA_H
 
 #include "lib/typesafe.h"
+#include "lib/zclient.h"
 
 PREDECL_RBTREE_UNIQ(lfa_tiebreaker_tree)
+PREDECL_RBTREE_UNIQ(rlfa_tree)
 
 enum lfa_tiebreaker_type {
 	LFA_TIEBREAKER_DOWNSTREAM = 0,
@@ -40,6 +42,15 @@ int lfa_tiebreaker_cmp(const struct lfa_tiebreaker *a,
 		       const struct lfa_tiebreaker *b);
 DECLARE_RBTREE_UNIQ(lfa_tiebreaker_tree, struct lfa_tiebreaker, entry,
 		    lfa_tiebreaker_cmp)
+
+struct rlfa {
+	struct rlfa_tree_item entry;
+	struct prefix prefix;
+	struct isis_vertex *vertex;
+	struct in_addr pq_address;
+};
+int rlfa_cmp(const struct rlfa *a, const struct rlfa *b);
+DECLARE_RBTREE_UNIQ(rlfa_tree, struct rlfa, entry, rlfa_cmp)
 
 enum isis_tilfa_sid_type {
 	TILFA_SID_PREFIX = 1,
@@ -145,6 +156,19 @@ bool isis_lfa_excise_node_check(const struct isis_spftree *spftree,
 				const uint8_t *id);
 struct isis_spftree *isis_spf_reverse_run(const struct isis_spftree *spftree);
 int isis_spf_run_neighbors(struct isis_spftree *spftree);
+int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
+		       struct zapi_rlfa_response *response);
+void isis_rlfa_deactivate(struct isis_spftree *spftree, struct rlfa *rlfa);
+void isis_rlfa_list_init(struct isis_spftree *spftree);
+void isis_rlfa_list_clear(struct isis_spftree *spftree);
+void isis_rlfa_process_ldp_response(struct zapi_rlfa_response *response);
+void isis_ldp_rlfa_handle_client_close(struct zapi_client_close_info *info);
+void isis_rlfa_check(struct isis_spftree *spftree, struct isis_vertex *vertex);
+struct isis_spftree *isis_rlfa_compute(struct isis_area *area,
+				       struct isis_spftree *spftree,
+				       struct isis_spftree *spftree_reverse,
+				       uint32_t max_metric,
+				       struct lfa_protected_resource *resource);
 void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		      struct isis_spftree *spftree,
 		      struct lfa_protected_resource *resource);

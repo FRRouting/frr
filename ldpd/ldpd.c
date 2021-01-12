@@ -625,6 +625,7 @@ main_dispatch_lde(struct thread *thread)
 	struct imsg	 imsg;
 	ssize_t		 n;
 	int		 shut = 0;
+	struct zapi_rlfa_response *rlfa_labels;
 
 	iev->ev_read = NULL;
 
@@ -690,6 +691,15 @@ main_dispatch_lde(struct thread *thread)
 			    sizeof(struct acl_check))
 				fatalx("IMSG_ACL_CHECK imsg with wrong len");
 			ldp_acl_reply(iev, (struct acl_check *)imsg.data);
+			break;
+		case IMSG_RLFA_LABELS:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct zapi_rlfa_response)) {
+				log_warnx("%s: wrong imsg len", __func__);
+				break;
+			}
+			rlfa_labels = imsg.data;
+			ldp_zebra_send_rlfa_labels(rlfa_labels);
 			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,

@@ -70,6 +70,9 @@ test_topology_find_node(const struct isis_topology *topology,
 			const char *hostname, uint8_t pseudonode_id);
 extern const struct isis_topology *
 test_topology_find(struct isis_topology *test_topologies, uint16_t number);
+extern mpls_label_t
+test_topology_node_ldp_label(const struct isis_topology *topology,
+			     struct in_addr router_id);
 extern int test_topology_load(const struct isis_topology *topology,
 			      struct isis_area *area,
 			      struct lspdb_head lspdb[]);

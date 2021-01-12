@@ -56,6 +56,7 @@
 #include "isis_csm.h"
 #include "isis_mt.h"
 #include "isis_tlvs.h"
+#include "isis_zebra.h"
 #include "fabricd.h"
 #include "isis_spf_private.h"
 
@@ -354,7 +355,10 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area,
 	tree->tree_id = tree_id;
 	tree->family = (tree->tree_id == SPFTREE_IPV4) ? AF_INET : AF_INET6;
 	tree->flags = flags;
-	if (tree->type == SPF_TYPE_TI_LFA) {
+	isis_rlfa_list_init(tree);
+	tree->lfa.remote.pc_spftrees = list_new();
+	tree->lfa.remote.pc_spftrees->del = (void (*)(void *))isis_spftree_del;
+	if (tree->type == SPF_TYPE_RLFA || tree->type == SPF_TYPE_TI_LFA) {
 		isis_spf_node_list_init(&tree->lfa.p_space);
 		isis_spf_node_list_init(&tree->lfa.q_space);
 	}
@@ -366,7 +370,11 @@ void isis_spftree_del(struct isis_spftree *spftree)
 {
 	hash_clean(spftree->prefix_sids, NULL);
 	hash_free(spftree->prefix_sids);
-	if (spftree->type == SPF_TYPE_TI_LFA) {
+	isis_zebra_rlfa_unregister_all(spftree);
+	isis_rlfa_list_clear(spftree);
+	list_delete(&spftree->lfa.remote.pc_spftrees);
+	if (spftree->type == SPF_TYPE_RLFA
+	    || spftree->type == SPF_TYPE_TI_LFA) {
 		isis_spf_node_list_clear(&spftree->lfa.q_space);
 		isis_spf_node_list_clear(&spftree->lfa.p_space);
 	}
@@ -1440,6 +1448,9 @@ static void init_spt(struct isis_spftree *spftree, int mtid)
 	list_delete_all_node(spftree->sadj_list);
 	isis_vertex_queue_clear(&spftree->tents);
 	isis_vertex_queue_clear(&spftree->paths);
+	isis_zebra_rlfa_unregister_all(spftree);
+	isis_rlfa_list_clear(spftree);
+	list_delete_all_node(spftree->lfa.remote.pc_spftrees);
 	memset(&spftree->lfa.protection_counters, 0,
 	       sizeof(spftree->lfa.protection_counters));
 
@@ -1513,12 +1524,13 @@ static void spf_path_process(struct isis_spftree *spftree,
 		priority = spf_prefix_priority(spftree, vertex);
 		vertex->N.ip.priority = priority;
 		if (vertex->depth == 1 || listcount(vertex->Adj_N) > 0) {
+			struct isis_spftree *pre_spftree;
 			struct route_table *route_table;
 			bool allow_ecmp;
 
-			if (spftree->type == SPF_TYPE_TI_LFA) {
-				struct isis_spftree *pre_spftree;
-
+			switch (spftree->type) {
+			case SPF_TYPE_RLFA:
+			case SPF_TYPE_TI_LFA:
 				if (priority
 				    > area->lfa_priority_limit[level - 1]) {
 					if (IS_DEBUG_LFA)
@@ -1531,7 +1543,16 @@ static void spf_path_process(struct isis_spftree *spftree,
 								sizeof(buff)));
 					return;
 				}
+				break;
+			default:
+				break;
+			}
 
+			switch (spftree->type) {
+			case SPF_TYPE_RLFA:
+				isis_rlfa_check(spftree, vertex);
+				return;
+			case SPF_TYPE_TI_LFA:
 				if (isis_tilfa_check(spftree, vertex) != 0)
 					return;
 
@@ -1540,7 +1561,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 				allow_ecmp = area->lfa_load_sharing[level - 1];
 				pre_spftree->lfa.protection_counters
 					.tilfa[vertex->N.ip.priority] += 1;
-			} else {
+				break;
+			default:
 				route_table = spftree->route_table;
 				allow_ecmp = true;
 
@@ -1555,6 +1577,7 @@ static void spf_path_process(struct isis_spftree *spftree,
 						spftree->lfa.protection_counters
 							.ecmp[priority] += 1;
 				}
+				break;
 			}
 
 			isis_route_create(
@@ -1845,6 +1868,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 			area->area_tag, level, diff, func, file, line);
 	}
 
+	thread_cancel(&area->t_rlfa_rib_update);
 	if (area->spf_delay_ietf[level - 1]) {
 		/* Need to call schedule function also if spf delay is running
 		 * to

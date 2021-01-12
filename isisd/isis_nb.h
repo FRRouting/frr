@@ -183,6 +183,10 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_destroy(
 	struct nb_cb_destroy_args *args);
 int isis_instance_fast_reroute_level_1_lfa_tiebreaker_type_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy(
+	struct nb_cb_destroy_args *args);
 int isis_instance_fast_reroute_level_2_lfa_load_sharing_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_fast_reroute_level_2_lfa_priority_limit_modify(
@@ -195,6 +199,10 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_destroy(
 	struct nb_cb_destroy_args *args);
 int isis_instance_fast_reroute_level_2_lfa_tiebreaker_type_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy(
+	struct nb_cb_destroy_args *args);
 int isis_instance_log_adjacency_changes_modify(struct nb_cb_modify_args *args);
 int isis_instance_mpls_te_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args);
@@ -300,6 +308,12 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_create(
 	struct nb_cb_create_args *args);
 int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
@@ -309,6 +323,12 @@ int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
 int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
 	struct nb_cb_create_args *args);
 int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
 	struct nb_cb_modify_args *args);
@@ -467,6 +487,8 @@ void cli_show_isis_frr_lfa_tiebreaker(struct vty *vty, struct lyd_node *dnode,
 				      bool show_defaults);
 void cli_show_isis_frr_lfa_load_sharing(struct vty *vty, struct lyd_node *dnode,
 					bool show_defaults);
+void cli_show_isis_frr_remote_lfa_plist(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults);
 void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults);
 void cli_show_ip_isis_password(struct vty *vty, struct lyd_node *dnode,
@@ -502,6 +524,8 @@ void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
 			  bool show_defaults);
 void cli_show_frr_lfa_exclude_interface(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults);
+void cli_show_frr_remote_lfa_max_metric(struct vty *vty, struct lyd_node *dnode,
 					bool show_defaults);
 void cli_show_ip_isis_circ_type(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
