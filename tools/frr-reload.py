@@ -1238,30 +1238,44 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_add_to_del.append((ctx[0], None))
 
         """
-        ip/ipv6 prefix-list can be specified without a seq number. However,
-        the running config always adds 'seq x', where x is a number incremented
-        by 5 for every element, to the prefix list. So, ignore such lines as
-        well. Sample prefix-list lines:
+        ip/ipv6 prefix-lists and access-lists can be specified without a seq number.
+        However, the running config always adds 'seq x', where x is a number
+        incremented by 5 for every element of the prefix/access list.
+        So, ignore such lines as well. Sample prefix-list and acces-list lines:
              ip prefix-list PR-TABLE-2 seq 5 permit 20.8.2.0/24 le 32
              ip prefix-list PR-TABLE-2 seq 10 permit 20.8.2.0/24 le 32
              ipv6 prefix-list vrfdev6-12 permit 2000:9:2::/64 gt 64
+             access-list FOO seq 5 permit 2.2.2.2/32
+             ipv6 access-list BAR seq 5 permit 2:2:2::2/128
         """
-        re_ip_pfxlst = re.search(
-            "^(ip|ipv6)(\s+prefix-list\s+)(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
+        re_acl_pfxlst = re.search(
+            "^(ip |ipv6 |)(prefix-list|access-list)(\s+\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
             ctx_keys[0],
         )
-        if re_ip_pfxlst:
+        if re_acl_pfxlst:
+            found = False
             tmpline = (
-                re_ip_pfxlst.group(1)
-                + re_ip_pfxlst.group(2)
-                + re_ip_pfxlst.group(3)
-                + re_ip_pfxlst.group(5)
-                + re_ip_pfxlst.group(6)
+                re_acl_pfxlst.group(1)
+                + re_acl_pfxlst.group(2)
+                + re_acl_pfxlst.group(3)
+                + re_acl_pfxlst.group(5)
+                + re_acl_pfxlst.group(6)
             )
             for ctx in lines_to_add:
                 if ctx[0][0] == tmpline:
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
+                    found = True
+            """
+            If prefix-lists or access-lists are being deleted and
+            not added (see comment above), add command with 'no' to
+            lines_to_add and remove from lines_to_del to improve
+            scaling performance.
+            """
+            if found is False:
+                add_cmd = ("no " + ctx_keys[0],)
+                lines_to_add.append((add_cmd, None))
+                lines_to_del_to_del.append((ctx_keys, None))
 
         if (
             len(ctx_keys) == 3
@@ -1459,14 +1473,9 @@ def compare_context_objects(newconf, running):
             # doing vtysh -c inefficient (and can time out.)  For
             # these commands, instead of adding them to lines_to_del,
             # add the "no " version to lines_to_add.
-            elif (
-                running_ctx_keys[0].startswith("ip route")
-                or running_ctx_keys[0].startswith("ipv6 route")
-                or running_ctx_keys[0].startswith("access-list")
-                or running_ctx_keys[0].startswith("ipv6 access-list")
-                or running_ctx_keys[0].startswith("ip prefix-list")
-                or running_ctx_keys[0].startswith("ipv6 prefix-list")
-            ):
+            elif running_ctx_keys[0].startswith("ip route") or running_ctx_keys[
+                0
+            ].startswith("ipv6 route"):
                 add_cmd = ("no " + running_ctx_keys[0],)
                 lines_to_add.append((add_cmd, None))
 
