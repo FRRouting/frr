@@ -57,7 +57,7 @@ run the target in non-forking mode (no ``-d``) and use LTTng as usual (refer to
 LTTng user manual). When using USDT probes with LTTng, follow the example in
 `this article
 <https://lttng.org/blog/2019/10/15/new-dynamic-user-space-tracing-in-lttng/>`_.
-To trace with dtrace or SystemTap, compile with :option:`--enable-usdt=yes` and
+To trace with dtrace or SystemTap, compile with `--enable-usdt=yes` and
 use your tracer as usual.
 
 To see available USDT probes::

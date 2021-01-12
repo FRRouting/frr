@@ -83,7 +83,7 @@ Extensions
 +-----------+--------------------------+----------------------------------------------+
 | ``%pNHs`` | ``struct nexthop *``     | ``1.2.3.4 if 15``                            |
 +-----------+--------------------------+----------------------------------------------+
-| ``%pFX``  + ``struct bgp_dest *``    | ``fe80::1234/64`` available in BGP only      |
+| ``%pFX``  | ``struct bgp_dest *``    | ``fe80::1234/64`` (available in BGP only)    |
 +-----------+--------------------------+----------------------------------------------+
 
 Printf features like field lengths can be used normally with these extensions,
