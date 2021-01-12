@@ -360,11 +360,9 @@ void pim_jp_agg_switch_interface(struct pim_rpf *orpf, struct pim_rpf *nrpf,
 void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 				     struct pim_upstream *up, bool is_join)
 {
-	static struct list *groups = NULL;
-	static struct pim_jp_agg_group jag;
-	static struct pim_jp_sources js;
-
-	static bool first = true;
+	struct list groups, sources;
+	struct pim_jp_agg_group jag;
+	struct pim_jp_sources js;
 
 	/* skip JP upstream messages if source is directly connected */
 	if (!up || !rpf->source_nexthop.interface ||
@@ -373,19 +371,19 @@ void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 		if_is_loopback_or_vrf(rpf->source_nexthop.interface))
 		return;
 
-	if (first) {
-		groups = list_new();
-		jag.sources = list_new();
+	memset(&groups, 0, sizeof(groups));
+	memset(&sources, 0, sizeof(sources));
+	jag.sources = &sources;
 
-		listnode_add(groups, &jag);
-		listnode_add(jag.sources, &js);
-
-		first = false;
-	}
+	listnode_add(&groups, &jag);
+	listnode_add(jag.sources, &js);
 
 	jag.group.s_addr = up->sg.grp.s_addr;
 	js.up = up;
 	js.is_join = is_join;
 
-	pim_joinprune_send(rpf, groups);
+	pim_joinprune_send(rpf, &groups);
+
+	list_delete_all_node(jag.sources);
+	list_delete_all_node(&groups);
 }
