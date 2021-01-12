@@ -820,7 +820,8 @@ lspfragloop:
 #endif /* EXTREME_DEBUG */
 
 	if (no_overload) {
-		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST) {
+		if ((pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST)
+		    && spftree->area->oldmetric) {
 			struct isis_oldstyle_reach *r;
 			for (r = (struct isis_oldstyle_reach *)
 					 lsp->tlvs->oldstyle_reach.head;
@@ -848,42 +849,47 @@ lspfragloop:
 			}
 		}
 
-		struct isis_item_list *te_neighs = NULL;
-		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST)
-			te_neighs = &lsp->tlvs->extended_reach;
-		else
-			te_neighs = isis_lookup_mt_items(&lsp->tlvs->mt_reach,
-							 spftree->mtid);
+		if (spftree->area->newmetric) {
+			struct isis_item_list *te_neighs = NULL;
+			if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST)
+				te_neighs = &lsp->tlvs->extended_reach;
+			else
+				te_neighs = isis_lookup_mt_items(
+					&lsp->tlvs->mt_reach, spftree->mtid);
 
-		struct isis_extended_reach *er;
-		for (er = te_neighs
-				  ? (struct isis_extended_reach *)
-					    te_neighs->head
-				  : NULL;
-		     er; er = er->next) {
-			/* C.2.6 a) */
-			/* Two way connectivity */
-			if (!LSP_PSEUDO_ID(er->id)
-			    && !memcmp(er->id, root_sysid, ISIS_SYS_ID_LEN))
-				continue;
-			if (!pseudo_lsp
-			    && !memcmp(er->id, null_sysid, ISIS_SYS_ID_LEN))
-				continue;
-			dist = cost
-			       + (CHECK_FLAG(spftree->flags,
-					     F_SPFTREE_HOPCOUNT_METRIC)
-					  ? 1
-					  : er->metric);
-			process_N(spftree,
-				  LSP_PSEUDO_ID(er->id) ? VTYPE_PSEUDO_TE_IS
-							: VTYPE_NONPSEUDO_TE_IS,
-				  (void *)er->id, dist, depth + 1, NULL,
-				  parent);
+			struct isis_extended_reach *er;
+			for (er = te_neighs ? (struct isis_extended_reach *)
+						      te_neighs->head
+					    : NULL;
+			     er; er = er->next) {
+				/* C.2.6 a) */
+				/* Two way connectivity */
+				if (!LSP_PSEUDO_ID(er->id)
+				    && !memcmp(er->id, root_sysid,
+					       ISIS_SYS_ID_LEN))
+					continue;
+				if (!pseudo_lsp
+				    && !memcmp(er->id, null_sysid,
+					       ISIS_SYS_ID_LEN))
+					continue;
+				dist = cost
+				       + (CHECK_FLAG(spftree->flags,
+						     F_SPFTREE_HOPCOUNT_METRIC)
+						  ? 1
+						  : er->metric);
+				process_N(spftree,
+					  LSP_PSEUDO_ID(er->id)
+						  ? VTYPE_PSEUDO_TE_IS
+						  : VTYPE_NONPSEUDO_TE_IS,
+					  (void *)er->id, dist, depth + 1, NULL,
+					  parent);
+			}
 		}
 	}
 
 	if (!fabricd && !pseudo_lsp && spftree->family == AF_INET
-	    && spftree->mtid == ISIS_MT_IPV4_UNICAST) {
+	    && spftree->mtid == ISIS_MT_IPV4_UNICAST
+	    && spftree->area->oldmetric) {
 		struct isis_item_list *reachs[] = {
 			&lsp->tlvs->oldstyle_ip_reach,
 			&lsp->tlvs->oldstyle_ip_reach_ext};
@@ -907,6 +913,10 @@ lspfragloop:
 			}
 		}
 	}
+
+	/* we can skip all the rest if we're using metric style narrow */
+	if (!spftree->area->newmetric)
+		goto end;
 
 	if (!pseudo_lsp && spftree->family == AF_INET) {
 		struct isis_item_list *ipv4_reachs;
@@ -1027,6 +1037,7 @@ lspfragloop:
 		}
 	}
 
+end:
 	if (fragnode == NULL)
 		fragnode = listhead(lsp->lspu.frags);
 	else
