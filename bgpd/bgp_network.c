@@ -49,6 +49,8 @@
 
 extern struct zebra_privs_t bgpd_privs;
 
+static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst);
+
 static char *bgp_get_bound_name(struct peer *peer);
 
 /* BGP listening socket. */
@@ -153,40 +155,48 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 	struct listnode *node;
 	int ret = 0;
 	struct bgp_listener *listener;
+	struct bgp *bgp = NULL;
 
-	/*
-	 * Set or unset the password on the listen socket(s). Outbound
+	/* Set or unset the password on the listen socket(s). Outbound
 	 * connections are taken care of in bgp_connect() below.
+	 *
+	 * Walk through all the Listener sockets and find the one
+	 * corresponding to the BGP instance of the given peer
 	 */
-	frr_with_privs(&bgpd_privs) {
-		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
-			if (listener->su.sa.sa_family ==
-			    peer->su.sa.sa_family) {
-				uint16_t prefixlen =
-					peer->su.sa.sa_family == AF_INET
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+		if (listener->su.sa.sa_family == peer->su.sa.sa_family) {
+
+			/* Obtain BGP instance corresponding to a specific listener socket
+			 * - if it is a VRF netns sock, then BGP is in listener structure
+			 * - otherwise, the bgp instance need to be demultiplexed
+			 */
+			if (listener->bgp) {
+				bgp = listener->bgp;
+			}
+			else if (bgp_get_instance_for_inc_conn(listener->fd, &bgp)) {
+				zlog_err("[Event] Could not get instance for incoming \
+					  conn for setting MD5 authentication, fd=%d", \
+					  listener->fd);
+			}
+
+			/* Match the peer vrf-id with the vrf-id in the BGP instance.
+			 * If it matches then we can use the listener socket
+			 * corresponding to the BGP instance and subsequently set the
+			 * md5 on that listener socket
+			 */
+			if (bgp && peer->bgp && (peer->bgp->vrf_id == bgp->vrf_id)) {
+				uint16_t prefixlen = peer->su.sa.sa_family == AF_INET
 					? IPV4_MAX_PREFIXLEN
 					: IPV6_MAX_PREFIXLEN;
-
-				/*
-				 * if we have stored a BGP vrf instance in the
-				 * listener it must match the bgp instance in
-				 * the peer otherwise the peer bgp instance
-				 * must be the default vrf or a view instance
-				 */
-				if (!listener->bgp) {
-					if (peer->bgp->vrf_id != VRF_DEFAULT
-					    && peer->bgp->inst_type
-						       != BGP_INSTANCE_TYPE_VIEW)
-						continue;
-				} else if (listener->bgp != peer->bgp)
-					continue;
-
 				ret = bgp_md5_set_socket(listener->fd,
-							 &peer->su, prefixlen,
+							 &peer->su,
+							 prefixlen,
 							 password);
 				break;
 			}
+		}
 	}
+
 	return ret;
 }
 
