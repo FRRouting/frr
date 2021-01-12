@@ -748,8 +748,12 @@ void ospf_ase_unregister_external_lsa(struct ospf_lsa *lsa, struct ospf *top)
 
 	if (rn) {
 		lst = rn->info;
-		listnode_delete(lst, lsa);
-		ospf_lsa_unlock(&lsa); /* external_lsas list */
+		struct listnode *node = listnode_lookup(lst, lsa);
+		/* Unlock lsa only if node is present in the list */
+		if (node) {
+			listnode_delete(lst, lsa);
+			ospf_lsa_unlock(&lsa); /* external_lsas list */
+		}
 
 		route_unlock_node(rn);
 	}
