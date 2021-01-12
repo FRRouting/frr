@@ -3384,6 +3384,32 @@ attribute.
 
    If ``json`` option is specified, output is displayed in JSON format.
 
+.. index:: show bgp labelpool <chunks|inuse|ledger|requests|summary> [json] 
+.. clicmd:: show bgp labelpool <chunks|inuse|ledger|requests|summary> [json]
+
+   These commands display information about the BGP labelpool used for
+   the association of MPLS labels with routes for L3VPN and Labeled Unicast
+
+   If ``chunks`` option is specified, output shows the current list of label
+   chunks granted to BGP by Zebra, indicating the start and end label in
+   each chunk
+
+   If ``inuse`` option is specified, output shows the current inuse list of
+   label to prefix mappings
+
+   If ``ledger`` option is specified, output shows ledger list of all
+   label requests made per prefix
+
+   If ``requests`` option is specified, output shows current list of label
+   requests which have not yet been fulfilled by the labelpool
+
+   If ``summary`` option is specified, output is a summary of the counts for
+   the chunks, inuse, ledger and requests list along with the count of
+   outstanding chunk requests to Zebra and the nummber of zebra reconnects
+   that have happened
+
+   If ``json`` option is specified, output is displayed in JSON format.
+
 .. _bgp-display-routes-by-lcommunity:
 
 Displaying Routes by Large Community Attribute

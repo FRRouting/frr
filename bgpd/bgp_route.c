@@ -2755,7 +2755,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 						== BGP_ROUTE_REDISTRIBUTE) {
 					if (CHECK_FLAG(
 						    dest->flags,
-						    BGP_NODE_REGISTERED_FOR_LABEL))
+						    BGP_NODE_REGISTERED_FOR_LABEL)
+					    || CHECK_FLAG(
+						    dest->flags,
+						    BGP_NODE_LABEL_REQUESTED))
 						bgp_unregister_for_label(dest);
 					label_ntop(MPLS_LABEL_IMPLICIT_NULL, 1,
 						   &dest->local_label);
@@ -2765,10 +2768,13 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 							       new_select);
 			}
 		} else if (CHECK_FLAG(dest->flags,
-				      BGP_NODE_REGISTERED_FOR_LABEL)) {
+				      BGP_NODE_REGISTERED_FOR_LABEL)
+			   || CHECK_FLAG(dest->flags,
+					 BGP_NODE_LABEL_REQUESTED)) {
 			bgp_unregister_for_label(dest);
 		}
-	} else if (CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
+	} else if (CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL)
+		   || CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED)) {
 		bgp_unregister_for_label(dest);
 	}
 

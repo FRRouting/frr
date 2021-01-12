@@ -150,7 +150,13 @@ class TemplateTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
     tgen = Topogen(TemplateTopo, mod.__name__)
+
+    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+    if not os.path.isfile(os.path.join(frrdir, "pathd")):
+        pytest.skip("pathd daemon wasn't built")
+
     tgen.start_topology()
 
     router_list = tgen.routers()

@@ -749,6 +749,13 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		bool send_xg_jp = false;
 
 		forward_off(up);
+		/*
+		 * RFC 4601 Sec 4.5.7:
+		 * JoinDesired(S,G) -> False, set SPTbit to false.
+		 */
+		if (up->sg.src.s_addr != INADDR_ANY)
+			up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
+
 		if (old_state == PIM_UPSTREAM_JOINED)
 			pim_msdp_up_join_state_changed(pim, up);
 

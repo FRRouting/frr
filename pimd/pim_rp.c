@@ -271,7 +271,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
  *
  * This is a placeholder function for now.
  */
-static void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
+void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 {
 	pim_msdp_i_am_rp_changed(pim);
 	pim_upstream_reeval_use_rpt(pim);

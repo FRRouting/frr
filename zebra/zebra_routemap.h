@@ -36,8 +36,6 @@ extern void zebra_add_import_table_route_map(afi_t afi, const char *rmap_name,
 					     uint32_t table);
 extern void zebra_del_import_table_route_map(afi_t afi, uint32_t table);
 
-extern void zebra_route_map_write_delay_timer(struct vty *);
-
 extern route_map_result_t
 zebra_import_table_route_map_check(int family, int rib_type, uint8_t instance,
 				   const struct prefix *p,

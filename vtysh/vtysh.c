@@ -1261,6 +1261,7 @@ static struct cmd_node pw_node = {
 	.prompt = "%s(config-pw)# ",
 };
 
+#if defined(HAVE_PATHD)
 static struct cmd_node segment_routing_node = {
 	.name = "segment-routing",
 	.node = SEGMENT_ROUTING_NODE,
@@ -1296,6 +1297,7 @@ static struct cmd_node srte_candidate_dyn_node = {
 	.prompt = "%s(config-sr-te-candidate)# ",
 };
 
+#if defined(HAVE_PATHD_PCEP)
 static struct cmd_node pcep_node = {
 	.name = "srte pcep",
 	.node = PCEP_NODE,
@@ -1323,6 +1325,8 @@ static struct cmd_node pcep_pce_config_node = {
 	.parent_node = PCEP_NODE,
 	.prompt = "%s(pcep-sr-te-pcep-pce-config)# ",
 };
+#endif /* HAVE_PATHD_PCEP */
+#endif /* HAVE_PATHD */
 
 static struct cmd_node vrf_node = {
 	.name = "vrf",
@@ -2548,6 +2552,7 @@ DEFUNSH(VTYSH_KEYS, vtysh_quit_keys, vtysh_quit_keys_cmd, "quit",
 	return vtysh_exit_keys(self, vty, argc, argv);
 }
 
+#if defined(HAVE_PATHD)
 DEFUNSH(VTYSH_PATHD, vtysh_exit_pathd, vtysh_exit_pathd_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
@@ -2559,6 +2564,7 @@ DEFUNSH(VTYSH_PATHD, vtysh_quit_pathd, vtysh_quit_pathd_cmd, "quit",
 {
 	return vtysh_exit_pathd(self, vty, argc, argv);
 }
+#endif /* HAVE_PATHD */
 
 DEFUNSH(VTYSH_ALL, vtysh_exit_line_vty, vtysh_exit_line_vty_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
