@@ -1262,6 +1262,9 @@ When documented this way, CLI commands can be cross referenced with the
 This is very helpful for users who want to quickly remind themselves what a
 particular command does.
 
+When documenting a cli that has a ``no`` form, please do not include
+the ``no`` in the ``.. index::`` line.
+
 Configuration Snippets
 ^^^^^^^^^^^^^^^^^^^^^^
 
