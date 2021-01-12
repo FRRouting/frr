@@ -221,6 +221,7 @@ ip forwarding
         for ligne in lines:
             self.dlines[ligne] = True
 
+
 def get_normalized_es_id(line):
     """
     The es-id or es-sys-mac need to be converted to lower case
@@ -233,6 +234,7 @@ def get_normalized_es_id(line):
             break
     return line
 
+
 def get_normalized_mac_ip_line(line):
     if line.startswith("evpn mh es"):
         return get_normalized_es_id(line)
@@ -241,6 +243,7 @@ def get_normalized_mac_ip_line(line):
         return get_normalized_ipv6_line(line)
 
     return line
+
 
 class Config(object):
 
@@ -640,7 +643,7 @@ end
                 log.debug(
                     "LINE %-50s: popping segment routing sub-context to ctx%-50s",
                     line,
-                    ctx_keys
+                    ctx_keys,
                 )
 
             elif line in ["exit-address-family", "exit", "exit-vnc"]:
@@ -654,7 +657,7 @@ end
                     log.debug(
                         "LINE %-50s: popping from subcontext to ctx%-50s",
                         line,
-                        ctx_keys
+                        ctx_keys,
                     )
 
             elif line in ["exit-vni", "exit-ldp-if"]:
@@ -755,7 +758,8 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 current_context_lines = []
                 log.debug(
-                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -770,7 +774,8 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 current_context_lines = []
                 log.debug(
-                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -785,7 +790,8 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 current_context_lines = []
                 log.debug(
-                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -803,7 +809,8 @@ end
                 current_context_lines = []
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
-                    "LINE %-50s: entering candidate-path sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering candidate-path sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -836,7 +843,8 @@ end
                 current_context_lines = []
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
-                    "LINE %-50s: entering pce-config sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering pce-config sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -1473,14 +1481,17 @@ def compare_context_objects(newconf, running):
                 continue
 
             # same thing for a pseudowire sub-context inside an l2vpn context
-            elif (len(running_ctx_keys) > 1 and running_ctx_keys[0].startswith('l2vpn') and
-                  running_ctx_keys[1].startswith('member pseudowire') and
-                  (running_ctx_keys[:1], None) in lines_to_del):
+            elif (
+                len(running_ctx_keys) > 1
+                and running_ctx_keys[0].startswith("l2vpn")
+                and running_ctx_keys[1].startswith("member pseudowire")
+                and (running_ctx_keys[:1], None) in lines_to_del
+            ):
                 continue
 
             # Segment routing and traffic engineering never need to be deleted
             elif (
-                running_ctx_keys[0].startswith('segment-routing')
+                running_ctx_keys[0].startswith("segment-routing")
                 and len(running_ctx_keys) < 3
             ):
                 continue
@@ -1488,8 +1499,8 @@ def compare_context_objects(newconf, running):
             # Neither the pcep command
             elif (
                 len(running_ctx_keys) == 3
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[2].startswith('pcep')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[2].startswith("pcep")
             ):
                 continue
 
@@ -1497,8 +1508,8 @@ def compare_context_objects(newconf, running):
             # use them, so add them to a separate array that is going to be appended at the end
             elif (
                 len(running_ctx_keys) == 3
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[2].startswith('segment-list')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[2].startswith("segment-list")
             ):
                 seglist_to_del.append((running_ctx_keys, None))
 
@@ -1506,8 +1517,8 @@ def compare_context_objects(newconf, running):
             # we add them to a separate array that is going to be appended at the end
             elif (
                 len(running_ctx_keys) == 3
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[2].startswith('policy')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[2].startswith("policy")
             ):
                 pollist_to_del.append((running_ctx_keys, None))
 
@@ -1515,16 +1526,16 @@ def compare_context_objects(newconf, running):
             # to a separate array that is going to be appended at the end
             elif (
                 len(running_ctx_keys) >= 4
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[3].startswith('pce-config')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[3].startswith("pce-config")
             ):
                 pceconf_to_del.append((running_ctx_keys, None))
 
             # pcc must be deleted after the pce and pce-config too
             elif (
                 len(running_ctx_keys) >= 4
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[3].startswith('pcc')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[3].startswith("pcc")
             ):
                 pcclist_to_del.append((running_ctx_keys, None))
 
@@ -1572,9 +1583,9 @@ def compare_context_objects(newconf, running):
                     # so add them to a separate array that is going to be appended at the end
                     if (
                         len(newconf_ctx_keys) == 3
-                        and newconf_ctx_keys[0].startswith('segment-routing')
-                        and newconf_ctx_keys[2].startswith('policy ')
-                        and line.startswith('candidate-path ')
+                        and newconf_ctx_keys[0].startswith("segment-routing")
+                        and newconf_ctx_keys[2].startswith("policy ")
+                        and line.startswith("candidate-path ")
                     ):
                         candidates_to_add.append((newconf_ctx_keys, line))
 
@@ -1593,8 +1604,8 @@ def compare_context_objects(newconf, running):
             # so add them to a separate array that is going to be appended at the end
             if (
                 len(newconf_ctx_keys) == 4
-                and newconf_ctx_keys[0].startswith('segment-routing')
-                and newconf_ctx_keys[3].startswith('candidate-path')
+                and newconf_ctx_keys[0].startswith("segment-routing")
+                and newconf_ctx_keys[3].startswith("candidate-path")
             ):
                 candidates_to_add.append((newconf_ctx_keys, None))
                 for line in newconf_ctx.lines:
@@ -1822,8 +1833,6 @@ if __name__ == "__main__":
             running.load_from_file(args.input)
         else:
             running.load_from_show_running(args.daemon)
-
-
 
         (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
         lines_to_configure = []
