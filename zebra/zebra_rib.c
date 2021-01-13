@@ -38,6 +38,7 @@
 #include "workqueue.h"
 #include "nexthop_group_private.h"
 #include "frr_pthread.h"
+#include "printfrr.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -146,6 +147,30 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 	}
 
 	zlog(priority, "%s: (%u:%u):%s: %s", _func, vrf_id, table, buf, msgbuf);
+}
+
+static char *_dump_re_status(const struct route_entry *re, char *buf,
+			     size_t len)
+{
+	if (re->status == 0) {
+		snprintfrr(buf, len, "None ");
+		return buf;
+	}
+
+	snprintfrr(
+		buf, len, "%s%s%s%s%s%s%s",
+		CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ? "Removed " : "",
+		CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED) ? "Changed " : "",
+		CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)
+			? "Label Changed "
+			: "",
+		CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ? "Queued " : "",
+		CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "Installed "
+							      : "",
+		CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ? "Failed " : "",
+		CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG) ? "Fib NHG "
+								: "");
+	return buf;
 }
 
 #define rnode_debug(node, vrf_id, ...)                                         \
@@ -1080,12 +1105,20 @@ static void rib_process(struct route_node *rn)
 	}
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			char flags_buf[128];
+			char status_buf[128];
+
 			zlog_debug(
-				"%s(%u:%u):%s: Examine re %p (%s) status %x flags %x dist %d metric %d",
+				"%s(%u:%u):%s: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
 				VRF_LOGNAME(vrf), vrf_id, re->table, buf, re,
-				zebra_route_string(re->type), re->status,
-				re->flags, re->distance, re->metric);
+				zebra_route_string(re->type),
+				_dump_re_status(re, status_buf,
+						sizeof(status_buf)),
+				zclient_dump_route_flags(re->flags, flags_buf,
+							 sizeof(flags_buf)),
+				re->distance, re->metric);
+		}
 
 		/* Currently selected re. */
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
@@ -2799,6 +2832,8 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	bool is_srcdst = src_p && src_p->prefixlen;
 	char straddr[PREFIX_STRLEN];
 	char srcaddr[PREFIX_STRLEN];
+	char flags_buf[128];
+	char status_buf[128];
 	struct nexthop *nexthop;
 	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
 	struct nexthop_group *nhg;
@@ -2812,9 +2847,12 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
 		   straddr, (unsigned long)re->uptime, re->type, re->instance,
 		   re->table);
-	zlog_debug("%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
-		   straddr, re->metric, re->mtu, re->distance, re->flags,
-		   re->status);
+	zlog_debug(
+		"%s: metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
+		straddr, re->metric, re->mtu, re->distance,
+		zclient_dump_route_flags(re->flags, flags_buf,
+					 sizeof(flags_buf)),
+		_dump_re_status(re, status_buf, sizeof(status_buf)));
 	zlog_debug("%s: nexthop_num == %u, nexthop_active_num == %u", straddr,
 		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
 		   nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
