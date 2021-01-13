@@ -125,8 +125,8 @@ struct bgp_master {
 	/* BGP port number.  */
 	uint16_t port;
 
-	/* Listener address */
-	char *address;
+	/* Listener addresses */
+	struct list *addresses;
 
 	/* The Mac table */
 	struct hash *self_mac_hash;
@@ -1872,8 +1872,8 @@ extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 
 extern int bgp_config_write(struct vty *);
 
-extern void bgp_master_init(struct thread_master *master,
-			    const int buffer_size);
+extern void bgp_master_init(struct thread_master *master, const int buffer_size,
+			    struct list *addresses);
 
 extern void bgp_init(unsigned short instance);
 extern void bgp_pthreads_run(void);

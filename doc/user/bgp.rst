@@ -31,11 +31,22 @@ be specified (:ref:`common-invocation-options`).
 
 .. option:: -l, --listenon
 
-   Specify a specific IP address for bgpd to listen on, rather than its default
+   Specify specific IP addresses for bgpd to listen on, rather than its default
    of ``0.0.0.0`` / ``::``. This can be useful to constrain bgpd to an internal
-   address, or to run multiple bgpd processes on one host.
+   address, or to run multiple bgpd processes on one host. Multiple addresses
+   can be specified.
+
+   In the following example, bgpd is started listening for connections on the
+   addresses 100.0.1.2 and fd00::2:2. The options -d (runs in daemon mode) and
+   -f (uses specific configuration file) are also used in this example as we
+   are likely to run multiple bgpd instances, each one with different
+   configurations, when using -l option.
 
    Note that this option implies the --no_kernel option, and no learned routes will be installed into the linux kernel.
+
+.. code-block:: shell
+
+   # /usr/lib/frr/bgpd -d -f /some-folder/bgpd.conf -l 100.0.1.2 -l fd00::2:2
 
 .. option:: -n, --no_kernel
 
