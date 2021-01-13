@@ -1107,6 +1107,9 @@ static void rib_process(struct route_node *rn)
 		 */
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
 			if (!nexthop_active_update(rn, re)) {
+				const struct prefix *p;
+				struct rib_table_info *info;
+
 				if (re->type == ZEBRA_ROUTE_TABLE) {
 					/* XXX: HERE BE DRAGONS!!!!!
 					 * In all honesty, I have not yet
@@ -1136,6 +1139,11 @@ static void rib_process(struct route_node *rn)
 							 ROUTE_ENTRY_REMOVED);
 				}
 
+				info = srcdest_rnode_table_info(rn);
+				srcdest_rnode_prefixes(rn, &p, NULL);
+				zsend_route_notify_owner(re, p,
+							 ZAPI_ROUTE_FAIL_INSTALL,
+							 info->afi, info->safi);
 				continue;
 			}
 		} else {
