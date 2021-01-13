@@ -4333,3 +4333,58 @@ def kill_iperf(tgen, dut=None, action=None):
                 rnode.run(cmd)
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+
+
+def verify_ip_nht(tgen, input_dict):
+    """
+    Running "show ip nht" command and verifying given nexthop resolution
+    Parameters
+    ----------
+    * `tgen` : topogen object
+    * `input_dict`: data to verify nexthop
+    Usage
+    -----
+    input_dict_4 = {
+            "r1": {
+                nh: {
+                    "Address": nh,
+                    "resolvedVia": "connected",
+                    "nexthops": {
+                        "nexthop1": {
+                            "Interface": intf
+                        }
+                    }
+                }
+            }
+        }
+    result = verify_ip_nht(tgen, input_dict_4)
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: verify_ip_nht()")
+
+    for router in input_dict.keys():
+        if router not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[router]
+        nh_list = input_dict[router]
+
+        if validate_ip_address(nh_list.keys()[0]) is "ipv6":
+            show_ip_nht = run_frr_cmd(rnode, "show ipv6 nht")
+        else:
+            show_ip_nht = run_frr_cmd(rnode, "show ip nht")
+
+        for nh in nh_list:
+            if nh in show_ip_nht:
+                logger.info("Nexthop %s is resolved on %s", nh, router)
+                return True
+            else:
+                errormsg = "Nexthop {} is resolved on {}".format(nh, router)
+                return errormsg
+
+    logger.debug("Exiting lib API: verify_ip_nht()")
+    return False
+
