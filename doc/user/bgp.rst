@@ -468,7 +468,7 @@ Reject routes with AS_SET or AS_CONFED_SET types
 Suppress duplicate updates
 --------------------------
 
-.. index:: [no] bgp suppress-duplicates
+.. index:: bgp suppress-duplicates
 .. clicmd:: [no] bgp suppress-duplicates
 
    For example, BGP routers can generate multiple identical announcements with
@@ -1692,7 +1692,7 @@ Configuring Peers
    peer in question.  This number is between 0 and 600 seconds,
    with the default advertisement interval being 0.
 
-.. index:: [no] neighbor PEER timers delayopen (1-240)
+.. index:: neighbor PEER timers delayopen (1-240)
 .. clicmd:: [no] neighbor PEER timers delayopen (1-240)
 
    This command allows the user enable the
@@ -3592,7 +3592,7 @@ starting the daemon and the configuration gets saved, the option will persist
 unless removed from the configuration with the negating command prior to the
 configuration write operation.
 
-.. index:: [no] bgp send-extra-data zebra
+.. index:: bgp send-extra-data zebra
 .. clicmd:: [no] bgp send-extra-data zebra
 
 This Command turns off the ability of BGP to send extra data to zebra.

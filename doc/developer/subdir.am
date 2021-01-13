@@ -33,6 +33,7 @@ dev_RSTFILES = \
 	doc/developer/include-compile.rst \
 	doc/developer/index.rst \
 	doc/developer/library.rst \
+	doc/developer/link-state.rst \
 	doc/developer/lists.rst \
 	doc/developer/locking.rst \
 	doc/developer/logging.rst \
@@ -52,6 +53,7 @@ dev_RSTFILES = \
 	doc/developer/path.rst \
 	doc/developer/rcu.rst \
 	doc/developer/static-linking.rst \
+	doc/developer/tracing.rst \
 	doc/developer/testing.rst \
 	doc/developer/topotests-snippets.rst \
 	doc/developer/topotests.rst \
