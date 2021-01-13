@@ -62,7 +62,7 @@ def create_router_ospf(tgen, topo, input_dict=None, build=False, load_config=Tru
         "r1": {
             "ospf": {
                 "router_id": "22.22.22.22",
-                "area": [{ "id":0.0.0.0, "type": "nssa"}]
+                "area": [{ "id": "0.0.0.0", "type": "nssa"}]
         }
     }
 
@@ -327,7 +327,7 @@ def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=
                         "links": {
                             "r2": {
                                 "ospf": {
-                                    "authentication": 'message-digest',
+                                    "authentication": "message-digest",
                                     "authentication-key": "ospf",
                                     "message-digest-key": "10"
                                 }
@@ -376,6 +376,7 @@ def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=
             if data_ospf_area:
                 cmd = "ip ospf area {}".format(data_ospf_area)
                 config_data.append(cmd)
+
             # interface ospf auth
             if data_ospf_auth:
                 if data_ospf_auth == "null":
@@ -461,6 +462,32 @@ def clear_ospf(tgen, router):
     logger.debug("Exiting lib API: clear_ospf()")
 
 
+def redistribute_ospf(tgen, topo, dut, route_type, **kwargs):
+    """
+    Redstribution of routes inside ospf.
+
+    Parameters
+    ----------
+    * `tgen`: Topogen object
+    * `topo` : json file data
+    * `dut`: device under test
+    * `route_type`: "static" or "connected" or ....
+    * `kwargs`: pass extra information (see below)
+
+    Usage
+    -----
+    redistribute_ospf(tgen, topo, "r0", "static", delete=True)
+    redistribute_ospf(tgen, topo, "r0", "static", route_map="rmap_ipv4")
+    """
+
+    ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": route_type}]}}}
+    for k, v in kwargs.items():
+        ospf_red[dut]["ospf"]["redistribute"][0][k] = v
+
+    result = create_router_ospf(tgen, topo, ospf_red)
+    assert result is True, "Testcase : Failed \n Error: {}".format(result)
+
+
 ################################
 # Verification procs
 ################################
@@ -522,7 +549,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
 
             logger.info("Verifying OSPF neighborship on router %s:", router)
             show_ospf_json = run_frr_cmd(
-                rnode, "show ip ospf neighbor  all json", isjson=True
+                rnode, "show ip ospf neighbor all json", isjson=True
             )
 
             # Verifying output dictionary show_ospf_json is empty or not
@@ -844,19 +871,23 @@ def verify_ospf_rib(
                                 if "routeType" not in ospf_rib_json[st_rt]:
                                     errormsg = (
                                         "[DUT: {}]: routeType missing"
-                                        "for route {} in OSPF RIB \n".format(dut, st_rt)
+                                        " for route {} in OSPF RIB \n".format(
+                                            dut, st_rt
+                                        )
                                     )
                                     return errormsg
                                 elif _rtype != ospf_rib_json[st_rt]["routeType"]:
                                     errormsg = (
                                         "[DUT: {}]: routeType mismatch"
-                                        "for route {} in OSPF RIB \n".format(dut, st_rt)
+                                        " for route {} in OSPF RIB \n".format(
+                                            dut, st_rt
+                                        )
                                     )
                                     return errormsg
                                 else:
                                     logger.info(
-                                        "DUT: {}]: Found routeType {}"
-                                        "for route {}".format(dut, _rtype, st_rt)
+                                        "[DUT: {}]: Found routeType {}"
+                                        " for route {}".format(dut, _rtype, st_rt)
                                     )
                             if tag:
                                 if "tag" not in ospf_rib_json[st_rt]:
