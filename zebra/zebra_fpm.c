@@ -273,6 +273,11 @@ struct zfpm_glob {
 	 * If non-zero, the last time when statistics were cleared.
 	 */
 	time_t last_stats_clear_time;
+
+	/*
+	 * Flag to track the MAC dump status to FPM
+	 */
+	bool fpm_mac_dump_done;
 };
 
 static struct zfpm_glob zfpm_glob_space;
@@ -528,8 +533,13 @@ static int zfpm_conn_up_thread_cb(struct thread *thread)
 		goto done;
 	}
 
-	/* Enqueue FPM updates for all the RMAC entries */
-	hash_iterate(zrouter.l3vni_table, zfpm_iterate_rmac_table, NULL);
+	if (!zfpm_g->fpm_mac_dump_done) {
+		/* Enqueue FPM updates for all the RMAC entries */
+		hash_iterate(zrouter.l3vni_table, zfpm_iterate_rmac_table,
+			     NULL);
+		/* mark dump done so that its not repeated after yield */
+		zfpm_g->fpm_mac_dump_done = true;
+	}
 
 	while ((rnode = zfpm_rnodes_iter_next(iter))) {
 		dest = rib_dest_from_rnode(rnode);
@@ -578,6 +588,7 @@ static void zfpm_connection_up(const char *detail)
 	assert(!zfpm_g->t_conn_up);
 
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_up_state.iter);
+	zfpm_g->fpm_mac_dump_done = false;
 
 	zfpm_debug("Starting conn_up thread");
 	zfpm_g->t_conn_up = NULL;
