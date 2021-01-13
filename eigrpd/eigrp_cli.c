@@ -29,6 +29,7 @@
 #include "eigrp_structs.h"
 #include "eigrpd.h"
 #include "eigrp_zebra.h"
+#include "eigrp_cli.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "eigrpd/eigrp_cli_clippy.c"

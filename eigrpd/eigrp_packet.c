@@ -1144,7 +1144,7 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 }
 
 uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
-					 struct eigrp_prefix_entry *pe)
+					 struct eigrp_prefix_descriptor *pe)
 {
 	uint16_t length;
 

@@ -1,6 +1,8 @@
-/* eigrpd memory type declarations
- *
- * Copyright (C) 2017  Donald Sharp
+/*
+ * EIGRP Definition of Data Types
+ * Copyright (C) 2018
+ * Authors:
+ *   Donnie Savage
  *
  * This file is part of FRR.
  *
@@ -19,25 +21,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_EIGRP_MEMORY_H
-#define _FRR_EIGRP_MEMORY_H
+#ifndef _ZEBRA_EIGRP_TYPES_H_
+#define _ZEBRA_EIGRP_TYPES_H_
 
-#include "memory.h"
+typedef uint64_t eigrp_bandwidth_t;
+typedef uint64_t eigrp_delay_t;
+typedef uint64_t eigrp_metric_t;
+typedef uint32_t eigrp_scaled_t;
 
-DECLARE_MGROUP(EIGRPD)
-DECLARE_MTYPE(EIGRP_TOP)
-DECLARE_MTYPE(EIGRP_IF)
-DECLARE_MTYPE(EIGRP_NEIGHBOR)
-DECLARE_MTYPE(EIGRP_IF_PARAMS)
-DECLARE_MTYPE(EIGRP_IF_INFO)
-DECLARE_MTYPE(EIGRP_FIFO)
-DECLARE_MTYPE(EIGRP_PACKET)
-DECLARE_MTYPE(EIGRP_IPV4_INT_TLV)
-DECLARE_MTYPE(EIGRP_SEQ_TLV)
-DECLARE_MTYPE(EIGRP_AUTH_TLV)
-DECLARE_MTYPE(EIGRP_AUTH_SHA256_TLV)
-DECLARE_MTYPE(EIGRP_PREFIX_DESCRIPTOR)
-DECLARE_MTYPE(EIGRP_ROUTE_DESCRIPTOR)
-DECLARE_MTYPE(EIGRP_FSM_MSG)
+typedef uint32_t eigrp_system_metric_t;
+typedef uint32_t eigrp_system_delay_t;
+typedef uint32_t eigrp_system_bandwidth_t;
 
-#endif /* _FRR_EIGRP_MEMORY_H */
+#endif /* _ZEBRA_EIGRP_TYPES_H_ */

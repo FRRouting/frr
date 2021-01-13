@@ -66,6 +66,8 @@
 #include "eigrpd/eigrp_filter.h"
 #include "eigrpd/eigrp_errors.h"
 #include "eigrpd/eigrp_vrf.h"
+#include "eigrpd/eigrp_cli.h"
+#include "eigrpd/eigrp_yang.h"
 //#include "eigrpd/eigrp_routemap.h"
 
 /* eigprd privileges */

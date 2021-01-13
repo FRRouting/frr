@@ -1,6 +1,8 @@
-/* eigrpd memory type declarations
- *
- * Copyright (C) 2017  Donald Sharp
+/*
+ * EIGRP YANG Functions.
+ * Copyright (C) 2019
+ * Authors:
+ *   Donnie Savage
  *
  * This file is part of FRR.
  *
@@ -19,25 +21,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_EIGRP_MEMORY_H
-#define _FRR_EIGRP_MEMORY_H
+#ifndef _EIGRP_YANG_H_
+#define _EIGRP_YANG_H_
 
-#include "memory.h"
+/*Prototypes*/
 
-DECLARE_MGROUP(EIGRPD)
-DECLARE_MTYPE(EIGRP_TOP)
-DECLARE_MTYPE(EIGRP_IF)
-DECLARE_MTYPE(EIGRP_NEIGHBOR)
-DECLARE_MTYPE(EIGRP_IF_PARAMS)
-DECLARE_MTYPE(EIGRP_IF_INFO)
-DECLARE_MTYPE(EIGRP_FIFO)
-DECLARE_MTYPE(EIGRP_PACKET)
-DECLARE_MTYPE(EIGRP_IPV4_INT_TLV)
-DECLARE_MTYPE(EIGRP_SEQ_TLV)
-DECLARE_MTYPE(EIGRP_AUTH_TLV)
-DECLARE_MTYPE(EIGRP_AUTH_SHA256_TLV)
-DECLARE_MTYPE(EIGRP_PREFIX_DESCRIPTOR)
-DECLARE_MTYPE(EIGRP_ROUTE_DESCRIPTOR)
-DECLARE_MTYPE(EIGRP_FSM_MSG)
+/* eigrp_northbound.c */
+extern const struct frr_yang_module_info frr_eigrpd_info;
 
-#endif /* _FRR_EIGRP_MEMORY_H */
+#endif /*EIGRP_YANG_H_ */
