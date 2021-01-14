@@ -56,6 +56,7 @@ struct zebra_mac_t_ {
 	/* MAC address. */
 	struct ethaddr macaddr;
 
+	/* When modifying flags please fixup zebra_evpn_zebra_mac_flag_dump */
 	uint32_t flags;
 #define ZEBRA_MAC_LOCAL 0x01
 #define ZEBRA_MAC_REMOTE 0x02
