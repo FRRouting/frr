@@ -221,6 +221,7 @@ ip forwarding
         for ligne in lines:
             self.dlines[ligne] = True
 
+
 def get_normalized_es_id(line):
     """
     The es-id or es-sys-mac need to be converted to lower case
@@ -233,6 +234,7 @@ def get_normalized_es_id(line):
             break
     return line
 
+
 def get_normalized_mac_ip_line(line):
     if line.startswith("evpn mh es"):
         return get_normalized_es_id(line)
@@ -241,6 +243,7 @@ def get_normalized_mac_ip_line(line):
         return get_normalized_ipv6_line(line)
 
     return line
+
 
 class Config(object):
 
@@ -640,7 +643,7 @@ end
                 log.debug(
                     "LINE %-50s: popping segment routing sub-context to ctx%-50s",
                     line,
-                    ctx_keys
+                    ctx_keys,
                 )
 
             elif line in ["exit-address-family", "exit", "exit-vnc"]:
@@ -654,7 +657,7 @@ end
                     log.debug(
                         "LINE %-50s: popping from subcontext to ctx%-50s",
                         line,
-                        ctx_keys
+                        ctx_keys,
                     )
 
             elif line in ["exit-vni", "exit-ldp-if"]:
@@ -755,7 +758,8 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 current_context_lines = []
                 log.debug(
-                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -770,7 +774,8 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 current_context_lines = []
                 log.debug(
-                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -785,7 +790,8 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 current_context_lines = []
                 log.debug(
-                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -803,7 +809,8 @@ end
                 current_context_lines = []
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
-                    "LINE %-50s: entering candidate-path sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering candidate-path sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -836,7 +843,8 @@ end
                 current_context_lines = []
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
-                    "LINE %-50s: entering pce-config sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering pce-config sub-context, append to ctx_keys",
+                    line,
                 )
                 ctx_keys.append(line)
 
@@ -1230,30 +1238,44 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_add_to_del.append((ctx[0], None))
 
         """
-        ip/ipv6 prefix-list can be specified without a seq number. However,
-        the running config always adds 'seq x', where x is a number incremented
-        by 5 for every element, to the prefix list. So, ignore such lines as
-        well. Sample prefix-list lines:
+        ip/ipv6 prefix-lists and access-lists can be specified without a seq number.
+        However, the running config always adds 'seq x', where x is a number
+        incremented by 5 for every element of the prefix/access list.
+        So, ignore such lines as well. Sample prefix-list and acces-list lines:
              ip prefix-list PR-TABLE-2 seq 5 permit 20.8.2.0/24 le 32
              ip prefix-list PR-TABLE-2 seq 10 permit 20.8.2.0/24 le 32
              ipv6 prefix-list vrfdev6-12 permit 2000:9:2::/64 gt 64
+             access-list FOO seq 5 permit 2.2.2.2/32
+             ipv6 access-list BAR seq 5 permit 2:2:2::2/128
         """
-        re_ip_pfxlst = re.search(
-            "^(ip|ipv6)(\s+prefix-list\s+)(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
+        re_acl_pfxlst = re.search(
+            "^(ip |ipv6 |)(prefix-list|access-list)(\s+\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
             ctx_keys[0],
         )
-        if re_ip_pfxlst:
+        if re_acl_pfxlst:
+            found = False
             tmpline = (
-                re_ip_pfxlst.group(1)
-                + re_ip_pfxlst.group(2)
-                + re_ip_pfxlst.group(3)
-                + re_ip_pfxlst.group(5)
-                + re_ip_pfxlst.group(6)
+                re_acl_pfxlst.group(1)
+                + re_acl_pfxlst.group(2)
+                + re_acl_pfxlst.group(3)
+                + re_acl_pfxlst.group(5)
+                + re_acl_pfxlst.group(6)
             )
             for ctx in lines_to_add:
                 if ctx[0][0] == tmpline:
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
+                    found = True
+            """
+            If prefix-lists or access-lists are being deleted and
+            not added (see comment above), add command with 'no' to
+            lines_to_add and remove from lines_to_del to improve
+            scaling performance.
+            """
+            if found is False:
+                add_cmd = ("no " + ctx_keys[0],)
+                lines_to_add.append((add_cmd, None))
+                lines_to_del_to_del.append((ctx_keys, None))
 
         if (
             len(ctx_keys) == 3
@@ -1451,14 +1473,9 @@ def compare_context_objects(newconf, running):
             # doing vtysh -c inefficient (and can time out.)  For
             # these commands, instead of adding them to lines_to_del,
             # add the "no " version to lines_to_add.
-            elif (
-                running_ctx_keys[0].startswith("ip route")
-                or running_ctx_keys[0].startswith("ipv6 route")
-                or running_ctx_keys[0].startswith("access-list")
-                or running_ctx_keys[0].startswith("ipv6 access-list")
-                or running_ctx_keys[0].startswith("ip prefix-list")
-                or running_ctx_keys[0].startswith("ipv6 prefix-list")
-            ):
+            elif running_ctx_keys[0].startswith("ip route") or running_ctx_keys[
+                0
+            ].startswith("ipv6 route"):
                 add_cmd = ("no " + running_ctx_keys[0],)
                 lines_to_add.append((add_cmd, None))
 
@@ -1473,14 +1490,17 @@ def compare_context_objects(newconf, running):
                 continue
 
             # same thing for a pseudowire sub-context inside an l2vpn context
-            elif (len(running_ctx_keys) > 1 and running_ctx_keys[0].startswith('l2vpn') and
-                  running_ctx_keys[1].startswith('member pseudowire') and
-                  (running_ctx_keys[:1], None) in lines_to_del):
+            elif (
+                len(running_ctx_keys) > 1
+                and running_ctx_keys[0].startswith("l2vpn")
+                and running_ctx_keys[1].startswith("member pseudowire")
+                and (running_ctx_keys[:1], None) in lines_to_del
+            ):
                 continue
 
             # Segment routing and traffic engineering never need to be deleted
             elif (
-                running_ctx_keys[0].startswith('segment-routing')
+                running_ctx_keys[0].startswith("segment-routing")
                 and len(running_ctx_keys) < 3
             ):
                 continue
@@ -1488,8 +1508,8 @@ def compare_context_objects(newconf, running):
             # Neither the pcep command
             elif (
                 len(running_ctx_keys) == 3
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[2].startswith('pcep')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[2].startswith("pcep")
             ):
                 continue
 
@@ -1497,8 +1517,8 @@ def compare_context_objects(newconf, running):
             # use them, so add them to a separate array that is going to be appended at the end
             elif (
                 len(running_ctx_keys) == 3
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[2].startswith('segment-list')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[2].startswith("segment-list")
             ):
                 seglist_to_del.append((running_ctx_keys, None))
 
@@ -1506,8 +1526,8 @@ def compare_context_objects(newconf, running):
             # we add them to a separate array that is going to be appended at the end
             elif (
                 len(running_ctx_keys) == 3
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[2].startswith('policy')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[2].startswith("policy")
             ):
                 pollist_to_del.append((running_ctx_keys, None))
 
@@ -1515,16 +1535,16 @@ def compare_context_objects(newconf, running):
             # to a separate array that is going to be appended at the end
             elif (
                 len(running_ctx_keys) >= 4
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[3].startswith('pce-config')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[3].startswith("pce-config")
             ):
                 pceconf_to_del.append((running_ctx_keys, None))
 
             # pcc must be deleted after the pce and pce-config too
             elif (
                 len(running_ctx_keys) >= 4
-                and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[3].startswith('pcc')
+                and running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[3].startswith("pcc")
             ):
                 pcclist_to_del.append((running_ctx_keys, None))
 
@@ -1572,9 +1592,9 @@ def compare_context_objects(newconf, running):
                     # so add them to a separate array that is going to be appended at the end
                     if (
                         len(newconf_ctx_keys) == 3
-                        and newconf_ctx_keys[0].startswith('segment-routing')
-                        and newconf_ctx_keys[2].startswith('policy ')
-                        and line.startswith('candidate-path ')
+                        and newconf_ctx_keys[0].startswith("segment-routing")
+                        and newconf_ctx_keys[2].startswith("policy ")
+                        and line.startswith("candidate-path ")
                     ):
                         candidates_to_add.append((newconf_ctx_keys, line))
 
@@ -1593,8 +1613,8 @@ def compare_context_objects(newconf, running):
             # so add them to a separate array that is going to be appended at the end
             if (
                 len(newconf_ctx_keys) == 4
-                and newconf_ctx_keys[0].startswith('segment-routing')
-                and newconf_ctx_keys[3].startswith('candidate-path')
+                and newconf_ctx_keys[0].startswith("segment-routing")
+                and newconf_ctx_keys[3].startswith("candidate-path")
             ):
                 candidates_to_add.append((newconf_ctx_keys, None))
                 for line in newconf_ctx.lines:
@@ -1822,8 +1842,6 @@ if __name__ == "__main__":
             running.load_from_file(args.input)
         else:
             running.load_from_show_running(args.daemon)
-
-
 
         (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
         lines_to_configure = []
