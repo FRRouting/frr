@@ -4952,27 +4952,63 @@ ALIAS_HIDDEN(no_neighbor_activate, no_neighbor_activate_hidden_cmd,
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Enable the Address Family for this Neighbor\n")
 
-DEFUN_YANG (neighbor_set_peer_group,
-	    neighbor_set_peer_group_cmd,
-	    "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
-	    NEIGHBOR_STR
-	    NEIGHBOR_ADDR_STR2
-	    "Member of the peer-group\n"
-	    "Peer-group name\n")
+DEFUN (neighbor_set_peer_group,
+       neighbor_set_peer_group_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Member of the peer-group\n"
+       "Peer-group name\n")
 {
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_peer = 1;
 	int idx_word = 3;
-	char base_xpath[XPATH_MAXLEN];
+	int ret;
+	as_t as;
+	union sockunion su;
+	struct peer *peer;
+	struct peer_group *group;
 
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), NULL)
-	    < 0)
+	ret = str2sockunion(argv[idx_peer]->arg, &su);
+	if (ret < 0) {
+		peer = peer_lookup_by_conf_if(bgp, argv[idx_peer]->arg);
+		if (!peer) {
+			vty_out(vty, "%% Malformed address or name: %s\n",
+				argv[idx_peer]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		if (peer_address_self_check(bgp, &su)) {
+			vty_out(vty,
+				"%% Can not configure the local system as neighbor\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		/* Disallow for dynamic neighbor. */
+		peer = peer_lookup(bgp, &su);
+		if (peer && peer_dynamic_neighbor(peer)) {
+			vty_out(vty,
+				"%% Operation not allowed on a dynamic neighbor\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	group = peer_group_lookup(bgp, argv[idx_word]->arg);
+	if (!group) {
+		vty_out(vty, "%% Configure the peer-group first\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	nb_cli_enqueue_change(vty, "./peer-group", NB_OP_MODIFY,
-			      argv[idx_word]->arg);
+	ret = peer_group_bind(bgp, &su, peer, group, &as);
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
+		vty_out(vty,
+			"%% Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n",
+			as);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return bgp_vty_return(vty, ret);
 }
 
 ALIAS_HIDDEN(neighbor_set_peer_group, neighbor_set_peer_group_hidden_cmd,
