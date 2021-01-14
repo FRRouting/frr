@@ -6974,6 +6974,22 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 	return 0;
 }
 
+static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
+{
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+		return false;
+
+	UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+	if (peer->t_pmax_restart) {
+		BGP_TIMER_OFF(peer->t_pmax_restart);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s Maximum-prefix restart timer cancelled",
+				   peer->host);
+	}
+	BGP_EVENT_ADD(peer, BGP_Start);
+	return true;
+}
+
 int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
 			    uint32_t max, uint8_t threshold, int warning,
 			    uint16_t restart, bool force)
@@ -7095,7 +7111,11 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 			member->pmax[afi][safi] = 0;
 			member->pmax_threshold[afi][safi] = 0;
 			member->pmax_restart[afi][safi] = 0;
+
+			peer_maximum_prefix_clear_overflow(member);
 		}
+	} else {
+		peer_maximum_prefix_clear_overflow(peer);
 	}
 
 	return 0;
@@ -7298,18 +7318,8 @@ int peer_clear(struct peer *peer, struct listnode **nnode)
 {
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
 	    || !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN)) {
-		if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW)) {
-			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-			if (peer->t_pmax_restart) {
-				BGP_TIMER_OFF(peer->t_pmax_restart);
-				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"%s Maximum-prefix restart timer canceled",
-						peer->host);
-			}
-			BGP_EVENT_ADD(peer, BGP_Start);
+		if (peer_maximum_prefix_clear_overflow(peer))
 			return 0;
-		}
 
 		peer->v_start = BGP_INIT_START_TIMER;
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
