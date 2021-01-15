@@ -80,7 +80,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-
+@pytest.mark.pbr
 def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)
