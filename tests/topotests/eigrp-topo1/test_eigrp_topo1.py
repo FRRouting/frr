@@ -91,7 +91,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-
+@pytest.mark.eigrp
 def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)

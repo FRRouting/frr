@@ -104,7 +104,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-
+@pytest.mark.rip
 def setup_module(module):
     global topo, net
 

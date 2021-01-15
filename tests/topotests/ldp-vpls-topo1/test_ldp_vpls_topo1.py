@@ -121,7 +121,8 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears["r2"])
         switch.add_link(tgen.gears["r3"])
 
-
+@pytest.mark.ldp
+@pytest.mark.ospf
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(TemplateTopo, mod.__name__)
