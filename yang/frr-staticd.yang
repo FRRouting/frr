@@ -63,7 +63,13 @@ module frr-staticd {
 
   grouping staticd-prefix-attributes {
     list path-list {
-      key "distance";
+      key "table-id distance";
+      leaf table-id {
+        type uint32;
+        description
+          "Table-id";
+      }
+
       leaf distance {
         type frr-rt:administrative-distance;
         description
@@ -75,13 +81,6 @@ module frr-staticd {
         default "0";
         description
           "Route tag";
-      }
-
-      leaf table-id {
-        type uint32;
-        default "0";
-        description
-          "Table-id";
       }
 
       uses frr-nexthop:frr-nexthop;
