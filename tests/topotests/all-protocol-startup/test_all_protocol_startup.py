@@ -82,7 +82,8 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-
+@pytest.mark.ospf
+@pytest.mark.rip
 def setup_module(module):
     global topo, net
     global fatal_error

@@ -362,7 +362,7 @@ def config_hosts(tgen, hosts):
         host = tgen.gears[host_name]
         config_host(host_name, host)
 
-
+@pytest.mark.pim
 def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)

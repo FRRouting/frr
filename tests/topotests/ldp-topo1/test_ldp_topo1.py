@@ -159,7 +159,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-
+@pytest.mark.ldp
 def setup_module(module):
     global topo, net
     global fatal_error
