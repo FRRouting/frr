@@ -340,8 +340,6 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 
 	fnh = fec_nh_find(fn, af, nexthop, ifindex, route_type, route_instance);
 	if (fnh == NULL) {
-		fn->flags |= F_FEC_NHS_CHANGED;
-
 		fnh = fec_nh_add(fn, af, nexthop, ifindex, route_type,
 		    route_instance);
 		/*
@@ -418,16 +416,10 @@ lde_kernel_update(struct fec *fec)
 			} else
 				fnh->flags |= F_FEC_NH_NO_LDP;
 		} else {
-			fn->flags |= F_FEC_NHS_CHANGED;
 			lde_send_delete_klabel(fn, fnh);
 			fec_nh_del(fnh);
 		}
 	}
-
-	if (!(fn->flags & F_FEC_NHS_CHANGED))
-		/* return earlier if nothing has changed */
-		return;
-	fn->flags &= ~F_FEC_NHS_CHANGED;
 
 	if (LIST_EMPTY(&fn->nexthops)) {
 		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
