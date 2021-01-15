@@ -1770,12 +1770,11 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 static void zebra_route_map_mark_update(const char *rmap_name)
 {
 	/* rmap_update_timer of 0 means don't do route updates */
-	if (zebra_rmap_update_timer) {
+	if (zebra_rmap_update_timer)
 		THREAD_OFF(zebra_t_rmap_update);
-		thread_add_timer(zrouter.master, zebra_route_map_update_timer,
-				 NULL, zebra_rmap_update_timer,
-				 &zebra_t_rmap_update);
-	}
+
+	thread_add_timer(zrouter.master, zebra_route_map_update_timer,
+			 NULL, zebra_rmap_update_timer, &zebra_t_rmap_update);
 }
 
 static void zebra_route_map_add(const char *rmap_name)
