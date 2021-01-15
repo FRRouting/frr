@@ -7150,6 +7150,7 @@ int is_ebgp_multihop_configured(struct peer *peer)
 int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 {
 	struct peer_group *group;
+	struct peer *gpeer;
 	struct listnode *node, *nnode;
 	int ret;
 
@@ -7186,9 +7187,10 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				return ret;
 		} else {
 			group = peer->group;
+			group->conf->gtsm_hops = gtsm_hops;
 			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer)) {
-				peer->gtsm_hops = group->conf->gtsm_hops;
+					       gpeer)) {
+				gpeer->gtsm_hops = group->conf->gtsm_hops;
 
 				/* Calling ebgp multihop also resets the
 				 * session.
@@ -7198,7 +7200,7 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				 * value is
 				 * irrelevant.
 				 */
-				peer_ebgp_multihop_set(peer, MAXTTL);
+				peer_ebgp_multihop_set(gpeer, MAXTTL);
 			}
 		}
 	} else {
@@ -7219,9 +7221,10 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 					       MAXTTL + 1 - gtsm_hops);
 		} else {
 			group = peer->group;
+			group->conf->gtsm_hops = gtsm_hops;
 			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer)) {
-				peer->gtsm_hops = group->conf->gtsm_hops;
+					       gpeer)) {
+				gpeer->gtsm_hops = group->conf->gtsm_hops;
 
 				/* Change setting of existing peer
 				 *   established then change value (may break
@@ -7231,17 +7234,18 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				 *   no session then do nothing (will get
 				 * handled by next connection)
 				 */
-				if (peer->fd >= 0
-				    && peer->gtsm_hops
+				if (gpeer->fd >= 0
+				    && gpeer->gtsm_hops
 					       != BGP_GTSM_HOPS_DISABLED)
 					sockopt_minttl(
-						peer->su.sa.sa_family, peer->fd,
-						MAXTTL + 1 - peer->gtsm_hops);
-				if ((peer->status < Established)
-				    && peer->doppelganger
-				    && (peer->doppelganger->fd >= 0))
-					sockopt_minttl(peer->su.sa.sa_family,
-						       peer->doppelganger->fd,
+						gpeer->su.sa.sa_family,
+						gpeer->fd,
+						MAXTTL + 1 - gpeer->gtsm_hops);
+				if ((gpeer->status < Established)
+				    && gpeer->doppelganger
+				    && (gpeer->doppelganger->fd >= 0))
+					sockopt_minttl(gpeer->su.sa.sa_family,
+						       gpeer->doppelganger->fd,
 						       MAXTTL + 1 - gtsm_hops);
 			}
 		}
