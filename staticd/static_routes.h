@@ -187,7 +187,7 @@ extern void static_del_route(struct route_node *rn, safi_t safi,
 			     struct static_vrf *svrf);
 
 extern struct static_path *static_add_path(struct route_node *rn,
-					   uint8_t distance);
+					   uint32_t table_id, uint8_t distance);
 extern void static_del_path(struct route_node *rn, struct static_path *pn,
 			    safi_t safi, struct static_vrf *svrf);
 

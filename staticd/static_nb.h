@@ -31,8 +31,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_tag_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_table_id_modify(
-	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_destroy(
@@ -74,8 +72,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_destroy(
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_tag_modify(
-	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_table_id_modify(
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_create(
 	struct nb_cb_create_args *args);
@@ -134,12 +130,10 @@ int routing_control_plane_protocols_name_validate(
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
 	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']/"          \
-	"path-list[distance='%u']"
+	"path-list[table-id='%u'][distance='%u']"
 
 
 #define FRR_STATIC_ROUTE_PATH_TAG_XPATH "/tag"
-
-#define FRR_STATIC_ROUTE_PATH_TABLEID_XPATH "/table-id"
 
 /* route-list/frr-nexthops */
 #define FRR_STATIC_ROUTE_NH_KEY_XPATH                                          \
@@ -161,7 +155,7 @@ int routing_control_plane_protocols_name_validate(
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
 	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']/"          \
-	"src-list[src-prefix='%s']/path-list[distance='%u']"
+	"src-list[src-prefix='%s']/path-list[table-id='%u'][distance='%u']"
 
 /* route-list/frr-nexthops */
 #define FRR_DEL_S_ROUTE_NH_KEY_XPATH                                           \
