@@ -78,6 +78,7 @@ class BFDProfTopo(Topo):
         switch.add_link(tgen.gears["r6"])
 
 @pytest.mark.bfd
+@pytest.mark.isis
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(BFDProfTopo, mod.__name__)

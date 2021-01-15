@@ -82,6 +82,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
+@pytest.mark.isis
 @pytest.mark.ospf
 @pytest.mark.rip
 def setup_module(module):

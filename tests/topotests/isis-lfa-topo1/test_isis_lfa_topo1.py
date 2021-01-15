@@ -163,7 +163,7 @@ class TemplateTopo(Topo):
                         f_in.close()
                         f_out.close()
 
-
+@pytest.mark.isis
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(TemplateTopo, mod.__name__)
