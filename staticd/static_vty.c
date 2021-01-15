@@ -68,7 +68,6 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	char buf_src_prefix[PREFIX_STRLEN];
 	char buf_nh_type[PREFIX_STRLEN];
 	char buf_tag[PREFIX_STRLEN];
-	char buf_tableid[PREFIX_STRLEN];
 	uint8_t label_stack_id = 0;
 	const char *buf_gate_str;
 	uint8_t distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
@@ -162,14 +161,14 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
-				 buf_src_prefix, distance);
+				 buf_src_prefix, table_id, distance);
 		else
 			snprintf(xpath_prefix, sizeof(xpath_prefix),
 				 FRR_STATIC_ROUTE_INFO_KEY_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
-				 distance);
+				 table_id, distance);
 
 		nb_cli_enqueue_change(vty, xpath_prefix, NB_OP_CREATE, NULL);
 
@@ -180,12 +179,6 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			sizeof(ab_xpath));
 		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, buf_tag);
 
-		/* Table-Id processing */
-		snprintf(buf_tableid, sizeof(buf_tableid), "%u", table_id);
-		strlcpy(ab_xpath, xpath_prefix, sizeof(ab_xpath));
-		strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_TABLEID_XPATH,
-			sizeof(ab_xpath));
-		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, buf_tableid);
 		/* nexthop processing */
 
 		snprintf(ab_xpath, sizeof(ab_xpath),
@@ -289,16 +282,16 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
-				 buf_src_prefix, distance, buf_nh_type, nh_svrf,
-				 buf_gate_str, ifname);
+				 buf_src_prefix, table_id, distance,
+				 buf_nh_type, nh_svrf, buf_gate_str, ifname);
 		else
 			snprintf(ab_xpath, sizeof(ab_xpath),
 				 FRR_DEL_S_ROUTE_NH_KEY_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
-				 distance, buf_nh_type, nh_svrf, buf_gate_str,
-				 ifname);
+				 table_id, distance, buf_nh_type, nh_svrf,
+				 buf_gate_str, ifname);
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode)

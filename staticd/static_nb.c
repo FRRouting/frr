@@ -47,12 +47,6 @@ const struct frr_yang_module_info frr_staticd_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/table-id",
-			.cbs = {
-				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_table_id_modify,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop",
 			.cbs = {
 				.apply_finish = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_apply_finish,
@@ -129,12 +123,6 @@ const struct frr_yang_module_info frr_staticd_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/tag",
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_tag_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/table-id",
-			.cbs = {
-				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_table_id_modify,
 			}
 		},
 		{
