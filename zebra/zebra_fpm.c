@@ -522,8 +522,6 @@ static int zfpm_conn_up_thread_cb(struct thread *thread)
 	struct zfpm_rnodes_iter *iter;
 	rib_dest_t *dest;
 
-	zfpm_g->t_conn_up = NULL;
-
 	iter = &zfpm_g->t_conn_up_state.iter;
 
 	if (zfpm_g->state != ZFPM_STATE_ESTABLISHED) {
@@ -557,7 +555,6 @@ static int zfpm_conn_up_thread_cb(struct thread *thread)
 
 		zfpm_g->stats.t_conn_up_yields++;
 		zfpm_rnodes_iter_pause(iter);
-		zfpm_g->t_conn_up = NULL;
 		thread_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb,
 				      NULL, 0, &zfpm_g->t_conn_up);
 		return 0;
@@ -585,13 +582,13 @@ static void zfpm_connection_up(const char *detail)
 	/*
 	 * Start thread to push existing routes to the FPM.
 	 */
-	assert(!zfpm_g->t_conn_up);
+	thread_cancel(&zfpm_g->t_conn_up);
 
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_up_state.iter);
 	zfpm_g->fpm_mac_dump_done = false;
 
 	zfpm_debug("Starting conn_up thread");
-	zfpm_g->t_conn_up = NULL;
+
 	thread_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb, NULL, 0,
 			      &zfpm_g->t_conn_up);
 	zfpm_g->stats.t_conn_up_starts++;
