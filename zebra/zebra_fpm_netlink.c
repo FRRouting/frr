@@ -133,6 +133,7 @@ struct netlink_nh_info {
  * A structure for holding information for a netlink route message.
  */
 struct netlink_route_info {
+	uint32_t nlmsg_pid;
 	uint16_t nlmsg_type;
 	uint8_t rtm_type;
 	uint32_t rtm_table;
@@ -244,14 +245,20 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
+	struct rib_table_info *table_info =
+		rib_table_info(rib_dest_table(dest));
+	struct zebra_vrf *zvrf = table_info->zvrf;
 
 	memset(ri, 0, sizeof(*ri));
 
 	ri->prefix = rib_dest_prefix(dest);
 	ri->af = rib_dest_af(dest);
 
+	if (zvrf && zvrf->zns)
+		ri->nlmsg_pid = zvrf->zns->netlink_dplane.snl.nl_pid;
+
 	ri->nlmsg_type = cmd;
-	ri->rtm_table = rib_table_info(rib_dest_table(dest))->table_id;
+	ri->rtm_table = table_info->table_id;
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
@@ -357,6 +364,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 
 	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+	req->n.nlmsg_pid = ri->nlmsg_pid;
 	req->n.nlmsg_type = ri->nlmsg_type;
 	req->r.rtm_family = ri->af;
 
