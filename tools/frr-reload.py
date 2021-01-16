@@ -1434,8 +1434,14 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         # put the "no" form in lines_to_add
         if ctx_keys[0].startswith("vrf ") and line:
             if line.startswith("ip route") or line.startswith("ipv6 route"):
-                add_cmd = "no " + line
-                lines_to_add.append((ctx_keys, add_cmd))
+                if not static_route_already_present(lines_to_add, line):
+                    # Only add the "no" form when we're really deleting a route
+                    # Updates to existing routes will go in without a "no",
+                    # and nulling them out may cause surprising static route
+                    # deletions. Try "ip route 1.1.1.1/32 2.2.2.2 tag 1"
+                    # followed by "no ip route 1.1.1.1/32 2.2.2.2 tag 2"
+                    add_cmd = ('no ' + line)
+                    lines_to_add.append((ctx_keys, add_cmd))
                 lines_to_del_to_del.append((ctx_keys, line))
 
         if not deleted:
@@ -1481,6 +1487,75 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         lines_to_add.remove((ctx_keys, line))
 
     return (lines_to_add, lines_to_del)
+
+def static_route_line_as_dict(line):
+    """
+    Parse an "ip route" or "ipv6 route" line
+    """
+    options = {}
+    # First we parse the command itself
+    if line.startswith('ip route '):
+        options['v6'] = True
+        line = line[len('ip route '):]
+    elif line.startswith('ipv6 route '):
+        options['v6'] = False
+        line = line[len("ipv6 route "):]
+    else:
+        return options
+
+    # mandatory prefix / destination fields
+    [prefix, dest] = line.split(' ', 2)[0:2]
+    line = line[len(prefix + ' ') + len(dest + ' '):]
+
+    # mandatory fields
+    options['prefix'] = prefix
+    options['destination'] = dest
+
+    return options
+
+def dict_values_match(a, b, key):
+    """
+    Check if a given bucket in dict a is the same as that in dict b
+    Note that if the bucket is in NEITHER a NOR b this is False
+    """
+    return not (
+        key in a or key in b) or (
+        key in a and
+        key in b and
+        a[key] == b[key])
+
+def static_route_already_present(lines_to_add, testline):
+    """
+    Determine if a given line will modify a pending addition to static routes
+    """
+
+    assert(testline.startswith('ip route ') or
+        testline.startswitch('ipv6 route '))
+
+    candidate = static_route_line_as_dict(testline)
+    for (ctx_keys, line) in lines_to_add:
+        # Check each line which is pending addition against
+        # the candidate line for conflict
+        if line and (
+            line.startswith('ip route ') or
+            line.startswith('ipv6 route ')):
+            # Static route pending addition
+            trymatch = static_route_line_as_dict(line)
+
+            if not (dict_values_match(candidate, trymatch, 'v6') and
+                dict_values_match(candidate, trymatch, 'prefix') and
+                dict_values_match(candidate, trymatch, 'destination')):
+                # Type / prefix / destination don't match candidate rule
+                continue
+
+            # Candidate route is already pending installation (maybe with
+            # different parameters like "tag" or "nexthop-vrf") but should
+            # be replaced, not deleted
+            return True
+
+    # The candidate route is not pending installation and should be nulled
+    # out with "no" form
+    return False
 
 
 def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
