@@ -518,10 +518,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
 
-	if (attr)
-		adv->baa = bgp_advertise_intern(subgrp->hash, attr);
-	else
-		adv->baa = baa_new();
+	adv->baa = bgp_advertise_intern(subgrp->hash, attr);
 	adv->adj = adj;
 	adj->attr_hash = attr_hash;
 
