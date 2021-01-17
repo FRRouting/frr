@@ -984,7 +984,7 @@ static int rfapiEcommunitiesMatchBeec(struct ecommunity *ecom,
 
 int rfapiEcommunitiesIntersect(struct ecommunity *e1, struct ecommunity *e2)
 {
-	int i, j;
+	uint32_t i, j;
 
 	if (!e1 || !e2)
 		return 0;
@@ -1014,7 +1014,8 @@ int rfapiEcommunitiesIntersect(struct ecommunity *e1, struct ecommunity *e2)
 int rfapiEcommunityGetLNI(struct ecommunity *ecom, uint32_t *lni)
 {
 	if (ecom) {
-		int i;
+		uint32_t i;
+
 		for (i = 0; i < ecom->size; ++i) {
 			uint8_t *p = ecom->val + (i * ECOMMUNITY_SIZE);
 
@@ -1034,7 +1035,8 @@ int rfapiEcommunityGetEthernetTag(struct ecommunity *ecom, uint16_t *tag_id)
 	struct bgp *bgp = bgp_get_default();
 	*tag_id = 0; /* default to untagged */
 	if (ecom) {
-		int i;
+		uint32_t i;
+
 		for (i = 0; i < ecom->size; ++i) {
 			as_t as = 0;
 			int encode = 0;

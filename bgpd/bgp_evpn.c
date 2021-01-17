@@ -870,7 +870,7 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 	struct ecommunity ecom_tmp;
 	struct ecommunity_val eval;
 	uint8_t *ecom_val_ptr;
-	int i;
+	uint32_t i;
 	uint8_t *pnt;
 	int type = 0;
 	int sub_type = 0;
@@ -2710,7 +2710,7 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
 {
 	struct attr *attr = pi->attr;
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
 
 	assert(attr);
 	/* Route should have valid RT to be even considered. */
@@ -2777,7 +2777,7 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct attr *attr = pi->attr;
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
 
 	assert(attr);
 	/* Route should have valid RT to be even considered. */
@@ -3260,7 +3260,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
 	struct attr *attr = pi->attr;
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
 	struct prefix_evpn ad_evp;
 
 	assert(attr);
@@ -4906,7 +4906,7 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
  */
 void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf)
 {
-	int i = 0;
+	uint32_t i = 0;
 	struct ecommunity_val *eval = NULL;
 	struct listnode *node = NULL, *nnode = NULL;
 	struct ecommunity *ecom = NULL;
@@ -4926,7 +4926,7 @@ void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf)
  */
 void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *bgp_vrf)
 {
-	int i;
+	uint32_t i;
 	struct ecommunity_val *eval;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
@@ -4963,7 +4963,7 @@ void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *bgp_vrf)
  */
 void bgp_evpn_map_vni_to_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	int i;
+	uint32_t i;
 	struct ecommunity_val *eval;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
@@ -4983,7 +4983,7 @@ void bgp_evpn_map_vni_to_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
  */
 void bgp_evpn_unmap_vni_from_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	int i;
+	uint32_t i;
 	struct ecommunity_val *eval;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;

@@ -114,7 +114,7 @@ struct ecommunity {
 	uint8_t unit_size;
 
 	/* Size of Extended Communities attribute.  */
-	int size;
+	uint32_t size;
 
 	/* Extended Communities value.  */
 	uint8_t *val;

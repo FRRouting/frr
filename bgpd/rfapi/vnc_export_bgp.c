@@ -134,7 +134,7 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 static int getce(struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
 {
 	uint8_t *ecp;
-	int i;
+	uint32_t i;
 	uint16_t localadmin = bgp->rfapi_cfg->resolve_nve_roo_local_admin;
 
 	for (ecp = attr->ecommunity->val, i = 0; i < attr->ecommunity->size;

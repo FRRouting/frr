@@ -419,8 +419,7 @@ int vpn_leak_label_callback(
 
 static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
 {
-	int i;
-	int j;
+	uint32_t i, j;
 
 	if (!e1 || !e2)
 		return false;
