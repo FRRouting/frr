@@ -692,8 +692,8 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
                 config_data.append("{} activate".format(neigh_cxt))
 
             disable_connected = peer.setdefault("disable_connected_check", False)
-            keep_alive = peer.setdefault("keepalivetimer", 60)
-            hold_down = peer.setdefault("holddowntimer", 180)
+            keep_alive = peer.setdefault("keepalivetimer", 3)
+            hold_down = peer.setdefault("holddowntimer", 10)
             password = peer.setdefault("password", None)
             no_password = peer.setdefault("no_password", None)
             max_hop_limit = peer.setdefault("ebgp_multihop", 1)
