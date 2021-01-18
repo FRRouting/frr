@@ -148,6 +148,7 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears['rt6'], nodeif="eth-dst")
         switch.add_link(tgen.gears['dst'], nodeif="eth-rt6")
 
+@pytest.mark.isis
 def setup_module(mod):
     "Sets up the pytest environment"
 

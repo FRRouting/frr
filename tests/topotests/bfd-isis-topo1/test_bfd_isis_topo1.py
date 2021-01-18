@@ -127,7 +127,8 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
         switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
 
-
+@pytest.mark.bfd
+@pytest.mark.isis
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(TemplateTopo, mod.__name__)

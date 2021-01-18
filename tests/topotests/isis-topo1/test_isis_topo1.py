@@ -84,7 +84,7 @@ class ISISTopo1(Topo):
         sw.add_link(tgen.gears["r4"])
         sw.add_link(tgen.gears["r5"])
 
-
+@pytest.mark.isis
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(ISISTopo1, mod.__name__)
