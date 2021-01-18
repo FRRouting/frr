@@ -2789,7 +2789,7 @@ int ospf_check_nbr_status(struct ospf *ospf)
 static int ospf_maxage_lsa_remover(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
-	struct ospf_lsa *lsa;
+	struct ospf_lsa *lsa, *old;
 	struct route_node *rn;
 	int reschedule = 0;
 
@@ -2851,6 +2851,17 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 
 			/* Remove from lsdb. */
 			if (lsa->lsdb) {
+				old = ospf_lsdb_lookup(lsa->lsdb, lsa);
+				/* The max age LSA here must be the same
+				 * as the LSA in LSDB
+				 */
+				if (old != lsa) {
+					flog_err(EC_OSPF_LSA_MISSING,
+					"%s: LSA[Type%d:%s]: LSA not in LSDB",
+					__func__, lsa->data->type,
+					inet_ntoa(lsa->data->id));
+					continue;
+				}
 				ospf_discard_from_db(ospf, lsa->lsdb, lsa);
 				ospf_lsdb_delete(lsa->lsdb, lsa);
 			} else {

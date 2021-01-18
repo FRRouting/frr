@@ -280,7 +280,7 @@ DEFPY (ospf_router_id,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, save config and restart ospfd\n");
+				"For this router-id change to take effect, use “clear ip ospf process” command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -313,7 +313,7 @@ DEFUN_HIDDEN (ospf_router_id_old,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, save config and restart ospfd\n");
+				"For this router-id change to take effect, use “clear ip ospf process” command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -346,7 +346,7 @@ DEFPY (no_ospf_router_id,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, save config and restart ospfd\n");
+				"For this router-id change to take effect, use “clear ip ospf process” command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -11227,6 +11227,70 @@ DEFUN (show_ip_ospf_vrfs,
 
 	return CMD_SUCCESS;
 }
+DEFPY (clear_ip_ospf_neighbor,
+       clear_ip_ospf_neighbor_cmd,
+       "clear ip ospf [(1-65535)]$instance neighbor [A.B.C.D$nbr_id]",
+       CLEAR_STR
+       IP_STR
+       "OSPF information\n"
+       "Instance ID\n"
+       "Reset OSPF Neighbor\n"
+       "Neighbor ID\n")
+{
+	struct listnode *node;
+	struct ospf *ospf = NULL;
+
+	/* If user does not specify the arguments,
+	 * instance = 0 and nbr_id = 0.0.0.0
+	 */
+	if (instance != 0) {
+		/* This means clear only the particular ospf process */
+		ospf = ospf_lookup_instance(instance);
+		if (ospf == NULL)
+			return CMD_NOT_MY_INSTANCE;
+	}
+
+	/* Clear all the ospf processes */
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!ospf->oi_running)
+			continue;
+
+		ospf_neighbor_reset(ospf, nbr_id, nbr_id_str);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ip_ospf_process,
+       clear_ip_ospf_process_cmd,
+       "clear ip ospf [(1-65535)]$instance process",
+       CLEAR_STR
+       IP_STR
+       "OSPF information\n"
+       "Instance ID\n"
+       "Reset OSPF Process\n")
+{
+	struct listnode *node;
+	struct ospf *ospf = NULL;
+
+	/* Check if instance is not passed as an argument */
+	if (instance != 0) {
+		/* This means clear only the particular ospf process */
+		ospf = ospf_lookup_instance(instance);
+		if (ospf == NULL)
+			return CMD_NOT_MY_INSTANCE;
+	}
+
+	/* Clear all the ospf processes */
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!ospf->oi_running)
+			continue;
+
+		ospf_process_reset(ospf);
+	}
+
+	return CMD_SUCCESS;
+}
 
 static const char *const ospf_abr_type_str[] = {
 	"unknown", "standard", "ibm", "cisco", "shortcut"
@@ -12623,6 +12687,8 @@ DEFUN (clear_ip_ospf_interface,
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
+	install_element(ENABLE_NODE, &clear_ip_ospf_process_cmd);
+	install_element(ENABLE_NODE, &clear_ip_ospf_neighbor_cmd);
 }
 
 

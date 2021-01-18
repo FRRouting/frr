@@ -87,13 +87,15 @@ static void ospf_finish_final(struct ospf *);
 
 #define OSPF_EXTERNAL_LSA_ORIGINATE_DELAY 1
 
-void ospf_router_id_update(struct ospf *ospf)
+void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 {
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct in_addr router_id, router_id_old;
 	struct ospf_interface *oi;
 	struct interface *ifp;
-	struct listnode *node;
+	struct listnode *node, *nnode;
+	struct ospf_area *area;
+	bool rid_change = false;
 
 	if (!ospf->oi_running) {
 		if (IS_DEBUG_OSPF_EVENT)
@@ -126,8 +128,8 @@ void ospf_router_id_update(struct ospf *ospf)
 		zlog_debug("Router-ID[OLD:%pI4]: Update to %pI4",
 			   &ospf->router_id, &router_id);
 
-	if (!IPV4_ADDR_SAME(&router_id_old, &router_id)) {
-
+	rid_change = !(IPV4_ADDR_SAME(&router_id_old, &router_id));
+	if (rid_change || (reset)) {
 		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
 			/* Some nbrs are identified by router_id, these needs
 			 * to be rebuilt. Possible optimization would be to do
@@ -149,16 +151,8 @@ void ospf_router_id_update(struct ospf *ospf)
 				ospf_if_up(oi);
 		}
 
-		/* Flush (inline) all external LSAs based on the OSPF_LSA_SELF
-		 * flag */
-		if (ospf->lsdb) {
-			struct route_node *rn;
-			struct ospf_lsa *lsa;
-
-			LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
-				if (IS_LSA_SELF(lsa))
-					ospf_lsa_flush_schedule(ospf, lsa);
-		}
+		/* Flush (inline) all the self originated LSAs */
+		ospf_flush_self_originated_lsas_now(ospf);
 
 		ospf->router_id = router_id;
 		if (IS_DEBUG_OSPF_EVENT)
@@ -183,23 +177,80 @@ void ospf_router_id_update(struct ospf *ospf)
 			LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa) {
 				/* AdvRouter and Router ID is the same. */
 				if (IPV4_ADDR_SAME(&lsa->data->adv_router,
-						   &ospf->router_id)) {
+					&ospf->router_id) && rid_change) {
 					SET_FLAG(lsa->flags,
 						 OSPF_LSA_SELF_CHECKED);
 					SET_FLAG(lsa->flags, OSPF_LSA_SELF);
 					ospf_lsa_flush_schedule(ospf, lsa);
 				}
+				/* The above flush will send immediately
+				 * So discard the LSA to originate new
+				 */
+				ospf_discard_from_db(ospf, ospf->lsdb, lsa);
 			}
+
+			LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
+				ospf_discard_from_db(ospf, ospf->lsdb, lsa);
+
+			ospf_lsdb_delete_all(ospf->lsdb);
 		}
+
+		/* Delete the LSDB */
+		for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
+			ospf_area_lsdb_discard_delete(area);
 
 		/* update router-lsa's for each area */
 		ospf_router_lsa_update(ospf);
 
 		/* update ospf_interface's */
-		FOR_ALL_INTERFACES (vrf, ifp)
-			ospf_if_update(ospf, ifp);
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (reset)
+				ospf_if_reset(ifp);
+			else
+				ospf_if_update(ospf, ifp);
+		}
 
 		ospf_external_lsa_rid_change(ospf);
+	}
+
+	ospf->inst_shutdown = 0;
+}
+
+void ospf_router_id_update(struct ospf *ospf)
+{
+	ospf_process_refresh_data(ospf, false);
+}
+
+void ospf_process_reset(struct ospf *ospf)
+{
+	ospf_process_refresh_data(ospf, true);
+}
+
+void ospf_neighbor_reset(struct ospf *ospf, struct in_addr nbr_id,
+			const char *nbr_str)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr;
+	struct ospf_interface *oi;
+	struct listnode *node;
+
+	/* Clear only a particular nbr with nbr router id as nbr_id */
+	if (nbr_str != NULL) {
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+			nbr = ospf_nbr_lookup_by_routerid(oi->nbrs, &nbr_id);
+			if (nbr)
+				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+		}
+		return;
+	}
+
+	/* send Neighbor event KillNbr to all associated neighbors. */
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			nbr = rn->info;
+			if (nbr && (nbr != oi->nbr_self))
+				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+		}
 	}
 }
 
@@ -870,14 +921,11 @@ static struct ospf_area *ospf_area_new(struct ospf *ospf,
 	return new;
 }
 
-static void ospf_area_free(struct ospf_area *area)
+void ospf_area_lsdb_discard_delete(struct ospf_area *area)
 {
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
 
-	ospf_opaque_type10_lsa_term(area);
-
-	/* Free LSDBs. */
 	LSDB_LOOP (ROUTER_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP (NETWORK_LSDB(area), rn, lsa)
@@ -895,6 +943,15 @@ static void ospf_area_free(struct ospf_area *area)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
 	ospf_lsdb_delete_all(area->lsdb);
+}
+
+static void ospf_area_free(struct ospf_area *area)
+{
+	ospf_opaque_type10_lsa_term(area);
+
+	/* Free LSDBs. */
+	ospf_area_lsdb_discard_delete(area);
+
 	ospf_lsdb_free(area->lsdb);
 
 	ospf_lsa_unlock(&area->router_lsa_self);
