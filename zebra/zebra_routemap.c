@@ -267,7 +267,8 @@ static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 		/* Process routes of interested address-families. */
 		table = zebra_vrf_table(afi, safi, zvrf->vrf->vrf_id);
 		if (table)
-			rib_update_table(table, RIB_UPDATE_RMAP_CHANGE);
+			rib_update_table(table, RIB_UPDATE_RMAP_CHANGE,
+					 rtype);
 	}
 
 	return CMD_SUCCESS;
@@ -294,7 +295,8 @@ static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 			/* Process routes of interested address-families. */
 			table = zebra_vrf_table(afi, safi, zvrf->vrf->vrf_id);
 			if (table)
-				rib_update_table(table, RIB_UPDATE_RMAP_CHANGE);
+				rib_update_table(table, RIB_UPDATE_RMAP_CHANGE,
+						 rtype);
 		}
 		XFREE(MTYPE_ROUTE_MAP_NAME, PROTO_RM_NAME(zvrf, afi, rtype));
 	}
@@ -576,7 +578,7 @@ DEFUN (zebra_route_map_timer,
        ZEBRA_STR
        "Set route-map parameters\n"
        "Time to wait before route-map updates are processed\n"
-       "0 means event-driven updates are disabled\n")
+       "0 means route-map changes are run immediately instead of delaying\n")
 {
 	int idx_number = 3;
 	uint32_t rmap_delay_timer;
@@ -594,7 +596,7 @@ DEFUN (no_zebra_route_map_timer,
        ZEBRA_STR
        "Set route-map parameters\n"
        "Reset delay-timer to default value, 30 secs\n"
-       "0 means event-driven updates are disabled\n")
+       "0 means route-map changes are run immediately instead of delaying\n")
 {
 	zebra_route_map_set_delay_timer(ZEBRA_RMAP_DEFAULT_UPDATE_TIMER);
 
@@ -1454,8 +1456,6 @@ static void zebra_rib_table_rm_update(const char *rmap)
 	struct vrf *vrf = NULL;
 	struct zebra_vrf *zvrf = NULL;
 	char *rmap_name;
-	char afi_ip = 0;
-	char afi_ipv6 = 0;
 	struct route_map *old = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -1486,16 +1486,12 @@ static void zebra_rib_table_rm_update(const char *rmap)
 						PROTO_RM_MAP(zvrf, AFI_IP, i));
 				/* There is single rib table for all protocols
 				 */
-				if (afi_ip == 0) {
-					table = zvrf->table[AFI_IP]
-							   [SAFI_UNICAST];
-					if (table) {
-
-						afi_ip = 1;
-						rib_update_table(
-							table,
-							RIB_UPDATE_RMAP_CHANGE);
-					}
+				table = zvrf->table[AFI_IP][SAFI_UNICAST];
+				if (table) {
+					rib_update_table(
+						table,
+						RIB_UPDATE_RMAP_CHANGE,
+						i);
 				}
 			}
 			rmap_name = PROTO_RM_NAME(zvrf, AFI_IP6, i);
@@ -1515,16 +1511,12 @@ static void zebra_rib_table_rm_update(const char *rmap)
 						PROTO_RM_MAP(zvrf, AFI_IP6, i));
 				/* There is single rib table for all protocols
 				 */
-				if (afi_ipv6 == 0) {
-					table = zvrf->table[AFI_IP6]
-							   [SAFI_UNICAST];
-					if (table) {
-
-						afi_ipv6 = 1;
-						rib_update_table(
-							table,
-							RIB_UPDATE_RMAP_CHANGE);
-					}
+				table = zvrf->table[AFI_IP6][SAFI_UNICAST];
+				if (table) {
+					rib_update_table(
+						table,
+						RIB_UPDATE_RMAP_CHANGE,
+						i);
 				}
 			}
 		}
@@ -1628,8 +1620,6 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 
 static int zebra_route_map_update_timer(struct thread *thread)
 {
-	zebra_t_rmap_update = NULL;
-
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event driven route-map update triggered");
 
@@ -1654,8 +1644,8 @@ static void zebra_route_map_set_delay_timer(uint32_t value)
 	if (!value && zebra_t_rmap_update) {
 		/* Event driven route map updates is being disabled */
 		/* But there's a pending timer. Fire it off now */
-		thread_cancel(&zebra_t_rmap_update);
-		zebra_route_map_update_timer(zebra_t_rmap_update);
+		THREAD_OFF(zebra_t_rmap_update);
+		zebra_route_map_update_timer(NULL);
 	}
 }
 
@@ -1664,7 +1654,7 @@ void zebra_routemap_finish(void)
 	/* Set zebra_rmap_update_timer to 0 so that it wont schedule again */
 	zebra_rmap_update_timer = 0;
 	/* Thread off if any scheduled already */
-	thread_cancel(&zebra_t_rmap_update);
+	THREAD_OFF(zebra_t_rmap_update);
 	route_map_finish();
 }
 
@@ -1780,12 +1770,11 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 static void zebra_route_map_mark_update(const char *rmap_name)
 {
 	/* rmap_update_timer of 0 means don't do route updates */
-	if (zebra_rmap_update_timer && !zebra_t_rmap_update) {
-		zebra_t_rmap_update = NULL;
-		thread_add_timer(zrouter.master, zebra_route_map_update_timer,
-				 NULL, zebra_rmap_update_timer,
-				 &zebra_t_rmap_update);
-	}
+	if (zebra_rmap_update_timer)
+		THREAD_OFF(zebra_t_rmap_update);
+
+	thread_add_timer(zrouter.master, zebra_route_map_update_timer,
+			 NULL, zebra_rmap_update_timer, &zebra_t_rmap_update);
 }
 
 static void zebra_route_map_add(const char *rmap_name)

@@ -759,6 +759,12 @@ IPv6 example for OSPFv3.
    not created at startup.  On Debian, FRR might start before ifupdown
    completes. Consider a reboot test.
 
+.. index:: zebra route-map delay-timer (0-600)
+.. clicmd:: [no] zebra route-map delay-timer (0-600)
+
+   Set the delay before any route-maps are processed in zebra.  The
+   default time for this is 5 seconds.
+
 .. _zebra-fib-push-interface:
 
 zebra FIB push interface
