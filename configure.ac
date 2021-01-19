@@ -138,6 +138,12 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
+AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/scripts)])], [
+	scriptdir="$withval"
+], [
+	scriptdir="\${sysconfdir}/scripts"
+])
+AC_SUBST([scriptdir], [$scriptdir])
 
 AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang models directory (${datarootdir}/yang)])], [
 	yangmodelsdir="$withval"
@@ -274,24 +280,22 @@ if test "$enable_clang_coverage" = "yes"; then
    ])
 fi
 
+if test "$enable_scripting" = "yes"; then
+   AX_PROG_LUA([5.3])
+   AX_LUA_HEADERS
+   AX_LUA_LIBS([
+      AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+      LIBS="$LIBS $LUA_LIB"
+   ])
+fi
+
 if test "$enable_dev_build" = "yes"; then
    AC_DEFINE([DEV_BUILD], [1], [Build for development])
    if test "$orig_cflags" = ""; then
       AC_C_FLAG([-g3])
       AC_C_FLAG([-O0])
    fi
-   if test "$enable_lua" = "yes"; then
-      AX_PROG_LUA([5.3])
-      AX_LUA_HEADERS
-      AX_LUA_LIBS([
-         AC_DEFINE([HAVE_LUA], [1], [Have support for Lua interpreter])
-         LIBS="$LIBS $LUA_LIB"
-      ])
-   fi
 else
-   if test "$enable_lua" = "yes"; then
-      AC_MSG_ERROR([Lua is not meant to be built/used outside of development at this time])
-   fi
    if test "$orig_cflags" = ""; then
       AC_C_FLAG([-g])
       AC_C_FLAG([-O2])
@@ -697,8 +701,8 @@ fi
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
 
-AC_ARG_ENABLE([lua],
-    AS_HELP_STRING([--enable-lua], [Build Lua scripting]))
+AC_ARG_ENABLE([scripting],
+    AS_HELP_STRING([--enable-scripting], [Build with scripting support]))
 
 AC_ARG_ENABLE([netlink-debug],
   AS_HELP_STRING([--disable-netlink-debug], [pretty print netlink debug messages]))
@@ -2446,19 +2450,23 @@ CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
 CFG_MODULE="$moduledir"
 CFG_YANGMODELS="$yangmodelsdir"
+CFG_SCRIPT="$scriptdir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
 	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
+	eval CFG_SCRIPT="\"$CFG_SCRIPT\""
 done
 AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
 AC_SUBST([CFG_STATE])
 AC_SUBST([CFG_MODULE])
+AC_SUBST([CFG_SCRIPT])
 AC_SUBST([CFG_YANGMODELS])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
+AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
@@ -2582,6 +2590,7 @@ state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
 module directory        : ${CFG_MODULE}
+script directory        : ${CFG_SCRIPT}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}

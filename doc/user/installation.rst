@@ -362,6 +362,10 @@ options from the list below.
 
    Set hardcoded rpaths in the executable [default=yes].
 
+.. option:: --enable-scripting
+
+   Enable Lua scripting [default=no].
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
@@ -381,6 +385,10 @@ options to the configuration script.
 
    Configure zebra to use `dir` for local state files, such as pid files and
    unix sockets.
+
+.. option:: --with-scriptdir <dir>
+
+   Look for Lua scripts in ``dir`` [``prefix``/etc/frr/scripts].
 
 .. option:: --with-yangmodelsdir <dir>
 

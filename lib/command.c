@@ -49,6 +49,8 @@
 #include "northbound_cli.h"
 #include "network.h"
 
+#include "frrscript.h"
+
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
 
@@ -2303,6 +2305,30 @@ done:
 	return CMD_SUCCESS;
 }
 
+#if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)
+DEFUN(script,
+      script_cmd,
+      "script SCRIPT",
+      "Test command - execute a script\n"
+      "Script name (same as filename in /etc/frr/scripts/\n")
+{
+	struct prefix p;
+	str2prefix("1.2.3.4/24", &p);
+
+	struct frrscript *fs = frrscript_load(argv[1]->arg, NULL);
+
+	if (fs == NULL) {
+		vty_out(vty, "Script '/etc/frr/scripts/%s.lua' not found\n",
+			argv[1]->arg);
+	} else {
+		int ret = frrscript_call(fs, NULL);
+		vty_out(vty, "Script result: %d\n", ret);
+	}
+
+	return CMD_SUCCESS;
+}
+#endif
+
 /* Set config filename.  Called from vty.c */
 void host_config_set(const char *filename)
 {
@@ -2397,6 +2423,10 @@ void cmd_init(int terminal)
 		install_element(VIEW_NODE, &echo_cmd);
 		install_element(VIEW_NODE, &autocomplete_cmd);
 		install_element(VIEW_NODE, &find_cmd);
+#if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)
+		install_element(VIEW_NODE, &script_cmd);
+#endif
+
 
 		install_element(ENABLE_NODE, &config_end_cmd);
 		install_element(ENABLE_NODE, &config_disable_cmd);

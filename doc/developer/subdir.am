@@ -37,7 +37,6 @@ dev_RSTFILES = \
 	doc/developer/lists.rst \
 	doc/developer/locking.rst \
 	doc/developer/logging.rst \
-	doc/developer/lua.rst \
 	doc/developer/memtypes.rst \
 	doc/developer/modules.rst \
 	doc/developer/next-hop-tracking.rst \
@@ -52,6 +51,7 @@ dev_RSTFILES = \
 	doc/developer/path-internals.rst \
 	doc/developer/path.rst \
 	doc/developer/rcu.rst \
+	doc/developer/scripting.rst \
 	doc/developer/static-linking.rst \
 	doc/developer/tracing.rst \
 	doc/developer/testing.rst \

@@ -81,6 +81,7 @@ struct frr_daemon_info {
 #endif
 	const char *vty_path;
 	const char *module_path;
+	const char *script_path;
 
 	const char *pathspace;
 	bool zpathspace;
@@ -162,6 +163,7 @@ extern char frr_zclientpath[256];
 extern const char frr_sysconfdir[];
 extern char frr_vtydir[256];
 extern const char frr_moduledir[];
+extern const char frr_scriptdir[];
 
 extern char frr_protoname[];
 extern char frr_protonameinst[];
