@@ -285,7 +285,7 @@ int pcep_lib_pthread_create_cb(pthread_t *thread_id, const pthread_attr_t *attr,
 		.start = pcep_lib_pthread_start_passthrough,
 		.stop = pcep_lib_pthread_stop_cb};
 	struct frr_pthread *fpt =
-		frr_pthread_new(&fpt_attr, thread_name, "pcep");
+		frr_pthread_new(&fpt_attr, thread_name, "pcep_lib");
 	if (fpt == NULL) {
 		return 1;
 	}
