@@ -76,7 +76,7 @@ void *lua_toprefix(lua_State *L, int idx)
 	struct prefix *p = XCALLOC(MTYPE_TMP, sizeof(struct prefix));
 
 	lua_getfield(L, idx, "network");
-	str2prefix(lua_tostring(L, -1), p);
+	(void)str2prefix(lua_tostring(L, -1), p);
 	lua_pop(L, 1);
 
 	return p;
