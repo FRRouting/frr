@@ -2313,7 +2313,8 @@ DEFUN(script,
       "Script name (same as filename in /etc/frr/scripts/\n")
 {
 	struct prefix p;
-	str2prefix("1.2.3.4/24", &p);
+
+	(void)str2prefix("1.2.3.4/24", &p);
 
 	struct frrscript *fs = frrscript_load(argv[1]->arg, NULL);
 
