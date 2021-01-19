@@ -3395,7 +3395,8 @@ void bgp_attr_extcom_tunnel_type(struct attr *attr,
 				 bgp_encap_types *tunnel_type)
 {
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
+
 	if (!attr)
 		return;
 
@@ -4021,7 +4022,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			uint8_t *pnt;
 			int tbit;
 			int ecom_tr_size = 0;
-			int i;
+			uint32_t i;
 
 			for (i = 0; i < attr->ecommunity->size; i++) {
 				pnt = attr->ecommunity->val + (i * 8);

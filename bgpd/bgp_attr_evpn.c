@@ -89,7 +89,7 @@ char *ecom_mac2str(char *ecom_mac)
 /* Fetch router-mac from extended community */
 bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 {
-	int i = 0;
+	uint32_t i = 0;
 	struct ecommunity *ecom;
 
 	ecom = attr->ecommunity;
@@ -122,7 +122,7 @@ bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 uint8_t bgp_attr_default_gw(struct attr *attr)
 {
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
 
 	ecom = attr->ecommunity;
 	if (!ecom || !ecom->size)
@@ -153,7 +153,7 @@ uint8_t bgp_attr_default_gw(struct attr *attr)
 uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
 {
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
 	uint16_t df_pref = 0;
 
 	*alg = EVPN_MH_DF_ALG_SERVICE_CARVING;
@@ -190,7 +190,7 @@ uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
 uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 {
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
 	uint8_t flags = 0;
 
 	ecom = attr->ecommunity;
@@ -237,7 +237,7 @@ void bgp_attr_evpn_na_flag(struct attr *attr,
 		uint8_t *router_flag, bool *proxy)
 {
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
 	uint8_t val;
 
 	ecom = attr->ecommunity;

@@ -693,6 +693,12 @@ static int nb_write_config(struct nb_config *config, enum nb_cfg_format format,
 			  __func__, safe_strerror(errno));
 		return -1;
 	}
+	if (fchmod(fd, CONFIGFILE_MASK) != 0) {
+		flog_warn(EC_LIB_SYSTEM_CALL,
+			  "%s: fchmod() failed: %s(%d):", __func__,
+			  safe_strerror(errno), errno);
+		return -1;
+	}
 
 	/* Make vty for configuration file. */
 	file_vty = vty_new();

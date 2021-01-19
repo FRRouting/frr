@@ -770,18 +770,20 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 		goto done;
 	}
 
-	switch (pnhi->nhr->prefix.family) {
-	case AF_INET:
-		if (pnhc->nexthop.gate.ipv4.s_addr
-		    != pnhi->nhr->prefix.u.prefix4.s_addr)
-			goto done; /* Unrelated change */
-		break;
-	case AF_INET6:
-		if (memcmp(&pnhc->nexthop.gate.ipv6,
-			   &pnhi->nhr->prefix.u.prefix6, 16)
-		    != 0)
-			goto done; /* Unrelated change */
-		break;
+	if (pnhi->nhr) {
+		switch (pnhi->nhr->prefix.family) {
+		case AF_INET:
+			if (pnhc->nexthop.gate.ipv4.s_addr
+			    != pnhi->nhr->prefix.u.prefix4.s_addr)
+				goto done; /* Unrelated change */
+			break;
+		case AF_INET6:
+			if (memcmp(&pnhc->nexthop.gate.ipv6,
+				   &pnhi->nhr->prefix.u.prefix6, 16)
+			    != 0)
+				goto done; /* Unrelated change */
+			break;
+		}
 	}
 
 	pnhi->nhr_matched = true;

@@ -1236,7 +1236,13 @@ static int fpm_process_queue(struct thread *t)
 		if (ctx == NULL)
 			break;
 
-		fpm_nl_enqueue(fnc, ctx);
+		/*
+		 * Intentionally ignoring the return value
+		 * as that we are ensuring that we can write to
+		 * the output data in the STREAM_WRITEABLE
+		 * check above, so we can ignore the return
+		 */
+		(void)fpm_nl_enqueue(fnc, ctx);
 
 		/* Account the processed entries. */
 		processed_contexts++;

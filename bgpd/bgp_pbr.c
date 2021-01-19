@@ -754,7 +754,7 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 				     struct bgp_pbr_entry_main *api)
 {
 	int ret;
-	int i, action_count = 0;
+	uint32_t i, action_count = 0;
 	struct ecommunity *ecom;
 	struct ecommunity_val *ecom_eval;
 	struct bgp_pbr_entry_action *api_action;
