@@ -34,6 +34,9 @@ import pytest
 import json
 from functools import partial
 
+# mark as EVPN, PIM
+pytestmark = [pytest.mark.evpn, pytest.mark.pim]
+
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -97,7 +100,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-@pytest.mark.pim
+
 def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)
