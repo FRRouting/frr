@@ -489,6 +489,19 @@ static void netlink_install_filter(int sock, __u32 pid, __u32 dplane_pid)
 			     safe_strerror(errno));
 }
 
+void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
+		struct rtattr *rta, int len, unsigned short flags)
+{
+	unsigned short type;
+
+	while (RTA_OK(rta, len)) {
+		type = rta->rta_type & ~flags;
+		if ((type <= max) && (!tb[type]))
+			tb[type] = rta;
+		rta = RTA_NEXT(rta, len);
+	}
+}
+
 void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 			  int len)
 {
