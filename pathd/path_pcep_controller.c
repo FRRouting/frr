@@ -185,7 +185,7 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 	PCEP_DEBUG("Initializing pcep module controller");
 
 	/* Create and start the FRR pthread */
-	*fpt = frr_pthread_new(&attr, "PCEP thread", "pcep");
+	*fpt = frr_pthread_new(&attr, "PCEP thread", "pcep_controller");
 	if (*fpt == NULL) {
 		flog_err(EC_PATH_SYSTEM_CALL,
 			 "failed to initialize PCEP thread");
