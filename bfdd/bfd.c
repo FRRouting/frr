@@ -313,6 +313,13 @@ int bfd_session_enable(struct bfd_session *bs)
 		}
 	}
 
+	if (!vrf_is_backend_netns() && vrf && vrf->vrf_id != VRF_DEFAULT
+	    && !if_lookup_by_name(vrf->name, vrf->vrf_id)) {
+		zlog_err("session-enable: vrf interface %s not available yet",
+			 vrf->name);
+		return 0;
+	}
+
 	if (bs->key.ifname[0]) {
 		if (vrf)
 			ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
@@ -320,14 +327,16 @@ int bfd_session_enable(struct bfd_session *bs)
 			ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
 		if (ifp == NULL) {
 			zlog_err(
-				"session-enable: specified interface doesn't exists.");
+				"session-enable: specified interface %s (VRF %s) doesn't exist.",
+				bs->key.ifname, vrf ? vrf->name : "<all>");
 			return 0;
 		}
 		if (bs->key.ifname[0] && !vrf) {
 			vrf = vrf_lookup_by_id(ifp->vrf_id);
 			if (vrf == NULL) {
 				zlog_err(
-					"session-enable: specified VRF doesn't exists.");
+					"session-enable: specified VRF %u doesn't exist.",
+					ifp->vrf_id);
 				return 0;
 			}
 		}
