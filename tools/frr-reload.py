@@ -580,6 +580,18 @@ end
             if line.startswith("!") or line.startswith("#"):
                 continue
 
+            if (len(ctx_keys) == 2
+                and ctx_keys[0].startswith('bfd')
+                and ctx_keys[1].startswith('profile ')
+                and line == 'end'):
+                log.debug('LINE %-50s: popping from sub context, %-50s', line, ctx_keys)
+
+                if main_ctx_key:
+                    self.save_contexts(ctx_keys, current_context_lines)
+                    ctx_keys = copy.deepcopy(main_ctx_key)
+                    current_context_lines = []
+                    continue
+
             # one line contexts
             # there is one exception though: ldpd accepts a 'router-id' clause
             # as part of its 'mpls ldp' config context. If we are processing
@@ -879,6 +891,22 @@ end
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
                     "LINE %-50s: entering pcc sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith('profile ')
+                and len(ctx_keys) == 1
+                and ctx_keys[0].startswith('bfd')
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug(
+                    "LINE %-50s: entering BFD profile sub-context, append to ctx_keys",
+                    line
                 )
                 ctx_keys.append(line)
 
