@@ -322,6 +322,10 @@ In order to run a specific test, you can use the following command:
    $ # or outside the test folder
    $ cd ..
    $ sudo pytest ospf-topo1/test_ospf_topo1.py # to run a specific one
+   $ # or running tests by technology marker
+   $ sudo pytest -m evpn
+   $ # or the inverse
+   $ sudo pytest -m "not evpn"
 
 The output of the tested daemons will be available at the temporary folder of
 your machine:
@@ -360,6 +364,7 @@ This is the recommended test writing routine:
 - Write a topology (Graphviz recommended)
 - Obtain configuration files
 - Write the test itself
+- Mark the test with a technology area
 - Format the new code using `black <https://github.com/psf/black>`_
 - Create a Pull Request
 
@@ -769,6 +774,36 @@ Requirements:
   conforms with this, run it without the :option:`-s` parameter.
 - Use `black <https://github.com/psf/black>`_ code formatter before creating
   a pull request. This ensures we have a unified code style.
+- In the pytest.ini file there are a number of protocol/technology markers which
+  can be used to mark test files. This is now mandatory for new tests.
+  To mark a module you should add the following to the top of the test module:
+
+.. code:: py
+
+   # mark as EVPN
+   pytestmark = pytest.mark.evpn
+
+   # or mark multiple (EVPN and PIM)
+   pytestmark = [pytest.mark.evpn, pytest.mark.pim]
+
+The markers are defined in pytest.ini as follows:
+
+.. code:: py
+
+   markers =
+        babel: Tests that run against BABEL
+        bfd: Tests that run against BFDD
+        eigrp: Tests that run against EIGRPD
+        isis: Tests that run against ISISD
+        ldp: Tests that run against LDPD
+        ospf: Tests that run against OSPF( v2 and v3 )
+        pbr: Tests that run against PBRD
+        pim: Tests that run against pim
+        rip: Tests that run against RIP, both v4 and v6
+        evpn: tests covering EVPN functionality
+
+More information on marking can be found in the pytest documentation.
+<https://docs.pytest.org/en/stable/example/markers.html>
 
 Tips:
 
