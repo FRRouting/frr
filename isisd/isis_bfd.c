@@ -329,6 +329,13 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 	if (!circuit->bfd_info)
 		goto out;
 
+	/* If IS-IS IPv6 is configured wait for IPv6 address to be programmed
+	 * before starting up BFD
+	 */
+	if ((circuit->ipv6_router && listcount(circuit->ipv6_link) == 0)
+	    || adj->ipv6_address_count == 0)
+		return;
+
 	/*
 	 * If IS-IS is enabled for both IPv4 and IPv6 on the circuit, prefer
 	 * creating a BFD session over IPv6.
@@ -443,6 +450,44 @@ static int bfd_circuit_write_settings(struct isis_circuit *circuit,
 }
 #endif
 
+static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family)
+{
+
+	if (family != AF_INET6)
+		return 0;
+
+	if (adj->bfd_session)
+		return 0;
+
+	if (adj->adj_state != ISIS_ADJ_UP)
+		return 0;
+
+	bfd_handle_adj_up(adj, ZEBRA_BFD_DEST_REGISTER);
+
+	return 0;
+}
+
+static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit)
+{
+	struct isis_adjacency *adj;
+	struct listnode *node;
+
+	if (circuit->area == 0)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->area->adjacency_list, node, adj)) {
+		if (adj->bfd_session)
+			continue;
+
+		if (adj->adj_state != ISIS_ADJ_UP)
+			continue;
+
+		bfd_handle_adj_up(adj, ZEBRA_BFD_DEST_REGISTER);
+	}
+
+	return 0;
+}
+
 void isis_bfd_init(void)
 {
 	bfd_gbl_init();
@@ -457,4 +502,6 @@ void isis_bfd_init(void)
 	hook_register(isis_circuit_config_write,
 		      bfd_circuit_write_settings);
 #endif
+	hook_register(isis_adj_ip_enabled_hook, bfd_handle_adj_ip_enabled);
+	hook_register(isis_circuit_add_addr_hook, bfd_handle_circuit_add_addr);
 }
