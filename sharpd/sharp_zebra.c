@@ -539,6 +539,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	struct zapi_nhg api_nhg = {};
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nh;
+	bool is_valid = true;
 
 	api_nhg.id = id;
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
@@ -549,10 +550,23 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 			break;
 		}
 
+		/* Unresolved nexthops will lead to failure - only send
+		 * nexthops that zebra will consider valid.
+		 */
+		if (nh->ifindex == 0)
+			continue;
+
 		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
 
 		zapi_nexthop_from_nexthop(api_nh, nh);
 		api_nhg.nexthop_num++;
+	}
+
+	if (api_nhg.nexthop_num == 0) {
+		zlog_debug("%s: nhg %u not sent: no valid nexthops",
+			   __func__, id);
+		is_valid = false;
+		goto done;
 	}
 
 	if (backup_nhg) {
@@ -563,6 +577,20 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 					__func__);
 				break;
 			}
+
+			/* Unresolved nexthop: will be rejected by zebra.
+			 * That causes a problem, since the primary nexthops
+			 * rely on array indexing into the backup nexthops. If
+			 * that array isn't valid, the backup indexes won't be
+			 * valid.
+			 */
+			if (nh->ifindex == 0) {
+				zlog_debug("%s: nhg %u: invalid backup nexthop",
+					   __func__, id);
+				is_valid = false;
+				break;
+			}
+
 			api_nh = &api_nhg.backup_nexthops
 					  [api_nhg.backup_nexthop_num];
 
@@ -571,7 +599,9 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 		}
 	}
 
-	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
+done:
+	if (is_valid)
+		zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
 void nhg_del(uint32_t id)
