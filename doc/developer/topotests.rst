@@ -49,6 +49,28 @@ Next, update security limits by changing :file:`/etc/security/limits.conf` to::
 
 Reboot for options to take effect.
 
+SNMP Utilities Installation
+"""""""""""""""""""""""""""
+
+To run SNMP test you need to install SNMP utilities and MIBs. Unfortunately
+there are some errors in the upstream MIBS which need to be patched up. The
+following steps will get you there on Ubuntu 20.04.
+
+.. code:: shell
+	  
+   apt install snmpd snmp
+   apt install snmp-mibs-downloader
+   download-mibs
+   wget http://www.iana.org/assignments/ianaippmmetricsregistry-mib/ianaippmmetricsregistry-mib -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB
+   wget http://pastebin.com/raw.php?i=p3QyuXzZ -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU
+   wget http://pastebin.com/raw.php?i=gG7j8nyk -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB
+   edit /etc/snmp/snmp.conf to look like this
+   # As the snmp packages come without MIB files due to license reasons, loading   
+   # of MIBs is disabled by default. If you added the MIBs you can reenable        
+   # loading them by commenting out the following line.                            
+   mibs +ALL
+
+
 FRR Installation
 ^^^^^^^^^^^^^^^^
 
@@ -84,6 +106,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --enable-user=frr \
        --enable-group=frr \
        --enable-vty-group=frrvty \
+       --enable-snmp=agentx \
        --with-pkg-extra-version=-my-manual-build
 
 And create ``frr`` user and ``frrvty`` group as follows:

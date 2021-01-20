@@ -1105,7 +1105,8 @@ class Router(Node):
             "sharpd": 0,
             "babeld": 0,
             "pbrd": 0,
-            'pathd': 0
+            "pathd": 0,
+            "snmpd": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -1289,6 +1290,8 @@ class Router(Node):
                 % (self.routertype, self.routertype, self.routertype, daemon)
             )
             self.waitOutput()
+            if (daemon == "snmpd") and (self.routertype == "frr"):
+                self.cmd('echo "agentXSocket /etc/frr/agentx" > /etc/snmp/frr.conf')
             if (daemon == "zebra") and (self.daemons["staticd"] == 0):
                 # Add staticd with zebra - if it exists
                 staticd_path = os.path.join(self.daemondir, "staticd")
@@ -1444,6 +1447,20 @@ class Router(Node):
             # Remove `staticd` so we don't attempt to start it again.
             while "staticd" in daemons_list:
                 daemons_list.remove("staticd")
+
+        if "snmpd" in daemons_list:
+            snmpd_path = "/usr/sbin/snmpd"
+            snmpd_option = self.daemons_options["snmpd"]
+            self.cmd(
+                "{0} {1} -C -c /etc/frr/snmpd.conf -p /var/run/{2}/snmpd.pid -x /etc/frr/agentx > snmpd.out 2> snmpd.err".format(
+                    snmpd_path, snmpd_option, self.routertype
+                )
+            )
+            logger.info("{}: {} snmpd started".format(self, self.routertype))
+
+            # Remove `snmpd` so we don't attempt to start it again.
+            while "snmpd" in daemons_list:
+                daemons_list.remove("snmpd")
 
         # Fix Link-Local Addresses
         # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
