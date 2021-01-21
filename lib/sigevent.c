@@ -258,7 +258,7 @@ core_handler(int signo, siginfo_t *siginfo, void *context)
 static void trap_default_signals(void)
 {
 	static const int core_signals[] = {
-		SIGQUIT, SIGILL,
+		SIGQUIT, SIGILL, SIGABRT,
 #ifdef SIGEMT
 		SIGEMT,
 #endif
