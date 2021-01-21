@@ -3531,8 +3531,9 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 				       PEER_FLAG_SOFT_RECONFIG)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
 					zlog_debug(
-						"Processing route_map %s update on peer %s (inbound, soft-reconfig)",
-						rmap_name, peer->host);
+						"Processing route_map %s(%s:%s) update on peer %s (inbound, soft-reconfig)",
+						rmap_name, afi2str(afi),
+						safi2str(safi), peer->host);
 
 				bgp_soft_reconfig_in(peer, afi, safi);
 			} else if (CHECK_FLAG(peer->cap,
@@ -3541,8 +3542,9 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 						 PEER_CAP_REFRESH_NEW_RCV)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
 					zlog_debug(
-						"Processing route_map %s update on peer %s (inbound, route-refresh)",
-						rmap_name, peer->host);
+						"Processing route_map %s(%s:%s) update on peer %s (inbound, route-refresh)",
+						rmap_name, afi2str(afi),
+						safi2str(safi), peer->host);
 				bgp_route_refresh_send(
 					peer, afi, safi, 0, 0, 0,
 					BGP_ROUTE_REFRESH_NORMAL);
@@ -3681,8 +3683,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug(
-					"Processing route_map %s update on table map",
-					rmap_name);
+					"Processing route_map %s(%s:%s) update on table map",
+					rmap_name, afi2str(afi),
+					safi2str(safi));
 			if (route_update)
 				bgp_zebra_announce_table(bgp, afi, safi);
 		}
@@ -3709,8 +3712,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 				if (bgp_debug_zebra(bn_p))
 					zlog_debug(
-						"Processing route_map %s update on static route %s",
-						rmap_name,
+						"Processing route_map %s(%s:%s) update on static route %s",
+						rmap_name, afi2str(afi),
+						safi2str(safi),
 						inet_ntop(bn_p->family,
 							  &bn_p->u.prefix, buf,
 							  INET6_ADDRSTRLEN));
@@ -3760,8 +3764,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 				if (bgp_debug_zebra(bn_p))
 					zlog_debug(
-						"Processing route_map %s update on aggregate-address route %s",
-						rmap_name,
+						"Processing route_map %s(%s:%s) update on aggregate-address route %s",
+						rmap_name, afi2str(afi),
+						safi2str(safi),
 						inet_ntop(bn_p->family,
 							  &bn_p->u.prefix, buf,
 							  INET6_ADDRSTRLEN));
@@ -3796,8 +3801,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 				if (BGP_DEBUG(zebra, ZEBRA))
 					zlog_debug(
-						"Processing route_map %s update on redistributed routes",
-						rmap_name);
+						"Processing route_map %s(%s:%s) update on redistributed routes",
+						rmap_name, afi2str(afi),
+						safi2str(safi));
 
 				bgp_redistribute_resend(bgp, afi, i,
 							red->instance);
@@ -3816,8 +3822,8 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"Processing route_map %s update on advertise type5 route command",
-				rmap_name);
+				"Processing route_map %s(%s:%s) update on advertise type5 route command",
+				rmap_name, afi2str(afi), safi2str(safi));
 
 		if (route_update && advertise_type5_routes(bgp, afi)) {
 			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
