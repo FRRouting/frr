@@ -31,6 +31,8 @@ import pytest
 import json
 from functools import partial
 
+pytestmark = pytest.mark.pimd
+
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
@@ -80,7 +82,7 @@ class PIMTopo(Topo):
         sw.add_link(tgen.gears["r1"])
         sw.add_link(tgen.gears["r3"])
 
-@pytest.mark.pim
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(PIMTopo, mod.__name__)
