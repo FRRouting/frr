@@ -53,6 +53,19 @@ from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence
 from lib.topojson import build_topo_from_json, build_config_from_json
 
+
+#TODO: select markers based on daemons used during test
+# pytest module level markers
+"""
+pytestmark = pytest.mark.bfdd # single marker
+pytestmark = [
+	pytest.mark.bgpd,
+	pytest.mark.ospfd,
+	pytest.mark.ospf6d
+] # multiple markers
+"""
+
+
 # Reading the data from JSON File for topology and configuration creation
 jsonFile = "{}/example_topojson_multiple_links.json".format(CWD)
 try:
