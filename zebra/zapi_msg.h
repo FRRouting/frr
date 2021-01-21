@@ -108,6 +108,9 @@ extern int zsend_sr_policy_notify_status(uint32_t color,
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);
 
+int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
+		     uint32_t id, enum zapi_nhg_notify_owner note);
+
 #ifdef __cplusplus
 }
 #endif

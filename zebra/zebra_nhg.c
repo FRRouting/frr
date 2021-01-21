@@ -43,6 +43,7 @@
 #include "zebra_errors.h"
 #include "zebra_dplane.h"
 #include "zebra/interface.h"
+#include "zebra/zapi_msg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CONNECTED, "Nexthop Group Connected");
@@ -2105,10 +2106,10 @@ done_with_match:
 /* This function verifies reachability of one given nexthop, which can be
  * numbered or unnumbered, IPv4 or IPv6. The result is unconditionally stored
  * in nexthop->flags field. The nexthop->ifindex will be updated
- * appropriately as well.  An existing route map can turn
- * (otherwise active) nexthop into inactive, but not vice versa.
+ * appropriately as well.  An existing route map can turn an
+ * otherwise active nexthop into inactive, but not vice versa.
  *
- * If it finds a nexthop recursivedly, set the resolved_id
+ * If it finds a nexthop recursively, set the resolved_id
  * to match that nexthop's nhg_hash_entry ID;
  *
  * The return value is the final value of 'ACTIVE' flag.
@@ -2131,6 +2132,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		family = AFI_IP6;
 	else
 		family = 0;
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
@@ -2641,6 +2643,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 				EC_ZEBRA_DP_DELETE_FAIL,
 				"Failed to uninstall Nexthop ID (%u) from the kernel",
 				id);
+
 		/* We already free'd the data, nothing to do */
 		break;
 	case DPLANE_OP_NH_INSTALL:
@@ -2661,12 +2664,26 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 			zebra_nhg_handle_install(nhe);
-		} else
+
+			/* If daemon nhg, send it an update */
+			if (nhe->id >= ZEBRA_NHG_PROTO_LOWER)
+				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+						 nhe->zapi_session, nhe->id,
+						 ZAPI_NHG_INSTALLED);
+		} else {
+			/* If daemon nhg, send it an update */
+			if (nhe->id >= ZEBRA_NHG_PROTO_LOWER)
+				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+						 nhe->zapi_session, nhe->id,
+						 ZAPI_NHG_FAIL_INSTALL);
+
 			flog_err(
 				EC_ZEBRA_DP_INSTALL_FAIL,
 				"Failed to install Nexthop ID (%u) into the kernel",
 				nhe->id);
+		}
 		break;
+
 	case DPLANE_OP_ROUTE_INSTALL:
 	case DPLANE_OP_ROUTE_UPDATE:
 	case DPLANE_OP_ROUTE_DELETE:
@@ -2775,6 +2792,7 @@ bool zebra_nhg_proto_nexthops_only(void)
 
 /* Add NHE from upper level proto */
 struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
+					   uint16_t instance, uint32_t session,
 					   struct nexthop_group *nhg, afi_t afi)
 {
 	struct nhg_hash_entry lookup;
@@ -2857,6 +2875,10 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	new = zebra_nhg_rib_find_nhe(&lookup, afi);
 
 	zebra_nhg_increment_ref(new);
+
+	/* Capture zapi client info */
+	new->zapi_instance = instance;
+	new->zapi_session = session;
 
 	zebra_nhg_set_valid_if_active(new);
 

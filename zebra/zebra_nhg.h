@@ -50,7 +50,13 @@ struct nhg_hash_entry {
 	uint32_t id;
 	afi_t afi;
 	vrf_id_t vrf_id;
+
+	/* Source protocol - zebra or another daemon */
 	int type;
+
+	/* zapi instance and session id, for groups from other daemons */
+	uint16_t zapi_instance;
+	uint32_t zapi_session;
 
 	struct nexthop_group nhg;
 
@@ -292,6 +298,7 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
  * Returns allocated NHE on success, otherwise NULL.
  */
 struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
+					   uint16_t instance, uint32_t session,
 					   struct nexthop_group *nhg,
 					   afi_t afi);
 

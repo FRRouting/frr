@@ -709,13 +709,13 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zserv_send_message(client, s);
 }
 
-static int nhg_notify(uint16_t type, uint16_t instance, uint32_t id,
-		      enum zapi_nhg_notify_owner note)
+int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
+		     uint32_t id, enum zapi_nhg_notify_owner note)
 {
 	struct zserv *client;
 	struct stream *s;
 
-	client = zserv_find_client(type, instance);
+	client = zserv_find_client_session(type, instance, session_id);
 	if (!client) {
 		if (IS_ZEBRA_DEBUG_PACKET) {
 			zlog_debug("Not Notifying Owner: %u(%u) about %u(%d)",
@@ -723,6 +723,10 @@ static int nhg_notify(uint16_t type, uint16_t instance, uint32_t id,
 		}
 		return 0;
 	}
+
+	if (IS_ZEBRA_DEBUG_SEND)
+		zlog_debug("%s: type %d, id %d, note %d",
+			   __func__, type, id, note);
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
@@ -1822,16 +1826,17 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 	/*
 	 * Delete the received nhg id
 	 */
-
 	nhe = zebra_nhg_proto_del(api_nhg.id, api_nhg.proto);
 
 	if (nhe) {
 		zebra_nhg_decrement_ref(nhe);
-		nhg_notify(api_nhg.proto, client->instance, api_nhg.id,
-			   ZAPI_NHG_REMOVED);
+		zsend_nhg_notify(api_nhg.proto, client->instance,
+				 client->session_id, api_nhg.id,
+				 ZAPI_NHG_REMOVED);
 	} else
-		nhg_notify(api_nhg.proto, client->instance, api_nhg.id,
-			   ZAPI_NHG_REMOVE_FAIL);
+		zsend_nhg_notify(api_nhg.proto, client->instance,
+				 client->session_id, api_nhg.id,
+				 ZAPI_NHG_REMOVE_FAIL);
 }
 
 static void zread_nhg_add(ZAPI_HANDLER_ARGS)
@@ -1865,7 +1870,8 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	/*
 	 * Create the nhg
 	 */
-	nhe = zebra_nhg_proto_add(api_nhg.id, api_nhg.proto, nhg, 0);
+	nhe = zebra_nhg_proto_add(api_nhg.id, api_nhg.proto, client->instance,
+				  client->session_id, nhg, 0);
 
 	nexthop_group_delete(&nhg);
 	zebra_nhg_backup_free(&bnhg);
@@ -1876,12 +1882,12 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	 *
 	 * Resolution is going to need some more work.
 	 */
-	if (nhe)
-		nhg_notify(api_nhg.proto, client->instance, api_nhg.id,
-			   ZAPI_NHG_INSTALLED);
-	else
-		nhg_notify(api_nhg.proto, client->instance, api_nhg.id,
-			   ZAPI_NHG_FAIL_INSTALL);
+
+	/* If there's a failure, notify sender immediately */
+	if (nhe == NULL)
+		zsend_nhg_notify(api_nhg.proto, client->instance,
+				 client->session_id, api_nhg.id,
+				 ZAPI_NHG_FAIL_INSTALL);
 }
 
 static void zread_route_add(ZAPI_HANDLER_ARGS)
