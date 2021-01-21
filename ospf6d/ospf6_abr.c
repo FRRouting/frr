@@ -1296,7 +1296,9 @@ static char *ospf6_inter_area_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 }
 
 static int ospf6_inter_area_prefix_lsa_show(struct vty *vty,
-					    struct ospf6_lsa *lsa)
+					    struct ospf6_lsa *lsa,
+					    json_object *json_obj,
+					    bool use_json)
 {
 	struct ospf6_inter_prefix_lsa *prefix_lsa;
 	char buf[INET6_ADDRSTRLEN];
@@ -1304,16 +1306,29 @@ static int ospf6_inter_area_prefix_lsa_show(struct vty *vty,
 	prefix_lsa = (struct ospf6_inter_prefix_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
 
-	vty_out(vty, "     Metric: %lu\n",
-		(unsigned long)OSPF6_ABR_SUMMARY_METRIC(prefix_lsa));
+	if (use_json) {
+		json_object_int_add(
+			json_obj, "metric",
+			(unsigned long)OSPF6_ABR_SUMMARY_METRIC(prefix_lsa));
+		ospf6_prefix_options_printbuf(prefix_lsa->prefix.prefix_options,
+					      buf, sizeof(buf));
+		json_object_string_add(json_obj, "prefixOptions", buf);
+		json_object_string_add(
+			json_obj, "prefix",
+			ospf6_inter_area_prefix_lsa_get_prefix_str(
+				lsa, buf, sizeof(buf), 0));
+	} else {
+		vty_out(vty, "     Metric: %lu\n",
+			(unsigned long)OSPF6_ABR_SUMMARY_METRIC(prefix_lsa));
 
-	ospf6_prefix_options_printbuf(prefix_lsa->prefix.prefix_options, buf,
-				      sizeof(buf));
-	vty_out(vty, "     Prefix Options: %s\n", buf);
+		ospf6_prefix_options_printbuf(prefix_lsa->prefix.prefix_options,
+					      buf, sizeof(buf));
+		vty_out(vty, "     Prefix Options: %s\n", buf);
 
-	vty_out(vty, "     Prefix: %s\n",
-		ospf6_inter_area_prefix_lsa_get_prefix_str(lsa, buf,
-							   sizeof(buf), 0));
+		vty_out(vty, "     Prefix: %s\n",
+			ospf6_inter_area_prefix_lsa_get_prefix_str(
+				lsa, buf, sizeof(buf), 0));
+	}
 
 	return 0;
 }
@@ -1338,7 +1353,9 @@ static char *ospf6_inter_area_router_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 }
 
 static int ospf6_inter_area_router_lsa_show(struct vty *vty,
-					    struct ospf6_lsa *lsa)
+					    struct ospf6_lsa *lsa,
+					    json_object *json_obj,
+					    bool use_json)
 {
 	struct ospf6_inter_router_lsa *router_lsa;
 	char buf[64];
@@ -1347,12 +1364,22 @@ static int ospf6_inter_area_router_lsa_show(struct vty *vty,
 		lsa->header);
 
 	ospf6_options_printbuf(router_lsa->options, buf, sizeof(buf));
-	vty_out(vty, "     Options: %s\n", buf);
-	vty_out(vty, "     Metric: %lu\n",
-		(unsigned long)OSPF6_ABR_SUMMARY_METRIC(router_lsa));
+	if (use_json) {
+		json_object_string_add(json_obj, "options", buf);
+		json_object_int_add(
+			json_obj, "metric",
+			(unsigned long)OSPF6_ABR_SUMMARY_METRIC(router_lsa));
+	} else {
+		vty_out(vty, "     Options: %s\n", buf);
+		vty_out(vty, "     Metric: %lu\n",
+			(unsigned long)OSPF6_ABR_SUMMARY_METRIC(router_lsa));
+	}
 
 	inet_ntop(AF_INET, &router_lsa->router_id, buf, sizeof(buf));
-	vty_out(vty, "     Destination Router ID: %s\n", buf);
+	if (use_json)
+		json_object_string_add(json_obj, "destinationRouterId", buf);
+	else
+		vty_out(vty, "     Destination Router ID: %s\n", buf);
 
 	return 0;
 }

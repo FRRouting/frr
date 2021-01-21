@@ -21,6 +21,7 @@
 #ifndef OSPF6_LSA_H
 #define OSPF6_LSA_H
 #include "ospf6_top.h"
+#include "lib/json.h"
 
 /* Debug option */
 #define OSPF6_LSA_DEBUG           0x01
@@ -141,9 +142,10 @@ struct ospf6_lsa_handler {
 	uint16_t lh_type; /* host byte order */
 	const char *lh_name;
 	const char *lh_short_name;
-	int (*lh_show)(struct vty *, struct ospf6_lsa *);
-	char *(*lh_get_prefix_str)(struct ospf6_lsa *, char *buf,
-				   int buflen, int pos);
+	int (*lh_show)(struct vty *, struct ospf6_lsa *, json_object *json_obj,
+		       bool use_json);
+	char *(*lh_get_prefix_str)(struct ospf6_lsa *, char *buf, int buflen,
+				   int pos);
 
 	uint8_t lh_debug;
 };
@@ -206,10 +208,14 @@ extern char *ospf6_lsa_printbuf(struct ospf6_lsa *lsa, char *buf, int size);
 extern void ospf6_lsa_header_print_raw(struct ospf6_lsa_header *header);
 extern void ospf6_lsa_header_print(struct ospf6_lsa *lsa);
 extern void ospf6_lsa_show_summary_header(struct vty *vty);
-extern void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa);
-extern void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa);
-extern void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa);
-extern void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa);
+extern void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
+				   json_object *json, bool use_json);
+extern void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa,
+				json_object *json, bool use_json);
+extern void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
+				    json_object *json, bool use_json);
+extern void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
+			   json_object *json, bool use_json);
 
 extern struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header);
 extern struct ospf6_lsa *
