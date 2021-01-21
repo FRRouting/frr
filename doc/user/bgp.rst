@@ -435,10 +435,12 @@ Require policy on EBGP
 .. clicmd:: [no] bgp ebgp-requires-policy
 
    This command requires incoming and outgoing filters to be applied
-   for eBGP sessions. Without the incoming filter, no routes will be
-   accepted. Without the outgoing filter, no routes will be announced.
+   for eBGP sessions as part of RFC-8212 compliance. Without the incoming
+   filter, no routes will be accepted. Without the outgoing filter, no
+   routes will be announced.
 
-   This is enabled by default.
+   This is enabled by default for the traditional configuration and
+   turned off by default for datacenter configuration.
 
    When the incoming or outgoing filter is missing you will see
    "(Policy)" sign under ``show bgp summary``:
@@ -456,6 +458,22 @@ Require policy on EBGP
       Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt
       192.168.0.2     4      65002         8        10        0    0    0 00:03:09            5 (Policy)
       fe80:1::2222    4      65002         9        11        0    0    0 00:03:09     (Policy) (Policy)
+
+   Additionally a `show bgp neighbor` command would indicate in the `For address family:`
+   block that:
+
+   .. code-block:: frr
+
+      exit1# show bgp neighbor
+      ...
+      For address family: IPv4 Unicast
+       Update group 1, subgroup 1
+       Packet Queue length 0
+       Inbound soft reconfiguration allowed
+       Community attribute sent to this neighbor(all)
+       Inbound updates discarded due to missing policy
+       Outbound updates discarded due to missing policy
+       0 accepted prefixes
 
 Reject routes with AS_SET or AS_CONFED_SET types
 ------------------------------------------------
