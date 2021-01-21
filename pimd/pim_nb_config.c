@@ -545,7 +545,7 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
-		(void)pim_if_new(ifp, true, false, false, false);
+		pim_ifp = pim_if_new(ifp, true, false, false, false);
 		need_startup = 1;
 	} else {
 		if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
@@ -553,6 +553,7 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 			need_startup = 1;
 		}
 	}
+	pim_if_create_pimreg(pim_ifp->pim);
 
 	/* 'ip igmp' executed multiple times, with need_startup
 	 * avoid multiple if add all and membership refresh
