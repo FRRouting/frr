@@ -120,11 +120,13 @@ def test_r1_bgp_version():
     "Wait for protocol convergence"
     tgen = get_topogen()
 
-    #tgen.mininet_cli()
+    # tgen.mininet_cli()
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
     assert r1_snmp.test_oid("bgpVersin", None)
     assert r1_snmp.test_oid("bgpVersion", "10")
+    assert r1_snmp.test_oid_walk("bgpVersion", ["10"])
+    assert r1_snmp.test_oid_walk("bgpVersion", ["10"], ["0"])
 
 
 if __name__ == "__main__":
