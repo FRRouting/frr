@@ -34,14 +34,15 @@ extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
  *   bgp_route - BGP instance of route
  *   bgp_nexthop - BGP instance of nexthop
  *   a - afi: AFI_IP or AF_IP6
+ *   safi - safi: to check which table nhs are being imported to
  *   p - path for which the nexthop object is being looked up
  *   peer - The BGP peer associated with this NHT
  *   connected - True if NH MUST be a connected route
  */
 extern int bgp_find_or_add_nexthop(struct bgp *bgp_route,
 				   struct bgp *bgp_nexthop, afi_t a,
-				   struct bgp_path_info *p, struct peer *peer,
-				   int connected);
+				   safi_t safi, struct bgp_path_info *p,
+				   struct peer *peer, int connected);
 
 /**
  * bgp_unlink_nexthop() - Unlink the nexthop object from the path structure.

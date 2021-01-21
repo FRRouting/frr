@@ -121,7 +121,7 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
  * we need both the bgp_route and bgp_nexthop pointers.
  */
 int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
-			    afi_t afi, struct bgp_path_info *pi,
+			    afi_t afi, safi_t safi, struct bgp_path_info *pi,
 			    struct peer *peer, int connected)
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
@@ -257,7 +257,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	 */
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW)
 		return 1;
-	else
+	else if (safi == SAFI_UNICAST && pi
+		 && pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra
+		 && pi->extra->num_labels) {
+		return bgp_isvalid_labeled_nexthop(bnc);
+	} else
 		return (bgp_isvalid_nexthop(bnc));
 }
 
