@@ -51,9 +51,6 @@
 /* Default interval for IPv6 RAs when triggered by BGP unnumbered neighbor. */
 #define BGP_UNNUM_DEFAULT_RA_INTERVAL 10
 
-DEFINE_MTYPE_STATIC(BGPD, SOFT_RECONFIG_TABLE,
-		    "Attribute for soft_reconfig_table_index function");
-
 struct update_subgroup;
 struct bpacket;
 struct bgp_pbr_config;
@@ -187,17 +184,6 @@ struct bgp_rmap {
 	char *name;
 	struct route_map *map;
 };
-
-struct soft_reconfig_table {
-	struct peer *peer;
-	afi_t afi;
-	safi_t safi;
-	struct bgp_table *table;
-	struct prefix_rd *prd;
-	bool init;
-	struct thread *thread;
-};
-
 
 struct bgp_redist {
 	unsigned short instance;
@@ -712,9 +698,6 @@ struct bgp {
 
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
-
-	/* list of soft_reconfig_table attributes */
-	struct list *soft_reconfig_table;
 
 	QOBJ_FIELDS
 };

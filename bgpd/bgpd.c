@@ -875,8 +875,6 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	struct peer_af *af;
 	int afid;
 	struct bgp *bgp;
-	struct listnode *node, *nnode;
-	struct soft_reconfig_table *srta;
 
 	if (!peer)
 		return -1;
@@ -890,12 +888,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 		return -1;
 
 	bgp = peer->bgp;
-
-	for (ALL_LIST_ELEMENTS(bgp->soft_reconfig_table, node, nnode, srta)) {
-		if ((peer == srta->peer) && (afi == srta->afi)
-		    && (safi == srta->safi))
-			bgp_soft_reconfig_table_thread_cancel(srta, bgp);
-	}
+	bgp_soft_reconfig_table_thread_cancel(bgp, bgp->rib[afi][safi], peer);
 
 	bgp_stop_announce_route_timer(af);
 
@@ -2374,19 +2367,15 @@ int peer_delete(struct peer *peer)
 	safi_t safi;
 	struct bgp *bgp;
 	struct bgp_filter *filter;
-	struct listnode *pn, *node, *nnode;
+	struct listnode *pn;
 	int accept_peer;
-	struct soft_reconfig_table *srta;
 
 	assert(peer->status != Deleted);
 
 	bgp = peer->bgp;
 	accept_peer = CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 
-	for (ALL_LIST_ELEMENTS(bgp->soft_reconfig_table, node, nnode, srta)) {
-		if (peer == srta->peer)
-			bgp_soft_reconfig_table_thread_cancel(srta, bgp);
-	}
+	bgp_soft_reconfig_table_thread_cancel(bgp, NULL, peer);
 
 	bgp_keepalives_off(peer);
 	bgp_reads_off(peer);
@@ -3155,8 +3144,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp->as = *as;
 
-	bgp->soft_reconfig_table = NULL;
-
 #ifdef ENABLE_BGP_VNC
 	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
 		bgp->rfapi = bgp_rfapi_new(bgp);
@@ -3502,7 +3489,7 @@ int bgp_delete(struct bgp *bgp)
 
 	assert(bgp);
 
-	bgp_soft_reconfig_table_thread_cancel(NULL, bgp);
+	bgp_soft_reconfig_table_thread_cancel(bgp, NULL, NULL);
 
 	/* make sure we withdraw any exported routes */
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
