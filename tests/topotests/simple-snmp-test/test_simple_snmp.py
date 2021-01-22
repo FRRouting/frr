@@ -76,6 +76,11 @@ class TemplateTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+    # skip tests is SNMP not installed
+    if not os.path.isfile("/usr/sbin/snmpd"):
+        error_msg = "SNMP not installed - skipping"
+        pytest.skip(error_msg)
     # This function initiates the topology build with Topogen...
     tgen = Topogen(TemplateTopo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
@@ -120,7 +125,7 @@ def test_r1_bgp_version():
     "Wait for protocol convergence"
     tgen = get_topogen()
 
-    #tgen.mininet_cli()
+    # tgen.mininet_cli()
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
     assert r1_snmp.test_oid("bgpVersin", None)
