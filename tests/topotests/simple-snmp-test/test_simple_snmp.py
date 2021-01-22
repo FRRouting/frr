@@ -125,6 +125,10 @@ def test_r1_bgp_version():
     "Wait for protocol convergence"
     tgen = get_topogen()
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # tgen.mininet_cli()
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
@@ -132,6 +136,15 @@ def test_r1_bgp_version():
     assert r1_snmp.test_oid("bgpVersion", "10")
     assert r1_snmp.test_oid_walk("bgpVersion", ["10"])
     assert r1_snmp.test_oid_walk("bgpVersion", ["10"], ["0"])
+
+
+def test_memory_leak():
+    "Run the memory leak test and report results."
+    tgen = get_topogen()
+    if not tgen.is_memleak_enabled():
+        pytest.skip("Memory leak test/report is disabled")
+
+    tgen.report_memory_leaks()
 
 
 if __name__ == "__main__":
