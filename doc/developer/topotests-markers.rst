@@ -40,8 +40,7 @@ incorrect markers will be rejected by reviewers.
 Registering markers
 ^^^^^^^^^^^^^^^^^^^
 The Registration of new markers takes place in the file
-``tests/topotests/pytest.ini`` and should be discussed with members of the TSC
-beforehand.
+``tests/topotests/pytest.ini``:
 
 .. code:: python3
 
@@ -64,9 +63,9 @@ Adding a single marker:
 .. code:: python3
 
     import pytest
-    
     ...
     
+    # add after imports, before defining classes or functions:
     pytestmark = pytest.mark.bfdd
     
     ...
@@ -79,9 +78,9 @@ Adding multiple markers:
 .. code:: python3
 
     import pytest
-    
     ...
     
+    # add after imports, before defining classes or functions:
     pytestmark = [
         pytest.mark.bgpd,
         pytest.mark.ospfd,
