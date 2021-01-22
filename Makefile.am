@@ -158,6 +158,8 @@ include bfdd/subdir.am
 include yang/subdir.am
 include yang/libyang_plugins/subdir.am
 include vrrpd/subdir.am
+include pceplib/subdir.am
+include pceplib/test/subdir.am
 include pathd/subdir.am
 
 include vtysh/subdir.am

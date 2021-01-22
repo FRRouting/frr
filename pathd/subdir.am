@@ -11,7 +11,7 @@ vtysh_daemons += pathd
 # TODO add man page
 #man8 += $(MANBUILD)/pathd.8
 
-if HAVE_PATHD_PCEP
+if PATHD_PCEP
 vtysh_scan += $(top_srcdir)/pathd/path_pcep_cli.c
 module_LTLIBRARIES += pathd/pathd_pcep.la
 endif
@@ -69,6 +69,15 @@ pathd_pathd_pcep_la_SOURCES = \
 	pathd/path_pcep_config.c \
 	pathd/path_pcep_pcc.c \
 	# end
+
+if PATHD_PCEP
+pathd_pathd_pcep_la_CPPFLAGS = -I./pceplib $(AM_CPPFLAGS)
+pathd_pathd_pcep_la_LIBADD = pceplib/libpcep_pcc.la
+else
+pathd_pathd_pcep_la_CPPFLAGS = $(AM_CPPFLAGS)
+pathd_pathd_pcep_la_LIBADD =
+endif
+
+
 pathd_pathd_pcep_la_CFLAGS = $(WERROR)
 pathd_pathd_pcep_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
-pathd_pathd_pcep_la_LIBADD = @PATHD_PCEP_LIBS@

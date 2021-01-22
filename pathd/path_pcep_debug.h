@@ -20,8 +20,8 @@
 #define _PATH_PCEP_DEBUG_H_
 
 #include "pathd/path_debug.h"
-#include <pcep_pcc_api.h>
-#include <pcep-objects.h>
+#include "pceplib/pcep_pcc_api.h"
+#include "pceplib/pcep_msg_objects.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_controller.h"
 #include "pathd/path_pcep_pcc.h"

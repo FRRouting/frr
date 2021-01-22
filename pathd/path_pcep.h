@@ -22,8 +22,8 @@
 #include <stdbool.h>
 #include <debug.h>
 #include <netinet/tcp.h>
-#include <pcep_utils_logging.h>
-#include <pcep_pcc_api.h>
+#include "pceplib/pcep_utils_logging.h"
+#include "pceplib/pcep_pcc_api.h"
 #include "mpls.h"
 #include "pathd/pathd.h"
 #include "pathd/path_pcep_memory.h"

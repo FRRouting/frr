@@ -636,8 +636,8 @@ const char *pcep_message_type_name(enum pcep_message_types pcep_message_type)
 		return "UPDATE";
 	case PCEP_TYPE_INITIATE:
 		return "INITIATE";
-	case PCEP_TYPE_UNKOWN_MSG:
-		return "UNKOWN_MSG";
+	case PCEP_TYPE_START_TLS:
+		return "START_TLS";
 	default:
 		return "UNKNOWN";
 	}
