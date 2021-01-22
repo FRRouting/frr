@@ -4883,20 +4883,20 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 			continue;
 
 		/* Remove flag and configuration on peer-group member. */
-		UNSET_FLAG(peer->af_flags[afi][safi],
+		UNSET_FLAG(member->af_flags[afi][safi],
 			   PEER_FLAG_DEFAULT_ORIGINATE);
-		if (peer->default_rmap[afi][safi].name)
+		if (member->default_rmap[afi][safi].name)
 			XFREE(MTYPE_ROUTE_MAP_NAME,
-			      peer->default_rmap[afi][safi].name);
-		route_map_counter_decrement(peer->default_rmap[afi][safi].map);
-		peer->default_rmap[afi][safi].name = NULL;
-		peer->default_rmap[afi][safi].map = NULL;
+			      member->default_rmap[afi][safi].name);
+		route_map_counter_decrement(member->default_rmap[afi][safi].map);
+		member->default_rmap[afi][safi].name = NULL;
+		member->default_rmap[afi][safi].map = NULL;
 
 		/* Update peer route announcements. */
-		if (peer->status == Established && peer->afc_nego[afi][safi]) {
-			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, 1);
-			bgp_announce_route(peer, afi, safi);
+		if (member->status == Established && member->afc_nego[afi][safi]) {
+			update_group_adjust_peer(peer_af_find(member, afi, safi));
+			bgp_default_originate(member, afi, safi, 1);
+			bgp_announce_route(member, afi, safi);
 		}
 	}
 
@@ -6695,6 +6695,7 @@ int is_ebgp_multihop_configured(struct peer *peer)
 int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 {
 	struct peer_group *group;
+	struct peer *gpeer;
 	struct listnode *node, *nnode;
 	int ret;
 
@@ -6731,9 +6732,10 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				return ret;
 		} else {
 			group = peer->group;
+			group->conf->gtsm_hops = gtsm_hops;
 			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer)) {
-				peer->gtsm_hops = group->conf->gtsm_hops;
+					       gpeer)) {
+				gpeer->gtsm_hops = group->conf->gtsm_hops;
 
 				/* Calling ebgp multihop also resets the
 				 * session.
@@ -6743,7 +6745,7 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				 * value is
 				 * irrelevant.
 				 */
-				peer_ebgp_multihop_set(peer, MAXTTL);
+				peer_ebgp_multihop_set(gpeer, MAXTTL);
 			}
 		}
 	} else {
@@ -6764,9 +6766,10 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 					       MAXTTL + 1 - gtsm_hops);
 		} else {
 			group = peer->group;
+			group->conf->gtsm_hops = gtsm_hops;
 			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer)) {
-				peer->gtsm_hops = group->conf->gtsm_hops;
+					       gpeer)) {
+				gpeer->gtsm_hops = group->conf->gtsm_hops;
 
 				/* Change setting of existing peer
 				 *   established then change value (may break
@@ -6776,17 +6779,18 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				 *   no session then do nothing (will get
 				 * handled by next connection)
 				 */
-				if (peer->fd >= 0
-				    && peer->gtsm_hops
+				if (gpeer->fd >= 0
+				    && gpeer->gtsm_hops
 					       != BGP_GTSM_HOPS_DISABLED)
 					sockopt_minttl(
-						peer->su.sa.sa_family, peer->fd,
-						MAXTTL + 1 - peer->gtsm_hops);
-				if ((peer->status < Established)
-				    && peer->doppelganger
-				    && (peer->doppelganger->fd >= 0))
-					sockopt_minttl(peer->su.sa.sa_family,
-						       peer->doppelganger->fd,
+						gpeer->su.sa.sa_family,
+						gpeer->fd,
+						MAXTTL + 1 - gpeer->gtsm_hops);
+				if ((gpeer->status < Established)
+				    && gpeer->doppelganger
+				    && (gpeer->doppelganger->fd >= 0))
+					sockopt_minttl(gpeer->su.sa.sa_family,
+						       gpeer->doppelganger->fd,
 						       MAXTTL + 1 - gtsm_hops);
 			}
 		}

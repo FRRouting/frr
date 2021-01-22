@@ -543,6 +543,7 @@ int bfd_recv_cb(struct thread *t)
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	struct sockaddr_any local, peer;
 	uint8_t msgbuf[1516];
+	struct interface *ifp = NULL;
 	struct bfd_vrf_global *bvrf = THREAD_ARG(t);
 
 	vrfid = bvrf->vrf->vrf_id;
@@ -570,6 +571,15 @@ int bfd_recv_cb(struct thread *t)
 		is_mhop = sd == bvrf->bg_mhop6;
 		mlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, &ifindex,
 				     &local, &peer);
+	}
+
+	/* update vrf-id because when in vrf-lite mode,
+	 * the socket is on default namespace
+	 */
+	if (ifindex) {
+		ifp = if_lookup_by_index(ifindex, vrfid);
+		if (ifp)
+			vrfid = ifp->vrf_id;
 	}
 
 	/* Implement RFC 5880 6.8.6 */
@@ -951,8 +961,9 @@ int bp_peer_socket(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
-	    && bs->key.vrfname[0])
+	else if ((!vrf_is_backend_netns() && bs->vrf->vrf_id != VRF_DEFAULT)
+		 || ((CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+		      && bs->key.vrfname[0])))
 		device_to_bind = (const char *)bs->key.vrfname;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
@@ -1018,8 +1029,9 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
-	    && bs->key.vrfname[0])
+	else if ((!vrf_is_backend_netns() && bs->vrf->vrf_id != VRF_DEFAULT)
+		 || ((CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+		      && bs->key.vrfname[0])))
 		device_to_bind = (const char *)bs->key.vrfname;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
