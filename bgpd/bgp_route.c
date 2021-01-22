@@ -3505,6 +3505,34 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	return ret;
 }
 
+static void bgp_attr_add_no_advertise_community(struct attr *attr)
+{
+	struct community *old;
+	struct community *new;
+	struct community *merge;
+	struct community *noadv;
+
+	old = attr->community;
+	noadv = community_str2com("no-advertise");
+
+	if (old) {
+		merge = community_merge(community_dup(old), noadv);
+
+		if (!old->refcnt)
+			community_free(&old);
+
+		new = community_uniq_sort(merge);
+		community_free(&merge);
+	} else {
+		new = community_dup(noadv);
+	}
+
+	community_free(&noadv);
+
+	attr->community = new;
+	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
+}
+
 int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	       struct attr *attr, afi_t afi, safi_t safi, int type,
 	       int sub_type, struct prefix_rd *prd, mpls_label_t *label,
@@ -3696,6 +3724,20 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 
 	if (peer->sort == BGP_PEER_EBGP) {
+
+		/* rfc7999:
+		 * A BGP speaker receiving an announcement tagged with the
+		 * BLACKHOLE community SHOULD add the NO_ADVERTISE or
+		 * NO_EXPORT community as defined in RFC1997, or a
+		 * similar community, to prevent propagation of the
+		 * prefix outside the local AS. The community to prevent
+		 * propagation SHOULD be chosen according to the operator's
+		 * routing policy.
+		 */
+		if (new_attr.community
+		    && community_include(new_attr.community,
+					 COMMUNITY_BLACKHOLE))
+			bgp_attr_add_no_advertise_community(&new_attr);
 
 		/* If we receive the graceful-shutdown community from an eBGP
 		 * peer we must lower local-preference */

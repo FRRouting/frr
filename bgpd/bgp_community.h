@@ -88,6 +88,7 @@ extern struct community *community_delete(struct community *,
 					  struct community *);
 extern struct community *community_dup(struct community *);
 extern bool community_include(struct community *, uint32_t);
+extern void community_add_val(struct community *com, uint32_t val);
 extern void community_del_val(struct community *, uint32_t *);
 extern unsigned long community_count(void);
 extern struct hash *community_hash(void);

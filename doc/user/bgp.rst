@@ -1985,9 +1985,9 @@ is 4 octet long. The following format is used to define the community value.
    ``0xFFFF029A`` ``65535:666``. :rfc:`7999` documents sending prefixes to
    EBGP peers and upstream for the purpose of blackholing traffic.
    Prefixes tagged with the this community should normally not be
-   re-advertised from neighbors of the originating network. It is
-   recommended upon receiving prefixes tagged with this community to
-   add ``NO_EXPORT`` and ``NO_ADVERTISE``.
+   re-advertised from neighbors of the originating network. Upon receiving
+   ``BLACKHOLE`` community from a BGP speaker, ``NO_ADVERTISE`` community
+   is added automatically.
 
 ``no-export``
    ``no-export`` represents well-known communities value ``NO_EXPORT``

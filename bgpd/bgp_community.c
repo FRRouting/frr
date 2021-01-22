@@ -56,7 +56,7 @@ void community_free(struct community **com)
 }
 
 /* Add one community value to the community. */
-static void community_add_val(struct community *com, uint32_t val)
+void community_add_val(struct community *com, uint32_t val)
 {
 	com->size++;
 	if (com->val)

@@ -4828,6 +4828,11 @@ DEFUN (set_community,
 			buffer_putstr(b, "no-export");
 			continue;
 		}
+		if (strncmp(argv[i]->arg, "blackhole", strlen(argv[i]->arg))
+		    == 0) {
+			buffer_putstr(b, "blackhole");
+			continue;
+		}
 		if (strncmp(argv[i]->arg, "graceful-shutdown",
 			    strlen(argv[i]->arg))
 		    == 0) {
