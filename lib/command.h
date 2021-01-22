@@ -410,7 +410,7 @@ struct cmd_node {
 #define IFNAME_STR "Interface name(e.g. ep0)\n"
 #define IP6_STR "IPv6 Information\n"
 #define OSPF6_STR "Open Shortest Path First (OSPF) for IPv6\n"
-#define OSPF6_INSTANCE_STR "(1-65535) Instance ID\n"
+#define OSPF6_INSTANCE_STR "Instance ID\n"
 #define SECONDS_STR "Seconds\n"
 #define ROUTE_STR "Routing Table\n"
 #define PREFIX_LIST_STR "Build a prefix list\n"

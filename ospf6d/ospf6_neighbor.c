@@ -971,16 +971,18 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 DEFUN (show_ipv6_ospf6_neighbor,
        show_ipv6_ospf6_neighbor_cmd,
-       "show ipv6 ospf6 neighbor [<detail|drchoice>] [json]",
+       "show ipv6 ospf6 [(1-65535)] neighbor [<detail|drchoice>] [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Neighbor list\n"
        "Display details\n"
        "Display DR choices\n"
        JSON_STR)
 {
 	int idx_type = 4;
+	int idx_ofs = 0;
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
@@ -992,12 +994,16 @@ DEFUN (show_ipv6_ospf6_neighbor,
 	void (*showfunc)(struct vty *, struct ospf6_neighbor *,
 			 json_object *json, bool use_json);
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_type += idx_ofs;
+
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 	showfunc = ospf6_neighbor_show;
 
-	if ((uj && argc == 6) || (!uj && argc == 5)) {
+	/* +1 for to trailing "json" arg */
+	if ((uj && argc > idx_type + 1) || (!uj && argc > idx_type)) {
 		if (!strncmp(argv[idx_type]->arg, "de", 2))
 			showfunc = ospf6_neighbor_show_detail;
 		else if (!strncmp(argv[idx_type]->arg, "dr", 2))
@@ -1043,15 +1049,17 @@ DEFUN (show_ipv6_ospf6_neighbor,
 
 DEFUN (show_ipv6_ospf6_neighbor_one,
        show_ipv6_ospf6_neighbor_one_cmd,
-       "show ipv6 ospf6 neighbor A.B.C.D [json]",
+       "show ipv6 ospf6 [(1-65535)] neighbor A.B.C.D [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Neighbor list\n"
        "Specify Router-ID as IPv4 address notation\n"
        JSON_STR)
 {
 	int idx_ipv4 = 4;
+	int idx_ofs = 0;
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
@@ -1062,6 +1070,9 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
 	struct ospf6 *ospf6;
 	json_object *json = NULL;
 	bool uj = use_json(argc, argv);
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ipv4 += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -1099,17 +1110,22 @@ void ospf6_neighbor_init(void)
 
 DEFUN (debug_ospf6_neighbor,
        debug_ospf6_neighbor_cmd,
-       "debug ospf6 neighbor [<state|event>]",
+       "debug ospf6 [(1-65535)] neighbor [<state|event>]",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug OSPFv3 Neighbor\n"
        "Debug OSPFv3 Neighbor State Change\n"
        "Debug OSPFv3 Neighbor Event\n")
 {
 	int idx_type = 3;
+	int idx_ofs = 0;
 	unsigned char level = 0;
 
-	if (argc == 4) {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, &idx_ofs);
+	idx_type += idx_ofs;
+
+	if (argc > idx_type) {
 		if (!strncmp(argv[idx_type]->arg, "s", 1))
 			level = OSPF6_DEBUG_NEIGHBOR_STATE;
 		else if (!strncmp(argv[idx_type]->arg, "e", 1))
@@ -1124,18 +1140,23 @@ DEFUN (debug_ospf6_neighbor,
 
 DEFUN (no_debug_ospf6_neighbor,
        no_debug_ospf6_neighbor_cmd,
-       "no debug ospf6 neighbor [<state|event>]",
+       "no debug ospf6 [(1-65535)] neighbor [<state|event>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug OSPFv3 Neighbor\n"
        "Debug OSPFv3 Neighbor State Change\n"
        "Debug OSPFv3 Neighbor Event\n")
 {
 	int idx_type = 4;
+	int idx_ofs = 0;
 	unsigned char level = 0;
 
-	if (argc == 5) {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_type += idx_ofs;
+
+	if (argc > idx_type) {
 		if (!strncmp(argv[idx_type]->arg, "s", 1))
 			level = OSPF6_DEBUG_NEIGHBOR_STATE;
 		if (!strncmp(argv[idx_type]->arg, "e", 1))
@@ -1150,13 +1171,16 @@ DEFUN (no_debug_ospf6_neighbor,
 
 DEFUN (no_debug_ospf6,
        no_debug_ospf6_cmd,
-       "no debug ospf6",
+       "no debug ospf6 [(1-65535)]",
        NO_STR
        DEBUG_STR
-       OSPF6_STR)
+       OSPF6_STR
+       OSPF6_INSTANCE_STR)
 {
 	unsigned int i;
 	struct ospf6_lsa_handler *handler = NULL;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 
 	OSPF6_DEBUG_ABR_OFF();
 	OSPF6_DEBUG_ASBR_OFF();
@@ -1193,14 +1217,16 @@ DEFUN (no_debug_ospf6,
 	return CMD_SUCCESS;
 }
 
-int config_write_ospf6_debug_neighbor(struct vty *vty)
+int config_write_ospf6_debug_neighbor(struct vty *vty, struct ospf6 *ospf6)
 {
 	if (IS_OSPF6_DEBUG_NEIGHBOR(STATE) && IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
-		vty_out(vty, "debug ospf6 neighbor\n");
+		vty_out(vty, "debug ospf6%s neighbor\n", ospf6->instance_str);
 	else if (IS_OSPF6_DEBUG_NEIGHBOR(STATE))
-		vty_out(vty, "debug ospf6 neighbor state\n");
+		vty_out(vty, "debug ospf6%s neighbor state\n",
+			ospf6->instance_str);
 	else if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
-		vty_out(vty, "debug ospf6 neighbor event\n");
+		vty_out(vty, "debug ospf6%s neighbor event\n",
+			ospf6->instance_str);
 	return 0;
 }
 

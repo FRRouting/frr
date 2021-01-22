@@ -161,7 +161,8 @@ extern int inactivity_timer(struct thread *);
 extern void ospf6_check_nbr_loading(struct ospf6_neighbor *);
 
 extern void ospf6_neighbor_init(void);
-extern int config_write_ospf6_debug_neighbor(struct vty *vty);
+extern int config_write_ospf6_debug_neighbor(struct vty *vty,
+					     struct ospf6 *ospf6);
 extern void install_element_ospf6_debug_neighbor(void);
 
 DECLARE_HOOK(ospf6_neighbor_change,

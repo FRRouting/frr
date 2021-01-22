@@ -2367,41 +2367,51 @@ void ospf6_intra_init(void)
 
 DEFUN (debug_ospf6_brouter,
        debug_ospf6_brouter_cmd,
-       "debug ospf6 border-routers",
+       "debug ospf6 [(1-65535)] border-routers",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug border router\n"
       )
 {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, NULL);
 	OSPF6_DEBUG_BROUTER_ON();
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_debug_ospf6_brouter,
        no_debug_ospf6_brouter_cmd,
-       "no debug ospf6 border-routers",
+       "no debug ospf6 [(1-65535)] border-routers",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug border router\n"
       )
 {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 	OSPF6_DEBUG_BROUTER_OFF();
 	return CMD_SUCCESS;
 }
 
 DEFUN (debug_ospf6_brouter_router,
        debug_ospf6_brouter_router_cmd,
-       "debug ospf6 border-routers router-id A.B.C.D",
+       "debug ospf6 [(1-65535)] border-routers router-id A.B.C.D",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug border router\n"
        "Debug specific border router\n"
        "Specify border-router's router-id\n"
       )
 {
 	int idx_ipv4 = 4;
+	int idx_ofs = 0;
 	uint32_t router_id;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, &idx_ofs);
+	idx_ipv4 += idx_ofs;
+
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id);
 	OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ON(router_id);
 	return CMD_SUCCESS;
@@ -2409,30 +2419,38 @@ DEFUN (debug_ospf6_brouter_router,
 
 DEFUN (no_debug_ospf6_brouter_router,
        no_debug_ospf6_brouter_router_cmd,
-       "no debug ospf6 border-routers router-id",
+       "no debug ospf6 [(1-65535)] border-routers router-id",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug border router\n"
        "Debug specific border router\n"
       )
 {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 	OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_OFF();
 	return CMD_SUCCESS;
 }
 
 DEFUN (debug_ospf6_brouter_area,
        debug_ospf6_brouter_area_cmd,
-       "debug ospf6 border-routers area-id A.B.C.D",
+       "debug ospf6 [(1-65535)] border-routers area-id A.B.C.D",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug border router\n"
        "Debug border routers in specific Area\n"
        "Specify Area-ID\n"
       )
 {
 	int idx_ipv4 = 4;
+	int idx_ofs = 0;
 	uint32_t area_id;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, &idx_ofs);
+	idx_ipv4 += idx_ofs;
+
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id);
 	OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ON(area_id);
 	return CMD_SUCCESS;
@@ -2440,32 +2458,37 @@ DEFUN (debug_ospf6_brouter_area,
 
 DEFUN (no_debug_ospf6_brouter_area,
        no_debug_ospf6_brouter_area_cmd,
-       "no debug ospf6 border-routers area-id",
+       "no debug ospf6 [(1-65535)] border-routers area-id",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug border router\n"
        "Debug border routers in specific Area\n"
       )
 {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 	OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_OFF();
 	return CMD_SUCCESS;
 }
 
-int config_write_ospf6_debug_brouter(struct vty *vty)
+int config_write_ospf6_debug_brouter(struct vty *vty, struct ospf6 *ospf6)
 {
 	char buf[16];
 	if (IS_OSPF6_DEBUG_BROUTER)
-		vty_out(vty, "debug ospf6 border-routers\n");
+		vty_out(vty, "debug ospf6%s border-routers\n",
+			ospf6->instance_str);
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER) {
 		inet_ntop(AF_INET, &conf_debug_ospf6_brouter_specific_router_id,
 			  buf, sizeof(buf));
-		vty_out(vty, "debug ospf6 border-routers router-id %s\n", buf);
+		vty_out(vty, "debug ospf6%s border-routers router-id %s\n",
+			ospf6->instance_str, buf);
 	}
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA) {
 		inet_ntop(AF_INET, &conf_debug_ospf6_brouter_specific_area_id,
 			  buf, sizeof(buf));
-		vty_out(vty, "debug ospf6 border-routers area-id %s\n", buf);
+		vty_out(vty, "debug ospf6%s border-routers area-id %s\n",
+			ospf6->instance_str, buf);
 	}
 	return 0;
 }

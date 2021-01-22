@@ -153,7 +153,7 @@ extern void ospf6_spf_display_subtree(struct vty *vty, const char *prefix,
 				      json_object *json_obj, bool use_json);
 
 extern void ospf6_spf_config_write(struct vty *vty, struct ospf6 *ospf6);
-extern int config_write_ospf6_debug_spf(struct vty *vty);
+extern int config_write_ospf6_debug_spf(struct vty *vty, struct ospf6 *ospf6);
 extern void install_element_ospf6_debug_spf(void);
 extern void ospf6_spf_init(void);
 extern void ospf6_spf_reason_string(unsigned int reason, char *buf, int size);

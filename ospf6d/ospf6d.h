@@ -24,6 +24,7 @@
 #include "libospf.h"
 #include "thread.h"
 #include "memory.h"
+#include "command.h"
 
 DECLARE_MGROUP(OSPF6D);
 
@@ -91,9 +92,32 @@ extern struct thread_master *master;
 
 #define OSPF6_CMD_CHECK_RUNNING(ospf6)                                         \
 	if (ospf6 == NULL) {                                                   \
-		vty_out(vty, "OSPFv3 is not running\n");                       \
+		vty_out(vty, "OSPFv3 instance is not running\n");              \
 		return CMD_SUCCESS;                                            \
 	}
+#define OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, arg_idx, idx_ofs_ptr)         \
+	do {                                                                   \
+		if (ospf6_cmd_get_instance_arg(argc, argv, arg_idx,            \
+					       idx_ofs_ptr)                    \
+		    != om6->instance)                                          \
+			return CMD_NOT_MY_INSTANCE;                            \
+	} while (0)
+
+static inline uint16_t ospf6_cmd_get_instance_arg(int argc,
+						  struct cmd_token **argv,
+						  int arg_idx, int *idx_ofs_ptr)
+{
+	uint16_t instance = 0;
+	char *tail;
+	if (idx_ofs_ptr)
+		*idx_ofs_ptr = 0;
+	if (argc > arg_idx) {
+		instance = strtoul(argv[arg_idx]->arg, &tail, 10);
+		if (idx_ofs_ptr && *tail == '\0')
+			*idx_ofs_ptr = 1;
+	}
+	return instance;
+}
 
 #define IS_OSPF6_ASBR(O) ((O)->flag & OSPF6_FLAG_ASBR)
 extern struct zebra_privs_t ospf6d_privs;
@@ -102,6 +126,6 @@ extern struct zebra_privs_t ospf6d_privs;
 extern struct route_node *route_prev(struct route_node *node);
 
 extern void ospf6_debug(void);
-extern void ospf6_init(struct thread_master *master);
+extern void ospf6_init(struct thread_master *master, uint16_t instance);
 
 #endif /* OSPF6D_H */

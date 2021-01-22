@@ -1155,24 +1155,30 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 /* show interface */
 DEFUN(show_ipv6_ospf6_interface,
       show_ipv6_ospf6_interface_ifname_cmd,
-      "show ipv6 ospf6 interface [IFNAME] [json]",
+      "show ipv6 ospf6 [(1-65535)] interface [IFNAME] [json]",
       SHOW_STR
       IP6_STR
       OSPF6_STR
+      OSPF6_INSTANCE_STR
       INTERFACE_STR
       IFNAME_STR
       JSON_STR)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int idx_ifname = 4;
+	int idx_ofs = 0;
 	struct interface *ifp;
 	json_object *json;
 	json_object *json_int;
 	bool uj = use_json(argc, argv);
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ifname += idx_ofs;
+
 	if (uj) {
 		json = json_object_new_object();
-		if (argc == 6) {
+		/* +1 for to trailing "json" arg */
+		if (argc > idx_ifname + 1) {
 			ifp = if_lookup_by_name(argv[idx_ifname]->arg,
 						VRF_DEFAULT);
 			json_int = json_object_new_object();
@@ -1201,7 +1207,7 @@ DEFUN(show_ipv6_ospf6_interface,
 				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
-		if (argc == 5) {
+		if (argc > idx_ifname) {
 			ifp = if_lookup_by_name(argv[idx_ifname]->arg,
 						VRF_DEFAULT);
 			if (ifp == NULL) {
@@ -1336,10 +1342,11 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 /* show interface */
 DEFUN(show_ipv6_ospf6_interface_traffic,
       show_ipv6_ospf6_interface_traffic_cmd,
-      "show ipv6 ospf6 interface traffic [IFNAME] [json]",
+      "show ipv6 ospf6 [(1-65535)] interface traffic [IFNAME] [json]",
       SHOW_STR
       IP6_STR
       OSPF6_STR
+      OSPF6_INSTANCE_STR
       INTERFACE_STR
       "Protocol Packet counters\n"
       IFNAME_STR
@@ -1351,6 +1358,8 @@ DEFUN(show_ipv6_ospf6_interface_traffic,
 	struct interface *ifp = NULL;
 	json_object *json = NULL;
 	bool uj = use_json(argc, argv);
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 
 	if (uj)
 		json = json_object_new_object();
@@ -1413,7 +1422,7 @@ DEFUN(show_ipv6_ospf6_interface_traffic,
 
 DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        show_ipv6_ospf6_interface_ifname_prefix_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix\
+       "show ipv6 ospf6 [(1-65535)] interface IFNAME prefix\
           [<\
 	    detail\
 	    |<X:X::X:X|X:X::X:X/M> [<match|detail>]\
@@ -1421,6 +1430,7 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        INTERFACE_STR
        IFNAME_STR
        "Display connected prefixes to advertise\n"
@@ -1433,9 +1443,14 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
 {
 	int idx_ifname = 4;
 	int idx_prefix = 6;
+	int idx_ofs = 0;
 	struct interface *ifp;
 	struct ospf6_interface *oi;
 	bool uj = use_json(argc, argv);
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ifname += idx_ofs;
+	idx_prefix += idx_ofs;
 
 	ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
 	if (ifp == NULL) {
@@ -1464,7 +1479,7 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
 
 DEFUN (show_ipv6_ospf6_interface_prefix,
        show_ipv6_ospf6_interface_prefix_cmd,
-       "show ipv6 ospf6 interface prefix\
+       "show ipv6 ospf6 [(1-65535)] interface prefix\
           [<\
 	    detail\
 	    |<X:X::X:X|X:X::X:X/M> [<match|detail>]\
@@ -1472,6 +1487,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        INTERFACE_STR
        "Display connected prefixes to advertise\n"
        "Display details of the prefixes\n"
@@ -1483,9 +1499,13 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int idx_prefix = 5;
+	int idx_ofs = 0;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 	bool uj = use_json(argc, argv);
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_prefix += idx_ofs;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		oi = (struct ospf6_interface *)ifp->info;
@@ -1671,7 +1691,7 @@ DEFUN (auto_cost_reference_bandwidth,
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
 {
-	VTY_DECLVAR_CONTEXT(ospf6, o);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, o);
 	int idx_number = 2;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
@@ -1704,7 +1724,7 @@ DEFUN (no_auto_cost_reference_bandwidth,
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
 {
-	VTY_DECLVAR_CONTEXT(ospf6, o);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, o);
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct listnode *i, *j;
@@ -2398,7 +2418,7 @@ DEFUN (clear_ipv6_ospf6_interface,
 	int idx_ifname = 4;
 	struct interface *ifp;
 
-	if (argc == 4) /* Clear all the ospfv3 interfaces. */
+	if (argc <= idx_ifname) /* Clear all the ospfv3 interfaces. */
 	{
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf6_interface_clear(vty, ifp);
@@ -2424,33 +2444,37 @@ void install_element_ospf6_clear_interface(void)
 
 DEFUN (debug_ospf6_interface,
        debug_ospf6_interface_cmd,
-       "debug ospf6 interface",
+       "debug ospf6 [(1-65535)] interface",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug OSPFv3 Interface\n"
       )
 {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, NULL);
 	OSPF6_DEBUG_INTERFACE_ON();
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_debug_ospf6_interface,
        no_debug_ospf6_interface_cmd,
-       "no debug ospf6 interface",
+       "no debug ospf6 [(1-65535)] interface",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug OSPFv3 Interface\n"
       )
 {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 	OSPF6_DEBUG_INTERFACE_OFF();
 	return CMD_SUCCESS;
 }
 
-int config_write_ospf6_debug_interface(struct vty *vty)
+int config_write_ospf6_debug_interface(struct vty *vty, struct ospf6 *ospf6)
 {
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		vty_out(vty, "debug ospf6 interface\n");
+		vty_out(vty, "debug ospf6%s interface\n", ospf6->instance_str);
 	return 0;
 }
 

@@ -345,7 +345,7 @@ extern int ospf6_linkstate_table_show(struct vty *vty, int idx_ipv4, int argc,
 extern void ospf6_brouter_show_header(struct vty *vty);
 extern void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route);
 
-extern int config_write_ospf6_debug_route(struct vty *vty);
+extern int config_write_ospf6_debug_route(struct vty *vty, struct ospf6 *ospf6);
 extern void install_element_ospf6_debug_route(void);
 extern void ospf6_route_init(void);
 extern void ospf6_path_free(struct ospf6_path *op);

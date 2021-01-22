@@ -80,21 +80,47 @@ static struct cmd_node debug_node = {
 	.config_write = config_write_ospf6_debug,
 };
 
-static int config_write_ospf6_debug(struct vty *vty)
+static int config_write_ospf6_debug_one(struct vty *vty, struct ospf6 *ospf6)
 {
-	config_write_ospf6_debug_message(vty);
-	config_write_ospf6_debug_lsa(vty);
-	config_write_ospf6_debug_zebra(vty);
-	config_write_ospf6_debug_interface(vty);
-	config_write_ospf6_debug_neighbor(vty);
-	config_write_ospf6_debug_spf(vty);
-	config_write_ospf6_debug_route(vty);
-	config_write_ospf6_debug_brouter(vty);
-	config_write_ospf6_debug_asbr(vty);
-	config_write_ospf6_debug_abr(vty);
-	config_write_ospf6_debug_flood(vty);
+	config_write_ospf6_debug_message(vty, ospf6);
+	config_write_ospf6_debug_lsa(vty, ospf6);
+	config_write_ospf6_debug_zebra(vty, ospf6);
+	config_write_ospf6_debug_interface(vty, ospf6);
+	config_write_ospf6_debug_neighbor(vty, ospf6);
+	config_write_ospf6_debug_spf(vty, ospf6);
+	config_write_ospf6_debug_route(vty, ospf6);
+	config_write_ospf6_debug_brouter(vty, ospf6);
+	config_write_ospf6_debug_asbr(vty, ospf6);
+	config_write_ospf6_debug_abr(vty, ospf6);
+	config_write_ospf6_debug_flood(vty, ospf6);
 
 	return 0;
+}
+
+static int config_write_ospf6_debug(struct vty *vty)
+{
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
+	if (ospf6 == NULL)
+		return CMD_SUCCESS;
+
+	return config_write_ospf6_debug_one(vty, ospf6);
+}
+
+static void show_debugging_ospf6_common(struct vty *vty)
+{
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
+	if (ospf6 == NULL)
+		return;
+
+	if (ospf6->instance)
+		vty_out(vty, "\nOSPF6 Instance: %d\n\n", ospf6->instance);
+	vty_out(vty, "OSPF6 debugging status:\n");
+	config_write_ospf6_debug_one(vty, ospf6);
+	vty_out(vty, "\n");
 }
 
 DEFUN_NOSH (show_debugging_ospf6,
@@ -104,10 +130,20 @@ DEFUN_NOSH (show_debugging_ospf6,
 	    DEBUG_STR
 	    OSPF6_STR)
 {
-	vty_out(vty, "OSPF6 debugging status:\n");
+	show_debugging_ospf6_common(vty);
+	return CMD_SUCCESS;
+}
 
-	config_write_ospf6_debug(vty);
-
+DEFUN_NOSH (show_debugging_ospf6_instance,
+	    show_debugging_ospf6_instance_cmd,
+	    "show debugging ospf6 (1-65535)",
+	    SHOW_STR
+	    DEBUG_STR
+	    OSPF6_STR
+	    OSPF6_INSTANCE_STR)
+{
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
+	show_debugging_ospf6_common(vty);
 	return CMD_SUCCESS;
 }
 
@@ -390,10 +426,11 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 
 DEFUN (show_ipv6_ospf6_database,
        show_ipv6_ospf6_database_cmd,
-       "show ipv6 ospf6 database [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
@@ -401,9 +438,13 @@ DEFUN (show_ipv6_ospf6_database,
         JSON_STR)
 {
 	int idx_level = 4;
+	int idx_ofs = 0;
 	int level;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -413,11 +454,13 @@ DEFUN (show_ipv6_ospf6_database,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [<detail|dump|internal>] [json]",
+DEFUN (show_ipv6_ospf6_database_type,
+       show_ipv6_ospf6_database_type_cmd,
+       "show ipv6 ospf6 [(1-65535)] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -435,11 +478,15 @@ DEFUN (show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 {
 	int idx_lsa = 4;
 	int idx_level = 5;
+	int idx_ofs = 0;
 	int level;
 	uint16_t type = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -453,10 +500,11 @@ DEFUN (show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 
 DEFUN (show_ipv6_ospf6_database_id,
        show_ipv6_ospf6_database_id_cmd,
-       "show ipv6 ospf6 database <*|linkstate-id> A.B.C.D [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database <*|linkstate-id> A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Any Link state Type\n"
        "Search by Link state ID\n"
@@ -468,11 +516,15 @@ DEFUN (show_ipv6_ospf6_database_id,
 {
 	int idx_ipv4 = 5;
 	int idx_level = 6;
+	int idx_ofs = 0;
 	int level;
 	uint32_t id = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ipv4 += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -488,10 +540,11 @@ DEFUN (show_ipv6_ospf6_database_id,
 
 DEFUN (show_ipv6_ospf6_database_router,
        show_ipv6_ospf6_database_router_cmd,
-       "show ipv6 ospf6 database <*|adv-router> * A.B.C.D <detail|dump|internal> [json]",
+       "show ipv6 ospf6 [(1-65535)] database <*|adv-router> * A.B.C.D <detail|dump|internal> [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Any Link state Type\n"
        "Search by Advertising Router\n"
@@ -504,11 +557,15 @@ DEFUN (show_ipv6_ospf6_database_router,
 {
 	int idx_ipv4 = 6;
 	int idx_level = 7;
+	int idx_ofs = 0;
 	int level;
 	uint32_t adv_router = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ipv4 += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -521,10 +578,11 @@ DEFUN (show_ipv6_ospf6_database_router,
 
 DEFUN_HIDDEN (show_ipv6_ospf6_database_aggr_router,
        show_ipv6_ospf6_database_aggr_router_cmd,
-       "show ipv6 ospf6 database aggr adv-router A.B.C.D",
+       "show ipv6 ospf6 [(1-65535)] database aggr adv-router A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Aggregated Router LSA\n"
        "Search by Advertising Router\n"
@@ -533,11 +591,15 @@ DEFUN_HIDDEN (show_ipv6_ospf6_database_aggr_router,
 	int level = OSPF6_LSDB_SHOW_LEVEL_DETAIL;
 	uint16_t type = htons(OSPF6_LSTYPE_ROUTER);
 	int idx_ipv4 = 6;
+	int idx_ofs = 0;
 	struct listnode *i;
 	struct ospf6 *ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_lsdb *lsdb;
 	uint32_t adv_router = 0;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ipv4 += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -567,10 +629,11 @@ DEFUN_HIDDEN (show_ipv6_ospf6_database_aggr_router,
 
 DEFUN (show_ipv6_ospf6_database_type_id,
        show_ipv6_ospf6_database_type_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -591,12 +654,17 @@ DEFUN (show_ipv6_ospf6_database_type_id,
 	int idx_lsa = 4;
 	int idx_ipv4 = 6;
 	int idx_level = 7;
+	int idx_ofs = 0;
 	int level;
 	uint16_t type = 0;
 	uint32_t id = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_ipv4 += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -611,10 +679,11 @@ DEFUN (show_ipv6_ospf6_database_type_id,
 
 DEFUN (show_ipv6_ospf6_database_type_router,
        show_ipv6_ospf6_database_type_router_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> <*|adv-router> A.B.C.D [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> <*|adv-router> A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -636,12 +705,17 @@ DEFUN (show_ipv6_ospf6_database_type_router,
 	int idx_lsa = 4;
 	int idx_ipv4 = 6;
 	int idx_level = 7;
+	int idx_ofs = 0;
 	int level;
 	uint16_t type = 0;
 	uint32_t adv_router = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_ipv4 += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -657,10 +731,11 @@ DEFUN (show_ipv6_ospf6_database_type_router,
 
 DEFUN (show_ipv6_ospf6_database_id_router,
        show_ipv6_ospf6_database_id_router_cmd,
-       "show ipv6 ospf6 database * A.B.C.D A.B.C.D [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database * A.B.C.D A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Any Link state Type\n"
        "Specify Link state ID as IPv4 address notation\n"
@@ -673,11 +748,17 @@ DEFUN (show_ipv6_ospf6_database_id_router,
 	int idx_ls_id = 5;
 	int idx_adv_rtr = 6;
 	int idx_level = 7;
+	int idx_ofs = 0;
 	int level;
 	uint32_t id = 0;
 	uint32_t adv_router = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ls_id += idx_ofs;
+	idx_adv_rtr += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -692,10 +773,11 @@ DEFUN (show_ipv6_ospf6_database_id_router,
 
 DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
        show_ipv6_ospf6_database_adv_router_linkstate_id_cmd,
-       "show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database adv-router A.B.C.D linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Search by Advertising Router\n"
        "Specify Advertising Router as IPv4 address notation\n"
@@ -709,12 +791,17 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
 	int idx_adv_rtr = 5;
 	int idx_ls_id = 7;
 	int idx_level = 8;
+	int idx_ofs = 0;
 	int level;
 	uint32_t id = 0;
 	uint32_t adv_router = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_adv_rtr += idx_ofs;
+	idx_ls_id += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -728,10 +815,11 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
 
 DEFUN (show_ipv6_ospf6_database_type_id_router,
        show_ipv6_ospf6_database_type_id_router_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D A.B.C.D [<dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D A.B.C.D [<dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -752,6 +840,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
 	int idx_ls_id = 5;
 	int idx_adv_rtr = 6;
 	int idx_level = 7;
+	int idx_ofs = 0;
 	int level;
 	uint16_t type = 0;
 	uint32_t id = 0;
@@ -759,6 +848,11 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_ls_id += idx_ofs;
+	idx_adv_rtr += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -776,10 +870,11 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
 
 DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
        show_ipv6_ospf6_database_type_adv_router_linkstate_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> adv-router A.B.C.D linkstate-id A.B.C.D [<dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> adv-router A.B.C.D linkstate-id A.B.C.D [<dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -802,6 +897,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 	int idx_adv_rtr = 6;
 	int idx_ls_id = 8;
 	int idx_level = 9;
+	int idx_ofs = 0;
 	int level;
 	uint16_t type = 0;
 	uint32_t id = 0;
@@ -809,6 +905,11 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_adv_rtr += idx_ofs;
+	idx_ls_id += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -825,10 +926,11 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 
 DEFUN (show_ipv6_ospf6_database_self_originated,
        show_ipv6_ospf6_database_self_originated_cmd,
-       "show ipv6 ospf6 database self-originated [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database self-originated [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Self-originated LSAs\n"
        "Display details of LSAs\n"
@@ -837,10 +939,14 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
        JSON_STR)
 {
 	int idx_level = 5;
+	int idx_ofs = 0;
 	int level;
 	uint32_t adv_router = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -854,10 +960,11 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
 
 DEFUN (show_ipv6_ospf6_database_type_self_originated,
        show_ipv6_ospf6_database_type_self_originated_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -876,11 +983,16 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
 {
 	int idx_lsa = 4;
 	int idx_level = 6;
+	int idx_ofs = 0;
 	int level;
 	uint16_t type = 0;
 	uint32_t adv_router = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += ~idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -896,10 +1008,11 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
 
 DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
        show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -921,12 +1034,18 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 	int idx_lsa = 4;
 	int idx_ls_id = 7;
 	int idx_level = 8;
+	int idx_ofs = 0;
 	int level;
 	uint16_t type = 0;
 	uint32_t adv_router = 0;
 	uint32_t id = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_ls_id += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -942,10 +1061,11 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 
 DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
        show_ipv6_ospf6_database_type_id_self_originated_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D self-originated [<detail|dump|internal>] [json]",
+       "show ipv6 ospf6 [(1-65535)] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D self-originated [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display Link state database\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -966,12 +1086,18 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
 	int idx_lsa = 4;
 	int idx_ls_id = 5;
 	int idx_level = 7;
+	int idx_ofs = 0;
 	int level;
 	uint16_t type = 0;
 	uint32_t adv_router = 0;
 	uint32_t id = 0;
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_ls_id += idx_ofs;
+	idx_level += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -987,24 +1113,28 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
 
 DEFUN (show_ipv6_ospf6_border_routers,
        show_ipv6_ospf6_border_routers_cmd,
-       "show ipv6 ospf6 border-routers [<A.B.C.D|detail>]",
+       "show ipv6 ospf6 [(1-65535)] border-routers [<A.B.C.D|detail>]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display routing table for ABR and ASBR\n"
        "Router ID\n"
        "Show detailed output\n")
 {
 	int idx_ipv4 = 4;
+	int idx_ofs = 0;
 	uint32_t adv_router;
 	struct ospf6_route *ro;
 	struct prefix prefix;
 	struct ospf6 *ospf6 = NULL;
 
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ipv4 += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
-	if (argc == 5) {
+	if (argc > idx_ipv4) {
 		if (strmatch(argv[idx_ipv4]->text, "detail")) {
 			for (ro = ospf6_route_head(ospf6->brouter_table); ro;
 			     ro = ospf6_route_next(ro))
@@ -1038,10 +1168,11 @@ DEFUN (show_ipv6_ospf6_border_routers,
 
 DEFUN (show_ipv6_ospf6_linkstate,
        show_ipv6_ospf6_linkstate_cmd,
-       "show ipv6 ospf6 linkstate <router A.B.C.D|network A.B.C.D A.B.C.D>",
+       "show ipv6 ospf6 [(1-65535)] linkstate <router A.B.C.D|network A.B.C.D A.B.C.D>",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display linkstate routing table\n"
        "Display Router Entry\n"
        "Specify Router ID as IPv4 address notation\n"
@@ -1050,9 +1181,13 @@ DEFUN (show_ipv6_ospf6_linkstate,
        "Specify Link state ID as IPv4 address notation\n")
 {
 	int idx_ipv4 = 5;
+	int idx_ofs = 0;
 	struct listnode *node;
 	struct ospf6_area *oa;
 	struct ospf6 *ospf6 = NULL;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ipv4 += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -1069,17 +1204,22 @@ DEFUN (show_ipv6_ospf6_linkstate,
 
 DEFUN (show_ipv6_ospf6_linkstate_detail,
        show_ipv6_ospf6_linkstate_detail_cmd,
-       "show ipv6 ospf6 linkstate detail",
+       "show ipv6 ospf6 [(1-65535)] linkstate detail",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Display linkstate routing table\n"
        "Display detailed information\n")
 {
 	int idx_detail = 4;
+	int idx_ofs = 0;
 	struct listnode *node;
 	struct ospf6_area *oa;
 	struct ospf6 *ospf6 = NULL;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_detail += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -1109,13 +1249,13 @@ static void ospf6_plist_del(struct prefix_list *plist)
 }
 
 /* Install ospf related commands. */
-void ospf6_init(struct thread_master *master)
+void ospf6_init(struct thread_master *master, uint16_t instance)
 {
 	ospf6_top_init();
 	ospf6_area_init();
 	ospf6_interface_init();
 	ospf6_neighbor_init();
-	ospf6_zebra_init(master);
+	ospf6_zebra_init(master, instance);
 
 	ospf6_lsa_init();
 	ospf6_spf_init();
@@ -1144,6 +1284,7 @@ void ospf6_init(struct thread_master *master)
 	install_element_ospf6_clear_interface();
 
 	install_element(ENABLE_NODE, &show_debugging_ospf6_cmd);
+	install_element(ENABLE_NODE, &show_debugging_ospf6_instance_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
 

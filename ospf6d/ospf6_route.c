@@ -1776,9 +1776,10 @@ void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 
 DEFUN (debug_ospf6_route,
        debug_ospf6_route_cmd,
-       "debug ospf6 route <table|intra-area|inter-area|memory>",
+       "debug ospf6 [(1-65535)] route <table|intra-area|inter-area|memory>",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug routes\n"
        "Debug route table calculation\n"
        "Debug intra-area route calculation\n"
@@ -1787,7 +1788,11 @@ DEFUN (debug_ospf6_route,
        )
 {
 	int idx_type = 3;
+	int idx_ofs = 0;
 	unsigned char level = 0;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, NULL);
+	idx_type += idx_ofs;
 
 	if (!strcmp(argv[idx_type]->text, "table"))
 		level = OSPF6_DEBUG_ROUTE_TABLE;
@@ -1803,10 +1808,11 @@ DEFUN (debug_ospf6_route,
 
 DEFUN (no_debug_ospf6_route,
        no_debug_ospf6_route_cmd,
-       "no debug ospf6 route <table|intra-area|inter-area|memory>",
+       "no debug ospf6 [(1-65535)] route <table|intra-area|inter-area|memory>",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug routes\n"
        "Debug route table calculation\n"
        "Debug intra-area route calculation\n"
@@ -1814,7 +1820,11 @@ DEFUN (no_debug_ospf6_route,
        "Debug route memory use\n")
 {
 	int idx_type = 4;
+	int idx_ofs = 0;
 	unsigned char level = 0;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
+	idx_type += idx_ofs;
 
 	if (!strcmp(argv[idx_type]->text, "table"))
 		level = OSPF6_DEBUG_ROUTE_TABLE;
@@ -1828,16 +1838,20 @@ DEFUN (no_debug_ospf6_route,
 	return CMD_SUCCESS;
 }
 
-int config_write_ospf6_debug_route(struct vty *vty)
+int config_write_ospf6_debug_route(struct vty *vty, struct ospf6 *ospf6)
 {
 	if (IS_OSPF6_DEBUG_ROUTE(TABLE))
-		vty_out(vty, "debug ospf6 route table\n");
+		vty_out(vty, "debug ospf6%s route table\n",
+			ospf6->instance_str);
 	if (IS_OSPF6_DEBUG_ROUTE(INTRA))
-		vty_out(vty, "debug ospf6 route intra-area\n");
+		vty_out(vty, "debug ospf6%s route intra-area\n",
+			ospf6->instance_str);
 	if (IS_OSPF6_DEBUG_ROUTE(INTER))
-		vty_out(vty, "debug ospf6 route inter-area\n");
+		vty_out(vty, "debug ospf6%s route inter-area\n",
+			ospf6->instance_str);
 	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		vty_out(vty, "debug ospf6 route memory\n");
+		vty_out(vty, "debug ospf6%s route memory\n",
+			ospf6->instance_str);
 
 	return 0;
 }

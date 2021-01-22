@@ -73,7 +73,10 @@ struct zebra_privs_t ospf6d_privs = {
 	.cap_num_i = 0};
 
 /* ospf6d options, we use GNU getopt library. */
-struct option longopts[] = {{0}};
+struct option longopts[] = {
+	{"instance", required_argument, NULL, 'n'},
+	{0}
+};
 
 /* Master of threads. */
 struct thread_master *master;
@@ -192,10 +195,12 @@ FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
    state machine is handled here. */
 int main(int argc, char *argv[], char *envp[])
 {
+	uint16_t instance = 0;
 	int opt;
 
 	frr_preinit(&ospf6d_di, argc, argv);
-	frr_opt_add("", longopts, "");
+	frr_opt_add("n:", longopts,
+		    "  -n, --instance     Set the instance id\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -205,6 +210,11 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 
 		switch (opt) {
+		case 'n':
+			ospf6d_di.instance = instance = atoi(optarg);
+			if (instance < 1)
+				exit(0);
+			break;
 		case 0:
 			break;
 		default:
@@ -220,7 +230,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* OSPF6 master init. */
-	ospf6_master_init(frr_init());
+	ospf6_master_init(frr_init(), instance);
 
 	/* thread master */
 	master = om6->master;
@@ -230,7 +240,7 @@ int main(int argc, char *argv[], char *envp[])
 	prefix_list_init();
 
 	/* initialize ospf6 */
-	ospf6_init(master);
+	ospf6_init(master, instance);
 
 	frr_config_fork();
 	frr_run(master);

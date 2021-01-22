@@ -76,7 +76,7 @@ extern void ospf6_abr_reimport(struct ospf6_area *oa);
 extern void ospf6_abr_range_reset_cost(struct ospf6 *ospf6);
 extern void ospf6_abr_prefix_resummarize(struct ospf6 *ospf6);
 
-extern int config_write_ospf6_debug_abr(struct vty *vty);
+extern int config_write_ospf6_debug_abr(struct vty *vty, struct ospf6 *ospf6);
 extern void install_element_ospf6_debug_abr(void);
 extern int ospf6_abr_config_write(struct vty *vty);
 extern void ospf6_abr_old_route_remove(struct ospf6_lsa *lsa,

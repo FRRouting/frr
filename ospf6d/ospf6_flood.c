@@ -1046,33 +1046,37 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 DEFUN (debug_ospf6_flooding,
        debug_ospf6_flooding_cmd,
-       "debug ospf6 flooding",
+       "debug ospf6 [(1-65535)] flooding",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug OSPFv3 flooding function\n"
       )
 {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, NULL);
 	OSPF6_DEBUG_FLOODING_ON();
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_debug_ospf6_flooding,
        no_debug_ospf6_flooding_cmd,
-       "no debug ospf6 flooding",
+       "no debug ospf6 [(1-65535)] flooding",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug OSPFv3 flooding function\n"
       )
 {
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 	OSPF6_DEBUG_FLOODING_OFF();
 	return CMD_SUCCESS;
 }
 
-int config_write_ospf6_debug_flood(struct vty *vty)
+int config_write_ospf6_debug_flood(struct vty *vty, struct ospf6 *ospf6)
 {
 	if (IS_OSPF6_DEBUG_FLOODING)
-		vty_out(vty, "debug ospf6 flooding\n");
+		vty_out(vty, "debug ospf6%s flooding\n", ospf6->instance_str);
 	return 0;
 }
 

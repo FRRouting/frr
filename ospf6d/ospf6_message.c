@@ -1555,7 +1555,12 @@ int ospf6_receive(struct thread *thread)
 	oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 	if (oi == NULL || oi->area == NULL
 	    || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+		/* Ignore (don't even log) packets received on unknown
+		 * interfaces in non-default instances, they might be
+		 * targeted at another instance and that's perfectly normal.
+		 */
+		if ((oi != NULL || !ospf6->instance)
+		    && IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
 			zlog_debug("Message received on disabled interface");
 		return 0;
 	}
@@ -2442,9 +2447,10 @@ int ospf6_lsack_send_interface(struct thread *thread)
 /* Commands */
 DEFUN (debug_ospf6_message,
        debug_ospf6_message_cmd,
-       "debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all> [<send|recv>]",
+       "debug ospf6 [(1-65535)] message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all> [<send|recv>]",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug OSPFv3 message\n"
        "Debug Unknown message\n"
        "Debug Hello message\n"
@@ -2458,9 +2464,14 @@ DEFUN (debug_ospf6_message,
 {
 	int idx_packet = 3;
 	int idx_send_recv = 4;
+	int idx_ofs = 0;
 	unsigned char level = 0;
 	int type = 0;
 	int i;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, &idx_ofs);
+	idx_packet += idx_ofs;
+	idx_send_recv += idx_ofs;
 
 	/* check type */
 	if (!strncmp(argv[idx_packet]->arg, "u", 1))
@@ -2478,7 +2489,7 @@ DEFUN (debug_ospf6_message,
 	else if (!strncmp(argv[idx_packet]->arg, "a", 1))
 		type = OSPF6_MESSAGE_TYPE_ALL;
 
-	if (argc == 4)
+	if (argc <= idx_send_recv)
 		level = OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_RECV;
 	else if (!strncmp(argv[idx_send_recv]->arg, "s", 1))
 		level = OSPF6_DEBUG_MESSAGE_SEND;
@@ -2496,10 +2507,11 @@ DEFUN (debug_ospf6_message,
 
 DEFUN (no_debug_ospf6_message,
        no_debug_ospf6_message_cmd,
-       "no debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all> [<send|recv>]",
+       "no debug ospf6 [(1-65535)] message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all> [<send|recv>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug OSPFv3 message\n"
        "Debug Unknown message\n"
        "Debug Hello message\n"
@@ -2513,9 +2525,14 @@ DEFUN (no_debug_ospf6_message,
 {
 	int idx_packet = 4;
 	int idx_send_recv = 5;
+	int idx_ofs = 0;
 	unsigned char level = 0;
 	int type = 0;
 	int i;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_packet += idx_ofs;
+	idx_send_recv += idx_ofs;
 
 	/* check type */
 	if (!strncmp(argv[idx_packet]->arg, "u", 1))
@@ -2533,7 +2550,7 @@ DEFUN (no_debug_ospf6_message,
 	else if (!strncmp(argv[idx_packet]->arg, "a", 1))
 		type = OSPF6_MESSAGE_TYPE_ALL;
 
-	if (argc == 5)
+	if (argc <= idx_send_recv)
 		level = OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_RECV;
 	else if (!strncmp(argv[idx_send_recv]->arg, "s", 1))
 		level = OSPF6_DEBUG_MESSAGE_SEND;
@@ -2550,7 +2567,7 @@ DEFUN (no_debug_ospf6_message,
 }
 
 
-int config_write_ospf6_debug_message(struct vty *vty)
+int config_write_ospf6_debug_message(struct vty *vty, struct ospf6 *ospf6)
 {
 	const char *type_str[] = {"unknown", "hello",    "dbdesc",
 				  "lsreq",   "lsupdate", "lsack"};
@@ -2565,37 +2582,44 @@ int config_write_ospf6_debug_message(struct vty *vty)
 	}
 
 	if (s == 0x3f && r == 0x3f) {
-		vty_out(vty, "debug ospf6 message all\n");
+		vty_out(vty, "debug ospf6%s message all\n",
+			ospf6->instance_str);
 		return 0;
 	}
 
 	if (s == 0x3f && r == 0) {
-		vty_out(vty, "debug ospf6 message all send\n");
+		vty_out(vty, "debug ospf6%s message all send\n",
+			ospf6->instance_str);
 		return 0;
 	} else if (s == 0 && r == 0x3f) {
-		vty_out(vty, "debug ospf6 message all recv\n");
+		vty_out(vty, "debug ospf6%s message all recv\n",
+			ospf6->instance_str);
 		return 0;
 	}
 
 	/* Unknown message is logged by default */
 	if (!IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, SEND)
 	    && !IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-		vty_out(vty, "no debug ospf6 message unknown\n");
+		vty_out(vty, "no debug ospf6%s message unknown\n",
+			ospf6->instance_str);
 	else if (!IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, SEND))
-		vty_out(vty, "no debug ospf6 message unknown send\n");
+		vty_out(vty, "no debug ospf6%s message unknown send\n",
+			ospf6->instance_str);
 	else if (!IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-		vty_out(vty, "no debug ospf6 message unknown recv\n");
+		vty_out(vty, "no debug ospf6%s message unknown recv\n",
+			ospf6->instance_str);
 
 	for (i = 1; i < 6; i++) {
 		if (IS_OSPF6_DEBUG_MESSAGE(i, SEND)
 		    && IS_OSPF6_DEBUG_MESSAGE(i, RECV))
-			vty_out(vty, "debug ospf6 message %s\n", type_str[i]);
+			vty_out(vty, "debug ospf6%s message %s\n",
+				ospf6->instance_str, type_str[i]);
 		else if (IS_OSPF6_DEBUG_MESSAGE(i, SEND))
-			vty_out(vty, "debug ospf6 message %s send\n",
-				type_str[i]);
+			vty_out(vty, "debug ospf6%s message %s send\n",
+				ospf6->instance_str, type_str[i]);
 		else if (IS_OSPF6_DEBUG_MESSAGE(i, RECV))
-			vty_out(vty, "debug ospf6 message %s recv\n",
-				type_str[i]);
+			vty_out(vty, "debug ospf6%s message %s recv\n",
+				ospf6->instance_str, type_str[i]);
 	}
 
 	return 0;

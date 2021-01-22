@@ -237,7 +237,8 @@ extern void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 
 extern void ospf6_intra_init(void);
 
-extern int config_write_ospf6_debug_brouter(struct vty *vty);
+extern int config_write_ospf6_debug_brouter(struct vty *vty,
+					    struct ospf6 *ospf6);
 extern void install_element_ospf6_debug_brouter(void);
 
 #endif /* OSPF6_LSA_H */

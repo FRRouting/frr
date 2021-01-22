@@ -30,6 +30,7 @@ struct ospf6_master {
 	/* OSPFv3 thread master. */
 	struct thread_master *master;
 	in_addr_t zebra_router_id;
+	uint16_t instance;
 };
 
 /* ospf6->config_flags */
@@ -39,7 +40,7 @@ enum {
 };
 
 struct ospf6_redist {
-	uint8_t instance;
+	uint16_t instance;
 
 	/* Redistribute metric info. */
 	struct {
@@ -60,6 +61,10 @@ struct ospf6_redist {
 
 /* OSPFv3 top level data structure */
 struct ospf6 {
+	/* instance ID, string is empty (instance 0) or space plus number */
+	uint16_t instance;
+	char *instance_str;
+
 	/* The relevant vrf_id */
 	vrf_id_t vrf_id;
 
@@ -159,13 +164,13 @@ extern struct ospf6 *ospf6;
 extern struct ospf6_master *om6;
 
 /* prototypes */
-extern void ospf6_master_init(struct thread_master *master);
+extern void ospf6_master_init(struct thread_master *master, uint16_t instance);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);
 extern void ospf6_router_id_update(struct ospf6 *ospf6);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
-extern struct ospf6 *ospf6_instance_create(const char *name);
+extern struct ospf6 *ospf6_instance_create(uint16_t instance, const char *name);
 void ospf6_vrf_link(struct ospf6 *ospf6, struct vrf *vrf);
 void ospf6_vrf_unlink(struct ospf6 *ospf6, struct vrf *vrf);
 struct ospf6 *ospf6_lookup_by_vrf_id(vrf_id_t vrf_id);

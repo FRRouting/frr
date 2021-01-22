@@ -249,7 +249,7 @@ extern struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type);
 extern void ospf6_lsa_init(void);
 extern void ospf6_lsa_terminate(void);
 
-extern int config_write_ospf6_debug_lsa(struct vty *vty);
+extern int config_write_ospf6_debug_lsa(struct vty *vty, struct ospf6 *ospf6);
 extern void install_element_ospf6_debug_lsa(void);
 extern void ospf6_lsa_age_set(struct ospf6_lsa *lsa);
 extern void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6);

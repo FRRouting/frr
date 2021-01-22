@@ -995,9 +995,10 @@ static char *ospf6_lsa_handler_name(const struct ospf6_lsa_handler *h)
 
 DEFUN (debug_ospf6_lsa_type,
        debug_ospf6_lsa_hex_cmd,
-       "debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown> [<originate|examine|flooding>]",
+       "debug ospf6 [(1-65535)] lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown> [<originate|examine|flooding>]",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug Link State Advertisements (LSAs)\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -1013,8 +1014,13 @@ DEFUN (debug_ospf6_lsa_type,
 {
 	int idx_lsa = 3;
 	int idx_type = 4;
+	int idx_ofs = 0;
 	unsigned int i;
 	struct ospf6_lsa_handler *handler = NULL;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_type += idx_ofs;
 
 	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
 		handler = vector_slot(ospf6_lsa_handler_vector, i);
@@ -1032,7 +1038,7 @@ DEFUN (debug_ospf6_lsa_type,
 	if (handler == NULL)
 		handler = &unknown_handler;
 
-	if (argc == 5) {
+	if (argc > idx_type) {
 		if (strmatch(argv[idx_type]->text, "originate"))
 			SET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ORIGINATE);
 		else if (strmatch(argv[idx_type]->text, "examine"))
@@ -1047,10 +1053,11 @@ DEFUN (debug_ospf6_lsa_type,
 
 DEFUN (no_debug_ospf6_lsa_type,
        no_debug_ospf6_lsa_hex_cmd,
-       "no debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown> [<originate|examine|flooding>]",
+       "no debug ospf6 [(1-65535)] lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown> [<originate|examine|flooding>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug Link State Advertisements (LSAs)\n"
        "Display Router LSAs\n"
        "Display Network LSAs\n"
@@ -1066,8 +1073,13 @@ DEFUN (no_debug_ospf6_lsa_type,
 {
 	int idx_lsa = 4;
 	int idx_type = 5;
+	int idx_ofs = 0;
 	unsigned int i;
 	struct ospf6_lsa_handler *handler = NULL;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_lsa += idx_ofs;
+	idx_type += idx_ofs;
 
 	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
 		handler = vector_slot(ospf6_lsa_handler_vector, i);
@@ -1084,7 +1096,7 @@ DEFUN (no_debug_ospf6_lsa_type,
 	if (handler == NULL)
 		return CMD_SUCCESS;
 
-	if (argc == 6) {
+	if (argc > idx_type) {
 		if (strmatch(argv[idx_type]->text, "originate"))
 			UNSET_FLAG(handler->lh_debug,
 				   OSPF6_LSA_DEBUG_ORIGINATE);
@@ -1106,7 +1118,7 @@ void install_element_ospf6_debug_lsa(void)
 	install_element(CONFIG_NODE, &no_debug_ospf6_lsa_hex_cmd);
 }
 
-int config_write_ospf6_debug_lsa(struct vty *vty)
+int config_write_ospf6_debug_lsa(struct vty *vty, struct ospf6 *ospf6)
 {
 	unsigned int i;
 	const struct ospf6_lsa_handler *handler;
@@ -1116,16 +1128,20 @@ int config_write_ospf6_debug_lsa(struct vty *vty)
 		if (handler == NULL)
 			continue;
 		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG))
-			vty_out(vty, "debug ospf6 lsa %s\n",
+			vty_out(vty, "debug ospf6%s lsa %s\n",
+				ospf6->instance_str,
 				ospf6_lsa_handler_name(handler));
 		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ORIGINATE))
-			vty_out(vty, "debug ospf6 lsa %s originate\n",
+			vty_out(vty, "debug ospf6%s lsa %s originate\n",
+				ospf6->instance_str,
 				ospf6_lsa_handler_name(handler));
 		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_EXAMIN))
-			vty_out(vty, "debug ospf6 lsa %s examine\n",
+			vty_out(vty, "debug ospf6%s lsa %s examine\n",
+				ospf6->instance_str,
 				ospf6_lsa_handler_name(handler));
 		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_FLOOD))
-			vty_out(vty, "debug ospf6 lsa %s flooding\n",
+			vty_out(vty, "debug ospf6%s lsa %s flooding\n",
+				ospf6->instance_str,
 				ospf6_lsa_handler_name(handler));
 	}
 

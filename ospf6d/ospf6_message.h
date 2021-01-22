@@ -109,6 +109,8 @@ struct ospf6_lsupdate {
 #define OSPF6_LS_ACK_MIN_SIZE                  0U
 /* It is just a sequence of LSA Headers */
 
+struct ospf6;
+
 /* Function definition */
 extern void ospf6_hello_print(struct ospf6_header *);
 extern void ospf6_dbdesc_print(struct ospf6_header *);
@@ -129,7 +131,7 @@ extern int ospf6_lsupdate_send_neighbor(struct thread *thread);
 extern int ospf6_lsack_send_interface(struct thread *thread);
 extern int ospf6_lsack_send_neighbor(struct thread *thread);
 
-extern int config_write_ospf6_debug_message(struct vty *);
+extern int config_write_ospf6_debug_message(struct vty *, struct ospf6 *ospf6);
 extern void install_element_ospf6_debug_message(void);
 
 #endif /* OSPF6_MESSAGE_H */

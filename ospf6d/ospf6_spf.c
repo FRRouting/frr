@@ -779,14 +779,16 @@ void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
 
 DEFUN (debug_ospf6_spf_process,
        debug_ospf6_spf_process_cmd,
-       "debug ospf6 spf process",
+       "debug ospf6 [(1-65535)] spf process",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug SPF Calculation\n"
        "Debug Detailed SPF Process\n"
       )
 {
 	unsigned char level = 0;
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, NULL);
 	level = OSPF6_DEBUG_SPF_PROCESS;
 	OSPF6_DEBUG_SPF_ON(level);
 	return CMD_SUCCESS;
@@ -794,14 +796,16 @@ DEFUN (debug_ospf6_spf_process,
 
 DEFUN (debug_ospf6_spf_time,
        debug_ospf6_spf_time_cmd,
-       "debug ospf6 spf time",
+       "debug ospf6 [(1-65535)] spf time",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug SPF Calculation\n"
        "Measure time taken by SPF Calculation\n"
       )
 {
 	unsigned char level = 0;
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, NULL);
 	level = OSPF6_DEBUG_SPF_TIME;
 	OSPF6_DEBUG_SPF_ON(level);
 	return CMD_SUCCESS;
@@ -809,14 +813,16 @@ DEFUN (debug_ospf6_spf_time,
 
 DEFUN (debug_ospf6_spf_database,
        debug_ospf6_spf_database_cmd,
-       "debug ospf6 spf database",
+       "debug ospf6 [(1-65535)] spf database",
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug SPF Calculation\n"
        "Log number of LSAs at SPF Calculation time\n"
       )
 {
 	unsigned char level = 0;
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 2, NULL);
 	level = OSPF6_DEBUG_SPF_DATABASE;
 	OSPF6_DEBUG_SPF_ON(level);
 	return CMD_SUCCESS;
@@ -824,15 +830,17 @@ DEFUN (debug_ospf6_spf_database,
 
 DEFUN (no_debug_ospf6_spf_process,
        no_debug_ospf6_spf_process_cmd,
-       "no debug ospf6 spf process",
+       "no debug ospf6 [(1-65535)] spf process",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Quit Debugging SPF Calculation\n"
        "Quit Debugging Detailed SPF Process\n"
       )
 {
 	unsigned char level = 0;
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 	level = OSPF6_DEBUG_SPF_PROCESS;
 	OSPF6_DEBUG_SPF_OFF(level);
 	return CMD_SUCCESS;
@@ -840,15 +848,17 @@ DEFUN (no_debug_ospf6_spf_process,
 
 DEFUN (no_debug_ospf6_spf_time,
        no_debug_ospf6_spf_time_cmd,
-       "no debug ospf6 spf time",
+       "no debug ospf6 [(1-65535)] spf time",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Quit Debugging SPF Calculation\n"
        "Quit Measuring time taken by SPF Calculation\n"
       )
 {
 	unsigned char level = 0;
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 	level = OSPF6_DEBUG_SPF_TIME;
 	OSPF6_DEBUG_SPF_OFF(level);
 	return CMD_SUCCESS;
@@ -856,15 +866,17 @@ DEFUN (no_debug_ospf6_spf_time,
 
 DEFUN (no_debug_ospf6_spf_database,
        no_debug_ospf6_spf_database_cmd,
-       "no debug ospf6 spf database",
+       "no debug ospf6 [(1-65535)] spf database",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Debug SPF Calculation\n"
        "Quit Logging number of LSAs at SPF Calculation time\n"
       )
 {
 	unsigned char level = 0;
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 	level = OSPF6_DEBUG_SPF_DATABASE;
 	OSPF6_DEBUG_SPF_OFF(level);
 	return CMD_SUCCESS;
@@ -873,7 +885,7 @@ DEFUN (no_debug_ospf6_spf_database,
 static int ospf6_timers_spf_set(struct vty *vty, unsigned int delay,
 				unsigned int hold, unsigned int max)
 {
-	VTY_DECLVAR_CONTEXT(ospf6, ospf);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf);
 
 	ospf->spf_delay = delay;
 	ospf->spf_holdtime = hold;
@@ -921,14 +933,16 @@ DEFUN (no_ospf6_timers_throttle_spf,
 }
 
 
-int config_write_ospf6_debug_spf(struct vty *vty)
+int config_write_ospf6_debug_spf(struct vty *vty, struct ospf6 *ospf6)
 {
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		vty_out(vty, "debug ospf6 spf process\n");
+		vty_out(vty, "debug ospf6%s spf process\n",
+			ospf6->instance_str);
 	if (IS_OSPF6_DEBUG_SPF(TIME))
-		vty_out(vty, "debug ospf6 spf time\n");
+		vty_out(vty, "debug ospf6%s spf time\n", ospf6->instance_str);
 	if (IS_OSPF6_DEBUG_SPF(DATABASE))
-		vty_out(vty, "debug ospf6 spf database\n");
+		vty_out(vty, "debug ospf6%s spf database\n",
+			ospf6->instance_str);
 	return 0;
 }
 

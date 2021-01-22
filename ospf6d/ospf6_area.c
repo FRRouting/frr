@@ -476,7 +476,7 @@ DEFUN (area_range,
 	struct ospf6_route *range;
 	uint32_t cost = OSPF_AREA_RANGE_COST_UNSPEC;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, oa, ospf6);
 
@@ -545,7 +545,7 @@ DEFUN (no_area_range,
 	struct prefix prefix;
 	struct ospf6_route *range, *route;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, oa, ospf6);
 
@@ -645,7 +645,7 @@ DEFUN (area_filter_list,
 	struct ospf6_area *area;
 	struct prefix_list *plist;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(areaid, area, ospf6);
 
@@ -686,7 +686,7 @@ DEFUN (no_area_filter_list,
 
 	struct ospf6_area *area;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 	OSPF6_CMD_AREA_GET(areaid, area, ospf6);
 
 	if (strmatch(inout, "in")) {
@@ -747,7 +747,7 @@ DEFUN (area_import_list,
 	struct ospf6_area *area;
 	struct access_list *list;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area, ospf6);
 
@@ -777,7 +777,7 @@ DEFUN (no_area_import_list,
 	int idx_ipv4 = 2;
 	struct ospf6_area *area;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area, ospf6);
 
@@ -806,7 +806,7 @@ DEFUN (area_export_list,
 	struct ospf6_area *area;
 	struct access_list *list;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area, ospf6);
 
@@ -836,7 +836,7 @@ DEFUN (no_area_export_list,
 	int idx_ipv4 = 2;
 	struct ospf6_area *area;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area, ospf6);
 
@@ -853,10 +853,11 @@ DEFUN (no_area_export_list,
 
 DEFUN (show_ipv6_ospf6_spf_tree,
        show_ipv6_ospf6_spf_tree_cmd,
-       "show ipv6 ospf6 spf tree [json]",
+       "show ipv6 ospf6 [(1-65535)] spf tree [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Shortest Path First calculation\n"
        "Show SPF tree\n"
         JSON_STR)
@@ -871,6 +872,8 @@ DEFUN (show_ipv6_ospf6_spf_tree,
 	json_object *json_area = NULL;
 	json_object *json_head = NULL;
 	bool uj = use_json(argc, argv);
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, NULL);
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -920,22 +923,27 @@ DEFUN (show_ipv6_ospf6_spf_tree,
 
 DEFUN (show_ipv6_ospf6_area_spf_tree,
        show_ipv6_ospf6_area_spf_tree_cmd,
-       "show ipv6 ospf6 area A.B.C.D spf tree",
+       "show ipv6 ospf6 [(1-65535)] area A.B.C.D spf tree",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        OSPF6_AREA_STR
        OSPF6_AREA_ID_STR
        "Shortest Path First calculation\n"
        "Show SPF tree\n")
 {
 	int idx_ipv4 = 4;
+	int idx_ofs = 0;
 	uint32_t area_id;
 	struct ospf6_area *oa;
 	struct ospf6_vertex *root;
 	struct ospf6_route *route;
 	struct prefix prefix;
 	struct ospf6 *ospf6;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ipv4 += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 
@@ -967,10 +975,11 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
 
 DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
        show_ipv6_ospf6_simulate_spf_tree_root_cmd,
-       "show ipv6 ospf6 simulate spf-tree A.B.C.D area A.B.C.D",
+       "show ipv6 ospf6 [(1-65535)] simulate spf-tree A.B.C.D area A.B.C.D",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       OSPF6_INSTANCE_STR
        "Shortest Path First calculation\n"
        "Show SPF tree\n"
        "Specify root's router-id to calculate another router's SPF tree\n"
@@ -979,6 +988,7 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 {
 	int idx_ipv4 = 5;
 	int idx_ipv4_2 = 7;
+	int idx_ofs = 0;
 	uint32_t area_id;
 	struct ospf6_area *oa;
 	struct ospf6_vertex *root;
@@ -988,6 +998,10 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 	struct ospf6_route_table *spf_table;
 	unsigned char tmp_debug_ospf6_spf = 0;
 	struct ospf6 *ospf6;
+
+	OSPF6_CMD_CHECK_INSTANCE_ARG(argc, argv, 3, &idx_ofs);
+	idx_ipv4 += idx_ofs;
+	idx_ipv4_2 += idx_ofs;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 
@@ -1040,7 +1054,7 @@ DEFUN (ospf6_area_stub,
 	int idx_ipv4_number = 1;
 	struct ospf6_area *area;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
 
@@ -1067,7 +1081,7 @@ DEFUN (ospf6_area_stub_no_summary,
 	int idx_ipv4_number = 1;
 	struct ospf6_area *area;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
 
@@ -1094,7 +1108,7 @@ DEFUN (no_ospf6_area_stub,
 	int idx_ipv4_number = 2;
 	struct ospf6_area *area;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
 
@@ -1117,7 +1131,7 @@ DEFUN (no_ospf6_area_stub_no_summary,
 	int idx_ipv4_number = 2;
 	struct ospf6_area *area;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
 
