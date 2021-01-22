@@ -80,11 +80,14 @@ class SnmpTester(object):
 
     def _parse_multiline(self, snmp_output):
         results = snmp_output.strip().split("\r\n")
-        out_dict = {}
 
+        out_dict = {}
+        out_list = []
         for response in results:
             out_dict[self._get_snmp_oid(response)] = self._get_snmp_value(response)
-        return out_dict
+            out_list.append(self._get_snmp_value(response))
+
+        return out_dict, out_list
 
     def get(self, oid):
         cmd = "snmpget {0} {1}".format(self._snmp_config(), oid)
@@ -114,7 +117,7 @@ class SnmpTester(object):
         return self.get_next(oid) == value
 
     def test_oid_walk(self, oid, values, oids=None):
-        results_dict = self.walk(oid)
+        results_dict, results_list = self.walk(oid)
         print("res {}".format(results_dict))
         if oids is not None:
             index = 0
@@ -124,4 +127,4 @@ class SnmpTester(object):
                 index += 1
             return True
 
-        return results_dict.values() == values
+        return results_list == values
