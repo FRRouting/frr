@@ -792,6 +792,8 @@ Requirements:
   conforms with this, run it without the :option:`-s` parameter.
 - Use `black <https://github.com/psf/black>`_ code formatter before creating
   a pull request. This ensures we have a unified code style.
+- Mark test modules with pytest markers depending on the daemons used during the
+  tests (s. Markers)
 
 Tips:
 
@@ -949,6 +951,8 @@ Before creating a new topology, make sure that there isn't one already that
 does what you need. If nothing is similar, then you may create a new topology,
 preferably, using the newest template
 (:file:`tests/topotests/example-test/test_template.py`).
+
+.. include:: topotests-markers.rst
 
 .. include:: topotests-snippets.rst
 

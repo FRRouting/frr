@@ -44,6 +44,18 @@ from lib.topolog import logger
 from mininet.topo import Topo
 
 
+#TODO: select markers based on daemons used during test
+# pytest module level markers
+"""
+pytestmark = pytest.mark.bfdd # single marker
+pytestmark = [
+	pytest.mark.bgpd,
+	pytest.mark.ospfd,
+	pytest.mark.ospf6d
+] # multiple markers
+"""
+
+
 class TemplateTopo(Topo):
     "Test topology builder"
 
