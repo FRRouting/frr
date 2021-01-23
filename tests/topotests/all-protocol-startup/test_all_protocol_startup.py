@@ -43,7 +43,15 @@ from mininet.link import Intf
 
 from functools import partial
 
-pytestmark = [pytest.mark.isisd, pytest.mark.ospfd, pytest.mark.ripd]
+pytestmark = [
+    pytest.mark.babeld,
+    pytest.mark.bgpd,
+    pytest.mark.isisd,
+    pytest.mark.nhrpd,
+    pytest.mark.ospfd,
+    pytest.mark.pbrd,
+    pytest.mark.ripd,
+]
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
