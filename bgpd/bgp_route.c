@@ -3515,6 +3515,8 @@ static void bgp_attr_add_no_advertise_community(struct attr *attr)
 	old = attr->community;
 	noadv = community_str2com("no-advertise");
 
+	assert(noadv);
+
 	if (old) {
 		merge = community_merge(community_dup(old), noadv);
 
