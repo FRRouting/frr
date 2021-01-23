@@ -45,6 +45,7 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bfdd]
 
 class BFDTopo(Topo):
     "Test topology builder"
@@ -69,7 +70,7 @@ class BFDTopo(Topo):
         switch.add_link(tgen.gears["r2"])
         switch.add_link(tgen.gears["r4"])
 
-@pytest.mark.bfd
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(BFDTopo, mod.__name__)

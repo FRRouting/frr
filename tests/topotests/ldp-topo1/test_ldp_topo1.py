@@ -77,6 +77,8 @@ from lib import topotest
 
 fatal_error = ""
 
+pytestmark = [pytest.mark.ldpd]
+
 #####################################################
 ##
 ##   Network Topology Definition
@@ -159,7 +161,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-@pytest.mark.ldp
+
 def setup_module(module):
     global topo, net
     global fatal_error

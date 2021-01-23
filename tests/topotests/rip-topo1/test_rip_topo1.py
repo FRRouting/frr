@@ -47,6 +47,7 @@ from lib import topotest
 
 fatal_error = ""
 
+pytestmark = [pytest.mark.ripd]
 
 #####################################################
 ##
@@ -104,7 +105,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-@pytest.mark.rip
+
 def setup_module(module):
     global topo, net
 

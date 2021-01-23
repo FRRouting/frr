@@ -90,6 +90,7 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bfdd, pytest.mark.isisd]
 
 class TemplateTopo(Topo):
     "Test topology builder"
@@ -127,8 +128,7 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
         switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
 
-@pytest.mark.bfd
-@pytest.mark.isis
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(TemplateTopo, mod.__name__)

@@ -43,6 +43,8 @@ from mininet.link import Intf
 
 from functools import partial
 
+pytestmark = [pytest.mark.isisd, pytest.mark.ospfd, pytest.mark.ripd]
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
 
@@ -83,9 +85,6 @@ class NetworkTopo(Topo):
 #####################################################
 
 
-@pytest.mark.isis
-@pytest.mark.ospf
-@pytest.mark.rip
 def setup_module(module):
     global topo, net
     global fatal_error
