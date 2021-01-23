@@ -77,7 +77,7 @@ from lib import topotest
 
 fatal_error = ""
 
-pytestmark = [pytest.mark.ldpd]
+pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
 
 #####################################################
 ##

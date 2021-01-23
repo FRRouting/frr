@@ -90,6 +90,7 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bfdd, pytest.mark.ospfd]
 
 class TemplateTopo(Topo):
     "Test topology builder"

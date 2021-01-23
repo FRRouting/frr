@@ -63,7 +63,7 @@ from lib.topolog import logger
 from lib.topojson import build_topo_from_json, build_config_from_json
 from ipaddress import IPv4Address
 
-
+pytestmark = [pytest.mark.ospfd]
 
 # Global variables
 topo = None
