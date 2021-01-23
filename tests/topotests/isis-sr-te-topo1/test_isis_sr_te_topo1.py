@@ -96,7 +96,8 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
-pytestmark = [pytest.mark.isisd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.pathd]
+
 
 class TemplateTopo(Topo):
     "Test topology builder"
