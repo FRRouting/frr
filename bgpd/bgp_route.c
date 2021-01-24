@@ -1836,7 +1836,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* If community is not disabled check the no-export and local. */
 	if (!transparent && bgp_community_filter(peer, piattr)) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-			zlog_debug("%s: community filter check fail", __func__);
+			zlog_debug("%s: community filter check fail for %pFX",
+				   __func__, p);
 		return false;
 	}
 
