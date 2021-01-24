@@ -3506,18 +3506,18 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	return ret;
 }
 
-static void bgp_attr_add_no_advertise_community(struct attr *attr)
+static void bgp_attr_add_no_export_community(struct attr *attr)
 {
 	struct community *old;
 	struct community *new;
 	struct community *merge;
-	struct community *noadv;
+	struct community *no_export;
 
 	old = attr->community;
-	noadv = community_str2com("no-advertise");
+	no_export = community_str2com("no-export");
 
 	if (old) {
-		merge = community_merge(community_dup(old), noadv);
+		merge = community_merge(community_dup(old), no_export);
 
 		if (!old->refcnt)
 			community_free(&old);
@@ -3525,10 +3525,10 @@ static void bgp_attr_add_no_advertise_community(struct attr *attr)
 		new = community_uniq_sort(merge);
 		community_free(&merge);
 	} else {
-		new = community_dup(noadv);
+		new = community_dup(no_export);
 	}
 
-	community_free(&noadv);
+	community_free(&no_export);
 
 	attr->community = new;
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
@@ -3738,7 +3738,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (new_attr.community
 		    && community_include(new_attr.community,
 					 COMMUNITY_BLACKHOLE))
-			bgp_attr_add_no_advertise_community(&new_attr);
+			bgp_attr_add_no_export_community(&new_attr);
 
 		/* If we receive the graceful-shutdown community from an eBGP
 		 * peer we must lower local-preference */
