@@ -21,7 +21,7 @@
 
 """
 Test if 172.16.255.254/32 tagged with BLACKHOLE community is not
-re-advertised downstream.
+re-advertised downstream outside local AS.
 """
 
 import os
@@ -38,13 +38,14 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from mininet.topo import Topo
+from lib.common_config import step
 
 
 class TemplateTopo(Topo):
     def build(self, *_args, **_opts):
         tgen = get_topogen(self)
 
-        for routern in range(1, 4):
+        for routern in range(1, 5):
             tgen.add_router("r{}".format(routern))
 
         switch = tgen.add_switch("s1")
@@ -54,6 +55,10 @@ class TemplateTopo(Topo):
         switch = tgen.add_switch("s2")
         switch.add_link(tgen.gears["r2"])
         switch.add_link(tgen.gears["r3"])
+
+        switch = tgen.add_switch("s3")
+        switch.add_link(tgen.gears["r2"])
+        switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
@@ -88,10 +93,10 @@ def test_bgp_blackhole_community():
         output = json.loads(
             tgen.gears["r2"].vtysh_cmd("show ip bgp 172.16.255.254/32 json")
         )
-        expected = {"paths": [{"community": {"list": ["blackhole", "noAdvertise"]}}]}
+        expected = {"paths": [{"community": {"list": ["blackhole", "noExport"]}}]}
         return topotest.json_cmp(output, expected)
 
-    def _bgp_no_advertise():
+    def _bgp_no_advertise_ebgp():
         output = json.loads(
             tgen.gears["r2"].vtysh_cmd(
                 "show ip bgp neighbor r2-eth1 advertised-routes json"
@@ -105,15 +110,43 @@ def test_bgp_blackhole_community():
 
         return topotest.json_cmp(output, expected)
 
+    def _bgp_no_advertise_ibgp():
+        output = json.loads(
+            tgen.gears["r2"].vtysh_cmd(
+                "show ip bgp neighbor r2-eth2 advertised-routes json"
+            )
+        )
+        expected = {
+            "advertisedRoutes": {"172.16.255.254/32": {}},
+            "totalPrefixCounter": 2,
+        }
+
+        return topotest.json_cmp(output, expected)
+
     test_func = functools.partial(_bgp_converge)
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, 'Failed bgp convergence in "{}"'.format(tgen.gears["r2"])
 
-    test_func = functools.partial(_bgp_no_advertise)
+    step("Check if 172.16.255.254/32 is not advertised to eBGP peers")
+
+    test_func = functools.partial(_bgp_no_advertise_ebgp)
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
-    assert result is None, 'Advertised blackhole tagged prefix in "{}"'.format(
+    assert (
+        result is None
+    ), 'Advertised blackhole tagged prefix to eBGP peers in "{}"'.format(
+        tgen.gears["r2"]
+    )
+
+    step("Check if 172.16.255.254/32 is advertised to iBGP peers")
+
+    test_func = functools.partial(_bgp_no_advertise_ibgp)
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+
+    assert (
+        result is None
+    ), 'Withdrawn blackhole tagged prefix to iBGP peers in "{}"'.format(
         tgen.gears["r2"]
     )
 
