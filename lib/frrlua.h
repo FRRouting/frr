@@ -35,6 +35,17 @@ extern "C" {
 #endif
 
 /*
+ * gcc-10 is complaining about the wrapper function
+ * not being compatible with lua_pushstring returning
+ * a char *.  Let's wrapper it here to make our life
+ * easier
+ */
+static inline void lua_pushstring_wrapper(lua_State *L, const char *str)
+{
+	(void)lua_pushstring(L, str);
+}
+
+/*
  * Converts a prefix to a Lua value and pushes it on the stack.
  */
 void lua_pushprefix(lua_State *L, const struct prefix *prefix);
