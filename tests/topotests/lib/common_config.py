@@ -1647,6 +1647,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                         "dead_interval",
                         "network",
                         "priority",
+                        "cost",
                     ]
                     for keyword in ospf_keywords:
                         if keyword in data["ospf"]:
