@@ -39,7 +39,7 @@ struct frrscript_codec frrscript_codecs_lib[] = {
 	 .encoder = (encoder_func)lua_pushintegerp,
 	 .decoder = lua_tointegerp},
 	{.typename = "string",
-	 .encoder = (encoder_func)lua_pushstring,
+	 .encoder = (encoder_func)lua_pushstring_wrapper,
 	 .decoder = lua_tostringp},
 	{.typename = "prefix",
 	 .encoder = (encoder_func)lua_pushprefix,
@@ -208,7 +208,7 @@ struct frrscript *frrscript_load(const char *name,
 	fs->L = luaL_newstate();
 	frrlua_export_logging(fs->L);
 
-	char fname[MAXPATHLEN];
+	char fname[MAXPATHLEN * 2];
 	snprintf(fname, sizeof(fname), "%s/%s.lua", scriptdir, fs->name);
 
 	int ret = luaL_loadfile(fs->L, fname);

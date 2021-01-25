@@ -1439,8 +1439,7 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 	struct ospf6_redist *red;
 
 	total = 0;
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
-		nroute[type] = 0;
+	memset(nroute, 0, sizeof(nroute));
 	for (route = ospf6_route_head(ospf6->external_table); route;
 	     route = ospf6_route_next(route)) {
 		info = route->route_option;
@@ -1448,12 +1447,11 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 		total++;
 	}
 
-	if (use_json)
-		json_route = json_object_new_object();
-	else
+	if (!use_json)
 		vty_out(vty, "Redistributing External Routes from:\n");
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+
 		red = ospf6_redist_lookup(ospf6, type, 0);
 
 		if (!red)
@@ -1462,6 +1460,7 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 			continue;
 
 		if (use_json) {
+			json_route = json_object_new_object();
 			json_object_string_add(json_route, "routeType",
 					       ZROUTE_NAME(type));
 			json_object_int_add(json_route, "numberOfRoutes",
