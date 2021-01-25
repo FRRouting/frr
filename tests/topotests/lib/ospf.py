@@ -254,60 +254,6 @@ def create_router_ospf6(tgen, topo, input_dict=None, build=False, load_config=Tr
     return result
 
 
-def __create_ospf6_global(tgen, input_dict, router, build=False, load_config=True):
-    """
-    Helper API to create ospf global configuration.
-
-    Parameters
-    ----------
-    * `tgen` : Topogen object
-    * `input_dict` : Input dict data, required when configuring from testcase
-    * `router` : router id to be configured.
-    * `build` : Only for initial setup phase this is set as True.
-
-    Returns
-    -------
-    True or False
-    """
-
-    result = False
-    logger.debug("Entering lib API: __create_ospf_global()")
-    try:
-
-        ospf_data = input_dict[router]["ospf6"]
-        del_ospf_action = ospf_data.setdefault("delete", False)
-        if del_ospf_action:
-            config_data = ["no ipv6 router ospf"]
-            result = create_common_configuration(
-                tgen, router, config_data, "ospf", build, load_config
-            )
-            return result
-
-        config_data = []
-        cmd = "router ospf"
-
-        config_data.append(cmd)
-
-        router_id = ospf_data.setdefault("router_id", None)
-        del_router_id = ospf_data.setdefault("del_router_id", False)
-        if del_router_id:
-            config_data.append("no ospf router-id")
-        if router_id:
-            config_data.append("ospf router-id {}".format(router_id))
-
-        result = create_common_configuration(
-            tgen, router, config_data, "ospf", build, load_config
-        )
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
-
-    logger.debug("Exiting lib API: create_ospf_global()")
-    return result
-
-
 def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=True):
     """
     API to configure ospf on router.
