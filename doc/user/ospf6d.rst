@@ -255,6 +255,13 @@ Showing OSPF6 information
    The additional match option will match the given address to the destination
    of the routes, and return the result accordingly.
 
+.. index:: show ipv6 ospf6 interface [IFNAME] prefix [detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]] [json]
+.. clicmd:: show ipv6 ospf6 interface [IFNAME] prefix [detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]] [json]
+
+   This command shows the prefixes present in the interface routing table.
+   Interface name can also be given. JSON output can be obtained by appending
+   'json' to the end of command.
+
 OSPF6 Configuration Examples
 ============================
 
