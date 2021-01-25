@@ -94,7 +94,7 @@ def create_router_ospf(tgen, topo, input_dict=None, build=False, load_config=Tru
     return result
 
 
-def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True):
+def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True, ospf='ospf'):
     """
     Helper API to create ospf global configuration.
 
@@ -105,6 +105,7 @@ def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True
     * `router` : router to be configured.
     * `build` : Only for initial setup phase this is set as True.
     * `load_config` : Loading the config to router this is set as True.
+    * `ospf` : either 'ospf' or 'ospf6'
 
     Returns
     -------
@@ -115,17 +116,17 @@ def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True
     logger.debug("Entering lib API: __create_ospf_global()")
     try:
 
-        ospf_data = input_dict[router]["ospf"]
+        ospf_data = input_dict[router][ospf]
         del_ospf_action = ospf_data.setdefault("delete", False)
         if del_ospf_action:
-            config_data = ["no router ospf"]
+            config_data = ["no router {}".format(ospf)]
             result = create_common_configuration(
-                tgen, router, config_data, "ospf", build, load_config
+                tgen, router, config_data, ospf, build, load_config
             )
             return result
 
         config_data = []
-        cmd = "router ospf"
+        cmd = "router {}".format(ospf)
 
         config_data.append(cmd)
 
@@ -133,9 +134,9 @@ def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True
         router_id = ospf_data.setdefault("router_id", None)
         del_router_id = ospf_data.setdefault("del_router_id", False)
         if del_router_id:
-            config_data.append("no ospf router-id")
+            config_data.append("no {} router-id".format(ospf))
         if router_id:
-            config_data.append("ospf router-id {}".format(router_id))
+            config_data.append("{} router-id {}".format(ospf, router_id))
 
         # redistribute command
         redistribute_data = ospf_data.setdefault("redistribute", {})
@@ -154,6 +155,7 @@ def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True
                     if del_action:
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
+
         # area information
         area_data = ospf_data.setdefault("area", {})
         if area_data:
@@ -197,8 +199,9 @@ def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True
                     if del_action:
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
+
         result = create_common_configuration(
-            tgen, router, config_data, "ospf", build, load_config
+            tgen, router, config_data, ospf, build, load_config
         )
 
     except InvalidCLIError:
