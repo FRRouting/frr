@@ -1021,9 +1021,7 @@ bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
 
-
-extern int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
-extern int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
+/* Nexthop-group message apis */
 extern enum zclient_send_status
 zclient_nhg_send(struct zclient *zclient, int cmd, struct zapi_nhg *api_nhg);
 

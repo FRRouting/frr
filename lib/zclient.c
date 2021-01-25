@@ -996,7 +996,7 @@ done:
 	return ret;
 }
 
-int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
+static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	int i;
 
@@ -1004,6 +1004,13 @@ int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Specified zapi NHG command (%d) doesn't exist\n",
 			 __func__, cmd);
+		return -1;
+	}
+
+	if (api_nhg->nexthop_num >= MULTIPATH_NUM ||
+	    api_nhg->backup_nexthop_num >= MULTIPATH_NUM) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: zapi NHG encode with invalid input\n", __func__);
 		return -1;
 	}
 
@@ -1024,7 +1031,6 @@ int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 			zapi_nexthop_encode(s, &api_nhg->nexthops[i], 0, 0);
 
 		/* Backup nexthops */
-
 		stream_putw(s, api_nhg->backup_nexthop_num);
 
 		for (i = 0; i < api_nhg->backup_nexthop_num; i++)
