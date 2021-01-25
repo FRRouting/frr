@@ -673,6 +673,70 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
     return result
 
 
+################################
+# Verification procs
+################################
+@retry(attempts=40, wait=2, return_is_str=True)
+def verify_ospf6_neighbor(tgen, topo):
+    """
+    This API is to verify ospf neighborship by running
+    show ip ospf neighbour command,
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `topo` : json file data
+
+    Usage
+    -----
+    Check FULL neighbors.
+    verify_ospf_neighbor(tgen, topo)
+
+    result = verify_ospf_neighbor(tgen, topo)
+
+    Returns
+    -------
+    True or False (Error Message)
+    """
+
+    logger.debug("Entering lib API: verify_ospf6_neighbor()")
+    result = False
+    for router, rnode in tgen.routers().items():
+        if "ospf6" not in topo["routers"][router]:
+            continue
+
+        logger.info("Verifying OSPF6 neighborship on router %s:", router)
+        show_ospf_json = run_frr_cmd(
+            rnode, "show ipv6 ospf6 neighbor json", isjson=True
+        )
+
+        if not show_ospf_json:
+            return "OSPF6 is not running"
+
+        ospf_nbr_list = topo["routers"][router]["ospf6"]["neighbors"]
+        no_of_peer = 0
+        for ospf_nbr in ospf_nbr_list:
+            ospf_nbr_rid = topo["routers"][ospf_nbr]["ospf6"]["router_id"]
+            for neighbor in show_ospf_json["neighbors"]:
+                if neighbor["neighborId"] == ospf_nbr_rid:
+                    nh_state = neighbor["state"]
+                    break
+            else:
+                return "[DUT: {}] OSPF6 peer {} missing".format(router, data_rid)
+
+            if nh_state == "Full":
+                no_of_peer += 1
+
+        if no_of_peer == len(ospf_nbr_list):
+            logger.info("[DUT: {}] OSPF6 is Converged".format(router))
+            result = True
+        else:
+            return "[DUT: {}] OSPF6 is not Converged".format(router)
+
+    logger.debug("Exiting API: verify_ospf6_neighbor()")
+    return result
+
+
 @retry(attempts=21, wait=2, return_is_str=True)
 def verify_ospf_rib(
     tgen, dut, input_dict, next_hop=None, tag=None, metric=None, fib=None
