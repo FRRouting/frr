@@ -753,6 +753,12 @@ def start_topology(tgen, daemon=None):
                 TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(TMPDIR, rname)
             )
 
+        if daemon and "ospf6d" in daemon:
+            # Loading empty ospf.conf file to router, to start the bgp daemon
+            router.load_config(
+                TopoRouter.RD_OSPF6, "{}/{}/ospf6d.conf".format(TMPDIR, rname)
+            )
+
         if daemon and "pimd" in daemon:
             # Loading empty pimd.conf file to router, to start the pim deamon
             router.load_config(
@@ -845,6 +851,9 @@ def topo_daemons(tgen, topo):
     for rtr in ROUTER_LIST:
         if "ospf" in topo["routers"][rtr] and "ospfd" not in daemon_list:
             daemon_list.append("ospfd")
+
+        if "ospf6" in topo["routers"][rtr] and "ospf6d" not in daemon_list:
+            daemon_list.append("ospf6d")
 
         for val in topo["routers"][rtr]["links"].values():
             if "pim" in val and "pimd" not in daemon_list:
@@ -4375,4 +4384,3 @@ def verify_ip_nht(tgen, input_dict):
 
     logger.debug("Exiting lib API: verify_ip_nht()")
     return False
-
