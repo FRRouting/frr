@@ -1594,6 +1594,25 @@ def create_interfaces_cfg(tgen, topo, build=False):
     -------
     True or False
     """
+
+    def _create_interfaces_ospf_cfg(ospf, c_data, data, ospf_keywords):
+        interface_data = []
+        ip_ospf = "ipv6 ospf6" if ospf == "ospf6" else "ip ospf"
+        for keyword in ospf_keywords:
+            if keyword in data[ospf]:
+                intf_ospf_value = c_data["links"][destRouterLink][ospf][keyword]
+                if "delete" in data and data["delete"]:
+                    interface_data.append(
+                        "no {} {}".format(ip_ospf, keyword.replace("_", "-"))
+                    )
+                else:
+                    interface_data.append(
+                        "{} {} {}".format(
+                            ip_ospf, keyword.replace("_", "-"), intf_ospf_value
+                        )
+                    )
+        return interface_data
+
     result = False
     topo = deepcopy(topo)
 
@@ -1640,34 +1659,26 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     else:
                         interface_data.append("ipv6 address {}\n".format(intf_addr))
 
+                ospf_keywords = [
+                    "hello_interval",
+                    "dead_interval",
+                    "network",
+                    "priority",
+                    "cost",
+                ]
                 if "ospf" in data:
-                    ospf_keywords = [
-                        "area",
-                        "hello_interval",
-                        "dead_interval",
-                        "network",
-                        "priority",
-                        "cost",
-                    ]
-                    for keyword in ospf_keywords:
-                        if keyword in data["ospf"]:
-                            intf_ospf_value = c_data["links"][destRouterLink]["ospf"][
-                                keyword
-                            ]
-                            if "delete" in data and data["delete"]:
-                                interface_data.append(
-                                    "no ip ospf {}".format(keyword.replace("_", "-"))
-                                )
-                            else:
-                                interface_data.append(
-                                    "ip ospf {} {}".format(
-                                        keyword.replace("_", "-"), intf_ospf_value
-                                    )
-                                )
+                    interface_data += _create_interfaces_ospf_cfg(
+                        "ospf", c_data, data, ospf_keywords + ["area"]
+                    )
+                if "ospf6" in data:
+                    interface_data += _create_interfaces_ospf_cfg(
+                        "ospf6", c_data, data, ospf_keywords
+                    )
 
             result = create_common_configuration(
                 tgen, c_router, interface_data, "interface_config", build=build
             )
+
     except InvalidCLIError:
         # Traceback
         errormsg = traceback.format_exc()
