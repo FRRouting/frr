@@ -1414,7 +1414,7 @@ int main(int argc, char **argv)
 		} break;
 		case OPTION_NETNS:
 			netns_en = true;
-			if (strchr(optarg, '/')) {
+			if (optarg && strchr(optarg, '/')) {
 				fprintf(stderr,
 					"invalid network namespace name \"%s\" (may not contain slashes)\n",
 					optarg);
