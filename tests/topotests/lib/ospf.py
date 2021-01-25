@@ -238,7 +238,7 @@ def create_router_ospf6(tgen, topo, input_dict=None, build=False, load_config=Tr
     -------
     True or False
     """
-    logger.debug("Entering lib API: create_router_ospf()")
+    logger.debug("Entering lib API: create_router_ospf6()")
     result = False
 
     if not input_dict:
@@ -247,13 +247,15 @@ def create_router_ospf6(tgen, topo, input_dict=None, build=False, load_config=Tr
         topo = topo["routers"]
         input_dict = deepcopy(input_dict)
     for router in input_dict.keys():
-        if "ospf" not in input_dict[router]:
-            logger.debug("Router %s: 'ospf' not present in input_dict", router)
+        if "ospf6" not in input_dict[router]:
+            logger.debug("Router %s: 'ospf6' not present in input_dict", router)
             continue
 
-        result = __create_ospf_global(tgen, input_dict, router, build, load_config)
+        result = __create_ospf_global(
+            tgen, input_dict, router, build, load_config, "ospf6"
+        )
 
-    logger.debug("Exiting lib API: create_router_ospf()")
+    logger.debug("Exiting lib API: create_router_ospf6()")
     return result
 
 

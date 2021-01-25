@@ -257,6 +257,7 @@ def create_common_configuration(
             "bgp": "! BGP Config\n",
             "vrf": "! VRF Config\n",
             "ospf": "! OSPF Config\n",
+            "ospf6": "! OSPF Config\n",
             "pim": "! PIM Config\n",
         }
     )
