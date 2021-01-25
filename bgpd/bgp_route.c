@@ -3516,6 +3516,8 @@ static void bgp_attr_add_no_export_community(struct attr *attr)
 	old = attr->community;
 	no_export = community_str2com("no-export");
 
+	assert(no_export);
+
 	if (old) {
 		merge = community_merge(community_dup(old), no_export);
 
