@@ -1530,7 +1530,7 @@ def static_route_already_present(lines_to_add, testline):
     """
 
     assert(testline.startswith('ip route ') or
-        testline.startswitch('ipv6 route '))
+        testline.startswith('ipv6 route '))
 
     candidate = static_route_line_as_dict(testline)
     for (ctx_keys, line) in lines_to_add:
