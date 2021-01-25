@@ -78,10 +78,14 @@ struct trap_object {
 #define SNMP_LOCAL_VARIABLES                                                   \
 	static long snmp_int_val __attribute__((unused));                      \
 	static struct in_addr snmp_in_addr_val __attribute__((unused));
-
+	static uint8_t snmp_octet_val __attribute__((unused));
 #define SNMP_INTEGER(V)                                                        \
 	(*var_len = sizeof(snmp_int_val), snmp_int_val = V,                    \
 	 (uint8_t *)&snmp_int_val)
+
+#define SNMP_OCTET(V)							\
+	(*var_len = sizeof(snmp_octet_val), snmp_octet_val = V,                    \
+	 (uint8_t *)&snmp_octet_val)
 
 #define SNMP_IPADDRESS(V)                                                      \
 	(*var_len = sizeof(struct in_addr), snmp_in_addr_val = V,              \
