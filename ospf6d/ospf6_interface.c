@@ -250,6 +250,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_send_lsupdate);
 	THREAD_OFF(oi->thread_send_lsack);
 	THREAD_OFF(oi->thread_sso);
+	THREAD_OFF(oi->thread_wait_timer);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
@@ -304,6 +305,7 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_link_lsa);
 	THREAD_OFF(oi->thread_intra_prefix_lsa);
 	THREAD_OFF(oi->thread_as_extern_lsa);
+	THREAD_OFF(oi->thread_wait_timer);
 }
 
 static struct in6_addr *
@@ -793,7 +795,7 @@ int interface_up(struct thread *thread)
 	else {
 		ospf6_interface_state_change(OSPF6_INTERFACE_WAITING, oi);
 		thread_add_timer(master, wait_timer, oi, oi->dead_interval,
-				 NULL);
+				 &oi->thread_wait_timer);
 	}
 
 	return 0;
