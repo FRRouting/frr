@@ -35,6 +35,8 @@ import json
 import platform
 from functools import partial
 
+pytestmark = pytest.mark.pimd
+
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -362,7 +364,7 @@ def config_hosts(tgen, hosts):
         host = tgen.gears[host_name]
         config_host(host_name, host)
 
-@pytest.mark.pim
+
 def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)

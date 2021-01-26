@@ -49,6 +49,8 @@ import datetime
 from time import sleep
 import pytest
 
+pytestmark = pytest.mark.pimd
+
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
