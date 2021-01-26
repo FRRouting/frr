@@ -2548,6 +2548,8 @@ AC_CONFIG_FILES([tools/frr], [chmod +x tools/frr])
 AC_CONFIG_FILES([tools/watchfrr.sh], [chmod +x tools/watchfrr.sh])
 AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
+AC_CONFIG_FILES([tools/frr.service])
+AC_CONFIG_FILES([tools/frr@.service])
 
 AS_IF([test "$with_pkg_git_version" = "yes"], [
     AC_CONFIG_COMMANDS([lib/gitversion.h], [
