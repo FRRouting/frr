@@ -316,6 +316,11 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 		"/frr-isisd:isis/instance/fast-reroute/level-1/lfa/load-sharing");
 	area->lfa_load_sharing[1] = yang_get_default_bool(
 		"/frr-isisd:isis/instance/fast-reroute/level-2/lfa/load-sharing");
+	area->attached_bit_send =
+		yang_get_default_bool("/frr-isisd:isis/instance/attach-send");
+	area->attached_bit_rcv_ignore = yang_get_default_bool(
+		"/frr-isisd:isis/instance/attach-receive-ignore");
+
 #else
 	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
@@ -332,6 +337,8 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->lsp_mtu = DEFAULT_LSP_MTU;
 	area->lfa_load_sharing[0] = true;
 	area->lfa_load_sharing[1] = true;
+	area->attached_bit_send = true;
+	area->attached_bit_rcv_ignore = false;
 #endif /* ifndef FABRICD */
 	area->lfa_priority_limit[0] = SPF_PREFIX_PRIO_LOW;
 	area->lfa_priority_limit[1] = SPF_PREFIX_PRIO_LOW;
@@ -2547,12 +2554,21 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 #endif /* ifndef FABRICD */
 }
 
-void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit)
+void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit)
 {
-	char new_attached_bit = attached_bit ? LSPBIT_ATT : 0;
 
-	if (new_attached_bit != area->attached_bit) {
-		area->attached_bit = new_attached_bit;
+	if (attached_bit != area->attached_bit_send) {
+		area->attached_bit_send = attached_bit;
+		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
+	}
+}
+
+void isis_area_attached_bit_receive_set(struct isis_area *area,
+					bool attached_bit)
+{
+
+	if (attached_bit != area->attached_bit_rcv_ignore) {
+		area->attached_bit_rcv_ignore = attached_bit;
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 	}
 }

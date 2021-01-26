@@ -34,6 +34,8 @@ int isis_instance_is_type_modify(struct nb_cb_modify_args *args);
 int isis_instance_area_address_create(struct nb_cb_create_args *args);
 int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_dynamic_hostname_modify(struct nb_cb_modify_args *args);
+int isis_instance_attached_send_modify(struct nb_cb_modify_args *args);
+int isis_instance_attached_receive_modify(struct nb_cb_modify_args *args);
 int isis_instance_attached_modify(struct nb_cb_modify_args *args);
 int isis_instance_overload_modify(struct nb_cb_modify_args *args);
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
@@ -424,8 +426,10 @@ void cli_show_isis_is_type(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults);
 void cli_show_isis_dynamic_hostname(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_isis_attached(struct vty *vty, struct lyd_node *dnode,
-			    bool show_defaults);
+void cli_show_isis_attached_send(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults);
+void cli_show_isis_attached_receive(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
 void cli_show_isis_overload(struct vty *vty, struct lyd_node *dnode,
 			    bool show_defaults);
 void cli_show_isis_metric_style(struct vty *vty, struct lyd_node *dnode,

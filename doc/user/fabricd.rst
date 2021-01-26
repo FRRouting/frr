@@ -57,6 +57,19 @@ in the configuration:
 
    Configure the authentication password for a domain, as clear text or md5 one.
 
+.. index:: attached-bit [receive ignore | send]
+.. clicmd:: attached-bit [receive ignore | send]
+
+.. index:: attached-bit
+.. clicmd:: no attached-bit
+
+   Set attached bit for inter-area traffic:
+
+   - receive
+     If LSP received with attached bit set, create default route to neighbor
+   - send
+     If L1|L2 router, set attached bit in LSP sent to L1 router
+   
 .. index:: log-adjacency-changes
 .. clicmd:: log-adjacency-changes
 
@@ -64,7 +77,7 @@ in the configuration:
 .. clicmd:: no log-adjacency-changes
 
    Log changes in adjacency state.
-
+     
 .. index:: set-overload-bit
 .. clicmd:: set-overload-bit
 

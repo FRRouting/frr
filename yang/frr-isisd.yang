@@ -1043,9 +1043,24 @@ module frr-isisd {
           "Dynamic hostname support for IS-IS.";
       }
 
+      leaf attach-send {
+        type boolean;
+        default "true";
+        description
+          "If true, attached bits are sent in LSP if L1/L2 router for inter-area traffic.";
+      }
+
+      leaf attach-receive-ignore {
+        type boolean;
+        default "false";
+        description
+          "If false, attached bits received in LSP, cause default route add, if L1 router for inter-area traffic.";
+      }
+
       leaf attached {
         type boolean;
         default "false";
+	status deprecated;
         description
           "If true, identify as L1/L2 router for inter-area traffic.";
       }

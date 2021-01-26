@@ -399,7 +399,50 @@ static void lsp_seqno_update(struct isis_lsp *lsp0)
 	return;
 }
 
-static uint8_t lsp_bits_generate(int level, int overload_bit, int attached_bit)
+static bool isis_level2_adj_up(struct isis_area *curr_area)
+{
+	struct listnode *node, *cnode;
+	struct isis_circuit *circuit;
+	struct list *adjdb;
+	struct isis_adjacency *adj;
+	struct isis *isis = curr_area->isis;
+	struct isis_area *area;
+
+	/* lookup for a Level2 adjacency up in another area */
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		if (area->area_tag
+		    && strcmp(area->area_tag, curr_area->area_tag) == 0)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
+			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+				adjdb = circuit->u.bc.adjdb[1];
+				if (adjdb && adjdb->count) {
+					for (ALL_LIST_ELEMENTS_RO(adjdb, node,
+								  adj))
+						if ((adj->level
+							     == ISIS_ADJ_LEVEL2
+						     || adj->level
+								== ISIS_ADJ_LEVEL1AND2)
+						    && adj->adj_state
+							       == ISIS_ADJ_UP)
+							return true;
+				}
+			} else if (circuit->circ_type == CIRCUIT_T_P2P
+				   && circuit->u.p2p.neighbor) {
+				adj = circuit->u.p2p.neighbor;
+				if ((adj->level == ISIS_ADJ_LEVEL2
+				     || adj->level == ISIS_ADJ_LEVEL1AND2)
+				    && adj->adj_state == ISIS_ADJ_UP)
+					return true;
+			}
+		}
+	}
+	return false;
+}
+
+static uint8_t lsp_bits_generate(int level, int overload_bit, int attached_bit,
+				 struct isis_area *area)
 {
 	uint8_t lsp_bits = 0;
 	if (level == IS_LEVEL_1)
@@ -408,8 +451,13 @@ static uint8_t lsp_bits_generate(int level, int overload_bit, int attached_bit)
 		lsp_bits = IS_LEVEL_1_AND_2;
 	if (overload_bit)
 		lsp_bits |= overload_bit;
-	if (attached_bit)
-		lsp_bits |= attached_bit;
+
+	/* only set the attach bit if we are a level-1-2 router and this is
+	 * a level-1 LSP and we have a level-2 adjacency up from another area
+	 */
+	if (area->is_type == IS_LEVEL_1_AND_2 && level == IS_LEVEL_1
+	    && attached_bit && isis_level2_adj_up(area))
+		lsp_bits |= LSPBIT_ATT;
 	return lsp_bits;
 }
 
@@ -632,13 +680,13 @@ static const char *lsp_bits2string(uint8_t lsp_bits, char *buf, size_t buf_size)
 		return " error";
 
 	/* we only focus on the default metric */
-	pos += sprintf(pos, "%d/",
-		       ISIS_MASK_LSP_ATT_DEFAULT_BIT(lsp_bits) ? 1 : 0);
+	pos += snprintf(pos, buf_size, "%d/",
+			ISIS_MASK_LSP_ATT_BITS(lsp_bits) ? 1 : 0);
 
-	pos += sprintf(pos, "%d/",
-		       ISIS_MASK_LSP_PARTITION_BIT(lsp_bits) ? 1 : 0);
+	pos += snprintf(pos, buf_size, "%d/",
+			ISIS_MASK_LSP_PARTITION_BIT(lsp_bits) ? 1 : 0);
 
-	sprintf(pos, "%d", ISIS_MASK_LSP_OL_BIT(lsp_bits) ? 1 : 0);
+	snprintf(pos, buf_size, "%d", ISIS_MASK_LSP_OL_BIT(lsp_bits) ? 1 : 0);
 
 	return buf;
 }
@@ -838,7 +886,7 @@ static struct isis_lsp *lsp_next_frag(uint8_t frag_num, struct isis_lsp *lsp0,
 
 	lsp = lsp_new(area, frag_id, lsp0->hdr.rem_lifetime, 0,
 		      lsp_bits_generate(level, area->overload_bit,
-					area->attached_bit),
+					area->attached_bit_send, area),
 		      0, lsp0, level);
 	lsp->own_lsp = 1;
 	lsp_insert(&area->lspdb[level - 1], lsp);
@@ -864,7 +912,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		  area->area_tag, level);
 
 	lsp->hdr.lsp_bits = lsp_bits_generate(level, area->overload_bit,
-					      area->attached_bit);
+					      area->attached_bit_send, area);
 
 	lsp_add_auth(lsp);
 
@@ -1223,10 +1271,10 @@ int lsp_generate(struct isis_area *area, int level)
 				       oldlsp->hdr.lsp_id);
 	}
 	rem_lifetime = lsp_rem_lifetime(area, level);
-	newlsp =
-		lsp_new(area, lspid, rem_lifetime, seq_num,
-			area->is_type | area->overload_bit | area->attached_bit,
-			0, NULL, level);
+	newlsp = lsp_new(area, lspid, rem_lifetime, seq_num,
+			 lsp_bits_generate(area->is_type, area->overload_bit,
+					   area->attached_bit_send, area),
+			 0, NULL, level);
 	newlsp->area = area;
 	newlsp->own_lsp = 1;
 
@@ -1310,8 +1358,9 @@ static int lsp_regenerate(struct isis_area *area, int level)
 			continue;
 		}
 
-		frag->hdr.lsp_bits = lsp_bits_generate(
-			level, area->overload_bit, area->attached_bit);
+		frag->hdr.lsp_bits =
+			lsp_bits_generate(level, area->overload_bit,
+					  area->attached_bit_send, area);
 		/* Set the lifetime values of all the fragments to the same
 		 * value,
 		 * so that no fragment expires before the lsp is refreshed.
@@ -1518,8 +1567,8 @@ static void lsp_build_pseudo(struct isis_lsp *lsp, struct isis_circuit *circuit,
 
 	lsp->level = level;
 	/* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
-	lsp->hdr.lsp_bits =
-		lsp_bits_generate(level, 0, circuit->area->attached_bit);
+	lsp->hdr.lsp_bits = lsp_bits_generate(
+		level, 0, circuit->area->attached_bit_send, area);
 
 	/*
 	 * add self to IS neighbours
@@ -1617,8 +1666,10 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	rem_lifetime = lsp_rem_lifetime(circuit->area, level);
 	/* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
 	lsp = lsp_new(circuit->area, lsp_id, rem_lifetime, 1,
-		      circuit->area->is_type | circuit->area->attached_bit, 0,
-		      NULL, level);
+		      lsp_bits_generate(circuit->area->is_type, 0,
+					circuit->area->attached_bit_send,
+					circuit->area),
+		      0, NULL, level);
 	lsp->area = circuit->area;
 
 	lsp_build_pseudo(lsp, circuit, level);

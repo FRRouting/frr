@@ -729,8 +729,8 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 
 	if (!memcmp(iih.sys_id, circuit->isis->sysid, ISIS_SYS_ID_LEN)) {
 		zlog_warn(
-			"ISIS-Adj (%s): Received IIH with own sysid - discard",
-			circuit->area->area_tag);
+			"ISIS-Adj (%s): Received IIH with own sysid on %s - discard",
+			circuit->area->area_tag, circuit->interface->name);
 		circuit->rej_adjacencies++;
 #ifndef FABRICD
 		isis_notif_reject_adjacency(

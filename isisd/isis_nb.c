@@ -60,9 +60,22 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/attach-send",
+			.cbs = {
+				.cli_show = cli_show_isis_attached_send,
+				.modify = isis_instance_attached_send_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/attach-receive-ignore",
+			.cbs = {
+				.cli_show = cli_show_isis_attached_receive,
+				.modify = isis_instance_attached_receive_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/attached",
 			.cbs = {
-				.cli_show = cli_show_isis_attached,
 				.modify = isis_instance_attached_modify,
 			},
 		},
