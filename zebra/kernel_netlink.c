@@ -1136,9 +1136,11 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 		 * associated with any dplane context object.
 		 */
 		if (ctx == NULL) {
-			zlog_debug(
-				"%s: skipping unassociated response, seq number %d NS %u",
-				__func__, h->nlmsg_seq, bth->zns->ns_id);
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s: skipping unassociated response, seq number %d NS %u",
+					__func__, h->nlmsg_seq,
+					bth->zns->ns_id);
 			continue;
 		}
 
@@ -1149,8 +1151,9 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 				dplane_ctx_set_status(
 					ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 
-			zlog_debug("%s: netlink error message seq=%d ",
-				   __func__, h->nlmsg_seq);
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: netlink error message seq=%d ",
+					   __func__, h->nlmsg_seq);
 			continue;
 		}
 
@@ -1159,9 +1162,11 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 		 * the error and instead received some other message in an
 		 * unexpected way.
 		 */
-		zlog_debug("%s: ignoring message type 0x%04x(%s) NS %u",
-			   __func__, h->nlmsg_type,
-			   nl_msg_type_to_str(h->nlmsg_type), bth->zns->ns_id);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: ignoring message type 0x%04x(%s) NS %u",
+				   __func__, h->nlmsg_type,
+				   nl_msg_type_to_str(h->nlmsg_type),
+				   bth->zns->ns_id);
 	}
 
 	return 0;
