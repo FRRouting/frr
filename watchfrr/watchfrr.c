@@ -1082,6 +1082,9 @@ static int valid_command(const char *cmd)
 {
 	char *p;
 
+	if (cmd == NULL)
+		return 0;
+
 	return ((p = strchr(cmd, '%')) != NULL) && (*(p + 1) == 's')
 	       && !strchr(p + 1, '%');
 }
