@@ -1625,6 +1625,8 @@ class Router(Node):
             return "%s: vtysh killed by AddressSanitizer" % (self.name)
 
         for daemon in self.daemons:
+            if daemon == "snmpd":
+                continue
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
                 if daemon == "staticd":
