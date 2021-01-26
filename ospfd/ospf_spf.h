@@ -47,15 +47,15 @@ struct vertex {
 	struct list *children;  /* list of children in SPF tree*/
 };
 
-/* A nexthop taken on the root node to get to this (parent) vertex */
 struct vertex_nexthop {
 	struct in_addr router;     /* router address to send to */
 	int lsa_pos; /* LSA position for resolving the interface */
 };
 
 struct vertex_parent {
-	struct vertex_nexthop *nexthop; /* nexthop address for this parent */
-	struct vertex *parent;		/* parent vertex */
+	struct vertex_nexthop *nexthop; /* nexthop taken on the root node */
+	struct vertex_nexthop *local_nexthop; /* local nexthop of the parent */
+	struct vertex *parent;		      /* parent vertex */
 	int backlink; /* index back to parent for router-lsa's */
 };
 
@@ -77,12 +77,25 @@ extern void ospf_spf_calculate(struct ospf_area *area,
 			       struct route_table *new_table,
 			       struct route_table *new_rtrs, bool is_dry_run,
 			       bool is_root_node);
-extern int ospf_spf_calculate_areas(struct ospf *ospf,
+extern void ospf_spf_calculate_area(struct ospf *ospf, struct ospf_area *area,
 				    struct route_table *new_table,
-				    struct route_table *new_rtrs,
-				    bool is_dry_run, bool is_root_node);
+				    struct route_table *new_rtrs);
+extern void ospf_spf_calculate_areas(struct ospf *ospf,
+				     struct route_table *new_table,
+				     struct route_table *new_rtrs);
 extern void ospf_rtrs_free(struct route_table *);
 extern void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list);
+extern void ospf_spf_copy(struct vertex *vertex, struct list *vertex_list);
+extern void ospf_spf_remove_resource(struct vertex *vertex,
+				     struct list *vertex_list,
+				     struct protected_resource *resource);
+extern struct vertex *ospf_spf_vertex_find(struct in_addr id,
+					   struct list *vertex_list);
+extern struct vertex *ospf_spf_vertex_by_nexthop(struct vertex *root,
+						 struct in_addr *nexthop);
+extern struct vertex_parent *ospf_spf_vertex_parent_find(struct in_addr id,
+							 struct vertex *vertex);
+extern int vertex_parent_cmp(void *aa, void *bb);
 
 extern void ospf_spf_print(struct vty *vty, struct vertex *v, int i);
 

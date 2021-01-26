@@ -60,6 +60,7 @@
 #define OSPF_DEBUG_TE          0x04
 #define OSPF_DEBUG_EXT         0x08
 #define OSPF_DEBUG_SR          0x10
+#define OSPF_DEBUG_TI_LFA 0x11
 #define OSPF_DEBUG_DEFAULTINFO 0x20
 #define OSPF_DEBUG_LDP_SYNC 0x40
 
@@ -110,6 +111,8 @@
 
 #define IS_DEBUG_OSPF_SR  IS_DEBUG_OSPF(sr, SR)
 
+#define IS_DEBUG_OSPF_TI_LFA IS_DEBUG_OSPF(ti_lfa, TI_LFA)
+
 #define IS_DEBUG_OSPF_DEFAULT_INFO IS_DEBUG_OSPF(defaultinfo, DEFAULTINFO)
 
 #define IS_DEBUG_OSPF_LDP_SYNC IS_DEBUG_OSPF(ldp_sync, LDP_SYNC)
@@ -133,6 +136,7 @@ extern unsigned long term_debug_ospf_nssa;
 extern unsigned long term_debug_ospf_te;
 extern unsigned long term_debug_ospf_ext;
 extern unsigned long term_debug_ospf_sr;
+extern unsigned long term_debug_ospf_ti_lfa;
 extern unsigned long term_debug_ospf_defaultinfo;
 extern unsigned long term_debug_ospf_ldp_sync;
 extern unsigned long term_debug_ospf_gr;

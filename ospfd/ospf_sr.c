@@ -159,6 +159,16 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 	return new;
 }
 
+/* Supposed to be used for testing */
+struct sr_node *ospf_sr_node_create(struct in_addr *rid)
+{
+	struct sr_node *srn;
+
+	srn = hash_get(OspfSR.neighbors, (void *)rid, (void *)sr_node_new);
+
+	return srn;
+}
+
 /* Delete Segment Routing node */
 static void sr_node_del(struct sr_node *srn)
 {
@@ -651,6 +661,56 @@ static mpls_label_t index2label(uint32_t index, struct sr_block srgb)
 		return MPLS_INVALID_LABEL;
 	} else
 		return label;
+}
+
+/* Get the prefix sid for a specific router id */
+mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id)
+{
+	struct sr_node *srn;
+	struct sr_prefix *srp;
+	mpls_label_t label;
+
+	srn = (struct sr_node *)hash_lookup(OspfSR.neighbors, id);
+
+	if (srn) {
+		/*
+		 * TODO: Here we assume that the SRGBs are the same,
+		 * and that the node's prefix SID is at the head of
+		 * the list, probably needs tweaking.
+		 */
+		srp = listnode_head(srn->ext_prefix);
+		label = index2label(srp->sid, srn->srgb);
+	} else {
+		label = MPLS_INVALID_LABEL;
+	}
+
+	return label;
+}
+
+/* Get the adjacency sid for a specific 'root' id and 'neighbor' id */
+mpls_label_t ospf_sr_get_adj_sid_by_id(struct in_addr *root_id,
+				       struct in_addr *neighbor_id)
+{
+	struct sr_node *srn;
+	struct sr_link *srl;
+	mpls_label_t label;
+	struct listnode *node;
+
+	srn = (struct sr_node *)hash_lookup(OspfSR.neighbors, root_id);
+
+	label = MPLS_INVALID_LABEL;
+
+	if (srn) {
+		for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, srl)) {
+			if (srl->type == ADJ_SID
+			    && srl->remote_id.s_addr == neighbor_id->s_addr) {
+				label = srl->sid[0];
+				break;
+			}
+		}
+	}
+
+	return label;
 }
 
 /* Get neighbor full structure from address */
@@ -1562,6 +1622,7 @@ void ospf_sr_ext_itf_add(struct ext_itf *exti)
 	srl->itf_addr = exti->link.link_data;
 	srl->instance =
 		SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_LINK_LSA, exti->instance);
+	srl->remote_id = exti->link.link_id;
 	switch (exti->stype) {
 	case ADJ_SID:
 		srl->type = ADJ_SID;

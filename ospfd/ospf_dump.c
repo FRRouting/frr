@@ -56,6 +56,7 @@ unsigned long conf_debug_ospf_nssa = 0;
 unsigned long conf_debug_ospf_te = 0;
 unsigned long conf_debug_ospf_ext = 0;
 unsigned long conf_debug_ospf_sr = 0;
+unsigned long conf_debug_ospf_ti_lfa = 0;
 unsigned long conf_debug_ospf_defaultinfo = 0;
 unsigned long conf_debug_ospf_ldp_sync = 0;
 unsigned long conf_debug_ospf_gr = 0;
@@ -71,6 +72,7 @@ unsigned long term_debug_ospf_nssa = 0;
 unsigned long term_debug_ospf_te = 0;
 unsigned long term_debug_ospf_ext = 0;
 unsigned long term_debug_ospf_sr = 0;
+unsigned long term_debug_ospf_ti_lfa = 0;
 unsigned long term_debug_ospf_defaultinfo;
 unsigned long term_debug_ospf_ldp_sync;
 unsigned long term_debug_ospf_gr = 0;
@@ -1470,6 +1472,24 @@ DEFUN (no_debug_ospf_sr,
 	return CMD_SUCCESS;
 }
 
+DEFUN(debug_ospf_ti_lfa, debug_ospf_ti_lfa_cmd, "debug ospf ti-lfa",
+      DEBUG_STR OSPF_STR "OSPF-SR TI-LFA information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(ti_lfa, TI_LFA);
+	TERM_DEBUG_ON(ti_lfa, TI_LFA);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_ospf_ti_lfa, no_debug_ospf_ti_lfa_cmd, "no debug ospf ti-lfa",
+      NO_STR DEBUG_STR OSPF_STR "OSPF-SR TI-LFA information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(ti_lfa, TI_LFA);
+	TERM_DEBUG_OFF(ti_lfa, TI_LFA);
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_ospf_default_info,
        debug_ospf_default_info_cmd,
        "debug ospf default-information",
@@ -1891,6 +1911,12 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf sr ti-lfa */
+	if (IS_CONF_DEBUG_OSPF(sr, TI_LFA) == OSPF_DEBUG_TI_LFA) {
+		vty_out(vty, "debug ospf%s ti-lfa\n", str);
+		write = 1;
+	}
+
 	/* debug ospf ldp-sync */
 	if (IS_CONF_DEBUG_OSPF(ldp_sync, LDP_SYNC) == OSPF_DEBUG_LDP_SYNC) {
 		vty_out(vty, "debug ospf%s ldp-sync\n", str);
@@ -1920,6 +1946,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_nssa_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_te_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_sr_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_ti_lfa_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
@@ -1930,6 +1957,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_nssa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_te_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_sr_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_ti_lfa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
@@ -1962,6 +1990,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_nssa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_te_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_sr_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_ti_lfa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
@@ -1971,6 +2000,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_nssa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_te_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_sr_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_ti_lfa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);

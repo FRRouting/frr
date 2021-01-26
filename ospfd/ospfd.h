@@ -23,6 +23,7 @@
 #define _ZEBRA_OSPFD_H
 
 #include <zebra.h>
+#include "typesafe.h"
 #include "qobj.h"
 #include "libospf.h"
 #include "ldp_sync.h"
@@ -124,6 +125,13 @@ enum {
 	OSPF_OPAQUE_CAPABLE =		(1 << 2),
 	OSPF_LOG_ADJACENCY_CHANGES =	(1 << 3),
 	OSPF_LOG_ADJACENCY_DETAIL =	(1 << 4),
+};
+
+/* TI-LFA */
+enum protection_type {
+	OSPF_TI_LFA_UNDEFINED_PROTECTION,
+	OSPF_TI_LFA_LINK_PROTECTION,
+	OSPF_TI_LFA_NODE_PROTECTION,
 };
 
 /* OSPF instance structure. */
@@ -374,9 +382,70 @@ struct ospf {
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
 
+	/* TI-LFA support for all interfaces. */
+	bool ti_lfa_enabled;
+	enum protection_type ti_lfa_protection_type;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(ospf)
+
+enum ospf_ti_lfa_p_q_space_adjacency {
+	OSPF_TI_LFA_P_Q_SPACE_ADJACENT,
+	OSPF_TI_LFA_P_Q_SPACE_NON_ADJACENT,
+};
+
+enum ospf_ti_lfa_node_type {
+	OSPF_TI_LFA_UNDEFINED_NODE,
+	OSPF_TI_LFA_PQ_NODE,
+	OSPF_TI_LFA_P_NODE,
+	OSPF_TI_LFA_Q_NODE,
+};
+
+struct ospf_ti_lfa_node_info {
+	struct vertex *node;
+	enum ospf_ti_lfa_node_type type;
+	struct in_addr nexthop;
+};
+
+struct ospf_ti_lfa_inner_backup_path_info {
+	struct ospf_ti_lfa_node_info p_node_info;
+	struct ospf_ti_lfa_node_info q_node_info;
+	struct mpls_label_stack *label_stack;
+};
+
+struct protected_resource {
+	enum protection_type type;
+
+	/* Link Protection */
+	struct router_lsa_link *link;
+
+	/* Node Protection */
+	struct in_addr router_id;
+};
+
+PREDECL_RBTREE_UNIQ(q_spaces)
+struct q_space {
+	struct vertex *root;
+	struct list *vertex_list;
+	struct mpls_label_stack *label_stack;
+	struct in_addr nexthop;
+	struct list *pc_path;
+	struct ospf_ti_lfa_node_info *p_node_info;
+	struct ospf_ti_lfa_node_info *q_node_info;
+	struct q_spaces_item q_spaces_item;
+};
+
+PREDECL_RBTREE_UNIQ(p_spaces)
+struct p_space {
+	struct vertex *root;
+	struct protected_resource *protected_resource;
+	struct q_spaces_head *q_spaces;
+	struct list *vertex_list;
+	struct vertex *pc_spf;
+	struct list *pc_vertex_list;
+	struct p_spaces_item p_spaces_item;
+};
 
 /* OSPF area structure. */
 struct ospf_area {
@@ -475,12 +544,21 @@ struct ospf_area {
 	bool spf_root_node; /* flag for checking if the calculating node is the
 			       root node of the SPF tree */
 
+	/* TI-LFA protected link for SPF calculations */
+	struct protected_resource *spf_protected_resource;
+
+	/* P/Q spaces for TI-LFA */
+	struct p_spaces_head *p_spaces;
+
 	/* Threads. */
 	struct thread *t_stub_router;     /* Stub-router timer */
 	struct thread *t_opaque_lsa_self; /* Type-10 Opaque-LSAs origin. */
 
 	/* Statistics field. */
 	uint32_t spf_calculation; /* SPF Calculation Count. */
+
+	/* reverse SPF (used for TI-LFA Q spaces) */
+	bool spf_reversed;
 
 	/* Time stamps. */
 	struct timeval ts_spf; /* SPF calculation time stamp. */
@@ -566,6 +644,7 @@ extern const char *ospf_redist_string(unsigned int route_type);
 extern struct ospf *ospf_lookup_instance(unsigned short);
 extern struct ospf *ospf_get(unsigned short instance, const char *name,
 			     bool *created);
+extern struct ospf *ospf_new_alloc(unsigned short instance, const char *name);
 extern struct ospf *ospf_get_instance(unsigned short, bool *created);
 extern struct ospf *ospf_lookup_by_inst_name(unsigned short instance,
 					     const char *name);
@@ -619,6 +698,8 @@ extern struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next(struct ospf *,
 						       struct in_addr *, int);
 extern int ospf_oi_count(struct interface *);
 
+extern struct ospf_area *ospf_area_new(struct ospf *ospf,
+				       struct in_addr area_id);
 extern struct ospf_area *ospf_area_get(struct ospf *, struct in_addr);
 extern void ospf_area_check_free(struct ospf *, struct in_addr);
 extern struct ospf_area *ospf_area_lookup_by_area_id(struct ospf *,
@@ -640,4 +721,11 @@ const char *ospf_vrf_id_to_name(vrf_id_t vrf_id);
 int ospf_area_nssa_no_summary_set(struct ospf *, struct in_addr);
 
 const char *ospf_get_name(const struct ospf *ospf);
+extern struct ospf_interface *add_ospf_interface(struct connected *co,
+						 struct ospf_area *area);
+
+extern int p_spaces_compare_func(const struct p_space *a,
+				 const struct p_space *b);
+extern int q_spaces_compare_func(const struct q_space *a,
+				 const struct q_space *b);
 #endif /* _ZEBRA_OSPFD_H */

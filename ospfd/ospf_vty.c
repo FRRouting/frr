@@ -2602,6 +2602,43 @@ ALIAS(no_ospf_write_multiplier, no_write_multiplier_cmd,
       "Write multiplier\n"
       "Maximum number of interface serviced per write\n")
 
+DEFUN(ospf_ti_lfa, ospf_ti_lfa_cmd, "fast-reroute ti-lfa [node-protection]",
+      "Fast Reroute for MPLS and IP resilience\n"
+      "Topology Independent LFA (Loop-Free Alternate)\n"
+      "TI-LFA node protection (default is link protection)\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->ti_lfa_enabled = true;
+
+	if (argc == 3)
+		ospf->ti_lfa_protection_type = OSPF_TI_LFA_NODE_PROTECTION;
+	else
+		ospf->ti_lfa_protection_type = OSPF_TI_LFA_LINK_PROTECTION;
+
+	ospf_spf_calculate_schedule(ospf, SPF_FLAG_CONFIG_CHANGE);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ospf_ti_lfa, no_ospf_ti_lfa_cmd,
+      "no fast-reroute ti-lfa [node-protection]",
+      NO_STR
+      "Fast Reroute for MPLS and IP resilience\n"
+      "Topology Independent LFA (Loop-Free Alternate)\n"
+      "TI-LFA node protection (default is link protection)\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->ti_lfa_enabled = false;
+
+	ospf->ti_lfa_protection_type = OSPF_TI_LFA_UNDEFINED_PROTECTION;
+
+	ospf_spf_calculate_schedule(ospf, SPF_FLAG_CONFIG_CHANGE);
+
+	return CMD_SUCCESS;
+}
+
 static const char *const ospf_abr_type_descr_str[] = {
 	"Unknown", "Standard (RFC2328)", "Alternative IBM",
 	"Alternative Cisco", "Alternative Shortcut"
@@ -6681,8 +6718,8 @@ static void show_lsa_detail_adv_router(struct vty *vty, struct ospf *ospf,
 				       json_lstype);
 }
 
-static void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf,
-					  int self, json_object *json)
+void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
+				   json_object *json)
 {
 	struct ospf_lsa *lsa;
 	struct route_node *rn;
@@ -12364,6 +12401,14 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 			oi->ifp->name, &oi->address->u.prefix4);
 	}
 
+	/* TI-LFA print. */
+	if (ospf->ti_lfa_enabled) {
+		if (ospf->ti_lfa_protection_type == OSPF_TI_LFA_NODE_PROTECTION)
+			vty_out(vty, " fast-reroute ti-lfa node-protection\n");
+		else
+			vty_out(vty, " fast-reroute ti-lfa\n");
+	}
+
 	/* Network area print. */
 	config_write_network_area(vty, ospf);
 
@@ -12827,6 +12872,10 @@ void ospf_vty_init(void)
 	/* "proactive-arp" commands. */
 	install_element(OSPF_NODE, &ospf_proactive_arp_cmd);
 	install_element(OSPF_NODE, &no_ospf_proactive_arp_cmd);
+
+	/* TI-LFA commands */
+	install_element(OSPF_NODE, &ospf_ti_lfa_cmd);
+	install_element(OSPF_NODE, &no_ospf_ti_lfa_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();
