@@ -70,7 +70,7 @@ struct thread_master *master;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
-/* Allow non-quagga entities to delete quagga routes */
+/* Allow non-FRR entities to delete FRR routes */
 int allow_delete = 0;
 
 int graceful_restart;
@@ -418,9 +418,6 @@ int main(int argc, char **argv)
 	zebra_pbr_init();
 	zebra_opaque_init();
 	zebra_srte_init();
-
-	/* For debug purpose. */
-	/* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
 	/* Process the configuration file. Among other configuration
 	*  directives we can meet those installing static routes. Such
