@@ -1182,6 +1182,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	uint64_t cum_bw = 0;
 	uint32_t nhg_id = 0;
 	bool is_add;
+	struct bgp *bgp_orig;
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1335,12 +1336,11 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		}
 
 		if (nh_family == AF_INET) {
+			BGP_ORIGINAL_UPDATE(bgp_orig, mpinfo, bgp);
 			nh_updated = update_ipv4nh_for_route_install(
-					nh_othervrf,
-					nh_othervrf ?
-					info->extra->bgp_orig : bgp,
-					&mpinfo_cp->attr->nexthop,
-					mpinfo_cp->attr, is_evpn, api_nh);
+				nh_othervrf, bgp_orig,
+				&mpinfo_cp->attr->nexthop, mpinfo_cp->attr,
+				is_evpn, api_nh);
 		} else {
 			ifindex_t ifindex = IFINDEX_INTERNAL;
 			struct in6_addr *nexthop;
@@ -1348,20 +1348,16 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			nexthop = bgp_path_info_to_ipv6_nexthop(mpinfo_cp,
 								&ifindex);
 
+			BGP_ORIGINAL_UPDATE(bgp_orig, mpinfo, bgp);
 			if (!nexthop)
 				nh_updated = update_ipv4nh_for_route_install(
-					nh_othervrf,
-					nh_othervrf ? info->extra->bgp_orig
-						    : bgp,
+					nh_othervrf, bgp_orig,
 					&mpinfo_cp->attr->nexthop,
 					mpinfo_cp->attr, is_evpn, api_nh);
 			else
 				nh_updated = update_ipv6nh_for_route_install(
-					nh_othervrf,
-					nh_othervrf ? info->extra->bgp_orig
-						    : bgp,
-					nexthop, ifindex, mpinfo, info, is_evpn,
-					api_nh);
+					nh_othervrf, bgp_orig, nexthop, ifindex,
+					mpinfo, info, is_evpn, api_nh);
 		}
 
 		/* Did we get proper nexthop info to update zebra? */

@@ -180,6 +180,19 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
 			}
 		}
 	}
+	/*
+	 * If both nexthops are same then check
+	 * if they belong to same VRF
+	 */
+	if (!compare) {
+		if (bpi1->extra && bpi1->extra->bgp_orig && bpi2->extra
+		    && bpi2->extra->bgp_orig) {
+			if (bpi1->extra->bgp_orig->vrf_id
+			    != bpi2->extra->bgp_orig->vrf_id) {
+				compare = 1;
+			}
+		}
+	}
 
 	return compare;
 }
