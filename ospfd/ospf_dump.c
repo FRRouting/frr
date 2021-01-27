@@ -616,7 +616,7 @@ DEFUN (debug_ospf_packet,
 
 	if (inst) // user passed instance ID
 	{
-		if (!ospf_lookup_instance(strtoul(argv[2]->arg, NULL, 10)))
+		if (inst != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -692,7 +692,7 @@ DEFUN (no_debug_ospf_packet,
 
 	if (inst) // user passed instance ID
 	{
-		if (!ospf_lookup_instance(strtoul(argv[3]->arg, NULL, 10)))
+		if (inst != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -763,7 +763,7 @@ DEFUN (debug_ospf_ism,
 
 	if (inst) // user passed instance ID
 	{
-		if (!ospf_lookup_instance(strtoul(argv[2]->arg, NULL, 10)))
+		if (inst != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -814,7 +814,7 @@ DEFUN (no_debug_ospf_ism,
 
 	if (inst) // user passed instance ID
 	{
-		if (!ospf_lookup_instance(strtoul(argv[3]->arg, NULL, 10)))
+		if (inst != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -909,8 +909,8 @@ DEFUN (debug_ospf_instance_nsm,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	return debug_ospf_nsm_common(vty, 4, argc, argv);
 }
@@ -981,7 +981,7 @@ DEFUN (no_debug_ospf_instance_nsm,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	return no_debug_ospf_nsm_common(vty, 5, argc, argv);
@@ -1062,7 +1062,7 @@ DEFUN (debug_ospf_instance_lsa,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	return debug_ospf_lsa_common(vty, 4, argc, argv);
@@ -1145,7 +1145,7 @@ DEFUN (no_debug_ospf_instance_lsa,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	return no_debug_ospf_lsa_common(vty, 5, argc, argv);
@@ -1207,7 +1207,7 @@ DEFUN (debug_ospf_instance_zebra,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	return debug_ospf_zebra_common(vty, 4, argc, argv);
@@ -1271,8 +1271,8 @@ DEFUN (no_debug_ospf_instance_zebra,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	return no_debug_ospf_zebra_common(vty, 5, argc, argv);
 }
@@ -1317,8 +1317,8 @@ DEFUN (debug_ospf_instance_event,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_ON(event, EVENT);
@@ -1339,8 +1339,8 @@ DEFUN (no_debug_ospf_instance_event,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(event, EVENT);
@@ -1387,8 +1387,8 @@ DEFUN (debug_ospf_instance_nssa,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_ON(nssa, NSSA);
@@ -1409,8 +1409,8 @@ DEFUN (no_debug_ospf_instance_nssa,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(nssa, NSSA);
@@ -1625,12 +1625,12 @@ DEFUN (no_debug_ospf,
 	return CMD_SUCCESS;
 }
 
-static int show_debugging_ospf_common(struct vty *vty, struct ospf *ospf)
+static int show_debugging_ospf_common(struct vty *vty)
 {
 	int i;
 
-	if (ospf->instance)
-		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+	if (ospf_instance)
+		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf_instance);
 
 	vty_out(vty, "OSPF debugging status:\n");
 
@@ -1742,13 +1742,7 @@ DEFUN_NOSH (show_debugging_ospf,
 	    DEBUG_STR
 	    OSPF_STR)
 {
-	struct ospf *ospf = NULL;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return CMD_SUCCESS;
-
-	return show_debugging_ospf_common(vty, ospf);
+	return show_debugging_ospf_common(vty);
 }
 
 DEFUN_NOSH (show_debugging_ospf_instance,
@@ -1760,14 +1754,13 @@ DEFUN_NOSH (show_debugging_ospf_instance,
 	    "Instance ID\n")
 {
 	int idx_number = 3;
-	struct ospf *ospf;
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL)
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
-	return show_debugging_ospf_common(vty, ospf);
+	return show_debugging_ospf_common(vty);
 }
 
 static int config_write_debug(struct vty *vty);
@@ -1790,16 +1783,11 @@ static int config_write_debug(struct vty *vty)
 		"",	" send",	" recv",	"",
 		" detail", " send detail", " recv detail", " detail"};
 
-	struct ospf *ospf;
 	char str[16];
 	memset(str, 0, 16);
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return CMD_SUCCESS;
-
-	if (ospf->instance)
-		snprintf(str, sizeof(str), " %u", ospf->instance);
+	if (ospf_instance)
+		snprintf(str, sizeof(str), " %u", ospf_instance);
 
 	/* debug ospf ism (status|events|timers). */
 	if (IS_CONF_DEBUG_OSPF(ism, ISM) == OSPF_DEBUG_ISM)

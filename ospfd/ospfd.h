@@ -633,6 +633,7 @@ struct ospf_nbr_nbma {
 
 /* Extern variables. */
 extern struct ospf_master *om;
+extern unsigned short ospf_instance;
 extern const int ospf_redistributed_proto_max;
 extern struct zclient *zclient;
 extern struct thread_master *master;
@@ -642,10 +643,10 @@ extern struct zebra_privs_t ospfd_privs;
 /* Prototypes. */
 extern const char *ospf_redist_string(unsigned int route_type);
 extern struct ospf *ospf_lookup_instance(unsigned short);
+extern struct ospf *ospf_lookup(unsigned short instance, const char *name);
 extern struct ospf *ospf_get(unsigned short instance, const char *name,
 			     bool *created);
 extern struct ospf *ospf_new_alloc(unsigned short instance, const char *name);
-extern struct ospf *ospf_get_instance(unsigned short, bool *created);
 extern struct ospf *ospf_lookup_by_inst_name(unsigned short instance,
 					     const char *name);
 extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);

@@ -70,6 +70,8 @@ static struct ospf_master ospf_master;
 /* OSPF process wide configuration pointer to export. */
 struct ospf_master *om;
 
+unsigned short ospf_instance;
+
 extern struct zclient *zclient;
 
 
@@ -511,36 +513,28 @@ static void ospf_init(struct ospf *ospf)
 	ospf_router_id_update(ospf);
 }
 
-struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
+struct ospf *ospf_lookup(unsigned short instance, const char *name)
 {
 	struct ospf *ospf;
 
-	/* vrf name provided call inst and name based api
-	 * in case of no name pass default ospf instance */
-	if (name)
+	if (ospf_instance) {
+		ospf = ospf_lookup_instance(instance);
+	} else {
 		ospf = ospf_lookup_by_inst_name(instance, name);
-	else
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-	*created = (ospf == NULL);
-	if (ospf == NULL) {
-		ospf = ospf_new(instance, name);
-		ospf_add(ospf);
-
-		ospf_init(ospf);
 	}
 
 	return ospf;
 }
 
-struct ospf *ospf_get_instance(unsigned short instance, bool *created)
+struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 {
 	struct ospf *ospf;
 
-	ospf = ospf_lookup_instance(instance);
+	ospf = ospf_lookup(instance, name);
+
 	*created = (ospf == NULL);
 	if (ospf == NULL) {
-		ospf = ospf_new(instance, NULL /* VRF_DEFAULT*/);
+		ospf = ospf_new(instance, name);
 		ospf_add(ospf);
 
 		ospf_init(ospf);
