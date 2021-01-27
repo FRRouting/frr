@@ -35,7 +35,7 @@ if HAVE_PROTOBUF
 
 # Rules
 .proto.pb.h:
-	$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_srcdir) $(top_srcdir)/$^
+	$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_srcdir) $^
 
 AM_V_PROTOC_C = $(am__v_PROTOC_C_$(V))
 am__v_PROTOC_C_ = $(am__v_PROTOC_C_$(AM_DEFAULT_VERBOSITY))
@@ -43,7 +43,7 @@ am__v_PROTOC_C_0 = @echo "  PROTOC_C" $@;
 am__v_PROTOC_C_1 =
 
 .proto.pb-c.c:
-	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_srcdir) $(top_srcdir)/$^
+	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_srcdir) $^
 .pb-c.c.pb-c.h:
 	@/bin/true
 
