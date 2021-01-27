@@ -2693,7 +2693,7 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 	char *line = do_prepend(vty, argv, argc);
 
 	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0) {
+		if (vtysh_client[i].fd >= 0 || vtysh_client[i].next) {
 			vty_out(vty, headline, vtysh_client[i].name);
 			ret = vtysh_client_execute(&vtysh_client[i], line);
 			vty_out(vty, "\n");
