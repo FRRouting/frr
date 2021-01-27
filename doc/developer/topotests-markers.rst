@@ -92,7 +92,7 @@ Adding multiple markers:
     def test_using_bgpd_ospfd_ospf6d():
 
 
-Selecting marked modules fort testing
+Selecting marked modules for testing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Selecting by a single marker:
 
