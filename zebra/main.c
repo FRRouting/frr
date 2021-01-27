@@ -75,7 +75,11 @@ int allow_delete = 0;
 
 int graceful_restart;
 
+/* IPv6 route semantics allow 'replace' */
 bool v6_rr_semantics = false;
+
+/* IPv6 route updates preceded by preemptive delete. */
+bool v6_preempt_delete;
 
 #ifdef HAVE_NETLINK
 /* Receive buffer size for netlink socket */
@@ -84,6 +88,7 @@ uint32_t nl_rcvbufsize = 4194304;
 
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
+#define OPTION_V6_PREEMPT      2002
 
 /* Command line options. */
 const struct option longopts[] = {
@@ -99,6 +104,7 @@ const struct option longopts[] = {
 	{"vrfwnetns", no_argument, NULL, 'n'},
 	{"nl-bufsize", required_argument, NULL, 's'},
 	{"v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS},
+	{"v6-preempt", no_argument, NULL, OPTION_V6_PREEMPT},
 #endif /* HAVE_NETLINK */
 	{0}};
 
@@ -288,6 +294,8 @@ int main(int argc, char **argv)
 	bool asic_offload = false;
 	bool notify_on_ack = true;
 
+	v6_preempt_delete = false;
+
 	graceful_restart = 0;
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
 
@@ -312,6 +320,7 @@ int main(int argc, char **argv)
 		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
 		"      --v6-rr-semantics    Use v6 RR semantics\n"
+		"      --v6-preempt         Preemptive deletes for v6 route updates\n"
 #endif /* HAVE_NETLINK */
 	);
 
@@ -372,6 +381,9 @@ int main(int argc, char **argv)
 			break;
 		case OPTION_V6_RR_SEMANTICS:
 			v6_rr_semantics = true;
+			break;
+		case OPTION_V6_PREEMPT:
+			v6_preempt_delete = true;
 			break;
 		case OPTION_ASIC_OFFLOAD:
 			if (!strcmp(optarg, "notify_on_offload"))
