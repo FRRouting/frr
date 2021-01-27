@@ -164,6 +164,56 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 		totals->cpu.max = copy.cpu.max;
 }
 
+void thread_dump_master_statistics(struct vty *vty, struct thread_master *m)
+{
+	char buf[64];
+
+	frr_with_mutex(&m->mtx) {
+		if (m->last_wakeup.tv_sec || m->last_wakeup.tv_usec) {
+			vty_out(vty, " Last-Wakeup-Interval: \t\t%llu us\n",
+				m->last_wkp_intvl);
+			frr_realtime_to_string(&m->last_wakeup, buf,
+					       sizeof(buf));
+			vty_out(vty, " Last-Wakeup-Time:\t\t%s\n", buf);
+			if (m->last_max_wakeup.tv_sec
+			    || m->last_max_wakeup.tv_usec) {
+				vty_out(vty,
+					" Maximum-Wakeup-Interval: \t%llu us\n",
+					m->max_wkp_intvl);
+				frr_realtime_to_string(&m->last_max_wakeup, buf,
+						       sizeof(buf));
+				vty_out(vty, " Last-Maximum-Wakeup-Time:\t%s\n",
+					buf);
+			}
+		} else {
+			vty_out(vty, " Last-Wakeup-Time:\t\tNever\n");
+		}
+		if (m->last_hog.tv_sec || m->last_hog.tv_usec) {
+			frr_realtime_to_string(&m->last_hog, buf, sizeof(buf));
+			vty_out(vty, " Last-CPU-Hog-Time:\t\t%s\n", buf);
+			vty_out(vty, " Last-CPU-Hog-CpuTime:\t\t%llu us\n",
+				m->last_hog_cputime);
+			vty_out(vty, " Last-CPU-Hog-RealTime:\t\t%llu us\n",
+				m->last_hog_realtime);
+		}
+	}
+	vty_out(vty, "\n");
+}
+
+void thread_dump_all_thread_statistics(struct vty *vty)
+{
+	struct thread_master *m;
+	struct listnode *ln;
+
+	frr_with_mutex(&masters_mtx) {
+		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
+			vty_out(vty, "Statistics for thread: %s\n",
+				m->name ? m->name : "main");
+			thread_dump_master_statistics(vty, m);
+		}
+	} /* end frr_with_mutex(&masters_mtx) */
+}
+
 static void cpu_record_print(struct vty *vty, uint8_t filter)
 {
 	struct cpu_thread_history tmp;
@@ -186,6 +236,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 			vty_out(vty, "\n");
 			vty_out(vty, "Showing statistics for pthread %s\n",
 				name);
+			thread_dump_master_statistics(vty, m);
 			vty_out(vty, "-------------------------------%s\n",
 				underline);
 			vty_out(vty, "%21s %18s %18s\n", "",
@@ -492,6 +543,12 @@ struct thread_master *thread_master_create(const char *name)
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
 	rv->handler.copy = XCALLOC(MTYPE_THREAD_MASTER,
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
+
+	rv->max_wkp_intvl = 0;
+	rv->last_wkp_intvl = 0;
+	memset(&rv->last_wakeup, 0, sizeof(rv->last_wakeup));
+	memset(&rv->last_max_wakeup, 0, sizeof(rv->last_max_wakeup));
+	memset(&rv->last_hog, 0, sizeof(rv->last_hog));
 
 	/* add to list of threadmasters */
 	frr_with_mutex(&masters_mtx) {
@@ -1669,6 +1726,37 @@ void thread_call(struct thread *thread)
 	unsigned long helper;
 #endif
 	RUSAGE_T before, after;
+	struct timeval wkptime, diff;
+	uint64_t wkpintvl_usecs;
+
+	/*
+	 * The following code measures interval between consecutive
+	 * wakeup of the various threads under the current process
+	 * and log that in order to detect any possible CPU starvations.
+	 * Offcourse it can not be used to differentiate between
+	 * wether a process was indeed ready but it could not be
+	 * scheduled (due to other process hogging CPU) and that of
+	 * the process really being idle for long.
+	 *
+	 * In cases if a deamon is supposed to run some timely regular
+	 * jobs, the data captured here can definitely highlight if
+	 * the process ever went through CPU starvation or not.
+	 */
+	frr_get_realtime(&wkptime);
+	frr_with_mutex(&thread->master->mtx) {
+		if (thread->master->last_wakeup.tv_sec
+		    || thread->master->last_wakeup.tv_usec) {
+			timersub(&wkptime, &thread->master->last_wakeup, &diff);
+			wkpintvl_usecs = (((uint64_t)diff.tv_sec * 1000000)
+					  + (uint64_t)diff.tv_usec);
+			if (wkpintvl_usecs > thread->master->max_wkp_intvl) {
+				thread->master->max_wkp_intvl = wkpintvl_usecs;
+				thread->master->last_max_wakeup = wkptime;
+			}
+			thread->master->last_wkp_intvl = wkpintvl_usecs;
+		}
+		thread->master->last_wakeup = wkptime;
+	} /* end frr_with_mutex(&thread->master->mtx) */
 
 	GETRUSAGE(&before);
 	thread->real = before.real;
@@ -1726,6 +1814,19 @@ void thread_call(struct thread *thread)
 			"SLOW THREAD: task %s (%lx) ran for %lums (cpu time %lums)",
 			thread->funcname, (unsigned long)thread->func,
 			realtime / 1000, cputime / 1000);
+
+		/*
+		 * The following code always record the details of
+		 * last occurance of any kind of CPU hogging the
+		 * current process would have caused.
+		 *
+		 * The data captured can serve as good indication
+		 * of any CPU hogging this process might have caused
+		 * during its lifetime.
+		 */
+		frr_get_realtime(&thread->master->last_hog);
+		thread->master->last_hog_realtime = realtime;
+		thread->master->last_hog_cputime = cputime;
 	}
 #endif /* CONSUMED_TIME_CHECK */
 #endif /* Exclude CPU Time */

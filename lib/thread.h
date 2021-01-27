@@ -43,6 +43,8 @@ struct rusage_t {
 PREDECL_LIST(thread_list)
 PREDECL_HEAP(thread_timer_list)
 
+struct vty;
+
 struct fd_handler {
 	/* number of pfd that fit in the allocated space of pfds. This is a
 	 * constant
@@ -87,6 +89,13 @@ struct thread_master {
 	bool handle_signals;
 	pthread_mutex_t mtx;
 	pthread_t owner;
+	struct timeval last_wakeup;
+	struct timeval last_max_wakeup;
+	struct timeval last_hog;
+	uint64_t last_wkp_intvl;
+	uint64_t max_wkp_intvl;
+	uint64_t last_hog_realtime;
+	uint64_t last_hog_cputime;
 };
 
 /* Thread itself. */
@@ -225,10 +234,14 @@ extern void thread_cmd_init(void);
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 					  unsigned long *cpu_time_elapsed);
 
+extern void thread_dump_master_statistics(struct vty *vty,
+					  struct thread_master *m);
+extern void thread_dump_all_thread_statistics(struct vty *vty);
+
 /* only for use in logging functions! */
 extern pthread_key_t thread_current;
 extern char *thread_timer_to_hhmmss(char *buf, int buf_size,
-		struct thread *t_timer);
+				    struct thread *t_timer);
 
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
