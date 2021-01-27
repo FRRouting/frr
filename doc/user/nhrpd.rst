@@ -180,14 +180,15 @@ Integration with IKE
 nhrpd needs tight integration with IKE daemon for various reasons.
 Currently only strongSwan is supported as IKE daemon.
 
-nhrpd connects to strongSwan using VICI protocol based on UNIX socket
-(hardcoded now as /var/run/charon.vici).
+nhrpd connects to strongSwan using VICI protocol based on UNIX socket which
+can be configured using the command below (default to /var/run/charon.vici).
 
 strongSwan currently needs few patches applied. Please check out the
-https://git.alpinelinux.org/user/tteras/strongswan/log/?h=tteras-release
-and
-https://git.alpinelinux.org/user/tteras/strongswan/log/?h=tteras
-git repositories for the patches.
+original patches at:
+https://git-old.alpinelinux.org/user/tteras/strongswan/
+
+Actively maintained patches are also available at:
+https://gitlab.alpinelinux.org/alpine/aports/-/tree/master/main/strongswan
 
 .. _nhrp-events:
 
