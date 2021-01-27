@@ -502,6 +502,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	struct bgp_path_info *bpi;
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp_path_info *new;
+	char buf_prefix[PREFIX_STRLEN];
 
 	if (debug)
 		zlog_debug(
@@ -539,6 +540,19 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 
 	if (bpi) {
 		bool labelssame = labels_same(bpi, label, num_labels);
+
+		if ((CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)
+		     && CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED))
+		    || (!CHECK_FLAG(source_bpi->flags, BGP_PATH_VALID)
+			&& !CHECK_FLAG(bpi->flags, BGP_PATH_VALID))) {
+			if (debug)
+				zlog_debug(
+					"%s: ->%s: %s: Found route,"
+					" either not valid or being removed,"
+					" not leaking",
+					__func__, bgp->name_pretty, buf_prefix);
+			return NULL;
+		}
 
 		if (attrhash_cmp(bpi->attr, new_attr) && labelssame
 		    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
