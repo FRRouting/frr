@@ -1273,10 +1273,8 @@ void ls_dump_ted(struct ls_ted *ted)
 	frr_each(subnets, &ted->subnets, subnet) {
 		ls_subnet2msg(&msg, subnet);
 		zlog_debug(
-			"\tTed subnet key:%s vertex:%pI4 pfx:%pFX",
-			subnet->key.family == AF_INET
-				? inet_ntoa(subnet->key.u.prefix4)
-				: inet6_ntoa(subnet->key.u.prefix6),
+			"\tTed subnet key:%pFX vertex:%pI4 pfx:%pFX",
+			&subnet->key,
 			&subnet->vertex->node->adv.id.ip.addr,
 			&subnet->ls_pref->pref);
 	}
