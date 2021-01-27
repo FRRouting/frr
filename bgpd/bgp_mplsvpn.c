@@ -1027,6 +1027,8 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn, /* to */
 					if (debug)
 						zlog_debug("%s: deleting it",
 							   __func__);
+					/* withdraw from leak-to vrfs as well */
+					vpn_leak_to_vrf_withdraw(bgp_vpn, bpi);
 					bgp_aggregate_decrement(
 						bgp_vpn,
 						bgp_dest_get_prefix(bn), bpi,
