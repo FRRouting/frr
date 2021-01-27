@@ -590,8 +590,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			 * TBD do we need to do anything about the
 			 * 'connected' parameter?
 			 */
-			nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop,
-							   afi, bpi, NULL, 0);
+			nh_valid = bgp_find_or_add_nexthop(
+				bgp, bgp_nexthop, afi, safi, bpi, NULL, 0);
 
 		if (debug)
 			zlog_debug("%s: nexthop is %svalid (in vrf %s)",
@@ -656,8 +656,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		 * TBD do we need to do anything about the
 		 * 'connected' parameter?
 		 */
-		nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop,
-						afi, new, NULL, 0);
+		nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
+						   new, NULL, 0);
 
 	if (debug)
 		zlog_debug("%s: nexthop is %svalid (in vrf %s)",
