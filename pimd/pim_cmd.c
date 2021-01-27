@@ -4118,15 +4118,10 @@ DEFUN (show_ip_igmp_interface_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_igmp_join,
-       show_ip_igmp_join_cmd,
-       "show ip igmp [vrf NAME] join [json]",
-       SHOW_STR
-       IP_STR
-       IGMP_STR
-       VRF_CMD_HELP_STR
-       "IGMP static join information\n"
-       JSON_STR)
+DEFUN(show_ip_igmp_join, show_ip_igmp_join_cmd,
+      "show ip igmp [vrf NAME] join [json]",
+      SHOW_STR IP_STR IGMP_STR VRF_CMD_HELP_STR
+      "IGMP static join information\n" JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -4140,15 +4135,10 @@ DEFUN (show_ip_igmp_join,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_igmp_join_vrf_all,
-       show_ip_igmp_join_vrf_all_cmd,
-       "show ip igmp vrf all join [json]",
-       SHOW_STR
-       IP_STR
-       IGMP_STR
-       VRF_CMD_HELP_STR
-       "IGMP static join information\n"
-       JSON_STR)
+DEFUN(show_ip_igmp_join_vrf_all, show_ip_igmp_join_vrf_all_cmd,
+      "show ip igmp vrf all join [json]",
+      SHOW_STR IP_STR IGMP_STR VRF_CMD_HELP_STR
+      "IGMP static join information\n" JSON_STR)
 {
 	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
