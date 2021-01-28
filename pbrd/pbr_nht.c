@@ -320,13 +320,6 @@ void pbr_nhgroup_delete_cb(const char *name)
 	pbr_map_check_nh_group_change(name);
 }
 
-#if 0
-static struct pbr_nexthop_cache *pbr_nht_lookup_nexthop(struct nexthop *nexthop)
-{
-	return NULL;
-}
-#endif
-
 static void
 pbr_nht_find_nhg_from_table_update(struct pbr_nexthop_group_cache *pnhgc,
 				   uint32_t table_id, bool installed)
