@@ -118,7 +118,7 @@ class SnmpTester(object):
 
     def test_oid_walk(self, oid, values, oids=None):
         results_dict, results_list = self.walk(oid)
-        print("res {}".format(results_dict))
+        print("test_oid_walk: {} {}".format(oid, results_dict))
         if oids is not None:
             index = 0
             for oid in oids:
@@ -127,4 +127,5 @@ class SnmpTester(object):
                 index += 1
             return True
 
-        return results_list == values
+        # Return true if 'values' is a subset of 'results_list'
+        return results_list[: len(values)] == values
