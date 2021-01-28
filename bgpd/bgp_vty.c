@@ -11180,7 +11180,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 									[afi]
 									[pfx_rcd_safi]);
 					} else {
-						vty_out(vty, " NoNeg");
+						vty_out(vty, "        NoNeg");
 					}
 
 					if (paf && PAF_SUBGRP(paf)) {
@@ -11197,6 +11197,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 								(PAF_SUBGRP(
 									 paf))
 									->scount);
+					} else {
+						vty_out(vty, "    NoNeg");
 					}
 				} else {
 					if (CHECK_FLAG(peer->flags,
