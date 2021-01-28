@@ -184,18 +184,14 @@ static void thread_dump_master_statistics(struct vty *vty,
 	if (m->last_wakeup.tv_sec || m->last_wakeup.tv_usec) {
 		vty_out(vty, " Last-Wakeup-Interval: \t\t%llu us\n",
 			m->last_wkp_intvl);
-		frr_realtime_to_string(&m->last_wakeup, buf,
-					sizeof(buf));
+		frr_realtime_to_string(&m->last_wakeup, buf, sizeof(buf));
 		vty_out(vty, " Last-Wakeup-Time:\t\t%s\n", buf);
-		if (m->last_max_wakeup.tv_sec
-			|| m->last_max_wakeup.tv_usec) {
-			vty_out(vty,
-				" Maximum-Wakeup-Interval: \t%llu us\n",
+		if (m->last_max_wakeup.tv_sec || m->last_max_wakeup.tv_usec) {
+			vty_out(vty, " Maximum-Wakeup-Interval: \t%llu us\n",
 				m->max_wkp_intvl);
 			frr_realtime_to_string(&m->last_max_wakeup, buf,
-						sizeof(buf));
-			vty_out(vty, " Last-Maximum-Wakeup-Time:\t%s\n",
-				buf);
+					       sizeof(buf));
+			vty_out(vty, " Last-Maximum-Wakeup-Time:\t%s\n", buf);
 		}
 	} else {
 		vty_out(vty, " Last-Wakeup-Time:\t\tNever\n");
@@ -1753,18 +1749,13 @@ void thread_call(struct thread *thread)
 		 */
 		(void)monotime_to_realtime(&before.real, &wkptime);
 		if (thread->master->last_wakeup.tv_sec
-			|| thread->master->last_wakeup.tv_usec) {
-			timersub(&wkptime, &thread->master->last_wakeup,
-					&diff);
-			wkpintvl_usecs =
-				(((uint64_t)diff.tv_sec * 1000000)
-					+ (uint64_t)diff.tv_usec);
-			if (wkpintvl_usecs
-				> thread->master->max_wkp_intvl) {
-				thread->master->max_wkp_intvl =
-					wkpintvl_usecs;
-				thread->master->last_max_wakeup =
-					wkptime;
+		    || thread->master->last_wakeup.tv_usec) {
+			timersub(&wkptime, &thread->master->last_wakeup, &diff);
+			wkpintvl_usecs = (((uint64_t)diff.tv_sec * 1000000)
+					  + (uint64_t)diff.tv_usec);
+			if (wkpintvl_usecs > thread->master->max_wkp_intvl) {
+				thread->master->max_wkp_intvl = wkpintvl_usecs;
+				thread->master->last_max_wakeup = wkptime;
 			}
 			thread->master->last_wkp_intvl = wkpintvl_usecs;
 		}
