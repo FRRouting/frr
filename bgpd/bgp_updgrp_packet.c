@@ -88,39 +88,6 @@ void bpacket_queue_init(struct bpacket_queue *q)
 }
 
 /*
- * bpacket_queue_sanity_check
- */
-void bpacket_queue_sanity_check(struct bpacket_queue __attribute__((__unused__))
-				* q)
-{
-#if 0
-  struct bpacket *pkt;
-
-  pkt = bpacket_queue_last (q);
-  assert (pkt);
-  assert (!pkt->buffer);
-
-  /*
-   * Make sure the count of packets is correct.
-   */
-  int num_pkts = 0;
-
-  pkt = bpacket_queue_first (q);
-  while (pkt)
-    {
-      num_pkts++;
-
-      if (num_pkts > q->curr_count)
-	assert (0);
-
-      pkt = TAILQ_NEXT (pkt, pkt_train);
-    }
-
-  assert (num_pkts == q->curr_count);
-#endif
-}
-
-/*
  * bpacket_queue_add_packet
  *
  * Internal function of bpacket_queue - and adds a
@@ -168,7 +135,6 @@ struct bpacket *bpacket_queue_add(struct bpacket_queue *q, struct stream *s,
 		else
 			bpacket_attr_vec_arr_reset(&pkt->arr);
 		bpacket_queue_add_packet(q, pkt);
-		bpacket_queue_sanity_check(q);
 		return pkt;
 	}
 
@@ -176,7 +142,6 @@ struct bpacket *bpacket_queue_add(struct bpacket_queue *q, struct stream *s,
 	 * Fill in the new information into the current sentinel and create a
 	 * new sentinel.
 	 */
-	bpacket_queue_sanity_check(q);
 	last_pkt = bpacket_queue_last(q);
 	assert(last_pkt->buffer == NULL);
 	last_pkt->buffer = s;
@@ -190,7 +155,6 @@ struct bpacket *bpacket_queue_add(struct bpacket_queue *q, struct stream *s,
 	pkt->ver++;
 	bpacket_queue_add_packet(q, pkt);
 
-	bpacket_queue_sanity_check(q);
 	return last_pkt;
 }
 
@@ -290,7 +254,6 @@ static int bpacket_queue_compact(struct bpacket_queue *q)
 		num_deleted++;
 	}
 
-	bpacket_queue_sanity_check(q);
 	return num_deleted;
 }
 

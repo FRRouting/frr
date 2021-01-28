@@ -12314,22 +12314,6 @@ struct bgp_table_stats {
 	double total_space;
 };
 
-#if 0
-#define TALLY_SIGFIG 100000
-static unsigned long
-ravg_tally (unsigned long count, unsigned long oldavg, unsigned long newval)
-{
-  unsigned long newtot = (count-1) * oldavg + (newval * TALLY_SIGFIG);
-  unsigned long res = (newtot * TALLY_SIGFIG) / count;
-  unsigned long ret = newtot / count;
-
-  if ((res % TALLY_SIGFIG) > (TALLY_SIGFIG/2))
-    return ret + 1;
-  else
-    return ret;
-}
-#endif
-
 static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 			       struct bgp_table_stats *ts, unsigned int space)
 {
@@ -12343,13 +12327,6 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 	rn_p = bgp_dest_get_prefix(dest);
 	ts->counts[BGP_STATS_PREFIXES]++;
 	ts->counts[BGP_STATS_TOTPLEN] += rn_p->prefixlen;
-
-#if 0
-      ts->counts[BGP_STATS_AVGPLEN]
-        = ravg_tally (ts->counts[BGP_STATS_PREFIXES],
-                      ts->counts[BGP_STATS_AVGPLEN],
-                      rn_p->prefixlen);
-#endif
 
 	/* check if the prefix is included by any other announcements */
 	while (pdest && !bgp_dest_has_bgp_path_info_data(pdest))
@@ -12387,16 +12364,6 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 
 			ts->counts[BGP_STATS_ASPATH_TOTHOPS] += hops;
 			ts->counts[BGP_STATS_ASPATH_TOTSIZE] += size;
-#if 0
-              ts->counts[BGP_STATS_ASPATH_AVGHOPS]
-                = ravg_tally (ts->counts[BGP_STATS_ASPATH_COUNT],
-                              ts->counts[BGP_STATS_ASPATH_AVGHOPS],
-                              hops);
-              ts->counts[BGP_STATS_ASPATH_AVGSIZE]
-                = ravg_tally (ts->counts[BGP_STATS_ASPATH_COUNT],
-                              ts->counts[BGP_STATS_ASPATH_AVGSIZE],
-                              size);
-#endif
 			if (highest > ts->counts[BGP_STATS_ASN_HIGHEST])
 				ts->counts[BGP_STATS_ASN_HIGHEST] = highest;
 		}
@@ -12506,15 +12473,6 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 			continue;
 
 		switch (i) {
-#if 0
-          case BGP_STATS_ASPATH_AVGHOPS:
-          case BGP_STATS_ASPATH_AVGSIZE:
-          case BGP_STATS_AVGPLEN:
-            vty_out (vty, "%-30s: ", table_stats_strs[i]);
-            vty_out (vty, "%12.2f",
-                     (float)ts.counts[i] / (float)TALLY_SIGFIG);
-            break;
-#endif
 		case BGP_STATS_ASPATH_TOTHOPS:
 		case BGP_STATS_ASPATH_TOTSIZE:
 			if (!json) {
