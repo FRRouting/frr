@@ -119,7 +119,7 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 		a->total_active, a->cpu.total / 1000, a->cpu.total % 1000,
 		a->total_calls,	(a->cpu.total / a->total_calls), a->cpu.max,
 		(a->real.total / a->total_calls), a->real.max);
-	vty_out(vty, " %c%c%c%c%c %s\n",
+	vty_out(vty, " %c%c%c%c%c  %s\n",
 		a->types & (1 << THREAD_READ) ? 'R' : ' ',
 		a->types & (1 << THREAD_WRITE) ? 'W' : ' ',
 		a->types & (1 << THREAD_TIMER) ? 'T' : ' ',
@@ -188,7 +188,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 				name);
 			vty_out(vty, "-------------------------------%s\n",
 				underline);
-			vty_out(vty, "%21s %18s %18s\n", "",
+			vty_out(vty, "%30s %18s %18s\n", "",
 				"CPU (user+system):", "Real (wall-clock):");
 			vty_out(vty,
 				"Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
@@ -211,7 +211,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	vty_out(vty, "\n");
 	vty_out(vty, "Total thread statistics\n");
 	vty_out(vty, "-------------------------\n");
-	vty_out(vty, "%21s %18s %18s\n", "",
+	vty_out(vty, "%30s %18s %18s\n", "",
 		"CPU (user+system):", "Real (wall-clock):");
 	vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
 	vty_out(vty, " Avg uSec Max uSecs");
