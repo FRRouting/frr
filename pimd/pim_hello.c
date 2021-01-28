@@ -95,22 +95,6 @@ static void tlv_trace_uint32_hex(const char *label, const char *tlv_name,
 	}
 }
 
-#if 0
-static void tlv_trace(const char *label, const char *tlv_name,
-		      const char *ifname, struct in_addr src_addr,
-		      int isset)
-{
-  if (isset) {
-    char src_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-    zlog_debug("%s: PIM hello option from %s on interface %s: %s",
-	       label,
-	       src_str, ifname,
-	       tlv_name);
-  }
-}
-#endif
-
 static void tlv_trace_list(const char *label, const char *tlv_name,
 			   const char *ifname, struct in_addr src_addr,
 			   int isset, struct list *addr_list)
