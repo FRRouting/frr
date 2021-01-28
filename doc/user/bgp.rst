@@ -3329,8 +3329,8 @@ Some other commands provide additional options for filtering the output.
    This command displays BGP routes using AS path regular expression
    (:ref:`bgp-regular-expressions`).
 
-.. index:: show [ip] bgp [all] summary [json]
-.. clicmd:: show [ip] bgp [all] summary [json]
+.. index:: show [ip] bgp [all] summary [wide] [json]
+.. clicmd:: show [ip] bgp [all] summary [wide] [json]
 
    Show a bgp peer summary for the specified address family.
 
@@ -3338,6 +3338,25 @@ The old command structure :clicmd:`show ip bgp` may be removed in the future
 and should no longer be used. In order to reach the other BGP routing tables
 other than the IPv6 routing table given by :clicmd:`show bgp`, the new command
 structure is extended with :clicmd:`show bgp [afi] [safi]`.
+
+``wide`` option gives more output like ``LocalAS`` and extended ``Desc`` to
+64 characters.
+
+   .. code-block:: frr
+
+      exit1# show ip bgp summary wide
+
+      IPv4 Unicast Summary:
+      BGP router identifier 192.168.100.1, local AS number 65534 vrf-id 0
+      BGP table version 3
+      RIB entries 5, using 920 bytes of memory
+      Peers 1, using 27 KiB of memory
+
+      Neighbor        V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+      192.168.0.2     4      65030        123        15        22        0    0    0 00:07:00            0        1 us-east1-rs1.frrouting.org
+
+      Total number of neighbors 1
+      exit1#
 
 .. index:: show bgp [afi] [safi] [all] [wide|json]
 .. clicmd:: show bgp [afi] [safi] [all] [wide|json]
@@ -3471,7 +3490,7 @@ attribute.
 
    If ``json`` option is specified, output is displayed in JSON format.
 
-.. index:: show bgp labelpool <chunks|inuse|ledger|requests|summary> [json] 
+.. index:: show bgp labelpool <chunks|inuse|ledger|requests|summary> [json]
 .. clicmd:: show bgp labelpool <chunks|inuse|ledger|requests|summary> [json]
 
    These commands display information about the BGP labelpool used for

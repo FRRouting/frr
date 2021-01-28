@@ -53,6 +53,12 @@ struct bgp;
 	" Helper - GR Mode-Helper,\n" \
 	"       Disable - GR Mode-Disable.\n\n"
 
+#define BGP_SHOW_SUMMARY_HEADER_ALL                                            \
+	"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
+#define BGP_SHOW_SUMMARY_HEADER_ALL_WIDE                                       \
+	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
+#define BGP_SHOW_SUMMARY_HEADER_FAILED "EstdCnt DropCnt ResetTime Reason\n"
+
 #define BGP_SHOW_PEER_GR_CAPABILITY( \
 			vty, p, use_json, json) \
 	do {			\
@@ -178,8 +184,7 @@ extern int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 int bgp_vty_find_and_parse_bgp(struct vty *vty, struct cmd_token **argv,
 			       int argc, struct bgp **bgp, bool use_json);
 extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-				safi_t safi, bool show_failed,
-				bool show_established, bool use_json);
+				safi_t safi, uint8_t show_flags);
 extern int bgp_clear_star_soft_in(const char *name, char *errmsg,
 				  size_t errmsg_len);
 extern int bgp_clear_star_soft_out(const char *name, char *errmsg,
