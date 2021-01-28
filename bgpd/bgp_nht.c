@@ -708,13 +708,16 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	if (BGP_DEBUG(nht, NHT)) {
 		char buf[PREFIX2STR_BUFFER];
 		char bnc_buf[BNC_FLAG_DUMP_SIZE];
+		char chg_buf[BNC_FLAG_DUMP_SIZE];
 
 		bnc_str(bnc, buf, PREFIX2STR_BUFFER);
 		zlog_debug(
-			"NH update for %s(%u)(%s) - flags %s chgflags 0x%x - evaluate paths",
+			"NH update for %s(%u)(%s) - flags %s chgflags %s- evaluate paths",
 			buf, bnc->srte_color, bnc->bgp->name_pretty,
-			bgp_nexthop_dump_bnc_flags(bnc, bnc_buf, sizeof(bnc_buf)),
-			bnc->change_flags);
+			bgp_nexthop_dump_bnc_flags(bnc, bnc_buf,
+						   sizeof(bnc_buf)),
+			bgp_nexthop_dump_bnc_change_flags(bnc, chg_buf,
+							  sizeof(bnc_buf)));
 	}
 
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
