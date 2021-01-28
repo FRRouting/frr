@@ -45,6 +45,15 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
 
 DECLARE_LIST(thread_list, struct thread, threaditem)
 
+/*
+ * By default collecting extra thread statistics like max-wakeup-interval
+ * and last-cpu-hog are disabled.
+ *
+ * One may use thread_set_stats_collection() to enable it at the time
+ * of initializing any specific daemon.
+ */
+static int thread_collect_stats = true;
+
 static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 {
 	if (a->u.sands.tv_sec < b->u.sands.tv_sec)
@@ -164,7 +173,7 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 		totals->cpu.max = copy.cpu.max;
 }
 
-void thread_dump_master_statistics(struct vty *vty, struct thread_master *m)
+static void thread_dump_master_statistics(struct vty *vty, struct thread_master *m)
 {
 	char buf[64];
 
@@ -188,6 +197,7 @@ void thread_dump_master_statistics(struct vty *vty, struct thread_master *m)
 		} else {
 			vty_out(vty, " Last-Wakeup-Time:\t\tNever\n");
 		}
+#ifdef CONSUMED_TIME_CHECK
 		if (m->last_hog.tv_sec || m->last_hog.tv_usec) {
 			frr_realtime_to_string(&m->last_hog, buf, sizeof(buf));
 			vty_out(vty, " Last-CPU-Hog-Time:\t\t%s\n", buf);
@@ -196,22 +206,31 @@ void thread_dump_master_statistics(struct vty *vty, struct thread_master *m)
 			vty_out(vty, " Last-CPU-Hog-RealTime:\t\t%llu us\n",
 				m->last_hog_realtime);
 		}
+#endif /* CONSUMED_TIME_CHECK */
 	}
 	vty_out(vty, "\n");
 }
 
-void thread_dump_all_thread_statistics(struct vty *vty)
+static void thread_dump_all_thread_statistics(struct vty *vty)
 {
 	struct thread_master *m;
 	struct listnode *ln;
 
+	if (!thread_collect_stats)
+		return;
+
 	frr_with_mutex(&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
-			vty_out(vty, "Statistics for thread: %s\n",
+			vty_out(vty, "Statistics for PThread: %s\n",
 				m->name ? m->name : "main");
 			thread_dump_master_statistics(vty, m);
 		}
 	} /* end frr_with_mutex(&masters_mtx) */
+}
+
+void thread_set_stats_collection(int enable)
+{
+	thread_collect_stats = enable;
 }
 
 static void cpu_record_print(struct vty *vty, uint8_t filter)
@@ -1729,37 +1748,39 @@ void thread_call(struct thread *thread)
 	struct timeval wkptime, diff;
 	uint64_t wkpintvl_usecs;
 
-	/*
-	 * The following code measures interval between consecutive
-	 * wakeup of the various threads under the current process
-	 * and log that in order to detect any possible CPU starvations.
-	 * Offcourse it can not be used to differentiate between
-	 * wether a process was indeed ready but it could not be
-	 * scheduled (due to other process hogging CPU) and that of
-	 * the process really being idle for long.
-	 *
-	 * In cases if a deamon is supposed to run some timely regular
-	 * jobs, the data captured here can definitely highlight if
-	 * the process ever went through CPU starvation or not.
-	 */
-	frr_get_realtime(&wkptime);
-	frr_with_mutex(&thread->master->mtx) {
-		if (thread->master->last_wakeup.tv_sec
-		    || thread->master->last_wakeup.tv_usec) {
-			timersub(&wkptime, &thread->master->last_wakeup, &diff);
-			wkpintvl_usecs = (((uint64_t)diff.tv_sec * 1000000)
-					  + (uint64_t)diff.tv_usec);
-			if (wkpintvl_usecs > thread->master->max_wkp_intvl) {
-				thread->master->max_wkp_intvl = wkpintvl_usecs;
-				thread->master->last_max_wakeup = wkptime;
-			}
-			thread->master->last_wkp_intvl = wkpintvl_usecs;
-		}
-		thread->master->last_wakeup = wkptime;
-	} /* end frr_with_mutex(&thread->master->mtx) */
-
 	GETRUSAGE(&before);
 	thread->real = before.real;
+
+	if (thread_collect_stats) {
+		/*
+		 * The following code measures interval between consecutive
+		 * wakeup of the various threads under the current process
+		 * and log that in order to detect any possible CPU starvations.
+		 * Offcourse it can not be used to differentiate between
+		 * wether a process was indeed ready but it could not be
+		 * scheduled (due to other process hogging CPU) and that of
+		 * the process really being idle for long.
+		 *
+		 * In cases if a deamon is supposed to run some timely regular
+		 * jobs, the data captured here can definitely highlight if
+		 * the process ever went through CPU starvation or not.
+		 */
+		(void) monotime_to_realtime(&before.real, &wkptime);
+		frr_with_mutex(&thread->master->mtx) {
+			if (thread->master->last_wakeup.tv_sec
+				|| thread->master->last_wakeup.tv_usec) {
+				timersub(&wkptime, &thread->master->last_wakeup, &diff);
+				wkpintvl_usecs = (((uint64_t)diff.tv_sec * 1000000)
+						+ (uint64_t)diff.tv_usec);
+				if (wkpintvl_usecs > thread->master->max_wkp_intvl) {
+					thread->master->max_wkp_intvl = wkpintvl_usecs;
+					thread->master->last_max_wakeup = wkptime;
+				}
+				thread->master->last_wkp_intvl = wkpintvl_usecs;
+			}
+			thread->master->last_wakeup = wkptime;
+		} /* end frr_with_mutex(&thread->master->mtx) */
+	}
 
 	frrtrace(9, frr_libfrr, thread_call, thread->master, thread->funcname,
 		 thread->schedfrom, thread->schedfrom_line, NULL, thread->u.fd,
@@ -1815,18 +1836,21 @@ void thread_call(struct thread *thread)
 			thread->funcname, (unsigned long)thread->func,
 			realtime / 1000, cputime / 1000);
 
-		/*
-		 * The following code always record the details of
-		 * last occurance of any kind of CPU hogging the
-		 * current process would have caused.
-		 *
-		 * The data captured can serve as good indication
-		 * of any CPU hogging this process might have caused
-		 * during its lifetime.
-		 */
-		frr_get_realtime(&thread->master->last_hog);
-		thread->master->last_hog_realtime = realtime;
-		thread->master->last_hog_cputime = cputime;
+		if (thread_collect_stats) {
+			/*
+			 * The following code always record the details of
+			 * last occurance of any kind of CPU hogging the
+			 * current process would have caused.
+			 *
+			 * The data captured can serve as good indication
+			 * of any CPU hogging this process might have caused
+			 * during its lifetime.
+			 */
+			(void) monotime_to_realtime(&after.real,
+						&thread->master->last_hog);
+			thread->master->last_hog_realtime = realtime;
+			thread->master->last_hog_cputime = cputime;
+		}
 	}
 #endif /* CONSUMED_TIME_CHECK */
 #endif /* Exclude CPU Time */

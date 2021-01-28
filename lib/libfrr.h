@@ -174,36 +174,4 @@ extern bool debug_memstats_at_exit;
 }
 #endif
 
-static inline time_t frr_get_realtime(struct timeval *tvo)
-{
-	if (tvo) {
-		gettimeofday(tvo, NULL);
-		return tvo->tv_sec;
-	}
-
-	return -1;
-}
-
-static inline ssize_t frr_realtime_to_string(struct timeval *tv, char *buf,
-					     size_t sz)
-{
-	ssize_t written = -1;
-	struct tm *lm;
-
-	lm = localtime((const time_t *)&tv->tv_sec);
-
-	if (lm) {
-		written = (ssize_t)strftime(buf, sz, "%Y-%m-%d %H:%M:%S", lm);
-		if ((written > 0) && ((size_t)written < sz)) {
-			int w;
-
-			w = snprintf(buf + written, sz - (size_t)written,
-				     ".%06lu", tv->tv_usec);
-			written = (w > 0) ? written + w : -1;
-		}
-	}
-
-	return written;
-}
-
 #endif /* _ZEBRA_FRR_H */

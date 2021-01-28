@@ -132,6 +132,37 @@ static inline const char *frrtime_to_interval(time_t t, char *buf,
 	return buf;
 }
 
+static inline ssize_t frr_realtime_to_string(struct timeval *real, char *buf,
+					     size_t sz)
+{
+	ssize_t written = -1;
+	struct tm *lm;
+
+	lm = localtime((const time_t *)&real->tv_sec);
+
+	if (lm) {
+		written = (ssize_t)strftime(buf, sz, "%Y-%m-%d %H:%M:%S", lm);
+		if ((written > 0) && ((size_t)written < sz)) {
+			int w;
+
+			w = snprintf(buf + written, sz - (size_t)written,
+				     ".%06d", (int) real->tv_usec);
+			written = (w > 0) ? written + w : -1;
+		}
+	}
+
+	return written;
+}
+
+static inline ssize_t frr_monotime_to_string(struct timeval *mono, char *buf,
+					     size_t sz)
+{
+	struct timeval real;
+
+	(void) monotime_to_realtime(mono, &real);
+	return frr_realtime_to_string(&real, buf, sz);
+}
+
 #ifdef __cplusplus
 }
 #endif

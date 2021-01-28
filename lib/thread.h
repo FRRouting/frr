@@ -43,8 +43,6 @@ struct rusage_t {
 PREDECL_LIST(thread_list)
 PREDECL_HEAP(thread_timer_list)
 
-struct vty;
-
 struct fd_handler {
 	/* number of pfd that fit in the allocated space of pfds. This is a
 	 * constant
@@ -230,13 +228,11 @@ extern void thread_set_yield_time(struct thread *, unsigned long);
 extern void thread_getrusage(RUSAGE_T *);
 extern void thread_cmd_init(void);
 
+extern void thread_set_stats_collection(int enable);
+
 /* Returns elapsed real (wall clock) time. */
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 					  unsigned long *cpu_time_elapsed);
-
-extern void thread_dump_master_statistics(struct vty *vty,
-					  struct thread_master *m);
-extern void thread_dump_all_thread_statistics(struct vty *vty);
 
 /* only for use in logging functions! */
 extern pthread_key_t thread_current;
