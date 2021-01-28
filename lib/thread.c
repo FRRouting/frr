@@ -52,7 +52,7 @@ DECLARE_LIST(thread_list, struct thread, threaditem)
  * One may use thread_set_stats_collection() to enable it at the time
  * of initializing any specific daemon.
  */
-static int thread_collect_stats = true;
+static int thread_collect_stats = false;
 
 static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 {
