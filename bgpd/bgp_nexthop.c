@@ -33,6 +33,7 @@
 #include "nexthop.h"
 #include "queue.h"
 #include "filter.h"
+#include "printfrr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -1019,4 +1020,29 @@ void bgp_scan_finish(struct bgp *bgp)
 		bgp_table_unlock(bgp->connected_table[afi]);
 		bgp->connected_table[afi] = NULL;
 	}
+}
+
+char *bgp_nexthop_dump_bnc_flags(struct bgp_nexthop_cache *bnc, char *buf,
+				 size_t len)
+{
+	if (bnc->flags == 0) {
+		snprintfrr(buf, len, "None ");
+		return buf;
+	}
+
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s",
+		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) ? "Valid " : "",
+		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED) ? "Reg " : "",
+		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED) ? "Conn " : "",
+		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED) ? "Notify "
+								     : "",
+		   CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE) ? "Static " : "",
+		   CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)
+			   ? "Static Exact "
+			   : "",
+		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)
+			   ? "Label Valid "
+			   : "");
+
+	return buf;
 }
