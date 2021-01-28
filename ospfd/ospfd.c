@@ -1739,26 +1739,6 @@ int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 	return 1;
 }
 
-#if 0
-/* XXX: unused? Leave for symmetry? */
-static int
-ospf_area_nssa_translator_role_unset (struct ospf *ospf,
-				      struct in_addr area_id)
-{
-  struct ospf_area *area;
-
-  area = ospf_area_lookup_by_area_id (ospf, area_id);
-  if (area == NULL)
-    return 0;
-
-  area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
-
-  ospf_area_check_free (ospf, area_id);
-
-  return 1;
-}
-#endif
-
 int ospf_area_export_list_set(struct ospf *ospf, struct ospf_area *area,
 			      const char *list_name)
 {
@@ -2004,29 +1984,9 @@ struct ospf_nbr_nbma *ospf_nbr_nbma_lookup(struct ospf *ospf,
 struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next(struct ospf *ospf,
 						struct in_addr *addr, int first)
 {
-#if 0
-  struct ospf_nbr_nbma *nbr_nbma;
-  struct listnode *node;
-#endif
-
 	if (ospf == NULL)
 		return NULL;
 
-#if 0
-  for (ALL_LIST_ELEMENTS_RO (ospf->nbr_nbma, node, nbr_nbma))
-    {
-      if (first)
-	{
-	  *addr = nbr_nbma->addr;
-	  return nbr_nbma;
-	}
-      else if (ntohl (nbr_nbma->addr.s_addr) > ntohl (addr->s_addr))
-	{
-	  *addr = nbr_nbma->addr;
-	  return nbr_nbma;
-	}
-    }
-#endif
 	return NULL;
 }
 

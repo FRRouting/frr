@@ -1683,68 +1683,6 @@ void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list)
 		list_delete(&vertex_list);
 }
 
-#if 0
-static void
-ospf_rtrs_print (struct route_table *rtrs)
-{
-  struct route_node *rn;
-  struct list *or_list;
-  struct listnode *ln;
-  struct listnode *pnode;
-  struct ospf_route *or;
-  struct ospf_path *path;
-  char buf1[BUFSIZ];
-  char buf2[BUFSIZ];
-
-  if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("ospf_rtrs_print() start");
-
-  for (rn = route_top (rtrs); rn; rn = route_next (rn))
-    if ((or_list = rn->info) != NULL)
-      for (ALL_LIST_ELEMENTS_RO (or_list, ln, or))
-        {
-          switch (or->path_type)
-            {
-            case OSPF_PATH_INTRA_AREA:
-              if (IS_DEBUG_OSPF_EVENT)
-                zlog_debug ("%s   [%d] area: %s",
-                           inet_ntop (AF_INET, &or->id, buf1, BUFSIZ),
-                           or->cost, inet_ntop (AF_INET, &or->u.std.area_id,
-                                                buf2, BUFSIZ));
-              break;
-            case OSPF_PATH_INTER_AREA:
-              if (IS_DEBUG_OSPF_EVENT)
-                zlog_debug ("%s IA [%d] area: %s",
-                           inet_ntop (AF_INET, &or->id, buf1, BUFSIZ),
-                           or->cost, inet_ntop (AF_INET, &or->u.std.area_id,
-                                                buf2, BUFSIZ));
-              break;
-            default:
-              break;
-            }
-
-          for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
-            {
-              if (path->nexthop.s_addr == INADDR_ANY)
-                {
-                  if (IS_DEBUG_OSPF_EVENT)
-                    zlog_debug ("   directly attached to %s\r",
-				ifindex2ifname (path->ifindex), VRF_DEFAULT);
-                }
-              else
-                {
-                  if (IS_DEBUG_OSPF_EVENT)
-                    zlog_debug ("   via %pI4, %s\r",
-				&path->nexthop,
-				ifindex2ifname (path->ifindex), VRF_DEFAULT);
-                }
-            }
-        }
-
-  zlog_debug ("ospf_rtrs_print() end");
-}
-#endif
-
 /* Calculating the shortest-path tree for an area, see RFC2328 16.1. */
 void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 			struct route_table *new_table,
