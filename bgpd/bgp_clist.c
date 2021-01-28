@@ -1110,11 +1110,14 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 }
 
 /* Helper to check if every octet do not exceed UINT_MAX */
-static bool lcommunity_list_valid(const char *community)
+bool lcommunity_list_valid(const char *community, int style)
 {
 	int octets;
 	char **splits, **communities;
+	char *endptr;
 	int num, num_communities;
+	regex_t *regres;
+	int invalid = 0;
 
 	frrstr_split(community, " ", &communities, &num_communities);
 
@@ -1123,25 +1126,43 @@ static bool lcommunity_list_valid(const char *community)
 		frrstr_split(communities[j], ":", &splits, &num);
 
 		for (int i = 0; i < num; i++) {
-			if (strtoul(splits[i], NULL, 10) > UINT_MAX)
-				return false;
-
 			if (strlen(splits[i]) == 0)
-				return false;
+				/* There is no digit to check */
+				invalid++;
+
+			if (style == LARGE_COMMUNITY_LIST_STANDARD) {
+				if (*splits[i] == '-')
+					/* Must not be negative */
+					invalid++;
+				else if (strtoul(splits[i], &endptr, 10)
+					 > UINT_MAX)
+					/* Larger than 4 octets */
+					invalid++;
+				else if (*endptr)
+					/* Not all characters were digits */
+					invalid++;
+			} else {
+				regres = bgp_regcomp(communities[j]);
+				if (!regres)
+					/* malformed regex */
+					invalid++;
+				else
+					bgp_regex_free(regres);
+			}
 
 			octets++;
 			XFREE(MTYPE_TMP, splits[i]);
 		}
 		XFREE(MTYPE_TMP, splits);
 
-		if (octets < 3)
-			return false;
+		if (octets != 3)
+			invalid++;
 
 		XFREE(MTYPE_TMP, communities[j]);
 	}
 	XFREE(MTYPE_TMP, communities);
 
-	return true;
+	return (invalid > 0) ? false : true;
 }
 
 /* Set lcommunity-list.  */
@@ -1176,7 +1197,7 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	}
 
 	if (str) {
-		if (!lcommunity_list_valid(str))
+		if (!lcommunity_list_valid(str, style))
 			return COMMUNITY_LIST_ERR_MALFORMED_VAL;
 
 		if (style == LARGE_COMMUNITY_LIST_STANDARD)

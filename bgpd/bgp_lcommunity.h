@@ -23,6 +23,7 @@
 
 #include "lib/json.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_clist.h"
 
 /* Large Communities value is twelve octets long.  */
 #define LCOMMUNITY_SIZE                        12
