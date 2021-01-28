@@ -1981,15 +1981,6 @@ struct ospf_nbr_nbma *ospf_nbr_nbma_lookup(struct ospf *ospf,
 	return NULL;
 }
 
-struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next(struct ospf *ospf,
-						struct in_addr *addr, int first)
-{
-	if (ospf == NULL)
-		return NULL;
-
-	return NULL;
-}
-
 int ospf_nbr_nbma_set(struct ospf *ospf, struct in_addr nbr_addr)
 {
 	struct ospf_nbr_nbma *nbr_nbma;

@@ -1236,7 +1236,6 @@ static struct ospf_nbr_nbma *ospfHostLookup(struct variable *v, oid *name,
 					    size_t *length,
 					    struct in_addr *addr, int exact)
 {
-	int len;
 	struct ospf_nbr_nbma *nbr_nbma;
 	struct ospf *ospf;
 
@@ -1258,28 +1257,8 @@ static struct ospf_nbr_nbma *ospfHostLookup(struct variable *v, oid *name,
 		nbr_nbma = ospf_nbr_nbma_lookup(ospf, *addr);
 
 		return nbr_nbma;
-	} else {
-		len = *length - v->namelen;
-		if (len > 4)
-			len = 4;
-
-		oid2in_addr(name + v->namelen, len, addr);
-
-		nbr_nbma =
-			ospf_nbr_nbma_lookup_next(ospf, addr, len == 0 ? 1 : 0);
-
-		if (nbr_nbma == NULL)
-			return NULL;
-
-		oid_copy_addr(name + v->namelen, addr, IN_ADDR_SIZE);
-
-		/* Set TOS 0. */
-		name[v->namelen + IN_ADDR_SIZE] = 0;
-
-		*length = v->namelen + IN_ADDR_SIZE + 1;
-
-		return nbr_nbma;
 	}
+
 	return NULL;
 }
 

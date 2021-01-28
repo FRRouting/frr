@@ -694,8 +694,6 @@ extern void ospf_terminate(void);
 extern void ospf_nbr_nbma_if_update(struct ospf *, struct ospf_interface *);
 extern struct ospf_nbr_nbma *ospf_nbr_nbma_lookup(struct ospf *,
 						  struct in_addr);
-extern struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next(struct ospf *,
-						       struct in_addr *, int);
 extern int ospf_oi_count(struct interface *);
 
 extern struct ospf_area *ospf_area_new(struct ospf *ospf,
