@@ -10975,6 +10975,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							       peer->domainname);
 
 				json_object_int_add(json_peer, "remoteAs", peer->as);
+				json_object_int_add(
+					json_peer, "localAs",
+					peer->change_local_as
+						? peer->change_local_as
+						: peer->local_as);
 				json_object_int_add(json_peer, "version", 4);
 				json_object_int_add(json_peer, "msgRcvd",
 						    PEER_TOTAL_RX(peer));
