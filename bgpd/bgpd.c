@@ -5684,11 +5684,6 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 			       PEER_FLAG_ALLOWAS_IN))
 			continue;
 
-		/* Skip peers where flag is already disabled. */
-		if (!CHECK_FLAG(member->af_flags[afi][safi],
-				PEER_FLAG_ALLOWAS_IN))
-			continue;
-
 		/* Remove flags and configuration on peer-group member. */
 		UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
 		UNSET_FLAG(member->af_flags[afi][safi],
