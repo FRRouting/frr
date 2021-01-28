@@ -173,11 +173,15 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 		totals->cpu.max = copy.cpu.max;
 }
 
-static void thread_dump_master_statistics(struct vty *vty, struct thread_master *m)
+static void thread_dump_master_statistics(struct vty *vty,
+					  struct thread_master *m)
 {
 	char buf[64];
 
-	frr_with_mutex(&m->mtx) {
+	if (!thread_collect_stats)
+		return;
+
+	frr_with_mutex (&m->mtx) {
 		if (m->last_wakeup.tv_sec || m->last_wakeup.tv_usec) {
 			vty_out(vty, " Last-Wakeup-Interval: \t\t%llu us\n",
 				m->last_wkp_intvl);
@@ -209,23 +213,6 @@ static void thread_dump_master_statistics(struct vty *vty, struct thread_master 
 #endif /* CONSUMED_TIME_CHECK */
 	}
 	vty_out(vty, "\n");
-}
-
-static void thread_dump_all_thread_statistics(struct vty *vty)
-{
-	struct thread_master *m;
-	struct listnode *ln;
-
-	if (!thread_collect_stats)
-		return;
-
-	frr_with_mutex(&masters_mtx) {
-		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
-			vty_out(vty, "Statistics for PThread: %s\n",
-				m->name ? m->name : "main");
-			thread_dump_master_statistics(vty, m);
-		}
-	} /* end frr_with_mutex(&masters_mtx) */
 }
 
 void thread_set_stats_collection(int enable)
@@ -1765,16 +1752,21 @@ void thread_call(struct thread *thread)
 		 * jobs, the data captured here can definitely highlight if
 		 * the process ever went through CPU starvation or not.
 		 */
-		(void) monotime_to_realtime(&before.real, &wkptime);
-		frr_with_mutex(&thread->master->mtx) {
+		(void)monotime_to_realtime(&before.real, &wkptime);
+		frr_with_mutex (&thread->master->mtx) {
 			if (thread->master->last_wakeup.tv_sec
-				|| thread->master->last_wakeup.tv_usec) {
-				timersub(&wkptime, &thread->master->last_wakeup, &diff);
-				wkpintvl_usecs = (((uint64_t)diff.tv_sec * 1000000)
-						+ (uint64_t)diff.tv_usec);
-				if (wkpintvl_usecs > thread->master->max_wkp_intvl) {
-					thread->master->max_wkp_intvl = wkpintvl_usecs;
-					thread->master->last_max_wakeup = wkptime;
+			    || thread->master->last_wakeup.tv_usec) {
+				timersub(&wkptime, &thread->master->last_wakeup,
+					 &diff);
+				wkpintvl_usecs =
+					(((uint64_t)diff.tv_sec * 1000000)
+					 + (uint64_t)diff.tv_usec);
+				if (wkpintvl_usecs
+				    > thread->master->max_wkp_intvl) {
+					thread->master->max_wkp_intvl =
+						wkpintvl_usecs;
+					thread->master->last_max_wakeup =
+						wkptime;
 				}
 				thread->master->last_wkp_intvl = wkpintvl_usecs;
 			}
@@ -1846,8 +1838,8 @@ void thread_call(struct thread *thread)
 			 * of any CPU hogging this process might have caused
 			 * during its lifetime.
 			 */
-			(void) monotime_to_realtime(&after.real,
-						&thread->master->last_hog);
+			(void)monotime_to_realtime(&after.real,
+						   &thread->master->last_hog);
 			thread->master->last_hog_realtime = realtime;
 			thread->master->last_hog_cputime = cputime;
 		}

@@ -146,7 +146,7 @@ static inline ssize_t frr_realtime_to_string(struct timeval *real, char *buf,
 			int w;
 
 			w = snprintf(buf + written, sz - (size_t)written,
-				     ".%06d", (int) real->tv_usec);
+				     ".%06d", (int)real->tv_usec);
 			written = (w > 0) ? written + w : -1;
 		}
 	}
@@ -159,7 +159,7 @@ static inline ssize_t frr_monotime_to_string(struct timeval *mono, char *buf,
 {
 	struct timeval real;
 
-	(void) monotime_to_realtime(mono, &real);
+	(void)monotime_to_realtime(mono, &real);
 	return frr_realtime_to_string(&real, buf, sz);
 }
 
