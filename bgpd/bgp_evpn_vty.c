@@ -4100,7 +4100,7 @@ DEFPY(show_bgp_l2vpn_evpn_es_vrf, show_bgp_l2vpn_evpn_es_vrf_cmd,
  */
 DEFUN(show_bgp_l2vpn_evpn_summary,
       show_bgp_l2vpn_evpn_summary_cmd,
-      "show bgp [vrf VRFNAME] l2vpn evpn summary [established|failed] [json]",
+      "show bgp [vrf VRFNAME] l2vpn evpn summary [established|failed] [wide] [json]",
       SHOW_STR
       BGP_STR
       "bgp vrf\n"
@@ -4110,23 +4110,30 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
       "Summary of BGP neighbor status\n"
       "Show only sessions in Established state\n"
       "Show only sessions not in Established state\n"
+      "Increase table width for longer output\n"
       JSON_STR)
 {
 	int idx_vrf = 0;
-	bool uj = use_json(argc, argv);
+	int idx = 0;
 	char *vrf = NULL;
-	bool show_failed = false;
-	bool show_established = false;
+	uint8_t show_flags = 0;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf))
 		vrf = argv[++idx_vrf]->arg;
-	if (argv_find(argv, argc, "failed", &idx_vrf))
-		show_failed = true;
-	if (argv_find(argv, argc, "established", &idx_vrf))
-		show_established = true;
 
-	return bgp_show_summary_vty(vty, vrf, AFI_L2VPN, SAFI_EVPN, show_failed,
-				    show_established, uj);
+	if (argv_find(argv, argc, "failed", &idx))
+		SET_FLAG(show_flags, BGP_SHOW_OPT_FAILED);
+
+	if (argv_find(argv, argc, "established", &idx))
+		SET_FLAG(show_flags, BGP_SHOW_OPT_ESTABLISHED);
+
+	if (argv_find(argv, argc, "wide", &idx))
+		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
+
+	if (use_json(argc, argv))
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+
+	return bgp_show_summary_vty(vty, vrf, AFI_L2VPN, SAFI_EVPN, show_flags);
 }
 
 int bgp_evpn_cli_parse_type(int *type, struct cmd_token **argv, int argc)
