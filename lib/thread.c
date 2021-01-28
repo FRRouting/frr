@@ -52,7 +52,7 @@ DECLARE_LIST(thread_list, struct thread, threaditem)
  * One may use thread_set_stats_collection() to enable it at the time
  * of initializing any specific daemon.
  */
-static int thread_collect_stats = false;
+static bool thread_collect_stats = false;
 
 static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 {
@@ -181,37 +181,36 @@ static void thread_dump_master_statistics(struct vty *vty,
 	if (!thread_collect_stats)
 		return;
 
-	frr_with_mutex (&m->mtx) {
-		if (m->last_wakeup.tv_sec || m->last_wakeup.tv_usec) {
-			vty_out(vty, " Last-Wakeup-Interval: \t\t%llu us\n",
-				m->last_wkp_intvl);
-			frr_realtime_to_string(&m->last_wakeup, buf,
-					       sizeof(buf));
-			vty_out(vty, " Last-Wakeup-Time:\t\t%s\n", buf);
-			if (m->last_max_wakeup.tv_sec
-			    || m->last_max_wakeup.tv_usec) {
-				vty_out(vty,
-					" Maximum-Wakeup-Interval: \t%llu us\n",
-					m->max_wkp_intvl);
-				frr_realtime_to_string(&m->last_max_wakeup, buf,
-						       sizeof(buf));
-				vty_out(vty, " Last-Maximum-Wakeup-Time:\t%s\n",
-					buf);
-			}
-		} else {
-			vty_out(vty, " Last-Wakeup-Time:\t\tNever\n");
+	if (m->last_wakeup.tv_sec || m->last_wakeup.tv_usec) {
+		vty_out(vty, " Last-Wakeup-Interval: \t\t%llu us\n",
+			m->last_wkp_intvl);
+		frr_realtime_to_string(&m->last_wakeup, buf,
+					sizeof(buf));
+		vty_out(vty, " Last-Wakeup-Time:\t\t%s\n", buf);
+		if (m->last_max_wakeup.tv_sec
+			|| m->last_max_wakeup.tv_usec) {
+			vty_out(vty,
+				" Maximum-Wakeup-Interval: \t%llu us\n",
+				m->max_wkp_intvl);
+			frr_realtime_to_string(&m->last_max_wakeup, buf,
+						sizeof(buf));
+			vty_out(vty, " Last-Maximum-Wakeup-Time:\t%s\n",
+				buf);
 		}
-#ifdef CONSUMED_TIME_CHECK
-		if (m->last_hog.tv_sec || m->last_hog.tv_usec) {
-			frr_realtime_to_string(&m->last_hog, buf, sizeof(buf));
-			vty_out(vty, " Last-CPU-Hog-Time:\t\t%s\n", buf);
-			vty_out(vty, " Last-CPU-Hog-CpuTime:\t\t%llu us\n",
-				m->last_hog_cputime);
-			vty_out(vty, " Last-CPU-Hog-RealTime:\t\t%llu us\n",
-				m->last_hog_realtime);
-		}
-#endif /* CONSUMED_TIME_CHECK */
+	} else {
+		vty_out(vty, " Last-Wakeup-Time:\t\tNever\n");
 	}
+
+#ifdef CONSUMED_TIME_CHECK
+	if (m->last_hog.tv_sec || m->last_hog.tv_usec) {
+		frr_realtime_to_string(&m->last_hog, buf, sizeof(buf));
+		vty_out(vty, " Last-CPU-Hog-Time:\t\t%s\n", buf);
+		vty_out(vty, " Last-CPU-Hog-CpuTime:\t\t%llu us\n",
+			m->last_hog_cputime);
+		vty_out(vty, " Last-CPU-Hog-RealTime:\t\t%llu us\n",
+			m->last_hog_realtime);
+	}
+#endif /* CONSUMED_TIME_CHECK */
 	vty_out(vty, "\n");
 }
 
@@ -1753,25 +1752,23 @@ void thread_call(struct thread *thread)
 		 * the process ever went through CPU starvation or not.
 		 */
 		(void)monotime_to_realtime(&before.real, &wkptime);
-		frr_with_mutex (&thread->master->mtx) {
-			if (thread->master->last_wakeup.tv_sec
-			    || thread->master->last_wakeup.tv_usec) {
-				timersub(&wkptime, &thread->master->last_wakeup,
-					 &diff);
-				wkpintvl_usecs =
-					(((uint64_t)diff.tv_sec * 1000000)
-					 + (uint64_t)diff.tv_usec);
-				if (wkpintvl_usecs
-				    > thread->master->max_wkp_intvl) {
-					thread->master->max_wkp_intvl =
-						wkpintvl_usecs;
-					thread->master->last_max_wakeup =
-						wkptime;
-				}
-				thread->master->last_wkp_intvl = wkpintvl_usecs;
+		if (thread->master->last_wakeup.tv_sec
+			|| thread->master->last_wakeup.tv_usec) {
+			timersub(&wkptime, &thread->master->last_wakeup,
+					&diff);
+			wkpintvl_usecs =
+				(((uint64_t)diff.tv_sec * 1000000)
+					+ (uint64_t)diff.tv_usec);
+			if (wkpintvl_usecs
+				> thread->master->max_wkp_intvl) {
+				thread->master->max_wkp_intvl =
+					wkpintvl_usecs;
+				thread->master->last_max_wakeup =
+					wkptime;
 			}
-			thread->master->last_wakeup = wkptime;
-		} /* end frr_with_mutex(&thread->master->mtx) */
+			thread->master->last_wkp_intvl = wkpintvl_usecs;
+		}
+		thread->master->last_wakeup = wkptime;
 	}
 
 	frrtrace(9, frr_libfrr, thread_call, thread->master, thread->funcname,
