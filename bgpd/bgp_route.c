@@ -4760,6 +4760,7 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 	struct bgp_table *table;
 	struct listnode *node, *nnode;
 	struct peer *npeer;
+	struct peer_af *paf;
 
 	if (peer->status != Established)
 		return;
@@ -4795,6 +4796,20 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 			thread_add_timer(bm->master,
 					 bgp_soft_reconfig_table_thread, table,
 					 0, &table->soft_reconfig_thread);
+		/* cancel all bgp_announce_route_timer_expired threads before
+		 * bgp_soft_reconfig_table_thread jobs. They would add a timer
+		 * in order to delay announces and to detach announce.
+		 * Threads bgp_soft_reconfig_table_thread are already detached
+		 * from vtysh. Cancellation removes a useless delay. BGP
+		 * announces will run straight after soft_reconfig in.
+		 */
+		for (ALL_LIST_ELEMENTS(peer->bgp->peer, node, nnode, peer)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				paf = peer_af_find(peer, afi, safi);
+				if (paf)
+					BGP_TIMER_OFF(paf->t_announce_route);
+			}
+		}
 	} else
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
