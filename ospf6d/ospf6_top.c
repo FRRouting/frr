@@ -718,39 +718,6 @@ DEFUN (no_ospf6_distance_ospf6,
 	return CMD_SUCCESS;
 }
 
-#if 0
-DEFUN (ospf6_distance_source,
-       ospf6_distance_source_cmd,
-       "distance (1-255) X:X::X:X/M [WORD]",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf6, o);
-  char *alname = (argc == 4) ? argv[3]->arg : NULL;
-  ospf6_distance_set (vty, o, argv[1]->arg, argv[2]->arg, alname);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf6_distance_source,
-       no_ospf6_distance_source_cmd,
-       "no distance (1-255) X:X::X:X/M [WORD]",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf6, o);
-  char *alname = (argc == 5) ? argv[4]->arg : NULL;
-  ospf6_distance_unset (vty, o, argv[2]->arg, argv[3]->arg, alname);
-
-  return CMD_SUCCESS;
-}
-#endif
-
 DEFUN (ospf6_interface_area,
        ospf6_interface_area_cmd,
        "interface IFNAME area <A.B.C.D|(0-4294967295)>",
@@ -910,55 +877,6 @@ DEFUN (no_ospf6_stub_router_admin,
 
 	return CMD_SUCCESS;
 }
-
-#if 0
-DEFUN (ospf6_stub_router_startup,
-       ospf6_stub_router_startup_cmd,
-       "stub-router on-startup (5-86400)",
-       "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
-       "Automatically advertise as stub-router on startup of OSPF6\n"
-       "Time (seconds) to advertise self as stub-router\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf6_stub_router_startup,
-       no_ospf6_stub_router_startup_cmd,
-       "no stub-router on-startup",
-       NO_STR
-       "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
-       "Automatically advertise as stub-router on startup of OSPF6\n"
-       "Time (seconds) to advertise self as stub-router\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUN (ospf6_stub_router_shutdown,
-       ospf6_stub_router_shutdown_cmd,
-       "stub-router on-shutdown (5-86400)",
-       "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
-       "Automatically advertise as stub-router before shutdown\n"
-       "Time (seconds) to advertise self as stub-router\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf6_stub_router_shutdown,
-       no_ospf6_stub_router_shutdown_cmd,
-       "no stub-router on-shutdown",
-       NO_STR
-       "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
-       "Automatically advertise as stub-router before shutdown\n"
-       "Time (seconds) to advertise self as stub-router\n")
-{
-  return CMD_SUCCESS;
-}
-#endif
-
 
 static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		       bool use_json)
@@ -1390,20 +1308,9 @@ void ospf6_top_init(void)
 	install_element(OSPF6_NODE, &no_ospf6_interface_area_cmd);
 	install_element(OSPF6_NODE, &ospf6_stub_router_admin_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_stub_router_admin_cmd);
-/* For a later time */
-#if 0
-  install_element (OSPF6_NODE, &ospf6_stub_router_startup_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_stub_router_startup_cmd);
-  install_element (OSPF6_NODE, &ospf6_stub_router_shutdown_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_stub_router_shutdown_cmd);
-#endif
 
 	install_element(OSPF6_NODE, &ospf6_distance_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_distance_cmd);
 	install_element(OSPF6_NODE, &ospf6_distance_ospf6_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_distance_ospf6_cmd);
-#if 0
-  install_element (OSPF6_NODE, &ospf6_distance_source_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_distance_source_cmd);
-#endif
 }

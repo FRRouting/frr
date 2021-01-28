@@ -160,35 +160,22 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	    && route->type != OSPF6_DEST_TYPE_RANGE
 	    && ((route->type != OSPF6_DEST_TYPE_ROUTER)
 		|| !CHECK_FLAG(route->path.router_bits, OSPF6_ROUTER_BIT_E))) {
-#if 0
-		zlog_debug(
-			"Route type is none of network, range nor ASBR, ignore");
-#endif
 		return 0;
 	}
 
 	/* AS External routes are never considered */
 	if (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1
 	    || route->path.type == OSPF6_PATH_TYPE_EXTERNAL2) {
-#if 0
-		zlog_debug("Path type is external, skip");
-#endif
 		return 0;
 	}
 
 	/* do not generate if the path's area is the same as target area */
 	if (route->path.area_id == area->area_id) {
-#if 0
-		zlog_debug("The route is in the area itself, ignore");
-#endif
 		return 0;
 	}
 
 	/* do not generate if the nexthops belongs to the target area */
 	if (ospf6_abr_nexthops_belong_to_area(route, area)) {
-#if 0
-		zlog_debug("The route's nexthop is in the same area, ignore");
-#endif
 		return 0;
 	}
 
