@@ -237,7 +237,7 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 /* only for use in logging functions! */
 extern pthread_key_t thread_current;
 extern char *thread_timer_to_hhmmss(char *buf, int buf_size,
-				    struct thread *t_timer);
+		struct thread *t_timer);
 
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
