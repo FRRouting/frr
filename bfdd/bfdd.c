@@ -371,10 +371,6 @@ int main(int argc, char *argv[])
 		snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
 			 "/", bfdd_di.pathspace);
 
-#if 0 /* TODO add support for JSON configuration files. */
-	parse_config(conf);
-#endif
-
 	/* Initialize FRR infrastructure. */
 	master = frr_init();
 
