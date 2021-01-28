@@ -442,6 +442,8 @@ Require policy on EBGP
    This is enabled by default for the traditional configuration and
    turned off by default for datacenter configuration.
 
+   When you enable/disable this option you MUST clear the session.
+
    When the incoming or outgoing filter is missing you will see
    "(Policy)" sign under ``show bgp summary``:
 
