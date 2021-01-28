@@ -6703,6 +6703,9 @@ static void bgp_aggregate_install(
 
 		if (!attr) {
 			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
+			if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
+				zlog_debug("%s: %pFX null attribute", __func__,
+					   p);
 			return;
 		}
 
@@ -7221,6 +7224,13 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 	struct ecommunity *ecommunity = NULL;
 	struct lcommunity *lcommunity = NULL;
 
+	/* If the bgp instance is being deleted or self peer is deleted
+	 * then do not create aggregate route
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)
+	    || (bgp->peer_self == NULL))
+		return;
+
 	/* ORIGIN attribute: If at least one route among routes that are
 	 * aggregated has ORIGIN with the value INCOMPLETE, then the
 	 * aggregated route must have the ORIGIN attribute with the value
@@ -7336,6 +7346,13 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 	struct ecommunity *ecommunity = NULL;
 	struct lcommunity *lcommunity = NULL;
 	unsigned long match = 0;
+
+	/* If the bgp instance is being deleted or self peer is deleted
+	 * then do not create aggregate route
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)
+	    || (bgp->peer_self == NULL))
+		return;
 
 	if (BGP_PATH_HOLDDOWN(pi))
 		return;
@@ -7532,6 +7549,13 @@ int bgp_aggregate_unset(struct bgp *bgp, struct prefix *prefix, afi_t afi,
 {
 	struct bgp_dest *dest;
 	struct bgp_aggregate *aggregate;
+
+	/* If the bgp instance is being deleted or self peer is deleted
+	 * then do not create aggregate route
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)
+	    || (bgp->peer_self == NULL))
+		return 0;
 
 	apply_mask(prefix);
 	/* Old configuration check. */
