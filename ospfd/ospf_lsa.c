@@ -2835,9 +2835,10 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 				 */
 				if (old != lsa) {
 					flog_err(EC_OSPF_LSA_MISSING,
-					"%s: LSA[Type%d:%s]: LSA not in LSDB",
-					__func__, lsa->data->type,
-					inet_ntoa(lsa->data->id));
+						 "%s: LSA[Type%d:%pI4]: LSA not in LSDB",
+						 __func__, lsa->data->type,
+						 &lsa->data->id);
+
 					continue;
 				}
 				ospf_discard_from_db(ospf, lsa->lsdb, lsa);
