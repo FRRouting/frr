@@ -84,12 +84,13 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 				inet_ntop(AF_INET, &lsdesc->neighbor_router_id,
 					  buf2, sizeof(buf2));
 				sprintf(buf, "%s/%s", buf2, buf1);
+
+				return buf;
 			}
-		} else
-			return NULL;
+		}
 	}
 
-	return buf;
+	return NULL;
 }
 
 static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
@@ -444,14 +445,15 @@ static char *ospf6_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
 
 		if ((current + sizeof(struct ospf6_network_lsdesc)) <= end) {
 			lsdesc = (struct ospf6_network_lsdesc *)current;
-			if (buf)
+			if (buf) {
 				inet_ntop(AF_INET, &lsdesc->router_id, buf,
 					  buflen);
-		} else
-			return NULL;
+				return buf;
+			}
+		}
 	}
 
-	return (buf);
+	return NULL;
 }
 
 static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
@@ -901,7 +903,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 			}
 		} while (current <= end);
 	}
-	return (buf);
+	return NULL;
 }
 
 static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
