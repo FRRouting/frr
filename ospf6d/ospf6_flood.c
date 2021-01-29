@@ -452,12 +452,6 @@ void ospf6_flood_area(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		    && oi != OSPF6_INTERFACE(lsa->lsdb->data))
 			continue;
 
-#if 0
-      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
-          ospf6_is_interface_virtual_link (oi))
-        continue;
-#endif /*0*/
-
 		ospf6_flood_interface(from, lsa, oi);
 	}
 }
@@ -526,12 +520,6 @@ static void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL
 		    && oi != OSPF6_INTERFACE(lsa->lsdb->data))
 			continue;
-
-#if 0
-      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
-          ospf6_is_interface_virtual_link (oi))
-        continue;
-#endif /*0*/
 
 		ospf6_flood_clear_interface(lsa, oi);
 	}

@@ -6406,31 +6406,7 @@ static int show_as_external_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 
 	return 0;
 }
-#if 0
-static int
-show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
-{
-  struct as_external_lsa *al = (struct as_external_lsa *) lsa->data;
 
-  /* show_ip_ospf_database_header (vty, lsa); */
-
-  zlog_debug( "  Network Mask: /%d%s",
-	     ip_masklen (al->mask), "\n");
-  zlog_debug( "        Metric Type: %s%s",
-	     IS_EXTERNAL_METRIC (al->e[0].tos) ?
-	     "2 (Larger than any link state path)" : "1", "\n");
-  zlog_debug( "        TOS: 0%s", "\n");
-  zlog_debug( "        Metric: %d%s",
-	     GET_METRIC (al->e[0].metric), "\n");
-  zlog_debug( "        Forward Address: %pI4%s",
-	     &al->e[0].fwd_addr, "\n");
-
-  zlog_debug( "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
-	     (route_tag_t)ntohl (al->e[0].route_tag), "\n", "\n");
-
-  return 0;
-}
-#endif
 /* Show AS-NSSA-LSA detail information. */
 static int show_as_nssa_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 				   json_object *json)
@@ -9466,78 +9442,6 @@ DEFUN (ospf_distance_ospf,
 
 	return CMD_SUCCESS;
 }
-
-#if 0
-DEFUN (ospf_distance_source,
-       ospf_distance_source_cmd,
-       "distance (1-255) A.B.C.D/M",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_number = 1;
-  int idx_ipv4_prefixlen = 2;
-
-  ospf_distance_set (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_distance_source,
-       no_ospf_distance_source_cmd,
-       "no distance (1-255) A.B.C.D/M",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_number = 2;
-  int idx_ipv4_prefixlen = 3;
-
-  ospf_distance_unset (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (ospf_distance_source_access_list,
-       ospf_distance_source_access_list_cmd,
-       "distance (1-255) A.B.C.D/M WORD",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_number = 1;
-  int idx_ipv4_prefixlen = 2;
-  int idx_word = 3;
-
-  ospf_distance_set (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_distance_source_access_list,
-       no_ospf_distance_source_access_list_cmd,
-       "no distance (1-255) A.B.C.D/M WORD",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_number = 2;
-  int idx_ipv4_prefixlen = 3;
-  int idx_word = 4;
-
-  ospf_distance_unset (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-
-  return CMD_SUCCESS;
-}
-#endif
 
 DEFUN (ip_ospf_mtu_ignore,
        ip_ospf_mtu_ignore_addr_cmd,
@@ -12653,13 +12557,6 @@ static void ospf_vty_zebra_init(void)
 			&no_ospf_external_route_aggregation_no_adrvertise_cmd);
 	install_element(OSPF_NODE, &ospf_route_aggregation_timer_cmd);
 	install_element(OSPF_NODE, &no_ospf_route_aggregation_timer_cmd);
-
-#if 0
-  install_element (OSPF_NODE, &ospf_distance_source_cmd);
-  install_element (OSPF_NODE, &no_ospf_distance_source_cmd);
-  install_element (OSPF_NODE, &ospf_distance_source_access_list_cmd);
-  install_element (OSPF_NODE, &no_ospf_distance_source_access_list_cmd);
-#endif /* 0 */
 }
 
 static int ospf_config_write(struct vty *vty);

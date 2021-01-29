@@ -2845,19 +2845,6 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 					zlog_warn("PBR: Sample action Ignored");
 				}
 			}
-#if 0
-			if (api->actions[i].u.za.filter
-			    & TRAFFIC_ACTION_DISTRIBUTE) {
-				if (BGP_DEBUG(pbr, PBR)) {
-					bgp_pbr_print_policy_route(api);
-					zlog_warn("PBR: Distribute action Applies");
-				}
-				continue_loop = 0;
-				/* continue forwarding entry as before
-				 * no action
-				 */
-			}
-#endif /* XXX to confirm behaviour of traffic action. for now , ignore */
 			/* terminate action: run other filters
 			 */
 			break;

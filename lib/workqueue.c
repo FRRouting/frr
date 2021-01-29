@@ -377,11 +377,6 @@ stats:
 	if (yielded)
 		wq->yields++;
 
-#if 0
-  printf ("%s: cycles %d, new: best %d, worst %d\n",
-            __func__, cycles, wq->cycles.best, wq->cycles.granularity);
-#endif
-
 	/* Is the queue done yet? If it is, call the completion callback. */
 	if (!work_queue_empty(wq)) {
 		if (ret == WQ_RETRY_LATER ||

@@ -2481,13 +2481,6 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 		return count;
 	}
 
-#if 0
-	// TODO: Need type for something?
-	zlog_debug("Nexthop group type: %d",
-		   *((uint16_t *)RTA_DATA(tb[NHA_GROUP_TYPE])));
-
-#endif
-
 	for (int i = 0; ((i < count) && (i < z_grp_size)); i++) {
 		z_grp[i].id = n_grp[i].id;
 		z_grp[i].weight = n_grp[i].weight + 1;

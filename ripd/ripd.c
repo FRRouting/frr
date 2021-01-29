@@ -2858,23 +2858,6 @@ void rip_event(struct rip *rip, enum rip_event event, int sock)
 	}
 }
 
-#if 0
-static void
-rip_update_default_metric (void)
-{
-  struct route_node *np;
-  struct rip_info *rinfo = NULL;
-  struct list *list = NULL;
-  struct listnode *listnode = NULL;
-
-  for (np = route_top (rip->table); np; np = route_next (np))
-    if ((list = np->info) != NULL)
-      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
-        if (rinfo->type != ZEBRA_ROUTE_RIP && rinfo->type != ZEBRA_ROUTE_CONNECT)
-          rinfo->metric = rip->default_metric;
-}
-#endif
-
 struct rip_distance *rip_distance_new(void)
 {
 	return XCALLOC(MTYPE_RIP_DISTANCE, sizeof(struct rip_distance));

@@ -2323,14 +2323,6 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 		UNSET_FLAG(rib_dest_from_rnode(rnode)->flags,
 			   RIB_ROUTE_QUEUED(qindex));
 
-#if 0
-  else
-    {
-      zlog_debug ("%s: called for route_node (%p, %d) with no ribs",
-                  __func__, rnode, route_node_get_lock_count(rnode));
-      zlog_backtrace(LOG_DEBUG);
-    }
-#endif
 	route_unlock_node(rnode);
 }
 

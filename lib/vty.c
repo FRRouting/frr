@@ -396,16 +396,6 @@ static void vty_do_window_size(struct vty *vty)
 	vty_out(vty, "%s", cmd);
 }
 
-#if 0  /* Currently not used. */
-/* Make don't use lflow vty interface. */
-static void
-vty_dont_lflow_ahead (struct vty *vty)
-{
-  unsigned char cmd[] = { IAC, DONT, TELOPT_LFLOW, '\0' };
-  vty_out (vty, "%s", cmd);
-}
-#endif /* 0 */
-
 /* Authentication of vty */
 static void vty_auth(struct vty *vty, char *buf)
 {
@@ -1090,11 +1080,6 @@ static void vty_describe_command(struct vty *vty)
 
 				vector_free(varcomps);
 			}
-#if 0
-        vty_out (vty, "  %-*s %s\n", width
-                 desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
-                 desc->str ? desc->str : "");
-#endif /* 0 */
 		}
 
 	if ((token = token_cr)) {
@@ -1396,12 +1381,6 @@ static int vty_read(struct thread *thread)
 			case 'Q':
 				vty_buffer_reset(vty);
 				break;
-#if 0 /* More line does not work for "show ip bgp".  */
-            case '\n':
-            case '\r':
-              vty->status = VTY_MORELINE;
-              break;
-#endif
 			default:
 				break;
 			}
