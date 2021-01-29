@@ -727,14 +727,12 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 		case NEXTHOP_TYPE_IPV4:
 		case NEXTHOP_TYPE_IPV6:
 			goto done;
-			break;
 		case NEXTHOP_TYPE_IFINDEX:
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			if (pnhc->nexthop.ifindex == pnhi->ifp->ifindex)
 				is_valid = if_is_up(pnhi->ifp);
 			goto done;
-			break;
 		}
 
 		goto done;
