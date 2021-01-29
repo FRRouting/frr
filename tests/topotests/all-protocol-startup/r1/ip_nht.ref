@@ -39,6 +39,18 @@
 4.4.4.2
  unresolved
  Client list: pbr(fd XX)
+6.6.6.1
+ unresolved
+ Client list: pbr(fd XX)
+6.6.6.2
+ unresolved
+ Client list: pbr(fd XX)
+6.6.6.3
+ unresolved
+ Client list: pbr(fd XX)
+6.6.6.4
+ unresolved
+ Client list: pbr(fd XX)
 192.168.0.2
  resolved via connected
  is directly connected, r1-eth0

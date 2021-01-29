@@ -82,6 +82,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
+
 @pytest.mark.isis
 @pytest.mark.ospf
 @pytest.mark.rip
@@ -537,6 +538,51 @@ def test_nexthop_groups():
 
     verify_route_nexthop_group("5.5.5.1/32")
 
+    ## 4-way ECMP Routes Pointing to Each Other
+
+    # This is to check for a bug with NH resolution where
+    # routes would infintely resolve to each other blowing
+    # up the resolved-> nexthop pointer.
+
+    net["r1"].cmd(
+        'vtysh -c "c t" -c "nexthop-group infinite-recursive" -c "nexthop 6.6.6.1" -c "nexthop 6.6.6.2" \
+            -c "nexthop 6.6.6.3" -c "nexthop 6.6.6.4"'
+    )
+
+    # static route nexthops can recurse to
+
+    net["r1"].cmd('vtysh -c "c t" -c "ip route 6.6.6.0/24 1.1.1.1"')
+
+    # Make routes that point to themselves in ecmp
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 6.6.6.4 nexthop-group infinite-recursive 1"'
+    )
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 6.6.6.3 nexthop-group infinite-recursive 1"'
+    )
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 6.6.6.2 nexthop-group infinite-recursive 1"'
+    )
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 6.6.6.1 nexthop-group infinite-recursive 1"'
+    )
+
+    # Get routes and test if has too many (duplicate) nexthops
+    nhg_id = route_get_nhg_id("6.6.6.1/32")
+    output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
+
+    dups = re.findall(r"(via 1\.1\.1\.1)", output)
+
+    # Should find 3, itself is inactive
+    assert len(dups) == 3, (
+        "Route 6.6.6.1/32 with Nexthop Group ID=%d has wrong number of resolved nexthops"
+        % nhg_id
+    )
+
     ##CLI(net)
 
     ## Remove all NHG routes
@@ -548,6 +594,8 @@ def test_nexthop_groups():
     net["r1"].cmd('vtysh -c "sharp remove routes 4.4.4.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 4.4.4.2 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
+    net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
+    net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
 
 
 def test_rip_status():
