@@ -1140,7 +1140,8 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				continue;
 
 			if (ospf_instance_id
-			    && (re->type != ZEBRA_ROUTE_OSPF
+			    && ((re->type != ZEBRA_ROUTE_OSPF
+				 && re->type != ZEBRA_ROUTE_OSPF6)
 				|| re->instance != ospf_instance_id))
 				continue;
 
@@ -1731,7 +1732,10 @@ DEFPY (show_route,
 	    tag (1-4294967295)\
 	    |X:X::X:X/M$prefix longer-prefixes\
 	   }]\
-	   [" FRR_IP6_REDIST_STR_ZEBRA "$type_str]\
+	   [<\
+	    " FRR_IP6_REDIST_STR_ZEBRA "$type_str\
+	    |ospf6$type_str (1-65535)$ospf_instance_id\
+	   >]\
 	 >\
         [json$json]",
        SHOW_STR
@@ -1762,6 +1766,8 @@ DEFPY (show_route,
        "IPv6 prefix\n"
        "Show route matching the specified Network/Mask pair only\n"
        FRR_IP6_REDIST_HELP_STR_ZEBRA
+       "Open Shortest Path First (IPv6) (OSPFv3)\n"
+       "Instance ID\n"
        JSON_STR)
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
