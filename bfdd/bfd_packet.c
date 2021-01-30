@@ -165,7 +165,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 		salen = sizeof(sin6);
 	} else {
 		sd = bvrf->bg_echo;
-		memset(&sin6, 0, sizeof(sin6));
+		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		memcpy(&sin.sin_addr, &bfd->key.peer, sizeof(sin.sin_addr));
 		sin.sin_port = htons(BFD_DEF_ECHO_PORT);
