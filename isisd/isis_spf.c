@@ -1047,15 +1047,17 @@ lspfragloop:
 
 end:
 
-	/* if attach bit set and we are a level-1 router
-	 * and attach-bit-rcv-ignore is not configured
-	 * add a default route toward this neighbor
+	/* if attach bit set in LSP, attached-bit receive ignore is
+	 * not configured, we are a level-1 area and we have no other
+	 * level-2 | level1-2 areas then add a default route toward
+	 * this neighbor
 	 */
 	if ((lsp->hdr.lsp_bits & LSPBIT_ATT) == LSPBIT_ATT
 	    && !spftree->area->attached_bit_rcv_ignore
-	    && spftree->area->is_type == IS_LEVEL_1) {
+	    && spftree->area->is_type == IS_LEVEL_1
+	    && !isis_area_count(spftree->area->isis, IS_LEVEL_2)) {
 		struct prefix_pair ip_info = { {0} };
-		if (IS_DEBUG_SPF_EVENTS)
+		if (IS_DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Spf (%s): add default %s route",
 				   rawlspid_print(lsp->hdr.lsp_id),
 				   spftree->family == AF_INET ? "ipv4"

@@ -424,6 +424,22 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
+/* return the number of Level1 and level-1-2 routers or
+ * the number of Level2 and level-1-2 routers configured
+ */
+int isis_area_count(const struct isis *isis, int levels)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	int count = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		if (area->is_type & levels)
+			count++;
+
+	return count;
+}
+
 void isis_area_destroy(struct isis_area *area)
 {
 	struct listnode *node, *nnode;
