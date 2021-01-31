@@ -1863,6 +1863,7 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	bgp_notify.subcode = stream_getc(peer->curr);
 	bgp_notify.length = size - 2;
 	bgp_notify.data = NULL;
+	bgp_notify.raw_data = NULL;
 
 	/* Preserv notify code and sub code. */
 	peer->notify.code = bgp_notify.code;
