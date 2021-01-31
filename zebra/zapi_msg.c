@@ -104,6 +104,7 @@ static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 	struct vrf_data data;
 	const char *netns_name = zvrf_ns_name(zvrf);
 
+	memset(&data, 0, sizeof(data));
 	data.l.table_id = zvrf->table_id;
 
 	if (netns_name)
