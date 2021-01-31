@@ -229,6 +229,20 @@ void eigrp_del_if_params(struct eigrp_if_params *eip)
 		free(eip->auth_keychain);
 }
 
+/*
+ * Set the network byte order of the 3 bytes we send
+ * of the mtu of the link.
+ */
+static void eigrp_mtu_convert(struct eigrp_metrics *metric, uint32_t host_mtu)
+{
+	uint32_t network_mtu = htonl(host_mtu);
+	uint8_t *nm = (uint8_t *)&network_mtu;
+
+	metric->mtu[0] = nm[1];
+	metric->mtu[1] = nm[2];
+	metric->mtu[2] = nm[3];
+}
+
 int eigrp_if_up(struct eigrp_interface *ei)
 {
 	struct eigrp_prefix_descriptor *pe;
@@ -256,9 +270,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	metric.delay = eigrp_delay_to_scaled(ei->params.delay);
 	metric.load = ei->params.load;
 	metric.reliability = ei->params.reliability;
-	metric.mtu[0] = 0xDC;
-	metric.mtu[1] = 0x05;
-	metric.mtu[2] = 0x00;
+	eigrp_mtu_convert(&metric, ei->ifp->mtu);
 	metric.hop_count = 0;
 	metric.flags = 0;
 	metric.tag = 0;
