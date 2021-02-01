@@ -1760,6 +1760,10 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 	if (!CHECK_FLAG(resolved->flags, NEXTHOP_FLAG_ACTIVE))
 		return false;
 
+	/* Must not be duplicate */
+	if (CHECK_FLAG(resolved->flags, NEXTHOP_FLAG_DUPLICATE))
+		return false;
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
