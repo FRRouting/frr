@@ -1041,7 +1041,6 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 		subgrp->scount--;
 
 		bgp_adj_out_remove_subgroup(dest, adj, subgrp);
-		bgp_dest_unlock_node(dest);
 	}
 
 	if (!stream_empty(s)) {
