@@ -503,6 +503,11 @@ reswitch:	switch (ch) {
 			size = (prec >= 0) ? strnlen(cp, prec) : strlen(cp);
 			sign = '\0';
 			break;
+#ifdef DANGEROUS_PERCENT_N
+		/* FRR does not use %n in printf formats.  This is just left
+		 * here in case someone tries to use %n and starts debugging
+		 * why the f* it doesn't work
+		 */
 		case 'n':
 			/*
 			 * Assignment-like behavior is specified if the
@@ -526,6 +531,7 @@ reswitch:	switch (ch) {
 			else
 				*GETARG(int *) = ret;
 			continue;	/* no output */
+#endif
 		case 'O':
 			flags |= LONGINT;
 			/*FALLTHROUGH*/
