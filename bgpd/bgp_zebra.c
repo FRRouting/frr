@@ -1409,8 +1409,17 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		struct aspath *aspath = info->attr->aspath;
 
 		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);
-		api.opaque.length = strlen(aspath->str) + 1;
-		memcpy(api.opaque.data, aspath->str, api.opaque.length);
+		/*
+		 * Let's ensure that the as path string does not
+		 * go beyond the end of the buffer.  In this case
+		 * just hard limit the string to ZAPI_MESSAGE_OPAQUE_LENGTH
+		 * and put a `\0` terminating character, since
+		 * it's a string.
+		 */
+		api.opaque.length = MIN(ZAPI_MESSAGE_OPAQUE_LENGTH,
+					strlen(aspath->str) + 1);
+		strlcpy((char *)api.opaque.data, aspath->str,
+			api.opaque.length);
 	}
 
 	if (allow_recursion)

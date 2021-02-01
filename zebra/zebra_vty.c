@@ -421,25 +421,25 @@ static void show_nexthop_detail_helper(struct vty *vty,
 static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 				       struct json_object *json)
 {
+	char obuf[ZAPI_MESSAGE_OPAQUE_LENGTH];
+
 	if (!re->opaque)
 		return;
 
 	switch (re->type) {
 	case ZEBRA_ROUTE_SHARP:
+		strlcpy(obuf, (char *)re->opaque->data, sizeof(obuf));
 		if (json)
-			json_object_string_add(json, "opaque",
-					       (char *)re->opaque->data);
+			json_object_string_add(json, "opaque", obuf);
 		else
-			vty_out(vty, "    Opaque Data: %s",
-				(char *)re->opaque->data);
+			vty_out(vty, "    Opaque Data: %s", obuf);
 		break;
 	case ZEBRA_ROUTE_BGP:
+		strlcpy(obuf, (char *)re->opaque->data, sizeof(obuf));
 		if (json)
-			json_object_string_add(json, "asPath",
-					       (char *)re->opaque->data);
+			json_object_string_add(json, "asPath", obuf);
 		else
-			vty_out(vty, "    AS-Path: %s",
-				(char *)re->opaque->data);
+			vty_out(vty, "    AS-Path: %s", obuf);
 	default:
 		break;
 	}

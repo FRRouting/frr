@@ -295,8 +295,9 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	if (strlen(opaque)) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);
 		api.opaque.length = strlen(opaque) + 1;
-		assert(api.opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
-		memcpy(api.opaque.data, opaque, api.opaque.length);
+		api.opaque.length =
+			MIN(ZAPI_MESSAGE_OPAQUE_LENGTH, strlen(opaque) + 1);
+		strlcpy((char *)api.opaque.data, opaque, api.opaque.length);
 	}
 
 	if (zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api)
