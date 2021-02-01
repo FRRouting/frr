@@ -320,12 +320,17 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	bnc->change_flags = 0;
 
 	/* debug print the input */
-	if (BGP_DEBUG(nht, NHT))
+	if (BGP_DEBUG(nht, NHT)) {
+		char bnc_buf[BNC_FLAG_DUMP_SIZE];
+
 		zlog_debug(
-			"%s(%u): Rcvd NH update %pFX(%u) - metric %d/%d #nhops %d/%d flags 0x%x",
+			"%s(%u): Rcvd NH update %pFX(%u) - metric %d/%d #nhops %d/%d flags %s",
 			bnc->bgp->name_pretty, bnc->bgp->vrf_id, &nhr->prefix,
 			bnc->srte_color, nhr->metric, bnc->metric,
-			nhr->nexthop_num, bnc->nexthop_num, bnc->flags);
+			nhr->nexthop_num, bnc->nexthop_num,
+			bgp_nexthop_dump_bnc_flags(bnc, bnc_buf,
+						   sizeof(bnc_buf)));
+	}
 
 	if (nhr->metric != bnc->metric)
 		bnc->change_flags |= BGP_NEXTHOP_METRIC_CHANGED;
@@ -702,11 +707,17 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 	if (BGP_DEBUG(nht, NHT)) {
 		char buf[PREFIX2STR_BUFFER];
+		char bnc_buf[BNC_FLAG_DUMP_SIZE];
+		char chg_buf[BNC_FLAG_DUMP_SIZE];
+
 		bnc_str(bnc, buf, PREFIX2STR_BUFFER);
 		zlog_debug(
-			"NH update for %s(%u)(%s) - flags 0x%x chgflags 0x%x - evaluate paths",
-			buf, bnc->srte_color, bnc->bgp->name_pretty, bnc->flags,
-			bnc->change_flags);
+			"NH update for %s(%u)(%s) - flags %s chgflags %s- evaluate paths",
+			buf, bnc->srte_color, bnc->bgp->name_pretty,
+			bgp_nexthop_dump_bnc_flags(bnc, bnc_buf,
+						   sizeof(bnc_buf)),
+			bgp_nexthop_dump_bnc_change_flags(bnc, chg_buf,
+							  sizeof(bnc_buf)));
 	}
 
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
