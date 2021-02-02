@@ -3901,7 +3901,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 
 			/* Is ASN representable in 2-bytes? Or must AS_TRANS be
 			 * used? */
-			if (attr->aggregator_as > 65535) {
+			if (attr->aggregator_as > UINT16_MAX) {
 				stream_putw(s, BGP_AS_TRANS);
 
 				/* we have to send AS4_AGGREGATOR, too.
