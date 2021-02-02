@@ -51,6 +51,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
 #include "ospf6d.h"
+#include "lib/json.h"
 
 DEFINE_QOBJ_TYPE(ospf6)
 
@@ -1083,7 +1084,7 @@ DEFUN(show_ipv6_ospf6,
 
 DEFUN (show_ipv6_ospf6_route,
        show_ipv6_ospf6_route_cmd,
-       "show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>]",
+       "show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
@@ -1095,41 +1096,44 @@ DEFUN (show_ipv6_ospf6_route,
        "Specify IPv6 address\n"
        "Specify IPv6 prefix\n"
        "Detailed information\n"
-       "Summary of route table\n")
+       "Summary of route table\n"
+       JSON_STR)
 {
 	struct ospf6 *ospf6;
+	bool uj = use_json(argc, argv);
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 
-	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_route_match,
        show_ipv6_ospf6_route_match_cmd,
-       "show ipv6 ospf6 route X:X::X:X/M <match|longer>",
+       "show ipv6 ospf6 route X:X::X:X/M <match|longer> [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        ROUTE_STR
        "Specify IPv6 prefix\n"
        "Display routes which match the specified route\n"
-       "Display routes longer than the specified route\n")
+       "Display routes longer than the specified route\n"
+       JSON_STR)
 {
 	struct ospf6 *ospf6;
+	bool uj = use_json(argc, argv);
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 
-	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
-
+	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_route_match_detail,
        show_ipv6_ospf6_route_match_detail_cmd,
-       "show ipv6 ospf6 route X:X::X:X/M match detail",
+       "show ipv6 ospf6 route X:X::X:X/M match detail [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
@@ -1137,21 +1141,22 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
        "Specify IPv6 prefix\n"
        "Display routes which match the specified route\n"
        "Detailed information\n"
-       )
+       JSON_STR)
 {
 	struct ospf6 *ospf6;
+	bool uj = use_json(argc, argv);
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 
-	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table, uj);
 	return CMD_SUCCESS;
 }
 
 
 DEFUN (show_ipv6_ospf6_route_type_detail,
        show_ipv6_ospf6_route_type_detail_cmd,
-       "show ipv6 ospf6 route <intra-area|inter-area|external-1|external-2> detail",
+       "show ipv6 ospf6 route <intra-area|inter-area|external-1|external-2> detail [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
@@ -1161,14 +1166,15 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
        "Display Type-1 External routes\n"
        "Display Type-2 External routes\n"
        "Detailed information\n"
-       )
+       JSON_STR)
 {
 	struct ospf6 *ospf6;
+	bool uj = use_json(argc, argv);
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 
-	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table, uj);
 	return CMD_SUCCESS;
 }
 
