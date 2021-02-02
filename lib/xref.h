@@ -144,8 +144,11 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  */
 #define XREF_SETUP()                                                           \
 	static const struct xref _dummy_xref = {                               \
-			.file = __FILE__, .line = __LINE__, .func = "dummy",   \
-			.type = XREFT_NONE,                                    \
+			/* .xrefdata = */ NULL,                                \
+			/* .type = */ XREFT_NONE,                              \
+			/* .line = */ __LINE__,                                \
+			/* .file = */ __FILE__,                                \
+			/* .func = */ "dummy",                                 \
 	};                                                                     \
 	static const struct xref * const _dummy_xref_p                         \
 			__attribute__((used, section("xref_array")))           \
@@ -251,8 +254,11 @@ struct _xref_p {
 /* initializer for a "struct xref" */
 #define XREF_INIT(type_, xrefdata_, func_)                                     \
 	{                                                                      \
-		.type = (type_), .xrefdata = (xrefdata_),                      \
-		.file = __FILE__, .line = __LINE__, .func = func_,             \
+		/* .xrefdata = */ (xrefdata_),                                 \
+		/* .type = */ (type_),                                         \
+		/* .line = */ __LINE__,                                        \
+		/* .file = */ __FILE__,                                        \
+		/* .func = */ func_,                                           \
 	}                                                                      \
 	/* end */
 
