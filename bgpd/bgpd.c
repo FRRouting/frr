@@ -5216,10 +5216,10 @@ int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
 	struct peer *member;
 	struct listnode *node, *nnode;
 
-	if (keepalive > 65535)
+	if (keepalive > UINT16_MAX)
 		return BGP_ERR_INVALID_VALUE;
 
-	if (holdtime > 65535)
+	if (holdtime > UINT16_MAX)
 		return BGP_ERR_INVALID_VALUE;
 
 	if (holdtime < 3 && holdtime != 0)
@@ -5296,7 +5296,7 @@ int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 	struct peer *member;
 	struct listnode *node, *nnode;
 
-	if (connect > 65535)
+	if (connect > UINT16_MAX)
 		return BGP_ERR_INVALID_VALUE;
 
 	/* Set flag and configuration on peer. */
