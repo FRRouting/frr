@@ -23,6 +23,10 @@
 #include <errno.h>
 #include "compiler.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum xref_type {
 	XREFT_NONE = 0,
 
