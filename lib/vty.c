@@ -517,12 +517,12 @@ static int vty_command(struct vty *vty, char *buf)
 			/* Warn about CPU hog that must be fixed. */
 			flog_warn(
 				EC_LIB_SLOW_THREAD_CPU,
-				"SLOW COMMAND: command took %lums (cpu time %lums): %s",
+				"CPU HOG: command took %lums (cpu time %lums): %s",
 				realtime / 1000, cputime / 1000, buf);
 		} else if (realtime > CONSUMED_TIME_CHECK) {
 			flog_warn(
 				EC_LIB_SLOW_THREAD_WALL,
-				"SLOW COMMAND: command took %lums (cpu time %lums): %s",
+				"STARVATION: command took %lums (cpu time %lums): %s",
 				realtime / 1000, cputime / 1000, buf);
 		}
 	}

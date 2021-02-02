@@ -124,11 +124,12 @@ static void cpu_record_hash_free(void *a)
 static void vty_out_cpu_thread_history(struct vty *vty,
 				       struct cpu_thread_history *a)
 {
-	vty_out(vty, "%5zu %10zu.%03zu %9zu %8zu %9zu %8zu %9zu",
+	vty_out(vty, "%5zu %10zu.%03zu %9zu %8zu %9zu %8zu %9zu %9zu %9zu",
 		a->total_active, a->cpu.total / 1000, a->cpu.total % 1000,
-		a->total_calls,	(a->cpu.total / a->total_calls), a->cpu.max,
-		(a->real.total / a->total_calls), a->real.max);
-	vty_out(vty, " %c%c%c%c%c  %s\n",
+		a->total_calls, (a->cpu.total / a->total_calls), a->cpu.max,
+		(a->real.total / a->total_calls), a->real.max,
+		a->total_cpu_warn, a->total_wall_warn);
+	vty_out(vty, "  %c%c%c%c%c  %s\n",
 		a->types & (1 << THREAD_READ) ? 'R' : ' ',
 		a->types & (1 << THREAD_WRITE) ? 'W' : ' ',
 		a->types & (1 << THREAD_TIMER) ? 'T' : ' ',
@@ -149,6 +150,10 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 		atomic_load_explicit(&a->total_active, memory_order_seq_cst);
 	copy.total_calls =
 		atomic_load_explicit(&a->total_calls, memory_order_seq_cst);
+	copy.total_cpu_warn =
+		atomic_load_explicit(&a->total_cpu_warn, memory_order_seq_cst);
+	copy.total_wall_warn =
+		atomic_load_explicit(&a->total_wall_warn, memory_order_seq_cst);
 	copy.cpu.total =
 		atomic_load_explicit(&a->cpu.total, memory_order_seq_cst);
 	copy.cpu.max = atomic_load_explicit(&a->cpu.max, memory_order_seq_cst);
@@ -165,6 +170,8 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 	vty_out_cpu_thread_history(vty, &copy);
 	totals->total_active += copy.total_active;
 	totals->total_calls += copy.total_calls;
+	totals->total_cpu_warn += copy.total_cpu_warn;
+	totals->total_wall_warn += copy.total_wall_warn;
 	totals->real.total += copy.real.total;
 	if (totals->real.max < copy.real.max)
 		totals->real.max = copy.real.max;
@@ -202,7 +209,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 			vty_out(vty,
 				"Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
 			vty_out(vty, " Avg uSec Max uSecs");
-			vty_out(vty, "  Type  Thread\n");
+			vty_out(vty, "  CPU_Warn Wall_Warn  Type   Thread\n");
 
 			if (m->cpu_record->count)
 				hash_iterate(
@@ -223,7 +230,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	vty_out(vty, "%30s %18s %18s\n", "",
 		"CPU (user+system):", "Real (wall-clock):");
 	vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
-	vty_out(vty, " Avg uSec Max uSecs");
+	vty_out(vty, " Avg uSec Max uSecs  CPU_Warn Wall_Warn");
 	vty_out(vty, "  Type  Thread\n");
 
 	if (tmp.total_calls > 0)
@@ -1858,6 +1865,8 @@ void thread_call(struct thread *thread)
 		 * Whinge about it now, so we're aware this is yet another task
 		 * to fix.
 		 */
+		atomic_fetch_add_explicit(&thread->hist->total_cpu_warn,
+					  1, memory_order_seq_cst);
 		flog_warn(
 			EC_LIB_SLOW_THREAD_CPU,
 			"CPU HOG: task %s (%lx) ran for %lums (cpu time %lums)",
@@ -1870,6 +1879,8 @@ void thread_call(struct thread *thread)
 		 * about this because this could imply some sort of
 		 * scheduling issue.
 		 */
+		atomic_fetch_add_explicit(&thread->hist->total_wall_warn,
+					  1, memory_order_seq_cst);
 		flog_warn(
 			EC_LIB_SLOW_THREAD_WALL,
 			"STARVATION: task %s (%lx) ran for %lums (cpu time %lums)",
