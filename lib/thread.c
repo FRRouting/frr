@@ -1850,15 +1850,29 @@ void thread_call(struct thread *thread)
 				 memory_order_seq_cst);
 
 #ifdef CONSUMED_TIME_CHECK
-	if (realtime > CONSUMED_TIME_CHECK) {
+	if (cputime > CONSUMED_TIME_CHECK) {
 		/*
-		 * We have a CPU Hog on our hands.
+		 * We have a CPU Hog on our hands.  The time FRR
+		 * has spent doing actual work ( not sleeping )
+		 * is greater than 5 seconds.
 		 * Whinge about it now, so we're aware this is yet another task
 		 * to fix.
 		 */
 		flog_warn(
-			EC_LIB_SLOW_THREAD,
-			"SLOW THREAD: task %s (%lx) ran for %lums (cpu time %lums)",
+			EC_LIB_SLOW_THREAD_CPU,
+			"CPU HOG: task %s (%lx) ran for %lums (cpu time %lums)",
+			thread->xref->funcname, (unsigned long)thread->func,
+			realtime / 1000, cputime / 1000);
+	} else if (realtime > CONSUMED_TIME_CHECK) {
+		/*
+		 * The runtime for a task is greater than 5 seconds, but
+		 * the cpu time is under 5 seconds.  Let's whine
+		 * about this because this could imply some sort of
+		 * scheduling issue.
+		 */
+		flog_warn(
+			EC_LIB_SLOW_THREAD_WALL,
+			"STARVATION: task %s (%lx) ran for %lums (cpu time %lums)",
 			thread->xref->funcname, (unsigned long)thread->func,
 			realtime / 1000, cputime / 1000);
 	}
