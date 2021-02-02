@@ -1672,15 +1672,54 @@ static bool bfd_id_hash_cmp(const void *n1, const void *n2)
 static unsigned int bfd_key_hash_do(const void *p)
 {
 	const struct bfd_session *bs = p;
+	struct bfd_key key = bs->key;
 
-	return jhash(&bs->key, sizeof(bs->key), 0);
+	/*
+	 * Local address and interface name are optional and
+	 * can be filled any time after session creation.
+	 * Hash key should not depend on these fields.
+	 */
+	memset(&key.local, 0, sizeof(key.local));
+	memset(key.ifname, 0, sizeof(key.ifname));
+
+	return jhash(&key, sizeof(key), 0);
 }
 
 static bool bfd_key_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
-	return memcmp(&bs1->key, &bs2->key, sizeof(bs1->key)) == 0;
+	if (bs1->key.family != bs2->key.family)
+		return false;
+	if (bs1->key.mhop != bs2->key.mhop)
+		return false;
+	if (memcmp(&bs1->key.peer, &bs2->key.peer, sizeof(bs1->key.peer)))
+		return false;
+	if (memcmp(bs1->key.vrfname, bs2->key.vrfname,
+		   sizeof(bs1->key.vrfname)))
+		return false;
+
+	/*
+	 * Local address is optional and can be empty.
+	 * If both addresses are not empty and different,
+	 * then the keys are different.
+	 */
+	if (memcmp(&bs1->key.local, &zero_addr, sizeof(bs1->key.local))
+	    && memcmp(&bs2->key.local, &zero_addr, sizeof(bs2->key.local))
+	    && memcmp(&bs1->key.local, &bs2->key.local, sizeof(bs1->key.local)))
+		return false;
+
+	/*
+	 * Interface name is optional and can be empty.
+	 * If both names are not empty and different,
+	 * then the keys are different.
+	 */
+	if (bs1->key.ifname[0] && bs2->key.ifname[0]
+	    && memcmp(bs1->key.ifname, bs2->key.ifname,
+		      sizeof(bs1->key.ifname)))
+		return false;
+
+	return true;
 }
 
 
@@ -1698,117 +1737,13 @@ struct bfd_session *bfd_id_lookup(uint32_t id)
 	return hash_lookup(bfd_id_hash, &bs);
 }
 
-struct bfd_key_walk_partial_lookup {
-	struct bfd_session *given;
-	struct bfd_session *result;
-};
-
-/* ignore some parameters */
-static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b,
-						void *data)
-{
-	struct bfd_key_walk_partial_lookup *ctx =
-		(struct bfd_key_walk_partial_lookup *)data;
-	struct bfd_session *given = ctx->given;
-	struct bfd_session *parsed = b->data;
-
-	if (given->key.family != parsed->key.family)
-		return HASHWALK_CONTINUE;
-	if (given->key.mhop != parsed->key.mhop)
-		return HASHWALK_CONTINUE;
-	if (memcmp(&given->key.peer, &parsed->key.peer,
-		   sizeof(struct in6_addr)))
-		return HASHWALK_CONTINUE;
-	if (memcmp(given->key.vrfname, parsed->key.vrfname, MAXNAMELEN))
-		return HASHWALK_CONTINUE;
-	ctx->result = parsed;
-	/* ignore localaddr or interface */
-	return HASHWALK_ABORT;
-}
-
 struct bfd_session *bfd_key_lookup(struct bfd_key key)
 {
-	struct bfd_session bs, *bsp;
-	struct bfd_key_walk_partial_lookup ctx;
-	char peer_buf[INET6_ADDRSTRLEN];
+	struct bfd_session bs;
 
 	bs.key = key;
-	bsp = hash_lookup(bfd_key_hash, &bs);
-	if (bsp)
-		return bsp;
 
-	inet_ntop(bs.key.family, &bs.key.peer, peer_buf,
-		  sizeof(peer_buf));
-	/* Handle cases where local-address is optional. */
-	if (memcmp(&bs.key.local, &zero_addr, sizeof(bs.key.local))) {
-		memset(&bs.key.local, 0, sizeof(bs.key.local));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-		if (bsp) {
-			if (bglobal.debug_peer_event) {
-				char addr_buf[INET6_ADDRSTRLEN];
-				inet_ntop(bs.key.family, &key.local, addr_buf,
-					  sizeof(addr_buf));
-				zlog_debug(
-					" peer %s found, but loc-addr %s ignored",
-					peer_buf, addr_buf);
-			}
-			return bsp;
-		}
-	}
-
-	bs.key = key;
-	/* Handle cases where ifname is optional. */
-	if (bs.key.ifname[0]) {
-		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-		if (bsp) {
-			if (bglobal.debug_peer_event)
-				zlog_debug(" peer %s found, but ifp %s ignored",
-					   peer_buf, key.ifname);
-			return bsp;
-		}
-	}
-
-	/* Handle cases where local-address and ifname are optional. */
-	if (bs.key.family == AF_INET) {
-		memset(&bs.key.local, 0, sizeof(bs.key.local));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-		if (bsp) {
-			if (bglobal.debug_peer_event) {
-				char addr_buf[INET6_ADDRSTRLEN];
-				inet_ntop(bs.key.family, &bs.key.local,
-					  addr_buf, sizeof(addr_buf));
-				zlog_debug(
-					" peer %s found, but ifp %s and loc-addr %s ignored",
-					peer_buf, key.ifname, addr_buf);
-			}
-			return bsp;
-		}
-	}
-	bs.key = key;
-
-	/* Handle case where a context more complex ctx is present.
-	 * input has no iface nor local-address, but a context may
-	 * exist.
-	 *
-	 * Only applies to IPv4, because IPv6 requires either
-	 * local-address or interface.
-	 */
-	if (!bs.key.mhop && bs.key.family == AF_INET) {
-		ctx.result = NULL;
-		ctx.given = &bs;
-		hash_walk(bfd_key_hash, &bfd_key_lookup_ignore_partial_walker,
-			  &ctx);
-		/* change key */
-		if (ctx.result) {
-			bsp = ctx.result;
-			if (bglobal.debug_peer_event)
-				zlog_debug(
-					" peer %s found, but ifp and/or loc-addr params ignored",
-					peer_buf);
-		}
-	}
-	return bsp;
+	return hash_lookup(bfd_key_hash, &bs);
 }
 
 /*
@@ -1832,16 +1767,11 @@ struct bfd_session *bfd_id_delete(uint32_t id)
 
 struct bfd_session *bfd_key_delete(struct bfd_key key)
 {
-	struct bfd_session bs, *bsp;
+	struct bfd_session bs;
 
 	bs.key = key;
-	bsp = hash_lookup(bfd_key_hash, &bs);
-	if (bsp == NULL && key.ifname[0]) {
-		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-	}
 
-	return hash_release(bfd_key_hash, bsp);
+	return hash_release(bfd_key_hash, &bs);
 }
 
 /* Iteration functions. */
