@@ -706,8 +706,10 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 		if (strcmp(ifp->name, bs->key.ifname))
 			continue;
 		/* Skip disabled sessions. */
-		if (bs->sock == -1)
+		if (bs->sock == -1) {
+			bs->ifp = NULL;
 			continue;
+		}
 
 		bfd_session_disable(bs);
 		bs->ifp = NULL;

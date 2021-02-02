@@ -508,6 +508,7 @@ void eigrp_topology_neighbor_down(struct eigrp *eigrp,
 			if (entry->adv_router != nbr)
 				continue;
 
+			memset(&msg, 0, sizeof(msg));
 			msg.metrics.delay = EIGRP_MAX_METRIC;
 			msg.packet_type = EIGRP_OPC_UPDATE;
 			msg.eigrp = eigrp;

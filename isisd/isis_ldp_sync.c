@@ -145,6 +145,7 @@ void isis_ldp_sync_state_req_msg(struct isis_circuit *circuit)
 	ils_debug("ldp_sync: send state request to LDP for %s",
 		  ifp->name);
 
+	memset(&request, 0, sizeof(request));
 	strlcpy(request.name, ifp->name, sizeof(ifp->name));
 	request.proto = LDP_IGP_SYNC_IF_STATE_REQUEST;
 	request.ifindex = ifp->ifindex;
