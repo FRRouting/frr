@@ -161,3 +161,10 @@ the xref array is in the file.  Also note the owner is clearly marked as
 For SystemTap's use of ELF notes, refer to
 https://libstapsdt.readthedocs.io/en/latest/how-it-works/internals.html as an
 entry point.
+
+.. note::
+
+   Due to GCC bug 41091, the "xref_array" section is not correctly generated
+   for C++ code when compiled by GCC.  A workaround is present for runtime
+   functionality, but to extract the xrefs from a C++ source file, it needs
+   to be built with clang (or a future fixed version of GCC) instead.
