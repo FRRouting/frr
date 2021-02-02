@@ -210,7 +210,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				       struct ospf6_route *route,
 				       struct ospf6 *ospf6)
 {
-	struct ospf6_route *old_route;
+	struct ospf6_route *old_route, *next_route;
 	struct ospf6_path *ecmp_path, *o_path = NULL;
 	struct listnode *anode, *anext;
 	struct listnode *nnode, *rnode, *rnext;
@@ -220,8 +220,10 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 	/* check for old entry match with new route origin,
 	 * delete old entry.
 	 */
-	for (old_route = old; old_route; old_route = old_route->next) {
+	for (old_route = old; old_route; old_route = next_route) {
 		bool route_updated = false;
+
+		next_route = old_route->next;
 
 		if (!ospf6_route_is_same(old_route, route)
 		    || (old_route->path.type != route->path.type))
@@ -315,6 +317,8 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 						old_route->path.cost,
 						route->path.cost);
 				}
+				if (old == old_route)
+					old = next_route;
 				ospf6_route_remove(old_route,
 						   ospf6->route_table);
 			}
