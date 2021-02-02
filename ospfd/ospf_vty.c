@@ -9922,10 +9922,10 @@ DEFPY(no_ospf_gr_helper_planned_only,
 	return CMD_SUCCESS;
 }
 
-static int ospf_print_vty_helper_dis_rtr_walkcb(struct hash_bucket *backet,
+static int ospf_print_vty_helper_dis_rtr_walkcb(struct hash_bucket *bucket,
 						void *arg)
 {
-	struct advRtr *rtr = backet->data;
+	struct advRtr *rtr = bucket->data;
 	struct vty *vty = (struct vty *)arg;
 	static unsigned int count;
 
@@ -11243,10 +11243,10 @@ static const char *const ospf_abr_type_str[] = {
 static const char *const ospf_shortcut_mode_str[] = {
 	"default", "enable", "disable"
 };
-static int ospf_vty_external_rt_walkcb(struct hash_bucket *backet,
+static int ospf_vty_external_rt_walkcb(struct hash_bucket *bucket,
 					void *arg)
 {
-	struct external_info *ei = backet->data;
+	struct external_info *ei = bucket->data;
 	struct vty *vty = (struct vty *)arg;
 	static unsigned int count;
 
@@ -11262,10 +11262,10 @@ static int ospf_vty_external_rt_walkcb(struct hash_bucket *backet,
 	return HASHWALK_CONTINUE;
 }
 
-static int ospf_json_external_rt_walkcb(struct hash_bucket *backet,
+static int ospf_json_external_rt_walkcb(struct hash_bucket *bucket,
 					void *arg)
 {
-	struct external_info *ei = backet->data;
+	struct external_info *ei = bucket->data;
 	struct json_object *json = (struct json_object *)arg;
 	char buf[PREFIX2STR_BUFFER];
 	char exnalbuf[20];
@@ -12034,10 +12034,10 @@ static int config_write_ospf_redistribute(struct vty *vty, struct ospf *ospf)
 	return 0;
 }
 
-static int ospf_cfg_write_helper_dis_rtr_walkcb(struct hash_bucket *backet,
+static int ospf_cfg_write_helper_dis_rtr_walkcb(struct hash_bucket *bucket,
 						void *arg)
 {
-	struct advRtr *rtr = backet->data;
+	struct advRtr *rtr = bucket->data;
 	struct vty *vty = (struct vty *)arg;
 
 	vty_out(vty, " graceful-restart helper-only %pI4\n",
