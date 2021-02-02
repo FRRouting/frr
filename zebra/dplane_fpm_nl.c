@@ -1052,10 +1052,10 @@ struct fpm_rmac_arg {
 	bool complete;
 };
 
-static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
+static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 {
 	struct fpm_rmac_arg *fra = arg;
-	zebra_mac_t *zrmac = backet->data;
+	zebra_mac_t *zrmac = bucket->data;
 	struct zebra_if *zif = fra->zl3vni->vxlan_if->info;
 	const struct zebra_l2info_vxlan *vxl = &zif->l2info.vxl;
 	struct zebra_if *br_zif;
@@ -1084,10 +1084,10 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
 	}
 }
 
-static void fpm_enqueue_l3vni_table(struct hash_bucket *backet, void *arg)
+static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct fpm_rmac_arg *fra = arg;
-	zebra_l3vni_t *zl3vni = backet->data;
+	zebra_l3vni_t *zl3vni = bucket->data;
 
 	fra->zl3vni = zl3vni;
 	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, zl3vni);
@@ -1188,16 +1188,16 @@ static int fpm_rib_reset(struct thread *t)
 /*
  * The next three function will handle RMAC table reset.
  */
-static void fpm_unset_rmac_table(struct hash_bucket *backet, void *arg)
+static void fpm_unset_rmac_table(struct hash_bucket *bucket, void *arg)
 {
-	zebra_mac_t *zrmac = backet->data;
+	zebra_mac_t *zrmac = bucket->data;
 
 	UNSET_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT);
 }
 
-static void fpm_unset_l3vni_table(struct hash_bucket *backet, void *arg)
+static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
-	zebra_l3vni_t *zl3vni = backet->data;
+	zebra_l3vni_t *zl3vni = bucket->data;
 
 	hash_iterate(zl3vni->rmac_table, fpm_unset_rmac_table, zl3vni);
 }

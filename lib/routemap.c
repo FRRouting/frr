@@ -2240,7 +2240,7 @@ static void route_map_pentry_update(route_map_event_t event,
 	}
 }
 
-static void route_map_pentry_process_dependency(struct hash_bucket *backet,
+static void route_map_pentry_process_dependency(struct hash_bucket *bucket,
 						void *data)
 {
 	char *rmap_name = NULL;
@@ -2253,7 +2253,7 @@ static void route_map_pentry_process_dependency(struct hash_bucket *backet,
 		(struct route_map_pentry_dep *)data;
 	unsigned char family = pentry_dep->pentry->prefix.family;
 
-	dep_data = (struct route_map_dep_data *)backet->data;
+	dep_data = (struct route_map_dep_data *)bucket->data;
 	if (!dep_data)
 		return;
 

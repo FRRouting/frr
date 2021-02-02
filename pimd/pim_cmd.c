@@ -11022,9 +11022,9 @@ static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
 	}
 }
 
-static void pim_show_vxlan_sg_hash_entry(struct hash_bucket *backet, void *arg)
+static void pim_show_vxlan_sg_hash_entry(struct hash_bucket *bucket, void *arg)
 {
-	pim_show_vxlan_sg_entry((struct pim_vxlan_sg *)backet->data,
+	pim_show_vxlan_sg_entry((struct pim_vxlan_sg *)bucket->data,
 				(struct pim_sg_cache_walk_data *)arg);
 }
 
