@@ -1826,20 +1826,20 @@ static struct cmd_node nb_debug_node = {
 
 void nb_cli_install_default(int node)
 {
-	install_element(node, &show_config_candidate_section_cmd);
+	_install_element(node, &show_config_candidate_section_cmd);
 
 	if (frr_get_cli_mode() != FRR_CLI_TRANSACTIONAL)
 		return;
 
-	install_element(node, &config_commit_cmd);
-	install_element(node, &config_commit_comment_cmd);
-	install_element(node, &config_commit_check_cmd);
-	install_element(node, &config_update_cmd);
-	install_element(node, &config_discard_cmd);
-	install_element(node, &show_config_running_cmd);
-	install_element(node, &show_config_candidate_cmd);
-	install_element(node, &show_config_compare_cmd);
-	install_element(node, &show_config_transaction_cmd);
+	_install_element(node, &config_commit_cmd);
+	_install_element(node, &config_commit_comment_cmd);
+	_install_element(node, &config_commit_check_cmd);
+	_install_element(node, &config_update_cmd);
+	_install_element(node, &config_discard_cmd);
+	_install_element(node, &show_config_running_cmd);
+	_install_element(node, &show_config_candidate_cmd);
+	_install_element(node, &show_config_compare_cmd);
+	_install_element(node, &show_config_transaction_cmd);
 }
 
 /* YANG module autocomplete. */

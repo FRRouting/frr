@@ -3797,11 +3797,11 @@ DEFUN_HIDDEN(show_cli_graph_vtysh,
 
 static void vtysh_install_default(enum node_type node)
 {
-	install_element(node, &config_list_cmd);
-	install_element(node, &find_cmd);
-	install_element(node, &show_cli_graph_vtysh_cmd);
-	install_element(node, &vtysh_output_file_cmd);
-	install_element(node, &no_vtysh_output_file_cmd);
+	_install_element(node, &config_list_cmd);
+	_install_element(node, &find_cmd);
+	_install_element(node, &show_cli_graph_vtysh_cmd);
+	_install_element(node, &vtysh_output_file_cmd);
+	_install_element(node, &no_vtysh_output_file_cmd);
 }
 
 /* Making connection to protocol daemon. */

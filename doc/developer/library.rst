@@ -11,6 +11,7 @@ Library Facilities (libfrr)
    rcu
    lists
    logging
+   xrefs
    locking
    hooks
    cli

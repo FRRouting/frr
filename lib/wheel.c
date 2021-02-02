@@ -73,8 +73,7 @@ static int wheel_timer_thread(struct thread *t)
 
 	wheel = THREAD_ARG(t);
 
-	thread_execute_name(wheel->master, wheel_timer_thread_helper,
-			    wheel, 0, wheel->name);
+	thread_execute(wheel->master, wheel_timer_thread_helper, wheel, 0);
 
 	return 0;
 }

@@ -277,7 +277,7 @@ const char *cmd_prompt(enum node_type node)
 }
 
 /* Install a command into a node. */
-void install_element(enum node_type ntype, const struct cmd_element *cmd)
+void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 {
 	struct cmd_node *cnode;
 
@@ -323,7 +323,7 @@ void install_element(enum node_type ntype, const struct cmd_element *cmd)
 	vector_set(cnode->cmd_vector, (void *)cmd);
 
 	if (ntype == VIEW_NODE)
-		install_element(ENABLE_NODE, cmd);
+		_install_element(ENABLE_NODE, cmd);
 }
 
 void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
@@ -2344,18 +2344,18 @@ const char *host_config_get(void)
 
 void install_default(enum node_type node)
 {
-	install_element(node, &config_exit_cmd);
-	install_element(node, &config_quit_cmd);
-	install_element(node, &config_end_cmd);
-	install_element(node, &config_help_cmd);
-	install_element(node, &config_list_cmd);
-	install_element(node, &show_cli_graph_cmd);
-	install_element(node, &find_cmd);
+	_install_element(node, &config_exit_cmd);
+	_install_element(node, &config_quit_cmd);
+	_install_element(node, &config_end_cmd);
+	_install_element(node, &config_help_cmd);
+	_install_element(node, &config_list_cmd);
+	_install_element(node, &show_cli_graph_cmd);
+	_install_element(node, &find_cmd);
 
-	install_element(node, &config_write_cmd);
-	install_element(node, &show_running_config_cmd);
+	_install_element(node, &config_write_cmd);
+	_install_element(node, &show_running_config_cmd);
 
-	install_element(node, &autocomplete_cmd);
+	_install_element(node, &autocomplete_cmd);
 
 	nb_cli_install_default(node);
 }

@@ -32,6 +32,9 @@
 #include "linklist.h"
 #include "version.h"
 #include "lib_errors.h"
+#include "xref.h"
+
+XREF_SETUP()
 
 static int agentx_enabled = 0;
 

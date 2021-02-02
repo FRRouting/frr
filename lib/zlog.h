@@ -38,6 +38,20 @@ extern char zlog_prefix[];
 extern size_t zlog_prefixsz;
 extern int zlog_tmpdirfd;
 
+struct xref_logmsg {
+	struct xref xref;
+
+	const char *fmtstring;
+	uint32_t priority;
+	uint32_t ec;
+};
+
+struct xrefdata_logmsg {
+	struct xrefdata xrefdata;
+
+	/* nothing more here right now */
+};
+
 /* These functions are set up to write to stdout/stderr without explicit
  * initialization and/or before config load.  There is no need to call e.g.
  * fprintf(stderr, ...) just because it's "too early" at startup.  Depending
@@ -45,7 +59,9 @@ extern int zlog_tmpdirfd;
  * determine wether something is a log message or something else.
  */
 
-extern void vzlog(int prio, const char *fmt, va_list ap);
+extern void vzlogx(const struct xref_logmsg *xref, int prio,
+		   const char *fmt, va_list ap);
+#define vzlog(prio, ...) vzlogx(NULL, prio, __VA_ARGS__)
 
 PRINTFRR(2, 3)
 static inline void zlog(int prio, const char *fmt, ...)
@@ -57,11 +73,61 @@ static inline void zlog(int prio, const char *fmt, ...)
 	va_end(ap);
 }
 
-#define zlog_err(...)    zlog(LOG_ERR, __VA_ARGS__)
-#define zlog_warn(...)   zlog(LOG_WARNING, __VA_ARGS__)
-#define zlog_info(...)   zlog(LOG_INFO, __VA_ARGS__)
-#define zlog_notice(...) zlog(LOG_NOTICE, __VA_ARGS__)
-#define zlog_debug(...)  zlog(LOG_DEBUG, __VA_ARGS__)
+PRINTFRR(2, 3)
+static inline void zlog_ref(const struct xref_logmsg *xref,
+			    const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vzlogx(xref, xref->priority, fmt, ap);
+	va_end(ap);
+}
+
+#define _zlog_ref(prio, msg, ...) do {                                         \
+		static struct xrefdata _xrefdata = {                           \
+			.hashstr = (msg),                                      \
+			.hashu32 = { (prio), 0 },                              \
+		};                                                             \
+		static const struct xref_logmsg _xref __attribute__((used)) = {\
+			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata, __func__), \
+			.fmtstring = (msg),                                    \
+			.priority = (prio),                                    \
+		};                                                             \
+		XREF_LINK(_xref.xref);                                         \
+		zlog_ref(&_xref, (msg), ## __VA_ARGS__);                       \
+	} while (0)
+
+#define zlog_err(...)    _zlog_ref(LOG_ERR, __VA_ARGS__)
+#define zlog_warn(...)   _zlog_ref(LOG_WARNING, __VA_ARGS__)
+#define zlog_info(...)   _zlog_ref(LOG_INFO, __VA_ARGS__)
+#define zlog_notice(...) _zlog_ref(LOG_NOTICE, __VA_ARGS__)
+#define zlog_debug(...)  _zlog_ref(LOG_DEBUG, __VA_ARGS__)
+
+#define _zlog_ecref(ec_, prio, msg, ...) do {                                  \
+		static struct xrefdata _xrefdata = {                           \
+			.hashstr = (msg),                                      \
+			.hashu32 = { (prio), (ec_) },                          \
+		};                                                             \
+		static const struct xref_logmsg _xref __attribute__((used)) = {\
+			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata, __func__), \
+			.fmtstring = (msg),                                    \
+			.priority = (prio),                                    \
+			.ec = (ec_),                                           \
+		};                                                             \
+		XREF_LINK(_xref.xref);                                         \
+		zlog_ref(&_xref, "[EC %u] " msg, ec_, ## __VA_ARGS__);         \
+	} while (0)
+
+#define flog_err(ferr_id, format, ...)                                         \
+	_zlog_ecref(ferr_id, LOG_ERR, format, ## __VA_ARGS__)
+#define flog_warn(ferr_id, format, ...)                                        \
+	_zlog_ecref(ferr_id, LOG_WARNING, format, ## __VA_ARGS__)
+
+#define flog_err_sys(ferr_id, format, ...)                                     \
+	flog_err(ferr_id, format, ##__VA_ARGS__)
+#define flog(priority, ferr_id, format, ...)                                   \
+	zlog(priority, "[EC %u] " format, ferr_id, ##__VA_ARGS__)
 
 extern void zlog_sigsafe(const char *text, size_t len);
 
@@ -83,6 +149,7 @@ extern void zlog_sigsafe(const char *text, size_t len);
 struct zlog_msg;
 
 extern int zlog_msg_prio(struct zlog_msg *msg);
+extern const struct xref_logmsg *zlog_msg_xref(struct zlog_msg *msg);
 
 /* pass NULL as textlen if you don't need it. */
 extern const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen);
