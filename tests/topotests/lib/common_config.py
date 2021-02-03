@@ -4119,6 +4119,9 @@ def required_linux_kernel_version(required_version):
             'These tests will not run on kernel "{}", '
             "they require kernel >= {})".format(system_kernel, required_version)
         )
+
+        logger.info(error_msg)
+
         return error_msg
     return True
 
