@@ -1344,7 +1344,7 @@ static int lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_destroy(
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
 
-	ple->ge = 0;
+	ple->le = 0;
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
@@ -1420,7 +1420,7 @@ static int lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_destroy(
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
 
-	ple->le = 0;
+	ple->ge = 0;
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
