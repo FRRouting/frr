@@ -45,6 +45,16 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
 
 DECLARE_LIST(thread_list, struct thread, threaditem)
 
+struct cancel_req {
+	int flags;
+	struct thread *thread;
+	void *eventobj;
+	struct thread **threadref;
+};
+
+/* Flags for task cancellation */
+#define THREAD_CANCEL_FLAG_READY     0x01
+
 static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 {
 	if (a->u.sands.tv_sec < b->u.sands.tv_sec)

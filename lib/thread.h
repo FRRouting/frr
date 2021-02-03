@@ -61,12 +61,6 @@ struct fd_handler {
 	nfds_t copycount;
 };
 
-struct cancel_req {
-	struct thread *thread;
-	void *eventobj;
-	struct thread **threadref;
-};
-
 struct xref_threadsched {
 	struct xref xref;
 
