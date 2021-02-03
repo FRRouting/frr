@@ -383,7 +383,15 @@ def test_linux_ipv6_kernel_routingTable():
                 "Linux Kernel IPv6 Routing Table verification failed for router r%s:\n%s"
                 % (i, diff)
             )
+        else:
+            logger.error(
+                "r{} failed - no nhid ref file: {}".format(i, refTableFile)
+            )
 
+            assert False, (
+                "Linux Kernel IPv6 Routing Table verification failed for router r%s\n"
+                % (i)
+            )
 
 def test_shutdown_check_stderr():
 
