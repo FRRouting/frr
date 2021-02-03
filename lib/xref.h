@@ -23,6 +23,10 @@
 #include <errno.h>
 #include "compiler.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum xref_type {
 	XREFT_NONE = 0,
 
@@ -115,6 +119,7 @@ struct xref_block {
 
 extern struct xref_block *xref_blocks;
 extern void xref_block_add(struct xref_block *block);
+extern void xref_gcc_workaround(const struct xref *xref);
 
 #ifndef HAVE_SECTION_SYMS
 /* we have a build system patch to use GNU ld on Solaris;  if that doesn't
@@ -139,8 +144,11 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  */
 #define XREF_SETUP()                                                           \
 	static const struct xref _dummy_xref = {                               \
-			.file = __FILE__, .line = __LINE__, .func = "dummy",   \
-			.type = XREFT_NONE,                                    \
+			/* .xrefdata = */ NULL,                                \
+			/* .type = */ XREFT_NONE,                              \
+			/* .line = */ __LINE__,                                \
+			/* .file = */ __FILE__,                                \
+			/* .func = */ "dummy",                                 \
 	};                                                                     \
 	static const struct xref * const _dummy_xref_p                         \
 			__attribute__((used, section("xref_array")))           \
@@ -214,17 +222,43 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
 #endif /* HAVE_SECTION_SYMS */
 
 /* emit the array entry / pointer to xref */
+#if defined(__clang__) || !defined(__cplusplus)
 #define XREF_LINK(dst)                                                         \
 	static const struct xref * const NAMECTR(xref_p_)                      \
 			__attribute__((used, section("xref_array")))           \
 		= &(dst)                                                       \
 	/* end */
 
+#else /* GCC && C++ */
+/* workaround for GCC bug 41091 (dated 2009), added in 2021...
+ *
+ * this breaks extraction of xrefs with xrelfo.py (because the xref_array
+ * entry will be missing), but provides full runtime functionality.  To get
+ * the proper list of xrefs from C++ code, build with clang...
+ */
+struct _xref_p {
+	const struct xref * const ptr;
+
+	_xref_p(const struct xref *_ptr) : ptr(_ptr)
+	{
+		xref_gcc_workaround(_ptr);
+	}
+};
+
+#define XREF_LINK(dst)                                                         \
+	static const struct _xref_p __attribute__((used))                      \
+			NAMECTR(xref_p_)(&(dst))                               \
+	/* end */
+#endif
+
 /* initializer for a "struct xref" */
 #define XREF_INIT(type_, xrefdata_, func_)                                     \
 	{                                                                      \
-		.type = (type_), .xrefdata = (xrefdata_),                      \
-		.file = __FILE__, .line = __LINE__, .func = func_,             \
+		/* .xrefdata = */ (xrefdata_),                                 \
+		/* .type = */ (type_),                                         \
+		/* .line = */ __LINE__,                                        \
+		/* .file = */ __FILE__,                                        \
+		/* .func = */ func_,                                           \
 	}                                                                      \
 	/* end */
 

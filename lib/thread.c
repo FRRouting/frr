@@ -633,9 +633,6 @@ unsigned long thread_timer_remain_second(struct thread *thread)
 	return thread_timer_remain_msec(thread) / 1000LL;
 }
 
-#define debugargdef  const char *funcname, const char *schedfrom, int fromln
-#define debugargpass funcname, schedfrom, fromln
-
 struct timeval thread_timer_remain(struct thread *thread)
 {
 	struct timeval remain;
@@ -841,11 +838,13 @@ struct thread *_thread_add_read_write(const struct xref_threadsched *xref,
 	struct thread **thread_array;
 
 	if (dir == THREAD_READ)
-		frrtrace(9, frr_libfrr, schedule_read, m, funcname, schedfrom,
-			 fromln, t_ptr, fd, 0, arg, 0);
+		frrtrace(9, frr_libfrr, schedule_read, m,
+			 xref->funcname, xref->xref.file, xref->xref.line,
+			 t_ptr, fd, 0, arg, 0);
 	else
-		frrtrace(9, frr_libfrr, schedule_write, m, funcname, schedfrom,
-			 fromln, t_ptr, fd, 0, arg, 0);
+		frrtrace(9, frr_libfrr, schedule_write, m,
+			 xref->funcname, xref->xref.file, xref->xref.line,
+			 t_ptr, fd, 0, arg, 0);
 
 	assert(fd >= 0 && fd < m->fd_limit);
 	frr_with_mutex(&m->mtx) {
@@ -921,7 +920,8 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 	assert(type == THREAD_TIMER);
 	assert(time_relative);
 
-	frrtrace(9, frr_libfrr, schedule_timer, m, funcname, schedfrom, fromln,
+	frrtrace(9, frr_libfrr, schedule_timer, m,
+		 xref->funcname, xref->xref.file, xref->xref.line,
 		 t_ptr, 0, 0, arg, (long)time_relative->tv_sec);
 
 	frr_with_mutex(&m->mtx) {
@@ -1003,7 +1003,8 @@ struct thread *_thread_add_event(const struct xref_threadsched *xref,
 {
 	struct thread *thread = NULL;
 
-	frrtrace(9, frr_libfrr, schedule_event, m, funcname, schedfrom, fromln,
+	frrtrace(9, frr_libfrr, schedule_event, m,
+		 xref->funcname, xref->xref.file, xref->xref.line,
 		 t_ptr, 0, val, arg, 0);
 
 	assert(m != NULL);
@@ -1239,8 +1240,9 @@ void thread_cancel(struct thread **thread)
 
 	master = (*thread)->master;
 
-	frrtrace(9, frr_libfrr, thread_cancel, master, (*thread)->funcname,
-		 (*thread)->schedfrom, (*thread)->schedfrom_line, NULL, (*thread)->u.fd,
+	frrtrace(9, frr_libfrr, thread_cancel, master,
+		 (*thread)->xref->funcname, (*thread)->xref->xref.file,
+		 (*thread)->xref->xref.line, NULL, (*thread)->u.fd,
 		 (*thread)->u.val, (*thread)->arg, (*thread)->u.sands.tv_sec);
 
 	assert(master->owner == pthread_self());
@@ -1287,8 +1289,8 @@ void thread_cancel_async(struct thread_master *master, struct thread **thread,
 
 	if (thread && *thread)
 		frrtrace(9, frr_libfrr, thread_cancel_async, master,
-			 (*thread)->funcname, (*thread)->schedfrom,
-			 (*thread)->schedfrom_line, NULL, (*thread)->u.fd,
+			 (*thread)->xref->funcname, (*thread)->xref->xref.file,
+			 (*thread)->xref->xref.line, NULL, (*thread)->u.fd,
 			 (*thread)->u.val, (*thread)->arg,
 			 (*thread)->u.sands.tv_sec);
 	else
@@ -1673,8 +1675,9 @@ void thread_call(struct thread *thread)
 	GETRUSAGE(&before);
 	thread->real = before.real;
 
-	frrtrace(9, frr_libfrr, thread_call, thread->master, thread->funcname,
-		 thread->schedfrom, thread->schedfrom_line, NULL, thread->u.fd,
+	frrtrace(9, frr_libfrr, thread_call, thread->master,
+		 thread->xref->funcname, thread->xref->xref.file,
+		 thread->xref->xref.line, NULL, thread->u.fd,
 		 thread->u.val, thread->arg, thread->u.sands.tv_sec);
 
 	pthread_setspecific(thread_current, thread);
