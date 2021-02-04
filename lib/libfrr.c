@@ -71,6 +71,7 @@ static char vtypath_default[512];
 
 bool debug_memstats_at_exit = false;
 static bool nodetach_term, nodetach_daemon;
+static uint64_t startup_fds;
 
 static char comb_optstr[256];
 static struct option comb_lo[64];
@@ -341,6 +342,28 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
 
 	di->cli_mode = FRR_CLI_CLASSIC;
+
+	/* we may be starting with extra FDs open for whatever purpose,
+	 * e.g. logging, some module, etc.  Recording them here allows later
+	 * checking whether an fd is valid for such extension purposes,
+	 * without this we could end up e.g. logging to a BGP session fd.
+	 */
+	startup_fds = 0;
+	for (int i = 0; i < 64; i++) {
+		struct stat st;
+
+		if (fstat(i, &st))
+			continue;
+		if (S_ISDIR(st.st_mode) || S_ISBLK(st.st_mode))
+			continue;
+
+		startup_fds |= UINT64_C(0x1) << (uint64_t)i;
+	}
+}
+
+bool frr_is_startup_fd(int fd)
+{
+	return !!(startup_fds & (UINT64_C(0x1) << (uint64_t)fd));
 }
 
 void frr_opt_add(const char *optstr, const struct option *longopts,
