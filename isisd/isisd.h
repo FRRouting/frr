@@ -243,6 +243,7 @@ struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
 					  const char *vrf_name);
 int isis_area_get(struct vty *vty, const char *area_tag);
+int isis_area_count(const struct isis *isis, int levels);
 void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);
 void isis_prefix_list_update(struct prefix_list *plist);
