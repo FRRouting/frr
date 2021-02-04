@@ -1470,6 +1470,7 @@ static int vty_read(struct thread *thread)
 		case '\n':
 		case '\r':
 			vty_out(vty, "\n");
+			buffer_flush_available(vty->obuf, vty_sock);
 			vty_execute(vty);
 			break;
 		case '\t':
@@ -1714,7 +1715,6 @@ void vty_stdio_resume(void)
 		termios = stdio_orig_termios;
 		termios.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR
 				     | IGNCR | ICRNL | IXON);
-		termios.c_oflag &= ~OPOST;
 		termios.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN);
 		termios.c_cflag &= ~(CSIZE | PARENB);
 		termios.c_cflag |= CS8;
