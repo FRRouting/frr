@@ -466,18 +466,20 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 
 	if (nifp->ipsec_profile) {
 		vici_terminate_vc_by_profile_name(nifp->ipsec_profile);
+		nhrp_vc_reset();
 		free(nifp->ipsec_profile);
 	}
 	nifp->ipsec_profile = profile ? strdup(profile) : NULL;
 
 	if (nifp->ipsec_fallback_profile) {
 		vici_terminate_vc_by_profile_name(nifp->ipsec_fallback_profile);
+		nhrp_vc_reset();
 		free(nifp->ipsec_fallback_profile);
 	}
 	nifp->ipsec_fallback_profile =
 		fallback_profile ? strdup(fallback_profile) : NULL;
 
-	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_ADDRESS_CHANGED);
+	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_IPSEC_CHANGED);
 }
 
 void nhrp_interface_set_source(struct interface *ifp, const char *ifname)
