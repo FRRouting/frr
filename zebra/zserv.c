@@ -55,6 +55,7 @@
 #include "lib/frr_pthread.h"      /* for frr_pthread_new, frr_pthread_stop... */
 #include "lib/frratomic.h"        /* for atomic_load_explicit, atomic_stor... */
 #include "lib/lib_errors.h"       /* for generic ferr ids */
+#include "lib/printfrr.h"         /* for string functions */
 
 #include "zebra/debug.h"          /* for various debugging macros */
 #include "zebra/rib.h"            /* for rib_score_proto */
@@ -1186,6 +1187,7 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 
 static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 {
+	char client_string[80];
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
@@ -1197,8 +1199,15 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 	last_write_time = (time_t)atomic_load_explicit(&client->last_write_time,
 						       memory_order_relaxed);
 
-	vty_out(vty, "%-10s%12s %12s%12s%8d/%-8d%8d/%-8d\n",
-		zebra_route_string(client->proto),
+	if (client->instance || client->session_id)
+		snprintfrr(client_string, sizeof(client_string), "%s[%u:%u]",
+			   zebra_route_string(client->proto), client->instance,
+			   client->session_id);
+	else
+		snprintfrr(client_string, sizeof(client_string), "%s",
+			   zebra_route_string(client->proto));
+
+	vty_out(vty, "%-10s%12s %12s%12s%8d/%-8d%8d/%-8d\n", client_string,
 		zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF),
 		zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF),
 		zserv_time_buf(&last_write_time, wbuf, ZEBRA_TIME_BUF),
