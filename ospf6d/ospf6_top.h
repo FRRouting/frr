@@ -127,6 +127,11 @@ struct ospf6 {
 	 * update to neighbors immediatly */
 	uint8_t inst_shutdown;
 
+	/* Max number of multiple paths
+	 * to support ECMP.
+	 */
+	uint16_t max_multipath;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(ospf6)

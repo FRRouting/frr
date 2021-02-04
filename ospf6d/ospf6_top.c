@@ -268,6 +268,8 @@ static struct ospf6 *ospf6_create(const char *name)
 	o->distance_table = route_table_init();
 	o->fd = -1;
 
+	o->max_multipath = MULTIPATH_NUM;
+
 	QOBJ_REG(o, ospf6);
 
 	/* Make ospf protocol socket. */
@@ -879,6 +881,62 @@ DEFUN (no_ospf6_stub_router_admin,
 	return CMD_SUCCESS;
 }
 
+/* Restart OSPF SPF algorithm*/
+static void ospf6_restart_spf(struct ospf6 *ospf6)
+{
+	ospf6_route_remove_all(ospf6->route_table);
+	ospf6_route_remove_all(ospf6->brouter_table);
+	ospf6_route_remove_all(ospf6->external_table);
+
+	/* Trigger SPF */
+	ospf6_spf_schedule(ospf6, OSPF6_SPF_FLAGS_CONFIG_CHANGE);
+}
+
+/* Set the max paths */
+static void ospf6_maxpath_set(struct ospf6 *ospf6, uint16_t paths)
+{
+	if (ospf6->max_multipath == paths)
+		return;
+
+	ospf6->max_multipath = paths;
+
+	/* Send deletion to zebra to delete all
+	 * ospf specific routes and reinitiate
+	 * SPF to reflect the new max multipath.
+	 */
+	ospf6_restart_spf(ospf6);
+}
+
+/* Ospf Maximum-paths config support */
+DEFUN(ospf6_max_multipath,
+      ospf6_max_multipath_cmd,
+      "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+      "Max no of multiple paths for ECMP support\n"
+      "Number of paths\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	int idx_number = 1;
+	int maximum_paths = strtol(argv[idx_number]->arg, NULL, 10);
+
+	ospf6_maxpath_set(ospf6, maximum_paths);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ospf6_max_multipath,
+      no_ospf6_max_multipath_cmd,
+     "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM)"]",
+      NO_STR
+      "Max no of multiple paths for ECMP support\n"
+      "Number of paths\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+
+	ospf6_maxpath_set(ospf6, MULTIPATH_NUM);
+
+	return CMD_SUCCESS;
+}
+
 static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		       bool use_json)
 {
@@ -917,6 +975,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		json_object_int_add(json, "holdTimeMultiplier",
 				    o->spf_hold_multiplier);
 
+		json_object_int_add(json, "maximumPaths", o->max_multipath);
 
 		if (o->ts_spf.tv_sec || o->ts_spf.tv_usec) {
 			timersub(&now, &o->ts_spf, &result);
@@ -999,6 +1058,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		vty_out(vty, " LSA minimum arrival %d msecs\n",
 			o->lsa_minarrival);
 
+		vty_out(vty, " Maximum-paths %u\n", o->max_multipath);
 
 		/* Show SPF parameters */
 		vty_out(vty,
@@ -1257,6 +1317,11 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " timers lsa min-arrival %d\n",
 				ospf6->lsa_minarrival);
 
+		/* ECMP max path config */
+		if (ospf6->max_multipath != MULTIPATH_NUM)
+			vty_out(vty, " maximum-paths %d\n",
+				ospf6->max_multipath);
+
 		ospf6_stub_router_config_write(vty, ospf6);
 		ospf6_redistribute_config_write(vty, ospf6);
 		ospf6_area_config_write(vty, ospf6);
@@ -1314,6 +1379,10 @@ void ospf6_top_init(void)
 	install_element(OSPF6_NODE, &no_ospf6_interface_area_cmd);
 	install_element(OSPF6_NODE, &ospf6_stub_router_admin_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_stub_router_admin_cmd);
+
+	/* maximum-paths command */
+	install_element(OSPF6_NODE, &ospf6_max_multipath_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_max_multipath_cmd);
 
 	install_element(OSPF6_NODE, &ospf6_distance_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_distance_cmd);

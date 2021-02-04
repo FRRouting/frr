@@ -343,7 +343,14 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 	api.safi = SAFI_UNICAST;
 	api.prefix = *dest;
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	api.nexthop_num = MIN(nhcount, MULTIPATH_NUM);
+
+	if (nhcount > ospf6->max_multipath) {
+		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
+			zlog_debug(
+				"  Nexthop count is greater than configured maximum-path, hence ignore the extra nexthops");
+	}
+	api.nexthop_num = MIN(nhcount, ospf6->max_multipath);
+
 	ospf6_route_zebra_copy_nexthops(request, api.nexthops, api.nexthop_num,
 					api.vrf_id);
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);

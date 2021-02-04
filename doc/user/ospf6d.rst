@@ -83,6 +83,12 @@ OSPF6 router
    This configuration setting MUST be consistent across all routers
    within the OSPF domain.
 
+.. index:: maximum-paths (1-64)
+.. clicmd::[no] maximum-paths (1-64)
+
+   Use this command to control the maximum number of parallel routes that
+   OSPFv3 can support. The default is 64.
+
 .. _ospf6-area:
 
 OSPF6 area
