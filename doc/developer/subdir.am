@@ -27,6 +27,7 @@ dev_RSTFILES = \
 	doc/developer/building.rst \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
+	doc/developer/cross-compiling.rst \
 	doc/developer/frr-release-procedure.rst \
 	doc/developer/grpc.rst \
 	doc/developer/hooks.rst \
