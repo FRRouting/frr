@@ -729,6 +729,21 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 
 				pim_jp_agg_single_upstream_send(&parent->rpf,
 								parent, true);
+				/*
+				 * SGRpt prune pending expiry has to install
+				 * SG entry with empty olist to drop the SG
+				 * traffic incase no other intf exists.
+				 * On that scenario, SG entry wouldn't have
+				 * got installed until Prune pending timer
+				 * expired. So install now.
+				 */
+				pim_channel_del_oif(
+					ch->upstream->channel_oil, ifp,
+					PIM_OIF_FLAG_PROTO_STAR, __func__);
+				if (!ch->upstream->channel_oil->installed)
+					pim_upstream_mroute_add(
+						ch->upstream->channel_oil,
+						__PRETTY_FUNCTION__);
 			}
 		}
 		/* from here ch may have been deleted */
@@ -1113,6 +1128,24 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 	case PIM_IFJOIN_PRUNE:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+			/*
+			 * While in Prune State, Receive SGRpt Prune.
+			 * RFC 7761 Sec 4.5.3:
+			 * The (S,G,rpt) downstream state machine on interface I
+			 * remains in Prune state.  The Expiry Timer (ET) is
+			 * restarted and is then set to the maximum of its
+			 * current value and the HoldTime from the triggering
+			 * Join/Prune message.
+			 */
+			if (ch->t_ifjoin_expiry_timer) {
+				unsigned long rem = thread_timer_remain_second(
+					ch->t_ifjoin_expiry_timer);
+
+				if (rem > holdtime)
+					return;
+				THREAD_OFF(ch->t_ifjoin_expiry_timer);
+			}
+
 			thread_add_timer(router->master, on_ifjoin_expiry_timer,
 					 ch, holdtime,
 					 &ch->t_ifjoin_expiry_timer);
