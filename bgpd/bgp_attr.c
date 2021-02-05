@@ -1750,18 +1750,16 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	else
 		aggregator_as = stream_getw(peer->curr);
 
+	attr->aggregator_as = aggregator_as;
+	attr->aggregator_addr.s_addr = stream_get_ipv4(peer->curr);
+
 	/* Codification of AS 0 Processing */
-	if (aggregator_as == BGP_AS_ZERO) {
+	if (aggregator_as == BGP_AS_ZERO)
 		flog_err(EC_BGP_ATTR_LEN,
 			 "%s: AGGREGATOR AS number is 0 for aspath: %s",
 			 peer->host, aspath_print(attr->aspath));
-	} else {
-		attr->aggregator_as = aggregator_as;
-		attr->aggregator_addr.s_addr = stream_get_ipv4(peer->curr);
-
-		/* Set atomic aggregate flag. */
+	else
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
-	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1786,17 +1784,16 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 
 	aggregator_as = stream_getl(peer->curr);
 
+	*as4_aggregator_as = aggregator_as;
+	as4_aggregator_addr->s_addr = stream_get_ipv4(peer->curr);
+
 	/* Codification of AS 0 Processing */
-	if (aggregator_as == BGP_AS_ZERO) {
+	if (aggregator_as == BGP_AS_ZERO)
 		flog_err(EC_BGP_ATTR_LEN,
 			 "%s: AS4_AGGREGATOR AS number is 0 for aspath: %s",
 			 peer->host, aspath_print(attr->aspath));
-	} else {
-		*as4_aggregator_as = aggregator_as;
-		as4_aggregator_addr->s_addr = stream_get_ipv4(peer->curr);
-
+	else
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR);
-	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
