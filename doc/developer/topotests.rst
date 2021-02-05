@@ -24,6 +24,7 @@ Installing Mininet Infrastructure
    apt-get install iperf
    pip install ipaddr
    pip install "pytest<5"
+   pip install "scapy>=2.4.2"
    pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
    supported)
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
