@@ -679,7 +679,7 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 	zb = zbuf_alloc(1500);
 	hdr = nhrp_packet_push(zb, NHRP_PACKET_TRAFFIC_INDICATION, &nifp->nbma,
 			       &if_ad->addr, &dst);
-	hdr->hop_count = 0;
+	hdr->hop_count = 1;
 
 	/* Payload is the packet causing indication */
 	zbuf_copy(zb, pkt, zbuf_used(pkt));
