@@ -144,6 +144,8 @@ DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DECLARE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm))
 extern void frr_config_fork(void);
 
+extern void frr_load_module(const char *name);
+
 extern void frr_run(struct thread_master *master);
 extern void frr_detach(void);
 
