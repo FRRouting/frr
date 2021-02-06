@@ -9659,22 +9659,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 					       inet_ntop(AF_INET,
 							 &attr->aggregator_addr,
 							 buf, sizeof(buf)));
-			if (attr->aggregator_as == BGP_AS_ZERO)
-				json_object_boolean_true_add(
-					json_path, "aggregatorAsMalformed");
-			else
-				json_object_boolean_false_add(
-					json_path, "aggregatorAsMalformed");
 		} else {
-			if (attr->aggregator_as == BGP_AS_ZERO)
-				vty_out(vty,
-					", (aggregated by %u(malformed) %pI4)",
-					attr->aggregator_as,
-					&attr->aggregator_addr);
-			else
-				vty_out(vty, ", (aggregated by %u %pI4)",
-					attr->aggregator_as,
-					&attr->aggregator_addr);
+			vty_out(vty, ", (aggregated by %u %pI4)",
+				attr->aggregator_as, &attr->aggregator_addr);
 		}
 	}
 
