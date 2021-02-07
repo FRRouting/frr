@@ -3,7 +3,7 @@ frr (7.4-2) unstable; urgency=medium
   * Bump libyang dependency to >= 1.0.184-1~
   * Make the autopkgtest more resilient (Closes: #980111)
 
- -- Ondřej Surý <ondrej@debian.org>  Sun, 07 Feb 2021 13:14:23 +0100
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 07 Feb 2021 13:14:56 +0100
 
 frr (7.4-1) unstable; urgency=medium
 
