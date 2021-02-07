@@ -146,11 +146,11 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
-	struct prefix dst_ip;
+	struct prefix dst_ip, src_ip;
 	int status;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &dst_ip, NULL, &status,
-				NULL, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &dst_ip, &src_ip, &status, NULL,
+				vrf_id);
 	if (!ifp || (dst_ip.family != AF_INET && dst_ip.family != AF_INET6))
 		return 0;
 
