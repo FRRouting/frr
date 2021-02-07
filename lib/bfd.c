@@ -224,6 +224,17 @@ struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	int plen;
 	int local_remote_cbit;
 
+	/*
+	 * If the ifindex lookup fails the
+	 * rest of the data in the stream is
+	 * not read.  All examples of this function
+	 * call immediately use the dp->family which
+	 * is not good.  Ensure we are not using
+	 * random data
+	 */
+	memset(dp, 0, sizeof(*dp));
+	memset(sp, 0, sizeof(*sp));
+
 	/* Get interface index. */
 	ifindex = stream_getl(s);
 
@@ -249,13 +260,12 @@ struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	/* Get BFD status. */
 	*status = stream_getl(s);
 
-	if (sp) {
-		sp->family = stream_getc(s);
+	sp->family = stream_getc(s);
 
-		plen = prefix_blen(sp);
-		stream_get(&sp->u.prefix, s, plen);
-		sp->prefixlen = stream_getc(s);
-	}
+	plen = prefix_blen(sp);
+	stream_get(&sp->u.prefix, s, plen);
+	sp->prefixlen = stream_getc(s);
+
 	local_remote_cbit = stream_getc(s);
 	if (remote_cbit)
 		*remote_cbit = local_remote_cbit;
