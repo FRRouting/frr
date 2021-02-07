@@ -2,8 +2,9 @@ frr (7.4-2) unstable; urgency=medium
 
   * Bump libyang dependency to >= 1.0.184-1~
   * Make the autopkgtest more resilient (Closes: #980111)
+  * Adjust the ax_python.m4 to hardcode python3.9
 
- -- Ondřej Surý <ondrej@debian.org>  Sun, 07 Feb 2021 13:14:56 +0100
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 07 Feb 2021 13:15:07 +0100
 
 frr (7.4-1) unstable; urgency=medium
 
