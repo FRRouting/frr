@@ -616,7 +616,8 @@ void bgp_path_info_mpath_update(struct bgp_dest *dest,
 					all_paths_lb = false;
 				if (debug) {
 					bgp_path_info_path_with_addpath_rx_str(
-						cur_mpath, path_buf);
+						cur_mpath, path_buf,
+						sizeof(path_buf));
 					zlog_debug(
 						"%pRN: %s is still multipath, cur count %d",
 						bgp_dest_to_rnode(dest),
@@ -626,7 +627,8 @@ void bgp_path_info_mpath_update(struct bgp_dest *dest,
 				mpath_changed = 1;
 				if (debug) {
 					bgp_path_info_path_with_addpath_rx_str(
-						cur_mpath, path_buf);
+						cur_mpath, path_buf,
+						sizeof(path_buf));
 					zlog_debug(
 						"%pRN: remove mpath %s nexthop %s, cur count %d",
 						bgp_dest_to_rnode(dest),
@@ -660,7 +662,7 @@ void bgp_path_info_mpath_update(struct bgp_dest *dest,
 			mpath_changed = 1;
 			if (debug) {
 				bgp_path_info_path_with_addpath_rx_str(
-					cur_mpath, path_buf);
+					cur_mpath, path_buf, sizeof(path_buf));
 				zlog_debug(
 					"%pRN: remove mpath %s nexthop %s, cur count %d",
 					bgp_dest_to_rnode(dest), path_buf,
@@ -710,7 +712,8 @@ void bgp_path_info_mpath_update(struct bgp_dest *dest,
 					all_paths_lb = false;
 				if (debug) {
 					bgp_path_info_path_with_addpath_rx_str(
-						new_mpath, path_buf);
+						new_mpath, path_buf,
+						sizeof(path_buf));
 					zlog_debug(
 						"%pRN: add mpath %s nexthop %s, cur count %d",
 						bgp_dest_to_rnode(dest),

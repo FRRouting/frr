@@ -1132,8 +1132,8 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
 
 		if (IS_ZEBRA_DEBUG_KERNEL) {
 			if (!num_labels)
-				sprintf(label_buf, "label %u",
-					nh_label->label[i]);
+				snprintf(label_buf, label_buf_size, "label %u",
+					 nh_label->label[i]);
 			else {
 				snprintf(label_buf1, sizeof(label_buf1), "/%u",
 					 nh_label->label[i]);

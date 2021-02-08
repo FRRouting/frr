@@ -83,7 +83,7 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 					  sizeof(buf1));
 				inet_ntop(AF_INET, &lsdesc->neighbor_router_id,
 					  buf2, sizeof(buf2));
-				sprintf(buf, "%s/%s", buf2, buf1);
+				snprintf(buf, buflen, "%s/%s", buf2, buf1);
 
 				return buf;
 			}
@@ -865,6 +865,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	struct in6_addr in6;
 	int prefixnum, cnt = 0;
 	struct ospf6_prefix *prefix;
+	char tbuf[16];
 
 	if (lsa) {
 		intra_prefix_lsa =
@@ -897,8 +898,9 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 				       OSPF6_PREFIX_SPACE(
 					       prefix->prefix_length));
 				inet_ntop(AF_INET6, &in6, buf, buflen);
-				sprintf(&buf[strlen(buf)], "/%d",
-					prefix->prefix_length);
+				snprintf(tbuf, sizeof(tbuf), "/%d",
+					 prefix->prefix_length);
+				strlcat(buf, tbuf, buflen);
 				return (buf);
 			}
 		} while (current <= end);

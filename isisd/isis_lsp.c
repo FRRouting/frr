@@ -691,8 +691,8 @@ static void lsp_set_time(struct isis_lsp *lsp)
 		stream_putw_at(lsp->pdu, 10, lsp->hdr.rem_lifetime);
 }
 
-void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag,
-		 struct isis *isis)
+void lspid_print(uint8_t *lsp_id, char *dest, size_t dest_len, char dynhost,
+		 char frag, struct isis *isis)
 {
 	struct isis_dynhn *dyn = NULL;
 	char id[SYSID_STRLEN];
@@ -710,10 +710,10 @@ void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag,
 		memcpy(id, sysid_print(lsp_id), 15);
 
 	if (frag)
-		sprintf(dest, "%s.%02x-%02x", id, LSP_PSEUDO_ID(lsp_id),
-			LSP_FRAGMENT(lsp_id));
+		snprintf(dest, dest_len, "%s.%02x-%02x", id,
+			 LSP_PSEUDO_ID(lsp_id), LSP_FRAGMENT(lsp_id));
 	else
-		sprintf(dest, "%s.%02x", id, LSP_PSEUDO_ID(lsp_id));
+		snprintf(dest, dest_len, "%s.%02x", id, LSP_PSEUDO_ID(lsp_id));
 }
 
 /* Convert the lsp attribute bits to attribute string */
@@ -747,7 +747,7 @@ void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost,
 	char age_out[8];
 	char b[200];
 
-	lspid_print(lsp->hdr.lsp_id, LSPid, dynhost, 1, isis);
+	lspid_print(lsp->hdr.lsp_id, LSPid, sizeof(LSPid), dynhost, 1, isis);
 	vty_out(vty, "%-21s%c  ", LSPid, lsp->own_lsp ? '*' : ' ');
 	vty_out(vty, "%5hu   ", lsp->hdr.pdu_len);
 	vty_out(vty, "0x%08x  ", lsp->hdr.seqno);

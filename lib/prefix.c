@@ -1160,7 +1160,7 @@ in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen)
    ex.) "1.1.0.0" "255.255.0.0" => "1.1.0.0/16"
    ex.) "1.0.0.0" NULL => "1.0.0.0/8"                   */
 int netmask_str2prefix_str(const char *net_str, const char *mask_str,
-			   char *prefix_str)
+			   char *prefix_str, size_t prefix_str_len)
 {
 	struct in_addr network;
 	struct in_addr mask;
@@ -1193,7 +1193,7 @@ int netmask_str2prefix_str(const char *net_str, const char *mask_str,
 			return 0;
 	}
 
-	sprintf(prefix_str, "%s/%d", net_str, prefixlen);
+	snprintf(prefix_str, prefix_str_len, "%s/%d", net_str, prefixlen);
 
 	return 1;
 }

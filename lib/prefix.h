@@ -491,7 +491,7 @@ extern void masklen2ip(const int, struct in_addr *);
  * special treatment for /31 according to RFC3021 section 3.3 */
 extern in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen);
 
-extern int netmask_str2prefix_str(const char *, const char *, char *);
+extern int netmask_str2prefix_str(const char *, const char *, char *, size_t);
 
 extern struct prefix_ipv6 *prefix_ipv6_new(void);
 extern void prefix_ipv6_free(struct prefix_ipv6 **p);
