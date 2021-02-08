@@ -227,8 +227,6 @@ int main(int argc, char **argv, char **envp)
 	  route_map_add_hook (eigrp_rmap_update);
 	  route_map_delete_hook (eigrp_rmap_update);*/
 	/*if_rmap_init (EIGRP_NODE); */
-	/* Distribute list install. */
-	distribute_list_init(EIGRP_NODE);
 
 	frr_config_fork();
 	frr_run(master);
