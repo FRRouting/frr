@@ -119,13 +119,6 @@ sub scan_file {
                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
             }
         }
-        elsif ($file =~ /lib\/distribute\.c$/) {
-            if ($defun_array[1] =~ m/ipv6/) {
-                $protocol = "VTYSH_RIPNGD";
-            } else {
-                $protocol = "VTYSH_RIPD";
-            }
-        }
         elsif ($file =~ /lib\/if_rmap\.c$/) {
             if ($defun_array[1] =~ m/ipv6/) {
                 $protocol = "VTYSH_RIPNGD";
