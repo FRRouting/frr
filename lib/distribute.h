@@ -64,7 +64,6 @@ struct distribute_ctx {
 };
 
 /* Prototypes for distribute-list. */
-extern void distribute_list_init(int node);
 extern struct distribute_ctx *distribute_list_ctx_create(struct vrf *vrf);
 extern void distribute_list_delete(struct distribute_ctx **ctx);
 extern void distribute_list_add_hook(struct distribute_ctx *ctx,
