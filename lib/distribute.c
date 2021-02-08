@@ -240,6 +240,40 @@ static int distribute_list_prefix_unset(struct distribute_ctx *ctx,
 	return 1;
 }
 
+static enum distribute_type distribute_direction(const char *dir, bool v4)
+{
+	if (dir[0] == 'i') {
+		if (v4)
+			return DISTRIBUTE_V4_IN;
+		else
+			return DISTRIBUTE_V6_IN;
+	} else if (dir[0] == 'o') {
+		if (v4)
+			return DISTRIBUTE_V4_OUT;
+		else
+			return DISTRIBUTE_V6_OUT;
+	}
+
+	assert(!"Expecting in or out only, fix your code");
+
+	__builtin_unreachable();
+}
+
+static int distribute_list_parser(bool prefix, bool v4, const char *dir,
+				  const char *list, const char *ifname)
+{
+	enum distribute_type type = distribute_direction(dir, v4);
+	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
+
+	void (*distfn)(struct distribute_ctx *, const char *,
+		       enum distribute_type, const char *) =
+		prefix ? &distribute_list_prefix_set : &distribute_list_set;
+
+	distfn(ctx, ifname, type, list);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (distribute_list,
        distribute_list_cmd,
        "distribute-list [prefix] WORD <in|out> [WORD]",
@@ -250,28 +284,14 @@ DEFUN (distribute_list,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
-	/* Check of distribute list type. */
-	enum distribute_type type = argv[2 + prefix]->arg[0] == 'i'
-					    ? DISTRIBUTE_V4_IN
-					    : DISTRIBUTE_V4_OUT;
-
-	/* Set appropriate function call */
-	void (*distfn)(struct distribute_ctx *, const char *,
-		       enum distribute_type, const char *) =
-		prefix ? &distribute_list_prefix_set : &distribute_list_set;
-	struct distribute_ctx *ctx =
-		(struct distribute_ctx *)listnode_head(dist_ctx_list);
-
-	/* if interface is present, get name */
 	const char *ifname = NULL;
+	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
+
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 
-	/* Get interface name corresponding distribute list. */
-	distfn(ctx, ifname, type, argv[1 + prefix]->arg);
-
-	return CMD_SUCCESS;
+	return distribute_list_parser(prefix, true, argv[2 + prefix]->arg,
+				      argv[1 + prefix]->arg, ifname);
 }
 
 DEFUN (ipv6_distribute_list,
@@ -285,25 +305,33 @@ DEFUN (ipv6_distribute_list,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-	/* Check of distribute list type. */
-	enum distribute_type type = argv[3 + prefix]->arg[0] == 'i'
-					    ? DISTRIBUTE_V6_IN
-					    : DISTRIBUTE_V6_OUT;
-
-	/* Set appropriate function call */
-	void (*distfn)(struct distribute_ctx *, const char *,
-		       enum distribute_type, const char *) =
-		prefix ? &distribute_list_prefix_set : &distribute_list_set;
-	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
-
-	/* if interface is present, get name */
 	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 
-	/* Get interface name corresponding distribute list. */
-	distfn(ctx, ifname, type, argv[2 + prefix]->arg);
+	return distribute_list_parser(prefix, false, argv[3 + prefix]->arg,
+				      argv[2 + prefix]->arg, ifname);
+}
+static int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
+				     const char *dir, const char *list,
+				     const char *ifname)
+{
+	enum distribute_type type = distribute_direction(dir, v4);
+	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
+	int ret;
+
+	int (*distfn)(struct distribute_ctx *, const char *,
+		      enum distribute_type, const char *) =
+		prefix ? &distribute_list_prefix_unset : &distribute_list_unset;
+
+
+	ret = distfn(ctx, ifname, type, list);
+	if (!ret) {
+		vty_out(vty, "distribute list doesn't exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	return CMD_SUCCESS;
 }
@@ -319,31 +347,15 @@ DEFUN (no_distribute_list,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-	int idx_alname = 2 + prefix;
-	int idx_disttype = idx_alname + 1;
-	enum distribute_type type =
-		argv[idx_disttype]->arg[0] == 'i' ?
-		DISTRIBUTE_V4_IN : DISTRIBUTE_V4_OUT;
-
-	/* Set appropriate function call */
-	int (*distfn)(struct distribute_ctx *, const char *,
-		       enum distribute_type, const char *) =
-		prefix ? &distribute_list_prefix_unset : &distribute_list_unset;
-	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
-
-	/* if interface is present, get name */
 	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
-	/* Get interface name corresponding distribute list. */
-	int ret = distfn(ctx, ifname, type, argv[2 + prefix]->arg);
 
-	if (!ret) {
-		vty_out(vty, "distribute list doesn't exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
+	return distribute_list_no_parser(vty, prefix, true,
+					 argv[3 + prefix]->arg,
+					 argv[2 + prefix]->arg, ifname);
 }
 
 DEFUN (no_ipv6_distribute_list,
@@ -358,33 +370,15 @@ DEFUN (no_ipv6_distribute_list,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
-	int idx_alname = 3 + prefix;
-	int idx_disttype = idx_alname + 1;
-
-	enum distribute_type type =
-		argv[idx_disttype]->arg[0] == 'i' ?
-		DISTRIBUTE_V6_IN : DISTRIBUTE_V6_OUT;
-	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
-
-	/* Set appropriate function call */
-	int (*distfn)(struct distribute_ctx *, const char *,
-		       enum distribute_type, const char *) =
-		prefix ? &distribute_list_prefix_unset : &distribute_list_unset;
-
-	/* if interface is present, get name */
 	const char *ifname = NULL;
+	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
 
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
-	/* Get interface name corresponding distribute list. */
-	int ret = distfn(ctx, ifname, type, argv[3 + prefix]->arg);
 
-	if (!ret) {
-		vty_out(vty, "distribute list doesn't exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
+	return distribute_list_no_parser(vty, prefix, false,
+					 argv[4 + prefix]->arg,
+					 argv[3 + prefix]->arg, ifname);
 }
 
 static int distribute_print(struct vty *vty, char *tab[], int is_prefix,
