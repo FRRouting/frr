@@ -217,7 +217,7 @@ static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp = NULL;
-	struct prefix p;
+	struct prefix p, src_p;
 	int status;
 	char msg[100];
 	int old_status;
@@ -227,8 +227,8 @@ static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	struct listnode *neigh_nextnode = NULL;
 	struct pim_neighbor *neigh = NULL;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &p, NULL, &status,
-				NULL, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &p, &src_p, &status, NULL,
+				vrf_id);
 
 	if ((ifp == NULL) || (p.family != AF_INET))
 		return 0;
