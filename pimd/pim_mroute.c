@@ -1221,10 +1221,9 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 			sg.src = c_oil->oil.mfcc_origin;
 			sg.grp = c_oil->oil.mfcc_mcastgrp;
-			if (PIM_DEBUG_MROUTE)
-				zlog_debug(
-					"Channel%s is not installed no need to collect data from kernel",
-					pim_str_sg_dump(&sg));
+			zlog_debug(
+				"Channel%s is not installed no need to collect data from kernel",
+				pim_str_sg_dump(&sg));
 		}
 		return;
 	}
