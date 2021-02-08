@@ -3799,7 +3799,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* Same attribute comes in. */
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)
-		    && attrhash_cmp(pi->attr, attr_new)
+		    && same_attr
 		    && (!has_valid_label
 			|| memcmp(&(bgp_path_info_extra_get(pi))->label, label,
 				  num_labels * sizeof(mpls_label_t))
