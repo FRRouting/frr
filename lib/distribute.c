@@ -486,20 +486,3 @@ struct distribute_ctx *distribute_list_ctx_create(struct vrf *vrf)
 	listnode_add(dist_ctx_list, ctx);
 	return ctx;
 }
-
-/* Initialize distribute list vty commands */
-void distribute_list_init(int node)
-{
-	/* TODO: install v4 syntax command for v6 only protocols. */
-	/* if (node == RIPNG_NODE) {
-	 *   install_element (node, &ipv6_as_v4_distribute_list_all_cmd);
-	 *   install_element (node, &no_ipv6_as_v4_distribute_list_all_cmd);
-	 *   install_element (node, &ipv6_as_v4_distribute_list_cmd);
-	 *   install_element (node, &no_ipv6_as_v4_distribute_list_cmd);
-	 *   install_element (node, &ipv6_as_v4_distribute_list_prefix_all_cmd);
-	 *   install_element (node,
-	 &no_ipv6_as_v4_distribute_list_prefix_all_cmd);
-	 *   install_element (node, &ipv6_as_v4_distribute_list_prefix_cmd);
-	 *   install_element (node, &no_ipv6_as_v4_distribute_list_prefix_cmd);
-	   }*/
-}
