@@ -259,8 +259,8 @@ static enum distribute_type distribute_direction(const char *dir, bool v4)
 	__builtin_unreachable();
 }
 
-static int distribute_list_parser(bool prefix, bool v4, const char *dir,
-				  const char *list, const char *ifname)
+int distribute_list_parser(bool prefix, bool v4, const char *dir,
+			   const char *list, const char *ifname)
 {
 	enum distribute_type type = distribute_direction(dir, v4);
 	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
@@ -274,49 +274,9 @@ static int distribute_list_parser(bool prefix, bool v4, const char *dir,
 	return CMD_SUCCESS;
 }
 
-DEFUN (distribute_list,
-       distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_parser(prefix, true, argv[2 + prefix]->arg,
-				      argv[1 + prefix]->arg, ifname);
-}
-
-DEFUN (ipv6_distribute_list,
-       ipv6_distribute_list_cmd,
-       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
-       "IPv6\n"
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_parser(prefix, false, argv[3 + prefix]->arg,
-				      argv[2 + prefix]->arg, ifname);
-}
-static int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
-				     const char *dir, const char *list,
-				     const char *ifname)
+int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
+			      const char *dir, const char *list,
+			      const char *ifname)
 {
 	enum distribute_type type = distribute_direction(dir, v4);
 	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
@@ -334,51 +294,6 @@ static int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
 	}
 
 	return CMD_SUCCESS;
-}
-
-DEFUN (no_distribute_list,
-       no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_no_parser(vty, prefix, true,
-					 argv[3 + prefix]->arg,
-					 argv[2 + prefix]->arg, ifname);
-}
-
-DEFUN (no_ipv6_distribute_list,
-       no_ipv6_distribute_list_cmd,
-       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
-       NO_STR
-       "IPv6\n"
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_no_parser(vty, prefix, false,
-					 argv[4 + prefix]->arg,
-					 argv[3 + prefix]->arg, ifname);
 }
 
 static int distribute_print(struct vty *vty, char *tab[], int is_prefix,
@@ -575,18 +490,6 @@ struct distribute_ctx *distribute_list_ctx_create(struct vrf *vrf)
 /* Initialize distribute list vty commands */
 void distribute_list_init(int node)
 {
-	/* vtysh command-extraction doesn't grok install_element(node, ) */
-	if (node == RIP_NODE) {
-		install_element(RIP_NODE, &distribute_list_cmd);
-		install_element(RIP_NODE, &no_distribute_list_cmd);
-	} else if (node == RIPNG_NODE) {
-		install_element(RIPNG_NODE, &distribute_list_cmd);
-		install_element(RIPNG_NODE, &no_distribute_list_cmd);
-		/* install v6 */
-		install_element(RIPNG_NODE, &ipv6_distribute_list_cmd);
-		install_element(RIPNG_NODE, &no_ipv6_distribute_list_cmd);
-	}
-
 	/* TODO: install v4 syntax command for v6 only protocols. */
 	/* if (node == RIPNG_NODE) {
 	 *   install_element (node, &ipv6_as_v4_distribute_list_all_cmd);

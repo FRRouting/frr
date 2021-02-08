@@ -3722,9 +3722,6 @@ void rip_init(void)
 	prefix_list_add_hook(rip_distribute_update_all);
 	prefix_list_delete_hook(rip_distribute_update_all);
 
-	/* Distribute list install. */
-	distribute_list_init(RIP_NODE);
-
 	/* Route-map */
 	rip_route_map_init();
 
