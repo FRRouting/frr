@@ -259,7 +259,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -268,7 +268,7 @@ DEFPY_YANG(
 				 mask_str ? mask_str : CISCO_HOST_WILDCARD_MASK,
 				 NULL, NULL);
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -436,7 +436,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -469,7 +469,7 @@ DEFPY_YANG(
 				"0.0.0.0", CISCO_ANY_WILDCARD_MASK);
 	}
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -588,7 +588,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -601,7 +601,7 @@ DEFPY_YANG(
 		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
 					 exact);
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -786,7 +786,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -799,7 +799,7 @@ DEFPY_YANG(
 		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
 					 exact);
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -979,7 +979,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -992,7 +992,7 @@ DEFPY_YANG(
 		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
 					 false);
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -1277,7 +1277,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	assert(action != NULL);
@@ -1290,7 +1290,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	pl = nb_running_get_entry(dnode, NULL, true);
 	pentry = prefix_list_entry_lookup(pl, p, plt, -1, le, ge);
 	if (pentry == NULL)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, pentry->seq);
