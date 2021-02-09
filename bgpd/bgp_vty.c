@@ -24,6 +24,7 @@
 #include "lib/json.h"
 #include "lib_errors.h"
 #include "lib/zclient.h"
+#include "lib/printfrr.h"
 #include "prefix.h"
 #include "plist.h"
 #include "buffer.h"
@@ -15464,7 +15465,8 @@ DEFPY(show_ip_bgp_instance_updgrps_adj_s,
 	return CMD_SUCCESS;
 }
 
-static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
+static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
+				   json_object *json)
 {
 	struct listnode *node, *nnode;
 	struct prefix *range;
@@ -15473,64 +15475,143 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	afi_t afi;
 	safi_t safi;
 	const char *peer_status;
-	const char *af_str;
 	int lr_count;
 	int dynamic;
-	int af_cfgd;
+	bool af_cfgd;
+	json_object *json_peer_group = NULL;
+	json_object *json_peer_group_afc = NULL;
+	json_object *json_peer_group_members = NULL;
+	json_object *json_peer_group_dynamic = NULL;
+	json_object *json_peer_group_dynamic_af = NULL;
+	json_object *json_peer_group_ranges = NULL;
 
 	conf = group->conf;
 
-	if (conf->as_type == AS_SPECIFIED || conf->as_type == AS_EXTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %u\n",
-			group->name, conf->as);
-	} else if (conf->as_type == AS_INTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %u\n",
-			group->name, group->bgp->as);
-	} else {
-		vty_out(vty, "\nBGP peer-group %s\n", group->name);
+	if (json) {
+		json_peer_group = json_object_new_object();
+		json_peer_group_afc = json_object_new_array();
 	}
 
-	if ((group->bgp->as == conf->as) || (conf->as_type == AS_INTERNAL))
-		vty_out(vty, "  Peer-group type is internal\n");
-	else
-		vty_out(vty, "  Peer-group type is external\n");
+	if (conf->as_type == AS_SPECIFIED || conf->as_type == AS_EXTERNAL) {
+		if (json)
+			json_object_int_add(json_peer_group, "remoteAs",
+					    conf->as);
+		else
+			vty_out(vty, "\nBGP peer-group %s, remote AS %u\n",
+				group->name, conf->as);
+	} else if (conf->as_type == AS_INTERNAL) {
+		if (json)
+			json_object_int_add(json_peer_group, "remoteAs",
+					    group->bgp->as);
+		else
+			vty_out(vty, "\nBGP peer-group %s, remote AS %u\n",
+				group->name, group->bgp->as);
+	} else {
+		if (!json)
+			vty_out(vty, "\nBGP peer-group %s\n", group->name);
+	}
+
+	if ((group->bgp->as == conf->as) || (conf->as_type == AS_INTERNAL)) {
+		if (json)
+			json_object_string_add(json_peer_group, "type",
+					       "internal");
+		else
+			vty_out(vty, "  Peer-group type is internal\n");
+	} else {
+		if (json)
+			json_object_string_add(json_peer_group, "type",
+					       "external");
+		else
+			vty_out(vty, "  Peer-group type is external\n");
+	}
 
 	/* Display AFs configured. */
-	vty_out(vty, "  Configured address-families:");
+	if (!json)
+		vty_out(vty, "  Configured address-families:");
+
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (conf->afc[afi][safi]) {
-			af_cfgd = 1;
-			vty_out(vty, " %s;", get_afi_safi_str(afi, safi, false));
+			af_cfgd = true;
+			if (json)
+				json_object_array_add(
+					json_peer_group_afc,
+					json_object_new_string(get_afi_safi_str(
+						afi, safi, false)));
+			else
+				vty_out(vty, " %s;",
+					get_afi_safi_str(afi, safi, false));
 		}
 	}
-	if (!af_cfgd)
-		vty_out(vty, " none\n");
-	else
-		vty_out(vty, "\n");
+
+	if (json) {
+		json_object_object_add(json_peer_group,
+				       "addressFamiliesConfigured",
+				       json_peer_group_afc);
+	} else {
+		if (!af_cfgd)
+			vty_out(vty, " none\n");
+		else
+			vty_out(vty, "\n");
+	}
 
 	/* Display listen ranges (for dynamic neighbors), if any */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		if (afi == AFI_IP)
-			af_str = "IPv4";
-		else if (afi == AFI_IP6)
-			af_str = "IPv6";
-		else
-			af_str = "???";
 		lr_count = listcount(group->listen_range[afi]);
 		if (lr_count) {
-			vty_out(vty, "  %d %s listen range(s)\n", lr_count,
-				af_str);
+			if (json) {
+				if (!json_peer_group_dynamic)
+					json_peer_group_dynamic =
+						json_object_new_object();
 
+				json_peer_group_dynamic_af =
+					json_object_new_object();
+				json_peer_group_ranges =
+					json_object_new_array();
+				json_object_int_add(json_peer_group_dynamic_af,
+						    "count", lr_count);
+			} else {
+				vty_out(vty, "  %d %s listen range(s)\n",
+					lr_count, afi2str(afi));
+			}
 
 			for (ALL_LIST_ELEMENTS(group->listen_range[afi], node,
-					       nnode, range))
-				vty_out(vty, "    %pFX\n", range);
+					       nnode, range)) {
+				if (json) {
+					char buf[BUFSIZ];
+
+					snprintfrr(buf, sizeof(buf), "%pFX",
+						   range);
+
+					json_object_array_add(
+						json_peer_group_ranges,
+						json_object_new_string(buf));
+				} else {
+					vty_out(vty, "    %pFX\n", range);
+				}
+			}
+
+			if (json) {
+				json_object_object_add(
+					json_peer_group_dynamic_af, "ranges",
+					json_peer_group_ranges);
+
+				json_object_object_add(
+					json_peer_group_dynamic, afi2str(afi),
+					json_peer_group_dynamic_af);
+			}
 		}
 	}
 
+	if (json_peer_group_dynamic)
+		json_object_object_add(json_peer_group, "dynamicRanges",
+				       json_peer_group_dynamic);
+
 	/* Display group members and their status */
 	if (listcount(group->peer)) {
-		vty_out(vty, "  Peer-group members:\n");
+		if (json)
+			json_peer_group_members = json_object_new_object();
+		else
+			vty_out(vty, "  Peer-group members:\n");
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
 			    || CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
@@ -15543,65 +15624,106 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 							 peer->status, NULL);
 
 			dynamic = peer_dynamic_neighbor(peer);
-			vty_out(vty, "    %s %s %s \n", peer->host,
-				dynamic ? "(dynamic)" : "", peer_status);
+
+			if (json) {
+				json_object *json_peer_group_member =
+					json_object_new_object();
+
+				json_object_string_add(json_peer_group_member,
+						       "status", peer_status);
+
+				if (dynamic)
+					json_object_boolean_true_add(
+						json_peer_group_member,
+						"dynamic");
+
+				json_object_object_add(json_peer_group_members,
+						       peer->host,
+						       json_peer_group_member);
+			} else {
+				vty_out(vty, "    %s %s %s \n", peer->host,
+					dynamic ? "(dynamic)" : "",
+					peer_status);
+			}
 		}
+		if (json)
+			json_object_object_add(json_peer_group, "members",
+					       json_peer_group_members);
 	}
+
+	if (json)
+		json_object_object_add(json, group->name, json_peer_group);
 
 	return CMD_SUCCESS;
 }
 
 static int bgp_show_peer_group_vty(struct vty *vty, const char *name,
-				   const char *group_name)
+				   const char *group_name, bool uj)
 {
 	struct bgp *bgp;
 	struct listnode *node, *nnode;
 	struct peer_group *group;
 	bool found = false;
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
 
 	bgp = name ? bgp_lookup_by_name(name) : bgp_get_default();
 
 	if (!bgp) {
-		vty_out(vty, "%% BGP instance not found\n");
+		if (uj) {
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json);
+		} else {
+			vty_out(vty, "%% BGP instance not found\n");
+		}
+
 		return CMD_WARNING;
 	}
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
 		if (group_name) {
 			if (strmatch(group->name, group_name)) {
-				bgp_show_one_peer_group(vty, group);
+				bgp_show_one_peer_group(vty, group, json);
 				found = true;
 				break;
 			}
 		} else {
-			bgp_show_one_peer_group(vty, group);
+			bgp_show_one_peer_group(vty, group, json);
 		}
 	}
 
-	if (group_name && !found)
+	if (group_name && !found && !uj)
 		vty_out(vty, "%% No such peer-group\n");
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_bgp_peer_groups,
-       show_ip_bgp_peer_groups_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] peer-group [PGNAME]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Detailed information on BGP peer groups\n"
-       "Peer group name\n")
+DEFUN(show_ip_bgp_peer_groups, show_ip_bgp_peer_groups_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] peer-group [PGNAME] [json]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR
+      "Detailed information on BGP peer groups\n"
+      "Peer group name\n" JSON_STR)
 {
 	char *vrf, *pg;
 	int idx = 0;
+	bool uj = use_json(argc, argv);
 
 	vrf = argv_find(argv, argc, "VIEWVRFNAME", &idx) ? argv[idx]->arg
 							 : NULL;
 	pg = argv_find(argv, argc, "PGNAME", &idx) ? argv[idx]->arg : NULL;
 
-	return bgp_show_peer_group_vty(vty, vrf, pg);
+	return bgp_show_peer_group_vty(vty, vrf, pg, uj);
 }
 
 
