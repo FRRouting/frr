@@ -76,7 +76,8 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 				  *)(start
 				     + pos * (sizeof(struct
 						     ospf6_router_lsdesc)));
-		if ((char *)lsdesc < end) {
+		if ((char *)lsdesc + sizeof(struct ospf6_router_lsdesc)
+		    <= end) {
 			if (buf && (buflen > INET_ADDRSTRLEN * 2)) {
 				inet_ntop(AF_INET,
 					  &lsdesc->neighbor_interface_id, buf1,
@@ -652,7 +653,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 		end = (char *)lsa->header + ntohs(lsa->header->length);
 		current = start;
 
-		do {
+		while (current + sizeof(struct ospf6_prefix) <= end) {
 			prefix = (struct ospf6_prefix *)current;
 			if (prefix->prefix_length == 0
 			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
@@ -670,7 +671,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 				inet_ntop(AF_INET6, &in6, buf, buflen);
 				return (buf);
 			}
-		} while (current <= end);
+		}
 	}
 	return NULL;
 }
@@ -881,7 +882,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 		end = (char *)lsa->header + ntohs(lsa->header->length);
 		current = start;
 
-		do {
+		while (current + sizeof(struct ospf6_prefix) <= end) {
 			prefix = (struct ospf6_prefix *)current;
 			if (prefix->prefix_length == 0
 			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
@@ -901,7 +902,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 					prefix->prefix_length);
 				return (buf);
 			}
-		} while (current <= end);
+		}
 	}
 	return NULL;
 }
