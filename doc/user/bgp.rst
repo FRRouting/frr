@@ -1488,6 +1488,9 @@ Configuring Peers
    directly connected and this knob is not enabled, the session will not
    establish.
 
+   If the peer's IP address is not in the RIB and is reachable via the
+   default route, then you have to enable ``ip nht resolve-via-default``.
+
 .. index:: neighbor PEER description ...
 .. clicmd:: [no] neighbor PEER description ...
 
