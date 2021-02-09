@@ -1064,6 +1064,7 @@ static int lib_vrf_create(struct nb_cb_create_args *args)
 
 	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
 
+	SET_FLAG(vrfp->status, VRF_CONFIGURED);
 	nb_running_set_entry(args->dnode, vrfp);
 
 	return NB_OK;
