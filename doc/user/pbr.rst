@@ -258,6 +258,21 @@ causes the policy to be installed into the kernel.
    | valid  | Is the map well-formed?    | Boolean |
    +--------+----------------------------+---------+
 
+.. _pbr-debugs:
+
+PBR Debugs
+===========
+
+.. index:: debug pbr
+.. clicmd:: debug pbr events|map|nht|zebra
+
+   Debug pbr in pbrd daemon. You specify what types of debugs to turn on.
+
+.. index:: debug zebra pbr
+.. clicmd:: debug zebra pbr
+
+   Debug pbr in zebra daemon.
+
 .. _pbr-details:
 
 PBR Details

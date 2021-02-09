@@ -32,6 +32,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zserv.h"
+#include "zebra/debug.h"
 
 /* definitions */
 DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list")
@@ -499,10 +500,14 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 	 */
 	found = pbr_rule_lookup_unique(rule);
 
-	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
-
 	/* If found, this is an update */
 	if (found) {
+		if (IS_ZEBRA_DEBUG_PBR)
+			zlog_debug(
+				"%s: seq: %d, prior: %d, unique: %d, ifname: %s -- update",
+				__func__, rule->rule.seq, rule->rule.priority,
+				rule->rule.unique, rule->rule.ifname);
+
 		(void)dplane_pbr_rule_update(found, rule);
 
 		if (pbr_rule_release(found))
@@ -510,12 +515,26 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 				"%s: Rule being updated we know nothing about",
 				__PRETTY_FUNCTION__);
 
-	} else
+	} else {
+		if (IS_ZEBRA_DEBUG_PBR)
+			zlog_debug(
+				"%s: seq: %d, prior: %d, unique: %d, ifname: %s -- new",
+				__func__, rule->rule.seq, rule->rule.priority,
+				rule->rule.unique, rule->rule.ifname);
+
 		(void)dplane_pbr_rule_add(rule);
+	}
+
+	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
 }
 
 void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
 {
+	if (IS_ZEBRA_DEBUG_PBR)
+		zlog_debug("%s: seq: %d, prior: %d, unique: %d, ifname: %s",
+			   __func__, rule->rule.seq, rule->rule.priority,
+			   rule->rule.unique, rule->rule.ifname);
+
 	(void)dplane_pbr_rule_delete(rule);
 
 	if (pbr_rule_release(rule))
