@@ -1064,7 +1064,7 @@ static int lib_vrf_create(struct nb_cb_create_args *args)
 
 	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
 
-	SET_FLAG(vrfp->status, VRF_CONFIGURED);
+	vrf_set_user_cfged(vrfp);
 	nb_running_set_entry(args->dnode, vrfp);
 
 	return NB_OK;
@@ -1090,7 +1090,7 @@ static int lib_vrf_destroy(struct nb_cb_destroy_args *args)
 		vrfp = nb_running_unset_entry(args->dnode);
 
 		/* Clear configured flag and invoke delete. */
-		UNSET_FLAG(vrfp->status, VRF_CONFIGURED);
+		vrf_reset_user_cfged(vrfp);
 		vrf_delete(vrfp);
 		break;
 	}
