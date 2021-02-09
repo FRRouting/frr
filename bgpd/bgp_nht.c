@@ -65,8 +65,19 @@ static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 
 static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
 {
+	/*
+	 * In the case of MPLS-VPN, the label is learned from LDP or other
+	 * protocols, and nexthop tracking is enabled for the label.
+	 * The value is recorded as BGP_NEXTHOP_LABELED_VALID.
+	 * In the case of SRv6-VPN, we need to track the reachability to the
+	 * SID (in other words, IPv6 address). As in MPLS, we need to record
+	 * the value as BGP_NEXTHOP_SID_VALID. However, this function is
+	 * currently not implemented, and this function assumes that all
+	 * Transit routes for SRv6-VPN are valid.
+	 */
 	return (bgp_zebra_num_connects() == 0
-		|| (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)));
+		|| (bnc && (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)
+			    || bnc->bgp->srv6_enabled)));
 }
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
