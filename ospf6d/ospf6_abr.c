@@ -646,6 +646,7 @@ void ospf6_abr_defaults_to_stub(struct ospf6 *o)
 	struct listnode *node, *nnode;
 	struct ospf6_area *oa;
 	struct ospf6_route *def, *route;
+	int type = DEFAULT_ROUTE;
 
 	if (!o->backbone)
 		return;
@@ -659,6 +660,8 @@ void ospf6_abr_defaults_to_stub(struct ospf6 *o)
 	def->path.type = OSPF6_PATH_TYPE_INTER;
 	def->path.subtype = OSPF6_PATH_SUBTYPE_DEFAULT_RT;
 	def->path.area_id = o->backbone->area_id;
+	def->path.metric_type = metric_type(o, type, 0);
+	def->path.cost = metric_value(o, type, 0);
 
 	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa)) {
 		if (!IS_AREA_STUB(oa)) {

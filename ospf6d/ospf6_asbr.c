@@ -1238,7 +1238,11 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 				       sizeof(struct in6_addr));
 			info->tag = tinfo.tag;
 		} else {
-			/* If there is no route-map, simply update the tag */
+			/* If there is no route-map, simply update the tag and
+			 * metric fields
+			 */
+			match->path.metric_type = metric_type(ospf6, type, 0);
+			match->path.cost = metric_value(ospf6, type, 0);
 			info->tag = tag;
 		}
 
@@ -1291,7 +1295,11 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 			       sizeof(struct in6_addr));
 		info->tag = tinfo.tag;
 	} else {
-		/* If there is no route-map, simply set the tag */
+		/* If there is no route-map, simply update the tag and metric
+		 * fields
+		 */
+		route->path.metric_type = metric_type(ospf6, type, 0);
+		route->path.cost = metric_value(ospf6, type, 0);
 		info->tag = tag;
 	}
 

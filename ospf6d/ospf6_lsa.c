@@ -34,6 +34,8 @@
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_message.h"
+#include "ospf6_asbr.h"
+#include "ospf6_zebra.h"
 
 #include "ospf6_top.h"
 #include "ospf6_area.h"
@@ -161,6 +163,34 @@ uint8_t ospf6_lstype_debug(uint16_t type)
 	const struct ospf6_lsa_handler *handler;
 	handler = ospf6_get_lsa_handler(type);
 	return handler->lh_debug;
+}
+
+int metric_type(struct ospf6 *ospf6, int type, uint8_t instance)
+{
+	struct ospf6_redist *red;
+
+	red = ospf6_redist_lookup(ospf6, type, instance);
+
+	return ((!red || red->dmetric.type < 0) ? DEFAULT_METRIC_TYPE
+						: red->dmetric.type);
+}
+
+int metric_value(struct ospf6 *ospf6, int type, uint8_t instance)
+{
+	struct ospf6_redist *red;
+
+	red = ospf6_redist_lookup(ospf6, type, instance);
+	if (!red || red->dmetric.value < 0) {
+		if (type == DEFAULT_ROUTE) {
+			if (ospf6->default_originate == DEFAULT_ORIGINATE_ZEBRA)
+				return DEFAULT_DEFAULT_ORIGINATE_METRIC;
+			else
+				return DEFAULT_DEFAULT_ALWAYS_METRIC;
+		} else
+			return DEFAULT_DEFAULT_METRIC;
+	}
+
+	return red->dmetric.value;
 }
 
 /* RFC2328: Section 13.2 */
