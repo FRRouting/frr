@@ -1449,6 +1449,8 @@ static void ospf6_intra_prefix_update_route_origin(struct ospf6_route *oa_route,
 			g_route->path.origin.id = h_path->origin.id;
 			g_route->path.origin.adv_router =
 				h_path->origin.adv_router;
+			if (nroute)
+				ospf6_route_unlock(nroute);
 			break;
 		}
 	}
