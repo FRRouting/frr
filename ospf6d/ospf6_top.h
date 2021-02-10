@@ -96,6 +96,8 @@ struct ospf6 {
 
 	uint8_t flag;
 
+	int redistribute; /* Num of redistributed protocols. */
+
 	/* Configuration bitmask, refer to enum above */
 	uint8_t config_flags;
 	int default_originate; /* Default information originate. */
@@ -150,6 +152,7 @@ DECLARE_QOBJ_TYPE(ospf6);
 
 #define OSPF6_DISABLED    0x01
 #define OSPF6_STUB_ROUTER 0x02
+#define OSPF6_FLAG_ASBR   0x04
 
 /* global pointer for OSPF top data structure */
 extern struct ospf6 *ospf6;

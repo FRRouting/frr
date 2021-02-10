@@ -248,6 +248,7 @@ static struct ospf6 *ospf6_create(const char *name)
 	o->spf_hold_multiplier = 1;
 
 	o->default_originate = DEFAULT_ORIGINATE_NONE;
+	o->redistribute = 0;
 	/* LSA timers value init */
 	o->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
 

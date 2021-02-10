@@ -37,6 +37,7 @@
 #include "ospf6_route.h"
 #include "ospf6_zebra.h"
 #include "ospf6_message.h"
+#include "ospf6_spf.h"
 
 #include "ospf6_top.h"
 #include "ospf6_area.h"
@@ -1051,6 +1052,7 @@ static struct ospf6_redist *ospf6_redist_add(struct ospf6 *ospf6, int type,
 	ROUTEMAP(red) = NULL;
 
 	listnode_add(ospf6->redist[type], red);
+	ospf6->redistribute++;
 
 	return red;
 }
@@ -1064,6 +1066,7 @@ static void ospf6_redist_del(struct ospf6 *ospf6, struct ospf6_redist *red,
 			list_delete(&ospf6->redist[type]);
 		}
 		XFREE(MTYPE_OSPF6_REDISTRIBUTE, red);
+		ospf6->redistribute--;
 	}
 }
 
@@ -1131,6 +1134,35 @@ void ospf6_asbr_remove_externals_from_area(struct ospf6_area *oa)
 	}
 }
 
+/* Update ASBR status. */
+static void ospf6_asbr_status_update(struct ospf6 *ospf6, uint8_t status)
+{
+	struct listnode *lnode, *lnnode;
+	struct ospf6_area *oa;
+
+	zlog_info("ASBR[%s:Status:%d]: Update", ospf6->name, status);
+
+	if (status) {
+		if (IS_OSPF6_ASBR(ospf6)) {
+			zlog_info("ASBR[%s:Status:%d]: Already ASBR",
+				  ospf6->name, status);
+			return;
+		}
+		SET_FLAG(ospf6->flag, OSPF6_FLAG_ASBR);
+	} else {
+		if (!IS_OSPF6_ASBR(ospf6)) {
+			zlog_info("ASBR[%s:Status:%d]: Already non ASBR",
+				  ospf6->name, status);
+			return;
+		}
+		UNSET_FLAG(ospf6->flag, OSPF6_FLAG_ASBR);
+	}
+
+	ospf6_spf_schedule(ospf6, OSPF6_SPF_FLAGS_ASBR_STATUS_CHANGE);
+	for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, lnnode, oa))
+		OSPF6_ROUTER_LSA_SCHEDULE(oa);
+}
+
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 				 struct prefix *prefix,
 				 unsigned int nexthop_num,
@@ -1145,8 +1177,6 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	struct prefix prefix_id;
 	struct route_node *node;
 	char ibuf[16];
-	struct listnode *lnode, *lnnode;
-	struct ospf6_area *oa;
 	struct ospf6_redist *red;
 
 	red = ospf6_redist_lookup(ospf6, type, 0);
@@ -1236,6 +1266,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 		match->path.origin.id = htonl(info->id);
 		ospf6_as_external_lsa_originate(match, ospf6);
+		ospf6_asbr_status_update(ospf6, ospf6->redistribute);
 		return;
 	}
 
@@ -1289,10 +1320,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 	route->path.origin.id = htonl(info->id);
 	ospf6_as_external_lsa_originate(route, ospf6);
-
-	/* Router-Bit (ASBR Flag) may have to be updated */
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, lnnode, oa))
-		OSPF6_ROUTER_LSA_SCHEDULE(oa);
+	ospf6_asbr_status_update(ospf6, ospf6->redistribute);
 }
 
 void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
@@ -1304,8 +1332,6 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	struct ospf6_lsa *lsa;
 	struct prefix prefix_id;
 	char ibuf[16];
-	struct listnode *lnode, *lnnode;
-	struct ospf6_area *oa;
 
 	match = ospf6_route_lookup(prefix, ospf6->external_table);
 	if (match == NULL) {
@@ -1346,9 +1372,7 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	ospf6_route_remove(match, ospf6->external_table);
 	XFREE(MTYPE_OSPF6_EXTERNAL_INFO, info);
 
-	/* Router-Bit (ASBR Flag) may have to be updated */
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, lnnode, oa))
-		OSPF6_ROUTER_LSA_SCHEDULE(oa);
+	ospf6_asbr_status_update(ospf6, ospf6->redistribute);
 }
 
 DEFUN (ospf6_redistribute,
