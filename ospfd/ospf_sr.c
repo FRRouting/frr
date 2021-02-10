@@ -598,11 +598,6 @@ int ospf_sr_init(void)
 	if (OspfSR.neighbors == NULL)
 		return rc;
 
-	/* Initialize Route Table for prefix */
-	OspfSR.prefix = route_table_init();
-	if (OspfSR.prefix == NULL)
-		return rc;
-
 	/* Register Segment Routing VTY command */
 	ospf_sr_register_vty();
 
@@ -626,9 +621,6 @@ void ospf_sr_term(void)
 	if (OspfSR.neighbors)
 		hash_free(OspfSR.neighbors);
 
-	/* Clear Prefix Table */
-	if (OspfSR.prefix)
-		route_table_finish(OspfSR.prefix);
 }
 
 /*
@@ -913,8 +905,13 @@ static int compute_prefix_nhlfe(struct sr_prefix *srp)
 		 * be received before corresponding Router Information LSA
 		 */
 		if (srnext == NULL || srnext->srgb.lower_bound == 0
-		    || srnext->srgb.range_size == 0)
+		    || srnext->srgb.range_size == 0) {
+			osr_debug(
+				"    |-  SR-Node %pI4 not ready. Stop process",
+				&srnext->adv_router);
+			path->srni.label_out = MPLS_INVALID_LABEL;
 			continue;
+		}
 
 		osr_debug("    |-  Found SRGB %u/%u for next hop SR-Node %pI4",
 			  srnext->srgb.range_size, srnext->srgb.lower_bound,
@@ -1273,7 +1270,7 @@ static void update_in_nhlfe(struct hash_bucket *bucket, void *args)
 
 /*
  * When SRGB has changed, update NHLFE Output Label for all Extended Prefix
- * with SID index which use the given SR-Node as nexthop though hash_iterate()
+ * with SID index which use the given SR-Node as nexthop through hash_iterate()
  */
 static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 {
@@ -1283,21 +1280,29 @@ static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 	struct sr_prefix *srp;
 	struct ospf_path *path;
 
+	/* Skip Self SR-Node */
+	if (srn == OspfSR.self)
+		return;
+
+	osr_debug("SR (%s): Update Out NHLFE for neighbor SR-Node %pI4",
+		  __func__, &srn->adv_router);
+
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
-		/* Process only SID Index with valid route */
+		/* Skip Prefix that has not yet a valid route */
 		if (srp->route == NULL)
 			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, pnode, path)) {
-			/* Process only SID Index for next hop without PHP */
-			if ((path->srni.nexthop == srp->srn)
-			    && (!CHECK_FLAG(srp->flags,
-					    EXT_SUBTLV_PREFIX_SID_NPFLG)))
+			/* Skip path that has not next SR-Node as nexthop */
+			if (path->srni.nexthop != srnext)
 				continue;
-			path->srni.label_out =
-				index2label(srp->sid, srnext->srgb);
-			ospf_zebra_update_prefix_sid(srp);
+
+			/* Compute new Output Label */
+			path->srni.label_out = sr_prefix_out_label(srp, srnext);
 		}
+
+		/* Finally update MPLS table */
+		ospf_zebra_update_prefix_sid(srp);
 	}
 }
 
@@ -1438,11 +1443,6 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		srn->srlb.lower_bound = GET_LABEL(ntohl(ri_srlb->lower.value));
 	}
 
-	osr_debug("  |- Update SR-Node[%pI4], SRGB[%u/%u], SRLB[%u/%u], Algo[%u], MSD[%u]",
-		  &srn->adv_router, srn->srgb.lower_bound, srn->srgb.range_size,
-		  srn->srlb.lower_bound, srn->srlb.range_size, srn->algo[0],
-		  srn->msd);
-
 	/* Check if SRGB has changed */
 	if ((srn->srgb.range_size == srgb.range_size)
 	    && (srn->srgb.lower_bound == srgb.lower_bound))
@@ -1451,6 +1451,11 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	/* Copy SRGB */
 	srn->srgb.range_size = srgb.range_size;
 	srn->srgb.lower_bound = srgb.lower_bound;
+
+	osr_debug("  |- Update SR-Node[%pI4], SRGB[%u/%u], SRLB[%u/%u], Algo[%u], MSD[%u]",
+		  &srn->adv_router, srn->srgb.lower_bound, srn->srgb.range_size,
+		  srn->srlb.lower_bound, srn->srlb.range_size, srn->algo[0],
+		  srn->msd);
 
 	/* ... and NHLFE if it is a neighbor SR node */
 	if (srn->neighbor == OspfSR.self)

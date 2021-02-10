@@ -233,9 +233,6 @@ struct ospf_sr_db {
 	/* List of neighbour SR nodes */
 	struct hash *neighbors;
 
-	/* List of SR prefix */
-	struct route_table *prefix;
-
 	/* Local SR info announced in Router Info LSA */
 
 	/* Algorithms supported by the node */
