@@ -40,6 +40,15 @@ enum {
 
 struct ospf6_redist {
 	uint8_t instance;
+
+	/* Redistribute metric info. */
+	struct {
+		int type;  /* External metric type (E1 or E2).  */
+		int value; /* Value for static metric (24-bit).
+			    * -1 means metric value is not set.
+			    */
+	} dmetric;
+
 	/* For redistribute route map. */
 	struct {
 		char *name;
@@ -83,13 +92,16 @@ struct ospf6 {
 	uint32_t external_id;
 
 	/* OSPF6 redistribute configuration */
-	struct list *redist[ZEBRA_ROUTE_MAX];
+	struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
 	uint8_t flag;
 
 	/* Configuration bitmask, refer to enum above */
 	uint8_t config_flags;
-
+	int default_originate; /* Default information originate. */
+#define DEFAULT_ORIGINATE_NONE 0
+#define DEFAULT_ORIGINATE_ZEBRA 1
+#define DEFAULT_ORIGINATE_ALWAYS 2
 	/* LSA timer parameters */
 	unsigned int lsa_minarrival; /* LSA minimum arrival in milliseconds. */
 

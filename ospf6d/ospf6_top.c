@@ -247,6 +247,7 @@ static struct ospf6 *ospf6_create(const char *name)
 	o->spf_max_holdtime = OSPF_SPF_MAX_HOLDTIME_DEFAULT;
 	o->spf_hold_multiplier = 1;
 
+	o->default_originate = DEFAULT_ORIGINATE_NONE;
 	/* LSA timers value init */
 	o->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
 
@@ -1329,6 +1330,7 @@ static int config_write_ospf6(struct vty *vty)
 		ospf6_area_config_write(vty, ospf6);
 		ospf6_spf_config_write(vty, ospf6);
 		ospf6_distance_config_write(vty, ospf6);
+		ospf6_distribute_config_write(vty, ospf6);
 
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, j, oa)) {
 			for (ALL_LIST_ELEMENTS_RO(oa->if_list, k, oi))
