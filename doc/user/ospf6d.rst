@@ -163,6 +163,12 @@ Redistribute routes to OSPF6
 .. index:: redistribute ripng
 .. clicmd:: redistribute ripng
 
+.. index:: [no] default-route originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]
+.. clicmd:: [no] default-route originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]
+
+   The command injects default route in the connected areas. The always
+   argument injects the default route regardless of it being present in the
+   router. Metric values and route-map can also be specified optionally.
 
 .. _showing-ospf6-information:
 
