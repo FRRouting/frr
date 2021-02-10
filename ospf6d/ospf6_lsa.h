@@ -29,6 +29,12 @@
 #define OSPF6_LSA_DEBUG_EXAMIN    0x04
 #define OSPF6_LSA_DEBUG_FLOOD     0x08
 
+/* OSPF LSA Default metric values */
+#define DEFAULT_DEFAULT_METRIC 20
+#define DEFAULT_DEFAULT_ORIGINATE_METRIC 10
+#define DEFAULT_DEFAULT_ALWAYS_METRIC 1
+#define DEFAULT_METRIC_TYPE 2
+
 #define IS_OSPF6_DEBUG_LSA(name)                                               \
 	(ospf6_lstype_debug(htons(OSPF6_LSTYPE_##name)) & OSPF6_LSA_DEBUG)
 #define IS_OSPF6_DEBUG_ORIGINATE(name)                                         \
@@ -197,6 +203,8 @@ extern vector ospf6_lsa_handler_vector;
 extern const char *ospf6_lstype_name(uint16_t type);
 extern const char *ospf6_lstype_short_name(uint16_t type);
 extern uint8_t ospf6_lstype_debug(uint16_t type);
+extern int metric_type(struct ospf6 *ospf6, int type, uint8_t instance);
+extern int metric_value(struct ospf6 *ospf6, int type, uint8_t instance);
 extern int ospf6_lsa_is_differ(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 extern int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 extern uint16_t ospf6_lsa_age_current(struct ospf6_lsa *);
