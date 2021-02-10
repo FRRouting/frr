@@ -99,6 +99,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
+	union sockunion *nexthop_ref = (union sockunion *)nexthop;
 
 	if (zclient->sock < 0)
 		return;
@@ -134,8 +135,14 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 
 	switch (api.prefix.family) {
 	case AF_INET:
-		if (nexthop) {
-			api_nh->gate.ipv4 = nexthop->sin.sin_addr;
+		if (api.prefix.prefixlen == IPV4_MAX_BITLEN &&
+		    nexthop_ref &&
+		    memcmp(&nexthop_ref->sin.sin_addr, &api.prefix.u.prefix4,
+			   sizeof(struct in_addr)) == 0) {
+			nexthop_ref = NULL;
+		}
+		if (nexthop_ref) {
+			api_nh->gate.ipv4 = nexthop_ref->sin.sin_addr;
 			api_nh->type = NEXTHOP_TYPE_IPV4;
 		}
 		if (ifp) {
@@ -147,8 +154,14 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		}
 		break;
 	case AF_INET6:
-		if (nexthop) {
-			api_nh->gate.ipv6 = nexthop->sin6.sin6_addr;
+		if (api.prefix.prefixlen == IPV6_MAX_BITLEN &&
+		    nexthop_ref &&
+		    memcmp(&nexthop_ref->sin6.sin6_addr, &api.prefix.u.prefix6,
+			   sizeof(struct in6_addr)) == 0) {
+			nexthop_ref = NULL;
+		}
+		if (nexthop_ref) {
+			api_nh->gate.ipv6 = nexthop_ref->sin6.sin6_addr;
 			api_nh->type = NEXTHOP_TYPE_IPV6;
 		}
 		if (ifp) {
@@ -172,9 +185,10 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		zlog_debug(
 			"Zebra send: route %s %s nexthop %s metric %u count %d dev %s",
 			add ? "add" : "del", buf[0],
-			nexthop ? inet_ntop(api.prefix.family, &api_nh->gate,
-					    buf[1], sizeof(buf[1]))
-				: "<onlink>",
+			nexthop_ref ? inet_ntop(api.prefix.family,
+						&api_nh->gate,
+						buf[1], sizeof(buf[1]))
+			: "<onlink>",
 			api.metric, api.nexthop_num, ifp ? ifp->name : "none");
 	}
 
