@@ -60,6 +60,10 @@ class SnmpTester(object):
 
         num_value_tokens = len(tokens) - 3
 
+        # this copes with the emptys string return
+        if num_value_tokens == 0:
+            return tokens[2]
+
         if num_value_tokens > 1:
             output = ""
             index = 3
@@ -77,6 +81,17 @@ class SnmpTester(object):
 
         # third token onwards is the value of the object
         return tokens[0].split(".", 1)[1]
+
+    @staticmethod
+    def _get_snmp_oid(snmp_output):
+        tokens = snmp_output.strip().split()
+
+#        if len(tokens) > 5:
+#            return None
+
+
+        # third token is the value of the object
+        return tokens[0].split('.',1)[1] 
 
     def _parse_multiline(self, snmp_output):
         results = snmp_output.strip().split("\r\n")
@@ -122,10 +137,16 @@ class SnmpTester(object):
         if oids is not None:
             index = 0
             for oid in oids:
+                # avoid key error for missing keys
+                if not oid in results_dict.keys():
+                    print("FAIL: missing oid key {}".format(oid))
+                    return False
                 if results_dict[oid] != values[index]:
+                    print("FAIL{} {} |{}| == |{}|".format(oid, index, results_dict[oid], values[index]))
                     return False
                 index += 1
             return True
 
         # Return true if 'values' is a subset of 'results_list'
+        print("test {} == {}".format(results_list[: len(values)], values))
         return results_list[: len(values)] == values

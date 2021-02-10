@@ -271,6 +271,23 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 	      const struct trap_object *trapobj, size_t trapobjlen,
 	      uint8_t sptrap)
 {
+	struct index_oid trap_index[1];
+
+	/* copy the single index into the multi-index format */
+	oid_copy(trap_index[0].indexname, iname, inamelen);
+	trap_index[0].indexlen = inamelen;
+
+	return (smux_trap_multi_index(
+		vp, vp_len, ename, enamelen, name, namelen, trap_index,
+		array_size(trap_index), trapobj, trapobjlen, sptrap));
+}
+
+int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,
+			  size_t enamelen, const oid *name, size_t namelen,
+			  struct index_oid *iname, size_t index_len,
+			  const struct trap_object *trapobj, size_t trapobjlen,
+			  uint8_t sptrap)
+{
 	oid objid_snmptrap[] = {1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0};
 	size_t objid_snmptrap_len = sizeof(objid_snmptrap) / sizeof(oid);
 	oid notification_oid[MAX_OID_LEN];
@@ -299,6 +316,13 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 		size_t val_len;
 		WriteMethod *wm = NULL;
 		struct variable cvp;
+		unsigned int iindex;
+		/*
+		 * this allows the behaviour of smux_trap with a singe index
+		 * for all objects to be maintained whilst allowing traps which
+		 * have different indices per object to be supported
+		 */
+		iindex = (index_len == 1) ? 0 : i;
 
 		/* Make OID. */
 		if (trapobj[i].namelen > 0) {
@@ -306,8 +330,10 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 			onamelen = trapobj[i].namelen;
 			oid_copy(oid, name, namelen);
 			oid_copy(oid + namelen, trapobj[i].name, onamelen);
-			oid_copy(oid + namelen + onamelen, iname, inamelen);
-			oid_len = namelen + onamelen + inamelen;
+			oid_copy(oid + namelen + onamelen,
+				 iname[iindex].indexname,
+				 iname[iindex].indexlen);
+			oid_len = namelen + onamelen + iname[iindex].indexlen;
 		} else {
 			/* Scalar object */
 			onamelen = trapobj[i].namelen * (-1);
@@ -333,6 +359,7 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 			cvp.magic = vp[j].magic;
 			cvp.acl = vp[j].acl;
 			cvp.findVar = vp[j].findVar;
+
 			/* Grab the result. */
 			val = cvp.findVar(&cvp, oid, &oid_len, 1, &val_len,
 					  &wm);

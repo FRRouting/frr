@@ -67,6 +67,10 @@
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
+/* hook to indicate vrf status change for SNMP */
+DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
+	    (bgp, ifp))
+
 /* Can we install into zebra? */
 static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
 {
@@ -212,8 +216,10 @@ static int bgp_ifp_destroy(struct interface *ifp)
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf del VRF %u IF %s", ifp->vrf_id, ifp->name);
 
-	if (bgp)
+	if (bgp) {
 		bgp_update_interface_nbrs(bgp, ifp, NULL);
+		hook_call(bgp_vrf_status_changed, bgp, ifp);
+	}
 
 	bgp_mac_del_mac_entry(ifp);
 
@@ -243,6 +249,7 @@ static int bgp_ifp_up(struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
 		bgp_nbr_connected_add(bgp, nc);
 
+	hook_call(bgp_vrf_status_changed, bgp, ifp);
 	return 0;
 }
 
@@ -297,6 +304,7 @@ static int bgp_ifp_down(struct interface *ifp)
 		}
 	}
 
+	hook_call(bgp_vrf_status_changed, bgp, ifp);
 	return 0;
 }
 
@@ -461,6 +469,8 @@ static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 
 	for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
 		bgp_nbr_connected_add(bgp, nc);
+
+	hook_call(bgp_vrf_status_changed, bgp, ifp);
 	return 0;
 }
 
@@ -2963,6 +2973,7 @@ static int bgp_ifp_create(struct interface *ifp)
 	bgp_mac_add_mac_entry(ifp);
 
 	bgp_update_interface_nbrs(bgp, ifp, ifp);
+	hook_call(bgp_vrf_status_changed, bgp, ifp);
 	return 0;
 }
 

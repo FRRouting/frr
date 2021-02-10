@@ -40,6 +40,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_mplsvpn_snmp.h"
 
 /* BGP4-MIB described in RFC1657. */
 #define BGP4MIB 1,3,6,1,2,1,15
@@ -849,8 +850,9 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 }
 
 /* BGP Traps. */
-static struct trap_object bgpTrapList[] = {{3, {3, 1, BGPPEERLASTERROR}},
-					   {3, {3, 1, BGPPEERSTATE}}};
+static struct trap_object bgpTrapList[] = {{3, {3, 1, BGPPEERREMOTEADDR} },
+					   {3, {3, 1, BGPPEERLASTERROR} },
+					   {3, {3, 1, BGPPEERSTATE} } };
 
 static int bgpTrapEstablished(struct peer *peer)
 {
@@ -868,10 +870,10 @@ static int bgpTrapEstablished(struct peer *peer)
 
 	oid_copy_addr(index, &addr, IN_ADDR_SIZE);
 
-	smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
-		  array_size(bgp_trap_oid), bgp_oid,
-		  sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
-		  bgpTrapList, array_size(bgpTrapList), BGPESTABLISHED);
+	ret = smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
+			array_size(bgp_trap_oid), bgp_oid,
+			sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
+			bgpTrapList, array_size(bgpTrapList), BGPESTABLISHED);
 	return 0;
 }
 
@@ -898,6 +900,7 @@ static int bgp_snmp_init(struct thread_master *tm)
 {
 	smux_init(tm);
 	REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
+	bgp_mpls_l3vpn_module_init();
 	return 0;
 }
 

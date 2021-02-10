@@ -899,7 +899,6 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 	uint8_t *pnt;
 	uint8_t type = 0;
 	uint8_t sub_type = 0;
-#define ECOMMUNITY_STRLEN 64
 	int str_size;
 	char *str_buf;
 

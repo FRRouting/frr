@@ -3704,6 +3704,7 @@ void bgp_free(struct bgp *bgp)
 
 	XFREE(MTYPE_BGP, bgp->name);
 	XFREE(MTYPE_BGP, bgp->name_pretty);
+	XFREE(MTYPE_BGP, bgp->snmp_stats);
 
 	XFREE(MTYPE_BGP, bgp);
 }
