@@ -117,14 +117,15 @@ DIST=$(lsb_release --codename --short)
 PATCH=${PATCH:-1}
 
 case "$DIST" in
-    jessie)  EXTRA_VERSION="deb8u${PATCH}" ;;
-    stretch) EXTRA_VERSION="deb9u${PATCH}" ;;
-    buster)  EXTRA_VERSION="deb10u${PATCH}" ;;
-    sid)     EXTRA_VERSION="sid+${PATCH}" ;;
-    xenial)  EXTRA_VERSION="ubuntu16.04+${PATCH}" ;;
-    bionic)  EXTRA_VERSION="ubuntu16.04+${PATCH}" ;;
-    focal)   EXTRA_VERSION="ubuntu20.04+${PATCH}" ;;
-    groovy)  EXTRA_VERSION="ubuntu20.10+${PATCH}" ;;
+    jessie)   EXTRA_VERSION="deb8u${PATCH}" ;;
+    stretch)  EXTRA_VERSION="deb9u${PATCH}" ;;
+    buster)   EXTRA_VERSION="deb10u${PATCH}" ;;
+    bullseye) EXTRA_VERSION="deb11u${PATCH}" ;;
+    sid)      EXTRA_VERSION="sid+${PATCH}" ;;
+    xenial)   EXTRA_VERSION="ubuntu16.04+${PATCH}" ;;
+    bionic)   EXTRA_VERSION="ubuntu16.04+${PATCH}" ;;
+    focal)    EXTRA_VERSION="ubuntu20.04+${PATCH}" ;;
+    groovy)   EXTRA_VERSION="ubuntu20.10+${PATCH}" ;;
     *) echo "Unknown distribution '$DIST'" ; exit 1 ;;
 esac
 
