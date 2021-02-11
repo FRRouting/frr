@@ -2987,6 +2987,16 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 		}
 	}
 
+	if (ospf->vrf_id == VRF_DEFAULT && ospf->vrf_id != ifp->vrf_id) {
+		/*
+		 * We may have a situation where l3mdev_accept == 1
+		 * let's just kindly drop the packet and move on.
+		 * ospf really really really does not like when
+		 * we receive the same packet multiple times.
+		 */
+		return OSPF_READ_CONTINUE;
+	}
+
 	/* Self-originated packet should be discarded silently. */
 	if (ospf_if_lookup_by_local_addr(ospf, NULL, iph->ip_src)) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV)) {
