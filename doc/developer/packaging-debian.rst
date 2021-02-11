@@ -30,7 +30,7 @@ buster.)
 
    .. code-block:: shell
 
-      sudo mk-build-deps --install debian/control
+      sudo mk-build-deps --install --remove debian/control
 
    Alternatively, you can manually install build dependencies for your
    platform as outlined in :ref:`building`.
@@ -48,7 +48,7 @@ buster.)
 
    .. code-block:: shell
 
-      gbp-buildpackage --git-builder=debuild $options
+      gbp buildpackage --git-builder=debuild --git-debian-branch="$(git rev-parse --abbrev-ref HEAD)" $options
 
    Where `$options` may contain any or all of the following items:
 
