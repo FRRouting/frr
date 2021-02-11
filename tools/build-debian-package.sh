@@ -54,6 +54,7 @@ cd "$CLONEDIR"
 UPSTREAM_VERSION=$(sed -ne 's/AC_INIT(\[frr\],\s\[\([^]]*\)\],.*/\1/p' configure.ac | sed -e 's/-\(\(dev\|alpha\|beta\)\d*\)/~\1/')
 LAST_TIMESTAMP=$(git log --format=format:%ad --date=format:%s -1 "HEAD")
 DEBIAN_VERSION="$UPSTREAM_VERSION-$LAST_TIMESTAMP-1"
+DEBIAN_BRANCH=$(git branch --show-current)
 
 #
 # We add a Debian changelog entry, and use artifical "since commit"
@@ -66,8 +67,8 @@ DEBIAN_VERSION="$UPSTREAM_VERSION-$LAST_TIMESTAMP-1"
 echo "Adding new snapshot debian/changelog entry for $DEBIAN_VERSION..."
 
 gbp dch \
-    --ignore-branch \
-    --new-version "$DEBIAN_VERSION" \
+    --debian-branch="$DEBIAN_BRANCH" \
+    --new-version="$DEBIAN_VERSION" \
     --dch-opt="--force-bad-version" \
     --since="HEAD~" \
     --snapshot \
@@ -85,7 +86,7 @@ UPSTREAM_COMPRESSION=xz
 gbp buildpackage \
     --git-export-dir="$WORKDIR" \
     --git-builder="$BUILDER" \
-    --git-ignore-branch \
+    --git-debian-branch="$DEBIAN_BRANCH" \
     --git-force-create \
     --git-compression=$UPSTREAM_COMPRESSION \
     --git-no-pristine-tar
