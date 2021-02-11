@@ -434,10 +434,19 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		case PEER_DOWN_CLOSE_SESSION:
 			type = BMP_PEERDOWN_REMOTE_CLOSE;
 			break;
+		case PEER_DOWN_WAITING_NHT:
+			type = BMP_PEERDOWN_LOCAL_FSM;
+			stream_putw(s, BGP_FSM_TcpConnectionFails);
+			break;
+		/*
+		 * TODO: Map remaining PEER_DOWN_* reasons to RFC event codes.
+		 * TODO: Implement BMP_PEERDOWN_LOCAL_NOTIFY.
+		 *
+		 * See RFC7854 ss. 4.9
+		 */
 		default:
-			type = BMP_PEERDOWN_LOCAL_NOTIFY;
-			stream_put(s, peer->last_reset_cause,
-					peer->last_reset_cause_size);
+			type = BMP_PEERDOWN_LOCAL_FSM;
+			stream_putw(s, BMP_PEER_DOWN_NO_RELEVANT_EVENT_CODE);
 			break;
 		}
 		stream_putc_at(s, type_pos, type);

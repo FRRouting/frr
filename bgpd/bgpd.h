@@ -921,7 +921,47 @@ struct bgp_peer_gr {
 	bgp_peer_gr_action_ptr action_fun;
 };
 
-/* BGP finite state machine events.  */
+/*
+ * BGP FSM event codes, per RFC 4271 ss. 8.1
+ */
+enum bgp_fsm_rfc_codes {
+	BGP_FSM_ManualStart = 1,
+	BGP_FSM_ManualStop = 2,
+	BGP_FSM_AutomaticStart = 3,
+	BGP_FSM_ManualStart_with_PassiveTcpEstablishment = 4,
+	BGP_FSM_AutomaticStart_with_PassiveTcpEstablishment = 5,
+	BGP_FSM_AutomaticStart_with_DampPeerOscillations = 6,
+	BGP_FSM_AutomaticStart_with_DampPeerOscillations_and_PassiveTcpEstablishment =
+		7,
+	BGP_FSM_AutomaticStop = 8,
+	BGP_FSM_ConnectRetryTimer_Expires = 9,
+	BGP_FSM_HoldTimer_Expires = 10,
+	BGP_FSM_KeepaliveTimer_Expires = 11,
+	BGP_FSM_DelayOpenTimer_Expires = 12,
+	BGP_FSM_IdleHoldTimer_Expires = 13,
+	BGP_FSM_TcpConnection_Valid = 14,
+	BGP_FSM_Tcp_CR_Invalid = 15,
+	BGP_FSM_Tcp_CR_Acked = 16,
+	BGP_FSM_TcpConnectionConfirmed = 17,
+	BGP_FSM_TcpConnectionFails = 18,
+	BGP_FSM_BGPOpen = 19,
+	BGP_FSM_BGPOpen_with_DelayOpenTimer_running = 20,
+	BGP_FSM_BGPHeaderErr = 21,
+	BGP_FSM_BGPOpenMsgErr = 22,
+	BGP_FSM_OpenCollisionDump = 23,
+	BGP_FSM_NotifMsgVerErr = 24,
+	BGP_FSM_NotifMsg = 25,
+	BGP_FSM_KeepAliveMsg = 26,
+	BGP_FSM_UpdateMsg = 27,
+	BGP_FSM_UpdateMsgErr = 28
+};
+
+/*
+ * BGP finite state machine events
+ *
+ * Note: these do not correspond to RFC-defined event codes. Those are
+ * defined elsewhere.
+ */
 enum bgp_fsm_events {
 	BGP_Start = 1,
 	BGP_Stop,
