@@ -8272,7 +8272,7 @@ bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 	case bgp_path_selection_router_id:
 		return "Router ID";
 	case bgp_path_selection_cluster_length:
-		return "Cluser length";
+		return "Cluster length";
 	case bgp_path_selection_stale:
 		return "Path Staleness";
 	case bgp_path_selection_local_configured:
