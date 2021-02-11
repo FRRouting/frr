@@ -843,9 +843,17 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	if (peer) {
 		int valid_nexthops = bgp_isvalid_nexthop(bnc);
 
-		if (valid_nexthops)
-			peer->last_reset = PEER_DOWN_WAITING_OPEN;
-		else
+		if (valid_nexthops) {
+			/*
+			 * Peering cannot occur across a blackhole nexthop
+			 */
+			if (bnc->nexthop_num == 1
+			    && bnc->nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+				peer->last_reset = PEER_DOWN_WAITING_NHT;
+				valid_nexthops = 0;
+			} else
+				peer->last_reset = PEER_DOWN_WAITING_OPEN;
+		} else
 			peer->last_reset = PEER_DOWN_WAITING_NHT;
 
 		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED)) {
