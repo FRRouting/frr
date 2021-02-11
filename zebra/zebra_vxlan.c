@@ -4309,7 +4309,6 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 	struct in_addr vtep_ip;
 	zebra_evpn_t *zevpn;
 	struct interface *ifp;
-	struct zebra_if *zif;
 	int flood_control;
 	zebra_vtep_t *zvtep;
 
@@ -4360,10 +4359,9 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 			continue;
 		}
 
-		zif = ifp->info;
 
 		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		if (!if_is_operative(ifp))
 			continue;
 
 		zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
@@ -4755,6 +4753,7 @@ int zebra_vxlan_if_up(struct interface *ifp)
 	struct zebra_l2info_vxlan *vxl = NULL;
 	zebra_evpn_t *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
+	zebra_mac_t *zmac = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -4809,11 +4808,26 @@ int zebra_vxlan_if_up(struct interface *ifp)
 				listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
 		}
 
-		/* If part of a bridge, inform BGP about this VNI. */
+		/* Inform BGP about this VNI. */
+		zebra_evpn_send_add_to_client(zevpn);
+
 		/* Also, read and populate local MACs and neighbors. */
 		if (zif->brslave_info.br_if) {
-			zebra_evpn_send_add_to_client(zevpn);
+			/* If part of a bridge read the macfdb for the bridge.
+			 */
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
+		} else {
+			/* Otherwise advertise the vtep itself. */
+			struct ethaddr macaddr;
+			char buf[ETHER_ADDR_STRLEN];
+
+			memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
+			zlog_debug("Adv MAC %s",
+				   prefix_mac2str(&macaddr, buf, sizeof(buf)));
+			zmac = zebra_evpn_mac_add(zevpn, &macaddr);
+			zebra_evpn_mac_send_add_to_client(
+				vni, &macaddr, zmac->flags, zmac->loc_seq,
+				zmac->es);
 		}
 	}
 
