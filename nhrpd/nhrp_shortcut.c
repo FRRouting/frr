@@ -424,8 +424,9 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
 	if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC)
 	{
-		nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
-						    &nifp->nat_nbma, &nifp->afi[family2afi(sockunion_family(&s->addr))].addr);
+		cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
+						    &nifp->nat_nbma, &if_ad->addr);
+		cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
 		nhrp_ext_complete(zb, ext);
 	}
 
