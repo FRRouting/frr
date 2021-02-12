@@ -43,7 +43,7 @@ TRACEPOINT_EVENT_CLASS(
 	packet_process,
 	TP_ARGS(struct peer *, peer, bgp_size_t, size),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 	)
 )
 
@@ -65,7 +65,7 @@ TRACEPOINT_EVENT(
 	packet_read,
 	TP_ARGS(struct peer *, peer, struct stream *, pkt),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
 				 STREAM_READABLE(pkt))
 	)
@@ -79,7 +79,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(struct peer *, peer, char *, pfx, uint32_t, addpath_id, afi_t,
 		afi, safi_t, safi, struct attr *, attr),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_string(prefix, pfx)
 		ctf_integer(uint32_t, addpath_id, addpath_id)
 		ctf_integer(afi_t, afi, afi)
@@ -96,7 +96,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(struct peer *, peer, char *, pfx, afi_t, afi, safi_t, safi,
 		const char *, result),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_string(prefix, pfx)
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
@@ -112,7 +112,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(struct peer *, peer, char *, pfx, afi_t, afi, safi_t, safi,
 		const char *, result),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_string(prefix, pfx)
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
