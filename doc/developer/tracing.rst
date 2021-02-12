@@ -308,6 +308,31 @@ Limitations
 Tracers do not like ``fork()`` or ``dlopen()``. LTTng has some workarounds for
 this involving interceptor libraries using ``LD_PRELOAD``.
 
+If you're running FRR in a typical daemonizing way (``-d`` to the daemons)
+you'll need to run the daemons like so:
+
+.. code-block:: shell
+
+   LD_PRELOAD=liblttng-ust-fork.so <daemon>
+
+
+If you're using systemd this you can accomplish this for all daemons by
+modifying ``frr.service`` like so:
+
+.. code-block:: diff
+
+   --- a/frr.service
+   +++ b/frr.service
+   @@ -7,6 +7,7 @@ Before=network.target
+    OnFailure=heartbeat-failed@%n.service
+
+    [Service]
+   +Environment="LD_PRELOAD=liblttng-ust-fork.so"
+    Nice=-5
+    Type=forking
+    NotifyAccess=all
+
+
 USDT tracepoints are relatively high overhead and probably shouldn't be used
 for "flight recorder" functionality, i.e. enabling and passively recording all
 events for monitoring purposes. It's generally okay to use LTTng like this,
