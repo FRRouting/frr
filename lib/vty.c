@@ -1285,6 +1285,7 @@ static int vty_execute(struct vty *vty)
 #define VTY_NORMAL     0
 #define VTY_PRE_ESCAPE 1
 #define VTY_ESCAPE     2
+#define VTY_CR         3
 
 /* Escape character command map. */
 static void vty_escape_map(unsigned char c, struct vty *vty)
@@ -1423,6 +1424,17 @@ static int vty_read(struct thread *thread)
 			continue;
 		}
 
+		if (vty->escape == VTY_CR) {
+			/* if we get CR+NL, the NL results in an extra empty
+			 * prompt line being printed without this;  just drop
+			 * the NL if it immediately follows CR.
+			 */
+			vty->escape = VTY_NORMAL;
+
+			if (buf[i] == '\n')
+				continue;
+		}
+
 		switch (buf[i]) {
 		case CONTROL('A'):
 			vty_beginning_of_line(vty);
@@ -1467,8 +1479,10 @@ static int vty_read(struct thread *thread)
 		case CONTROL('Z'):
 			vty_end_config(vty);
 			break;
-		case '\n':
 		case '\r':
+			vty->escape = VTY_CR;
+			/* fallthru */
+		case '\n':
 			vty_out(vty, "\n");
 			buffer_flush_available(vty->obuf, vty->wfd);
 			vty_execute(vty);
