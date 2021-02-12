@@ -2000,6 +2000,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * and this is either a self-originated route or the peer is EBGP.
 	 * By checking if nexthop LL address is valid we are sure that
 	 * we do not announce LL address as `::`.
+	 * Send nexthop as 32 bytes length only if global nexthop address
+	 * is not the same as link-local.
+	 * Currently Bird says `Invalid NEXT_HOP attribute` if 32 bytes
+	 * nexthop length received.
 	 */
 	if (NEXTHOP_IS_V6) {
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
@@ -2008,6 +2012,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		     && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
 		    || (!reflect
 			&& IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
+			&& (!IPV6_ADDR_SAME(&attr->mp_nexthop_local,
+					    &attr->mp_nexthop_global)
+			    || CHECK_FLAG(peer->flags,
+					  PEER_FLAG_CAPABILITY_ENHE))
 			&& peer->shared_network
 			&& (from == bgp->peer_self
 			    || peer->sort == BGP_PEER_EBGP))) {
