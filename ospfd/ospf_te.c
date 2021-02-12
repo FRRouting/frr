@@ -939,9 +939,6 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 	/* Keep Area information in combination with linkparams. */
 	lp->area = oi->area;
 
-	/* Keep interface MPLS-TE status */
-	lp->flags = HAS_LINK_PARAMS(oi->ifp);
-
 	switch (oi->state) {
 	case ISM_PointToPoint:
 	case ISM_DROther:
@@ -952,10 +949,17 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 		set_linkparams_lclif_ipaddr(lp, oi->address->u.prefix4);
 
 		break;
-	default:
-		/* State is undefined: Flush LSA if engaged */
-		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
+	case ISM_Down:
+		/* Interface goes Down: Flush LSA if engaged */
+		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
+			ote_debug(
+				"MPLS-TE (%s): Interface %s goes down: flush LSA",
+				__func__, IF_NAME(oi));
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
+			return;
+		}
+		break;
+	default:
 		break;
 	}
 
@@ -997,11 +1001,20 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 		return;
 	}
 
+	/* Flush TE Opaque LSA if Neighbor State goes Down or Deleted */
+	if (OspfMplsTE.enabled
+	    && (nbr->state == NSM_Down || nbr->state == NSM_Deleted)) {
+		if (CHECK_FLAG(lp->flags, EXT_LPFLG_LSA_ENGAGED)) {
+			ote_debug(
+				"MPLS-TE (%s): Interface %s goes down: flush LSA",
+				__func__, IF_NAME(oi));
+			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
+		}
+		return;
+	}
+
 	/* Keep Area information in combination with SR info. */
 	lp->area = oi->area;
-
-	/* Keep interface MPLS-TE status */
-	lp->flags = HAS_LINK_PARAMS(oi->ifp);
 
 	/*
 	 * The Link ID is identical to the contents of the Link ID field
@@ -1022,12 +1035,19 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 		set_linkparams_link_id(lp, DR(oi));
 		break;
 
-	default:
-		/* State is undefined: Flush LSA if engaged */
+	case ISM_Down:
+		/* State goes Down: Flush LSA if engaged */
 		if (OspfMplsTE.enabled &&
-			CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
+			CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
+			ote_debug(
+				"MPLS-TE (%s): Interface %s goes down: flush LSA",
+				__func__, IF_NAME(oi));
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
+		}
 		return;
+		break;
+	default:
+		break;
 	}
 
 	ote_debug("MPLS-TE (%s): Add Link-ID %pI4 for interface %s ", __func__,
@@ -1173,7 +1193,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 	}
 
 	ote_debug(
-		"MPLS-TE  (%s): LSA[Type%d:%pI4]: Create an Opaque-LSA/MPLS-TE instance",
+		"MPLS-TE (%s): LSA[Type%d:%pI4]: Create an Opaque-LSA/MPLS-TE instance",
 		__func__, lsa_type, &lsa_id);
 
 	/* Set opaque-LSA body fields. */
