@@ -153,46 +153,42 @@ extern bool mpls_enabled;
 
 extern struct zebra_privs_t static_privs;
 
-void static_fixup_vrf_ids(struct static_vrf *svrf);
+extern void static_start_vrf(struct static_vrf *svrf);
+extern void static_stop_vrf(struct static_vrf *svrf);
+
+extern void static_fixup_vrf_ids(struct vrf *vrf);
 
 extern struct static_nexthop *
 static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
-		   struct static_vrf *svrf, static_types type,
-		   struct ipaddr *ipaddr, const char *ifname,
-		   const char *nh_vrf, uint32_t color);
+		   static_types type, struct ipaddr *ipaddr, const char *ifname,
+		   const char *nh_vrf_name, uint32_t color);
 extern void static_install_nexthop(struct route_node *rn,
 				   struct static_path *pn,
 				   struct static_nexthop *nh, safi_t safi,
-				   struct static_vrf *svrf, const char *ifname,
-				   static_types type, const char *nh_vrf);
+				   const char *ifname, static_types type,
+				   const char *nh_vrf_name);
 
 extern int static_delete_nexthop(struct route_node *rn, struct static_path *pn,
-				 safi_t safi, struct static_vrf *svrf,
-				 struct static_nexthop *nh);
-
-extern void static_cleanup_vrf_ids(struct static_vrf *disable_svrf);
-
-extern void static_install_intf_nh(struct interface *ifp);
+				 safi_t safi, struct static_nexthop *nh);
 
 extern void static_ifindex_update(struct interface *ifp, bool up);
 
 extern void static_install_path(struct route_node *rn, struct static_path *pn,
-				safi_t safi, struct static_vrf *svrf);
+				safi_t safi);
 
 extern struct route_node *static_add_route(afi_t afi, safi_t safi,
 					   struct prefix *p,
 					   struct prefix_ipv6 *src_p,
 					   struct static_vrf *svrf);
-extern void static_del_route(struct route_node *rn, safi_t safi,
-			     struct static_vrf *svrf);
+extern void static_del_route(struct route_node *rn, safi_t safi);
 
 extern struct static_path *static_add_path(struct route_node *rn,
 					   uint32_t table_id, uint8_t distance);
 extern void static_del_path(struct route_node *rn, struct static_path *pn,
-			    safi_t safi, struct static_vrf *svrf);
+			    safi_t safi);
 
 extern void static_get_nh_type(static_types stype, char *type, size_t size);
-extern bool static_add_nexthop_validate(struct static_vrf *svrf,
+extern bool static_add_nexthop_validate(const char *nh_vrf_name,
 					static_types type,
 					struct ipaddr *ipaddr);
 extern struct stable_info *static_get_stable_info(struct route_node *rn);

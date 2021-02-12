@@ -30,7 +30,10 @@
 #include "static_zebra.h"
 #include "static_vty.h"
 
+DEFINE_MTYPE_STATIC(STATIC, STATIC_VRF, "Static VRF");
 DEFINE_MTYPE_STATIC(STATIC, STATIC_RTABLE_INFO, "Static Route Table Info");
+
+struct list *static_vrf_list;
 
 static void zebra_stable_node_cleanup(struct route_table *table,
 				      struct route_node *node)
@@ -89,7 +92,7 @@ static void zebra_stable_node_cleanup(struct route_table *table,
 	}
 }
 
-static struct static_vrf *static_vrf_alloc(void)
+static struct static_vrf *static_vrf_alloc(const char *name)
 {
 	struct route_table *table;
 	struct static_vrf *svrf;
@@ -97,7 +100,8 @@ static struct static_vrf *static_vrf_alloc(void)
 	safi_t safi;
 	afi_t afi;
 
-	svrf = XCALLOC(MTYPE_STATIC_RTABLE_INFO, sizeof(struct static_vrf));
+	svrf = XCALLOC(MTYPE_STATIC_VRF, sizeof(struct static_vrf));
+	svrf->name = XSTRDUP(MTYPE_STATIC_VRF, name);
 
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
@@ -120,41 +124,13 @@ static struct static_vrf *static_vrf_alloc(void)
 	return svrf;
 }
 
-static int static_vrf_new(struct vrf *vrf)
-{
-	struct static_vrf *svrf;
-
-	svrf = static_vrf_alloc();
-	vrf->info = svrf;
-	svrf->vrf = vrf;
-
-	return 0;
-}
-
-static int static_vrf_enable(struct vrf *vrf)
-{
-	static_zebra_vrf_register(vrf);
-
-	static_fixup_vrf_ids(vrf->info);
-
-	return 0;
-}
-
-static int static_vrf_disable(struct vrf *vrf)
-{
-	static_zebra_vrf_unregister(vrf);
-	return 0;
-}
-
-static int static_vrf_delete(struct vrf *vrf)
+static void static_vrf_free(struct static_vrf *svrf)
 {
 	struct route_table *table;
-	struct static_vrf *svrf;
+	struct stable_info *info;
 	safi_t safi;
 	afi_t afi;
-	void *info;
 
-	svrf = vrf->info;
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = svrf->stable[afi][safi];
@@ -164,7 +140,95 @@ static int static_vrf_delete(struct vrf *vrf)
 			svrf->stable[afi][safi] = NULL;
 		}
 	}
-	XFREE(MTYPE_STATIC_RTABLE_INFO, svrf);
+
+	XFREE(MTYPE_STATIC_VRF, svrf->name);
+	XFREE(MTYPE_STATIC_VRF, svrf);
+}
+
+static inline void static_vrf_link(struct static_vrf *svrf, struct vrf *vrf)
+{
+	svrf->vrf_id = vrf->vrf_id;
+	vrf->info = (void *)svrf;
+}
+
+static inline void static_vrf_unlink(struct static_vrf *svrf, struct vrf *vrf)
+{
+	vrf->info = NULL;
+	svrf->vrf_id = VRF_UNKNOWN;
+}
+
+struct static_vrf *static_vrf_get(const char *name)
+{
+	struct static_vrf *svrf;
+	struct vrf *vrf;
+
+	svrf = static_vrf_lookup_by_name(name);
+	if (!svrf) {
+		svrf = static_vrf_alloc(name);
+
+		vrf = vrf_lookup_by_name(name);
+		if (vrf)
+			static_vrf_link(svrf, vrf);
+
+		listnode_add(static_vrf_list, svrf);
+	}
+
+	return svrf;
+}
+
+void static_vrf_destroy(struct static_vrf *svrf)
+{
+	struct vrf *vrf;
+
+	static_stop_vrf(svrf);
+
+	listnode_delete(static_vrf_list, svrf);
+
+	vrf = vrf_lookup_by_name(svrf->name);
+	if (vrf)
+		static_vrf_unlink(svrf, vrf);
+
+	static_vrf_free(svrf);
+}
+
+static int static_vrf_new(struct vrf *vrf)
+{
+	return 0;
+}
+
+static int static_vrf_delete(struct vrf *vrf)
+{
+	return 0;
+}
+
+static int static_vrf_enable(struct vrf *vrf)
+{
+	struct static_vrf *svrf;
+
+	static_zebra_vrf_register(vrf);
+
+	svrf = static_vrf_lookup_by_name(vrf->name);
+	if (svrf) {
+		static_vrf_link(svrf, vrf);
+		static_start_vrf(svrf);
+	}
+
+	static_fixup_vrf_ids(vrf);
+
+	return 0;
+}
+
+static int static_vrf_disable(struct vrf *vrf)
+{
+	struct static_vrf *svrf;
+
+	svrf = static_vrf_lookup_by_name(vrf->name);
+	if (svrf) {
+		static_vrf_unlink(svrf, vrf);
+	}
+
+	static_zebra_vrf_unregister(vrf);
+
 	return 0;
 }
 
@@ -194,56 +258,31 @@ struct static_vrf *static_vrf_lookup_by_id(vrf_id_t vrf_id)
 
 struct static_vrf *static_vrf_lookup_by_name(const char *name)
 {
-	struct vrf *vrf;
+	struct static_vrf *svrf;
+	struct listnode *node, *nnode;
 
-	if (!name)
-		name = VRF_DEFAULT_NAME;
-
-	vrf = vrf_lookup_by_name(name);
-	if (vrf)
-		return ((struct static_vrf *)vrf->info);
+	for (ALL_LIST_ELEMENTS(static_vrf_list, node, nnode, svrf))
+		if (strcmp(svrf->name, name) == 0)
+			return svrf;
 
 	return NULL;
 }
 
 static int static_vrf_config_write(struct vty *vty)
 {
-	struct vrf *vrf;
+	struct static_vrf *svrf;
+	struct listnode *node, *nnode;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vty_frame(vty, "vrf %s\n", vrf->name);
+	for (ALL_LIST_ELEMENTS(static_vrf_list, node, nnode, svrf)) {
+		if (svrf->vrf_id != VRF_DEFAULT)
+			vty_frame(vty, "vrf %s\n", svrf->name);
 
-		static_config(vty, vrf->info, AFI_IP,
-			      SAFI_UNICAST, "ip route");
-		static_config(vty, vrf->info, AFI_IP,
-			      SAFI_MULTICAST, "ip mroute");
-		static_config(vty, vrf->info, AFI_IP6,
-			      SAFI_UNICAST, "ipv6 route");
+		static_config(vty, svrf, AFI_IP, SAFI_UNICAST, "ip route");
+		static_config(vty, svrf, AFI_IP, SAFI_MULTICAST, "ip mroute");
+		static_config(vty, svrf, AFI_IP6, SAFI_UNICAST, "ipv6 route");
 
-		if (vrf->vrf_id != VRF_DEFAULT)
+		if (svrf->vrf_id != VRF_DEFAULT)
 			vty_endframe(vty, " exit-vrf\n!\n");
-	}
-
-	return 0;
-}
-
-int static_vrf_has_config(struct static_vrf *svrf)
-{
-	struct route_table *table;
-	safi_t safi;
-	afi_t afi;
-
-	/*
-	 * NOTE: This is a don't care for the default VRF, but we go through
-	 * the motions to keep things consistent.
-	 */
-	FOREACH_AFI_SAFI (afi, safi) {
-		table = svrf->stable[afi][safi];
-		if (!table)
-			continue;
-		if (route_table_count(table))
-			return 1;
 	}
 
 	return 0;
@@ -254,32 +293,20 @@ void static_vrf_init(void)
 	vrf_init(static_vrf_new, static_vrf_enable,
 		 static_vrf_disable, static_vrf_delete, NULL);
 
+	static_vrf_list = list_new();
+
 	vrf_cmd_init(static_vrf_config_write, &static_privs);
 }
 
 void static_vrf_terminate(void)
 {
-	vrf_terminate();
-}
-
-struct static_vrf *static_vty_get_unknown_vrf(const char *vrf_name)
-{
 	struct static_vrf *svrf;
-	struct vrf *vrf;
+	struct listnode *node, *nnode;
 
-	svrf = static_vrf_lookup_by_name(vrf_name);
+	for (ALL_LIST_ELEMENTS(static_vrf_list, node, nnode, svrf))
+		static_vrf_destroy(svrf);
 
-	if (svrf)
-		return svrf;
+	list_delete(&static_vrf_list);
 
-	vrf = vrf_get(VRF_UNKNOWN, vrf_name);
-	if (!vrf)
-		return NULL;
-	svrf = vrf->info;
-	if (!svrf)
-		return NULL;
-	/* Mark as having FRR configuration */
-	vrf_set_user_cfged(vrf);
-
-	return svrf;
+	vrf_terminate();
 }

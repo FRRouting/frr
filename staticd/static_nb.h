@@ -21,6 +21,10 @@
 extern const struct frr_yang_module_info frr_staticd_info;
 
 /* Mandatory callbacks. */
+int routing_control_plane_protocols_control_plane_protocol_staticd_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_destroy(
+	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_destroy(

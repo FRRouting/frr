@@ -20,8 +20,11 @@
 #ifndef __STATIC_VRF_H__
 #define __STATIC_VRF_H__
 
+extern struct list *static_vrf_list;
+
 struct static_vrf {
-	struct vrf *vrf;
+	char *name;
+	vrf_id_t vrf_id;
 
 	struct route_table *stable[AFI_MAX][SAFI_MAX];
 };
@@ -32,12 +35,13 @@ struct stable_info {
 	safi_t safi;
 };
 
-#define GET_STABLE_VRF_ID(info) info->svrf->vrf->vrf_id
+#define GET_STABLE_VRF_ID(info) info->svrf->vrf_id
 
 struct static_vrf *static_vrf_lookup_by_name(const char *vrf_name);
 struct static_vrf *static_vrf_lookup_by_id(vrf_id_t vrf_id);
 
-int static_vrf_has_config(struct static_vrf *svrf);
+struct static_vrf *static_vrf_get(const char *name);
+void static_vrf_destroy(struct static_vrf *svrf);
 
 void static_vrf_init(void);
 
@@ -45,5 +49,4 @@ struct route_table *static_vrf_static_table(afi_t afi, safi_t safi,
 					    struct static_vrf *svrf);
 extern void static_vrf_terminate(void);
 
-struct static_vrf *static_vty_get_unknown_vrf(const char *vrf_name);
 #endif

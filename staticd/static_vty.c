@@ -343,7 +343,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 		return write;
 
 	snprintf(spacing, sizeof(spacing), "%s%s",
-		 (svrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ", cmd);
+		 (svrf->vrf_id == VRF_DEFAULT) ? "" : " ", cmd);
 
 	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
 		si = static_route_info_from_rnode(rn);
@@ -415,8 +415,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 							nh->snh_label.label,
 							buf, sizeof(buf), 0));
 
-				if (!strmatch(nh->nh_vrfname,
-					      info->svrf->vrf->name))
+				if (!strmatch(nh->nh_vrfname, info->svrf->name))
 					vty_out(vty, " nexthop-vrf %s",
 						nh->nh_vrfname);
 
@@ -424,9 +423,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 				 * table ID from VRF overrides
 				 * configured
 				 */
-				if (pn->table_id
-				    && svrf->vrf->data.l.table_id
-					       == RT_TABLE_MAIN)
+				if (pn->table_id)
 					vty_out(vty, " table %u", pn->table_id);
 
 				if (nh->onlink)

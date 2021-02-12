@@ -84,7 +84,7 @@ static void static_path_list_destroy(struct nb_cb_destroy_args *args,
 
 	pn = nb_running_unset_entry(args->dnode);
 	rn = nb_running_get_entry(rn_dnode, NULL, true);
-	static_del_path(rn, pn, info->safi, info->svrf);
+	static_del_path(rn, pn, info->safi);
 }
 
 static void static_path_list_tag_modify(struct nb_cb_modify_args *args,
@@ -100,7 +100,7 @@ static void static_path_list_tag_modify(struct nb_cb_modify_args *args,
 	pn->tag = tag;
 	rn = nb_running_get_entry(rn_dnode, NULL, true);
 
-	static_install_path(rn, pn, info->safi, info->svrf);
+	static_install_path(rn, pn, info->safi);
 }
 
 static bool static_nexthop_create(struct nb_cb_create_args *args,
@@ -140,14 +140,14 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 		pn = nb_running_get_entry(args->dnode, NULL, true);
 		rn = nb_running_get_entry(rn_dnode, NULL, true);
 
-		if (!static_add_nexthop_validate(info->svrf, nh_type, &ipaddr))
+		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
 				"Warning!! Local connected address is configured as Gateway IP((%s))",
 				yang_dnode_get_string(args->dnode,
 						      "./gateway"));
-		nh = static_add_nexthop(rn, pn, info->safi, info->svrf, nh_type,
-					&ipaddr, ifname, nh_vrf, 0);
+		nh = static_add_nexthop(rn, pn, info->safi, nh_type, &ipaddr,
+					ifname, nh_vrf, 0);
 		if (!nh) {
 			char buf[SRCDEST2STR_BUFFER];
 
@@ -182,7 +182,7 @@ static bool static_nexthop_destroy(struct nb_cb_destroy_args *args,
 	pn = nb_running_get_entry(pn_dnode, NULL, true);
 	rn = nb_running_get_entry(rn_dnode, NULL, true);
 
-	ret = static_delete_nexthop(rn, pn, info->safi, info->svrf, nh);
+	ret = static_delete_nexthop(rn, pn, info->safi, nh);
 	if (!ret) {
 		char buf[SRCDEST2STR_BUFFER];
 
@@ -385,8 +385,7 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_p
 	rn = nb_running_get_entry(rn_dnode, NULL, true);
 	info = route_table_get_info(rn->table);
 
-	static_install_nexthop(rn, pn, nh, info->safi, info->svrf, ifname,
-			       nh_type, nh_vrf);
+	static_install_nexthop(rn, pn, nh, info->safi, ifname, nh_type, nh_vrf);
 }
 
 
@@ -421,8 +420,8 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_s
 	rn = nb_running_get_entry(rn_dnode, NULL, true);
 	info = route_table_get_info(rn->table);
 
-	static_install_nexthop(src_rn, pn, nh, info->safi, info->svrf, ifname,
-			       nh_type, nh_vrf);
+	static_install_nexthop(src_rn, pn, nh, info->safi, ifname, nh_type,
+			       nh_vrf);
 }
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate(
 	struct nb_cb_pre_validate_args *args)
@@ -455,6 +454,54 @@ int routing_control_plane_protocols_name_validate(
 	}
 	return NB_OK;
 }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_create(
+	struct nb_cb_create_args *args)
+{
+	struct static_vrf *svrf;
+	const struct lyd_node *vrf_dnode;
+	const char *vrf_name;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf_dnode = yang_dnode_get_parent(args->dnode,
+						  "control-plane-protocol");
+		vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
+
+		svrf = static_vrf_get(vrf_name);
+
+		nb_running_set_entry(args->dnode, svrf);
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct static_vrf *svrf;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		svrf = nb_running_unset_entry(args->dnode);
+		static_vrf_destroy(svrf);
+		break;
+	}
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list
@@ -462,7 +509,6 @@ int routing_control_plane_protocols_name_validate(
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create(
 	struct nb_cb_create_args *args)
 {
-	struct vrf *vrf;
 	struct static_vrf *s_vrf;
 	struct route_node *rn;
 	const struct lyd_node *vrf_dnode;
@@ -490,10 +536,8 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf_dnode = yang_dnode_get_parent(args->dnode,
-						  "control-plane-protocol");
-		vrf = nb_running_get_entry(vrf_dnode, NULL, true);
-		s_vrf = vrf->info;
+		vrf_dnode = yang_dnode_get_parent(args->dnode, "staticd");
+		s_vrf = nb_running_get_entry(vrf_dnode, NULL, true);
 
 		yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
 		afi_safi = yang_dnode_get_string(args->dnode, "./afi-safi");
@@ -507,7 +551,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 				yang_dnode_get_string(args->dnode, "./prefix"));
 			return NB_ERR;
 		}
-		if (vrf->vrf_id == VRF_UNKNOWN)
+		if (s_vrf->vrf_id == VRF_UNKNOWN)
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"Static Route to %s not installed currently because dependent config not fully available",
@@ -532,7 +576,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_de
 	case NB_EV_APPLY:
 		rn = nb_running_unset_entry(args->dnode);
 		info = route_table_get_info(rn->table);
-		static_del_route(rn, info->safi, info->svrf);
+		static_del_route(rn, info->safi);
 		break;
 	}
 	return NB_OK;
@@ -903,7 +947,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
 		rn = nb_running_get_entry(rn_dnode, NULL, true);
 		info = route_table_get_info(rn->table);
-		static_del_route(src_rn, info->safi, info->svrf);
+		static_del_route(src_rn, info->safi);
 		break;
 	}
 

@@ -27,6 +27,13 @@ const struct frr_yang_module_info frr_staticd_info = {
 	.name = "frr-staticd",
 	.nodes = {
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_staticd_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list",
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create,

@@ -94,6 +94,7 @@ module frr-staticd {
           "This container is only valid for the 'staticd' routing
            protocol.";
       }
+      presence "Enables configuration of static routes";
       description
         "Support for a 'staticd' pseudo-protocol instance
          consists of a list of routes.";
