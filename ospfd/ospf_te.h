@@ -94,6 +94,13 @@
 #define LPFLG_LOOKUP_DONE		0x4
 #define LPFLG_LSA_FORCED_REFRESH	0x8
 
+/* Macro to log debug message */
+#define ote_debug(...)                                                         \
+	do {                                                                   \
+		if (IS_DEBUG_OSPF_TE)                                          \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
+
 /*
  * Following section defines TLV body parts.
  */
