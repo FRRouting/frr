@@ -73,7 +73,8 @@ enum event {
 #endif /* VTYSH */
 };
 
-static void vty_event(enum event, int, struct vty *);
+static void vty_event_serv(enum event event, int sock);
+static void vty_event(enum event, struct vty *);
 
 /* Extern host structure from command.c */
 extern struct host host;
@@ -1325,14 +1326,13 @@ static int vty_read(struct thread *thread)
 	int nbytes;
 	unsigned char buf[VTY_READ_BUFSIZ];
 
-	int vty_sock = THREAD_FD(thread);
 	struct vty *vty = THREAD_ARG(thread);
 
 	/* Read raw data from socket */
 	if ((nbytes = read(vty->fd, buf, VTY_READ_BUFSIZ)) <= 0) {
 		if (nbytes < 0) {
 			if (ERRNO_IO_RETRY(errno)) {
-				vty_event(VTY_READ, vty_sock, vty);
+				vty_event(VTY_READ, vty);
 				return 0;
 			}
 			vty->monitor = 0; /* disable monitoring to avoid
@@ -1470,7 +1470,7 @@ static int vty_read(struct thread *thread)
 		case '\n':
 		case '\r':
 			vty_out(vty, "\n");
-			buffer_flush_available(vty->obuf, vty_sock);
+			buffer_flush_available(vty->obuf, vty->wfd);
 			vty_execute(vty);
 			break;
 		case '\t':
@@ -1501,8 +1501,8 @@ static int vty_read(struct thread *thread)
 	if (vty->status == VTY_CLOSE)
 		vty_close(vty);
 	else {
-		vty_event(VTY_WRITE, vty->wfd, vty);
-		vty_event(VTY_READ, vty_sock, vty);
+		vty_event(VTY_WRITE, vty);
+		vty_event(VTY_READ, vty);
 	}
 	return 0;
 }
@@ -1512,7 +1512,6 @@ static int vty_flush(struct thread *thread)
 {
 	int erase;
 	buffer_status_t flushrc;
-	int vty_sock = THREAD_FD(thread);
 	struct vty *vty = THREAD_ARG(thread);
 
 	/* Tempolary disable read thread. */
@@ -1524,20 +1523,20 @@ static int vty_flush(struct thread *thread)
 
 	/* N.B. if width is 0, that means we don't know the window size. */
 	if ((vty->lines == 0) || (vty->width == 0) || (vty->height == 0))
-		flushrc = buffer_flush_available(vty->obuf, vty_sock);
+		flushrc = buffer_flush_available(vty->obuf, vty->wfd);
 	else if (vty->status == VTY_MORELINE)
-		flushrc = buffer_flush_window(vty->obuf, vty_sock, vty->width,
+		flushrc = buffer_flush_window(vty->obuf, vty->wfd, vty->width,
 					      1, erase, 0);
 	else
 		flushrc = buffer_flush_window(
-			vty->obuf, vty_sock, vty->width,
+			vty->obuf, vty->wfd, vty->width,
 			vty->lines >= 0 ? vty->lines : vty->height, erase, 0);
 	switch (flushrc) {
 	case BUFFER_ERROR:
 		vty->monitor =
 			0; /* disable monitoring to avoid infinite recursion */
-		zlog_info("buffer_flush failed on vty client fd %d, closing",
-			  vty->fd);
+		zlog_info("buffer_flush failed on vty client fd %d/%d, closing",
+			  vty->fd, vty->wfd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
 		vty_close(vty);
@@ -1548,14 +1547,14 @@ static int vty_flush(struct thread *thread)
 		else {
 			vty->status = VTY_NORMAL;
 			if (vty->lines == 0)
-				vty_event(VTY_READ, vty_sock, vty);
+				vty_event(VTY_READ, vty);
 		}
 		break;
 	case BUFFER_PENDING:
 		/* There is more data waiting to be written. */
 		vty->status = VTY_MORE;
 		if (vty->lines == 0)
-			vty_event(VTY_WRITE, vty_sock, vty);
+			vty_event(VTY_WRITE, vty);
 		break;
 	}
 
@@ -1658,8 +1657,8 @@ static struct vty *vty_create(int vty_sock, union sockunion *su)
 	vty_prompt(vty);
 
 	/* Add read/write thread. */
-	vty_event(VTY_WRITE, vty_sock, vty);
-	vty_event(VTY_READ, vty_sock, vty);
+	vty_event(VTY_WRITE, vty);
+	vty_event(VTY_READ, vty);
 
 	return vty;
 }
@@ -1725,8 +1724,8 @@ void vty_stdio_resume(void)
 	vty_prompt(stdio_vty);
 
 	/* Add read/write thread. */
-	vty_event(VTY_WRITE, 1, stdio_vty);
-	vty_event(VTY_READ, 0, stdio_vty);
+	vty_event(VTY_WRITE, stdio_vty);
+	vty_event(VTY_READ, stdio_vty);
 }
 
 void vty_stdio_close(void)
@@ -1775,7 +1774,7 @@ static int vty_accept(struct thread *thread)
 	accept_sock = THREAD_FD(thread);
 
 	/* We continue hearing vty socket. */
-	vty_event(VTY_SERV, accept_sock, NULL);
+	vty_event_serv(VTY_SERV, accept_sock);
 
 	memset(&su, 0, sizeof(union sockunion));
 
@@ -1805,7 +1804,7 @@ static int vty_accept(struct thread *thread)
 			close(vty_sock);
 
 			/* continue accepting connections */
-			vty_event(VTY_SERV, accept_sock, NULL);
+			vty_event_serv(VTY_SERV, accept_sock);
 
 			return 0;
 		}
@@ -1821,7 +1820,7 @@ static int vty_accept(struct thread *thread)
 			close(vty_sock);
 
 			/* continue accepting connections */
-			vty_event(VTY_SERV, accept_sock, NULL);
+			vty_event_serv(VTY_SERV, accept_sock);
 
 			return 0;
 		}
@@ -1894,7 +1893,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 			continue;
 		}
 
-		vty_event(VTY_SERV, sock, NULL);
+		vty_event_serv(VTY_SERV, sock);
 	} while ((ainfo = ainfo->ai_next) != NULL);
 
 	freeaddrinfo(ainfo_save);
@@ -1972,7 +1971,7 @@ static void vty_serv_un(const char *path)
 		}
 	}
 
-	vty_event(VTYSH_SERV, sock, NULL);
+	vty_event_serv(VTYSH_SERV, sock);
 }
 
 /* #define VTYSH_DEBUG 1 */
@@ -1987,7 +1986,7 @@ static int vtysh_accept(struct thread *thread)
 
 	accept_sock = THREAD_FD(thread);
 
-	vty_event(VTYSH_SERV, accept_sock, NULL);
+	vty_event_serv(VTYSH_SERV, accept_sock);
 
 	memset(&client, 0, sizeof(struct sockaddr_un));
 	client_len = sizeof(struct sockaddr_un);
@@ -2021,7 +2020,7 @@ static int vtysh_accept(struct thread *thread)
 	vty->type = VTY_SHELL_SERV;
 	vty->node = VIEW_NODE;
 
-	vty_event(VTYSH_READ, sock, vty);
+	vty_event(VTYSH_READ, vty);
 
 	return 0;
 }
@@ -2030,7 +2029,7 @@ static int vtysh_flush(struct vty *vty)
 {
 	switch (buffer_flush_available(vty->obuf, vty->wfd)) {
 	case BUFFER_PENDING:
-		vty_event(VTYSH_WRITE, vty->wfd, vty);
+		vty_event(VTYSH_WRITE, vty);
 		break;
 	case BUFFER_ERROR:
 		vty->monitor =
@@ -2063,7 +2062,7 @@ static int vtysh_read(struct thread *thread)
 	if ((nbytes = read(sock, buf, VTY_READ_BUFSIZ)) <= 0) {
 		if (nbytes < 0) {
 			if (ERRNO_IO_RETRY(errno)) {
-				vty_event(VTYSH_READ, sock, vty);
+				vty_event(VTYSH_READ, vty);
 				return 0;
 			}
 			vty->monitor = 0; /* disable monitoring to avoid
@@ -2129,7 +2128,7 @@ static int vtysh_read(struct thread *thread)
 	if (vty->status == VTY_CLOSE)
 		vty_close(vty);
 	else
-		vty_event(VTYSH_READ, sock, vty);
+		vty_event(VTYSH_READ, vty);
 
 	return 0;
 }
@@ -2636,33 +2635,44 @@ int vty_config_node_exit(struct vty *vty)
 /* Master of the threads. */
 static struct thread_master *vty_master;
 
-static void vty_event(enum event event, int sock, struct vty *vty)
+static void vty_event_serv(enum event event, int sock)
 {
 	struct thread *vty_serv_thread = NULL;
 
 	switch (event) {
 	case VTY_SERV:
-		vty_serv_thread = thread_add_read(vty_master, vty_accept, vty,
-						  sock, NULL);
+		vty_serv_thread = thread_add_read(vty_master, vty_accept,
+						  NULL, sock, NULL);
 		vector_set_index(Vvty_serv_thread, sock, vty_serv_thread);
 		break;
 #ifdef VTYSH
 	case VTYSH_SERV:
-		vty_serv_thread = thread_add_read(vty_master, vtysh_accept, vty,
-						  sock, NULL);
+		vty_serv_thread = thread_add_read(vty_master, vtysh_accept,
+						  NULL, sock, NULL);
 		vector_set_index(Vvty_serv_thread, sock, vty_serv_thread);
 		break;
+#endif /* VTYSH */
+	default:
+		assert(!"vty_event_serv() called incorrectly");
+	}
+}
+
+static void vty_event(enum event event, struct vty *vty)
+{
+	switch (event) {
+#ifdef VTYSH
 	case VTYSH_READ:
-		thread_add_read(vty_master, vtysh_read, vty, sock,
+		thread_add_read(vty_master, vtysh_read, vty, vty->fd,
 				&vty->t_read);
 		break;
 	case VTYSH_WRITE:
-		thread_add_write(vty_master, vtysh_write, vty, sock,
+		thread_add_write(vty_master, vtysh_write, vty, vty->wfd,
 				 &vty->t_write);
 		break;
 #endif /* VTYSH */
 	case VTY_READ:
-		thread_add_read(vty_master, vty_read, vty, sock, &vty->t_read);
+		thread_add_read(vty_master, vty_read, vty, vty->fd,
+				&vty->t_read);
 
 		/* Time out treatment. */
 		if (vty->v_timeout) {
@@ -2672,7 +2682,7 @@ static void vty_event(enum event event, int sock, struct vty *vty)
 		}
 		break;
 	case VTY_WRITE:
-		thread_add_write(vty_master, vty_flush, vty, sock,
+		thread_add_write(vty_master, vty_flush, vty, vty->wfd,
 				 &vty->t_write);
 		break;
 	case VTY_TIMEOUT_RESET:
@@ -2681,6 +2691,8 @@ static void vty_event(enum event event, int sock, struct vty *vty)
 			thread_add_timer(vty_master, vty_timeout, vty,
 					 vty->v_timeout, &vty->t_timeout);
 		break;
+	default:
+		assert(!"vty_event() called incorrectly");
 	}
 }
 
@@ -2727,7 +2739,7 @@ static int exec_timeout(struct vty *vty, const char *min_str,
 
 	vty_timeout_val = timeout;
 	vty->v_timeout = timeout;
-	vty_event(VTY_TIMEOUT_RESET, 0, vty);
+	vty_event(VTY_TIMEOUT_RESET, vty);
 
 
 	return CMD_SUCCESS;
