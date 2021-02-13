@@ -2366,6 +2366,29 @@ if test "$frr_cv_mallinfo" = "yes"; then
   AC_DEFINE([HAVE_MALLINFO], [1], [mallinfo])
 fi
 
+AC_CACHE_CHECK([whether mallinfo2 is available], [frr_cv_mallinfo2], [
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+#ifdef HAVE_MALLOC_NP_H
+#include <malloc_np.h>
+#endif
+#ifdef HAVE_MALLOC_MALLOC_H
+#include <malloc/malloc.h>
+#endif
+]], [[
+struct mallinfo2 ac_x; ac_x = mallinfo2 ();
+]])], [
+    frr_cv_mallinfo2=yes
+  ], [
+    frr_cv_mallinfo2=no
+  ])
+])
+if test "$frr_cv_mallinfo2" = "yes"; then
+  AC_DEFINE([HAVE_MALLINFO2], [1], [mallinfo2])
+fi
+
 AC_MSG_CHECKING([whether malloc_usable_size is available])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
 #ifdef HAVE_MALLOC_H

@@ -43,10 +43,14 @@
 #include "vty.h"
 #include "command.h"
 
-#ifdef HAVE_MALLINFO
+#if defined(HAVE_MALLINFO2) || defined(HAVE_MALLINFO)
 static int show_memory_mallinfo(struct vty *vty)
 {
+#if defined(HAVE_MALLINFO2)
+	struct mallinfo2 minfo = mallinfo2();
+#elif defined(HAVE_MALLINFO)
 	struct mallinfo minfo = mallinfo();
+#endif
 	char buf[MTYPE_MEMSTR_LEN];
 
 	vty_out(vty, "System allocator statistics:\n");
