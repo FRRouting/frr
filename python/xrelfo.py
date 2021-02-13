@@ -112,35 +112,60 @@ class XrefLogmsg(ELFDissectStruct, XrelfoJson):
     struct = 'xref_logmsg'
 
     def _warn_fmt(self, text):
-        yield ((self.xref.file, self.xref.line), '%s:%d: %s (in %s())\n' % (self.xref.file, self.xref.line, text, self.xref.func))
+        lines = text.split('\n')
+        yield ((self.xref.file, self.xref.line), '%s:%d: %s (in %s())%s\n' % (self.xref.file, self.xref.line, lines[0], self.xref.func, ''.join(['\n' + l for l in lines[1:]])))
 
-    regexes = [
+    fmt_regexes = [
         (re.compile(r'([\n\t]+)'), 'error: log message contains tab or newline'),
     #    (re.compile(r'^(\s+)'),   'warning: log message starts with whitespace'),
         (re.compile(r'^((?:warn(?:ing)?|error):\s*)', re.I), 'warning: log message starts with severity'),
     ]
+    arg_regexes = [
+    # the (?<![\?:] ) avoids warning for x ? inet_ntop(...) : "(bla)"
+        (re.compile(r'((?<![\?:] )inet_ntop\s*\(\s*(?:[AP]F_INET|2)\s*,)'),   'cleanup: replace inet_ntop(AF_INET, ...) with %pI4',  lambda s: True),
+        (re.compile(r'((?<![\?:] )inet_ntop\s*\(\s*(?:[AP]F_INET6|10)\s*,)'), 'cleanup: replace inet_ntop(AF_INET6, ...) with %pI6', lambda s: True),
+        (re.compile(r'((?<![\?:] )inet_ntoa)'),                               'cleanup: replace inet_ntoa(...) with %pI4',           lambda s: True),
+        (re.compile(r'((?<![\?:] )ipaddr2str)'),                              'cleanup: replace ipaddr2str(...) with %pIA',          lambda s: True),
+        (re.compile(r'((?<![\?:] )prefix2str)'),                              'cleanup: replace prefix2str(...) with %pFX',          lambda s: True),
+        (re.compile(r'((?<![\?:] )prefix_mac2str)'),                          'cleanup: replace prefix_mac2str(...) with %pEA',      lambda s: True),
+        (re.compile(r'((?<![\?:] )sockunion2str)'),                           'cleanup: replace sockunion2str(...) with %pSU',       lambda s: True),
+
+    #   (re.compile(r'^(\s*__(?:func|FUNCTION|PRETTY_FUNCTION)__\s*)'), 'error: debug message starts with __func__', lambda s: (s.priority & 7 == 7) ),
+    ]
 
     def check(self, wopt):
+        def fmt_msg(rex, itext):
+            if sys.stderr.isatty():
+                items = rex.split(itext)
+                out = []
+                for i, text in enumerate(items):
+                    if (i % 2) == 1:
+                        out.append('\033[41;37;1m%s\033[m' % repr(text)[1:-1])
+                    else:
+                        out.append(repr(text)[1:-1])
+
+                excerpt = ''.join(out)
+            else:
+                excerpt = repr(itext)[1:-1]
+            return excerpt
+
         if wopt.Wlog_format:
-            for rex, msg in self.regexes:
+            for rex, msg in self.fmt_regexes:
                 if not rex.search(self.fmtstring):
                     continue
 
-                if sys.stderr.isatty():
-                    items = rex.split(self.fmtstring)
-                    out = []
-                    for i, text in enumerate(items):
-                        if (i % 2) == 1:
-                            out.append('\033[41;37;1m%s\033[m' % repr(text)[1:-1])
-                        else:
-                            out.append(repr(text)[1:-1])
-
-                    excerpt = ''.join(out)
-
-                else:
-                    excerpt = repr(self.fmtstring)[1:-1]
-
+                excerpt = fmt_msg(rex, self.fmtstring)
                 yield from self._warn_fmt('%s: "%s"' % (msg, excerpt))
+
+        if wopt.Wlog_args:
+            for rex, msg, cond in self.arg_regexes:
+                if not cond(self):
+                    continue
+                if not rex.search(self.args):
+                    continue
+
+                excerpt = fmt_msg(rex, self.args)
+                yield from self._warn_fmt('%s:\n\t"%s",\n\t%s' % (msg, repr(self.fmtstring)[1:-1], excerpt))
 
     def dump(self):
         print('%-60s %s%s %-25s [EC %d] %s' % (
@@ -154,6 +179,7 @@ class XrefLogmsg(ELFDissectStruct, XrelfoJson):
         if self.ec != 0:
             jsobj['ec'] = self.ec
         jsobj['fmtstring'] = self.fmtstring
+        jsobj['args'] = self.args
         jsobj['priority'] = self.priority & 7
         jsobj['type'] = 'logmsg'
         jsobj['binary'] = self._elfsect._elfwrap.orig_filename
@@ -330,6 +356,7 @@ def main():
     argp.add_argument('-o', dest='output', type=str, help='write JSON output')
     argp.add_argument('--out-by-file',     type=str, help='write by-file JSON output')
     argp.add_argument('-Wlog-format',      action='store_const', const=True)
+    argp.add_argument('-Wlog-args',        action='store_const', const=True)
     argp.add_argument('--profile',         action='store_const', const=True)
     argp.add_argument('binaries', metavar='BINARY', nargs='+', type=str, help='files to read (ELF files or libtool objects)')
     args = argp.parse_args()
