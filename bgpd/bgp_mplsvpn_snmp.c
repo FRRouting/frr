@@ -1461,7 +1461,7 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 			/* otherwise lookup the one we have */
 			*l3vpn_bgp = bgp_lookup_by_name(vrf_name);
 
-		if (l3vpn_bgp == NULL)
+		if (*l3vpn_bgp == NULL)
 			return NULL;
 
 		pi = bgp_lookup_route_next(l3vpn_bgp, dest, &prefix, policy,
