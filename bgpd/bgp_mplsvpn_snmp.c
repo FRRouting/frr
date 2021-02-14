@@ -1411,8 +1411,7 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 			break;
 		case INETADDRESSTYPEIPV6:
 			prefix.family = AF_INET6;
-			oid2in_addr(&name[i], sizeof(struct in6_addr),
-				    &prefix.u.prefix4); /* sic */
+			oid2in6_addr(&name[i], &prefix.u.prefix6);
 			i += sizeof(struct in6_addr);
 			break;
 		}
@@ -1434,8 +1433,7 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 			break;
 		case INETADDRESSTYPEIPV6:
 			nexthop.ipa_type = IPADDR_V6;
-			oid2in_addr(&name[i], sizeof(struct in6_addr),
-				    &nexthop.ip._v4_addr); /* sic */
+			oid2in6_addr(&name[i], &nexthop.ip._v6_addr);
 			/* i += sizeof(struct in6_addr); */
 			break;
 		}
