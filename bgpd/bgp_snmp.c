@@ -870,10 +870,10 @@ static int bgpTrapEstablished(struct peer *peer)
 
 	oid_copy_addr(index, &addr, IN_ADDR_SIZE);
 
-	ret = smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
-			array_size(bgp_trap_oid), bgp_oid,
-			sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
-			bgpTrapList, array_size(bgpTrapList), BGPESTABLISHED);
+	smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
+		  array_size(bgp_trap_oid), bgp_oid,
+		  sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
+		  bgpTrapList, array_size(bgpTrapList), BGPESTABLISHED);
 	return 0;
 }
 

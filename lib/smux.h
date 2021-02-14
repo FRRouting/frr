@@ -131,9 +131,9 @@ extern int smux_header_table(struct variable *, oid *, size_t *, int, size_t *,
  The use of the arguments may differ depending on the implementation
  used.
 */
-extern int smux_trap(struct variable *, size_t, const oid *, size_t,
-		     const oid *, size_t, const oid *, size_t,
-		     const struct trap_object *, size_t, uint8_t);
+extern void smux_trap(struct variable *, size_t, const oid *, size_t,
+		      const oid *, size_t, const oid *, size_t,
+		      const struct trap_object *, size_t, uint8_t);
 
 extern int smux_trap_multi_index(struct variable *vp, size_t vp_len,
 				 const oid *ename, size_t enamelen,
