@@ -52,11 +52,13 @@ def extract(filename='lib/.libs/libfrr.so'):
     pastructs = struct_re.findall(pahole)
     out = {}
 
-    for name, data in pastructs:
-        this = out.setdefault(name, {})
+    for sname, data in pastructs:
+        this = out.setdefault(sname, {})
         fields = this.setdefault('fields', [])
 
         lines = data.strip().splitlines()
+
+        next_offs = 0
 
         for line in lines:
             if line.strip() == '':
@@ -81,13 +83,16 @@ def extract(filename='lib/.libs/libfrr.so'):
                 data = {
                     'name': name,
                     'type': typ_,
-                    'offset': offs,
-                    'size': size,
+                #   'offset': offs,
+                #   'size': size,
                 }
                 if m.group('array'):
                     data['array'] = int(m.group('array'))
 
                 fields.append(data)
+                if offs != next_offs:
+                    raise ValueError('%d padding bytes before struct %s.%s' % (offs - next_offs, sname, name))
+                next_offs = offs + size
                 continue
 
             raise ValueError('cannot process line: %s' % line)
@@ -122,7 +127,7 @@ class FieldApplicator(object):
 
     def resolve(self, cls):
         out = []
-        offset = 0
+        #offset = 0
 
         fieldrename = getattr(cls, 'fieldrename', {})
         def mkname(n):
@@ -132,9 +137,12 @@ class FieldApplicator(object):
             typs = field['type'].split()
             typs = [i for i in typs if i not in ['const']]
 
-            if field['offset'] != offset:
-                assert offset < field['offset']
-                out.append(('_pad', '%ds' % (field['offset'] - offset,)))
+            # this will break reuse of xrefstructs.json across 32bit & 64bit
+            # platforms
+
+            #if field['offset'] != offset:
+            #    assert offset < field['offset']
+            #    out.append(('_pad', '%ds' % (field['offset'] - offset,)))
 
             # pretty hacky C types handling, but covers what we need
 
@@ -158,7 +166,7 @@ class FieldApplicator(object):
                 if typs[1] in self.clsmap:
                     packtype = (self.clsmap[typs[1]],)
                 else:
-                    packtype = ('%ds' % field['size'],)
+                    raise ValueError('embedded struct %s not in extracted data' % (typs[1],))
             else:
                 raise ValueError('cannot decode field %s in struct %s (%s)' % (
                         cls.struct, field['name'], field['type']))
@@ -172,7 +180,7 @@ class FieldApplicator(object):
             else:
                 out.append(mkname(field['name']) + packtype)
 
-            offset = field['offset'] + field['size']
+            #offset = field['offset'] + field['size']
 
         cls.fields = out
 
