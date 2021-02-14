@@ -242,7 +242,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	if (!rn) {
 		flog_err(
 			EC_LIB_DEVELOPMENT,
-			"%s: BUG We should have found default group information\n",
+			"%s: BUG We should have found default group information",
 			__func__);
 		return best;
 	}

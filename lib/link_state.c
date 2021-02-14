@@ -1234,7 +1234,7 @@ void ls_dump_ted(struct ls_ted *ted)
 	/* Loop TED, start printing Node, then Attributes and finally Prefix */
 	frr_each(vertices, &ted->vertices, vertex) {
 		ls_vertex2msg(&msg, vertex);
-		zlog_debug("\tTed node (%s %pI4 %s)",
+		zlog_debug("    Ted node (%s %pI4 %s)",
 			   vertex->node->name[0] ? vertex->node->name
 						 : "no name node",
 			   &vertex->node->router_id,
@@ -1246,7 +1246,7 @@ void ls_dump_ted(struct ls_ted *ted)
 		for (ALL_LIST_ELEMENTS_RO(vertex->incoming_edges, lst_node,
 					  vertex_edge)) {
 			zlog_debug(
-				"\t\tinc edge key:%lldn attr key:%pI4 loc:(%pI4) rmt:(%pI4)",
+				"        inc edge key:%lldn attr key:%pI4 loc:(%pI4) rmt:(%pI4)",
 				vertex_edge->key,
 				&vertex_edge->attributes->adv.id.ip.addr,
 				&vertex_edge->attributes->standard.local,
@@ -1255,7 +1255,7 @@ void ls_dump_ted(struct ls_ted *ted)
 		for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, lst_node,
 					  vertex_edge)) {
 			zlog_debug(
-				"\t\tout edge key:%lld  attr key:%pI4  loc:(%pI4) rmt:(%pI4)",
+				"        out edge key:%lld  attr key:%pI4  loc:(%pI4) rmt:(%pI4)",
 				vertex_edge->key,
 				&vertex_edge->attributes->adv.id.ip.addr,
 				&vertex_edge->attributes->standard.local,
@@ -1264,7 +1264,7 @@ void ls_dump_ted(struct ls_ted *ted)
 	}
 	frr_each(edges, &ted->edges, edge) {
 		ls_edge2msg(&msg, edge);
-		zlog_debug("\tTed edge key:%lld src:%s dst:%s", edge->key,
+		zlog_debug("    Ted edge key:%lld src:%s dst:%s", edge->key,
 			   edge->source ? edge->source->node->name
 					: "no_source",
 			   edge->destination ? edge->destination->node->name
@@ -1273,7 +1273,7 @@ void ls_dump_ted(struct ls_ted *ted)
 	frr_each(subnets, &ted->subnets, subnet) {
 		ls_subnet2msg(&msg, subnet);
 		zlog_debug(
-			"\tTed subnet key:%pFX vertex:%pI4 pfx:%pFX",
+			"    Ted subnet key:%pFX vertex:%pI4 pfx:%pFX",
 			&subnet->key,
 			&subnet->vertex->node->adv.id.ip.addr,
 			&subnet->ls_pref->pref);

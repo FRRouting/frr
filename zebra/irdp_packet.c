@@ -105,7 +105,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 
 	if (iplen < ICMP_MINLEN) {
 		flog_err(EC_ZEBRA_IRDP_LEN_MISMATCH,
-			 "IRDP: RX ICMP packet too short from %pI4\n",
+			 "IRDP: RX ICMP packet too short from %pI4",
 			 &src);
 		return;
 	}
@@ -116,7 +116,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	 len of IP-header) 14+20 */
 	if (iplen > IRDP_RX_BUF - 34) {
 		flog_err(EC_ZEBRA_IRDP_LEN_MISMATCH,
-			 "IRDP: RX ICMP packet too long from %pI4\n",
+			 "IRDP: RX ICMP packet too long from %pI4",
 			 &src);
 		return;
 	}
@@ -153,7 +153,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 		&& !(irdp->flags & IF_BROADCAST))) {
 		flog_warn(
 			EC_ZEBRA_IRDP_BAD_RX_FLAGS,
-			"IRDP: RX illegal from %pI4 to %s while %s operates in %s; Please correct settings\n",
+			"IRDP: RX illegal from %pI4 to %s while %s operates in %s; Please correct settings",
 			&src,
 			ntohl(ip->ip_dst.s_addr) == INADDR_ALLRTRS_GROUP
 				? "multicast"

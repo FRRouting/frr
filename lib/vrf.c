@@ -675,12 +675,12 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 	if (strlen(vrfname) > VRF_NAMSIZ) {
 		if (vty)
 			vty_out(vty,
-				"%% VRF name %s invalid: length exceeds %d bytes\n",
+				"%% VRF name %s invalid: length exceeds %d bytes",
 				vrfname, VRF_NAMSIZ);
 		else
 			flog_warn(
 				EC_LIB_VRF_LENGTH,
-				"%% VRF name %s invalid: length exceeds %d bytes\n",
+				"%% VRF name %s invalid: length exceeds %d bytes",
 				vrfname, VRF_NAMSIZ);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

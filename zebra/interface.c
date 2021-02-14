@@ -1029,7 +1029,7 @@ void if_up(struct interface *ifp)
 	/* Notify the protocol daemons. */
 	if (ifp->ptm_enable && (ifp->ptm_status == ZEBRA_PTM_STATUS_DOWN)) {
 		flog_warn(EC_ZEBRA_PTM_NOT_READY,
-			  "%s: interface %s hasn't passed ptm check\n",
+			  "%s: interface %s hasn't passed ptm check",
 			  __func__, ifp->name);
 		return;
 	}
@@ -2977,7 +2977,7 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 		dplane_res = dplane_intf_addr_set(ifp, ifc);
 		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
 			zlog_debug(
-				"dplane can't set interface IP address: %s.\n",
+				"dplane can't set interface IP address: %s.",
 				dplane_res2str(dplane_res));
 			return NB_ERR;
 		}
@@ -3095,7 +3095,7 @@ int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix)
 		/* Check current interface address. */
 		ifc = connected_check_ptp(ifp, prefix, NULL);
 		if (!ifc) {
-			zlog_debug("interface %s Can't find address\n",
+			zlog_debug("interface %s Can't find address",
 				   ifp->name);
 			return -1;
 		}
@@ -3106,7 +3106,7 @@ int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix)
 	}
 
 	if (!ifc) {
-		zlog_debug("interface %s Can't find address\n", ifp->name);
+		zlog_debug("interface %s Can't find address", ifp->name);
 		return -1;
 	}
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
@@ -3122,7 +3122,7 @@ int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix)
 	/* This is real route. */
 	dplane_res = dplane_intf_addr_unset(ifp, ifc);
 	if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
-		zlog_debug("Can't unset interface IP address: %s.\n",
+		zlog_debug("Can't unset interface IP address: %s.",
 			   dplane_res2str(dplane_res));
 		return -1;
 	}
@@ -3335,7 +3335,7 @@ int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
 		dplane_res = dplane_intf_addr_set(ifp, ifc);
 		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
 			zlog_debug(
-				"dplane can't set interface IP address: %s.\n",
+				"dplane can't set interface IP address: %s.",
 				dplane_res2str(dplane_res));
 			return NB_ERR;
 		}

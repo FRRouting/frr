@@ -643,7 +643,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             return;
 
         rtt = MAX(0, local_waiting_us - remote_waiting_us);
-        debugf(BABEL_DEBUG_COMMON, "RTT to %s on %s sample result: %d us.\n",
+        debugf(BABEL_DEBUG_COMMON, "RTT to %s on %s sample result: %d us.",
                format_address(from), ifp->name, rtt);
 
         old_rttcost = neighbour_rttcost(neigh);

@@ -517,7 +517,7 @@ struct ospf_external_aggr_rt *ospf_external_aggr_match(struct ospf *ospf,
 				struct ospf_external_aggr_rt *ag = node->info;
 
 				zlog_debug(
-					"%s: Matching aggregator found.prefix:%pI4/%d Aggregator %pI4/%d\n",
+					"%s: Matching aggregator found.prefix:%pI4/%d Aggregator %pI4/%d",
 					__func__, &p->prefix, p->prefixlen,
 					&ag->p.prefix, ag->p.prefixlen);
 			}
@@ -956,7 +956,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 	struct route_node *rn = NULL;
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: Process modified aggregators.\n", __func__);
+		zlog_debug("%s: Process modified aggregators.", __func__);
 
 	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn)) {
 		struct ospf_external_aggr_rt *aggr;
@@ -1047,7 +1047,7 @@ static int ospf_asbr_external_aggr_process(struct thread *thread)
 	operation = ospf->aggr_action;
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: operation:%d\n", __func__, operation);
+		zlog_debug("%s: operation:%d", __func__, operation);
 
 	switch (operation) {
 	case OSPF_ROUTE_AGGR_ADD:

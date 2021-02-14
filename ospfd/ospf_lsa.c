@@ -2645,7 +2645,7 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 		} else {
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 				zlog_debug(
-					"ospf_lsa_install() got an lsa with seq 0x80000000 that was not self originated. Ignoring\n");
+					"ospf_lsa_install() got an lsa with seq 0x80000000 that was not self originated. Ignoring");
 				ospf_lsa_header_dump(lsa->data);
 			}
 			return old;

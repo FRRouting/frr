@@ -213,7 +213,7 @@ void pbr_nhgroup_add_cb(const char *name)
 	nhgc = nhgc_find(name);
 
 	if (!nhgc) {
-		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s\n",
+		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s",
 		       __func__, name);
 		return;
 	}
@@ -620,7 +620,7 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 	nhgc = nhgc_find(name);
 
 	if (!nhgc) {
-		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s\n",
+		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s",
 		       __func__, name);
 		return NULL;
 	}
@@ -686,7 +686,7 @@ bool pbr_nht_nexthop_group_valid(const char *name)
 	pnhgc = hash_get(pbr_nhg_hash, &lookup, NULL);
 	if (!pnhgc)
 		return false;
-	DEBUGD(&pbr_dbg_nht, "%s: \t%d %d", __func__, pnhgc->valid,
+	DEBUGD(&pbr_dbg_nht, "%s:    %d %d", __func__, pnhgc->valid,
 	       pnhgc->installed);
 	if (pnhgc->valid && pnhgc->installed)
 		return true;
@@ -851,7 +851,7 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 
 	pbr_nht_individual_nexthop_update(pnhc, pnhi);
 
-	DEBUGD(&pbr_dbg_nht, "\tFound %pFX: old: %d new: %d",
+	DEBUGD(&pbr_dbg_nht, "    Found %pFX: old: %d new: %d",
 	       &pnhi->nhr->prefix, old_valid, pnhc->valid);
 
 	if (pnhc->valid)
@@ -1102,7 +1102,7 @@ pbr_nht_individual_nexthop_interface_update_lookup(struct hash_bucket *b,
 
 	pbr_nht_individual_nexthop_update(pnhc, pnhi);
 
-	DEBUGD(&pbr_dbg_nht, "\tFound %s: old: %d new: %d", pnhi->ifp->name,
+	DEBUGD(&pbr_dbg_nht, "    Found %s: old: %d new: %d", pnhi->ifp->name,
 	       old_valid, pnhc->valid);
 
 	if (pnhc->valid)

@@ -1002,7 +1002,7 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 
 	if (cmd != ZEBRA_NHG_DEL && cmd != ZEBRA_NHG_ADD) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified zapi NHG command (%d) doesn't exist\n",
+			 "%s: Specified zapi NHG command (%d) doesn't exist",
 			 __func__, cmd);
 		return -1;
 	}
@@ -1010,7 +1010,7 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	if (api_nhg->nexthop_num >= MULTIPATH_NUM ||
 	    api_nhg->backup_nexthop_num >= MULTIPATH_NUM) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: zapi NHG encode with invalid input\n", __func__);
+			 "%s: zapi NHG encode with invalid input", __func__);
 		return -1;
 	}
 
@@ -1065,7 +1065,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 	if (api->type >= ZEBRA_ROUTE_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified route type (%u) is not a legal value\n",
+			 "%s: Specified route type (%u) is not a legal value",
 			 __func__, api->type);
 		return -1;
 	}
@@ -1077,7 +1077,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified route SAFI (%u) is not a legal value\n",
+			 "%s: Specified route SAFI (%u) is not a legal value",
 			 __func__, api->safi);
 		return -1;
 	}
@@ -1292,7 +1292,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETC(s, api->type);
 	if (api->type >= ZEBRA_ROUTE_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified route type: %d is not a legal value\n",
+			 "%s: Specified route type: %d is not a legal value",
 			 __func__, api->type);
 		return -1;
 	}
@@ -1303,7 +1303,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETC(s, api->safi);
 	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified route SAFI (%u) is not a legal value\n",
+			 "%s: Specified route SAFI (%u) is not a legal value",
 			 __func__, api->safi);
 		return -1;
 	}
@@ -3304,7 +3304,7 @@ static void zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 
 	if (vrf_backend < 0 || vrf_configure_backend(vrf_backend)) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Garbage VRF backend type: %d\n", __func__,
+			 "%s: Garbage VRF backend type: %d", __func__,
 			 vrf_backend);
 		goto stream_failure;
 	}

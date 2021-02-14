@@ -496,7 +496,7 @@ terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
     zlog_err ("----------");
     while (ctx->docstr && ctx->docstr[1] != '\0')
       zlog_err ("%s", strsep(&ctx->docstr, "\n"));
-    zlog_err ("----------\n");
+    zlog_err ("----------");
   }
 
   graph_add_edge (finalnode, end_token_node);

@@ -266,7 +266,7 @@ static void route_add_helper(struct zapi_route *api, struct nexthop_group nhg,
 
 	api->prefix.family = install_afi;
 
-	DEBUGD(&pbr_dbg_zebra, "\tEncoding %pFX", &api->prefix);
+	DEBUGD(&pbr_dbg_zebra, "    Encoding %pFX", &api->prefix);
 
 	i = 0;
 	for (ALL_NEXTHOPS(nhg, nhop)) {
@@ -409,12 +409,12 @@ static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		DEBUGD(&pbr_dbg_zebra, "%s: Received Nexthop update: %pFX",
 		       __func__, &nhr.prefix);
 
-		DEBUGD(&pbr_dbg_zebra, "%s: (\tNexthops(%u)", __func__,
+		DEBUGD(&pbr_dbg_zebra, "%s:   (Nexthops(%u)", __func__,
 		       nhr.nexthop_num);
 
 		for (i = 0; i < nhr.nexthop_num; i++) {
 			DEBUGD(&pbr_dbg_zebra,
-			       "%s: \tType: %d: vrf: %d, ifindex: %d gate: %pI4",
+			       "%s:     Type: %d: vrf: %d, ifindex: %d gate: %pI4",
 			       __func__, nhr.nexthops[i].type,
 			       nhr.nexthops[i].vrf_id, nhr.nexthops[i].ifindex,
 			       &nhr.nexthops[i].gate.ipv4);
@@ -585,7 +585,7 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	 */
 	stream_putl(s, 1);
 
-	DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s seq %u %d %s %u", __func__,
+	DEBUGD(&pbr_dbg_zebra, "%s:    %s %s seq %u %d %s %u", __func__,
 	       install ? "Installing" : "Deleting", pbrm->name, pbrms->seqno,
 	       install, pmi->ifp->name, pmi->delete);
 

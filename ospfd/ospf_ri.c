@@ -1451,9 +1451,7 @@ static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
 			GET_LABEL(ntohl(range->lower.value)));
 	} else {
 		zlog_debug(
-			"  Segment Routing %s Range TLV:\n"
-			"    Range Size = %d\n"
-			"    SID Label = %d\n\n",
+			"  Segment Routing %s Range TLV:  Range Size = %d  SID Label = %d",
 			ntohs(range->header.type) == RI_SR_TLV_SRGB_LABEL_RANGE
 				? "Global"
 				: "Local",
@@ -1476,8 +1474,7 @@ static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
 			msd->value);
 	} else {
 		zlog_debug(
-			"  Segment Routing MSD TLV:\n"
-			"    Node Maximum Stack Depth = %d\n",
+			"  Segment Routing MSD TLV:  Node Maximum Stack Depth = %d",
 			msd->value);
 	}
 
