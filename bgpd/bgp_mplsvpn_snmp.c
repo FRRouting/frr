@@ -1023,14 +1023,17 @@ static struct bgp *bgpL3vpnVrfRt_lookup(struct variable *v, oid name[],
 		*rt_type = name[namelen + vrf_name_len + sizeof(uint32_t)];
 	}
 
+	/* validate the RT index is in range */
+	if (*rt_index > AFI_IP6)
+		return NULL;
+
 	if (exact) {
 		l3vpn_bgp = bgp_lookup_by_name(vrf_name);
 		if (l3vpn_bgp && !is_bgp_vrf_mplsvpn(l3vpn_bgp))
 			return NULL;
 		if (!l3vpn_bgp)
 			return NULL;
-		/* check the index and type match up */
-		if ((*rt_index != AFI_IP) || (*rt_index != AFI_IP6))
+		if ((*rt_index != AFI_IP) && (*rt_index != AFI_IP6))
 			return NULL;
 		/* do we have RT config */
 		if (!(l3vpn_bgp->vpn_policy[*rt_index]
