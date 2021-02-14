@@ -1124,7 +1124,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		break;
 	default:
 		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
-			 "%s: Unknown family (%d) notification attempted\n",
+			 "%s: Unknown family (%d) notification attempted",
 			 __func__, rn->p.family);
 		goto failure;
 	}

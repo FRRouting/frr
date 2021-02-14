@@ -3333,7 +3333,7 @@ int zebra_vxlan_clear_dup_detect_vni(struct zebra_vrf *zvrf, vni_t vni)
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
-		zlog_warn("VNI %u does not exist\n", vni);
+		zlog_warn("VNI %u does not exist", vni);
 		return CMD_WARNING;
 	}
 

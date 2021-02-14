@@ -167,7 +167,7 @@ static int process_p2p_hello(struct iih_info *iih)
 	if (adj) {
 		if (memcmp(iih->sys_id, adj->sysid, ISIS_SYS_ID_LEN)) {
 			zlog_debug(
-				"hello source and adjacency do not match, set adj down\n");
+				"hello source and adjacency do not match, set adj down");
 			isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
 					      "adj do not exist");
 			return ISIS_OK;

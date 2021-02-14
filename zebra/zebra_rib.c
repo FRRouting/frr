@@ -745,7 +745,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 			if (rnh->seqno == seq) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
-						"\tNode processed and moved already");
+						"    Node processed and moved already");
 				continue;
 			}
 

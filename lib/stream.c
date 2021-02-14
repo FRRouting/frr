@@ -57,7 +57,7 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 #define STREAM_WARN_OFFSETS(S)                                                 \
 	do {                                                                   \
 		flog_warn(EC_LIB_STREAM,				       \
-			  "&(struct stream): %p, size: %lu, getp: %lu, endp: %lu\n", \
+			  "&(struct stream): %p, size: %lu, getp: %lu, endp: %lu", \
 			  (void *)(S), (unsigned long)(S)->size,	       \
 			  (unsigned long)(S)->getp, (unsigned long)(S)->endp); \
 		zlog_backtrace(LOG_WARNING);				       \
@@ -93,7 +93,7 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 		if (((S)->endp + (Z)) > (S)->size) {                           \
 			flog_warn(                                             \
 				EC_LIB_STREAM,                                 \
-				"CHECK_SIZE: truncating requested size %lu\n", \
+				"CHECK_SIZE: truncating requested size %lu",   \
 				(unsigned long)(Z));                           \
 			STREAM_WARN_OFFSETS(S);                                \
 			(Z) = (S)->size - (S)->endp;                           \

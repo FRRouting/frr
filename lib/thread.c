@@ -1365,7 +1365,7 @@ static int thread_process_io_helper(struct thread_master *m,
 	if (!thread) {
 		if ((actual_state & (POLLHUP|POLLIN)) != POLLHUP)
 			flog_err(EC_LIB_NO_THREAD,
-				 "Attempting to process an I/O event but for fd: %d(%d) no thread to handle this!\n",
+				 "Attempting to process an I/O event but for fd: %d(%d) no thread to handle this!",
 				 m->handler.pfds[pos].fd, actual_state);
 		return 0;
 	}

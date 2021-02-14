@@ -44,7 +44,7 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 
 	if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
-			     "getsockopt of SO_SNDBUF failed %s\n",
+			     "getsockopt of SO_SNDBUF failed %s",
 			     safe_strerror(errno));
 		return;
 	}
@@ -53,7 +53,7 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 		if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size))
 		    < 0) {
 			flog_err_sys(EC_LIB_SOCKET,
-				     "Couldn't increase send buffer: %s\n",
+				     "Couldn't increase send buffer: %s",
 				     safe_strerror(errno));
 		}
 	}

@@ -3343,7 +3343,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		netlink_handle_5549(ndm, zif, ifp, &ip, false);
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"\tNeighbor Entry Received is a 5549 entry, finished");
+				"    Neighbor Entry Received is a 5549 entry, finished");
 		return 0;
 	}
 
@@ -3372,7 +3372,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"\tNeighbor Entry received is not on a VLAN or a BRIDGE, ignoring");
+				"    Neighbor Entry received is not on a VLAN or a BRIDGE, ignoring");
 		return 0;
 	}
 

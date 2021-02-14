@@ -854,7 +854,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 	vrrp_pkt_adver_dump(dumpbuf, sizeof(dumpbuf), pkt);
 	DEBUGD(&vrrp_dbg_proto,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-	       "Received VRRP Advertisement from %s:\n%s",
+	       "Received VRRP Advertisement from %s: %s",
 	       r->vr->vrid, family2str(r->family), sipstr, dumpbuf);
 
 	/* Check that VRID matches our configured VRID */

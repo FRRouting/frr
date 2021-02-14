@@ -1146,7 +1146,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		} else {
 			flog_err(
 				EC_ZEBRA_UNKNOWN_FAMILY,
-				"rnh_register: Received unknown family type %d\n",
+				"rnh_register: Received unknown family type %d",
 				p.family);
 			return;
 		}
@@ -1237,7 +1237,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 		} else {
 			flog_err(
 				EC_ZEBRA_UNKNOWN_FAMILY,
-				"rnh_register: Received unknown family type %d\n",
+				"rnh_register: Received unknown family type %d",
 				p.family);
 			return;
 		}
@@ -1287,7 +1287,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 		if (p.family != AF_INET && p.family != AF_INET6) {
 			flog_err(
 				EC_ZEBRA_UNKNOWN_FAMILY,
-				"fec_register: Received unknown family type %d\n",
+				"fec_register: Received unknown family type %d",
 				p.family);
 			return;
 		}
@@ -1353,7 +1353,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 		if (p.family != AF_INET && p.family != AF_INET6) {
 			flog_err(
 				EC_ZEBRA_UNKNOWN_FAMILY,
-				"fec_unregister: Received unknown family type %d\n",
+				"fec_unregister: Received unknown family type %d",
 				p.family);
 			return;
 		}

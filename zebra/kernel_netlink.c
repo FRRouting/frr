@@ -383,7 +383,7 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		 * it to be sent up to us
 		 */
 		flog_err(EC_ZEBRA_UNKNOWN_NLMSG,
-			 "Unknown netlink nlmsg_type %s(%d) vrf %u\n",
+			 "Unknown netlink nlmsg_type %s(%d) vrf %u",
 			 nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_type,
 			 ns_id);
 		break;
@@ -485,7 +485,7 @@ static void netlink_install_filter(int sock, __u32 pid, __u32 dplane_pid)
 
 	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog))
 	    < 0)
-		flog_err_sys(EC_LIB_SOCKET, "Can't install socket filter: %s\n",
+		flog_err_sys(EC_LIB_SOCKET, "Can't install socket filter: %s",
 			     safe_strerror(errno));
 }
 
