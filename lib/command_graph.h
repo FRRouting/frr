@@ -99,7 +99,7 @@ struct cmd_element {
 	const char *string; /* Command specification by string. */
 	const char *doc;    /* Documentation of this command. */
 	int daemon;	 /* Daemon to which this command belong. */
-	uint8_t attr;       /* Command attributes */
+	uint32_t attr;       /* Command attributes */
 
 	/* handler function for command */
 	int (*func)(const struct cmd_element *, struct vty *, int,
