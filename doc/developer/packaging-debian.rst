@@ -44,7 +44,7 @@ buster.)
 5. (optional) Append a distribution identifier if needed (see below under
    :ref:`multi-dist`.)
 
-6. Build Debian Package:
+6. Build Debian Binary and/or Source Packages:
 
    .. code-block:: shell
 
@@ -77,6 +77,14 @@ buster.)
 
      (git builds of the `master` or `stable/X.X` branches won't be signed by
      default since their target release is set to ``UNRELEASED``.)
+
+   * the ``--build=type`` accepts following options (see ``dpkg-buildpackage`` manual page):
+
+     * ``source`` builds the source package
+     * ``any`` builds the architecture specific binary packages
+     * ``all`` build the architecture independent binary packages
+     * ``binary`` build the architecture specific and independent binary packages (alias for ``any,all``)
+     * ``full`` builds everything (alias for ``source,any,all``)
 
 7. Done!
 
