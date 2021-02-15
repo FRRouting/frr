@@ -795,15 +795,26 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 	}
 }
 
-static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty)
+static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
+				     bool uj)
 {
 	struct interface *ifp;
 	time_t now;
+	json_object *json = NULL;
+	json_object *json_iface = NULL;
+	json_object *json_grp = NULL;
+	json_object *json_grp_arr = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	vty_out(vty,
-		"Interface        Address         Source          Group           Socket Uptime  \n");
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_add(json, "vrf",
+				       vrf_id_to_name(pim->vrf_id));
+	} else {
+		vty_out(vty,
+			"Interface        Address         Source          Group           Socket Uptime  \n");
+	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -837,12 +848,49 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty)
 			pim_inet4_dump("<src?>", ij->source_addr, source_str,
 				       sizeof(source_str));
 
-			vty_out(vty, "%-16s %-15s %-15s %-15s %6d %8s\n",
-				ifp->name, pri_addr_str, source_str, group_str,
-				ij->sock_fd, uptime);
+			if (uj) {
+				json_object_object_get_ex(json, ifp->name,
+							  &json_iface);
+
+				if (!json_iface) {
+					json_iface = json_object_new_object();
+					json_object_string_add(
+						json_iface, "name", ifp->name);
+					json_object_object_add(json, ifp->name,
+							       json_iface);
+					json_grp_arr = json_object_new_array();
+					json_object_object_add(json_iface,
+							       "groups",
+							       json_grp_arr);
+				}
+
+				json_grp = json_object_new_object();
+				json_object_string_add(json_grp, "source",
+						       source_str);
+				json_object_string_add(json_grp, "group",
+						       group_str);
+				json_object_string_add(json_grp, "primaryAddr",
+						       pri_addr_str);
+				json_object_int_add(json_grp, "sockFd",
+						    ij->sock_fd);
+				json_object_string_add(json_grp, "upTime",
+						       uptime);
+				json_object_array_add(json_grp_arr, json_grp);
+			} else {
+				vty_out(vty,
+					"%-16s %-15s %-15s %-15s %6d %8s\n",
+					ifp->name, pri_addr_str, source_str,
+					group_str, ij->sock_fd, uptime);
+			}
 		} /* for (pim_ifp->igmp_join_list) */
 
 	} /* for (iflist) */
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 }
 
 static void pim_show_interfaces_single(struct pim_instance *pim,
@@ -4217,32 +4265,35 @@ DEFUN (show_ip_igmp_interface_vrf_all,
 
 DEFUN (show_ip_igmp_join,
        show_ip_igmp_join_cmd,
-       "show ip igmp [vrf NAME] join",
+       "show ip igmp [vrf NAME] join [json]",
        SHOW_STR
        IP_STR
        IGMP_STR
        VRF_CMD_HELP_STR
-       "IGMP static join information\n")
+       "IGMP static join information\n"
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	bool uj = use_json(argc, argv);
 
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_interface_join(vrf->info, vty);
+	igmp_show_interface_join(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_igmp_join_vrf_all,
        show_ip_igmp_join_vrf_all_cmd,
-       "show ip igmp vrf all join",
+       "show ip igmp vrf all join [json]",
        SHOW_STR
        IP_STR
        IGMP_STR
        VRF_CMD_HELP_STR
-       "IGMP static join information\n")
+       "IGMP static join information\n"
+       JSON_STR)
 {
 	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
@@ -4258,7 +4309,7 @@ DEFUN (show_ip_igmp_join_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		igmp_show_interface_join(vrf->info, vty);
+		igmp_show_interface_join(vrf->info, vty, uj);
 	}
 	if (uj)
 		vty_out(vty, "}\n");
