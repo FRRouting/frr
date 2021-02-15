@@ -138,7 +138,8 @@ extern __attribute__((__noreturn__)) void frr_help_exit(int status);
 extern struct thread_master *frr_init(void);
 extern const char *frr_get_progname(void);
 extern enum frr_cli_mode frr_get_cli_mode(void);
-uint32_t frr_get_fd_limit(void);
+extern uint32_t frr_get_fd_limit(void);
+extern bool frr_is_startup_fd(int fd);
 
 DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DECLARE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm))

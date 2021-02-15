@@ -100,6 +100,8 @@ struct zprivs_ids_t {
 	gid_t gid_vty;    /* vty gid */
 };
 
+extern struct zebra_privs_t *lib_privs;
+
 /* initialise zebra privileges */
 extern void zprivs_preinit(struct zebra_privs_t *zprivs);
 extern void zprivs_init(struct zebra_privs_t *zprivs);
