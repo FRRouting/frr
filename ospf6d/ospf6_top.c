@@ -823,7 +823,6 @@ DEFUN (no_ospf6_interface_area,
 
 	oa = oi->area;
 	listnode_delete(oi->area->if_list, oi);
-	oi->area = (struct ospf6_area *)NULL;
 
 	/* Withdraw inter-area routes from this area, if necessary */
 	if (oa->if_list->count == 0) {
