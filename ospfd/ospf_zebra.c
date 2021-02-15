@@ -541,9 +541,6 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 	struct listnode *node;
 	struct ospf_path *path;
 
-	osr_debug("SR (%s): Update Labels %u for Prefix %pFX", __func__,
-		  srp->label_in, (struct prefix *)&srp->prefv4);
-
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_OSPF_SR;
@@ -557,6 +554,11 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 		znh->ifindex = srp->nhlfe.ifindex;
 		znh->label_num = 1;
 		znh->labels[0] = srp->nhlfe.label_out;
+
+		osr_debug("SR (%s): Configure Prefix %pFX with labels %u/%u",
+			  __func__, (struct prefix *)&srp->prefv4,
+			  srp->label_in, srp->nhlfe.label_out);
+
 		break;
 
 	case PREF_SID:
@@ -572,6 +574,10 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 		if (srp->route == NULL) {
 			return;
 		}
+
+		osr_debug("SR (%s): Configure Prefix %pFX with",
+			  __func__, (struct prefix *)&srp->prefv4);
+
 		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, node, path)) {
 			if (path->srni.label_out == MPLS_INVALID_LABEL)
 				continue;
@@ -614,6 +620,9 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 			znh->ifindex = path->ifindex;
 			znh->label_num = 1;
 			znh->labels[0] = path->srni.label_out;
+
+			osr_debug("  |- labels %u/%u", srp->label_in,
+				  srp->nhlfe.label_out);
 
 			/* Set TI-LFA backup nexthop info if present */
 			if (path->srni.backup_label_stack) {
