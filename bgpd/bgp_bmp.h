@@ -269,6 +269,8 @@ struct bmp_bgp_peer {
 /* per struct bgp * data */
 PREDECL_HASH(bmp_bgph)
 
+#define BMP_PEER_DOWN_NO_RELEVANT_EVENT_CODE 0x00
+
 struct bmp_bgp {
 	struct bmp_bgph_item bbi;
 
