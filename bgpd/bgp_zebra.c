@@ -906,6 +906,7 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 			/* Workaround for Cisco's nexthop bug.  */
 			if (IN6_IS_ADDR_UNSPECIFIED(
 				    &path->attr->mp_nexthop_global)
+			    && path->peer->su_remote
 			    && path->peer->su_remote->sa.sa_family
 				       == AF_INET6) {
 				nexthop =
