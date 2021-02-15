@@ -2248,10 +2248,9 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 							    lsa,
 							    EXTNL_LSA_AGGR))
 							zlog_debug(
-								"%s: Send Aggreate LSA (%pFX/%d)",
+								"%s: Send Aggreate LSA (%pFX)",
 								__func__,
-								&aggr->p.prefix,
-								aggr->p.prefixlen);
+								&aggr->p);
 
 						ospf_originate_summary_lsa(
 							ospf, aggr, ei);

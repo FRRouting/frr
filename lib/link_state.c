@@ -1246,7 +1246,7 @@ void ls_dump_ted(struct ls_ted *ted)
 		for (ALL_LIST_ELEMENTS_RO(vertex->incoming_edges, lst_node,
 					  vertex_edge)) {
 			zlog_debug(
-				"        inc edge key:%lldn attr key:%pI4 loc:(%pI4) rmt:(%pI4)",
+				"        inc edge key:%"PRIu64"n attr key:%pI4 loc:(%pI4) rmt:(%pI4)",
 				vertex_edge->key,
 				&vertex_edge->attributes->adv.id.ip.addr,
 				&vertex_edge->attributes->standard.local,
@@ -1255,7 +1255,7 @@ void ls_dump_ted(struct ls_ted *ted)
 		for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, lst_node,
 					  vertex_edge)) {
 			zlog_debug(
-				"        out edge key:%lld  attr key:%pI4  loc:(%pI4) rmt:(%pI4)",
+				"        out edge key:%"PRIu64"  attr key:%pI4  loc:(%pI4) rmt:(%pI4)",
 				vertex_edge->key,
 				&vertex_edge->attributes->adv.id.ip.addr,
 				&vertex_edge->attributes->standard.local,
@@ -1264,7 +1264,8 @@ void ls_dump_ted(struct ls_ted *ted)
 	}
 	frr_each(edges, &ted->edges, edge) {
 		ls_edge2msg(&msg, edge);
-		zlog_debug("    Ted edge key:%lld src:%s dst:%s", edge->key,
+		zlog_debug("    Ted edge key:%"PRIu64" src:%s dst:%s",
+			   edge->key,
 			   edge->source ? edge->source->node->name
 					: "no_source",
 			   edge->destination ? edge->destination->node->name
