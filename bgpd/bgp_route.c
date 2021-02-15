@@ -13021,51 +13021,29 @@ static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
 	}
 }
 
-static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
-			   safi_t safi, enum bgp_show_adj_route_type type,
-			   const char *rmap_name, json_object *json,
-			   uint8_t show_flags)
+static void
+show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
+	       afi_t afi, safi_t safi, enum bgp_show_adj_route_type type,
+	       const char *rmap_name, json_object *json, json_object *json_ar,
+	       json_object *json_scode, json_object *json_ocode,
+	       uint8_t show_flags, int *header1, int *header2, char *rd_str,
+	       unsigned long *output_count, unsigned long *filtered_count)
 {
-	struct bgp_table *table;
 	struct bgp_adj_in *ain;
 	struct bgp_adj_out *adj;
-	unsigned long output_count = 0;
-	unsigned long filtered_count = 0;
 	struct bgp_dest *dest;
-	int header1 = 1;
 	struct bgp *bgp;
-	int header2 = 1;
 	struct attr attr;
 	int ret;
 	struct update_subgroup *subgrp;
-	json_object *json_scode = NULL;
-	json_object *json_ocode = NULL;
-	json_object *json_ar = NULL;
 	struct peer_af *paf;
 	bool route_filtered;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 	bool wide = CHECK_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
-
-	if (use_json) {
-		json_scode = json_object_new_object();
-		json_ocode = json_object_new_object();
-		json_ar = json_object_new_object();
-
-		json_object_string_add(json_scode, "suppressed", "s");
-		json_object_string_add(json_scode, "damped", "d");
-		json_object_string_add(json_scode, "history", "h");
-		json_object_string_add(json_scode, "valid", "*");
-		json_object_string_add(json_scode, "best", ">");
-		json_object_string_add(json_scode, "multipath", "=");
-		json_object_string_add(json_scode, "internal", "i");
-		json_object_string_add(json_scode, "ribFailure", "r");
-		json_object_string_add(json_scode, "stale", "S");
-		json_object_string_add(json_scode, "removed", "R");
-
-		json_object_string_add(json_ocode, "igp", "i");
-		json_object_string_add(json_ocode, "egp", "e");
-		json_object_string_add(json_ocode, "incomplete", "?");
-	}
+	bool show_rd = ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
+			|| (safi == SAFI_EVPN))
+			       ? true
+			       : false;
 
 	bgp = peer->bgp;
 
@@ -13079,13 +13057,6 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 		return;
 	}
 
-	/* labeled-unicast routes live in the unicast table */
-	if (safi == SAFI_LABELED_UNICAST)
-		table = bgp->rib[afi][SAFI_UNICAST];
-	else
-		table = bgp->rib[afi][safi];
-
-	output_count = filtered_count = 0;
 	subgrp = peer_subgroup(peer, afi, safi);
 
 	if (type == bgp_show_adj_route_advertised && subgrp
@@ -13129,7 +13100,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 			vty_out(vty, "Originating default network %s\n\n",
 				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 		}
-		header1 = 0;
+		*header1 = 0;
 	}
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
@@ -13139,9 +13110,23 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				if (ain->peer != peer)
 					continue;
 
-				show_adj_route_header(
-					vty, bgp, table, &header1, &header2,
-					json, json_scode, json_ocode, wide);
+				show_adj_route_header(vty, bgp, table, header1,
+						      header2, json, json_scode,
+						      json_ocode, wide);
+
+				if ((safi == SAFI_MPLS_VPN)
+				    || (safi == SAFI_ENCAP)
+				    || (safi == SAFI_EVPN)) {
+					if (use_json)
+						json_object_string_add(
+							json_ar, "rd", rd_str);
+					else if (show_rd && rd_str) {
+						vty_out(vty,
+							"Route Distinguisher: %s\n",
+							rd_str);
+						show_rd = false;
+					}
+				}
 
 				attr = *ain->attr;
 				route_filtered = false;
@@ -13167,14 +13152,14 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					continue;
 				}
 
-				if (type == bgp_show_adj_route_received &&
-					(route_filtered || ret == RMAP_DENY))
-					filtered_count++;
+				if (type == bgp_show_adj_route_received
+				    && (route_filtered || ret == RMAP_DENY))
+					(*filtered_count)++;
 
 				route_vty_out_tmp(vty, rn_p, &attr, safi,
 						  use_json, json_ar, wide);
 				bgp_attr_undup(&attr, ain->attr);
-				output_count++;
+				(*output_count)++;
 			}
 		} else if (type == bgp_show_adj_route_advertised) {
 			RB_FOREACH (adj, bgp_adj_out_rb, &dest->adj_out)
@@ -13182,10 +13167,10 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					if (paf->peer != peer || !adj->attr)
 						continue;
 
-					show_adj_route_header(
-						vty, bgp, table, &header1,
-						&header2, json, json_scode,
-						json_ocode, wide);
+					show_adj_route_header(vty, bgp, table,
+							      header1, header2,
+							      json, json_scode,
+							      json_ocode, wide);
 
 					const struct prefix *rn_p =
 						bgp_dest_get_prefix(dest);
@@ -13196,13 +13181,29 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 						rmap_name);
 
 					if (ret != RMAP_DENY) {
+						if ((safi == SAFI_MPLS_VPN)
+						    || (safi == SAFI_ENCAP)
+						    || (safi == SAFI_EVPN)) {
+							if (use_json)
+								json_object_string_add(
+									json_ar,
+									"rd",
+									rd_str);
+							else if (show_rd
+								 && rd_str) {
+								vty_out(vty,
+									"Route Distinguisher: %s\n",
+									rd_str);
+								show_rd = false;
+							}
+						}
 						route_vty_out_tmp(
 							vty, rn_p, &attr, safi,
 							use_json, json_ar,
 							wide);
-						output_count++;
+						(*output_count)++;
 					} else {
-						filtered_count++;
+						(*filtered_count)++;
 					}
 
 					bgp_attr_undup(&attr, adj->attr);
@@ -13210,9 +13211,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 		} else if (type == bgp_show_adj_route_bestpath) {
 			struct bgp_path_info *pi;
 
-			show_adj_route_header(vty, bgp, table, &header1,
-					      &header2, json, json_scode,
-					      json_ocode, wide);
+			show_adj_route_header(vty, bgp, table, header1, header2,
+					      json, json_scode, json_ocode,
+					      wide);
 
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
@@ -13226,34 +13227,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 						  bgp_dest_get_prefix(dest),
 						  pi->attr, safi, use_json,
 						  json_ar, wide);
-				output_count++;
+				(*output_count)++;
 			}
 		}
-	}
-
-	if (use_json) {
-		json_object_object_add(json, "advertisedRoutes", json_ar);
-		json_object_int_add(json, "totalPrefixCounter", output_count);
-		json_object_int_add(json, "filteredPrefixCounter",
-				    filtered_count);
-
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-
-		if (!output_count && !filtered_count) {
-			json_object_free(json_scode);
-			json_object_free(json_ocode);
-		}
-
-		json_object_free(json);
-	} else if (output_count > 0) {
-		if (filtered_count > 0)
-			vty_out(vty,
-				"\nTotal number of prefixes %ld (%ld filtered)\n",
-				output_count, filtered_count);
-		else
-			vty_out(vty, "\nTotal number of prefixes %ld\n",
-				output_count);
 	}
 }
 
@@ -13261,11 +13237,57 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 			   safi_t safi, enum bgp_show_adj_route_type type,
 			   const char *rmap_name, uint8_t show_flags)
 {
+	struct bgp *bgp;
+	struct bgp_table *table;
 	json_object *json = NULL;
+	json_object *json_scode = NULL;
+	json_object *json_ocode = NULL;
+	json_object *json_ar = NULL;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 
-	if (use_json)
+	/* Init BGP headers here so they're only displayed once
+	 * even if 'table' is 2-tier (MPLS_VPN, ENCAP, EVPN).
+	 */
+	int header1 = 1;
+	int header2 = 1;
+
+	/*
+	 * Initialize variables for each RD
+	 * All prefixes under an RD is aggregated within "json_routes"
+	 */
+	char rd_str[BUFSIZ] = {0};
+	json_object *json_routes = NULL;
+
+
+	/* For 2-tier tables, prefix counts need to be
+	 * maintained across multiple runs of show_adj_route()
+	 */
+	unsigned long output_count_per_rd;
+	unsigned long filtered_count_per_rd;
+	unsigned long output_count = 0;
+	unsigned long filtered_count = 0;
+
+	if (use_json) {
 		json = json_object_new_object();
+		json_ar = json_object_new_object();
+		json_scode = json_object_new_object();
+		json_ocode = json_object_new_object();
+
+		json_object_string_add(json_scode, "suppressed", "s");
+		json_object_string_add(json_scode, "damped", "d");
+		json_object_string_add(json_scode, "history", "h");
+		json_object_string_add(json_scode, "valid", "*");
+		json_object_string_add(json_scode, "best", ">");
+		json_object_string_add(json_scode, "multipath", "=");
+		json_object_string_add(json_scode, "internal", "i");
+		json_object_string_add(json_scode, "ribFailure", "r");
+		json_object_string_add(json_scode, "stale", "S");
+		json_object_string_add(json_scode, "removed", "R");
+
+		json_object_string_add(json_ocode, "igp", "i");
+		json_object_string_add(json_ocode, "egp", "e");
+		json_object_string_add(json_ocode, "incomplete", "?");
+	}
 
 	if (!peer || !peer->afc[afi][safi]) {
 		if (use_json) {
@@ -13297,7 +13319,84 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 		return CMD_WARNING;
 	}
 
-	show_adj_route(vty, peer, afi, safi, type, rmap_name, json, show_flags);
+	bgp = peer->bgp;
+
+	/* labeled-unicast routes live in the unicast table */
+	if (safi == SAFI_LABELED_UNICAST)
+		table = bgp->rib[afi][SAFI_UNICAST];
+	else
+		table = bgp->rib[afi][safi];
+
+	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
+	    || (safi == SAFI_EVPN)) {
+
+		struct bgp_dest *dest;
+
+		for (dest = bgp_table_top(table); dest;
+		     dest = bgp_route_next(dest)) {
+			table = bgp_dest_get_bgp_table_info(dest);
+			if (!table)
+				continue;
+
+			output_count_per_rd = 0;
+			filtered_count_per_rd = 0;
+
+			if (use_json)
+				json_routes = json_object_new_object();
+
+			const struct prefix_rd *prd;
+			prd = (const struct prefix_rd *)bgp_dest_get_prefix(
+				dest);
+
+			prefix_rd2str(prd, rd_str, sizeof(rd_str));
+
+			show_adj_route(vty, peer, table, afi, safi, type,
+				       rmap_name, json, json_routes, json_scode,
+				       json_ocode, show_flags, &header1,
+				       &header2, rd_str, &output_count_per_rd,
+				       &filtered_count_per_rd);
+
+			/* Don't include an empty RD in the output! */
+			if (json_routes && (output_count_per_rd > 0))
+				json_object_object_add(json_ar, rd_str,
+						       json_routes);
+
+			output_count += output_count_per_rd;
+			filtered_count += filtered_count_per_rd;
+		}
+	} else
+		show_adj_route(vty, peer, table, afi, safi, type, rmap_name,
+			       json, json_ar, json_scode, json_ocode,
+			       show_flags, &header1, &header2, rd_str,
+			       &output_count, &filtered_count);
+
+	if (use_json) {
+		json_object_object_add(json, "advertisedRoutes", json_ar);
+		json_object_int_add(json, "totalPrefixCounter", output_count);
+		json_object_int_add(json, "filteredPrefixCounter",
+				    filtered_count);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+
+		if (!output_count && !filtered_count) {
+			json_object_free(json_scode);
+			json_object_free(json_ocode);
+		}
+
+		if (json)
+			json_object_free(json);
+
+	} else if (output_count > 0) {
+		if (filtered_count > 0)
+			vty_out(vty,
+				"\nTotal number of prefixes %ld (%ld filtered)\n",
+				output_count, filtered_count);
+		else
+			vty_out(vty, "\nTotal number of prefixes %ld\n",
+				output_count);
+	}
 
 	return CMD_SUCCESS;
 }
