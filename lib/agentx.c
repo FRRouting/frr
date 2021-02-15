@@ -265,11 +265,11 @@ void smux_register_mib(const char *descr, struct variable *var, size_t width,
 	register_mib(descr, var, width, num, name, namelen);
 }
 
-int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
-	      size_t enamelen, const oid *name, size_t namelen,
-	      const oid *iname, size_t inamelen,
-	      const struct trap_object *trapobj, size_t trapobjlen,
-	      uint8_t sptrap)
+void smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
+	       size_t enamelen, const oid *name, size_t namelen,
+	       const oid *iname, size_t inamelen,
+	       const struct trap_object *trapobj, size_t trapobjlen,
+	       uint8_t sptrap)
 {
 	struct index_oid trap_index[1];
 
@@ -277,9 +277,9 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 	oid_copy(trap_index[0].indexname, iname, inamelen);
 	trap_index[0].indexlen = inamelen;
 
-	return (smux_trap_multi_index(
-		vp, vp_len, ename, enamelen, name, namelen, trap_index,
-		array_size(trap_index), trapobj, trapobjlen, sptrap));
+	smux_trap_multi_index(vp, vp_len, ename, enamelen, name, namelen,
+			      trap_index, array_size(trap_index), trapobj,
+			      trapobjlen, sptrap);
 }
 
 int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,

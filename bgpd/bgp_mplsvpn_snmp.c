@@ -1427,13 +1427,13 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 			nexthop.ipa_type = IPADDR_V4;
 			oid2in_addr(&name[i], sizeof(struct in_addr),
 				    &nexthop.ip._v4_addr);
-			i += sizeof(struct in_addr);
+			/* i += sizeof(struct in_addr); */
 			break;
 		case INETADDRESSTYPEIPV6:
 			nexthop.ipa_type = IPADDR_V6;
 			oid2in_addr(&name[i], sizeof(struct in6_addr),
 				    &nexthop.ip._v4_addr); /* sic */
-			i += sizeof(struct in6_addr);
+			/* i += sizeof(struct in6_addr); */
 			break;
 		}
 	}
