@@ -48,7 +48,7 @@ buster.)
 
    .. code-block:: shell
 
-      gbp buildpackage --git-builder=debuild --git-debian-branch="$(git rev-parse --abbrev-ref HEAD)" $options
+      gbp buildpackage --git-builder=dpkg-buildpackage --git-debian-branch="$(git rev-parse --abbrev-ref HEAD)" $options
 
    Where `$options` may contain any or all of the following items:
 
@@ -85,6 +85,10 @@ buster.)
      * ``all`` build the architecture independent binary packages
      * ``binary`` build the architecture specific and independent binary packages (alias for ``any,all``)
      * ``full`` builds everything (alias for ``source,any,all``)
+
+   Alternatively, you might want to replace ``dpkg-buildpackage`` with
+   ``debuild`` wrapper that also runs ``lintian`` and ``debsign`` on the final
+   packages.
 
 7. Done!
 
