@@ -185,6 +185,25 @@ struct nb_node *nb_node_find(const char *xpath)
 	return snode->priv;
 }
 
+void nb_node_set_dependency_cbs(const char *dependency_xpath,
+				const char *dependant_xpath,
+				struct nb_dependency_callbacks *cbs)
+{
+	struct nb_node *dependency = nb_node_find(dependency_xpath);
+	struct nb_node *dependant = nb_node_find(dependant_xpath);
+
+	if (!dependency || !dependant)
+		return;
+
+	dependency->dep_cbs.get_dependant_xpath = cbs->get_dependant_xpath;
+	dependant->dep_cbs.get_dependency_xpath = cbs->get_dependency_xpath;
+}
+
+bool nb_node_has_dependency(struct nb_node *node)
+{
+	return node->dep_cbs.get_dependency_xpath != NULL;
+}
+
 static int nb_node_validate_cb(const struct nb_node *nb_node,
 			       enum nb_operation operation,
 			       int callback_implemented, bool optional)
@@ -532,8 +551,9 @@ int nb_candidate_edit(struct nb_config *candidate,
 		      const struct yang_data *previous,
 		      const struct yang_data *data)
 {
-	struct lyd_node *dnode;
+	struct lyd_node *dnode, *dep_dnode;
 	char xpath_edit[XPATH_MAXLEN];
+	char dep_xpath[XPATH_MAXLEN];
 
 	/* Use special notation for leaf-lists (RFC 6020, section 9.13.5). */
 	if (nb_node->snode->nodetype == LYS_LEAFLIST)
@@ -549,9 +569,33 @@ int nb_candidate_edit(struct nb_config *candidate,
 		dnode = lyd_new_path(candidate->dnode, ly_native_ctx,
 				     xpath_edit, (void *)data->value, 0,
 				     LYD_PATH_OPT_UPDATE);
-		if (!dnode && ly_errno) {
-			flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
-				  __func__);
+		if (dnode) {
+			/*
+			 * create dependency
+			 *
+			 * dnode returned by the lyd_new_path may be from a
+			 * different schema, so we need to update the nb_node
+			 */
+			nb_node = dnode->schema->priv;
+			if (nb_node->dep_cbs.get_dependency_xpath) {
+				nb_node->dep_cbs.get_dependency_xpath(
+					dnode, dep_xpath);
+
+				ly_errno = 0;
+				dep_dnode = lyd_new_path(candidate->dnode,
+							 ly_native_ctx,
+							 dep_xpath, NULL, 0,
+							 LYD_PATH_OPT_UPDATE);
+				if (!dep_dnode && ly_errno) {
+					flog_warn(EC_LIB_LIBYANG,
+						  "%s: lyd_new_path(%s) failed",
+						  __func__, dep_xpath);
+					return NB_ERR;
+				}
+			}
+		} else if (ly_errno) {
+			flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed",
+				  __func__, xpath_edit);
 			return NB_ERR;
 		}
 		break;
@@ -563,6 +607,14 @@ int nb_candidate_edit(struct nb_config *candidate,
 			 * whether to ignore it or not.
 			 */
 			return NB_ERR_NOT_FOUND;
+		/* destroy dependant */
+		if (nb_node->dep_cbs.get_dependant_xpath) {
+			nb_node->dep_cbs.get_dependant_xpath(dnode, dep_xpath);
+
+			dep_dnode = yang_dnode_get(candidate->dnode, dep_xpath);
+			if (dep_dnode)
+				lyd_free(dep_dnode);
+		}
 		lyd_free(dnode);
 		break;
 	case NB_OP_MOVE:

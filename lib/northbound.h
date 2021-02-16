@@ -509,6 +509,11 @@ struct nb_callbacks {
 	void (*cli_show_end)(struct vty *vty, struct lyd_node *dnode);
 };
 
+struct nb_dependency_callbacks {
+	void (*get_dependant_xpath)(const struct lyd_node *dnode, char *xpath);
+	void (*get_dependency_xpath)(const struct lyd_node *dnode, char *xpath);
+};
+
 /*
  * Northbound-specific data that is allocated for each schema node of the native
  * YANG modules.
@@ -522,6 +527,8 @@ struct nb_node {
 
 	/* Priority - lower priorities are processed first. */
 	uint32_t priority;
+
+	struct nb_dependency_callbacks dep_cbs;
 
 	/* Callbacks implemented for this node. */
 	struct nb_callbacks cbs;
@@ -721,6 +728,12 @@ void nb_nodes_delete(void);
  *    Pointer to northbound node if found, NULL otherwise.
  */
 extern struct nb_node *nb_node_find(const char *xpath);
+
+extern void nb_node_set_dependency_cbs(const char *dependency_xpath,
+				       const char *dependant_xpath,
+				       struct nb_dependency_callbacks *cbs);
+
+bool nb_node_has_dependency(struct nb_node *node);
 
 /*
  * Create a new northbound configuration.
