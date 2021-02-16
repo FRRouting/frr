@@ -954,8 +954,11 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 			zlog_debug(
 				"Zebra rmap deny: IPv6 route %pFX nexthop %s",
 				p,
-				inet_ntop(AF_INET6, nexthop, buf[1],
-					  sizeof(buf[1])));
+				nexthop ? inet_ntop(AF_INET6, nexthop, buf[1],
+						    sizeof(buf[1]))
+					: inet_ntop(AF_INET,
+						    &path->attr->nexthop,
+						    buf[1], sizeof(buf[1])));
 		}
 	}
 	return false;
