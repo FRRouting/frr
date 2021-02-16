@@ -38,7 +38,7 @@ endif
 export PYTHON=python3
 
 %:
-	dh $@ $(DH_WITHOUT_SYSTEMD)
+	dh $@ $(DH_WITHOUT_SYSTEMD) --parallel
 
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
