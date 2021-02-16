@@ -52,6 +52,9 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #define VRF_ALL_CMD_HELP_STR    "Specify the VRF\nAll VRFs\n"
 #define VRF_FULL_CMD_HELP_STR   "Specify the VRF\nThe VRF name\nAll VRFs\n"
 
+#define FRR_VRF_XPATH "/frr-vrf:lib/vrf"
+#define FRR_VRF_KEY_XPATH "/frr-vrf:lib/vrf[name='%s']"
+
 /*
  * Pass some OS specific data up through
  * to the daemons
