@@ -169,8 +169,8 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 				   &msg->data.session.dst);
 		else
 			snprintfrr(addrs, sizeof(addrs), "src=%pI4 dst=%pI4",
-				   &msg->data.session.src,
-				   &msg->data.session.dst);
+				   (struct in_addr *)&msg->data.session.src,
+				   (struct in_addr *)&msg->data.session.dst);
 
 		buf[0] = 0;
 		if (flags & SESSION_CBIT)
