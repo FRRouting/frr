@@ -1976,8 +1976,11 @@ DEFUN (no_ipv6_ospf6_passive,
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_sso);
-	thread_add_event(master, ospf6_hello_send, oi, 0,
-			 &oi->thread_send_hello);
+
+	/* don't send hellos over loopback interface */
+	if (!if_is_loopback(oi->interface))
+		thread_add_event(master, ospf6_hello_send, oi, 0,
+				 &oi->thread_send_hello);
 
 	return CMD_SUCCESS;
 }
