@@ -288,8 +288,8 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 		proto = ZEBRA_ROUTE_BGP;
 		break;
 	case RTPROT_OSPF:
-		proto = (family == AFI_IP) ? ZEBRA_ROUTE_OSPF
-					   : ZEBRA_ROUTE_OSPF6;
+		proto = (family == AF_INET) ? ZEBRA_ROUTE_OSPF
+					    : ZEBRA_ROUTE_OSPF6;
 		break;
 	case RTPROT_ISIS:
 		proto = ZEBRA_ROUTE_ISIS;
