@@ -6,11 +6,6 @@ if BGPD
 noinst_LIBRARIES += bgpd/libbgp.a
 sbin_PROGRAMS += bgpd/bgpd
 noinst_PROGRAMS += bgpd/bgp_btoa
-dist_examples_DATA += \
-	bgpd/bgpd.conf.sample \
-	bgpd/bgpd.conf.sample2 \
-	bgpd/bgpd.conf.vnc.sample \
-	# end
 vtysh_scan += \
 	bgpd/bgp_bfd.c \
 	bgpd/bgp_debug.c \

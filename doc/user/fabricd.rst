@@ -60,7 +60,6 @@ in the configuration:
      
 .. clicmd:: set-overload-bit
 
-
    Set overload bit to avoid any transit traffic.
 
 .. clicmd:: purge-originator
@@ -256,9 +255,8 @@ Debugging OpenFabric
 
    Print which OpenFabric debug levels are active.
 
-
-OpenFabric configuration example
-================================
+Sample configuration
+====================
 
 A simple example:
 
@@ -281,3 +279,26 @@ A simple example:
    !
    router openfabric 1
     net 49.0000.0000.0001.00
+
+
+Alternative example:
+
+.. code-block:: frr
+
+   hostname fabricd
+
+   router openfabric DEAD
+     net 47.0023.0000.0003.0300.0100.0102.0304.0506.00
+     lsp-lifetime 65535
+
+     hostname isisd-router
+     domain-password foobar
+
+   interface eth0
+    ip router openfabric DEAD
+    openfabric hello-interval 5
+    openfabric lsp-interval 1000
+
+   ! -- optional
+   openfabric retransmit-interval 10
+   openfabric retransmit-throttle-interval

@@ -1,5 +1,0 @@
-password zebra
-!
-log stdout
-!
-line vty

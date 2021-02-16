@@ -183,3 +183,18 @@ Debug for EIGRP protocol.
    ``show debugging eigrp`` will show all information currently set for eigrpd
    debug.
 
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+   hostname eigrpd
+   password zebra
+   enable password please-set-at-here
+   !
+   router eigrp 4453
+     network 192.168.1.0/24
+   !
+   log stdout
+

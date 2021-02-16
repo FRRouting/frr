@@ -5,7 +5,6 @@
 if ISISD
 noinst_LIBRARIES += isisd/libisis.a
 sbin_PROGRAMS += isisd/isisd
-dist_examples_DATA += isisd/isisd.conf.sample
 vtysh_scan += \
 	isisd/isis_cli.c \
 	isisd/isis_ldp_sync.c \
@@ -26,7 +25,6 @@ endif
 if FABRICD
 noinst_LIBRARIES += isisd/libfabric.a
 sbin_PROGRAMS += isisd/fabricd
-dist_examples_DATA += isisd/fabricd.conf.sample
 if !ISISD
 vtysh_scan += \
 	isisd/isis_cli.c \

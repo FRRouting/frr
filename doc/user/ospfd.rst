@@ -280,7 +280,7 @@ To start OSPF process you have to specify the OSPF router.
 
    This command enables or disables sending ARP requests to update neighbor
    table entries. It speeds up convergence for /32 networks on a P2P
-   connection. 
+   connection.
 
    This feature is enabled by default.
 
@@ -1089,8 +1089,9 @@ Debugging OSPF
 
    Debug commnd to enable/disable external route summarisation specific debugs.
 
-OSPF Configuration Examples
-===========================
+
+Sample Configuration
+====================
 
 A simple example, with MD5 authentication enabled:
 

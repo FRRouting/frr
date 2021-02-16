@@ -5,7 +5,6 @@
 if PATHD
 noinst_LIBRARIES += pathd/libpath.a
 sbin_PROGRAMS += pathd/pathd
-dist_examples_DATA += pathd/pathd.conf.sample
 vtysh_scan += $(top_srcdir)/pathd/path_cli.c
 vtysh_daemons += pathd
 # TODO add man page

@@ -642,7 +642,7 @@ fi
 
 
 %files
-%doc */*.sample* COPYING
+%doc COPYING
 %doc doc/mpls
 %doc README.md
 /usr/share/yang/*.yang
@@ -654,9 +654,6 @@ fi
     %dir %attr(750,root,root) %{configdir}
     %dir %attr(750,root,root) %{_localstatedir}/log/frr
     %dir %attr(750,root,root) %{rundir}
-%endif
-%if 0%{?vty_group:1}
-    %attr(750,%{frr_user},%{vty_group}) %{configdir}/vtysh.conf.sample
 %endif
 %{_infodir}/frr.info.gz
 %{_mandir}/man*/*

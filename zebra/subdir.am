@@ -4,7 +4,6 @@
 
 if ZEBRA
 sbin_PROGRAMS += zebra/zebra
-dist_examples_DATA += zebra/zebra.conf.sample
 vtysh_scan += \
 	zebra/debug.c \
 	zebra/interface.c \

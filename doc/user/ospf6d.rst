@@ -243,8 +243,9 @@ Showing OSPF6 information
    JSON object, with each router having "cost", "isLeafNode" and "children" as
    arguments.
 
-OSPF6 Configuration Examples
-============================
+
+Sample configuration
+====================
 
 Example of ospf6d configured on one interface and area:
 
@@ -257,4 +258,54 @@ Example of ospf6d configured on one interface and area:
     ospf6 router-id 212.17.55.53
     area 0.0.0.0 range 2001:770:105:2::/64
     interface eth0 area 0.0.0.0
+   !
+
+
+Larger example with policy and various options set:
+
+
+.. code-block:: frr
+
+   debug ospf6 neighbor state
+   !
+   interface fxp0
+    ipv6 ospf6 cost 1
+    ipv6 ospf6 hello-interval 10
+    ipv6 ospf6 dead-interval 40
+    ipv6 ospf6 retransmit-interval 5
+    ipv6 ospf6 priority 0
+    ipv6 ospf6 transmit-delay 1
+    ipv6 ospf6 instance-id 0
+   !
+   interface lo0
+    ipv6 ospf6 cost 1
+    ipv6 ospf6 hello-interval 10
+    ipv6 ospf6 dead-interval 40
+    ipv6 ospf6 retransmit-interval 5
+    ipv6 ospf6 priority 1
+    ipv6 ospf6 transmit-delay 1
+    ipv6 ospf6 instance-id 0
+   !
+   router ospf6
+    router-id 255.1.1.1
+    redistribute static route-map static-ospf6
+    interface fxp0 area 0.0.0.0
+   !
+   access-list access4 permit 127.0.0.1/32
+   !
+   ipv6 access-list access6 permit 3ffe:501::/32
+   ipv6 access-list access6 permit 2001:200::/48
+   ipv6 access-list access6 permit ::1/128
+   !
+   ipv6 prefix-list test-prefix seq 1000 deny any
+   !
+   route-map static-ospf6 permit 10
+    match ipv6 address prefix-list test-prefix
+    set metric-type type-2
+    set metric 2000
+   !
+   line vty
+    access-class access4
+    ipv6 access-class access6
+    exec-timeout 0 0
    !

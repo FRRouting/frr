@@ -242,8 +242,9 @@ LDP debugging commands
    - ``messages``
    - ``zebra``
 
-LDP Example Configuration
-=========================
+
+Sample configuration
+====================
 
 Below configuration gives a typical MPLS configuration of a device located in a
 MPLS backbone. LDP is enabled on two interfaces and will attempt to peer with
@@ -305,4 +306,46 @@ that traffic to that destination will be applied.
    O>* 10.135.0.0/24 [110/110] via 10.115.0.1, eth2, label implicit-null, 00:00:15
    O>* 10.200.0.0/24 [110/210] via 10.115.0.1, eth2, label 17, 00:00:15
    north-vm#
+
+
+Additional example demonstrating use of some miscellaneous config options:
+
+.. code-block:: frr
+
+   interface eth0
+   !
+   interface eth1
+   !
+   interface lo
+   !
+   mpls ldp
+    dual-stack cisco-interop
+    neighbor 10.0.1.5 password opensourcerouting
+    neighbor 172.16.0.1 password opensourcerouting
+    !
+    address-family ipv4
+     discovery transport-address 10.0.1.1
+     label local advertise explicit-null
+     !
+     interface eth0
+     !
+     interface eth1
+     !
+    !
+    address-family ipv6
+     discovery transport-address 2001:db8::1
+     !
+     interface eth1
+     !
+    !
+   !
+   l2vpn ENG type vpls
+    bridge br0
+    member interface eth2
+    !
+    member pseudowire mpw0
+     neighbor lsr-id 1.1.1.1
+     pw-id 100
+    !
+   !
 

@@ -395,3 +395,52 @@ learned through BGP using route-maps:
   !
 
 In this case, the SR Policy with color `1` and endpoint `1.1.1.1` is selected.
+
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+   ! Default pathd configuration sample
+   !
+   password frr
+   log stdout
+
+   segment-routing
+    traffic-eng
+     segment-list test1
+      index 10 mpls label 123
+      index 20 mpls label 456
+     !
+     segment-list test2
+      index 10 mpls label 321
+      index 20 mpls label 654
+     !
+     policy color 1 endpoint 1.1.1.1
+      name one
+      binding-sid 100
+      candidate-path preference 100 name test1 explicit segment-list test1
+      candidate-path preference 200 name test2 explicit segment-list test2
+     !
+     policy color 2 endpoint 2.2.2.2
+      name two
+      binding-sid 101
+      candidate-path preference 100 name def explicit segment-list test2
+      candidate-path preference 200 name dyn dynamic
+       bandwidth 12345
+       metric bound abc 16 required
+       metric te 10
+      !
+     !
+     pcep
+      pcc-peer PCE1
+       address ip 127.0.0.1
+       sr-draft07
+      !
+      pcc
+       peer PCE1
+      !
+    !
+   !
+

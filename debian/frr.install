@@ -16,6 +16,5 @@ usr/lib/frr/*.sh
 usr/lib/frr/*d
 usr/lib/frr/watchfrr
 usr/lib/frr/zebra
-usr/share/doc/frr/examples
 usr/share/man/
 usr/share/yang/

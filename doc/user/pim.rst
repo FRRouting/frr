@@ -656,3 +656,34 @@ setup. This is existing PIM configuration:
 - Enable pim on the underlay L3 interface via the "ip pim" command.
 - Configure RPs for the BUM multicast group range.
 - Ensure the PIM is enabled on the lo of the VTEPs and the RP.
+
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+   debug igmp
+   debug pim
+   debug pim zebra
+
+   ! You may want to enable ssmpingd for troubleshooting
+   ! See http://www.venaas.no/multicast/ssmping/
+   !
+   ip ssmpingd 1.1.1.1
+   ip ssmpingd 2.2.2.2
+
+   ! HINTS:
+   !  - Enable "ip pim ssm" on the interface directly attached to the
+   !    multicast source host (if this is the first-hop router)
+   !  - Enable "ip pim ssm" on pim-routers-facing interfaces
+   !  - Enable "ip igmp" on IGMPv3-hosts-facing interfaces
+   !  - In order to inject IGMPv3 local membership information in the
+   !    PIM protocol state, enable both "ip pim ssm" and "ip igmp" on
+   !    the same interface; otherwise PIM won't advertise
+   !    IGMPv3-learned membership to other PIM routers
+
+   interface eth0
+    ip pim ssm
+    ip igmp
+
