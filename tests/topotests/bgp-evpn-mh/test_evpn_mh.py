@@ -482,7 +482,7 @@ def check_es(dut):
         curr_es_set.append(esi)
         types = es["type"]
         vtep_ips = []
-        for vtep in es["vteps"]:
+        for vtep in es.get("vteps", []):
             vtep_ips.append(vtep["vtep_ip"])
 
         if "local" in types:
@@ -513,7 +513,7 @@ def check_one_es(dut, esi, down_vteps):
     esi = es["esi"]
     types = es["type"]
     vtep_ips = []
-    for vtep in es["vteps"]:
+    for vtep in es.get("vteps", []):
         vtep_ips.append(vtep["vtep_ip"])
 
     if "local" in types:
@@ -593,10 +593,23 @@ def test_evpn_ead_update():
     # tgen.mininet_cli()
 
 
-def check_mac(dut, vni, mac, m_type, esi, intf):
+def ping_anycast_gw(tgen):
+    local_host = tgen.gears["hostd11"]
+    remote_host = tgen.gears["hostd21"]
+
+    # ping the anycast gw from the local and remote hosts to populate
+    # the mac address on the PEs
+    cmd_str = "arping -I torbond -c 1 45.0.0.1"
+    local_host.run(cmd_str)
+    remote_host.run(cmd_str)
+
+def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
     """
     checks if mac is present and if desination matches the one provided
     """
+
+    if ping_gw:
+        ping_anycast_gw(tgen)
 
     out = dut.vtysh_cmd("show evpn mac vni %d mac %s json" % (vni, mac))
 
@@ -627,11 +640,6 @@ def test_evpn_mac():
     tors.append(tgen.gears["torm11"])
     tors.append(tgen.gears["torm12"])
 
-    # ping the anycast gw from the local and remote hosts to populate
-    # the mac address on the PEs
-    local_host.run("arping -I torbond -c 1 45.0.0.1")
-    remote_host.run("arping -I torbond -c 1 45.0.0.1")
-
     vni = 1000
 
     # check if the rack-1 host MAC is present on all rack-1 PEs
@@ -642,7 +650,7 @@ def test_evpn_mac():
     intf = "hostbond1"
 
     for tor in tors:
-        test_fn = partial(check_mac, tor, vni, mac, m_type, esi, intf)
+        test_fn = partial(check_mac, tor, vni, mac, m_type, esi, intf, True, tgen)
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assertmsg = '"{}" local MAC content incorrect'.format(tor.name)
         assert result is None, assertmsg
