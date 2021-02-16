@@ -3887,6 +3887,8 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_RULE_ADD:
 			case DPLANE_OP_RULE_DELETE:
 			case DPLANE_OP_RULE_UPDATE:
+			case DPLANE_OP_IPTABLE_ADD:
+			case DPLANE_OP_IPTABLE_DELETE:
 				zebra_pbr_dplane_result(ctx);
 				break;
 

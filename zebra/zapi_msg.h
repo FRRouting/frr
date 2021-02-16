@@ -89,7 +89,7 @@ extern void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
 extern void
 zsend_ipset_entry_notify_owner(struct zebra_pbr_ipset_entry *ipset,
 			       enum zapi_ipset_entry_notify_owner note);
-extern void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
+extern void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 				       enum zapi_iptable_notify_owner note);
 extern bool zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 				   const unsigned int nexthop_num);

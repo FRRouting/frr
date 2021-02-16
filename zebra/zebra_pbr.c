@@ -542,6 +542,25 @@ void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
 			   __func__);
 }
 
+void zebra_pbr_process_iptable(struct zebra_dplane_ctx *ctx)
+{
+	int mode, ret = 0;
+	struct zebra_pbr_iptable ipt;
+
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_IPTABLE_ADD)
+		mode = 1;
+	else
+		mode = 0;
+
+	if (dplane_ctx_get_pbr_iptable(ctx, &ipt)) {
+		ret = hook_call(zebra_pbr_iptable_update, mode, &ipt);
+		if (ret)
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+	}
+	if (!ret)
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+}
+
 static void zebra_pbr_cleanup_rules(struct hash_bucket *b, void *data)
 {
 	struct zebra_pbr_rule *rule = b->data;
@@ -761,13 +780,8 @@ static void *pbr_iptable_alloc_intern(void *arg)
 
 void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable)
 {
-	int ret;
-
 	(void)hash_get(zrouter.iptable_hash, iptable, pbr_iptable_alloc_intern);
-	ret = hook_call(zebra_pbr_iptable_update, 1, iptable);
-	kernel_pbr_iptable_add_del_status(iptable,
-					  ret ? ZEBRA_DPLANE_INSTALL_SUCCESS
-					  : ZEBRA_DPLANE_INSTALL_FAILURE);
+	(void)dplane_pbr_iptable_add(iptable);
 }
 
 void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable)
@@ -775,7 +789,7 @@ void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable)
 	struct zebra_pbr_iptable *lookup;
 
 	lookup = hash_lookup(zrouter.iptable_hash, iptable);
-	hook_call(zebra_pbr_iptable_update, 0, iptable);
+	(void)dplane_pbr_iptable_delete(iptable);
 	if (lookup) {
 		struct listnode *node, *nnode;
 		char *name;
@@ -812,6 +826,16 @@ void zebra_pbr_dplane_result(struct zebra_dplane_ctx *ctx)
 		zsend_rule_notify_owner(ctx, res == ZEBRA_DPLANE_REQUEST_SUCCESS
 						     ? ZAPI_RULE_REMOVED
 						     : ZAPI_RULE_FAIL_REMOVE);
+	else if (op == DPLANE_OP_IPTABLE_ADD)
+		zsend_iptable_notify_owner(ctx,
+					   res == ZEBRA_DPLANE_REQUEST_SUCCESS
+						? ZAPI_IPTABLE_INSTALLED
+						: ZAPI_IPTABLE_FAIL_INSTALL);
+	else if (op == DPLANE_OP_IPTABLE_DELETE)
+		zsend_iptable_notify_owner(ctx,
+					   res == ZEBRA_DPLANE_REQUEST_SUCCESS
+						? ZAPI_IPTABLE_REMOVED
+						: ZAPI_IPTABLE_FAIL_REMOVE);
 	else
 		flog_err(
 			EC_ZEBRA_PBR_RULE_UPDATE,
@@ -869,32 +893,6 @@ void kernel_pbr_ipset_entry_add_del_status(
 	case ZEBRA_DPLANE_DELETE_FAILURE:
 		zsend_ipset_entry_notify_owner(ipset,
 					       ZAPI_IPSET_ENTRY_FAIL_REMOVE);
-		break;
-	case ZEBRA_DPLANE_STATUS_NONE:
-		break;
-	}
-}
-
-/*
- * Handle success or failure of ipset (un)install in the kernel.
- */
-void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
-				       enum zebra_dplane_status res)
-{
-	switch (res) {
-	case ZEBRA_DPLANE_INSTALL_SUCCESS:
-		zsend_iptable_notify_owner(iptable, ZAPI_IPTABLE_INSTALLED);
-		break;
-	case ZEBRA_DPLANE_INSTALL_FAILURE:
-		zsend_iptable_notify_owner(iptable, ZAPI_IPTABLE_FAIL_INSTALL);
-		break;
-	case ZEBRA_DPLANE_DELETE_SUCCESS:
-		zsend_iptable_notify_owner(iptable,
-					   ZAPI_IPTABLE_REMOVED);
-		break;
-	case ZEBRA_DPLANE_DELETE_FAILURE:
-		zsend_iptable_notify_owner(iptable,
-					   ZAPI_IPTABLE_FAIL_REMOVE);
 		break;
 	case ZEBRA_DPLANE_STATUS_NONE:
 		break;

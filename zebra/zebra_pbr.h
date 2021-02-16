@@ -177,6 +177,7 @@ void zebra_pbr_del_ipset_entry(struct zebra_pbr_ipset_entry *ipset);
 
 void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable);
 void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable);
+void zebra_pbr_process_iptable(struct zebra_dplane_ctx *ctx);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.
@@ -197,9 +198,6 @@ extern void kernel_pbr_ipset_add_del_status(struct zebra_pbr_ipset *ipset,
 extern void kernel_pbr_ipset_entry_add_del_status(
 				struct zebra_pbr_ipset_entry *ipset,
 				enum zebra_dplane_status res);
-
-extern void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
-			      enum zebra_dplane_status res);
 
 /*
  * Handle rule delete notification from kernel.

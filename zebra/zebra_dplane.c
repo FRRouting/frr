@@ -42,6 +42,7 @@
 DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
 DEFINE_MTYPE_STATIC(ZEBRA, DP_INTF, "Zebra DPlane Intf")
 DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider")
+DEFINE_MTYPE_STATIC(ZEBRA, DP_IFACE, "Zebra DPlane IFACE")
 
 #ifndef AOK
 #  define AOK 0
@@ -307,6 +308,7 @@ struct zebra_dplane_ctx {
 		struct dplane_mac_info macinfo;
 		struct dplane_neigh_info neigh;
 		struct dplane_rule_info rule;
+		struct zebra_pbr_iptable iptable;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -438,6 +440,8 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_update_yields;
 
+	_Atomic uint32_t dg_iptable_in;
+	_Atomic uint32_t dg_iptable_errors;
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
 
@@ -657,6 +661,23 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_BR_PORT_UPDATE:
 	case DPLANE_OP_NONE:
 		break;
+
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+		if (ctx->u.iptable.interface_name_list) {
+			struct listnode *node, *nnode;
+			char *ifname;
+
+			for (ALL_LIST_ELEMENTS(
+				     ctx->u.iptable.interface_name_list, node,
+				     nnode, ifname)) {
+				LISTNODE_DETACH(
+					ctx->u.iptable.interface_name_list,
+					node);
+				XFREE(MTYPE_DP_IFACE, ifname);
+			}
+			list_delete(&ctx->u.iptable.interface_name_list);
+		}
 	}
 }
 
@@ -894,6 +915,13 @@ const char *dplane_op2str(enum dplane_op_e op)
 
 	case DPLANE_OP_NEIGH_DISCOVER:
 		ret = "NEIGH_DISCOVER";
+		break;
+
+	case DPLANE_OP_IPTABLE_ADD:
+		ret = "IPTABLE_ADD";
+		break;
+	case DPLANE_OP_IPTABLE_DELETE:
+		ret = "IPTABLE_DELETE";
 		break;
 	}
 
@@ -1843,6 +1871,17 @@ dplane_ctx_get_br_port_backup_nhg_id(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.br_port.backup_nhg_id;
 }
 
+/* Accessors for PBR iptable information */
+bool
+dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
+			   struct zebra_pbr_iptable *table)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	memcpy(table, &ctx->u.iptable, sizeof(struct zebra_pbr_iptable));
+	return true;
+}
+
 /*
  * End of dplane context accessors
  */
@@ -2395,6 +2434,52 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 	if (op == DPLANE_OP_RULE_UPDATE)
 		dplane_ctx_rule_init_single(&ctx->u.rule.old, old_rule);
 
+	return AOK;
+}
+
+/**
+ * dplane_ctx_iptable_init() - Initialize a context block for a PBR iptable
+ * update.
+ *
+ * @ctx:		Dataplane context to init
+ * @op:			Operation being performed
+ * @new_rule:	PBR iptable
+ *
+ * Return:	Result status
+ */
+static int dplane_ctx_iptable_init(struct zebra_dplane_ctx *ctx,
+				   enum dplane_op_e op,
+				   struct zebra_pbr_iptable *iptable)
+{
+	char *ifname;
+	struct listnode *node;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug(
+			"init dplane ctx %s: Unique %u Fwmark %u Family %s Action %s",
+			dplane_op2str(op), iptable->unique, iptable->fwmark,
+			family2str(iptable->family),
+			iptable->action == ZEBRA_IPTABLES_DROP ? "Drop"
+							       : "Forward");
+	}
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
+	ctx->zd_is_update = false;
+
+	ctx->zd_vrf_id = iptable->vrf_id;
+	memcpy(&ctx->u.iptable, iptable, sizeof(struct zebra_pbr_iptable));
+	ctx->u.iptable.interface_name_list = NULL;
+	if (iptable->nb_interface > 0) {
+		ctx->u.iptable.interface_name_list = list_new();
+		for (ALL_LIST_ELEMENTS_RO(iptable->interface_name_list, node,
+					  ifname)) {
+			listnode_add(ctx->u.iptable.interface_name_list,
+				     XSTRDUP(MTYPE_DP_IFACE, ifname));
+		}
+	}
 	return AOK;
 }
 
@@ -3608,6 +3693,50 @@ enum zebra_dplane_result dplane_pbr_rule_update(struct zebra_pbr_rule *old_rule,
 {
 	return rule_update_internal(DPLANE_OP_RULE_UPDATE, new_rule, old_rule);
 }
+/*
+ * Common helper api for iptable updates
+ */
+static enum zebra_dplane_result
+iptable_update_internal(enum dplane_op_e op, struct zebra_pbr_iptable *iptable)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	int ret;
+
+	ctx = dplane_ctx_alloc();
+
+	ret = dplane_ctx_iptable_init(ctx, op, iptable);
+	if (ret != AOK)
+		goto done;
+
+	ret = dplane_update_enqueue(ctx);
+
+done:
+	atomic_fetch_add_explicit(&zdplane_info.dg_iptable_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_iptable_errors, 1,
+					  memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+enum zebra_dplane_result
+dplane_pbr_iptable_add(struct zebra_pbr_iptable *iptable)
+{
+	return iptable_update_internal(DPLANE_OP_IPTABLE_ADD, iptable);
+}
+
+enum zebra_dplane_result
+dplane_pbr_iptable_delete(struct zebra_pbr_iptable *iptable)
+{
+	return iptable_update_internal(DPLANE_OP_IPTABLE_DELETE, iptable);
+}
 
 /*
  * Handler for 'show dplane'
@@ -3693,6 +3822,12 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "Bridge port updates:      %" PRIu64 "\n", incoming);
 	vty_out(vty, "Bridge port errors:       %" PRIu64 "\n", errs);
 
+	incoming = atomic_load_explicit(&zdplane_info.dg_iptable_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_iptable_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "IPtable updates:             %" PRIu64 "\n", incoming);
+	vty_out(vty, "IPtable errors:              %" PRIu64 "\n", errs);
 	return CMD_SUCCESS;
 }
 
@@ -4103,6 +4238,15 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_NONE:
 		break;
+
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE: {
+		struct zebra_pbr_iptable ipt;
+
+		if (dplane_ctx_get_pbr_iptable(ctx, &ipt))
+			zlog_debug("Dplane iptable update op %s, unique(%u), ctx %p",
+				   dplane_op2str(dplane_ctx_get_op(ctx)), ipt.unique, ctx);
+	} break;
 	}
 }
 
@@ -4199,6 +4343,14 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 						  1, memory_order_relaxed);
 		break;
 
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(
+				&zdplane_info.dg_iptable_errors, 1,
+				memory_order_relaxed);
+		break;
+
 	/* Ignore 'notifications' - no-op */
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:
@@ -4213,6 +4365,13 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 						  1, memory_order_relaxed);
 		break;
 	}
+}
+
+static void kernel_dplane_process_iptable(struct zebra_dplane_provider *prov,
+					  struct zebra_dplane_ctx *ctx)
+{
+	zebra_pbr_process_iptable(ctx);
+	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
 /*
@@ -4236,11 +4395,14 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		ctx = dplane_provider_dequeue_in_ctx(prov);
 		if (ctx == NULL)
 			break;
-
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			kernel_dplane_log_detail(ctx);
 
-		TAILQ_INSERT_TAIL(&work_list, ctx, zd_q_entries);
+		if ((dplane_ctx_get_op(ctx) == DPLANE_OP_IPTABLE_ADD ||
+		     dplane_ctx_get_op(ctx) == DPLANE_OP_IPTABLE_DELETE))
+			kernel_dplane_process_iptable(prov, ctx);
+		else
+			TAILQ_INSERT_TAIL(&work_list, ctx, zd_q_entries);
 	}
 
 	kernel_update_multi(&work_list);
