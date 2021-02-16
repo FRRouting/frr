@@ -686,8 +686,8 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 	}
 
 	if (vty) {
-		snprintf(xpath_list, sizeof(xpath_list),
-			 "/frr-vrf:lib/vrf[name='%s']", vrfname);
+		snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH,
+			 vrfname);
 
 		nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
 		ret = nb_cli_apply_changes(vty, xpath_list);
@@ -821,8 +821,7 @@ DEFUN_YANG (no_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	snprintf(xpath_list, sizeof(xpath_list), "/frr-vrf:lib/vrf[name='%s']",
-		 vrfname);
+	snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH, vrfname);
 
 	nb_cli_enqueue_change(vty, xpath_list, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, xpath_list);
