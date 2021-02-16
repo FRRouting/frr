@@ -677,7 +677,10 @@ def generate_support_bundle():
     for rname, rnode in router_list.items():
         logger.info("Generating support bundle for {}".format(rname))
         rnode.run("mkdir -p /var/log/frr")
-        bundle_log = rnode.run("python2 /usr/lib/frr/generate_support_bundle.py")
+
+        # Support only python3 going forward
+        bundle_log = rnode.run("env python3 /usr/lib/frr/generate_support_bundle.py")
+
         logger.info(bundle_log)
 
         dst_bundle = "{}/{}/support_bundles/{}".format(TMPDIR, rname, test_name)
