@@ -64,6 +64,15 @@ struct zebra_pbr_rule {
  *
  * This is a filter mapped on ipset entries
  */
+struct zebra_pbr_ipset_info {
+	/* type is encoded as uint32_t
+	 * but value is an enum ipset_type
+	 */
+	uint32_t type;
+
+	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
+};
+
 struct zebra_pbr_ipset {
 	/*
 	 * Originating zclient sock fd, so we can know who to send
@@ -84,6 +93,7 @@ struct zebra_pbr_ipset {
 
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
+
 
 /*
  * An IPSet Entry Filter
@@ -178,6 +188,8 @@ void zebra_pbr_del_ipset_entry(struct zebra_pbr_ipset_entry *ipset);
 void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable);
 void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable);
 void zebra_pbr_process_iptable(struct zebra_dplane_ctx *ctx);
+void zebra_pbr_process_ipset(struct zebra_dplane_ctx *ctx);
+void zebra_pbr_process_ipset_entry(struct zebra_dplane_ctx *ctx);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.

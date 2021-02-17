@@ -866,64 +866,6 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
-void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
-			      enum zapi_ipset_notify_owner note)
-{
-	struct listnode *node;
-	struct zserv *client;
-	struct stream *s;
-
-	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __func__, ipset->unique);
-
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		if (ipset->sock == client->sock)
-			break;
-	}
-
-	if (!client)
-		return;
-
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-
-	zclient_create_header(s, cmd, VRF_DEFAULT);
-	stream_put(s, &note, sizeof(note));
-	stream_putl(s, ipset->unique);
-	stream_put(s, ipset->ipset_name, ZEBRA_IPSET_NAME_SIZE);
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	zserv_send_message(client, s);
-}
-
-void zsend_ipset_entry_notify_owner(struct zebra_pbr_ipset_entry *ipset,
-				    enum zapi_ipset_entry_notify_owner note)
-{
-	struct listnode *node;
-	struct zserv *client;
-	struct stream *s;
-
-	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __func__, ipset->unique);
-
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		if (ipset->sock == client->sock)
-			break;
-	}
-
-	if (!client)
-		return;
-
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-
-	zclient_create_header(s, ZEBRA_IPSET_ENTRY_NOTIFY_OWNER, VRF_DEFAULT);
-	stream_put(s, &note, sizeof(note));
-	stream_putl(s, ipset->unique);
-	stream_put(s, ipset->backpointer->ipset_name, ZEBRA_IPSET_NAME_SIZE);
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	zserv_send_message(client, s);
-}
-
 void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 				uint16_t note)
 {
@@ -953,6 +895,79 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_put(s, &note, sizeof(note));
 	stream_putl(s, ipt.unique);
+	stream_put(s, ipt.ipset_name, ZEBRA_IPSET_NAME_SIZE);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zserv_send_message(client, s);
+}
+
+void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx, uint16_t note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+	struct zebra_pbr_ipset ipset;
+	uint16_t cmd = ZEBRA_IPSET_NOTIFY_OWNER;
+
+	if (!dplane_ctx_get_pbr_ipset(ctx, &ipset))
+		return;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying %s id %u note %u", __func__,
+			   zserv_command_string(cmd), ipset.unique, note);
+
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+		if (ipset.sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, ipset.unique);
+	stream_put(s, ipset.ipset_name, ZEBRA_IPSET_NAME_SIZE);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zserv_send_message(client, s);
+}
+
+void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
+				    uint16_t note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+	struct zebra_pbr_ipset_entry ipent;
+	struct zebra_pbr_ipset ipset;
+	uint16_t cmd = ZEBRA_IPSET_ENTRY_NOTIFY_OWNER;
+
+	if (!dplane_ctx_get_pbr_ipset_entry(ctx, &ipent))
+		return;
+	if (!dplane_ctx_get_pbr_ipset(ctx, &ipset))
+		return;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying %s id %u note %u", __func__,
+			   zserv_command_string(cmd), ipent.unique, note);
+
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+		if (ipent.sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, ipent.unique);
+	stream_put(s, ipset.ipset_name, ZEBRA_IPSET_NAME_SIZE);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zserv_send_message(client, s);
