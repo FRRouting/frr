@@ -194,6 +194,17 @@ struct evpn_remote_ip {
 	struct list *macip_path_list;
 };
 
+/*
+ * Wrapper struct for l3 RT's
+ */
+struct vrf_route_target {
+	/* flags based on config to determine how RTs are handled */
+	uint8_t flags;
+#define BGP_VRF_RT_AUTO (1 << 0)
+
+	struct ecommunity *ecom;
+};
+
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
 {
 	return (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD));
@@ -590,7 +601,8 @@ extern struct zclient *zclient;
 extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf,
 						     afi_t afi, safi_t safi,
 						     bool add);
-extern void evpn_rt_delete_auto(struct bgp *, vni_t, struct list *);
+extern void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
+				bool is_l3);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
