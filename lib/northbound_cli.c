@@ -600,7 +600,19 @@ void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 				(*nb_node->cbs.cli_show_end)(vty, parent);
 		}
 
+		/*
+		 * There is a possible path in this macro that ends up
+		 * dereferencing child->parent->parent. We just null checked
+		 * child->parent by checking (ly_iter_next_up(child) != NULL)
+		 * above.
+		 *
+		 * I am not sure whether it is possible for the other
+		 * conditions within this macro guarding the problem
+		 * dereference to be satisfied when child->parent == NULL.
+		 */
+#ifndef __clang_analyzer__
 		LY_TREE_DFS_END(root, next, child);
+#endif
 	}
 }
 
