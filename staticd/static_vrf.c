@@ -261,25 +261,3 @@ void static_vrf_terminate(void)
 {
 	vrf_terminate();
 }
-
-struct static_vrf *static_vty_get_unknown_vrf(const char *vrf_name)
-{
-	struct static_vrf *svrf;
-	struct vrf *vrf;
-
-	svrf = static_vrf_lookup_by_name(vrf_name);
-
-	if (svrf)
-		return svrf;
-
-	vrf = vrf_get(VRF_UNKNOWN, vrf_name);
-	if (!vrf)
-		return NULL;
-	svrf = vrf->info;
-	if (!svrf)
-		return NULL;
-	/* Mark as having FRR configuration */
-	vrf_set_user_cfged(vrf);
-
-	return svrf;
-}

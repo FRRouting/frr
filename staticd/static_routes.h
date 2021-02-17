@@ -192,7 +192,7 @@ extern void static_del_path(struct route_node *rn, struct static_path *pn,
 			    safi_t safi, struct static_vrf *svrf);
 
 extern void static_get_nh_type(static_types stype, char *type, size_t size);
-extern bool static_add_nexthop_validate(struct static_vrf *svrf,
+extern bool static_add_nexthop_validate(const char *nh_vrf_name,
 					static_types type,
 					struct ipaddr *ipaddr);
 extern struct stable_info *static_get_stable_info(struct route_node *rn);
