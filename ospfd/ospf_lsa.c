@@ -469,6 +469,12 @@ char link_info_set(struct stream **s, struct in_addr id, struct in_addr data,
 }
 
 /* Describe Point-to-Point link (Section 12.4.1.1). */
+
+/* Note: If the interface is configured as point-to-point dmvpn then the other
+ * end of link is dmvpn hub with point-to-multipoint ospf network type. The
+ * hub then expects this router to populate the stub network and also Link Data
+ * Field set to IP Address and not MIB-II ifIndex
+ */
 static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 {
 	int links = 0;
@@ -482,7 +488,8 @@ static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 	if ((nbr = ospf_nbr_lookup_ptop(oi)))
 		if (nbr->state == NSM_Full) {
 			if (CHECK_FLAG(oi->connected->flags,
-				       ZEBRA_IFA_UNNUMBERED)) {
+				       ZEBRA_IFA_UNNUMBERED)
+			    && !oi->ptp_dmvpn) {
 				/* For unnumbered point-to-point networks, the
 				   Link Data field
 				   should specify the interface's MIB-II ifIndex
@@ -500,7 +507,8 @@ static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 		}
 
 	/* no need for a stub link for unnumbered interfaces */
-	if (!CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
+	if (oi->ptp_dmvpn
+	    || !CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
 		/* Regardless of the state of the neighboring router, we must
 		   add a Type 3 link (stub network).
 		   N.B. Options 1 & 2 share basically the same logic. */

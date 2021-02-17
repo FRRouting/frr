@@ -118,6 +118,9 @@ struct ospf_if_params {
 
 	/* MPLS LDP-IGP Sync configuration */
 	struct ldp_sync_info *ldp_sync_info;
+
+	/* point-to-point DMVPN configuration */
+	uint8_t ptp_dmvpn;
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -179,6 +182,9 @@ struct ospf_interface {
 
 	/* OSPF Network Type. */
 	uint8_t type;
+
+	/* point-to-point DMVPN configuration */
+	uint8_t ptp_dmvpn;
 
 	/* State of Interface State Machine. */
 	uint8_t state;
