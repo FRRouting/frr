@@ -138,20 +138,26 @@ void static_del_route(struct route_node *rn, safi_t safi,
 		vrf_reset_user_cfged(svrf->vrf);
 }
 
-bool static_add_nexthop_validate(struct static_vrf *svrf, static_types type,
+bool static_add_nexthop_validate(const char *nh_vrf_name, static_types type,
 				 struct ipaddr *ipaddr)
 {
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_name(nh_vrf_name);
+	if (!vrf)
+		return true;
+
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
 		if (if_lookup_exact_address(&ipaddr->ipaddr_v4, AF_INET,
-					    svrf->vrf->vrf_id))
+					    vrf->vrf_id))
 			return false;
 		break;
 	case STATIC_IPV6_GATEWAY:
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		if (if_lookup_exact_address(&ipaddr->ipaddr_v6, AF_INET6,
-					    svrf->vrf->vrf_id))
+					    vrf->vrf_id))
 			return false;
 		break;
 	default:
