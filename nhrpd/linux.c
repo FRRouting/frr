@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -42,7 +43,7 @@ int os_socket(void)
 }
 
 int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
-	       size_t addrlen)
+	       size_t addrlen, uint16_t protocol)
 {
 	struct sockaddr_ll lladdr;
 	struct iovec iov = {
@@ -61,16 +62,16 @@ int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
 
 	memset(&lladdr, 0, sizeof(lladdr));
 	lladdr.sll_family = AF_PACKET;
-	lladdr.sll_protocol = htons(ETH_P_NHRP);
+	lladdr.sll_protocol = htons(protocol);
 	lladdr.sll_ifindex = ifindex;
 	lladdr.sll_halen = addrlen;
 	memcpy(lladdr.sll_addr, addr, addrlen);
 
-	status = sendmsg(nhrp_socket_fd, &msg, 0);
+	status = sendmsg(os_socket(), &msg, 0);
 	if (status < 0)
-		return -1;
+		return -errno;
 
-	return 0;
+	return status;
 }
 
 int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,

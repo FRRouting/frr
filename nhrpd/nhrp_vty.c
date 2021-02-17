@@ -570,6 +570,53 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(if_nhrp_map_multicast, if_nhrp_map_multicast_cmd,
+	AFI_CMD " nhrp map multicast <A.B.C.D|X:X::X:X|dynamic>",
+	AFI_STR
+	NHRP_STR
+	"Multicast NBMA Configuration\n"
+	"Use this NBMA mapping for multicasts\n"
+	"IPv4 NBMA address\n"
+	"IPv6 NBMA address\n"
+	"Dynamically learn destinations from client registrations on hub\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	afi_t afi = cmd_to_afi(argv[0]);
+	union sockunion nbma_addr;
+	int ret;
+
+	if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)
+		sockunion_family(&nbma_addr) = AF_UNSPEC;
+
+	ret = nhrp_multicast_add(ifp, afi, &nbma_addr);
+
+	return nhrp_vty_return(vty, ret);
+}
+
+DEFUN(if_no_nhrp_map_multicast, if_no_nhrp_map_multicast_cmd,
+	"no " AFI_CMD " nhrp map multicast <A.B.C.D|X:X::X:X|dynamic>",
+	NO_STR
+	AFI_STR
+	NHRP_STR
+	"Multicast NBMA Configuration\n"
+	"Use this NBMA mapping for multicasts\n"
+	"IPv4 NBMA address\n"
+	"IPv6 NBMA address\n"
+	"Dynamically learn destinations from client registrations on hub\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	afi_t afi = cmd_to_afi(argv[1]);
+	union sockunion nbma_addr;
+	int ret;
+
+	if (str2sockunion(argv[5]->arg, &nbma_addr) < 0)
+		sockunion_family(&nbma_addr) = AF_UNSPEC;
+
+	ret = nhrp_multicast_del(ifp, afi, &nbma_addr);
+
+	return nhrp_vty_return(vty, ret);
+}
+
 DEFUN(if_nhrp_nhs, if_nhrp_nhs_cmd,
 	AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN>",
 	AFI_STR
@@ -1069,6 +1116,7 @@ static int interface_config_write(struct vty *vty)
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
 	struct nhrp_nhs *nhs;
+	struct nhrp_multicast *mcast;
 	const char *aficmd;
 	afi_t afi;
 	char buf[SU_ADDRSTRLEN];
@@ -1138,6 +1186,19 @@ static int interface_config_write(struct vty *vty)
 							  sizeof(buf)),
 					nhs->nbma_fqdn);
 			}
+
+			list_for_each_entry(mcast, &ad->mcastlist_head,
+					    list_entry)
+			{
+				vty_out(vty, " %s nhrp map multicast %s\n",
+					aficmd,
+					sockunion_family(&mcast->nbma_addr)
+							== AF_UNSPEC
+						? "dynamic"
+						: sockunion2str(
+							  &mcast->nbma_addr, buf,
+							  sizeof(buf)));
+			}
 		}
 
 		vty_endframe(vty, "!\n");
@@ -1192,6 +1253,8 @@ void nhrp_config_init(void)
 	install_element(INTERFACE_NODE, &if_no_nhrp_reg_flags_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_map_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_map_cmd);
+	install_element(INTERFACE_NODE, &if_nhrp_map_multicast_cmd);
+	install_element(INTERFACE_NODE, &if_no_nhrp_map_multicast_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_nhs_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_nhs_cmd);
 }

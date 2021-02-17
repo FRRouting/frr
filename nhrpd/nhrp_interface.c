@@ -42,6 +42,7 @@ static int nhrp_if_new_hook(struct interface *ifp)
 		struct nhrp_afi_data *ad = &nifp->afi[afi];
 		ad->holdtime = NHRPD_DEFAULT_HOLDTIME;
 		list_init(&ad->nhslist_head);
+		list_init(&ad->mcastlist_head);
 	}
 
 	return 0;
@@ -55,6 +56,7 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 
 	nhrp_cache_interface_del(ifp);
 	nhrp_nhs_interface_del(ifp);
+	nhrp_multicast_interface_del(ifp);
 	nhrp_peer_interface_del(ifp);
 
 	if (nifp->ipsec_profile)

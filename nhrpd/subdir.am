@@ -22,6 +22,7 @@ nhrpd_nhrpd_SOURCES = \
 	nhrpd/nhrp_nhs.c \
 	nhrpd/nhrp_packet.c \
 	nhrpd/nhrp_peer.c \
+	nhrpd/nhrp_multicast.c \
 	nhrpd/nhrp_route.c \
 	nhrpd/nhrp_shortcut.c \
 	nhrpd/nhrp_vc.c \
