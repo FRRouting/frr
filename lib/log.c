@@ -179,6 +179,9 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 	unw_word_t ip, off, sp;
 	Dl_info dlinfo;
 
+	memset(&uc, 0, sizeof(uc));
+	memset(&cursor, 0, sizeof(cursor));
+
 	unw_getcontext(&uc);
 	unw_init_local(&cursor, &uc);
 	while (unw_step(&cursor) > 0) {

@@ -681,11 +681,15 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
-		if (strcmp(ifp->name, bs->key.ifname))
+
+		if (bs->ifp != ifp)
 			continue;
+
 		/* Skip disabled sessions. */
-		if (bs->sock == -1)
+		if (bs->sock == -1) {
+			bs->ifp = NULL;
 			continue;
+		}
 
 		bfd_session_disable(bs);
 

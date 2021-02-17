@@ -205,14 +205,14 @@ static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	struct ospf_neighbor *nbr = NULL;
 	struct route_node *node;
 	struct route_node *n_node;
-	struct prefix p;
+	struct prefix p, src_p;
 	int status;
 	int old_status;
 	struct bfd_info *bfd_info;
 	struct timeval tv;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &p, NULL, &status,
-				NULL, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &p, &src_p, &status, NULL,
+				vrf_id);
 
 	if ((ifp == NULL) || (p.family != AF_INET))
 		return 0;

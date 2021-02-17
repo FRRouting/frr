@@ -1082,6 +1082,9 @@ static int valid_command(const char *cmd)
 {
 	char *p;
 
+	if (cmd == NULL)
+		return 0;
+
 	return ((p = strchr(cmd, '%')) != NULL) && (*(p + 1) == 's')
 	       && !strchr(p + 1, '%');
 }
@@ -1416,7 +1419,7 @@ int main(int argc, char **argv)
 		} break;
 		case OPTION_NETNS:
 			netns_en = true;
-			if (strchr(optarg, '/')) {
+			if (optarg && strchr(optarg, '/')) {
 				fprintf(stderr,
 					"invalid network namespace name \"%s\" (may not contain slashes)\n",
 					optarg);
