@@ -373,7 +373,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 	char buf1[INET6_ADDRSTRLEN];
 	char *ecom_str;
 	struct listnode *node, *nnode;
-	struct ecommunity *ecom;
+	struct vrf_route_target *l3rt;
 	json_object *json_import_rtl = NULL;
 	json_object *json_export_rtl = NULL;
 	char buf2[ETHER_ADDR_STRLEN];
@@ -434,8 +434,8 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 	if (!json)
 		vty_out(vty, "  Import Route Target:\n");
 
-	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_import_rtl, node, nnode, ecom)) {
-		ecom_str = ecommunity_ecom2str(ecom,
+	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_import_rtl, node, nnode, l3rt)) {
+		ecom_str = ecommunity_ecom2str(l3rt->ecom,
 					       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		if (json)
@@ -452,8 +452,8 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 	else
 		vty_out(vty, "  Export Route Target:\n");
 
-	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_export_rtl, node, nnode, ecom)) {
-		ecom_str = ecommunity_ecom2str(ecom,
+	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_export_rtl, node, nnode, l3rt)) {
+		ecom_str = ecommunity_ecom2str(l3rt->ecom,
 					       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		if (json)
@@ -928,7 +928,7 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 	char rt_buf[25];
 	char *ecom_str;
 	struct listnode *node, *nnode;
-	struct ecommunity *ecom;
+	struct vrf_route_target *l3rt;
 
 	if (!bgp->l3vni)
 		return;
@@ -971,8 +971,8 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 			prefix_rd2str(&bgp->vrf_prd, buf2, RD_ADDRSTRLEN));
 	}
 
-	for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode, ecom)) {
-		ecom_str = ecommunity_ecom2str(ecom,
+	for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode, l3rt)) {
+		ecom_str = ecommunity_ecom2str(l3rt->ecom,
 					       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		if (json) {
@@ -999,8 +999,8 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 	if (json)
 		json_object_object_add(json_vni, "importRTs", json_import_rtl);
 
-	for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode, ecom)) {
-		ecom_str = ecommunity_ecom2str(ecom,
+	for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode, l3rt)) {
+		ecom_str = ecommunity_ecom2str(l3rt->ecom,
 					       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		if (json) {
@@ -2009,12 +2009,12 @@ DEFUN(no_evpnrt5_network,
 
 static void evpn_import_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	evpn_rt_delete_auto(bgp, vpn->vni, vpn->import_rtl);
+	evpn_rt_delete_auto(bgp, vpn->vni, vpn->import_rtl, false);
 }
 
 static void evpn_export_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	evpn_rt_delete_auto(bgp, vpn->vni, vpn->export_rtl);
+	evpn_rt_delete_auto(bgp, vpn->vni, vpn->export_rtl, false);
 }
 
 /*
@@ -5698,18 +5698,35 @@ DEFUN (no_bgp_evpn_vni_rd_without_val,
  * Loop over all extended-communities in the route-target list rtl and
  * return 1 if we find ecomtarget
  */
-static int bgp_evpn_rt_matches_existing(struct list *rtl,
-					struct ecommunity *ecomtarget)
+static bool bgp_evpn_rt_matches_existing(struct list *rtl,
+					 struct ecommunity *ecomtarget)
 {
-	struct listnode *node, *nnode;
+	struct listnode *node;
 	struct ecommunity *ecom;
 
-	for (ALL_LIST_ELEMENTS(rtl, node, nnode, ecom)) {
+	for (ALL_LIST_ELEMENTS_RO(rtl, node, ecom)) {
 		if (ecommunity_match(ecom, ecomtarget))
-			return 1;
+			return true;
 	}
 
-	return 0;
+	return false;
+}
+
+/*
+ * L3 RT version of above.
+ */
+static bool bgp_evpn_vrf_rt_matches_existing(struct list *rtl,
+					     struct ecommunity *ecomtarget)
+{
+	struct listnode *node;
+	struct vrf_route_target *l3rt;
+
+	for (ALL_LIST_ELEMENTS_RO(rtl, node, l3rt)) {
+		if (ecommunity_match(l3rt->ecom, ecomtarget))
+			return true;
+	}
+
+	return false;
 }
 
 /* display L3VNI related info for a VRF instance */
@@ -5730,7 +5747,7 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	struct bgp *bgp = NULL;
 	struct listnode *node = NULL;
 	struct bgpevpn *vpn = NULL;
-	struct ecommunity *ecom = NULL;
+	struct vrf_route_target *l3rt;
 	json_object *json = NULL;
 	json_object *json_vnis = NULL;
 	json_object *json_export_rts = NULL;
@@ -5780,13 +5797,13 @@ DEFUN (show_bgp_vrf_l3vni_info,
 		vty_out(vty, "\n");
 		vty_out(vty, "  Export-RTs:\n");
 		vty_out(vty, "    ");
-		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_export_rtl, node, ecom))
-			vty_out(vty, "%s  ", ecommunity_str(ecom));
+		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_export_rtl, node, l3rt))
+			vty_out(vty, "%s  ", ecommunity_str(l3rt->ecom));
 		vty_out(vty, "\n");
 		vty_out(vty, "  Import-RTs:\n");
 		vty_out(vty, "    ");
-		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_import_rtl, node, ecom))
-			vty_out(vty, "%s  ", ecommunity_str(ecom));
+		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_import_rtl, node, l3rt))
+			vty_out(vty, "%s  ", ecommunity_str(l3rt->ecom));
 		vty_out(vty, "\n");
 		vty_out(vty, "  RD: %s\n",
 			prefix_rd2str(&bgp->vrf_prd, buf1, RD_ADDRSTRLEN));
@@ -5811,17 +5828,19 @@ DEFUN (show_bgp_vrf_l3vni_info,
 		json_object_object_add(json, "l2vnis", json_vnis);
 
 		/* export rts */
-		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_export_rtl, node, ecom))
+		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_export_rtl, node, l3rt))
 			json_object_array_add(
 				json_export_rts,
-				json_object_new_string(ecommunity_str(ecom)));
+				json_object_new_string(
+					ecommunity_str(l3rt->ecom)));
 		json_object_object_add(json, "export-rts", json_export_rts);
 
 		/* import rts */
-		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_import_rtl, node, ecom))
+		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_import_rtl, node, l3rt))
 			json_object_array_add(
 				json_import_rts,
-				json_object_new_string(ecommunity_str(ecom)));
+				json_object_new_string(
+					ecommunity_str(l3rt->ecom)));
 		json_object_object_add(json, "import-rts", json_import_rts);
 		json_object_string_add(
 			json, "rd",
@@ -5837,12 +5856,14 @@ static int add_rt(struct bgp *bgp, struct ecommunity *ecom, bool is_import)
 {
 	/* Do nothing if we already have this route-target */
 	if (is_import) {
-		if (!bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl, ecom))
+		if (!bgp_evpn_vrf_rt_matches_existing(bgp->vrf_import_rtl,
+						      ecom))
 			bgp_evpn_configure_import_rt_for_vrf(bgp, ecom);
 		else
 			return -1;
 	} else {
-		if (!bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl, ecom))
+		if (!bgp_evpn_vrf_rt_matches_existing(bgp->vrf_export_rtl,
+						      ecom))
 			bgp_evpn_configure_export_rt_for_vrf(bgp, ecom);
 		else
 			return -1;
@@ -5855,12 +5876,14 @@ static int del_rt(struct bgp *bgp, struct ecommunity *ecom, bool is_import)
 {
 	/* Verify we already have this route-target */
 	if (is_import) {
-		if (!bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl, ecom))
+		if (!bgp_evpn_vrf_rt_matches_existing(bgp->vrf_import_rtl,
+						      ecom))
 			return -1;
 
 		bgp_evpn_unconfigure_import_rt_for_vrf(bgp, ecom);
 	} else {
-		if (!bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl, ecom))
+		if (!bgp_evpn_vrf_rt_matches_existing(bgp->vrf_export_rtl,
+						      ecom))
 			return -1;
 
 		bgp_evpn_unconfigure_export_rt_for_vrf(bgp, ecom);
@@ -6532,12 +6555,12 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
 		char *ecom_str;
 		struct listnode *node, *nnode;
-		struct ecommunity *ecom;
+		struct vrf_route_target *l3rt;
 
 		for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode,
-				       ecom)) {
+				       l3rt)) {
 			ecom_str = ecommunity_ecom2str(
-				ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				l3rt->ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 			vty_out(vty, "  route-target import %s\n", ecom_str);
 			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
 		}
@@ -6547,12 +6570,12 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
 		char *ecom_str;
 		struct listnode *node, *nnode;
-		struct ecommunity *ecom;
+		struct vrf_route_target *l3rt;
 
 		for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode,
-				       ecom)) {
+				       l3rt)) {
 			ecom_str = ecommunity_ecom2str(
-				ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				l3rt->ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 			vty_out(vty, "  route-target export %s\n", ecom_str);
 			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
 		}
