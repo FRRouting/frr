@@ -62,8 +62,8 @@ static void nhrp_multicast_forward_nbma(union sockunion *nbma_addr, struct inter
 	if(p && p->online) {
 		/* Send packet */
 		nhrp_multicast_send(p, pkt);
-		nhrp_peer_unref(p);
 	}
+	nhrp_peer_unref(p);
 }
 
 static void nhrp_multicast_forward_cache(struct nhrp_cache *c, void *pctx)
