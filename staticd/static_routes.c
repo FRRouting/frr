@@ -509,6 +509,8 @@ static void static_enable_vrf(struct static_vrf *svrf,
 					else
 						continue;
 				}
+				if (nh->nh_vrf_id == VRF_UNKNOWN)
+					continue;
 				static_install_path(rn, pn, safi, svrf);
 			}
 		}
