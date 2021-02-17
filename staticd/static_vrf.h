@@ -45,5 +45,4 @@ struct route_table *static_vrf_static_table(afi_t afi, safi_t safi,
 					    struct static_vrf *svrf);
 extern void static_vrf_terminate(void);
 
-struct static_vrf *static_vty_get_unknown_vrf(const char *vrf_name);
 #endif
