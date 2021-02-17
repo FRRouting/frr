@@ -49,6 +49,7 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_trace.h"
 
 static void bmp_close(struct bmp *bmp);
 static struct bmp_bgp *bmp_bgp_find(struct bgp *bgp);
@@ -554,6 +555,8 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 	struct bmp_targets *bt;
 	struct bmp *bmp;
 
+	frrtrace(3, frr_bgp, bmp_mirror_packet, peer, type, packet);
+
 	gettimeofday(&tv, NULL);
 
 	if (type == BGP_MSG_OPEN) {
@@ -671,6 +674,8 @@ static int bmp_outgoing_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 		struct stream *packet)
 {
 	if (type == BGP_MSG_OPEN) {
+		frrtrace(2, frr_bgp, bmp_update_saved_open, peer, packet);
+
 		struct bmp_bgp_peer *bbpeer = bmp_bgp_peer_get(peer);
 
 		XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
@@ -685,6 +690,8 @@ static int bmp_outgoing_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 static int bmp_peer_established(struct peer *peer)
 {
 	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
+
+	frrtrace(1, frr_bgp, bmp_peer_status_changed, peer);
 
 	if (!bmpbgp)
 		return 0;
@@ -721,6 +728,8 @@ static int bmp_peer_backward(struct peer *peer)
 	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
 	struct bmp_bgp_peer *bbpeer;
 
+	frrtrace(1, frr_bgp, bmp_peer_backward_transition, peer);
+
 	if (!bmpbgp)
 		return 0;
 
@@ -743,6 +752,8 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
 	struct stream *s, *s2;
 	iana_afi_t pkt_afi;
 	iana_safi_t pkt_safi;
+
+	frrtrace(3, frr_bgp, bmp_eor, afi, safi, flags);
 
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
@@ -1259,6 +1270,14 @@ static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
 	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
 	struct bmp_targets *bt;
 	struct bmp *bmp;
+
+	if (frrtrace_enabled(frr_bgp, bmp_process)) {
+		char pfxprint[PREFIX2STR_BUFFER];
+
+		prefix2str(&bn->p, pfxprint, sizeof(pfxprint));
+		frrtrace(5, frr_bgp, bmp_process, peer, pfxprint, afi, safi,
+			 withdraw);
+	}
 
 	if (!bmpbgp)
 		return 0;

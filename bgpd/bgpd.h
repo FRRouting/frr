@@ -995,6 +995,8 @@ enum bgp_fsm_status {
 	BGP_STATUS_MAX,
 };
 
+#define PEER_HOSTNAME(peer) ((peer)->host ? (peer)->host : "(unknown peer)")
+
 /* BGP neighbor structure. */
 struct peer {
 	/* BGP structure.  */
