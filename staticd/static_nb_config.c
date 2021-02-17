@@ -140,7 +140,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 		pn = nb_running_get_entry(args->dnode, NULL, true);
 		rn = nb_running_get_entry(rn_dnode, NULL, true);
 
-		if (!static_add_nexthop_validate(info->svrf, nh_type, &ipaddr))
+		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
 				"Warning!! Local connected address is configured as Gateway IP((%s))",
