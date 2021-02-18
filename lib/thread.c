@@ -909,14 +909,13 @@ struct thread *_thread_add_read_write(const struct xref_threadsched *xref,
 static struct thread *
 _thread_add_timer_timeval(const struct xref_threadsched *xref,
 			  struct thread_master *m, int (*func)(struct thread *),
-			  int type, void *arg, struct timeval *time_relative,
+			  void *arg, struct timeval *time_relative,
 			  struct thread **t_ptr)
 {
 	struct thread *thread;
 
 	assert(m != NULL);
 
-	assert(type == THREAD_TIMER);
 	assert(time_relative);
 
 	frrtrace(9, frr_libfrr, schedule_timer, m,
@@ -928,7 +927,7 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 			/* thread is already scheduled; don't reschedule */
 			return NULL;
 
-		thread = thread_get(m, type, func, arg, xref);
+		thread = thread_get(m, THREAD_TIMER, func, arg, xref);
 
 		frr_with_mutex(&thread->mtx) {
 			monotime(&thread->u.sands);
@@ -961,8 +960,7 @@ struct thread *_thread_add_timer(const struct xref_threadsched *xref,
 	trel.tv_sec = timer;
 	trel.tv_usec = 0;
 
-	return _thread_add_timer_timeval(xref, m, func, THREAD_TIMER, arg,
-					 &trel, t_ptr);
+	return _thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
 }
 
 /* Add timer event thread with "millisecond" resolution */
@@ -979,19 +977,17 @@ struct thread *_thread_add_timer_msec(const struct xref_threadsched *xref,
 	trel.tv_sec = timer / 1000;
 	trel.tv_usec = 1000 * (timer % 1000);
 
-	return _thread_add_timer_timeval(xref, m, func, THREAD_TIMER, arg,
-					 &trel, t_ptr);
+	return _thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
 }
 
-/* Add timer event thread with "millisecond" resolution */
+/* Add timer event thread with "timeval" resolution */
 struct thread *_thread_add_timer_tv(const struct xref_threadsched *xref,
 				    struct thread_master *m,
 				    int (*func)(struct thread *),
 				    void *arg, struct timeval *tv,
 				    struct thread **t_ptr)
 {
-	return _thread_add_timer_timeval(xref, m, func, THREAD_TIMER, arg, tv,
-					 t_ptr);
+	return _thread_add_timer_timeval(xref, m, func, arg, tv, t_ptr);
 }
 
 /* Add simple event thread. */
