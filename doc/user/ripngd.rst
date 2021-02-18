@@ -47,11 +47,6 @@ Currently ripngd supports the following commands:
 
    Set RIPng static routing announcement of NETWORK.
 
-.. index:: router zebra
-.. clicmd:: router zebra
-
-   This command is the default and does not appear in the configuration. With
-   this statement, RIPng routes go to the *zebra* daemon.
 
 .. _ripngd-terminal-mode-commands:
 

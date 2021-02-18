@@ -29,11 +29,8 @@ OSPF6 router
    Bind interface to specified area, and start sending OSPF packets. `area` can
    be specified as 0.
 
-.. index:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
-.. clicmd:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
-
-.. index:: timers throttle spf
-.. clicmd:: no timers throttle spf
+.. index:: timers throttle spf (0-600000) (0-600000) (0-600000)
+.. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
    This command sets the initial `delay`, the `initial-holdtime`
    and the `maximum-holdtime` between when SPF is calculated and the
@@ -154,14 +151,10 @@ Usage of *ospfd6*'s route-map support.
 Redistribute routes to OSPF6
 ============================
 
-.. index:: redistribute static
-.. clicmd:: redistribute static
+.. index:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ripng|sharp|static|table> [route-map WORD]
+.. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ripng|sharp|static|table> [route-map WORD]
 
-.. index:: redistribute connected
-.. clicmd:: redistribute connected
-
-.. index:: redistribute ripng
-.. clicmd:: redistribute ripng
+   Redistribute routes from other protocols into OSPFv3.
 
 
 .. _showing-ospf6-information:

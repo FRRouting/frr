@@ -1264,35 +1264,10 @@ Route Aggregation-IPv6 Address Family
 Redistribution
 --------------
 
-.. index:: redistribute kernel
-.. clicmd:: redistribute kernel
+.. index:: redistribute <babel|connected|eigrp|isis|kernel|openfabric|ospf|rip|sharp|static|table> [(1-65535)] [metric (0-4294967295)] [route-map WORD]
+.. index:: redistribute <babel|connected|eigrp|isis|kernel|openfabric|ospf|rip|sharp|static|table> [(1-65535)] [metric (0-4294967295)] [route-map WORD]
 
-   Redistribute kernel route to BGP process.
-
-.. index:: redistribute static
-.. clicmd:: redistribute static
-
-   Redistribute static route to BGP process.
-
-.. index:: redistribute connected
-.. clicmd:: redistribute connected
-
-   Redistribute connected route to BGP process.
-
-.. index:: redistribute rip
-.. clicmd:: redistribute rip
-
-   Redistribute RIP route to BGP process.
-
-.. index:: redistribute ospf
-.. clicmd:: redistribute ospf
-
-   Redistribute OSPF route to BGP process.
-
-.. index:: redistribute vnc
-.. clicmd:: redistribute vnc
-
-   Redistribute VNC routes to BGP process.
+   Redistribute routes from other protocols into BGP.
 
 .. index:: redistribute vnc-direct
 .. clicmd:: redistribute vnc-direct

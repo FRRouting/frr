@@ -650,6 +650,7 @@ unicast topology!
       what the default behavior is.
 
 .. warning::
+
    Unreachable routes do not receive special treatment and do not cause
    fallback to a second lookup.
 

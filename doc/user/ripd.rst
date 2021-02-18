@@ -232,89 +232,18 @@ discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
 
    Default: Accept packets according to the global setting (both 1 and 2).
 
+
 .. _how-to-announce-rip-route:
 
 How to Announce RIP route
 =========================
 
-.. index:: redistribute kernel
-.. clicmd:: redistribute kernel
+.. index:: redistribute <babel|bgp|connected|eigrp|isis|kernel|openfabric|ospf|sharp|static|table> [metric (0-16)] [route-map WORD]
+.. clicmd:: redistribute <babel|bgp|connected|eigrp|isis|kernel|openfabric|ospf|sharp|static|table> [metric (0-16)] [route-map WORD]
 
-.. index:: redistribute kernel metric (0-16)
-.. clicmd:: redistribute kernel metric (0-16)
+   Redistribute routes from other sources into RIP.
 
-.. index:: redistribute kernel route-map ROUTE-MAP
-.. clicmd:: redistribute kernel route-map ROUTE-MAP
-
-.. index:: redistribute kernel
-.. clicmd:: no redistribute kernel
-
-   `redistribute kernel` redistributes routing information from kernel route
-   entries into the RIP tables. `no redistribute kernel` disables the routes.
-
-.. index:: redistribute static
-.. clicmd:: redistribute static
-
-.. index:: redistribute static metric (0-16)
-.. clicmd:: redistribute static metric (0-16)
-
-.. index:: redistribute static route-map ROUTE-MAP
-.. clicmd:: redistribute static route-map ROUTE-MAP
-
-.. index:: redistribute static
-.. clicmd:: no redistribute static
-
-   `redistribute static` redistributes routing information from static route
-   entries into the RIP tables. `no redistribute static` disables the routes.
-
-.. index:: redistribute connected
-.. clicmd:: redistribute connected
-
-.. index:: redistribute connected metric (0-16)
-.. clicmd:: redistribute connected metric (0-16)
-
-.. index:: redistribute connected route-map ROUTE-MAP
-.. clicmd:: redistribute connected route-map ROUTE-MAP
-
-.. index:: redistribute connected
-.. clicmd:: no redistribute connected
-
-   Redistribute connected routes into the RIP tables. `no redistribute
-   connected` disables the connected routes in the RIP tables.  This command
-   redistribute connected of the interface which RIP disabled.  The connected
-   route on RIP enabled interface is announced by default.
-
-.. index:: redistribute ospf
-.. clicmd:: redistribute ospf
-
-.. index:: redistribute ospf metric (0-16)
-.. clicmd:: redistribute ospf metric (0-16)
-
-.. index:: redistribute ospf route-map ROUTE-MAP
-.. clicmd:: redistribute ospf route-map ROUTE-MAP
-
-.. index:: redistribute ospf
-.. clicmd:: no redistribute ospf
-
-   `redistribute ospf` redistributes routing information from ospf route
-   entries into the RIP tables. `no redistribute ospf` disables the routes.
-
-.. index:: redistribute bgp
-.. clicmd:: redistribute bgp
-
-.. index:: redistribute bgp metric (0-16)
-.. clicmd:: redistribute bgp metric (0-16)
-
-.. index:: redistribute bgp route-map ROUTE-MAP
-.. clicmd:: redistribute bgp route-map ROUTE-MAP
-
-.. index:: redistribute bgp
-.. clicmd:: no redistribute bgp
-
-   `redistribute bgp` redistributes routing information from bgp route entries
-   into the RIP tables. `no redistribute bgp` disables the routes.
-
-   If you want to specify RIP only static routes:
+If you want to specify RIP only static routes:
 
 .. index:: default-information originate
 .. clicmd:: default-information originate
@@ -407,10 +336,10 @@ RIP distance
 
 Distance value is used in zebra daemon. Default RIP distance is 120.
 
-.. index:: distance (1-255)
+.. index:: RIP - distance (1-255)
 .. clicmd:: distance (1-255)
 
-.. index:: distance (1-255)
+.. index:: RIP - distance (1-255)
 .. clicmd:: no distance (1-255)
 
    Set default RIP distance to specified value.

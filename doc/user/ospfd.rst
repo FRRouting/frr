@@ -180,9 +180,6 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: timers throttle spf (0-600000) (0-600000) (0-600000)
 .. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
-.. index:: timers throttle spf
-.. clicmd:: no timers throttle spf
-
    This command sets the initial `delay`, the `initial-holdtime`
    and the `maximum-holdtime` between when SPF is calculated and the
    event which triggered the calculation. The times are specified in
@@ -755,34 +752,10 @@ Usage of *ospfd*'s route-map support.
 Redistribution
 --------------
 
-.. index:: redistribute (kernel|connected|static|rip|bgp)
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp)
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) ROUTE-MAP
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) ROUTE-MAP
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2)
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2)
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) route-map WORD
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) route-map WORD
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric (0-16777214)
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric (0-16777214)
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric (0-16777214) route-map WORD
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric (0-16777214) route-map WORD
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214)
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214)
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214) route-map WORD
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214) route-map WORD
-
-.. index:: redistribute (kernel|connected|static|rip|bgp)
-.. clicmd:: no redistribute (kernel|connected|static|rip|bgp)
-
 .. _ospf-redistribute:
+
+.. index:: redistribute <babel|bgp|connected|eigrp|isis|kernel|openfabric|ospf|rip|sharp|static|table> [metric-type (1-2)] [metric (0-16777214)] [route-map WORD]
+.. clicmd:: redistribute <babel|bgp|connected|eigrp|isis|kernel|openfabric|ospf|rip|sharp|static|table> [metric-type (1-2)] [metric (0-16777214)] [route-map WORD]
 
    Redistribute routes of the specified protocol or kind into OSPF, with the
    metric type and metric set if specified, filtering the routes using the
@@ -864,11 +837,6 @@ Redistribution
 .. index:: distance ospf
 .. clicmd:: no distance ospf
 
-.. index:: router zebra
-.. clicmd:: router zebra
-
-.. index:: router zebra
-.. clicmd:: no router zebra
 
 Graceful Restart Helper
 =======================

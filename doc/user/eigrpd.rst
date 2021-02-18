@@ -123,67 +123,21 @@ EIGRP Configuration
 How to Announce EIGRP route
 ===========================
 
-.. index:: redistribute kernel
-.. clicmd:: redistribute kernel
+Redistribute routes into EIGRP:
 
-.. index:: redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
+.. index:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ospf|rip|sharp|static|table> [metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)]
+.. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ospf|rip|sharp|static|table> [metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)]
 
-.. index:: redistribute kernel
-.. clicmd:: no redistribute kernel
+   The ``redistribute`` family of commands imports routing information from
+   other sources into EIGRP's tables. Redistribution may be disabled with the
+   ``no`` form of the commands.
 
-   `redistribute kernel` redistributes routing information from kernel route
-   entries into the EIGRP tables. `no redistribute kernel` disables the routes.
+   Note that connected routes on interfaces EIGRP is enabled on are announced
+   by default.
 
-.. index:: redistribute static
-.. clicmd:: redistribute static
+   Optionally, various EIGRP metrics may be specified. These metrics will be
+   applied to the imported routes.
 
-.. index:: redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-
-.. index:: redistribute static
-.. clicmd:: no redistribute static
-
-   `redistribute static` redistributes routing information from static route
-   entries into the EIGRP tables. `no redistribute static` disables the routes.
-
-.. index:: redistribute connected
-.. clicmd:: redistribute connected
-
-.. index:: redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-
-.. index:: redistribute connected
-.. clicmd:: no redistribute connected
-
-   Redistribute connected routes into the EIGRP tables. `no redistribute
-   connected` disables the connected routes in the EIGRP tables. This command
-   redistribute connected of the interface which EIGRP disabled. The connected
-   route on EIGRP enabled interface is announced by default.
-
-.. index:: redistribute ospf
-.. clicmd:: redistribute ospf
-
-.. index:: redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-
-.. index:: redistribute ospf
-.. clicmd:: no redistribute ospf
-
-   `redistribute ospf` redistributes routing information from ospf route
-   entries into the EIGRP tables. `no redistribute ospf` disables the routes.
-
-.. index:: redistribute bgp
-.. clicmd:: redistribute bgp
-
-.. index:: redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-
-.. index:: redistribute bgp
-.. clicmd:: no redistribute bgp
-
-   `redistribute bgp` redistributes routing information from bgp route entries
-   into the EIGRP tables. `no redistribute bgp` disables the routes.
 
 .. _show-eigrp-information:
 

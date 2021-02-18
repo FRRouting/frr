@@ -214,11 +214,6 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    command will not do anything if you do not have the underlying ability
    of a mlag implementation.
 
-.. index:: ip pim bfd
-.. clicmd:: ip pim bfd
-
-   Turns on BFD support for PIM for this interface.
-
 .. index:: ip pim bsm
 .. clicmd:: ip pim bsm
 
@@ -312,6 +307,12 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set a static multicast route for a traffic coming on the current interface to
    be forwarded on the given interface if the traffic matches the group address
    and optionally the source address.
+
+
+.. seealso::
+
+   :ref:`bfd-pim-peer-config`
+
 
 .. _pim-multicast-rib-insertion:
 
@@ -608,11 +609,6 @@ cause great confusion.
 
    Display all fragments ofstored bootstrap message in user readable format.
 
-.. index:: show ip rpf
-.. clicmd:: show ip rpf
-
-   Display the multicast RIB created in zebra.
-
 .. index:: mtrace A.B.C.D [A.B.C.D]
 .. clicmd:: mtrace A.B.C.D [A.B.C.D]
 
@@ -627,6 +623,12 @@ cause great confusion.
 .. clicmd:: show ip multicast count vrf all [json]
 
    Display multicast data packets count per interface for all vrf.
+
+
+.. seealso::
+
+   :ref:`multicast-rib-commands`
+
 
 PIM Debug Commands
 ==================
