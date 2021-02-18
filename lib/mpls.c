@@ -98,3 +98,35 @@ char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
 
 	return buf;
 }
+
+int mpls_interface_set(const char *name, bool val)
+{
+	char buf[MAXPATHLEN];
+	FILE *fp;
+	int ret = 0, mplsinput = 0;
+
+	snprintf(buf, sizeof(buf), "/proc/sys/net/mpls/conf/%s/input", name);
+	fp = fopen(buf, "w");
+	if (fp == NULL)
+		return -1;
+	fprintf(fp, "%d\n", !!val);
+	fclose(fp);
+
+	fp = fopen(buf, "r");
+	if (fp == NULL)
+		return -1;
+
+	/* Read mpls/input value
+	 * 1 => mpls input is enabled.
+	 * 0 => mpls input is disabled.
+	 */
+	if (!fgets(buf, 2, fp))
+		return -1;
+	ret = sscanf(buf, "%d\n", &mplsinput);
+
+	fclose(fp);
+
+	if (ret != 1)
+		return -1;
+	return mplsinput;
+}

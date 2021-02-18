@@ -168,6 +168,12 @@ Standard Commands
    configuration.
 
 
+.. clicmd:: mpls
+
+
+   Enable or disables incoming mpls traffic for the interface.
+
+
 .. clicmd:: link-detect
 
 
