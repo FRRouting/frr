@@ -1452,20 +1452,21 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 }
 
 /* Add all timers that have popped to the ready list. */
-static unsigned int thread_process_timers(struct thread_timer_list_head *timers,
+static unsigned int thread_process_timers(struct thread_master *m,
 					  struct timeval *timenow)
 {
 	struct thread *thread;
 	unsigned int ready = 0;
 
-	while ((thread = thread_timer_list_first(timers))) {
+	while ((thread = thread_timer_list_first(&m->timer))) {
 		if (timercmp(timenow, &thread->u.sands, <))
-			return ready;
-		thread_timer_list_pop(timers);
+			break;
+		thread_timer_list_pop(&m->timer);
 		thread->type = THREAD_READY;
-		thread_list_add_tail(&thread->master->ready, thread);
+		thread_list_add_tail(&m->ready, thread);
 		ready++;
 	}
+
 	return ready;
 }
 
@@ -1587,7 +1588,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 
 		/* Post timers to ready queue. */
 		monotime(&now);
-		thread_process_timers(&m->timer, &now);
+		thread_process_timers(m, &now);
 
 		/* Post I/O to ready queue. */
 		if (num > 0)
