@@ -913,6 +913,7 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 			  struct thread **t_ptr)
 {
 	struct thread *thread;
+	struct timeval t;
 
 	assert(m != NULL);
 
@@ -922,6 +923,10 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 		 xref->funcname, xref->xref.file, xref->xref.line,
 		 t_ptr, 0, 0, arg, (long)time_relative->tv_sec);
 
+	/* Compute expiration/deadline time. */
+	monotime(&t);
+	timeradd(&t, time_relative, &t);
+
 	frr_with_mutex(&m->mtx) {
 		if (t_ptr && *t_ptr)
 			/* thread is already scheduled; don't reschedule */
@@ -930,9 +935,7 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 		thread = thread_get(m, THREAD_TIMER, func, arg, xref);
 
 		frr_with_mutex(&thread->mtx) {
-			monotime(&thread->u.sands);
-			timeradd(&thread->u.sands, time_relative,
-				 &thread->u.sands);
+			thread->u.sands = t;
 			thread_timer_list_add(&m->timer, thread);
 			if (t_ptr) {
 				*t_ptr = thread;
@@ -940,7 +943,12 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 			}
 		}
 
-		AWAKEN(m);
+		/* The timer list is sorted - if this new timer
+		 * might change the time we'll wait for, give the pthread
+		 * a chance to re-compute.
+		 */
+		if (thread_timer_list_first(&m->timer) == thread)
+			AWAKEN(m);
 	}
 
 	return thread;
