@@ -629,6 +629,16 @@ end
                 ctx_keys = []
                 current_context_lines = []
 
+            elif line == "exit" and ctx_keys[0].startswith("rpki"):
+                self.save_contexts(ctx_keys, current_context_lines)
+                log.debug("LINE %-50s: exiting old context, %-50s", line, ctx_keys)
+
+                # Start a new context
+                new_ctx = True
+                main_ctx_key = []
+                ctx_keys = []
+                current_context_lines = []
+
             elif line == "exit-vrf":
                 self.save_contexts(ctx_keys, current_context_lines)
                 current_context_lines.append(line)
