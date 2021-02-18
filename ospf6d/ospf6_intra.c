@@ -989,10 +989,15 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				 buf, prefix->prefix_length);
 			json_object_string_add(json_loop, "prefix",
 					       prefix_string);
+			json_object_int_add(json_loop, "metric",
+					    ntohs(prefix->prefix_metric));
 			json_object_array_add(json_arr, json_loop);
-		} else
+		} else {
 			vty_out(vty, "     Prefix: %s/%d\n", buf,
 				prefix->prefix_length);
+			vty_out(vty, "     Metric: %d\n",
+				ntohs(prefix->prefix_metric));
+		}
 	}
 	if (use_json)
 		json_object_object_add(json_obj, "prefix", json_arr);
