@@ -91,6 +91,8 @@ Extensions
 +-----------+--------------------------+----------------------------------------------+
 | ``%pFX``  | ``struct bgp_dest *``    | ``fe80::1234/64`` (available in BGP only)    |
 +-----------+--------------------------+----------------------------------------------+
+| ``%.*pHX``| ``int len, void *ptr``   | ``12 34 56 78`` (hexdump)                    |
++-----------+--------------------------+----------------------------------------------+
 
 Printf features like field lengths can be used normally with these extensions,
 e.g. ``%-15pI4`` works correctly.

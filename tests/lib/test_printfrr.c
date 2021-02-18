@@ -216,5 +216,15 @@ int main(int argc, char **argv)
 	sg.src.s_addr = INADDR_ANY;
 	printchk("(*,224.1.2.3)", "%pSG4", &sg);
 
+	uint8_t randhex[] = { 0x12, 0x34, 0x00, 0xca, 0xfe, 0x00, 0xaa, 0x55 };
+
+	printchk("12 34 00 ca fe 00 aa 55", "%.8pHX", randhex);
+	printchk("12 34 00 ca fe 00 aa 55", "%.*pHX",
+		 (int)sizeof(randhex), randhex);
+	printchk("12 34 00 ca", "%.4pHX", randhex);
+
+	printchk("12:34:00:ca:fe:00:aa:55", "%.8pHXc", randhex);
+	printchk("123400cafe00aa55", "%.8pHXn", randhex);
+
 	return !!errors;
 }

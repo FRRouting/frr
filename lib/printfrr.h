@@ -227,7 +227,11 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 	}                                                                      \
 	/* end */
 
-/* fbuf helper functions */
+/* fbuf helper functions - note all 3 of these return the length that would
+ * be written regardless of how much space was available in the buffer, as
+ * needed for implementing printfrr extensions.  (They also accept NULL buf
+ * for that.)
+ */
 
 static inline ssize_t bputs(struct fbuf *buf, const char *str)
 {
@@ -251,6 +255,17 @@ static inline ssize_t bputch(struct fbuf *buf, char ch)
 	return 1;
 }
 
+static inline ssize_t bputhex(struct fbuf *buf, uint8_t val)
+{
+	static const char hexch[] = "0123456789abcdef";
+
+	if (buf && buf->pos < buf->buf + buf->len)
+		*buf->pos++ = hexch[(val >> 4) & 0xf];
+	if (buf && buf->pos < buf->buf + buf->len)
+		*buf->pos++ = hexch[val & 0xf];
+	return 2;
+}
+
 /* %pVA extension, equivalent to Linux kernel %pV */
 
 struct va_format {
@@ -261,6 +276,13 @@ struct va_format {
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pFB" (struct fbuf *)
 #pragma FRR printfrr_ext "%pVA" (struct va_format *)
+
+#pragma FRR printfrr_ext "%pHX" (signed char *)
+#pragma FRR printfrr_ext "%pHX" (unsigned char *)
+#pragma FRR printfrr_ext "%pHX" (void *)
+#pragma FRR printfrr_ext "%pHS" (signed char *)
+#pragma FRR printfrr_ext "%pHS" (unsigned char *)
+#pragma FRR printfrr_ext "%pHS" (void *)
 #endif
 
 /* when using non-ISO-C compatible extension specifiers... */
