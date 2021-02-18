@@ -51,7 +51,8 @@ int main(int argc, char **argv)
 #if PY_VERSION_HEX >= 0x03040000 /* 3.4 */
 	Py_SetStandardStreamEncoding("UTF-8", NULL);
 #endif
-	Py_SetProgramName(wconv(argv[0]));
+	char *name = wconv(argv[0]);
+	Py_SetProgramName(name);
 	PyImport_AppendInittab("_clippy", command_py_init);
 
 	Py_Initialize();
@@ -93,6 +94,7 @@ int main(int argc, char **argv)
 	for (int i = 1; i < argc; i++)
 		free(wargv[i - 1]);
 #endif
+	free(name);
 	free(wargv);
 	return 0;
 }
