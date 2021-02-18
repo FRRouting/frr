@@ -2343,7 +2343,7 @@ check_argument_type (const format_char_info *fci,
       /* note printf extension type checks are *additional* - %p must always
        * be pointer compatible, %d always int compatible.
        */
-      if (!kef)
+      if (first_wanted_type->kind != CF_KIND_FORMAT || !kef)
 	return true;
 
       const struct kernel_ext_fmt *kef_now;
