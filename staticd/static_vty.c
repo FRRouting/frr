@@ -240,18 +240,21 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, color_str);
 		}
+
+		strlcpy(xpath_mpls, xpath_nexthop, sizeof(xpath_mpls));
+		strlcat(xpath_mpls, FRR_STATIC_ROUTE_NH_LABEL_XPATH,
+			sizeof(xpath_mpls));
+		dnode = yang_hash_based_dnode_get(vty->candidate_config->dnode,
+						  xpath_mpls);
 		if (label_str) {
 			/* copy of label string (start) */
 			char *ostr;
 			/* pointer to next segment */
 			char *nump;
 
-			strlcpy(xpath_mpls, xpath_nexthop, sizeof(xpath_mpls));
-			strlcat(xpath_mpls, FRR_STATIC_ROUTE_NH_LABEL_XPATH,
-				sizeof(xpath_mpls));
-
-			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
-					      NULL);
+			if (dnode)
+				nb_cli_enqueue_change(vty, xpath_mpls,
+						      NB_OP_DESTROY, NULL);
 
 			ostr = XSTRDUP(MTYPE_TMP, label_str);
 			while ((nump = strsep(&ostr, "/")) != NULL) {
@@ -268,11 +271,9 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			}
 			XFREE(MTYPE_TMP, ostr);
 		} else {
-			strlcpy(xpath_mpls, xpath_nexthop, sizeof(xpath_mpls));
-			strlcat(xpath_mpls, FRR_STATIC_ROUTE_NH_LABEL_XPATH,
-				sizeof(xpath_mpls));
-			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
-					      NULL);
+			if (dnode)
+				nb_cli_enqueue_change(vty, xpath_mpls,
+						      NB_OP_DESTROY, NULL);
 		}
 		ret = nb_cli_apply_changes(vty, xpath_prefix);
 	} else {
@@ -293,7 +294,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 table_id, distance, buf_nh_type, nh_svrf,
 				 buf_gate_str, ifname);
 
-		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
+		dnode = yang_hash_based_dnode_get(vty->candidate_config->dnode,
+						  ab_xpath);
 		if (!dnode)
 			return ret;
 
@@ -304,7 +306,6 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY, NULL);
 		ret = nb_cli_apply_changes(vty, ab_xpath);
 	}
-
 	return ret;
 }
 static int static_route(struct vty *vty, afi_t afi, safi_t safi,
