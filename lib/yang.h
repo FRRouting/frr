@@ -593,6 +593,23 @@ bool yang_is_last_list_dnode(const struct lyd_node *dnode);
 /* API to check if the given node is last node in the data tree level */
 bool yang_is_last_level_dnode(const struct lyd_node *dnode);
 
+
+/*
+ * Find a libyang data node by its YANG data path using hash table.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath_fmt
+ *    XPath expression (absolute or relative).
+ *
+ * Returns:
+ *    The libyang data node if found, or NULL if not found.
+ */
+extern const struct lyd_node *
+yang_hash_based_dnode_get(const struct lyd_node *dnode, const char *xpath_fmt,
+			  ...);
+
 #ifdef __cplusplus
 }
 #endif

@@ -892,3 +892,33 @@ const struct lyd_node *yang_dnode_get_child(const struct lyd_node *dnode)
 		return dnode->child;
 	return NULL;
 }
+
+const struct lyd_node *yang_hash_based_dnode_get(const struct lyd_node *dnode,
+						 const char *xpath_fmt, ...)
+{
+	va_list ap;
+	char xpath[XPATH_MAXLEN];
+	char ab_xpath[XPATH_MAXLEN];
+	char given_xpath[XPATH_MAXLEN];
+	struct lyd_node *dnode_ret = NULL;
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	dnode_ret = lyd_find_path_hash_based(dnode, ly_native_ctx, xpath, 0);
+	if (dnode_ret) {
+		yang_dnode_get_path(dnode_ret, ab_xpath, XPATH_MAXLEN);
+		if (xpath_fmt[0] == '/') {
+			if (!strcmp(ab_xpath, xpath))
+				return dnode_ret;
+		} else {
+			yang_dnode_get_path(dnode, given_xpath, XPATH_MAXLEN);
+			strlcat(given_xpath, xpath_fmt + 1, XPATH_MAXLEN);
+			if (!strcmp(ab_xpath, given_xpath))
+				return dnode_ret;
+		}
+	}
+
+	return NULL;
+}
