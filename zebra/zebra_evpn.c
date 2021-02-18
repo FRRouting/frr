@@ -434,7 +434,7 @@ int zebra_evpn_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 	vxl = &zif->l2info.vxl;
 
 	if (zebra_evpn_mac_gw_macip_add(ifp, zevpn, ip, &mac, macaddr,
-					vxl->access_vlan)
+					vxl->access_vlan, true)
 	    != 0)
 		return -1;
 

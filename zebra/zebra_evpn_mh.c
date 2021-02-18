@@ -130,12 +130,6 @@ static struct zebra_evpn_es_evi *zebra_evpn_es_evi_new(struct zebra_evpn_es *es,
 	return es_evi;
 }
 
-/* returns TRUE if the EVPN is ready to be sent to BGP */
-static inline bool zebra_evpn_send_to_client_ok(zebra_evpn_t *zevpn)
-{
-	return !!(zevpn->flags & ZEVPN_READY_FOR_BGP);
-}
-
 /* Evaluate if the es_evi is ready to be sent BGP -
  * 1. If it is ready an add is sent to BGP
  * 2. If it is not ready a del is sent (if the ES had been previously added
@@ -466,6 +460,9 @@ void zebra_evpn_update_all_es(zebra_evpn_t *zevpn)
 {
 	struct zebra_evpn_es_evi *es_evi;
 	struct listnode *node;
+	struct interface *vlan_if;
+	struct interface *vxlan_if;
+	struct zebra_if *vxlan_zif;
 
 	/* the EVPN is now elgible as a base for EVPN-MH */
 	if (zebra_evpn_send_to_client_ok(zevpn))
@@ -475,6 +472,20 @@ void zebra_evpn_update_all_es(zebra_evpn_t *zevpn)
 
 	for (ALL_LIST_ELEMENTS_RO(zevpn->local_es_evi_list, node, es_evi))
 		zebra_evpn_es_evi_re_eval_send_to_client(es_evi);
+
+	/* reinstall SVI MAC */
+	vxlan_if = zevpn->vxlan_if;
+	if (vxlan_if) {
+		vxlan_zif = vxlan_if->info;
+		if (if_is_operative(vxlan_if)
+		    && vxlan_zif->brslave_info.br_if) {
+			vlan_if = zvni_map_to_svi(
+				vxlan_zif->l2info.vxl.access_vlan,
+				vxlan_zif->brslave_info.br_if);
+			if (vlan_if)
+				zebra_evpn_acc_bd_svi_mac_add(vlan_if);
+		}
+	}
 }
 
 /*****************************************************************************/

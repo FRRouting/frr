@@ -262,6 +262,12 @@ struct zebra_evpn_mh_info {
 	enum protodown_reasons protodown_rc;
 };
 
+/* returns TRUE if the EVPN is ready to be sent to BGP */
+static inline bool zebra_evpn_send_to_client_ok(zebra_evpn_t *zevpn)
+{
+	return !!(zevpn->flags & ZEVPN_READY_FOR_BGP);
+}
+
 static inline bool zebra_evpn_mac_is_es_local(zebra_mac_t *mac)
 {
 	return mac->es && (mac->es->flags & ZEBRA_EVPNES_LOCAL);

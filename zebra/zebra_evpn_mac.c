@@ -2382,7 +2382,8 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 
 int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 				struct ipaddr *ip, zebra_mac_t **macp,
-				struct ethaddr *macaddr, vlanid_t vlan_id)
+				struct ethaddr *macaddr, vlanid_t vlan_id,
+				bool def_gw)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	zebra_mac_t *mac;
@@ -2408,7 +2409,8 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 	/* Set "local" forwarding info. */
 	SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 	SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
-	SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
+	if (def_gw)
+		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
 	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 	mac->fwd_info.local.ifindex = ifp->ifindex;
 	mac->fwd_info.local.ns_id = local_ns_id;
@@ -2423,6 +2425,7 @@ void zebra_evpn_mac_svi_del(struct interface *ifp, zebra_evpn_t *zevpn)
 {
 	zebra_mac_t *mac;
 	struct ethaddr macaddr;
+	bool old_bgp_ready;
 
 	if (!zebra_evpn_mh_do_adv_svi_mac())
 		return;
@@ -2433,7 +2436,10 @@ void zebra_evpn_mac_svi_del(struct interface *ifp, zebra_evpn_t *zevpn)
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("SVI %s mac free", ifp->name);
 
+		old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_SVI);
+		zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,
+						      false);
 		zebra_evpn_deref_ip2mac(mac->zevpn, mac);
 	}
 }
@@ -2443,8 +2449,11 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, zebra_evpn_t *zevpn)
 	zebra_mac_t *mac = NULL;
 	struct ethaddr macaddr;
 	struct zebra_if *zif = ifp->info;
+	bool old_bgp_ready;
+	bool new_bgp_ready;
 
-	if (!zebra_evpn_mh_do_adv_svi_mac())
+	if (!zebra_evpn_mh_do_adv_svi_mac()
+	    || !zebra_evpn_send_to_client_ok(zevpn))
 		return;
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
@@ -2458,8 +2467,16 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, zebra_evpn_t *zevpn)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("SVI %s mac add", zif->ifp->name);
 
+	old_bgp_ready = (mac && zebra_evpn_mac_is_ready_for_bgp(mac->flags))
+				? true
+				: false;
+
 	mac = NULL;
-	zebra_evpn_mac_gw_macip_add(ifp, zevpn, NULL, &mac, &macaddr, 0);
+	zebra_evpn_mac_gw_macip_add(ifp, zevpn, NULL, &mac, &macaddr, 0, false);
 	if (mac)
 		SET_FLAG(mac->flags, ZEBRA_MAC_SVI);
+
+	new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+	zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,
+					      new_bgp_ready);
 }
