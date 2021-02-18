@@ -429,6 +429,9 @@ ldp_vty_mpls_ldp(struct vty *vty, const char *negate)
 		vty_conf->flags |= F_LDPD_ENABLED;
 	}
 
+	/* register / de-register to recv info from zebra */
+	ldp_zebra_regdereg_zebra_info(!negate);
+
 	ldp_config_apply(vty, vty_conf);
 
 	return (CMD_SUCCESS);

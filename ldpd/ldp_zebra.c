@@ -54,6 +54,7 @@ static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
+static bool zebra_registered = false;
 
 static void
 ifp2kif(struct interface *ifp, struct kif *kif)
@@ -629,14 +630,42 @@ ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS)
 	return (0);
 }
 
+void ldp_zebra_regdereg_zebra_info(bool want_register)
+{
+	if (zebra_registered == want_register)
+		return;
+
+	log_debug("%s to receive default VRF information",
+		  want_register ? "Register" : "De-register");
+
+	if (want_register) {
+		zclient_send_reg_requests(zclient, VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+					ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient,
+					AFI_IP6, ZEBRA_ROUTE_ALL, 0,
+					VRF_DEFAULT);
+	} else {
+		zclient_send_dereg_requests(zclient, VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+					AFI_IP, ZEBRA_ROUTE_ALL, 0,
+					VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+					AFI_IP6, ZEBRA_ROUTE_ALL, 0,
+					VRF_DEFAULT);
+	}
+	zebra_registered = want_register;
+}
+
 static void
 ldp_zebra_connected(struct zclient *zclient)
 {
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	zebra_registered = false;
+
+	/* if MPLS was already enabled and we are re-connecting, register again
+	 */
+	if (vty_conf->flags & F_LDPD_ENABLED)
+		ldp_zebra_regdereg_zebra_info(true);
 
 	ldp_zebra_opaque_register();
 
