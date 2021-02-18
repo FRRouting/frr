@@ -58,8 +58,7 @@ static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 	return 0;
 }
 
-DECLARE_HEAP(thread_timer_list, struct thread, timeritem,
-		thread_timer_cmp)
+DECLARE_HEAP(thread_timer_list, struct thread, timeritem, thread_timer_cmp)
 
 #if defined(__APPLE__)
 #include <mach/mach.h>
