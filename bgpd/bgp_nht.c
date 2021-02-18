@@ -970,7 +970,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			/*
 			 * Peering cannot occur across a blackhole nexthop
 			 */
-			if (bnc->nexthop_num == 1
+			if (bnc->nexthop_num == 1 && bnc->nexthop
 			    && bnc->nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
 				peer->last_reset = PEER_DOWN_WAITING_NHT;
 				valid_nexthops = 0;
