@@ -96,6 +96,9 @@ struct thread_master {
 	bool handle_signals;
 	pthread_mutex_t mtx;
 	pthread_t owner;
+
+	bool ready_run_loop;
+	RUSAGE_T last_getrusage;
 };
 
 /* Thread itself. */
