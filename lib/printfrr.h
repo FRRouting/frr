@@ -112,20 +112,21 @@ struct printfrr_ext {
 	/* both can be given, if not the code continues searching
 	 * (you can do %pX and %dX in 2 different entries)
 	 *
-	 * return value: number of bytes consumed from the format string, so
-	 * you can consume extra flags (e.g. register for "%pX", consume
-	 * "%pXfoo" or "%pXbar" for flags.)  Convention is to make those flags
-	 * lowercase letters or numbers.
+	 * return value: number of bytes that would be printed if the buffer
+	 * was large enough.  be careful about not under-reporting this;
+	 * otherwise asnprintf() & co. will get broken.  Returning -1 means
+	 * something went wrong & default %p/%d handling should be executed.
 	 *
-	 * bsz is a compile-time constant in printf;  it's gonna be relatively
-	 * small.  This isn't designed to print Shakespeare from a pointer.
+	 * to consume extra input flags after %pXY, increment *fmt.  It points
+	 * at the first character after %pXY at entry.  Convention is to make
+	 * those flags lowercase letters or numbers.
 	 *
 	 * prec is the precision specifier (the 999 in "%.999p")  -1 means
 	 * none given (value in the format string cannot be negative)
 	 */
-	ssize_t (*print_ptr)(char *buf, size_t bsz, const char *fmt, int prec,
+	ssize_t (*print_ptr)(struct fbuf *buf, const char **fmt, int prec,
 			const void *);
-	ssize_t (*print_int)(char *buf, size_t bsz, const char *fmt, int prec,
+	ssize_t (*print_int)(struct fbuf *buf, const char **fmt, int prec,
 			uintmax_t);
 };
 
@@ -136,7 +137,7 @@ struct printfrr_ext {
 void printfrr_ext_reg(const struct printfrr_ext *);
 
 #define printfrr_ext_autoreg_p(matchs, print_fn)                               \
-	static ssize_t print_fn(char *, size_t, const char *, int,             \
+	static ssize_t print_fn(struct fbuf *, const char **, int,             \
 				const void *);                                 \
 	static const struct printfrr_ext _printext_##print_fn = {              \
 		.match = matchs,                                               \
@@ -149,7 +150,7 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 	/* end */
 
 #define printfrr_ext_autoreg_i(matchs, print_fn)                               \
-	static ssize_t print_fn(char *, size_t, const char *, int, uintmax_t); \
+	static ssize_t print_fn(struct fbuf *, const char **, int, uintmax_t); \
 	static const struct printfrr_ext _printext_##print_fn = {              \
 		.match = matchs,                                               \
 		.print_int = print_fn,                                         \

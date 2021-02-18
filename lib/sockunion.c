@@ -664,54 +664,51 @@ void sockunion_init(union sockunion *su)
 }
 
 printfrr_ext_autoreg_p("SU", printfrr_psu)
-static ssize_t printfrr_psu(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_psu(struct fbuf *buf, const char **fmt,
 			    int prec, const void *ptr)
 {
 	const union sockunion *su = ptr;
-	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
 	bool include_port = false;
 	bool endflags = false;
-	ssize_t consumed = 2;
+	ssize_t ret = 0;
+	char cbuf[INET6_ADDRSTRLEN];
 
-	if (su) {
-		while (!endflags) {
-			switch (fmt[consumed++]) {
-			case 'p':
-				include_port = true;
-				break;
-			default:
-				consumed--;
-				endflags = true;
-				break;
-			}
-		};
+	if (!su)
+		return bputs(buf, "NULL");
 
-		switch (sockunion_family(su)) {
-		case AF_UNSPEC:
-			bprintfrr(&fb, "(unspec)");
-			break;
-		case AF_INET:
-			inet_ntop(AF_INET, &su->sin.sin_addr, buf, bsz);
-			fb.pos += strlen(fb.buf);
-			if (include_port)
-				bprintfrr(&fb, ":%d", su->sin.sin_port);
-			break;
-		case AF_INET6:
-			inet_ntop(AF_INET6, &su->sin6.sin6_addr, buf, bsz);
-			fb.pos += strlen(fb.buf);
-			if (include_port)
-				bprintfrr(&fb, ":%d", su->sin6.sin6_port);
+	while (!endflags) {
+		switch (**fmt) {
+		case 'p':
+			(*fmt)++;
+			include_port = true;
 			break;
 		default:
-			bprintfrr(&fb, "(af %d)", sockunion_family(su));
+			endflags = true;
+			break;
 		}
-
-		fb.pos[0] = '\0';
-	} else {
-		strlcpy(buf, "NULL", bsz);
 	}
 
-	return consumed;
+	switch (sockunion_family(su)) {
+	case AF_UNSPEC:
+		ret += bputs(buf, "(unspec)");
+		break;
+	case AF_INET:
+		inet_ntop(AF_INET, &su->sin.sin_addr, cbuf, sizeof(cbuf));
+		ret += bputs(buf, cbuf);
+		if (include_port)
+			ret += bprintfrr(buf, ":%d", su->sin.sin_port);
+		break;
+	case AF_INET6:
+		inet_ntop(AF_INET6, &su->sin6.sin6_addr, cbuf, sizeof(cbuf));
+		ret += bputs(buf, cbuf);
+		if (include_port)
+			ret += bprintfrr(buf, ":%d", su->sin6.sin6_port);
+		break;
+	default:
+		ret += bprintfrr(buf, "(af %d)", sockunion_family(su));
+	}
+
+	return ret;
 }
 
 int sockunion_is_null(const union sockunion *su)

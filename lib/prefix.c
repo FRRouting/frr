@@ -1361,92 +1361,92 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 }
 
 printfrr_ext_autoreg_p("EA", printfrr_ea)
-static ssize_t printfrr_ea(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_ea(struct fbuf *buf, const char **fmt,
 			   int prec, const void *ptr)
 {
 	const struct ethaddr *mac = ptr;
+	char cbuf[ETHER_ADDR_STRLEN];
 
-	if (mac)
-		prefix_mac2str(mac, buf, bsz);
-	else
-		strlcpy(buf, "NULL", bsz);
+	if (!mac)
+		return bputs(buf, "NULL");
 
-	return 2;
+	/* need real length even if buffer is too short */
+	prefix_mac2str(mac, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("IA", printfrr_ia)
-static ssize_t printfrr_ia(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_ia(struct fbuf *buf, const char **fmt,
 			   int prec, const void *ptr)
 {
 	const struct ipaddr *ipa = ptr;
+	char cbuf[INET6_ADDRSTRLEN];
 
-	if (ipa)
-		ipaddr2str(ipa, buf, bsz);
-	else
-		strlcpy(buf, "NULL", bsz);
+	if (!ipa)
+		return bputs(buf, "NULL");
 
-	return 2;
+	ipaddr2str(ipa, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("I4", printfrr_i4)
-static ssize_t printfrr_i4(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_i4(struct fbuf *buf, const char **fmt,
 			   int prec, const void *ptr)
 {
-	if (ptr)
-		inet_ntop(AF_INET, ptr, buf, bsz);
-	else
-		strlcpy(buf, "NULL", bsz);
+	char cbuf[INET_ADDRSTRLEN];
 
-	return 2;
+	if (!ptr)
+		return bputs(buf, "NULL");
+
+	inet_ntop(AF_INET, ptr, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("I6", printfrr_i6)
-static ssize_t printfrr_i6(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_i6(struct fbuf *buf, const char **fmt,
 			   int prec, const void *ptr)
 {
-	if (ptr)
-		inet_ntop(AF_INET6, ptr, buf, bsz);
-	else
-		strlcpy(buf, "NULL", bsz);
+	char cbuf[INET6_ADDRSTRLEN];
 
-	return 2;
+	if (!ptr)
+		return bputs(buf, "NULL");
+
+	inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("FX", printfrr_pfx)
-static ssize_t printfrr_pfx(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_pfx(struct fbuf *buf, const char **fmt,
 			    int prec, const void *ptr)
 {
-	if (ptr)
-		prefix2str(ptr, buf, bsz);
-	else
-		strlcpy(buf, "NULL", bsz);
+	char cbuf[PREFIX_STRLEN];
 
-	return 2;
+	if (!ptr)
+		return bputs(buf, "NULL");
+
+	prefix2str(ptr, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("SG4", printfrr_psg)
-static ssize_t printfrr_psg(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_psg(struct fbuf *buf, const char **fmt,
 			    int prec, const void *ptr)
 {
 	const struct prefix_sg *sg = ptr;
-	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
+	ssize_t ret = 0;
 
-	if (sg) {
-		if (sg->src.s_addr == INADDR_ANY)
-			bprintfrr(&fb, "(*,");
-		else
-			bprintfrr(&fb, "(%pI4,", &sg->src);
+	if (!sg)
+		return bputs(buf, "NULL");
 
-		if (sg->grp.s_addr == INADDR_ANY)
-			bprintfrr(&fb, "*)");
-		else
-			bprintfrr(&fb, "%pI4)", &sg->grp);
+	if (sg->src.s_addr == INADDR_ANY)
+		ret += bputs(buf, "(*,");
+	else
+		ret += bprintfrr(buf, "(%pI4,", &sg->src);
 
-		fb.pos[0] = '\0';
+	if (sg->grp.s_addr == INADDR_ANY)
+		ret += bputs(buf, "*)");
+	else
+		ret += bprintfrr(buf, "%pI4)", &sg->grp);
 
-	} else {
-		strlcpy(buf, "NULL", bsz);
-	}
-
-	return 3;
+	return ret;
 }

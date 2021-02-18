@@ -307,20 +307,20 @@ const char *srcdest_rnode2str(const struct route_node *rn, char *str, int size)
 }
 
 printfrr_ext_autoreg_p("RN", printfrr_rn)
-static ssize_t printfrr_rn(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_rn(struct fbuf *buf, const char **fmt,
 			   int prec, const void *ptr)
 {
 	const struct route_node *rn = ptr;
 	const struct prefix *dst_p, *src_p;
+	char cbuf[PREFIX_STRLEN * 2 + 6];
 
-	if (rn) {
-		srcdest_rnode_prefixes(rn, &dst_p, &src_p);
-		srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p, buf, bsz);
-	} else {
-		strlcpy(buf, "NULL", bsz);
-	}
+	if (!rn)
+		return bputs(buf, "NULL");
 
-	return 2;
+	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
+	srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p,
+		    cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 struct route_table *srcdest_srcnode_table(struct route_node *rn)

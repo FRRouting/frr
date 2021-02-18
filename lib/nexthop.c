@@ -730,80 +730,99 @@ int nexthop_str2backups(const char *str, int *num_backups,
  *		nexthop2str()
  */
 printfrr_ext_autoreg_p("NH", printfrr_nh)
-static ssize_t printfrr_nh(char *buf, size_t bsz, const char *fmt,
+static ssize_t printfrr_nh(struct fbuf *buf, const char **fmt,
 			   int prec, const void *ptr)
 {
 	const struct nexthop *nexthop = ptr;
-	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
 	bool do_ifi = false;
-	const char *s, *v_is = "", *v_via = "", *v_viaif = "via ";
-	ssize_t ret = 3;
+	const char *v_is = "", *v_via = "", *v_viaif = "via ";
+	ssize_t ret = 0;
 
-	/* NULL-check */
-	if (nexthop == NULL) {
-		if (fmt[2] == 'v' && fmt[3] == 'v')
-			ret++;
-
-		strlcpy(buf, "NULL", bsz);
-
-		return ret;
-	}
-
-	switch (fmt[2]) {
+	switch (**fmt) {
 	case 'v':
-		if (fmt[3] == 'v') {
+		(*fmt)++;
+		if (**fmt == 'v') {
 			v_is = "is ";
 			v_via = "via ";
 			v_viaif = "";
-			ret++;
+			(*fmt)++;
 		}
+
+		if (!nexthop)
+			return bputs(buf, "NULL");
 
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV4:
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			bprintfrr(&fb, "%s%pI4", v_via, &nexthop->gate.ipv4);
+			ret += bprintfrr(buf, "%s%pI4", v_via,
+					 &nexthop->gate.ipv4);
 			do_ifi = true;
 			break;
 		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			bprintfrr(&fb, "%s%pI6", v_via, &nexthop->gate.ipv6);
+			ret += bprintfrr(buf, "%s%pI6", v_via,
+					 &nexthop->gate.ipv6);
 			do_ifi = true;
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
-			bprintfrr(&fb, "%sdirectly connected, %s", v_is,
-				ifindex2ifname(nexthop->ifindex,
-					       nexthop->vrf_id));
+			ret += bprintfrr(buf, "%sdirectly connected, %s", v_is,
+					 ifindex2ifname(nexthop->ifindex,
+							nexthop->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
+			ret += bputs(buf, "unreachable");
+
 			switch (nexthop->bh_type) {
 			case BLACKHOLE_REJECT:
-				s = " (ICMP unreachable)";
+				ret += bputs(buf, " (ICMP unreachable)");
 				break;
 			case BLACKHOLE_ADMINPROHIB:
-				s = " (ICMP admin-prohibited)";
+				ret += bputs(buf, " (ICMP admin-prohibited)");
 				break;
 			case BLACKHOLE_NULL:
-				s = " (blackhole)";
+				ret += bputs(buf, " (blackhole)");
 				break;
 			default:
-				s = "";
 				break;
 			}
-			bprintfrr(&fb, "unreachable%s", s);
 			break;
 		default:
 			break;
 		}
 		if (do_ifi && nexthop->ifindex)
-			bprintfrr(&fb, ", %s%s", v_viaif, ifindex2ifname(
-					nexthop->ifindex,
-					nexthop->vrf_id));
+			ret += bprintfrr(buf, ", %s%s", v_viaif,
+					 ifindex2ifname(nexthop->ifindex,
+							nexthop->vrf_id));
 
-		*fb.pos = '\0';
 		return ret;
 	case 's':
-		nexthop2str(nexthop, buf, bsz);
-		return 3;
+		(*fmt)++;
+
+		if (!nexthop)
+			return bputs(buf, "NULL");
+
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_IFINDEX:
+			ret += bprintfrr(buf, "if %u", nexthop->ifindex);
+			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			ret += bprintfrr(buf, "%pI4 if %u", &nexthop->gate.ipv4,
+					 nexthop->ifindex);
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			ret += bprintfrr(buf, "%pI6 if %u", &nexthop->gate.ipv6,
+					 nexthop->ifindex);
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			ret += bputs(buf, "blackhole");
+			break;
+		default:
+			ret += bputs(buf, "unknown");
+			break;
+		}
+		return ret;
 	}
-	return 0;
+	return -1;
 }

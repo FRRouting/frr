@@ -64,7 +64,36 @@ static void printchk(const char *ref, const char *fmt, ...)
 {
 	va_list ap;
 	char bufrr[256];
+	bool truncfail = false;
+	size_t i;
+	size_t expectlen;
+
 	memset(bufrr, 0xcc, sizeof(bufrr));
+
+	va_start(ap, fmt);
+	expectlen = vsnprintfrr(NULL, 0, fmt, ap);
+	va_end(ap);
+
+	va_start(ap, fmt);
+	vsnprintfrr(bufrr, 7, fmt, ap);
+	va_end(ap);
+
+	if (strnlen(bufrr, 7) == 7)
+		truncfail = true;
+	if (strnlen(bufrr, 7) < 7 && strncmp(ref, bufrr, 6) != 0)
+		truncfail = true;
+	for (i = 7; i < sizeof(bufrr); i++)
+		if (bufrr[i] != (char)0xcc) {
+			truncfail = true;
+			break;
+		}
+
+	if (truncfail) {
+		printf("truncation test FAILED:\n"
+		       "fmt: \"%s\"\nref: \"%s\"\nfrr[:7]: \"%s\"\n%s\n\n",
+		       fmt, ref, bufrr, strcmp(ref, bufrr) ? "ERROR" : "ok");
+		errors++;
+	}
 
 	va_start(ap, fmt);
 	vsnprintfrr(bufrr, sizeof(bufrr), fmt, ap);
@@ -74,6 +103,10 @@ static void printchk(const char *ref, const char *fmt, ...)
 	       fmt, ref, bufrr, strcmp(ref, bufrr) ? "ERROR" : "ok");
 	if (strcmp(ref, bufrr))
 		errors++;
+	if (strlen(bufrr) != expectlen) {
+		printf("return value <> length mismatch\n");
+		errors++;
+	}
 }
 
 int main(int argc, char **argv)
@@ -112,6 +145,7 @@ int main(int argc, char **argv)
 	inet_aton("192.168.1.2", &ip);
 	printchk("192.168.1.2", "%pI4", &ip);
 	printchk("         192.168.1.2", "%20pI4", &ip);
+	printchk("192.168.1.2         ", "%-20pI4", &ip);
 
 	printcmp("%p", &ip);
 

@@ -210,15 +210,16 @@ void printfrr_ext_reg(const struct printfrr_ext *ext)
 	exts[i] = ext;
 }
 
-ssize_t printfrr_extp(char *buf, size_t sz, const char *fmt, int prec,
+ssize_t printfrr_extp(struct fbuf *buf, const char **fmtp, int prec,
 		      const void *ptr)
 {
+	const char *fmt = *fmtp;
 	const struct printfrr_ext *ext;
 	size_t i;
 
 	for (i = ext_offsets[fmt[0] - 'A']; i < MAXEXT; i++) {
 		if (!entries[i].fmt[0] || entries[i].fmt[0] > fmt[0])
-			return 0;
+			return -1;
 		if (entries[i].fmt[1] && entries[i].fmt[1] != fmt[1])
 			continue;
 		ext = exts[i];
@@ -226,20 +227,22 @@ ssize_t printfrr_extp(char *buf, size_t sz, const char *fmt, int prec,
 			continue;
 		if (strncmp(ext->match, fmt, strlen(ext->match)))
 			continue;
-		return ext->print_ptr(buf, sz, fmt, prec, ptr);
+		*fmtp += strlen(ext->match);
+		return ext->print_ptr(buf, fmtp, prec, ptr);
 	}
-	return 0;
+	return -1;
 }
 
-ssize_t printfrr_exti(char *buf, size_t sz, const char *fmt, int prec,
+ssize_t printfrr_exti(struct fbuf *buf, const char **fmtp, int prec,
 		      uintmax_t num)
 {
+	const char *fmt = *fmtp;
 	const struct printfrr_ext *ext;
 	size_t i;
 
 	for (i = ext_offsets[fmt[0] - 'A']; i < MAXEXT; i++) {
 		if (!entries[i].fmt[0] || entries[i].fmt[0] > fmt[0])
-			return 0;
+			return -1;
 		if (entries[i].fmt[1] && entries[i].fmt[1] != fmt[1])
 			continue;
 		ext = exts[i];
@@ -247,7 +250,8 @@ ssize_t printfrr_exti(char *buf, size_t sz, const char *fmt, int prec,
 			continue;
 		if (strncmp(ext->match, fmt, strlen(ext->match)))
 			continue;
-		return ext->print_int(buf, sz, fmt, prec, num);
+		*fmtp += strlen(ext->match);
+		return ext->print_int(buf, fmtp, prec, num);
 	}
-	return 0;
+	return -1;
 }

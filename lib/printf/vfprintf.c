@@ -177,6 +177,7 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 	int nextarg;            /* 1-based argument index */
 	va_list orgap;          /* original argument pointer */
 	char *convbuf;		/* wide to multibyte conversion result */
+	char *extstart = NULL;	/* where printfrr_ext* started printing */
 
 	static const char xdigs_lower[16] = "0123456789abcdef";
 	static const char xdigs_upper[16] = "0123456789ABCDEF";
@@ -438,16 +439,14 @@ reswitch:	switch (ch) {
 				ulval = SARG();
 
 			if (printfrr_ext_char(fmt[0])) {
-				n2 = printfrr_exti(buf, sizeof(buf), fmt, prec,
+				if (cb)
+					extstart = cb->pos;
+
+				size = printfrr_exti(cb, &fmt, prec,
 						(flags & INTMAX_SIZE) ? ujval
 						: (uintmax_t)ulval);
-				if (n2 > 0) {
-					fmt += n2;
-					cp = buf;
-					size = strlen(cp);
-					sign = '\0';
-					break;
-				}
+				if (size >= 0)
+					goto ext_printed;
 			}
 			if (flags & INTMAX_SIZE) {
 				if ((intmax_t)ujval < 0) {
@@ -551,14 +550,13 @@ reswitch:	switch (ch) {
 			 *	-- ANSI X3J11
 			 */
 			ptrval = GETARG(void *);
-			if (printfrr_ext_char(fmt[0]) &&
-					(n2 = printfrr_extp(buf, sizeof(buf),
-						fmt, prec, ptrval)) > 0) {
-				fmt += n2;
-				cp = buf;
-				size = strlen(cp);
-				sign = '\0';
-				break;
+			if (printfrr_ext_char(fmt[0])) {
+				if (cb)
+					extstart = cb->pos;
+
+				size = printfrr_extp(cb, &fmt, prec, ptrval);
+				if (size >= 0)
+					goto ext_printed;
 			}
 			ujval = (uintmax_t)(uintptr_t)ptrval;
 			base = 16;
@@ -686,7 +684,7 @@ number:			if ((dprec = prec) >= 0)
 			realsz += 2;
 
 		prsize = width > realsz ? width : realsz;
-		if ((unsigned)ret + prsize > INT_MAX) {
+		if ((unsigned int)ret + prsize > INT_MAX) {
 			ret = EOF;
 			errno = EOVERFLOW;
 			goto error;
@@ -713,6 +711,58 @@ number:			if ((dprec = prec) >= 0)
 		/* leading zeroes from decimal precision */
 		PAD(dprec - size, zeroes);
 		PRINT(cp, size);
+		/* left-adjusting padding (always blank) */
+		if (flags & LADJUST)
+			PAD(width - realsz, blanks);
+
+		/* finally, adjust ret */
+		ret += prsize;
+
+		FLUSH();	/* copy out the I/O vectors */
+		continue;
+
+ext_printed:
+		/* when we arrive here, a printfrr extension has written to cb
+		 * (if non-NULL), but we still need to handle padding.  The
+		 * original cb->pos is in extstart;  the return value from the
+		 * ext is in size.
+		 *
+		 * Keep analogous to code above please.
+		 */
+
+		realsz = size;
+		prsize = width > realsz ? width : realsz;
+		if ((unsigned int)ret + prsize > INT_MAX) {
+			ret = EOF;
+			errno = EOVERFLOW;
+			goto error;
+		}
+
+		/* right-adjusting blank padding - need to move the chars
+		 * that the extension has already written.  Should be very
+		 * rare.
+		 */
+		if (cb && width > size && (flags & (LADJUST|ZEROPAD)) == 0) {
+			size_t nwritten = cb->pos - extstart;
+			size_t navail = cb->buf + cb->len - extstart;
+			size_t npad = width - realsz;
+			size_t nmove;
+
+			if (navail < npad)
+				navail = 0;
+			else
+				navail -= npad;
+			nmove = MIN(nwritten, navail);
+
+			memmove(extstart + npad, extstart, nmove);
+
+			cb->pos = extstart;
+			PAD(npad, blanks);
+			cb->pos += nmove;
+		}
+
+		io.avail = cb ? cb->len - (cb->pos - cb->buf) : 0;
+
 		/* left-adjusting padding (always blank) */
 		if (flags & LADJUST)
 			PAD(width - realsz, blanks);
