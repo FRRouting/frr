@@ -1723,7 +1723,7 @@ class Router(Node):
         interface = ""
         ll_per_if_count = 0
         for line in ifaces:
-            m = re.search("[0-9]+: ([^:@]+)[@if0-9:]+ <", line)
+            m = re.search("[0-9]+: ([^:@]+)[-@a-z0-9:]+ <", line)
             if m:
                 interface = m.group(1)
                 ll_per_if_count = 0
