@@ -239,23 +239,30 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 
 	/* HelloInterval check */
 	if (ntohs(hello->hello_interval) != oi->hello_interval) {
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-			zlog_debug("HelloInterval mismatch");
+		zlog_warn(
+			"VRF %s: I/F %s HelloInterval mismatch: (my %d, rcvd %d)",
+			vrf_id_to_name(oi->interface->vrf_id),
+			oi->interface->name, oi->hello_interval,
+			ntohs(hello->hello_interval));
 		return;
 	}
 
 	/* RouterDeadInterval check */
 	if (ntohs(hello->dead_interval) != oi->dead_interval) {
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-			zlog_debug("RouterDeadInterval mismatch");
+		zlog_warn(
+			"VRF %s: I/F %s DeadInterval mismatch: (my %d, rcvd %d)",
+			vrf_id_to_name(oi->interface->vrf_id),
+			oi->interface->name, oi->dead_interval,
+			ntohs(hello->dead_interval));
 		return;
 	}
 
 	/* E-bit check */
 	if (OSPF6_OPT_ISSET(hello->options, OSPF6_OPT_E)
 	    != OSPF6_OPT_ISSET(oi->area->options, OSPF6_OPT_E)) {
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-			zlog_debug("E-bit mismatch");
+		zlog_warn("VRF %s: IF %s E-bit mismatch",
+			  vrf_id_to_name(oi->interface->vrf_id),
+			  oi->interface->name);
 		return;
 	}
 
@@ -385,8 +392,10 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 			memcpy(on->options, dbdesc->options,
 			       sizeof(on->options));
 		} else {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-				zlog_debug("Negotiation failed");
+			zlog_warn(
+				"VRF %s: Nbr %s: Negotiation failed",
+				vrf_id_to_name(on->ospf6_if->interface->vrf_id),
+				on->name);
 			return;
 		}
 	/* fall through to exchange */
@@ -599,8 +608,10 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			memcpy(on->options, dbdesc->options,
 			       sizeof(on->options));
 		} else {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-				zlog_debug("Negotiation failed");
+			zlog_warn(
+				"VRF %s: Nbr %s Negotiation failed",
+				vrf_id_to_name(on->ospf6_if->interface->vrf_id),
+				on->name);
 			return;
 		}
 		break;
@@ -765,8 +776,9 @@ static void ospf6_dbdesc_recv(struct in6_addr *src, struct in6_addr *dst,
 
 	/* Interface MTU check */
 	if (!oi->mtu_ignore && ntohs(dbdesc->ifmtu) != oi->ifmtu) {
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-			zlog_debug("I/F MTU mismatch");
+		zlog_warn("VRF %s: I/F %s MTU mismatch (my %d rcvd %d)",
+			  vrf_id_to_name(oi->interface->vrf_id),
+			  oi->interface->name, oi->ifmtu, ntohs(dbdesc->ifmtu));
 		return;
 	}
 
@@ -1316,34 +1328,37 @@ static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
 
 	/* Area-ID check */
 	if (oh->area_id != oi->area->area_id) {
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV)) {
-			if (oh->area_id == OSPF_AREA_BACKBONE)
-				zlog_debug(
-					"%s: Message may be via Virtual Link: not supported",
-					__func__);
-			else
-				zlog_debug(
-					"%s: Area-ID mismatch (my %s, rcvd %s)",
-					__func__,
-					inet_ntop(AF_INET, &oi->area->area_id,
-						  buf[0], INET_ADDRSTRLEN),
-					inet_ntop(AF_INET, &oh->area_id, buf[1],
-						  INET_ADDRSTRLEN));
-		}
+		if (oh->area_id == OSPF_AREA_BACKBONE)
+			zlog_warn(
+				"VRF %s: I/F %s Message may be via Virtual Link: not supported",
+				vrf_id_to_name(oi->interface->vrf_id),
+				oi->interface->name);
+		else
+			zlog_warn(
+				"VRF %s: I/F %s Area-ID mismatch (my %s, rcvd %s)",
+				vrf_id_to_name(oi->interface->vrf_id),
+				oi->interface->name,
+				inet_ntop(AF_INET, &oi->area->area_id, buf[0],
+					  INET_ADDRSTRLEN),
+				inet_ntop(AF_INET, &oh->area_id, buf[1],
+					  INET_ADDRSTRLEN));
 		return MSG_NG;
 	}
 
 	/* Instance-ID check */
 	if (oh->instance_id != oi->instance_id) {
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-			zlog_debug("%s: Instance-ID mismatch (my %u, rcvd %u)",
-				   __func__, oi->instance_id, oh->instance_id);
+		zlog_warn(
+			"VRF %s: I/F %s Instance-ID mismatch (my %u, rcvd %u)",
+			vrf_id_to_name(oi->interface->vrf_id),
+			oi->interface->name, oi->instance_id, oh->instance_id);
 		return MSG_NG;
 	}
 
 	/* Router-ID check */
 	if (oh->router_id == oi->area->ospf6->router_id) {
-		zlog_warn("%s: Duplicate Router-ID (%s)", __func__,
+		zlog_warn("VRF %s: I/F %s Duplicate Router-ID (%s)",
+			  vrf_id_to_name(oi->interface->vrf_id),
+			  oi->interface->name,
 			  inet_ntop(AF_INET, &oh->router_id, buf[0],
 				    INET_ADDRSTRLEN));
 		return MSG_NG;
