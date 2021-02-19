@@ -1023,14 +1023,17 @@ static struct bgp *bgpL3vpnVrfRt_lookup(struct variable *v, oid name[],
 		*rt_type = name[namelen + vrf_name_len + sizeof(uint32_t)];
 	}
 
+	/* validate the RT index is in range */
+	if (*rt_index > AFI_IP6)
+		return NULL;
+
 	if (exact) {
 		l3vpn_bgp = bgp_lookup_by_name(vrf_name);
 		if (l3vpn_bgp && !is_bgp_vrf_mplsvpn(l3vpn_bgp))
 			return NULL;
 		if (!l3vpn_bgp)
 			return NULL;
-		/* check the index and type match up */
-		if ((*rt_index != AFI_IP) || (*rt_index != AFI_IP6))
+		if ((*rt_index != AFI_IP) && (*rt_index != AFI_IP6))
 			return NULL;
 		/* do we have RT config */
 		if (!(l3vpn_bgp->vpn_policy[*rt_index]
@@ -1408,8 +1411,7 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 			break;
 		case INETADDRESSTYPEIPV6:
 			prefix.family = AF_INET6;
-			oid2in_addr(&name[i], sizeof(struct in6_addr),
-				    &prefix.u.prefix4); /* sic */
+			oid2in6_addr(&name[i], &prefix.u.prefix6);
 			i += sizeof(struct in6_addr);
 			break;
 		}
@@ -1431,8 +1433,7 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 			break;
 		case INETADDRESSTYPEIPV6:
 			nexthop.ipa_type = IPADDR_V6;
-			oid2in_addr(&name[i], sizeof(struct in6_addr),
-				    &nexthop.ip._v4_addr); /* sic */
+			oid2in6_addr(&name[i], &nexthop.ip._v6_addr);
 			/* i += sizeof(struct in6_addr); */
 			break;
 		}
@@ -1458,7 +1459,7 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 			/* otherwise lookup the one we have */
 			*l3vpn_bgp = bgp_lookup_by_name(vrf_name);
 
-		if (l3vpn_bgp == NULL)
+		if (*l3vpn_bgp == NULL)
 			return NULL;
 
 		pi = bgp_lookup_route_next(l3vpn_bgp, dest, &prefix, policy,

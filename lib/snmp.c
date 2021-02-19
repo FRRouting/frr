@@ -64,6 +64,17 @@ void oid2in_addr(oid oid[], int len, struct in_addr *addr)
 		*pnt++ = oid[i];
 }
 
+void oid2in6_addr(oid oid[], struct in6_addr *addr)
+{
+	unsigned int i;
+	uint8_t *pnt;
+
+	pnt = (uint8_t *)addr;
+
+	for (i = 0; i < sizeof(struct in6_addr); i++)
+		*pnt++ = oid[i];
+}
+
 void oid2int(oid oid[], int *dest)
 {
 	uint8_t i;

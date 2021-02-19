@@ -143,6 +143,7 @@ extern int smux_trap_multi_index(struct variable *vp, size_t vp_len,
 				 size_t trapobjlen, uint8_t sptrap);
 extern int oid_compare(const oid *, int, const oid *, int);
 extern void oid2in_addr(oid[], int, struct in_addr *);
+extern void oid2in6_addr(oid oid[], struct in6_addr *addr);
 extern void oid2int(oid oid[], int *dest);
 extern void *oid_copy(void *, const void *, size_t);
 extern void oid_copy_addr(oid[], const struct in_addr *, int);
