@@ -5379,6 +5379,17 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 							BGP_PATH_STALE))
 						break;
 
+					/*
+					 * If this is VRF leaked route
+					 * process for withdraw.
+					 */
+					if (pi->sub_type ==
+						    BGP_ROUTE_IMPORTED &&
+					    peer->bgp->inst_type ==
+						    BGP_INSTANCE_TYPE_DEFAULT)
+						vpn_leak_to_vrf_withdraw(
+							peer->bgp, pi);
+
 					bgp_rib_remove(rm, pi, peer, afi, safi);
 					break;
 				}
@@ -5398,6 +5409,15 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 					break;
 				if (!CHECK_FLAG(pi->flags, BGP_PATH_STALE))
 					break;
+				if (safi == SAFI_UNICAST &&
+				    (peer->bgp->inst_type ==
+					     BGP_INSTANCE_TYPE_VRF ||
+				     peer->bgp->inst_type ==
+					     BGP_INSTANCE_TYPE_DEFAULT))
+					vpn_leak_from_vrf_withdraw(
+						bgp_get_default(), peer->bgp,
+						pi);
+
 				bgp_rib_remove(dest, pi, peer, afi, safi);
 				break;
 			}
