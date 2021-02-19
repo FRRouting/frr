@@ -724,6 +724,7 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 	uint8_t bypass = 0;
 	struct rtattr *mbrinfo[IFLA_BOND_SLAVE_MAX + 1];
 
+	memset(mbrinfo, 0, sizeof(mbrinfo));
 	parse_rtattr_nested(mbrinfo, IFLA_BOND_SLAVE_MAX,
 			    linkinfo[IFLA_INFO_SLAVE_DATA]);
 	if (mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS])
