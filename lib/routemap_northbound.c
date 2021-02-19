@@ -271,6 +271,7 @@ lib_route_map_entry_description_destroy(struct nb_cb_destroy_args *args)
 static int lib_route_map_entry_action_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
+	struct route_map *map;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -281,7 +282,15 @@ static int lib_route_map_entry_action_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		rmi = nb_running_get_entry(args->dnode, NULL, true);
 		rmi->type = yang_dnode_get_enum(args->dnode, NULL);
-		/* TODO: notify? */
+		map = rmi->map;
+
+		/* Execute event hook. */
+		if (route_map_master.event_hook) {
+			(*route_map_master.event_hook)(map->name);
+			route_map_notify_dependencies(map->name,
+						      RMAP_EVENT_CALL_ADDED);
+		}
+
 		break;
 	}
 
