@@ -94,7 +94,6 @@ is defined, and no match is found, default deny is applied.
    In the case of no le or ge command, the prefix length must match exactly the
    length specified in the prefix list.
 
-.. clicmd:: no ip prefix-list NAME
 
 .. _ip-prefix-list-description:
 
@@ -106,10 +105,6 @@ ip prefix-list description
    Descriptions may be added to prefix lists. This command adds a
    description to the prefix list.
 
-.. clicmd:: no ip prefix-list NAME description [DESC]
-
-   Deletes the description from a prefix list. It is possible to use the
-   command without the full description.
 
 .. _ip-prefix-list-sequential-number-control:
 
@@ -121,10 +116,6 @@ ip prefix-list sequential number control
    With this command, the IP prefix list sequential number is displayed.
    This is the default behavior.
 
-.. clicmd:: no ip prefix-list sequence-number
-
-   With this command, the IP prefix list sequential number is not
-   displayed.
 
 .. _showing-ip-prefix-list:
 

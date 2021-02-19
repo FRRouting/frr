@@ -67,7 +67,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    Install a label into the kernel that causes the specified vrf NAME table to
    be used for pop and forward operations when the specified label is seen.
 
-.. clicmd:: [no] sharp watch <nexthop <A.B.C.D|X:X::X:X>|import <A.B.C.D/M:X:X::X:X/M> [connected]
+.. clicmd:: sharp watch <nexthop <A.B.C.D|X:X::X:X>|import <A.B.C.D/M:X:X::X:X/M> [connected]
 
    Instruct zebra to monitor and notify sharp when the specified nexthop is
    changed. The notification from zebra is written into the debug log.

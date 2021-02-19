@@ -111,20 +111,13 @@ BFDd Commands
 
    `vrf` selects which domain we want to use.
 
-.. clicmd:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
-
-    Stops and removes the selected peer.
-
 
 .. clicmd:: profile WORD
 
    Creates a peer profile that can be configured in multiple peers.
 
-
-.. clicmd:: no profile WORD
-
-   Deletes a peer profile. Any peer using the profile will have their
-   configurations reset to the default values.
+   Deleting the profile will cause all peers using it to reset to the default
+   values.
 
 
 .. clicmd:: show bfd [vrf NAME] peers [json]
@@ -178,7 +171,7 @@ BFD peers and profiles share the same BFD session configuration commands.
    Configures the minimal echo receive transmission interval that this
    system is capable of handling.
 
-.. clicmd:: [no] echo-mode
+.. clicmd:: echo-mode
 
    Enables or disables the echo transmission mode. This mode is disabled
    by default.
@@ -190,13 +183,13 @@ BFD peers and profiles share the same BFD session configuration commands.
    Echo mode is not supported on multi-hop setups (see :rfc:`5883`
    section 3).
 
-.. clicmd:: [no] shutdown
+.. clicmd:: shutdown
 
    Enables or disables the peer. When the peer is disabled an
    'administrative down' message is sent to the remote peer.
 
 
-.. clicmd:: [no] passive-mode
+.. clicmd:: passive-mode
 
    Mark session as passive: a passive session will not attempt to start
    the connection and will wait for control packets from peer before it
@@ -208,7 +201,7 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    The default is active-mode (or ``no passive-mode``).
 
-.. clicmd:: [no] minimum-ttl (1-254)
+.. clicmd:: minimum-ttl (1-254)
 
    For multi hop sessions only: configure the minimum expected TTL for
    an incoming BFD control packet.
@@ -258,9 +251,6 @@ The following commands are available inside the BGP configuration node.
    the connection with its neighbor and, when it goes back up, notify
    BGP to try to connect to it.
 
-.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd
-
-   Removes any notification registration for this neighbor.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
 
@@ -271,21 +261,14 @@ The following commands are available inside the BGP configuration node.
    This is the case when graceful restart is enabled, and it is wished to
    ignore the BD event while waiting for the remote router to restart.
 
-.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
-
-   Disallow to write CBIT independence in BFD outgoing packets. Also disallow
-   to ignore BFD down notification. This is the default behaviour.
+   Disabling this disables presence of CBIT independence in BFD outgoing
+   packets and pays attention to BFD down notifications. This is the default.
 
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
 
    Same as command ``neighbor <A.B.C.D|X:X::X:X|WORD> bfd``, but applies the
    BFD profile to the sessions it creates or that already exist.
-
-
-.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
-
-   Removes the BFD profile configuration from peer session(s).
 
 
 .. _bfd-isis-peer-config:
@@ -301,10 +284,6 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. clicmd:: no isis bfd
-
-   Removes any notification registration for this interface peers.
-
    Note that there will be just one BFD session per interface. In case both
    IPv4 and IPv6 support are configured then just a IPv6 based session is
    created.
@@ -313,9 +292,6 @@ The following commands are available inside the interface configuration node.
 
    Use a BFD profile BFDPROF as provided in the BFD configuration.
 
-.. clicmd:: no isis bfd profile BFDPROF
-
-   Removes any BFD profile if present.
 
 .. _bfd-ospf-peer-config:
 
@@ -329,10 +305,6 @@ The following commands are available inside the interface configuration node.
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
-
-.. clicmd:: no ip ospf bfd
-
-   Removes any notification registration for this interface peers.
 
 
 .. _bfd-ospf6-peer-config:
@@ -348,10 +320,6 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. clicmd:: no ipv6 ospf6 bfd
-
-   Removes any notification registration for this interface peers.
-
 
 .. _bfd-pim-peer-config:
 
@@ -365,10 +333,6 @@ The following commands are available inside the interface configuration node.
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
-
-.. clicmd:: no ip pim bfd
-
-   Removes any notification registration for this interface peers.
 
 
 .. _bfd-configuration:
@@ -686,7 +650,7 @@ sure you have `debugging` level enabled:
 You may also fine tune the debug messages by selecting one or more of the
 debug levels:
 
-.. clicmd:: [no] debug bfd distributed
+.. clicmd:: debug bfd distributed
 
    Toggle BFD data plane (distributed BFD) debugging.
 
@@ -695,17 +659,17 @@ debug levels:
    * Data plane received / send messages
    * Connection events
 
-.. clicmd:: [no] debug bfd network
+.. clicmd:: debug bfd network
 
    Toggle network events: show messages about socket failures and unexpected
    BFD messages that may not belong to registered peers.
 
-.. clicmd:: [no] debug bfd peer
+.. clicmd:: debug bfd peer
 
    Toggle peer event log messages: show messages about peer creation/removal
    and state changes.
 
-.. clicmd:: [no] debug bfd zebra
+.. clicmd:: debug bfd zebra
 
    Toggle zebra message events: show messages about interfaces, local
    addresses, VRF and daemon peer registrations.

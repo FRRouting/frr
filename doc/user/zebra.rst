@@ -124,7 +124,6 @@ Standard Commands
 
 .. clicmd:: shutdown
 
-.. clicmd:: no shutdown
 
    Up or down the current interface.
 
@@ -133,16 +132,13 @@ Standard Commands
 
 .. clicmd:: ipv6 address ADDRESS/PREFIX
 
-.. clicmd:: no ip address ADDRESS/PREFIX
 
-.. clicmd:: no ipv6 address ADDRESS/PREFIX
 
    Set the IPv4 or IPv6 address/prefix for the interface.
 
 
 .. clicmd:: ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
-.. clicmd:: no ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
    Configure an IPv4 Point-to-Point address on the interface. (The concept of
    PtP addressing does not exist for IPv6.)
@@ -160,14 +156,12 @@ Standard Commands
 
 .. clicmd:: multicast
 
-.. clicmd:: no multicast
 
    Enable or disables multicast flag for the interface.
 
 
 .. clicmd:: bandwidth (1-10000000)
 
-.. clicmd:: no bandwidth (1-10000000)
 
    Set bandwidth value of the interface in kilobits/sec. This is for
    calculating OSPF cost. This command does not affect the actual device
@@ -176,7 +170,6 @@ Standard Commands
 
 .. clicmd:: link-detect
 
-.. clicmd:: no link-detect
 
    Enable/disable link-detect on platforms which support this. Currently only
    Linux, and only where network interface drivers support reporting
@@ -197,7 +190,6 @@ Link Parameters Commands
 
 .. clicmd:: link-params
 
-.. clicmd:: no link-param
 
    Enter into the link parameters sub node. At least 'enable' must be
    set to activate the link parameters, and consequently routing
@@ -497,7 +489,7 @@ The push action is generally used for LER devices, which want to encapsulate
 all traffic for a wished destination into an MPLS label. This action is stored
 in routing entry, and can be configured like a route:
 
-.. clicmd:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
+.. clicmd:: ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 
    NETWORK and MASK stand for the IP prefix entry to be added as static
    route entry.
@@ -527,7 +519,7 @@ The swap action is generally used for LSR devices, which swap a packet with a
 label, with an other label. The Pop action is used on LER devices, at the
 termination of the MPLS traffic; this is used to remove MPLS header.
 
-.. clicmd:: [no] mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
+.. clicmd:: mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
 
    INCOMING_LABEL and OUTGOING_LABEL are MPLS labels with values ranging from 16
    to 1048575.
@@ -575,7 +567,6 @@ unicast topology!
 
 .. clicmd:: ip multicast rpf-lookup-mode MODE
 
-.. clicmd:: no ip multicast rpf-lookup-mode [MODE]
 
    MODE sets the method used to perform RPF lookups. Supported modes:
 
@@ -635,7 +626,6 @@ unicast topology!
 
 .. clicmd:: ip mroute PREFIX NEXTHOP [DISTANCE]
 
-.. clicmd:: no ip mroute PREFIX NEXTHOP [DISTANCE]
 
    Adds a static route entry to the Multicast RIB. This performs exactly as the
    ``ip route`` command, except that it inserts the route in the Multicast RIB
@@ -717,7 +707,7 @@ IPv6 example for OSPFv3.
    not created at startup.  On Debian, FRR might start before ifupdown
    completes. Consider a reboot test.
 
-.. clicmd:: [no] zebra route-map delay-timer (0-600)
+.. clicmd:: zebra route-map delay-timer (0-600)
 
    Set the delay before any route-maps are processed in zebra.  The
    default time for this is 5 seconds.
@@ -793,15 +783,8 @@ FPM Commands
 
 .. clicmd:: fpm connection ip A.B.C.D port (1-65535)
 
-   Configure ``zebra`` to connect to a different FPM server than
-   ``127.0.0.1`` port ``2620``.
-
-
-.. clicmd:: no fpm connection ip A.B.C.D port (1-65535)
-
-  Configure ``zebra`` to connect to the default FPM server at ``127.0.0.1``
-  port ``2620``.
-
+   Configure ``zebra`` to connect to a different FPM server than the default of
+   ``127.0.0.1:2060``
 
 .. clicmd:: show zebra fpm stats
 
@@ -852,24 +835,16 @@ FPM Commands
    Configures the FPM server address. Once configured ``zebra`` will attempt
    to connect to it immediately.
 
-
-.. clicmd:: no fpm address [<A.B.C.D|X:X::X:X> [port (1-65535)]]
-
-   Disables FPM entirely. ``zebra`` will close any current connections and
-   will not attempt to connect to it anymore.
-
+   The ``no`` form disables FPM entirely. ``zebra`` will close any current
+   connections and will not attempt to connect to it anymore.
 
 .. clicmd:: fpm use-next-hop-groups
 
    Use the new netlink messages ``RTM_NEWNEXTHOP`` / ``RTM_DELNEXTHOP`` to
    group repeated route next hop information.
 
-
-.. clicmd:: no fpm use-next-hop-groups
-
-   Use the old known FPM behavior of including next hop information in the
-   route (e.g. ``RTM_NEWROUTE``) messages.
-
+   The ``no` form uses the old known FPM behavior of including next hop
+   information in the route (e.g. ``RTM_NEWROUTE``) messages.
 
 .. clicmd:: show fpm counters [json]
 
@@ -1019,12 +994,12 @@ Many routing protocols require a router-id to be configured. To have a
 consistent router-id across all daemons, the following commands are available
 to configure and display the router-id:
 
-.. clicmd:: [no] [ip] router-id A.B.C.D
+.. clicmd:: [ip] router-id A.B.C.D
 
    Allow entering of the router-id.  This command also works under the
    vrf subnode, to allow router-id's per vrf.
 
-.. clicmd:: [no] [ip] router-id A.B.C.D vrf NAME
+.. clicmd:: [ip] router-id A.B.C.D vrf NAME
 
    Configure the router-id of this router from the configure NODE.
    A show run of this command will display the router-id command
@@ -1037,7 +1012,7 @@ to configure and display the router-id:
 
 For protocols requiring an IPv6 router-id, the following commands are available:
 
-.. clicmd:: [no] ipv6 router-id X:X::X:X
+.. clicmd:: ipv6 router-id X:X::X:X
 
    Configure the IPv6 router-id of this router. Like its IPv4 counterpart,
    this command works under the vrf subnode, to allow router-id's per vrf.

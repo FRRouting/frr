@@ -257,7 +257,7 @@ Route Map Set Command
 
    Subtract the BGP local preference from an existing `local_pref`.
 
-.. clicmd:: [no] set distance DISTANCE
+.. clicmd:: set distance DISTANCE
 
    Set the Administrative distance to DISTANCE to use for the route.
    This is only locally significant and will not be dispersed to peers.
@@ -266,7 +266,7 @@ Route Map Set Command
 
    Set the route's weight.
 
-.. clicmd:: [no] set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
+.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
 
    Set the BGP attribute MED to a specific value. Use `+`/`-` to add or subtract
    the specified value to/from the MED. Use `rtt` to set the MED to the round
@@ -298,6 +298,7 @@ Route Map Set Command
    Set the color of a SR-TE Policy to be applied to a learned route. The SR-TE
    Policy is uniquely determined by the color and the BGP nexthop.
 
+
 .. _route-map-call-command:
 
 Route Map Call Command
@@ -307,6 +308,7 @@ Route Map Call Command
 
    Call route-map `name`. If it returns deny, deny the route and
    finish processing the route-map.
+
 
 .. _route-map-exit-action-command:
 
@@ -325,6 +327,7 @@ Route Map Exit Action Command
 
    Proceed processing the route-map at the first entry whose order is >= N
 
+
 .. _route-map-optimization-command:
 
 Route Map Optimization Command
@@ -341,9 +344,6 @@ Route Map Optimization Command
    of all the prefixes in all the prefix-lists that are included in the
    match rule of all the sequences of a route-map.
 
-.. clicmd:: no route-map optimization
-
-   Disable the route-map processing optimization.
 
 Route Map Examples
 ==================

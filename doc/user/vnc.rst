@@ -147,11 +147,7 @@ Defaults section.
      exit-vnc
 
 
-.. clicmd:: no vnc nve-group NAME
-
-   Delete the NVE group named `name`.
-
-   The following statements are valid in an NVE group definition:
+The following statements are valid in an NVE group definition:
 
 .. clicmd:: l2rd NVE-ID-VALUE
 
@@ -307,7 +303,6 @@ L2 Group Configuration.
        exit-vnc
 
 
-.. clicmd:: no vnc l2-group NAME
 
    Delete the L2 group named `name`.
 
@@ -320,7 +315,6 @@ The following statements are valid in a L2 group definition:
 
 .. clicmd:: labels LABEL-LIST
 
-.. clicmd:: no labels LABEL-LIST
 
    Add or remove labels associated with the group. `label-list` is a
    space separated list of label values in the range of 0-1048575.
@@ -466,7 +460,6 @@ Redistribution Command Syntax
 
 .. clicmd:: vnc redistribute ipv4|ipv6 bgp-direct-to-nve-groups view VIEWNAME
 
-.. clicmd:: no vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
 
    Import (or do not import) prefixes from another routing protocols. Specify
    both the address family to import (`ipv4` or `ipv6`) and the protocol
@@ -484,7 +477,6 @@ Redistribution Command Syntax
 
 .. clicmd:: vnc redistribute nve-group GROUP-NAME
 
-.. clicmd:: no vnc redistribute nve-group GROUP-NAME
 
    When using `nve-group` mode, assign (or do not assign) the NVE group
    `group-name` to routes redistributed from another routing protocol.

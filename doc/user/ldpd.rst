@@ -97,45 +97,45 @@ implementation.
 LDP Configuration
 ===================
 
-.. clicmd:: [no] mpls ldp
+.. clicmd:: mpls ldp
 
    Enable or disable LDP daemon
 
-.. clicmd:: [no] router-id A.B.C.D
+.. clicmd:: router-id A.B.C.D
 
    The following command located under MPLS router node configures the MPLS
    router-id of the local device.
 
-.. clicmd:: [no] ordered-control
+.. clicmd:: ordered-control
 
    Configure LDP Ordered Label Distribution Control.
 
-.. clicmd:: [no] address-family [ipv4 | ipv6]
+.. clicmd:: address-family [ipv4 | ipv6]
 
    Configure LDP for IPv4 or IPv6 address-family. Located under MPLS route node,
    this subnode permits configuring the LDP neighbors.
 
-.. clicmd:: [no] interface IFACE
+.. clicmd:: interface IFACE
 
    Located under MPLS address-family node, use this command to enable or disable
    LDP discovery per interface. IFACE stands for the interface name where LDP is
    enabled. By default it is disabled. Once this command executed, the
    address-family interface node is configured.
 
-.. clicmd:: [no] discovery transport-address A.B.C.D | A:B::C:D
+.. clicmd:: discovery transport-address A.B.C.D | A:B::C:D
 
    Located under mpls address-family interface node, use this command to set
    the IPv4 or IPv6 transport-address used by the LDP protocol to talk on this
    interface.
 
-.. clicmd:: [no] neighbor A.B.C.D password PASSWORD
+.. clicmd:: neighbor A.B.C.D password PASSWORD
 
    The following command located under MPLS router node configures the router
    of a LDP device. This device, if found, will have to comply with the
    configured password. PASSWORD is a clear text password wit its digest sent
    through the network.
 
-.. clicmd:: [no] neighbor A.B.C.D holdtime HOLDTIME
+.. clicmd:: neighbor A.B.C.D holdtime HOLDTIME
 
    The following command located under MPLS router node configures the holdtime
    value in seconds of the LDP neighbor ID. Configuring it triggers a keepalive
@@ -143,16 +143,16 @@ LDP Configuration
    this time of non response, the LDP established session will be considered as
    set to down. By default, no holdtime is configured for the LDP devices.
 
-.. clicmd:: [no] discovery hello holdtime HOLDTIME
+.. clicmd:: discovery hello holdtime HOLDTIME
 
-.. clicmd:: [no] discovery hello interval INTERVAL
+.. clicmd:: discovery hello interval INTERVAL
 
    INTERVAL value ranges from 1 to 65535 seconds. Default value is 5 seconds.
    This is the value between each hello timer message sent.
    HOLDTIME value ranges from 1 to 65535 seconds. Default value is 15 seconds.
    That value is added as a TLV in the LDP messages.
 
-.. clicmd:: [no] dual-stack transport-connection prefer ipv4
+.. clicmd:: dual-stack transport-connection prefer ipv4
 
    When *ldpd* is configured for dual-stack operation, the transport connection
    preference is IPv6 by default (as specified by :rfc:`7552`). On such
@@ -230,7 +230,7 @@ LDP debugging commands
 ========================
 
 
-.. clicmd:: [no] debug mpls ldp KIND
+.. clicmd:: debug mpls ldp KIND
 
    Enable or disable debugging messages of a given kind. ``KIND`` can
    be one of:

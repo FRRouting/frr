@@ -62,7 +62,6 @@ OSPF6 router
 
 .. clicmd:: auto-cost reference-bandwidth COST
 
-.. clicmd:: no auto-cost reference-bandwidth
 
    This sets the reference bandwidth for cost calculations, where this
    bandwidth is considered equivalent to an OSPF cost of 1, specified in

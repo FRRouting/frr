@@ -51,7 +51,7 @@ and the :clicmd:`terminal paginate` command:
    This variable should be set by the user according to their preferences,
    in their :file:`~/.profile` file.
 
-.. clicmd:: [no] terminal paginate
+.. clicmd:: terminal paginate
 
    Enables/disables vtysh output pagination.  This command is intended to
    be placed in :file:`vtysh.conf` to set a system-wide default.  If this
@@ -161,7 +161,6 @@ in whose file the error is made.
 
 .. clicmd:: service integrated-vtysh-config
 
-.. clicmd:: no service integrated-vtysh-config
 
    Control whether integrated :file:`frr.conf` file is written when
    'write file' is issued.

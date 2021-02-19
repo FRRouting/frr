@@ -72,13 +72,7 @@ EIGRP Configuration
    carrying out any of the EIGRP commands.  Specify vrf NAME if you want
    eigrp to work within the specified vrf.
 
-.. clicmd:: no router eigrp (1-65535) [vrf NAME]
-
-   Disable EIGRP.
-
 .. clicmd:: network NETWORK
-
-.. clicmd:: no network NETWORK
 
    Set the EIGRP enable interface by `network`. The interfaces which
    have addresses matching with `network` are enabled.
@@ -102,7 +96,6 @@ EIGRP Configuration
 
 .. clicmd:: passive-interface (IFNAME|default)
 
-.. clicmd:: no passive-interface IFNAME
 
    This command sets the specified interface to passive mode. On passive mode
    interface, all receiving packets are ignored and eigrpd does not send either

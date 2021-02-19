@@ -154,16 +154,16 @@ Certain signals have special meanings to *pimd*.
    urib-only
       Lookup in the Unicast Rib only.
 
-.. clicmd:: [no] ip msdp mesh-group [WORD]
+.. clicmd:: ip msdp mesh-group [WORD]
 
    Create or Delete a multicast source discovery protocol mesh-group using
    [WORD] as the group name.
 
-.. clicmd:: [no] ip msdp mesh-group WORD member A.B.C.D
+.. clicmd:: ip msdp mesh-group WORD member A.B.C.D
 
    Attach or Delete A.B.C.D to the MSDP mesh group WORD specified.
 
-.. clicmd:: [no] ip msdp mesh-group WORD source A.B.C.D
+.. clicmd:: ip msdp mesh-group WORD source A.B.C.D
 
    For the address specified A.B.C.D use that as the source address for
    mesh group packets being sent.
@@ -174,7 +174,7 @@ Certain signals have special meanings to *pimd*.
    the existing IGMP general query timer.If no version is provided in the cli,
    it will be considered as default v2 query.This is a hidden command.
 
-.. clicmd:: [no] ip igmp watermark-warn (10-60000)
+.. clicmd:: ip igmp watermark-warn (10-60000)
 
    Configure watermark warning generation for an igmp group limit. Generates
    warning once the configured group limit is reached while adding new groups.
@@ -224,7 +224,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    reports on the interface. Refer to the next `ip igmp` command for IGMP
    management.
 
-.. clicmd:: [no] ip pim use-source A.B.C.D
+.. clicmd:: ip pim use-source A.B.C.D
 
    If you have multiple addresses configured on a particular interface
    and would like pim to use a specific source address associated with
@@ -321,15 +321,12 @@ Multicast Source Discovery Protocol (MSDP) Configuration
 
    Establish a MSDP connection with a peer.
 
-.. clicmd:: no ip msdp mesh-group [WORD] member A.B.C.D
 
    Remove a MSDP peer member from a MSDP mesh-group.
 
-.. clicmd:: no ip msdp mesh-group [WORD] source A.B.C.D
 
    Delete a MSDP mesh-group.
 
-.. clicmd:: no ip msdp peer A.B.C.D
 
    Delete a MSDP peer connection.
 

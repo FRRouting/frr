@@ -113,7 +113,7 @@ Configuration Commands
 
    Configure segment routing traffic engineering.
 
-.. clicmd:: [no] segment-list NAME
+.. clicmd:: segment-list NAME
 
    Delete or start a segment list definition.
 
@@ -122,7 +122,7 @@ Configuration Commands
    Delete or specify a segment in a segment list definition.
 
 
-.. clicmd:: [no] policy color COLOR endpoint ENDPOINT
+.. clicmd:: policy color COLOR endpoint ENDPOINT
 
    Delete or start a policy definition.
 
@@ -137,27 +137,27 @@ Configuration Commands
    Specify the policy SID.
 
 
-.. clicmd:: [no] candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
+.. clicmd:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 
    Delete or define an explicit candidate path.
 
 
-.. clicmd:: [no] candidate-path preference PREFERENCE name NAME dynamic
+.. clicmd:: candidate-path preference PREFERENCE name NAME dynamic
 
    Delete or start a dynamic candidate path definition.
 
 
-.. clicmd:: [no] affinity {exclude-any|include-any|include-all} BITPATTERN
+.. clicmd:: affinity {exclude-any|include-any|include-all} BITPATTERN
 
    Delete or specify an affinity constraint for a dynamic candidate path.
 
 
-.. clicmd:: [no] bandwidth BANDWIDTH [required]
+.. clicmd:: bandwidth BANDWIDTH [required]
 
    Delete or specify a bandwidth constraint for a dynamic candidate path.
 
 
-.. clicmd:: [no] metric [bound] METRIC VALUE [required]
+.. clicmd:: metric [bound] METRIC VALUE [required]
 
    Delete or specify a metric constraint for a dynamic candidate path.
 
@@ -185,7 +185,7 @@ Configuration Commands
     - bnc: Border Node Count metric
 
 
-.. clicmd:: [no] objective-function OBJFUN1 [required]
+.. clicmd:: objective-function OBJFUN1 [required]
 
    Delete or specify a PCEP objective function constraint for a dynamic
    candidate path.
@@ -210,7 +210,7 @@ Configuration Commands
      - msn: Minimize the number of Shared Nodes [RFC8800]
 
 
-.. clicmd:: [no] debug pathd pcep [basic|path|message|pceplib]
+.. clicmd:: debug pathd pcep [basic|path|message|pceplib]
 
    Enable or disable debugging for the pcep module:
 
@@ -225,13 +225,13 @@ Configuration Commands
    Configure PCEP support.
 
 
-.. clicmd:: [no] pce-config NAME
+.. clicmd:: pce-config NAME
 
    Define a shared PCE configuration that can be used in multiple PCE
    declarations.
 
 
-.. clicmd:: [no] pce NAME
+.. clicmd:: pce NAME
 
    Define or delete a PCE definition.
 
@@ -296,7 +296,7 @@ Configuration Commands
    configuration group.
 
 
-.. clicmd:: [no] pcc
+.. clicmd:: pcc
 
    Disable or start the definition of a PCC.
 
@@ -306,7 +306,7 @@ Configuration Commands
    Specify the maximum SID depth in a PCC definition.
 
 
-.. clicmd:: [no] peer WORD [precedence (1-255)]
+.. clicmd:: peer WORD [precedence (1-255)]
 
    Specify a peer and its precedence in a PCC definition.
 

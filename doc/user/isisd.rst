@@ -33,7 +33,7 @@ ISIS router
 To start the ISIS process you have to specify the ISIS router. As of this
 writing, *isisd* does not support multiple ISIS processes.
 
-.. clicmd:: [no] router isis WORD [vrf NAME]
+.. clicmd:: router isis WORD [vrf NAME]
 
    Enable or disable the ISIS process by specifying the ISIS domain with
    'WORD'.  *isisd* does not yet support multiple ISIS processes but you must
@@ -42,13 +42,9 @@ writing, *isisd* does not support multiple ISIS processes.
 
 .. clicmd:: net XX.XXXX. ... .XXX.XX
 
-.. clicmd:: no net XX.XXXX. ... .XXX.XX
-
    Set/Unset network entity title (NET) provided in ISO format.
 
 .. clicmd:: hostname dynamic
-
-.. clicmd:: no hostname dynamic
 
    Enable support for dynamic hostname.
 
@@ -56,16 +52,10 @@ writing, *isisd* does not support multiple ISIS processes.
 
 .. clicmd:: domain-password [clear | md5] <password>
 
-.. clicmd:: no area-password
-
-.. clicmd:: no domain-password
-
    Configure the authentication password for an area, respectively a domain, as
    clear text or md5 one.
 
 .. clicmd:: attached-bit [receive ignore | send]
-
-.. clicmd:: no attached-bit
 
    Set attached bit for inter-area traffic:
 
@@ -76,13 +66,9 @@ writing, *isisd* does not support multiple ISIS processes.
 
 .. clicmd:: log-adjacency-changes
 
-.. clicmd:: no log-adjacency-changes
-
    Log changes in adjacency state.
 
 .. clicmd:: metric-style [narrow | transition | wide]
-
-.. clicmd:: no metric-style
 
    Set old-style (ISO 10589) or new-style packet formats:
 
@@ -95,17 +81,13 @@ writing, *isisd* does not support multiple ISIS processes.
 
 .. clicmd:: set-overload-bit
 
-.. clicmd:: no set-overload-bit
-
    Set overload bit to avoid any transit traffic.
 
 .. clicmd:: purge-originator
 
-.. clicmd:: no purge-originator
-
    Enable or disable :rfc:`6232` purge originator identification.
 
-.. clicmd:: [no] lsp-mtu (128-4352)
+.. clicmd:: lsp-mtu (128-4352)
 
    Configure the maximum size of generated LSPs, in bytes.
 
@@ -115,42 +97,22 @@ writing, *isisd* does not support multiple ISIS processes.
 ISIS Timer
 ==========
 
-.. clicmd:: lsp-gen-interval (1-120)
-
 .. clicmd:: lsp-gen-interval [level-1 | level-2] (1-120)
-
-.. clicmd:: no lsp-gen-interval
-
-.. clicmd:: no lsp-gen-interval [level-1 | level-2]
 
    Set minimum interval in seconds between regenerating same LSP,
    globally, for an area (level-1) or a domain (level-2).
 
 .. clicmd:: lsp-refresh-interval [level-1 | level-2] (1-65235)
 
-.. clicmd:: no lsp-refresh-interval [level-1 | level-2]
-
    Set LSP refresh interval in seconds, globally, for an area (level-1) or a
    domain (level-2).
 
-.. clicmd:: max-lsp-lifetime (360-65535)
-
 .. clicmd:: max-lsp-lifetime [level-1 | level-2] (360-65535)
-
-.. clicmd:: no max-lsp-lifetime
-
-.. clicmd:: no max-lsp-lifetime [level-1 | level-2]
 
    Set LSP maximum LSP lifetime in seconds, globally, for an area (level-1) or
    a domain (level-2).
 
-.. clicmd:: spf-interval (1-120)
-
 .. clicmd:: spf-interval [level-1 | level-2] (1-120)
-
-.. clicmd:: no spf-interval
-
-.. clicmd:: no spf-interval [level-1 | level-2]
 
    Set minimum interval between consecutive SPF calculations in seconds.
 
@@ -161,22 +123,17 @@ ISIS Fast-Reroute
 
 .. clicmd:: spf prefix-priority [critical | high | medium] WORD
 
-.. clicmd:: no spf prefix-priority [critical | high | medium] [WORD]
-
    Assign a priority to the prefixes that match the specified access-list.
 
-.. clicmd:: [no] fast-reroute priority-limit [critical | high | medium] [level-1 | level-2]
+.. clicmd:: fast-reroute priority-limit [critical | high | medium] [level-1 | level-2]
 
    Limit LFA backup computation up to the specified prefix priority.
 
-
-   first.
-
-.. clicmd:: [no] fast-reroute load-sharing disable [level-1 | level-2]
+.. clicmd:: fast-reroute load-sharing disable [level-1 | level-2]
 
    Disable load sharing across multiple LFA backups.
 
-.. clicmd:: [no] fast-reroute remote-lfa prefix-list [WORD] [level-1 | level-2]
+.. clicmd:: fast-reroute remote-lfa prefix-list [WORD] [level-1 | level-2]
 
    Configure a prefix-list to select eligible PQ nodes (valid for all protected
    interfaces).
@@ -187,8 +144,6 @@ ISIS region
 ===========
 
 .. clicmd:: is-type [level-1 | level-1-2 | level-2-only]
-
-.. clicmd:: no is-type
 
    Define the ISIS router behavior:
 
@@ -206,7 +161,7 @@ ISIS interface
 
 .. _ip-router-isis-word:
 
-.. clicmd:: [no] <ip|ipv6> router isis WORD [vrf NAME]
+.. clicmd:: <ip|ipv6> router isis WORD [vrf NAME]
 
    Activate ISIS adjacency on this interface. Note that the name of ISIS
    instance must be the same as the one used to configure the ISIS process (see
@@ -214,8 +169,6 @@ ISIS interface
    WORD``; to enable IPv6, issue ``ipv6 router isis WORD``.
 
 .. clicmd:: isis circuit-type [level-1 | level-1-2 | level-2]
-
-.. clicmd:: no isis circuit-type
 
    Configure circuit type for interface:
 
@@ -226,13 +179,7 @@ ISIS interface
    - level-2-only
      Level-2 only adjacencies are formed
 
-.. clicmd:: isis csnp-interval (1-600)
-
 .. clicmd:: isis csnp-interval (1-600) [level-1 | level-2]
-
-.. clicmd:: no isis csnp-interval
-
-.. clicmd:: no isis csnp-interval [level-1 | level-2]
 
    Set CSNP interval in seconds globally, for an area (level-1) or a domain
    (level-2).
@@ -241,35 +188,17 @@ ISIS interface
 
    Add padding to IS-IS hello packets.
 
-.. clicmd:: isis hello-interval (1-600)
-
 .. clicmd:: isis hello-interval (1-600) [level-1 | level-2]
-
-.. clicmd:: no isis hello-interval
-
-.. clicmd:: no isis hello-interval [level-1 | level-2]
 
    Set Hello interval in seconds globally, for an area (level-1) or a domain
    (level-2).
 
-.. clicmd:: isis hello-multiplier (2-100)
-
 .. clicmd:: isis hello-multiplier (2-100) [level-1 | level-2]
-
-.. clicmd:: no isis hello-multiplier
-
-.. clicmd:: no isis hello-multiplier [level-1 | level-2]
 
    Set multiplier for Hello holding time globally, for an area (level-1) or a
    domain (level-2).
 
-.. clicmd:: isis metric [(0-255) | (0-16777215)]
-
 .. clicmd:: isis metric [(0-255) | (0-16777215)] [level-1 | level-2]
-
-.. clicmd:: no isis metric
-
-.. clicmd:: no isis metric [level-1 | level-2]
 
    Set default metric value globally, for an area (level-1) or a domain
    (level-2).  Max value depend if metric support narrow or wide value (see
@@ -277,73 +206,54 @@ ISIS interface
 
 .. clicmd:: isis network point-to-point
 
-.. clicmd:: no isis network point-to-point
-
    Set network type to 'Point-to-Point' (broadcast by default).
 
 .. clicmd:: isis passive
-
-.. clicmd:: no isis passive
 
    Configure the passive mode for this interface.
 
 .. clicmd:: isis password [clear | md5] <password>
 
-.. clicmd:: no isis password
-
    Configure the authentication password (clear or encoded text) for the
    interface.
 
-.. clicmd:: isis priority (0-127)
-
 .. clicmd:: isis priority (0-127) [level-1 | level-2]
-
-.. clicmd:: no isis priority
-
-.. clicmd:: no isis priority [level-1 | level-2]
 
    Set priority for Designated Router election, globally, for the area
    (level-1) or the domain (level-2).
 
-.. clicmd:: isis psnp-interval (1-120)
-
 .. clicmd:: isis psnp-interval (1-120) [level-1 | level-2]
-
-.. clicmd:: no isis psnp-interval
-
-.. clicmd:: no isis psnp-interval [level-1 | level-2]
 
    Set PSNP interval in seconds globally, for an area (level-1) or a domain
    (level-2).
 
 .. clicmd:: isis three-way-handshake
 
-.. clicmd:: no isis three-way-handshake
-
    Enable or disable :rfc:`5303` Three-Way Handshake for P2P adjacencies.
    Three-Way Handshake is enabled by default.
 
-.. clicmd:: [no] isis fast-reroute lfa [level-1 | level-2]
+.. clicmd:: isis fast-reroute lfa [level-1 | level-2]
 
    Enable per-prefix LFA fast reroute link protection.
 
-.. clicmd:: [no] isis fast-reroute lfa [level-1 | level-2] exclude interface IFNAME
+.. clicmd:: isis fast-reroute lfa [level-1 | level-2] exclude interface IFNAME
 
    Exclude an interface from the LFA backup nexthop computation.
 
-.. clicmd:: [no] isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
+.. clicmd:: isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
 
    Enable per-prefix TI-LFA fast reroute link or node protection.
 
-.. clicmd:: [no] isis fast-reroute remote-lfa tunnel mpls-ldp [level-1 | level-2]
+.. clicmd:: isis fast-reroute remote-lfa tunnel mpls-ldp [level-1 | level-2]
 
    Enable per-prefix Remote LFA fast reroute link protection. Note that other
    routers in the network need to be configured to accept LDP targeted hello
    messages in order for RLFA to work.
 
-.. clicmd:: [no] isis fast-reroute remote-lfa maximum-metric (1-16777215) [level-1 | level-2]
+.. clicmd:: isis fast-reroute remote-lfa maximum-metric (1-16777215) [level-1 | level-2]
 
    Limit Remote LFA PQ node selection within the specified metric.
+
 
 .. _showing-isis-information:
 
@@ -358,36 +268,20 @@ Showing ISIS information
 
    Show information about ISIS node.
 
-.. clicmd:: show isis interface
-
-.. clicmd:: show isis interface detail
-
-.. clicmd:: show isis interface <interface name>
+.. clicmd:: show isis interface [detail] [IFNAME]
 
    Show state and configuration of ISIS specified interface, or all interfaces
    if no interface is given with or without details.
 
-.. clicmd:: show isis neighbor
-
-.. clicmd:: show isis neighbor <System Id>
-
-.. clicmd:: show isis neighbor detail
+.. clicmd:: show isis neighbor [detail] [SYSTEMID]
 
    Show state and information of ISIS specified neighbor, or all neighbors if
    no system id is given with or without details.
 
-.. clicmd:: show isis database
-
-.. clicmd:: show isis database [detail]
-
-.. clicmd:: show isis database <LSP id> [detail]
-
-.. clicmd:: show isis database detail <LSP id>
+.. clicmd:: show isis database [detail] [LSPID]
 
    Show the ISIS database globally, for a specific LSP id without or with
    details.
-
-.. clicmd:: show isis topology
 
 .. clicmd:: show isis topology [level-1|level-2]
 
@@ -404,6 +298,7 @@ Showing ISIS information
    Show information about the number of prefixes having LFA protection,
    and network-wide LFA coverage.
 
+
 .. _isis-traffic-engineering:
 
 Traffic Engineering
@@ -411,19 +306,15 @@ Traffic Engineering
 
 .. note::
 
-   At this time, FRR offers partial support for some of the routing
-   protocol extensions that can be used with MPLS-TE. FRR does not
-   support a complete RSVP-TE solution currently.
+   At this time, FRR offers partial support for some of the routing protocol
+   extensions that can be used with MPLS-TE. FRR does not currently support a
+   complete RSVP-TE solution.
 
 .. clicmd:: mpls-te on
-
-.. clicmd:: no mpls-te
 
    Enable Traffic Engineering LSP flooding.
 
 .. clicmd:: mpls-te router-address <A.B.C.D>
-
-.. clicmd:: no mpls-te router-address
 
    Configure stable IP address for MPLS-TE.
 
@@ -441,6 +332,7 @@ Traffic Engineering
 
    :ref:`ospf-traffic-engineering`
 
+
 .. _debugging-isis:
 
 Segment Routing
@@ -457,29 +349,29 @@ Known limitations:
  - No support for SRLB
  - Only one SRGB and default SPF Algorithm is supported
 
-.. clicmd:: [no] segment-routing on
+.. clicmd:: segment-routing on
 
    Enable Segment Routing.
 
-.. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
+.. clicmd:: segment-routing global-block (0-1048575) (0-1048575)
 
    Set the Segment Routing Global Block i.e. the label range used by MPLS
    to store label in the MPLS FIB for Prefix SID. Note that the block size
    may not exceed 65535.
 
-.. clicmd:: [no] segment-routing local-block (0-1048575) (0-1048575)
+.. clicmd:: segment-routing local-block (0-1048575) (0-1048575)
 
    Set the Segment Routing Local Block i.e. the label range used by MPLS
    to store label in the MPLS FIB for Adjacency SID. Note that the block size
    may not exceed 65535.
 
-.. clicmd:: [no] segment-routing node-msd (1-16)
+.. clicmd:: segment-routing node-msd (1-16)
 
    Set the Maximum Stack Depth supported by the router. The value depend of the
    MPLS dataplane. E.g. for Linux kernel, since version 4.13 the maximum value
    is 32.
 
-.. clicmd:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535) [no-php-flag|explicit-null] [n-flag-clear]
+.. clicmd:: segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535) [no-php-flag|explicit-null] [n-flag-clear]
 
    prefix. The 'no-php-flag' means NO Penultimate Hop Popping that allows SR
    node to request to its neighbor to not pop the label. The 'explicit-null'
@@ -501,88 +393,63 @@ Debugging ISIS
 
 .. clicmd:: debug isis adj-packets
 
-.. clicmd:: no debug isis adj-packets
-
    IS-IS Adjacency related packets.
 
 .. clicmd:: debug isis checksum-errors
-
-.. clicmd:: no debug isis checksum-errors
 
    IS-IS LSP checksum errors.
 
 .. clicmd:: debug isis events
 
-.. clicmd:: no debug isis events
-
    IS-IS Events.
 
 .. clicmd:: debug isis local-updates
-
-.. clicmd:: no debug isis local-updates
 
    IS-IS local update packets.
 
 .. clicmd:: debug isis packet-dump
 
-.. clicmd:: no debug isis packet-dump
-
    IS-IS packet dump.
 
 .. clicmd:: debug isis protocol-errors
-
-.. clicmd:: no debug isis protocol-errors
 
    IS-IS LSP protocol errors.
 
 .. clicmd:: debug isis route-events
 
-.. clicmd:: no debug isis route-events
-
    IS-IS Route related events.
 
 .. clicmd:: debug isis snp-packets
 
-.. clicmd:: no debug isis snp-packets
-
    IS-IS CSNP/PSNP packets.
 
 .. clicmd:: debug isis spf-events
-
 .. clicmd:: debug isis spf-statistics
-
 .. clicmd:: debug isis spf-triggers
-
-.. clicmd:: no debug isis spf-events
-
-.. clicmd:: no debug isis spf-statistics
-
-.. clicmd:: no debug isis spf-triggers
 
    IS-IS Shortest Path First Events, Timing and Statistic Data and triggering
    events.
 
 .. clicmd:: debug isis update-packets
 
-.. clicmd:: no debug isis update-packets
 
    Update related packets.
 
 .. clicmd:: debug isis sr-events
 
-.. clicmd:: no debug isis sr-events
 
    IS-IS Segment Routing events.
 
 .. clicmd:: debug isis lfa
 
-.. clicmd:: no debug isis lfa
 
    IS-IS LFA events.
 
 .. clicmd:: show debugging isis
 
    Print which ISIS debug level is activate.
+
+.. _isis-config-examples:
 
 ISIS Configuration Examples
 ===========================
@@ -695,6 +562,9 @@ A Segment Routing configuration, with IPv4, IPv6, SRGB and MSD configuration.
     segment-routing node-msd 8
    !
 
+
+.. _isis-vrf-config-examples:
+
 ISIS Vrf Configuration Examples
 ===============================
 
@@ -712,5 +582,3 @@ A simple vrf example:
     net 47.0023.0000.0000.0000.0000.0000.0000.1900.0004.00
     metric-style wide
     is-type level-2-only
-
-

@@ -34,16 +34,16 @@ Configuration of *babeld* is done in its configuration file
 Babel configuration
 ===================
 
-.. clicmd:: [no] router babel
+.. clicmd:: router babel
 
    Enable or disable Babel routing.
 
-.. clicmd:: [no] babel resend-delay (20-655340)
+.. clicmd:: babel resend-delay (20-655340)
 
    Specifies the time after which important messages are resent when
    avoiding a black-hole. The default is 2000 ms.
 
-.. clicmd:: [no] babel diversity
+.. clicmd:: babel diversity
 
    Enable or disable routing using radio frequency diversity.  This is
    highly recommended in networks with many wireless nodes.
@@ -59,7 +59,7 @@ Babel configuration
    no role in route selection; you will probably want to set that to 128
    or less on nodes with multiple independent radios.
 
-.. clicmd:: [no] network IFNAME
+.. clicmd:: network IFNAME
 
    Enable or disable Babel on the given interface.
 
@@ -71,7 +71,7 @@ Babel configuration
    Specifying `wireless` (the default) is always correct, but may
    cause slower convergence and extra routing traffic.
 
-.. clicmd:: [no] babel split-horizon
+.. clicmd:: babel split-horizon
 
    Specifies whether to perform split-horizon on the interface.  Specifying
    ``no babel split-horizon`` is always correct, while ``babel
@@ -153,7 +153,7 @@ Babel configuration
    effectively disables the use of a RTT-based cost.
 
 
-.. clicmd:: [no] babel enable-timestamps
+.. clicmd:: babel enable-timestamps
 
    Enable or disable sending timestamps with each Hello and IHU message in
    order to compute RTT values.  The default is `no babel enable-timestamps`.
@@ -179,7 +179,7 @@ Babel redistribution
 ====================
 
 
-.. clicmd:: [no] redistribute <ipv4|ipv6> KIND
+.. clicmd:: redistribute <ipv4|ipv6> KIND
 
    Specify which kind of routes should be redistributed into Babel.
 
@@ -223,7 +223,7 @@ Babel debugging commands
    simple: debug babel KIND
    simple: no debug babel KIND
 
-.. clicmd:: [no] debug babel KIND
+.. clicmd:: debug babel KIND
 
    Enable or disable debugging messages of a given kind. ``KIND`` can
    be one of:

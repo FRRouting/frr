@@ -45,7 +45,7 @@ listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
    are used to are allowed here.  The syntax was intentionally kept the same as
    creating nexthops as you would for static routes.
 
-.. clicmd:: [no] pbr table range (10000-4294966272) (10000-4294966272)
+.. clicmd:: pbr table range (10000-4294966272) (10000-4294966272)
 
    Set or unset the range used to assign numeric table ID's to new
    nexthop-group tables. Existing tables will not be modified to fit in this

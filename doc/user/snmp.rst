@@ -131,7 +131,6 @@ need to configure FRR to use another transport, you can configure it through
 Here is the syntax for using AgentX:
 
 .. clicmd:: agentx
-.. clicmd:: no agentx
 
 
 .. include:: snmptrap.rst

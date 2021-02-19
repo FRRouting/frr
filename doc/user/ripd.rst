@@ -93,13 +93,11 @@ RIP Configuration
    `no router rip` command. RIP must be enabled before carrying out any of the
    RIP commands.
 
-.. clicmd:: no router rip
 
    Disable RIP.
 
 .. clicmd:: network NETWORK
 
-.. clicmd:: no network NETWORK
 
    Set the RIP enable interface by NETWORK. The interfaces which have addresses
    matching with NETWORK are enabled.
@@ -112,7 +110,6 @@ RIP Configuration
 
 .. clicmd:: network IFNAME
 
-.. clicmd:: no network IFNAME
 
    Set a RIP enabled interface by IFNAME. Both the sending and
    receiving of RIP packets will be enabled on the port specified in the
@@ -121,7 +118,6 @@ RIP Configuration
 
 .. clicmd:: neighbor A.B.C.D
 
-.. clicmd:: no neighbor A.B.C.D
 
    Specify RIP neighbor. When a neighbor doesn't understand multicast, this
    command is used to specify neighbors. In some cases, not all routers will be
@@ -146,7 +142,6 @@ RIP Configuration
 
 .. clicmd:: passive-interface (IFNAME|default)
 
-.. clicmd:: no passive-interface IFNAME
 
    This command sets the specified interface to passive mode. On passive mode
    interface, all receiving packets are processed as normal and ripd does not
@@ -158,7 +153,6 @@ RIP Configuration
 
 .. clicmd:: ip split-horizon
 
-.. clicmd:: no ip split-horizon
 
    Control split-horizon on the interface. Default is `ip split-horizon`. If
    you don't perform split-horizon on the interface, please specify `no ip
@@ -189,10 +183,6 @@ discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
    :ref:`rip-authentication`. This may become the default in a future release.
 
    Default: Send Version 2, and accept either version.
-
-.. clicmd:: no version
-
-   Reset the global version setting back to the default.
 
 .. clicmd:: ip rip send version VERSION
 
@@ -232,7 +222,6 @@ If you want to specify RIP only static routes:
 
 .. clicmd:: route A.B.C.D/M
 
-.. clicmd:: no route A.B.C.D/M
 
    This command is specific to FRR. The `route` command makes a static route
    only inside RIP. This command should be used only by advanced users who are
@@ -290,7 +279,6 @@ received. Redistributed routes' metric is set to 1.
 
 .. clicmd:: default-metric (1-16)
 
-.. clicmd:: no default-metric (1-16)
 
    This command modifies the default metric value for redistributed routes.
    The default value is 1. This command does not affect connected route even if
@@ -312,20 +300,17 @@ Distance value is used in zebra daemon. Default RIP distance is 120.
 
 .. clicmd:: distance (1-255)
 
-.. clicmd:: no distance (1-255)
 
    Set default RIP distance to specified value.
 
 .. clicmd:: distance (1-255) A.B.C.D/M
 
-.. clicmd:: no distance (1-255) A.B.C.D/M
 
    Set default RIP distance to specified value when the route's source IP
    address matches the specified prefix.
 
 .. clicmd:: distance (1-255) A.B.C.D/M ACCESS-LIST
 
-.. clicmd:: no distance (1-255) A.B.C.D/M ACCESS-LIST
 
    Set default RIP distance to specified value when the route's source IP
    address matches the specified prefix and the specified access-list.
@@ -427,26 +412,22 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 
 .. clicmd:: ip rip authentication mode md5
 
-.. clicmd:: no ip rip authentication mode md5
 
    Set the interface with RIPv2 MD5 authentication.
 
 .. clicmd:: ip rip authentication mode text
 
-.. clicmd:: no ip rip authentication mode text
 
    Set the interface with RIPv2 simple password authentication.
 
 .. clicmd:: ip rip authentication string STRING
 
-.. clicmd:: no ip rip authentication string STRING
 
    RIP version 2 has simple text authentication. This command sets
    authentication string. The string must be shorter than 16 characters.
 
 .. clicmd:: ip rip authentication key-chain KEY-CHAIN
 
-.. clicmd:: no ip rip authentication key-chain KEY-CHAIN
 
    Specify Keyed MD5 chain.
 
@@ -490,10 +471,6 @@ RIP Timers
    The ``timers basic`` command allows the the default values of the timers
    listed above to be changed.
 
-.. clicmd:: no timers basic
-
-   The `no timers basic` command will reset the timers to the default settings
-   listed above.
 
 .. _show-rip-information:
 

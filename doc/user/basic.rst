@@ -60,17 +60,17 @@ Basic Config Commands
 
    Set hostname of the router.
 
-.. clicmd:: [no] password PASSWORD
+.. clicmd:: password PASSWORD
 
    Set password for vty interface. The ``no`` form of the command deletes the
    password. If there is no password, a vty won't accept connections.
 
-.. clicmd:: [no] enable password PASSWORD
+.. clicmd:: enable password PASSWORD
 
    Set enable password. The ``no`` form of the command deletes the enable
    password.
 
-.. clicmd:: [no] log trap LEVEL
+.. clicmd:: log trap LEVEL
 
    These commands are deprecated and are present only for historical
    compatibility. The log trap command sets the current logging level for all
@@ -81,7 +81,7 @@ Basic Config Commands
    level of existing logging destinations.
 
 
-.. clicmd:: [no] log stdout LEVEL
+.. clicmd:: log stdout LEVEL
 
    Enable logging output to stdout. If the optional second argument specifying
    the logging level is not present, the default logging level (typically
@@ -100,7 +100,7 @@ Basic Config Commands
       terminal output.  Use a log file and ``tail -f`` if this rare chance is
       inacceptable to your setup.
 
-.. clicmd:: [no] log file [FILENAME [LEVEL]]
+.. clicmd:: log file [FILENAME [LEVEL]]
 
    If you want to log into a file, please specify ``filename`` as
    in this example:
@@ -114,14 +114,14 @@ Basic Config Commands
    deprecated ``log trap`` command) will be used. The ``no`` form of the command
    disables logging to a file.
 
-.. clicmd:: [no] log syslog [LEVEL]
+.. clicmd:: log syslog [LEVEL]
 
    Enable logging output to syslog. If the optional second argument specifying
    the logging level is not present, the default logging level (typically
    debugging, but can be changed using the deprecated ``log trap`` command) will
    be used. The ``no`` form of the command disables logging to syslog.
 
-.. clicmd:: [no] log monitor [LEVEL]
+.. clicmd:: log monitor [LEVEL]
 
    Enable logging output to vty terminals that have enabled logging using the
    ``terminal monitor`` command. By default, monitor logging is enabled at the
@@ -131,13 +131,13 @@ Basic Config Commands
    level (typically debugging) will be used. The ``no`` form of the command
    disables logging to terminal monitors.
 
-.. clicmd:: [no] log facility [FACILITY]
+.. clicmd:: log facility [FACILITY]
 
    This command changes the facility used in syslog messages. The default
    facility is ``daemon``. The ``no`` form of the command resets the facility
    to the default ``daemon`` facility.
 
-.. clicmd:: [no] log record-priority
+.. clicmd:: log record-priority
 
    To include the severity in all messages logged to a file, to stdout, or to
    a terminal monitor (i.e. anything except syslog),
@@ -147,7 +147,7 @@ Basic Config Commands
    versions of syslogd can be configured to include the facility and
    level in the messages emitted.
 
-.. clicmd:: [no] log timestamp precision [(0-6)]
+.. clicmd:: log timestamp precision [(0-6)]
 
    This command sets the precision of log message timestamps to the given
    number of digits after the decimal point. Currently, the value must be in
@@ -162,7 +162,7 @@ Basic Config Commands
    In this example, the precision is set to provide timestamps with
    millisecond accuracy.
 
-.. clicmd:: [no] log commands
+.. clicmd:: log commands
 
    This command enables the logging of all commands typed by a user to all
    enabled log destinations. The note that logging includes full command lines,
@@ -170,7 +170,7 @@ Basic Config Commands
    is used to start the daemon then this command is turned on by default
    and cannot be turned off and the [no] form of the command is dissallowed.
 
-.. clicmd:: [no] log-filter WORD [DAEMON]
+.. clicmd:: log-filter WORD [DAEMON]
 
    This command forces logs to be filtered on a specific string. A log message
    will only be printed if it matches on one of the filters in the log-filter
@@ -218,10 +218,6 @@ Basic Config Commands
 
    Set motd string from an input.
 
-.. clicmd:: no banner motd
-
-   No motd banner string will be printed.
-
 .. clicmd:: exec-timeout MINUTE [SECOND]
 
    Set VTY connection timeout value. When only one argument is specified
@@ -229,10 +225,8 @@ Basic Config Commands
    used for timeout value in seconds. Default timeout value is 10 minutes.
    When timeout value is zero, it means no timeout.
 
-.. clicmd:: no exec-timeout
-
-   Do not perform timeout at all. This command is as same as
-   ``exec-timeout 0 0``.
+   Not setting this, or setting the values to 0 0, means a timeout will not be
+   enabled.
 
 .. clicmd:: access-class ACCESS-LIST
 

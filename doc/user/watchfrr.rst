@@ -21,7 +21,7 @@ WATCHFRR commands
    Give status information about the state of the different daemons being
    watched by WATCHFRR
 
-.. clicmd:: [no] watchfrr ignore DAEMON
+.. clicmd:: watchfrr ignore DAEMON
 
    Tell WATCHFRR to ignore a particular DAEMON if it goes unresponsive.
    This is particularly useful when you are a developer and need to debug

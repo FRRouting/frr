@@ -101,7 +101,6 @@ The following commands are independent of a specific cache server.
 
 .. clicmd:: rpki polling_period (1-3600)
 
-.. clicmd:: no rpki polling_period
 
    Set the number of seconds the router waits until the router asks the cache
    again for updated data.
@@ -112,7 +111,6 @@ The following commands are independent of a specific cache server.
 
 .. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
 
-.. clicmd:: no rpki cache (A.B.C.D|WORD) [PORT] PREFERENCE
 
    Add a cache server to the socket. By default, the connection between router
    and cache server is based on plain TCP. Protecting the connection between
@@ -150,7 +148,6 @@ Validating BGP Updates
 
 .. clicmd:: match rpki notfound|invalid|valid
 
-.. clicmd:: no match rpki notfound|invalid|valid
 
     Create a clause for a route map to match prefixes with the specified RPKI
     state.
@@ -181,7 +178,6 @@ Debugging
 
 .. clicmd:: debug rpki
 
-.. clicmd:: no debug rpki
 
    Enable or disable debugging output for RPKI.
 
