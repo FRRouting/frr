@@ -58,8 +58,7 @@ static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 	return 0;
 }
 
-DECLARE_HEAP(thread_timer_list, struct thread, timeritem,
-		thread_timer_cmp)
+DECLARE_HEAP(thread_timer_list, struct thread, timeritem, thread_timer_cmp)
 
 #if defined(__APPLE__)
 #include <mach/mach.h>
@@ -910,31 +909,33 @@ struct thread *_thread_add_read_write(const struct xref_threadsched *xref,
 static struct thread *
 _thread_add_timer_timeval(const struct xref_threadsched *xref,
 			  struct thread_master *m, int (*func)(struct thread *),
-			  int type, void *arg, struct timeval *time_relative,
+			  void *arg, struct timeval *time_relative,
 			  struct thread **t_ptr)
 {
 	struct thread *thread;
+	struct timeval t;
 
 	assert(m != NULL);
 
-	assert(type == THREAD_TIMER);
 	assert(time_relative);
 
 	frrtrace(9, frr_libfrr, schedule_timer, m,
 		 xref->funcname, xref->xref.file, xref->xref.line,
 		 t_ptr, 0, 0, arg, (long)time_relative->tv_sec);
 
+	/* Compute expiration/deadline time. */
+	monotime(&t);
+	timeradd(&t, time_relative, &t);
+
 	frr_with_mutex(&m->mtx) {
 		if (t_ptr && *t_ptr)
 			/* thread is already scheduled; don't reschedule */
 			return NULL;
 
-		thread = thread_get(m, type, func, arg, xref);
+		thread = thread_get(m, THREAD_TIMER, func, arg, xref);
 
 		frr_with_mutex(&thread->mtx) {
-			monotime(&thread->u.sands);
-			timeradd(&thread->u.sands, time_relative,
-				 &thread->u.sands);
+			thread->u.sands = t;
 			thread_timer_list_add(&m->timer, thread);
 			if (t_ptr) {
 				*t_ptr = thread;
@@ -942,7 +943,12 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 			}
 		}
 
-		AWAKEN(m);
+		/* The timer list is sorted - if this new timer
+		 * might change the time we'll wait for, give the pthread
+		 * a chance to re-compute.
+		 */
+		if (thread_timer_list_first(&m->timer) == thread)
+			AWAKEN(m);
 	}
 
 	return thread;
@@ -962,8 +968,7 @@ struct thread *_thread_add_timer(const struct xref_threadsched *xref,
 	trel.tv_sec = timer;
 	trel.tv_usec = 0;
 
-	return _thread_add_timer_timeval(xref, m, func, THREAD_TIMER, arg,
-					 &trel, t_ptr);
+	return _thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
 }
 
 /* Add timer event thread with "millisecond" resolution */
@@ -980,19 +985,17 @@ struct thread *_thread_add_timer_msec(const struct xref_threadsched *xref,
 	trel.tv_sec = timer / 1000;
 	trel.tv_usec = 1000 * (timer % 1000);
 
-	return _thread_add_timer_timeval(xref, m, func, THREAD_TIMER, arg,
-					 &trel, t_ptr);
+	return _thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
 }
 
-/* Add timer event thread with "millisecond" resolution */
+/* Add timer event thread with "timeval" resolution */
 struct thread *_thread_add_timer_tv(const struct xref_threadsched *xref,
 				    struct thread_master *m,
 				    int (*func)(struct thread *),
 				    void *arg, struct timeval *tv,
 				    struct thread **t_ptr)
 {
-	return _thread_add_timer_timeval(xref, m, func, THREAD_TIMER, arg, tv,
-					 t_ptr);
+	return _thread_add_timer_timeval(xref, m, func, arg, tv, t_ptr);
 }
 
 /* Add simple event thread. */
@@ -1449,20 +1452,21 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 }
 
 /* Add all timers that have popped to the ready list. */
-static unsigned int thread_process_timers(struct thread_timer_list_head *timers,
+static unsigned int thread_process_timers(struct thread_master *m,
 					  struct timeval *timenow)
 {
 	struct thread *thread;
 	unsigned int ready = 0;
 
-	while ((thread = thread_timer_list_first(timers))) {
+	while ((thread = thread_timer_list_first(&m->timer))) {
 		if (timercmp(timenow, &thread->u.sands, <))
-			return ready;
-		thread_timer_list_pop(timers);
+			break;
+		thread_timer_list_pop(&m->timer);
 		thread->type = THREAD_READY;
-		thread_list_add_tail(&thread->master->ready, thread);
+		thread_list_add_tail(&m->ready, thread);
 		ready++;
 	}
+
 	return ready;
 }
 
@@ -1584,7 +1588,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 
 		/* Post timers to ready queue. */
 		monotime(&now);
-		thread_process_timers(&m->timer, &now);
+		thread_process_timers(m, &now);
 
 		/* Post I/O to ready queue. */
 		if (num > 0)
