@@ -12,24 +12,19 @@ described in :rfc:`2740`.
 OSPF6 router
 ============
 
-.. index:: router ospf6
 .. clicmd:: router ospf6
 
-.. index:: ospf6 router-id A.B.C.D
 .. clicmd:: ospf6 router-id A.B.C.D
 
    Set router's Router-ID.
 
-.. index:: interface IFNAME area (0-4294967295)
 .. clicmd:: interface IFNAME area (0-4294967295)
 
-.. index:: interface IFNAME area A.B.C.D
 .. clicmd:: interface IFNAME area A.B.C.D
 
    Bind interface to specified area, and start sending OSPF packets. `area` can
    be specified as 0.
 
-.. index:: timers throttle spf (0-600000) (0-600000) (0-600000)
 .. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
    This command sets the initial `delay`, the `initial-holdtime`
@@ -65,10 +60,8 @@ OSPF6 router
    time an SPF-triggering event occurs within the hold-time of the previous
    SPF calculation.
 
-.. index:: auto-cost reference-bandwidth COST
 .. clicmd:: auto-cost reference-bandwidth COST
 
-.. index:: auto-cost reference-bandwidth
 .. clicmd:: no auto-cost reference-bandwidth
 
    This sets the reference bandwidth for cost calculations, where this
@@ -80,7 +73,6 @@ OSPF6 router
    This configuration setting MUST be consistent across all routers
    within the OSPF domain.
 
-.. index:: maximum-paths (1-64)
 .. clicmd::[no] maximum-paths (1-64)
 
    Use this command to control the maximum number of parallel routes that
@@ -98,38 +90,31 @@ Area support for OSPFv3 is not yet implemented.
 OSPF6 interface
 ===============
 
-.. index:: ipv6 ospf6 cost COST
 .. clicmd:: ipv6 ospf6 cost COST
 
    Sets interface's output cost. Default value depends on the interface
    bandwidth and on the auto-cost reference bandwidth.
 
-.. index:: ipv6 ospf6 hello-interval HELLOINTERVAL
 .. clicmd:: ipv6 ospf6 hello-interval HELLOINTERVAL
 
    Sets interface's Hello Interval. Default 10
 
-.. index:: ipv6 ospf6 dead-interval DEADINTERVAL
 .. clicmd:: ipv6 ospf6 dead-interval DEADINTERVAL
 
    Sets interface's Router Dead Interval. Default value is 40.
 
-.. index:: ipv6 ospf6 retransmit-interval RETRANSMITINTERVAL
 .. clicmd:: ipv6 ospf6 retransmit-interval RETRANSMITINTERVAL
 
    Sets interface's Rxmt Interval. Default value is 5.
 
-.. index:: ipv6 ospf6 priority PRIORITY
 .. clicmd:: ipv6 ospf6 priority PRIORITY
 
    Sets interface's Router Priority. Default value is 1.
 
-.. index:: ipv6 ospf6 transmit-delay TRANSMITDELAY
 .. clicmd:: ipv6 ospf6 transmit-delay TRANSMITDELAY
 
    Sets interface's Inf-Trans-Delay. Default value is 1.
 
-.. index:: ipv6 ospf6 network (broadcast|point-to-point)
 .. clicmd:: ipv6 ospf6 network (broadcast|point-to-point)
 
    Set explicitly network type for specified interface.
@@ -139,7 +124,6 @@ OSPF6 route-map
 
 Usage of *ospfd6*'s route-map support.
 
-.. index:: set metric [+|-](0-4294967295)
 .. clicmd:: set metric [+|-](0-4294967295)
 
    Set a metric for matched route when sending announcement. Use plus (+) sign
@@ -151,7 +135,6 @@ Usage of *ospfd6*'s route-map support.
 Redistribute routes to OSPF6
 ============================
 
-.. index:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ripng|sharp|static|table> [route-map WORD]
 .. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ripng|sharp|static|table> [route-map WORD]
 
    Redistribute routes from other protocols into OSPFv3.
@@ -162,14 +145,12 @@ Redistribute routes to OSPF6
 Showing OSPF6 information
 =========================
 
-.. index:: show ipv6 ospf6 [INSTANCE_ID] [json]
 .. clicmd:: show ipv6 ospf6 [INSTANCE_ID] [json]
 
    INSTANCE_ID is an optional OSPF instance ID. To see router ID and OSPF
    instance ID, simply type "show ipv6 ospf6 <cr>". JSON output can be
    obtained by appending 'json' to the end of command.
 
-.. index:: show ipv6 ospf6 database [<detail|dump|internal>] [json]
 .. clicmd:: show ipv6 ospf6 database [<detail|dump|internal>] [json]
 
    This command shows LSAs present in the LSDB. There are three view options.
@@ -177,14 +158,12 @@ Showing OSPF6 information
    can be obtained by appending 'json' to the end of command. JSON option is
    not applicable with 'dump' option.
 
-.. index:: show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [json]
 .. clicmd:: show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [json]
 
    These options filters out the LSA based on its type. The three views options
    works here as well. JSON output can be obtained by appending 'json' to the
    end of command.
 
-.. index:: show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D [json]
 .. clicmd:: show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D [json]
 
    The LSAs additinally can also be filtered with the linkstate-id and
@@ -192,54 +171,45 @@ Showing OSPF6 information
    this command as well and visa-versa. JSON output can be obtained by
    appending 'json' to the end of command.
 
-.. index:: show ipv6 ospf6 database self-originated [json]
 .. clicmd:: show ipv6 ospf6 database self-originated [json]
 
    This command is used to filter the LSAs which are originated by the present
    router. All the other filters are applicable here as well.
 
-.. index:: show ipv6 ospf6 interface [json]
 .. clicmd:: show ipv6 ospf6 interface [json]
 
    To see OSPF interface configuration like costs. JSON output can be
    obtained by appending "json" in the end.
 
-.. index:: show ipv6 ospf6 neighbor [json]
 .. clicmd:: show ipv6 ospf6 neighbor [json]
 
    Shows state and chosen (Backup) DR of neighbor. JSON output can be
    obtained by appending 'json' at the end.
 
-.. index:: show ipv6 ospf6 interface traffic [json]
 .. clicmd:: show ipv6 ospf6 interface traffic [json]
 
    Shows counts of different packets that have been recieved and transmitted
    by the interfaces. JSON output can be obtained by appending "json" at the
    end.
 
-.. index:: show ipv6 ospf6 request-list A.B.C.D
 .. clicmd:: show ipv6 ospf6 request-list A.B.C.D
 
    Shows requestlist of neighbor.
 
-.. index:: show ipv6 route ospf6
 .. clicmd:: show ipv6 route ospf6
 
    This command shows internal routing table.
 
-.. index:: show ipv6 ospf6 zebra [json]
 .. clicmd:: show ipv6 ospf6 zebra [json]
 
    Shows state about what is being redistributed between zebra and OSPF6.
    JSON output can be obtained by appending "json" at the end.
 
-.. index:: show ipv6 ospf6 redistribute [json]
 .. clicmd:: show ipv6 ospf6 redistribute [json]
 
    Shows the routes which are redistributed by the router. JSON output can
    be obtained by appending 'json' at the end.
 
-.. index:: show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
 .. clicmd:: show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
 
    This command displays the ospfv3 routing table as determined by the most
@@ -248,13 +218,11 @@ Showing OSPF6 information
    and summary. JSON output can be obtained by appending 'json' to the end of
    command.
 
-.. index:: show ipv6 ospf6 route X:X::X:X/M match [detail] [json]
 .. clicmd:: show ipv6 ospf6 route X:X::X:X/M match [detail] [json]
 
    The additional match option will match the given address to the destination
    of the routes, and return the result accordingly.
 
-.. index:: show ipv6 ospf6 interface [IFNAME] prefix [detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]] [json]
 .. clicmd:: show ipv6 ospf6 interface [IFNAME] prefix [detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]] [json]
 
    This command shows the prefixes present in the interface routing table.

@@ -65,7 +65,6 @@ Certain signals have special meanings to *eigrpd*.
 EIGRP Configuration
 ===================
 
-.. index:: router eigrp (1-65535) [vrf NAME]
 .. clicmd:: router eigrp (1-65535) [vrf NAME]
 
    The `router eigrp` command is necessary to enable EIGRP. To disable EIGRP,
@@ -73,15 +72,12 @@ EIGRP Configuration
    carrying out any of the EIGRP commands.  Specify vrf NAME if you want
    eigrp to work within the specified vrf.
 
-.. index:: router eigrp (1-65535) [vrf NAME]
 .. clicmd:: no router eigrp (1-65535) [vrf NAME]
 
    Disable EIGRP.
 
-.. index:: network NETWORK
 .. clicmd:: network NETWORK
 
-.. index:: network NETWORK
 .. clicmd:: no network NETWORK
 
    Set the EIGRP enable interface by `network`. The interfaces which
@@ -104,10 +100,8 @@ EIGRP Configuration
       !
 
 
-.. index:: passive-interface (IFNAME|default)
 .. clicmd:: passive-interface (IFNAME|default)
 
-.. index:: passive-interface IFNAME
 .. clicmd:: no passive-interface IFNAME
 
    This command sets the specified interface to passive mode. On passive mode
@@ -125,7 +119,6 @@ How to Announce EIGRP route
 
 Redistribute routes into EIGRP:
 
-.. index:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ospf|rip|sharp|static|table> [metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)]
 .. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ospf|rip|sharp|static|table> [metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)]
 
    The ``redistribute`` family of commands imports routing information from
@@ -144,7 +137,6 @@ Redistribute routes into EIGRP:
 Show EIGRP Information
 ======================
 
-.. index:: show ip eigrp [vrf NAME] topology
 .. clicmd:: show ip eigrp [vrf NAME] topology
 
    Display current EIGRP status.
@@ -162,7 +154,6 @@ Show EIGRP Information
       P  10.0.2.0/24, 1 successors, FD is 256256, serno: 0
              via Connected, enp0s3
 
-.. index:: show ip eigrp [vrf NAME] interface
 .. clicmd:: show ip eigrp [vrf NAME] interface
 
    Display the list of interfaces associated with a particular eigrp
@@ -179,14 +170,12 @@ EIGRP Debug Commands
 
 Debug for EIGRP protocol.
 
-.. index:: debug eigrp packets
 .. clicmd:: debug eigrp packets
 
    Debug eigrp packets
 
    ``debug eigrp`` will show EIGRP packets that are sent and received.
 
-.. index:: debug eigrp transmit
 .. clicmd:: debug eigrp transmit
 
    Debug eigrp transmit events
@@ -194,7 +183,6 @@ Debug for EIGRP protocol.
    ``debug eigrp transmit`` will display detailed information about the EIGRP
    transmit events.
 
-.. index:: show debugging eigrp
 .. clicmd:: show debugging eigrp
 
    Display *eigrpd*'s debugging option.

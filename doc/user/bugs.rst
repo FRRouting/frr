@@ -1,5 +1,3 @@
-.. index:: Bug Reports
-.. index:: Reporting bugs
 
 .. _bug-reports:
 

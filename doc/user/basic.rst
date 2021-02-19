@@ -11,13 +11,9 @@ The following sections discuss commands common to all the routing daemons.
 Config Commands
 ===============
 
-.. index:: Configuration files for running the software
 
-.. index:: Files for running configurations
 
-.. index:: Modifying the herd's behavior
 
-.. index:: Getting the herd running
 
 In a config file, you can write the debugging options, a vty's password,
 routing daemon configurations, a log file name, and so forth. This information
@@ -60,24 +56,20 @@ If desired, you can specify a config file using the :option:`-f` or
 Basic Config Commands
 ---------------------
 
-.. index:: hostname HOSTNAME
 .. clicmd:: hostname HOSTNAME
 
    Set hostname of the router.
 
-.. index:: password PASSWORD
 .. clicmd:: [no] password PASSWORD
 
    Set password for vty interface. The ``no`` form of the command deletes the
    password. If there is no password, a vty won't accept connections.
 
-.. index:: enable password PASSWORD
 .. clicmd:: [no] enable password PASSWORD
 
    Set enable password. The ``no`` form of the command deletes the enable
    password.
 
-.. index:: log trap LEVEL
 .. clicmd:: [no] log trap LEVEL
 
    These commands are deprecated and are present only for historical
@@ -88,7 +80,6 @@ Basic Config Commands
    future logging commands to debugging, but it does not change the logging
    level of existing logging destinations.
 
-.. index:: log stdout [LEVEL]
 
 .. clicmd:: [no] log stdout LEVEL
 
@@ -109,7 +100,6 @@ Basic Config Commands
       terminal output.  Use a log file and ``tail -f`` if this rare chance is
       inacceptable to your setup.
 
-.. index:: log file FILENAME [LEVEL]
 .. clicmd:: [no] log file [FILENAME [LEVEL]]
 
    If you want to log into a file, please specify ``filename`` as
@@ -124,7 +114,6 @@ Basic Config Commands
    deprecated ``log trap`` command) will be used. The ``no`` form of the command
    disables logging to a file.
 
-.. index:: log syslog [LEVEL]
 .. clicmd:: [no] log syslog [LEVEL]
 
    Enable logging output to syslog. If the optional second argument specifying
@@ -132,7 +121,6 @@ Basic Config Commands
    debugging, but can be changed using the deprecated ``log trap`` command) will
    be used. The ``no`` form of the command disables logging to syslog.
 
-.. index:: log monitor [LEVEL]
 .. clicmd:: [no] log monitor [LEVEL]
 
    Enable logging output to vty terminals that have enabled logging using the
@@ -143,14 +131,12 @@ Basic Config Commands
    level (typically debugging) will be used. The ``no`` form of the command
    disables logging to terminal monitors.
 
-.. index:: log facility [FACILITY]
 .. clicmd:: [no] log facility [FACILITY]
 
    This command changes the facility used in syslog messages. The default
    facility is ``daemon``. The ``no`` form of the command resets the facility
    to the default ``daemon`` facility.
 
-.. index:: log record-priority
 .. clicmd:: [no] log record-priority
 
    To include the severity in all messages logged to a file, to stdout, or to
@@ -161,7 +147,6 @@ Basic Config Commands
    versions of syslogd can be configured to include the facility and
    level in the messages emitted.
 
-.. index:: log timestamp precision (0-6)
 .. clicmd:: [no] log timestamp precision [(0-6)]
 
    This command sets the precision of log message timestamps to the given
@@ -177,7 +162,6 @@ Basic Config Commands
    In this example, the precision is set to provide timestamps with
    millisecond accuracy.
 
-.. index:: log commands
 .. clicmd:: [no] log commands
 
    This command enables the logging of all commands typed by a user to all
@@ -186,7 +170,6 @@ Basic Config Commands
    is used to start the daemon then this command is turned on by default
    and cannot be turned off and the [no] form of the command is dissallowed.
 
-.. index:: log-filter WORD [DAEMON]
 .. clicmd:: [no] log-filter WORD [DAEMON]
 
    This command forces logs to be filtered on a specific string. A log message
@@ -200,55 +183,45 @@ Basic Config Commands
       Log filters prevent this but you should still expect a small performance
       hit due to filtering each of all those logs.
 
-.. index:: log-filter clear [DAEMON]
 .. clicmd:: log-filter clear [DAEMON]
 
    This command clears all current filters in the log-filter table. Can be
    daemon independent.
 
-.. index:: service password-encryption
 .. clicmd:: service password-encryption
 
    Encrypt password.
 
-.. index:: service advanced-vty
 .. clicmd:: service advanced-vty
 
    Enable advanced mode VTY.
 
-.. index:: service terminal-length (0-512)
 .. clicmd:: service terminal-length (0-512)
 
    Set system wide line configuration. This configuration command applies to
    all VTY interfaces.
 
-.. index:: line vty
 .. clicmd:: line vty
 
    Enter vty configuration mode.
 
-.. index:: banner motd default
 .. clicmd:: banner motd default
 
    Set default motd string.
 
-.. index:: banner motd file FILE
 .. clicmd:: banner motd file FILE
 
    Set motd string from file. The file must be in directory specified
    under ``--sysconfdir``.
 
-.. index:: banner motd line LINE
 .. clicmd:: banner motd line LINE
 
    Set motd string from an input.
 
-.. index:: banner motd
 .. clicmd:: no banner motd
 
    No motd banner string will be printed.
 
-.. index:: exec-timeout MINUTE [SECOND]
 .. clicmd:: exec-timeout MINUTE [SECOND]
 
    Set VTY connection timeout value. When only one argument is specified
@@ -256,13 +229,11 @@ Basic Config Commands
    used for timeout value in seconds. Default timeout value is 10 minutes.
    When timeout value is zero, it means no timeout.
 
-.. index:: exec-timeout
 .. clicmd:: no exec-timeout
 
    Do not perform timeout at all. This command is as same as
    ``exec-timeout 0 0``.
 
-.. index:: access-class ACCESS-LIST
 .. clicmd:: access-class ACCESS-LIST
 
    Restrict vty connections with an access list.
@@ -440,55 +411,45 @@ Puppet, etc.), upgrade considerations differ somewhat:
 Terminal Mode Commands
 ======================
 
-.. index:: write terminal
 .. clicmd:: write terminal
 
    Displays the current configuration to the vty interface.
 
-.. index:: write file
 .. clicmd:: write file
 
    Write current configuration to configuration file.
 
-.. index:: configure [terminal]
 .. clicmd:: configure [terminal]
 
    Change to configuration mode. This command is the first step to
    configuration.
 
-.. index:: terminal length (0-512)
 .. clicmd:: terminal length (0-512)
 
    Set terminal display length to ``(0-512)``. If length is 0, no display
    control is performed.
 
-.. index:: who
 .. clicmd:: who
 
    Show a list of currently connected vty sessions.
 
-.. index:: list
 .. clicmd:: list
 
    List all available commands.
 
-.. index:: show version
 .. clicmd:: show version
 
    Show the current version of |PACKAGE_NAME| and its build host information.
 
-.. index:: show logging
 .. clicmd:: show logging
 
    Shows the current configuration of the logging system. This includes the
    status of all logging destinations.
 
-.. index:: show log-filter
 .. clicmd:: show log-filter
 
    Shows the current log filters applied to each daemon.
 
-.. index:: show memory
 .. clicmd:: show memory
 
    Show information on how much memory is used for which specific things in
@@ -549,18 +510,15 @@ Terminal Mode Commands
    When executing this command from ``vtysh``, each of the daemons' memory
    usage is printed sequentially.
 
-.. index:: show history
 .. clicmd:: show history
 
    Dump the vtysh cli history.
 
-.. index:: logmsg LEVEL MESSAGE
 .. clicmd:: logmsg LEVEL MESSAGE
 
    Send a message to all logging destinations that are enabled for messages of
    the given severity.
 
-.. index:: find COMMAND...
 .. clicmd:: find COMMAND...
 
    This command performs a simple substring search across all defined commands
@@ -589,7 +547,6 @@ Terminal Mode Commands
 
 .. _common-show-commands:
 
-.. index:: show thread cpu
 .. clicmd:: show thread cpu [r|w|t|e|x]
 
    This command displays system run statistics for all the different event
@@ -598,7 +555,6 @@ Terminal Mode Commands
    (e)vent and e(x)ecute thread event types.  If you have compiled with
    disable-cpu-time then this command will not show up.
 
-.. index:: show thread poll
 .. clicmd:: show thread poll
 
    This command displays FRR's poll data.  It allows a glimpse into how

@@ -115,42 +115,32 @@ Interface Commands
 Standard Commands
 -----------------
 
-.. index:: interface IFNAME
 
 .. clicmd:: interface IFNAME
 
-.. index:: interface IFNAME vrf VRF
 
 .. clicmd:: interface IFNAME vrf VRF
 
-.. index:: shutdown
 
 .. clicmd:: shutdown
-.. index:: shutdown
 
 .. clicmd:: no shutdown
 
    Up or down the current interface.
 
-.. index:: ip address ADDRESS/PREFIX
 
 .. clicmd:: ip address ADDRESS/PREFIX
-.. index:: ipv6 address ADDRESS/PREFIX
 
 .. clicmd:: ipv6 address ADDRESS/PREFIX
-.. index:: ip address ADDRESS/PREFIX
 
 .. clicmd:: no ip address ADDRESS/PREFIX
-.. index:: ipv6 address ADDRESS/PREFIX
 
 .. clicmd:: no ipv6 address ADDRESS/PREFIX
 
    Set the IPv4 or IPv6 address/prefix for the interface.
 
-.. index:: ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
 .. clicmd:: ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
-.. index:: ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
 .. clicmd:: no ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
@@ -162,25 +152,20 @@ Standard Commands
    behind the other end of the link (or even on the link in Point-to-Multipoint
    setups), though generally /32s are used.
 
-.. index:: description DESCRIPTION ...
 
 .. clicmd:: description DESCRIPTION ...
 
    Set description for the interface.
 
-.. index:: multicast
 
 .. clicmd:: multicast
-.. index:: multicast
 
 .. clicmd:: no multicast
 
    Enable or disables multicast flag for the interface.
 
-.. index:: bandwidth (1-10000000)
 
 .. clicmd:: bandwidth (1-10000000)
-.. index:: bandwidth (1-10000000)
 
 .. clicmd:: no bandwidth (1-10000000)
 
@@ -188,10 +173,8 @@ Standard Commands
    calculating OSPF cost. This command does not affect the actual device
    configuration.
 
-.. index:: link-detect
 
 .. clicmd:: link-detect
-.. index:: link-detect
 
 .. clicmd:: no link-detect
 
@@ -212,10 +195,8 @@ Link Parameters Commands
    protocol extensions that can be used with MPLS-TE. FRR does not
    support a complete RSVP-TE solution currently.
 
-.. index:: link-params
 .. clicmd:: link-params
 
-.. index:: link-param
 .. clicmd:: no link-param
 
    Enter into the link parameters sub node. At least 'enable' must be
@@ -228,24 +209,18 @@ Link Parameters Commands
 
    Under link parameter statement, the following commands set the different TE values:
 
-.. index:: link-params [enable]
 .. clicmd:: link-params [enable]
 
    Enable link parameters for this interface.
 
-.. index:: link-params [metric (0-4294967295)]
 .. clicmd:: link-params [metric (0-4294967295)]
 
-.. index:: link-params max-bw BANDWIDTH
 .. clicmd:: link-params max-bw BANDWIDTH
 
-.. index:: link-params max-rsv-bw BANDWIDTH
 .. clicmd:: link-params max-rsv-bw BANDWIDTH
 
-.. index:: link-params unrsv-bw (0-7) BANDWIDTH
 .. clicmd:: link-params unrsv-bw (0-7) BANDWIDTH
 
-.. index:: link-params admin-grp BANDWIDTH
 .. clicmd:: link-params admin-grp BANDWIDTH
 
    These commands specifies the Traffic Engineering parameters of the interface
@@ -258,22 +233,16 @@ Link Parameters Commands
    Note that BANDIWDTH is specified in IEEE floating point format and express
    in Bytes/second.
 
-.. index::  link-param delay (0-16777215) [min (0-16777215) | max (0-16777215)]
 .. clicmd:: link-param delay (0-16777215) [min (0-16777215) | max (0-16777215)]
 
-.. index::  link-param delay-variation (0-16777215)
 .. clicmd:: link-param delay-variation (0-16777215)
 
-.. index::  link-param packet-loss PERCENTAGE
 .. clicmd:: link-param packet-loss PERCENTAGE
 
-.. index::  link-param res-bw BANDWIDTH
 .. clicmd:: link-param res-bw BANDWIDTH
 
-.. index::  link-param ava-bw BANDWIDTH
 .. clicmd:: link-param ava-bw BANDWIDTH
 
-.. index::  link-param use-bw BANDWIDTH
 .. clicmd:: link-param use-bw BANDWIDTH
 
    These command specifies additional Traffic Engineering parameters of the
@@ -287,17 +256,14 @@ Link Parameters Commands
    (µs). Loss is specified in PERCENTAGE ranging from 0 to 50.331642% by step
    of 0.000003.
 
-.. index:: link-param neighbor <A.B.C.D> as (0-65535)
 .. clicmd:: link-param neighbor <A.B.C.D> as (0-65535)
 
-.. index:: link-param no neighbor
 .. clicmd:: link-param no neighbor
 
    Specifies the remote ASBR IP address and Autonomous System (AS) number
    for InterASv2 link in OSPF (RFC5392).  Note that this option is not yet
    supported for ISIS (RFC5316).
 
-.. index:: ip nht resolve-via-default
 .. clicmd:: ip nht resolve-via-default
 
    Allows nexthop tracking to resolve via the default route. This is useful
@@ -427,7 +393,6 @@ see https://www.kernel.org/doc/Documentation/networking/vrf.txt.
 Because of that difference, there are some subtle differences when running some
 commands in relationship to VRF. Here is an extract of some of those commands:
 
-.. index:: vrf VRF
 .. clicmd:: vrf VRF
 
    This command is available on configuration mode. By default, above command
@@ -436,7 +401,6 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    The network administrator can however decide to provision this command in
    configuration file to provide more clarity about the intended configuration.
 
-.. index:: netns NAMESPACE
 .. clicmd:: netns NAMESPACE
 
    This command is based on VRF configuration mode. This command is available
@@ -447,7 +411,6 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    decide to provision this command in configuration file to provide more clarity
    about the intended configuration.
 
-.. index:: show ip route vrf VRF
 .. clicmd:: show ip route vrf VRF
 
    The show command permits dumping the routing table associated to the VRF. If
@@ -457,20 +420,17 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    launched with :option:`-n` option, this will be the default routing table of
    the *Linux network namespace* ``VRF``.
 
-.. index:: show ip route vrf VRF table TABLENO
 .. clicmd:: show ip route vrf VRF table TABLENO
 
    The show command is only available with :option:`-n` option. This command
    will dump the routing table ``TABLENO`` of the *Linux network namespace*
    ``VRF``.
 
-.. index:: show ip route vrf VRF tables
 .. clicmd:: show ip route vrf VRF tables
 
    This command will dump the routing tables within the vrf scope. If `vrf all`
    is executed, all routing tables will be dumped.
 
-.. index:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
 .. clicmd:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
 
    This command will dump a summary output of the specified VRF and TABLENO
@@ -537,7 +497,6 @@ The push action is generally used for LER devices, which want to encapsulate
 all traffic for a wished destination into an MPLS label. This action is stored
 in routing entry, and can be configured like a route:
 
-.. index:: ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 .. clicmd:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 
    NETWORK and MASK stand for the IP prefix entry to be added as static
@@ -568,7 +527,6 @@ The swap action is generally used for LSR devices, which swap a packet with a
 label, with an other label. The Pop action is used on LER devices, at the
 termination of the MPLS traffic; this is used to remove MPLS header.
 
-.. index:: mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
 .. clicmd:: [no] mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
 
    INCOMING_LABEL and OUTGOING_LABEL are MPLS labels with values ranging from 16
@@ -582,7 +540,6 @@ termination of the MPLS traffic; this is used to remove MPLS header.
 You can check that the MPLS actions are stored in the zebra MPLS table, by looking at the
 presence of the entry.
 
-.. index:: show mpls table
 .. clicmd:: show mpls table
 
 ::
@@ -616,10 +573,8 @@ WARNING: RPF lookup results are non-responsive in this version of FRR,
 i.e. multicast routing does not actively react to changes in underlying
 unicast topology!
 
-.. index:: ip multicast rpf-lookup-mode MODE
 .. clicmd:: ip multicast rpf-lookup-mode MODE
 
-.. index:: ip multicast rpf-lookup-mode [MODE]
 .. clicmd:: no ip multicast rpf-lookup-mode [MODE]
 
    MODE sets the method used to perform RPF lookups. Supported modes:
@@ -654,7 +609,6 @@ unicast topology!
    Unreachable routes do not receive special treatment and do not cause
    fallback to a second lookup.
 
-.. index:: show ip rpf ADDR
 .. clicmd:: show ip rpf ADDR
 
    Performs a Multicast RPF lookup, as configured with ``ip multicast
@@ -673,17 +627,14 @@ unicast topology!
    Indicates that a multicast source lookup for 192.0.2.1 would use an
    Unicast RIB entry for 192.0.2.0/24 with a gateway of 198.51.100.1.
 
-.. index:: show ip rpf
 .. clicmd:: show ip rpf
 
    Prints the entire Multicast RIB. Note that this is independent of the
    configured RPF lookup mode, the Multicast RIB may be printed yet not
    used at all.
 
-.. index:: ip mroute PREFIX NEXTHOP [DISTANCE]
 .. clicmd:: ip mroute PREFIX NEXTHOP [DISTANCE]
 
-.. index:: ip mroute PREFIX NEXTHOP [DISTANCE]
 .. clicmd:: no ip mroute PREFIX NEXTHOP [DISTANCE]
 
    Adds a static route entry to the Multicast RIB. This performs exactly as the
@@ -700,7 +651,6 @@ received from other FRR components. The permit/deny facilities provided by
 these commands can be used to filter which routes zebra will install in the
 kernel.
 
-.. index:: ip protocol PROTOCOL route-map ROUTEMAP
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
    Apply a route-map filter to routes for the specified protocol. PROTOCOL can
@@ -729,7 +679,6 @@ kernel.
    on a per vrf basis, by entering this command under vrf mode for the vrf you
    want to apply the route-map against.
 
-.. index:: set src ADDRESS
 .. clicmd:: set src ADDRESS
 
    Within a route-map, set the preferred source address for matching routes
@@ -768,7 +717,6 @@ IPv6 example for OSPFv3.
    not created at startup.  On Debian, FRR might start before ifupdown
    completes. Consider a reboot test.
 
-.. index:: zebra route-map delay-timer (0-600)
 .. clicmd:: [no] zebra route-map delay-timer (0-600)
 
    Set the delay before any route-maps are processed in zebra.  The
@@ -843,21 +791,18 @@ FPM Commands
 ``fpm`` implementation
 ----------------------
 
-.. index:: fpm connection ip A.B.C.D port (1-65535)
 .. clicmd:: fpm connection ip A.B.C.D port (1-65535)
 
    Configure ``zebra`` to connect to a different FPM server than
    ``127.0.0.1`` port ``2620``.
 
 
-.. index:: fpm connection ip A.B.C.D port (1-65535)
 .. clicmd:: no fpm connection ip A.B.C.D port (1-65535)
 
   Configure ``zebra`` to connect to the default FPM server at ``127.0.0.1``
   port ``2620``.
 
 
-.. index:: show zebra fpm stats
 .. clicmd:: show zebra fpm stats
 
    Shows the FPM statistics.
@@ -893,7 +838,6 @@ FPM Commands
        t_conn_up_finishes                                1                0
 
 
-.. index:: clear zebra fpm stats
 .. clicmd:: clear zebra fpm stats
 
    Reset statistics related to the zebra code that interacts with the
@@ -903,35 +847,30 @@ FPM Commands
 ``dplane_fpm_nl`` implementation
 --------------------------------
 
-.. index:: fpm address <A.B.C.D|X:X::X:X> [port (1-65535)]
 .. clicmd:: fpm address <A.B.C.D|X:X::X:X> [port (1-65535)]
 
    Configures the FPM server address. Once configured ``zebra`` will attempt
    to connect to it immediately.
 
 
-.. index:: fpm address [<A.B.C.D|X:X::X:X> [port (1-65535)]]
 .. clicmd:: no fpm address [<A.B.C.D|X:X::X:X> [port (1-65535)]]
 
    Disables FPM entirely. ``zebra`` will close any current connections and
    will not attempt to connect to it anymore.
 
 
-.. index:: fpm use-next-hop-groups
 .. clicmd:: fpm use-next-hop-groups
 
    Use the new netlink messages ``RTM_NEWNEXTHOP`` / ``RTM_DELNEXTHOP`` to
    group repeated route next hop information.
 
 
-.. index:: fpm use-next-hop-groups
 .. clicmd:: no fpm use-next-hop-groups
 
    Use the old known FPM behavior of including next hop information in the
    route (e.g. ``RTM_NEWROUTE``) messages.
 
 
-.. index:: show fpm counters [json]
 .. clicmd:: show fpm counters [json]
 
    Show the FPM statistics (plain text or JSON formatted).
@@ -956,7 +895,6 @@ FPM Commands
          User FPM disable requests: 0
 
 
-.. index:: clear fpm counters
 .. clicmd:: clear fpm counters
 
    Reset statistics related to the zebra code that interacts with the
@@ -975,14 +913,12 @@ interface IP addresses. The dataplane runs in its own pthread, in
 order to off-load work from the main zebra pthread.
 
 
-.. index:: show zebra dplane [detailed]
 .. clicmd:: show zebra dplane [detailed]
 
    Display statistics about the updates and events passing through the
    dataplane subsystem.
 
 
-.. index:: show zebra dplane providers
 .. clicmd:: show zebra dplane providers
 
    Display information about the running dataplane plugins that are
@@ -990,7 +926,6 @@ order to off-load work from the main zebra pthread.
    present.
 
 
-.. index:: zebra dplane limit [NUMBER]
 .. clicmd:: zebra dplane limit [NUMBER]
 
    Configure the limit on the number of pending updates that are
@@ -1000,7 +935,6 @@ order to off-load work from the main zebra pthread.
 zebra Terminal Mode Commands
 ============================
 
-.. index:: show ip route
 .. clicmd:: show ip route
 
    Display current routes which zebra holds in its database.
@@ -1017,19 +951,15 @@ zebra Terminal Mode Commands
     C* 203.181.89.240/28      eth0
 
 
-.. index:: show ipv6 route
 .. clicmd:: show ipv6 route
 
-.. index:: show [ip|ipv6] route [PREFIX] [nexthop-group]
 .. clicmd:: show [ip|ipv6] route [PREFIX] [nexthop-group]
 
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
-.. index:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
 .. clicmd:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
 
-.. index:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
 .. clicmd:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
 
    Display interface information. If no extra information is added, it will
@@ -1037,34 +967,27 @@ zebra Terminal Mode Commands
    detailed information about that single interface. If [nexthop-group] is
    specified, it will display nexthop groups pointing out that interface.
 
-.. index:: show ip prefix-list [NAME]
 .. clicmd:: show ip prefix-list [NAME]
 
-.. index:: show route-map [NAME]
 .. clicmd:: show route-map [NAME]
 
-.. index:: show ip protocol
 .. clicmd:: show ip protocol
 
-.. index:: show ip forward
 .. clicmd:: show ip forward
 
    Display whether the host's IP forwarding function is enabled or not.
    Almost any UNIX kernel can be configured with IP forwarding disabled.
    If so, the box can't work as a router.
 
-.. index:: show ipv6 forward
 .. clicmd:: show ipv6 forward
 
    Display whether the host's IP v6 forwarding is enabled or not.
 
-.. index:: show zebra
 .. clicmd:: show zebra
 
    Display various statistics related to the installation and deletion
    of routes, neighbor updates, and LSP's into the kernel.
 
-.. index:: show zebra client [summary]
 .. clicmd:: show zebra client [summary]
 
    Display statistics about clients that are connected to zebra.  This is
@@ -1072,7 +995,6 @@ zebra Terminal Mode Commands
    zebra and it's clients.  If the summary form of the command is choosen
    a table is displayed with shortened information.
 
-.. index:: show zebra router table summary
 .. clicmd:: show zebra router table summary
 
    Display summarized data about tables created, their afi/safi/tableid
@@ -1080,7 +1002,6 @@ zebra Terminal Mode Commands
    total number of route nodes in the table.  Which will be higher than
    the actual number of routes that are held.
 
-.. index:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type]
 .. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type]
 
    Display nexthop groups created by zebra.  The [vrf NAME] option
@@ -1098,13 +1019,11 @@ Many routing protocols require a router-id to be configured. To have a
 consistent router-id across all daemons, the following commands are available
 to configure and display the router-id:
 
-.. index:: router-id A.B.C.D
 .. clicmd:: [no] [ip] router-id A.B.C.D
 
    Allow entering of the router-id.  This command also works under the
    vrf subnode, to allow router-id's per vrf.
 
-.. index:: router-id A.B.C.D vrf NAME
 .. clicmd:: [no] [ip] router-id A.B.C.D vrf NAME
 
    Configure the router-id of this router from the configure NODE.
@@ -1112,20 +1031,17 @@ to configure and display the router-id:
    under the vrf sub node.  This command is deprecated and will
    be removed at some point in time in the future.
 
-.. index:: show [ip] router-id [vrf NAME]
 .. clicmd:: show [ip] router-id [vrf NAME]
 
    Display the user configured router-id.
 
 For protocols requiring an IPv6 router-id, the following commands are available:
 
-.. index:: ipv6 router-id X:X::X:X
 .. clicmd:: [no] ipv6 router-id X:X::X:X
 
    Configure the IPv6 router-id of this router. Like its IPv4 counterpart,
    this command works under the vrf subnode, to allow router-id's per vrf.
 
-.. index:: show ipv6 router-id [vrf NAME]
 .. clicmd:: show ipv6 router-id [vrf NAME]
 
    Display the user configured IPv6 router-id.

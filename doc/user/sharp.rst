@@ -32,7 +32,6 @@ Using SHARP
 All sharp commands are under the enable node and preceded by the ``sharp``
 keyword. At present, no sharp commands will be preserved in the config.
 
-.. index:: sharp install
 .. clicmd:: sharp install routes A.B.C.D <nexthop <E.F.G.H|X:X::X:X>|nexthop-group NAME> (1-1000000) [instance (0-255)] [repeat (2-1000)] [opaque WORD]
 
    Install up to 1,000,000 (one million) /32 routes starting at ``A.B.C.D``
@@ -49,7 +48,6 @@ keyword. At present, no sharp commands will be preserved in the config.
    number of times specified.  If the keyword opaque is specified then the
    next word is sent down to zebra as part of the route installation.
 
-.. index:: sharp remove
 .. clicmd:: sharp remove routes A.B.C.D (1-1000000)
 
    Remove up to 1,000,000 (one million) /32 routes starting at ``A.B.C.D``. The
@@ -57,7 +55,6 @@ keyword. At present, no sharp commands will be preserved in the config.
    log and when all routes have been successfully deleted the debug log will be
    updated with this information as well.
 
-.. index:: sharp data route
 .. clicmd:: sharp data route
 
    Allow end user doing route install and deletion to get timing information
@@ -65,13 +62,11 @@ keyword. At present, no sharp commands will be preserved in the config.
    is informational only and you should look at sharp_vty.c for explanation
    of the output as that it may change.
 
-.. index:: sharp label
 .. clicmd:: sharp label <ipv4|ipv6> vrf NAME label (0-1000000)
 
    Install a label into the kernel that causes the specified vrf NAME table to
    be used for pop and forward operations when the specified label is seen.
 
-.. index:: sharp watch
 .. clicmd:: [no] sharp watch <nexthop <A.B.C.D|X:X::X:X>|import <A.B.C.D/M:X:X::X:X/M> [connected]
 
    Instruct zebra to monitor and notify sharp when the specified nexthop is
@@ -83,13 +78,11 @@ keyword. At present, no sharp commands will be preserved in the config.
    for the import keyword connected means exact match.  The no form of
    the command obviously turns this watching off.
 
-.. index:: sharp data nexthop
 .. clicmd:: sharp data nexthop
 
    Allow end user to dump associated data with the nexthop tracking that
    may have been turned on.
 
-.. index:: sharp lsp
 .. clicmd:: sharp lsp [update] (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
 
    Install an LSP using the specified in-label, with nexthops as
@@ -98,7 +91,6 @@ keyword. At present, no sharp commands will be preserved in the config.
    If ``prefix`` is specified, an existing route with type ``TYPE``
    (and optional ``instance`` id) will be updated to use the LSP.
 
-.. index:: sharp remove lsp
 .. clicmd:: sharp remove lsp (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
 
    Remove a SHARPD LSP that uses the specified in-label, where the
@@ -106,13 +98,11 @@ keyword. At present, no sharp commands will be preserved in the config.
    specified, remove label bindings from the route of type ``TYPE``
    also.
 
-.. index:: sharp send opaque
 .. clicmd:: sharp send opaque type (1-255) (1-1000)
 
    Send opaque ZAPI messages with subtype ``type``. Sharpd will send
    a stream of messages if the count is greater than one.
 
-.. index:: sharp send opaque unicast
 .. clicmd:: sharp send opaque unicast type (1-255) $proto_str [{instance (0-1000) | session (1-1000)}] (1-1000)
 
    Send unicast opaque ZAPI messages with subtype ``type``. The
@@ -120,7 +110,6 @@ keyword. At present, no sharp commands will be preserved in the config.
    client. Sharpd will send a stream of messages if the count is
    greater than one.
 
-.. index:: sharp send opaque reg unreg
 .. clicmd:: sharp send opaque <reg | unreg> $proto_str [{instance (0-1000) | session (1-1000)}] type (1-1000)
 
    Send opaque ZAPI registration and unregistration messages for a
@@ -128,19 +117,16 @@ keyword. At present, no sharp commands will be preserved in the config.
    name, and can include optional zapi ``instance`` and ``session``
    values.
 
-.. index:: sharp create session
 .. clicmd:: sharp create session (1-1024)
 
    Create an additional zapi client session for testing, using the
    specified session id.
 
-.. index:: sharp remove session
 .. clicmd:: sharp remove session (1-1024)
 
    Remove a test zapi client session that was created with the
    specified session id.
 
-.. index:: sharp neigh discover
 .. clicmd:: sharp neigh discover [vrf NAME] <A.B.C.D|X:X::X:X> IFNAME
 
    Send an ARP/NDP request to trigger the addition of a neighbor in the ARP

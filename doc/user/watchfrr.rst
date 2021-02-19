@@ -16,13 +16,11 @@ require end users management.
 WATCHFRR commands
 =================
 
-.. index:: show watchfrr
 .. clicmd:: show watchfrr
 
    Give status information about the state of the different daemons being
    watched by WATCHFRR
 
-.. index:: watchfrr ignore DAEMON
 .. clicmd:: [no] watchfrr ignore DAEMON
 
    Tell WATCHFRR to ignore a particular DAEMON if it goes unresponsive.

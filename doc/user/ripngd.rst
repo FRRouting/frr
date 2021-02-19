@@ -22,27 +22,22 @@ ripngd Configuration
 
 Currently ripngd supports the following commands:
 
-.. index:: router ripng
 .. clicmd:: router ripng
 
    Enable RIPng.
 
-.. index:: flush_timer TIME
 .. clicmd:: flush_timer TIME
 
    Set flush timer.
 
-.. index:: network NETWORK
 .. clicmd:: network NETWORK
 
    Set RIPng enabled interface by NETWORK.
 
-.. index:: network IFNAME
 .. clicmd:: network IFNAME
 
    Set RIPng enabled interface by IFNAME.
 
-.. index:: route NETWORK
 .. clicmd:: route NETWORK
 
    Set RIPng static routing announcement of NETWORK.
@@ -53,26 +48,20 @@ Currently ripngd supports the following commands:
 ripngd Terminal Mode Commands
 =============================
 
-.. index:: show ip ripng
 .. clicmd:: show ip ripng
 
-.. index:: show debugging ripng
 .. clicmd:: show debugging ripng
 
-.. index:: debug ripng events
 .. clicmd:: debug ripng events
 
-.. index:: debug ripng packet
 .. clicmd:: debug ripng packet
 
-.. index:: debug ripng zebra
 .. clicmd:: debug ripng zebra
 
 
 ripngd Filtering Commands
 =========================
 
-.. index:: distribute-list ACCESS_LIST (in|out) IFNAME
 .. clicmd:: distribute-list ACCESS_LIST (in|out) IFNAME
 
    You can apply an access-list to the interface using the `distribute-list`

@@ -105,71 +105,58 @@ Example:
 Configuration Commands
 ----------------------
 
-.. index:: segment-routing
 .. clicmd:: segment-routing
 
    Configure segment routing.
 
-.. index:: traffic-eng
 .. clicmd:: traffic-eng
 
    Configure segment routing traffic engineering.
 
-.. index:: segment-list NAME
 .. clicmd:: [no] segment-list NAME
 
    Delete or start a segment list definition.
 
-
-.. index:: index INDEX mpls label LABEL [nai node ADDRESS]
-.. clicmd:: [no] index INDEX mpls label LABEL [nai node ADDRESS]
+.. clicmd:: index INDEX mpls label LABEL [nai node ADDRESS]
 
    Delete or specify a segment in a segment list definition.
 
 
-.. index:: policy color COLOR endpoint ENDPOINT
 .. clicmd:: [no] policy color COLOR endpoint ENDPOINT
 
    Delete or start a policy definition.
 
 
-.. index:: name NAME
 .. clicmd:: name NAME
 
    Specify the policy name.
 
 
-.. index:: binding-sid LABEL
 .. clicmd:: binding-sid LABEL
 
    Specify the policy SID.
 
 
-.. index:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 .. clicmd:: [no] candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 
    Delete or define an explicit candidate path.
 
 
-.. index:: candidate-path preference PREFERENCE name NAME dynamic
 .. clicmd:: [no] candidate-path preference PREFERENCE name NAME dynamic
 
    Delete or start a dynamic candidate path definition.
 
 
-.. index:: affinity {exclude-any|include-any|include-all} BITPATTERN
 .. clicmd:: [no] affinity {exclude-any|include-any|include-all} BITPATTERN
 
    Delete or specify an affinity constraint for a dynamic candidate path.
 
 
-.. index:: bandwidth BANDWIDTH [required]
 .. clicmd:: [no] bandwidth BANDWIDTH [required]
 
    Delete or specify a bandwidth constraint for a dynamic candidate path.
 
 
-.. index:: metric [bound] METRIC VALUE [required]
 .. clicmd:: [no] metric [bound] METRIC VALUE [required]
 
    Delete or specify a metric constraint for a dynamic candidate path.
@@ -198,7 +185,6 @@ Configuration Commands
     - bnc: Border Node Count metric
 
 
-.. index:: objective-function OBJFUN1 [required]
 .. clicmd:: [no] objective-function OBJFUN1 [required]
 
    Delete or specify a PCEP objective function constraint for a dynamic
@@ -224,7 +210,6 @@ Configuration Commands
      - msn: Minimize the number of Shared Nodes [RFC8800]
 
 
-.. index:: debug pathd pcep [basic|path|message|pceplib]
 .. clicmd:: [no] debug pathd pcep [basic|path|message|pceplib]
 
    Enable or disable debugging for the pcep module:
@@ -235,33 +220,28 @@ Configuration Commands
      - pceplib: Enable pceplib logging
 
 
-.. index:: pcep
 .. clicmd:: pcep
 
    Configure PCEP support.
 
 
-.. index:: cep-config NAME
 .. clicmd:: [no] pce-config NAME
 
    Define a shared PCE configuration that can be used in multiple PCE
    declarations.
 
 
-.. index:: pce NAME
 .. clicmd:: [no] pce NAME
 
    Define or delete a PCE definition.
 
 
-.. index:: config WORD
 .. clicmd:: config WORD
 
    Select a shared configuration. If not defined, the default
    configuration will be used.
 
 
-.. index:: address <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)]
 .. clicmd:: address <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)]
 
    Define the address and port of the PCE.
@@ -271,7 +251,6 @@ Configuration Commands
    This should be specified in the PCC peer definition.
 
 
-.. index:: source-address [ip A.B.C.D | ipv6 X:X::X:X] [port PORT]
 .. clicmd:: source-address [ip A.B.C.D | ipv6 X:X::X:X] [port PORT]
 
    Define the address and/or port of the PCC as seen by the PCE.
@@ -284,7 +263,6 @@ Configuration Commands
    configuration group.
 
 
-.. index:: tcp-md5-auth WORD
 .. clicmd:: tcp-md5-auth WORD
 
    Enable TCP MD5 security with the given secret.
@@ -293,7 +271,6 @@ Configuration Commands
    configuration group.
 
 
-.. index:: sr-draft07
 .. clicmd:: sr-draft07
 
    Specify if a PCE only support segment routing draft 7, this flag will limit
@@ -303,7 +280,6 @@ Configuration Commands
    configuration group.
 
 
-.. index:: pce-initiated
 .. clicmd:: pce-initiated
 
    Specify if PCE-initiated LSP should be allowed for this PCE.
@@ -312,7 +288,6 @@ Configuration Commands
    configuration group.
 
 
-.. index:: timer [keep-alive (1-63)] [min-peer-keep-alive (1-255)] [max-peer-keep-alive (1-255)] [dead-timer (4-255)] [min-peer-dead-timer (4-255)] [max-peer-dead-timer (4-255)] [pcep-request (1-120)] [session-timeout-interval (1-120)] [delegation-timeout (1-60)]
 .. clicmd:: timer [keep-alive (1-63)] [min-peer-keep-alive (1-255)] [max-peer-keep-alive (1-255)] [dead-timer (4-255)] [min-peer-dead-timer (4-255)] [max-peer-dead-timer (4-255)] [pcep-request (1-120)] [session-timeout-interval (1-120)] [delegation-timeout (1-60)]
 
    Specify the PCEP timers.
@@ -321,19 +296,16 @@ Configuration Commands
    configuration group.
 
 
-.. index:: pcc
 .. clicmd:: [no] pcc
 
    Disable or start the definition of a PCC.
 
 
-.. index:: msd (1-32)
 .. clicmd:: msd (1-32)
 
    Specify the maximum SID depth in a PCC definition.
 
 
-.. index:: peer WORD [precedence (1-255)]
 .. clicmd:: [no] peer WORD [precedence (1-255)]
 
    Specify a peer and its precedence in a PCC definition.
@@ -342,7 +314,6 @@ Configuration Commands
 Introspection Commands
 ----------------------
 
-.. index:: show sr-te policy [detail]
 .. clicmd:: show sr-te policy [detail]
 
    Display the segment routing policies.
@@ -368,38 +339,32 @@ The asterisk (*) marks the best, e.g. active, candidate path. Note that for segm
 retrieved via PCEP a random number based name is generated.
 
 
-.. index:: show debugging pathd
 .. clicmd:: show debugging pathd
 
    Display the current status of the pathd debugging.
 
 
-.. index:: show debugging pathd-pcep
 .. clicmd:: show debugging pathd-pcep
 
    Display the current status of the pcep module debugging.
 
 
-.. index:: show sr-te pcep counters
 .. clicmd:: show sr-te pcep counters
 
    Display the counters from pceplib.
 
 
-.. index:: show sr-te pcep pce-config [NAME]
 .. clicmd:: show sr-te pcep pce-config [NAME]
 
    Display a shared configuration. if no name is specified, the default
    configuration will be displayed.
 
 
-.. index:: show sr-te pcep pcc
 .. clicmd:: show sr-te pcep pcc
 
    Display PCC information.
 
 
-.. index:: show sr-te pcep session [NAME]
 .. clicmd:: show sr-te pcep session [NAME]
 
    Display the information of a PCEP session, if not name is specified all the
@@ -409,7 +374,6 @@ retrieved via PCEP a random number based name is generated.
 Utility Commands
 ----------------
 
-.. index:: clear sr-te pcep session [NAME]
 .. clicmd:: clear sr-te pcep session [NAME]
 
    Reset the pcep session by disconnecting from the PCE and performing the

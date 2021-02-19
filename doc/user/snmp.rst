@@ -130,9 +130,7 @@ need to configure FRR to use another transport, you can configure it through
 
 Here is the syntax for using AgentX:
 
-.. index:: agentx
 .. clicmd:: agentx
-.. index:: agentx
 .. clicmd:: no agentx
 
 

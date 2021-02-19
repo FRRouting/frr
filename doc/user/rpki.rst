@@ -54,7 +54,6 @@ In a nutshell, the current implementation provides the following features
 Enabling RPKI
 -------------
 
-.. index:: rpki
 .. clicmd:: rpki
 
    This command enables the RPKI configuration mode. Most commands that start
@@ -67,7 +66,6 @@ Enabling RPKI
    to configure at least one reachable cache server. See section
    :ref:`configuring-rpki-rtr-cache-servers` for configuring a cache server.
 
-.. index:: RPKI and daemons
 
 When first installing FRR with RPKI support from the pre-packaged binaries.
 Remember to add ``-M rpki`` to the variable ``bgpd_options`` in
@@ -101,10 +99,8 @@ Configuring RPKI/RTR Cache Servers
 
 The following commands are independent of a specific cache server.
 
-.. index:: rpki polling_period (1-3600)
 .. clicmd:: rpki polling_period (1-3600)
 
-.. index:: rpki polling_period
 .. clicmd:: no rpki polling_period
 
    Set the number of seconds the router waits until the router asks the cache
@@ -114,10 +110,8 @@ The following commands are independent of a specific cache server.
 
    The following commands configure one or multiple cache servers.
 
-.. index:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
 .. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
 
-.. index:: rpki cache (A.B.C.D|WORD) [PORT] PREFERENCE
 .. clicmd:: no rpki cache (A.B.C.D|WORD) [PORT] PREFERENCE
 
    Add a cache server to the socket. By default, the connection between router
@@ -154,10 +148,8 @@ The following commands are independent of a specific cache server.
 Validating BGP Updates
 ----------------------
 
-.. index:: match rpki notfound|invalid|valid
 .. clicmd:: match rpki notfound|invalid|valid
 
-.. index:: match rpki notfound|invalid|valid
 .. clicmd:: no match rpki notfound|invalid|valid
 
     Create a clause for a route map to match prefixes with the specified RPKI
@@ -187,10 +179,8 @@ Validating BGP Updates
 Debugging
 ---------
 
-.. index:: debug rpki
 .. clicmd:: debug rpki
 
-.. index:: debug rpki
 .. clicmd:: no debug rpki
 
    Enable or disable debugging output for RPKI.
@@ -200,26 +190,22 @@ Debugging
 Displaying RPKI
 ---------------
 
-.. index:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
 .. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
 
    Display validated prefixes received from the cache servers filtered
    by the specified prefix.
 
-.. index:: show rpki as-number ASN
 .. clicmd:: show rpki as-number ASN
 
    Display validated prefixes received from the cache servers filtered
    by ASN.
 
-.. index:: show rpki prefix-table
 .. clicmd:: show rpki prefix-table
 
    Display all validated prefix to origin AS mappings/records which have been
    received from the cache servers and stored in the router. Based on this data,
    the router validates BGP Updates.
 
-.. index:: show rpki cache-connection
 .. clicmd:: show rpki cache-connection
 
    Display all configured cache servers, whether active or not.

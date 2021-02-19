@@ -220,6 +220,10 @@ end destination.
    | installedInternally | Do we think this group is installed? | Integer |
    +---------------------+--------------------------------------+---------+
 
+
+.. index::
+   pair: policy; PBR
+
 .. _pbr-policy:
 
 PBR Policy
@@ -229,7 +233,6 @@ After you have specified a PBR map, in order for it to be turned on, you must
 apply the PBR map to an interface.  This policy application to an interface
 causes the policy to be installed into the kernel.
 
-.. index:: pbr-policy
 .. clicmd:: pbr-policy NAME
 
    This command is available under interface sub-mode.  This turns
@@ -252,7 +255,7 @@ causes the policy to be installed into the kernel.
    | name   | Interface name             | String  |
    +--------+----------------------------+---------+
    | index  | Device Index               | Integer |
-   +--------+----------------------------+---------+
+   +--------+---------------------------+----------+
    | policy | PBR map for this interface | String  |
    +--------+----------------------------+---------+
    | valid  | Is the map well-formed?    | Boolean |
@@ -263,12 +266,10 @@ causes the policy to be installed into the kernel.
 PBR Debugs
 ===========
 
-.. index:: debug pbr
 .. clicmd:: debug pbr events|map|nht|zebra
 
    Debug pbr in pbrd daemon. You specify what types of debugs to turn on.
 
-.. index:: debug zebra pbr
 .. clicmd:: debug zebra pbr
 
    Debug pbr in zebra daemon.
@@ -281,12 +282,10 @@ PBR Details
 Under the covers a PBR map is translated into two separate constructs in the
 Linux kernel.
 
-.. index:: PBR Rules
 
 The PBR map specified creates a `ip rule ...` that is inserted into the Linux
 kernel that points to a table to use for forwarding once the rule matches.
 
-.. index:: PBR Tables
 
 The creation of a nexthop or nexthop-group is translated to a default route in a
 table with the nexthops specified as the nexthops for the default route.

@@ -9,10 +9,8 @@ defined, it can be applied in any direction.
 IP Access List
 ==============
 
-.. index:: access-list NAME [seq (1-4294967295)] permit IPV4-NETWORK
 .. clicmd:: access-list NAME [seq (1-4294967295)] permit IPV4-NETWORK
 
-.. index:: access-list NAME [seq (1-4294967295)] deny IPV4-NETWORK
 .. clicmd:: access-list NAME [seq (1-4294967295)] deny IPV4-NETWORK
 
    seq
@@ -50,10 +48,8 @@ filters to arbitrary points of prefix-list using sequential number specification
 If no ip prefix-list is specified, it acts as permit. If *ip prefix-list*
 is defined, and no match is found, default deny is applied.
 
-.. index:: ip prefix-list NAME (permit|deny) PREFIX [le LEN] [ge LEN]
 .. clicmd:: ip prefix-list NAME (permit|deny) PREFIX [le LEN] [ge LEN]
 
-.. index:: ip prefix-list NAME seq NUMBER (permit|deny) PREFIX [le LEN] [ge LEN]
 .. clicmd:: ip prefix-list NAME seq NUMBER (permit|deny) PREFIX [le LEN] [ge LEN]
 
    You can create *ip prefix-list* using above commands.
@@ -98,7 +94,6 @@ is defined, and no match is found, default deny is applied.
    In the case of no le or ge command, the prefix length must match exactly the
    length specified in the prefix list.
 
-.. index:: ip prefix-list NAME
 .. clicmd:: no ip prefix-list NAME
 
 .. _ip-prefix-list-description:
@@ -106,13 +101,11 @@ is defined, and no match is found, default deny is applied.
 ip prefix-list description
 --------------------------
 
-.. index:: ip prefix-list NAME description DESC
 .. clicmd:: ip prefix-list NAME description DESC
 
    Descriptions may be added to prefix lists. This command adds a
    description to the prefix list.
 
-.. index:: ip prefix-list NAME description [DESC]
 .. clicmd:: no ip prefix-list NAME description [DESC]
 
    Deletes the description from a prefix list. It is possible to use the
@@ -123,13 +116,11 @@ ip prefix-list description
 ip prefix-list sequential number control
 ----------------------------------------
 
-.. index:: ip prefix-list sequence-number
 .. clicmd:: ip prefix-list sequence-number
 
    With this command, the IP prefix list sequential number is displayed.
    This is the default behavior.
 
-.. index:: ip prefix-list sequence-number
 .. clicmd:: no ip prefix-list sequence-number
 
    With this command, the IP prefix list sequential number is not
@@ -140,46 +131,35 @@ ip prefix-list sequential number control
 Showing ip prefix-list
 ----------------------
 
-.. index:: show ip prefix-list
 .. clicmd:: show ip prefix-list
 
    Display all IP prefix lists.
 
-.. index:: show ip prefix-list NAME
 .. clicmd:: show ip prefix-list NAME
 
    Show IP prefix list can be used with a prefix list name.
 
-.. index:: show ip prefix-list NAME seq NUM
 .. clicmd:: show ip prefix-list NAME seq NUM
 
    Show IP prefix list can be used with a prefix list name and sequential
    number.
 
-.. index:: show ip prefix-list NAME A.B.C.D/M
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M
 
    If the command longer is used, all prefix lists with prefix lengths equal to
    or longer than the specified length will be displayed. If the command first
    match is used, the first prefix length match will be displayed.
 
-.. index:: show ip prefix-list NAME A.B.C.D/M longer
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M longer
-.. index:: show ip prefix-list NAME A.B.C.D/M first-match
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M first-match
-.. index:: show ip prefix-list summary
 .. clicmd:: show ip prefix-list summary
-.. index:: show ip prefix-list summary NAME
 .. clicmd:: show ip prefix-list summary NAME
-.. index:: show ip prefix-list detail
 .. clicmd:: show ip prefix-list detail
-.. index:: show ip prefix-list detail NAME
 .. clicmd:: show ip prefix-list detail NAME
 
 Clear counter of ip prefix-list
 -------------------------------
 
-.. index:: clear ip prefix-list [NAME [A.B.C.D/M]]
 .. clicmd:: clear ip prefix-list [NAME [A.B.C.D/M]]
 
    Clears the counters of all IP prefix lists. Clear IP Prefix List can be used
