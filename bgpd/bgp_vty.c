@@ -18077,6 +18077,11 @@ void bgp_vty_init(void)
 	install_element(BGP_EVPN_NODE, &neighbor_attr_unchanged_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_attr_unchanged_cmd);
 
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_attr_unchanged_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_attr_unchanged_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_attr_unchanged_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_attr_unchanged_cmd);
+
 	/* "nexthop-local unchanged" commands */
 	install_element(BGP_IPV6_NODE, &neighbor_nexthop_local_unchanged_cmd);
 	install_element(BGP_IPV6_NODE,
