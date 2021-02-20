@@ -68,6 +68,8 @@ int main(int argc, char **argv)
 		fp = fopen(pyfile, "r");
 		if (!fp) {
 			fprintf(stderr, "%s: %s\n", pyfile, strerror(errno));
+
+			free(name);
 			return 1;
 		}
 	} else {
@@ -86,6 +88,8 @@ int main(int argc, char **argv)
 	if (PyRun_AnyFile(fp, pyfile)) {
 		if (PyErr_Occurred())
 			PyErr_Print();
+
+		free(name);
 		return 1;
 	}
 	Py_Finalize();
