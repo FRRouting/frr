@@ -1,0 +1,3 @@
+fc00::1 via fe80::__(r1-sw1)__ dev r2-sw1 proto XXXX metric 20 pref medium
+fc00::2 dev lo proto XXXX metric 256 pref medium
+fc00::3 via fe80::__(r3-sw2)__ dev r2-sw2 proto XXXX metric 20 pref medium

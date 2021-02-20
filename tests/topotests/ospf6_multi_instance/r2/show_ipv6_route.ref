@@ -1,0 +1,3 @@
+O[1]>* fc00::1/128 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r2-sw1, weight 1, XX:XX:XX
+O[1] fc00::2/128 [110/10] is directly connected, lo, weight 1, XX:XX:XX
+O[2]>* fc00::3/128 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r2-sw2, weight 1, XX:XX:XX
