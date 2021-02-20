@@ -1087,6 +1087,9 @@ IPv6 Support
    be used in a setup with two upstreams where each of the upstreams should only
    receive either IPv4 or IPv6 annocuments.
 
+   Using the ``bgp default ipv6-unicast`` configuration, IPv6 unicast
+   address family is enabled by default for all new neighbors.
+
 
 .. _bgp-route-aggregation:
 
@@ -1575,6 +1578,12 @@ Configuring Peers
    This command allows the user to specify that v4 peering is turned
    on by default or not.  This command defaults to on and is not displayed.
    The `no bgp default ipv4-unicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv6-unicast
+
+   This command allows the user to specify that v6 peering is turned
+   on by default or not.  This command defaults to off and is not displayed.
+   The `bgp default ipv6-unicast` form of the command is displayed.
 
 .. clicmd:: bgp default show-hostname
 
