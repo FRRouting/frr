@@ -59,7 +59,7 @@ struct route_table_delegate_t_ {
 	route_table_destroy_node_func_t destroy_node;
 };
 
-PREDECL_HASH(rn_hash_node)
+PREDECL_HASH(rn_hash_node);
 
 /* Routing table top structure. */
 struct route_table {

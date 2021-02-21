@@ -47,7 +47,7 @@
 #define REALTYPE TYPE
 #endif
 
-PREDECL(REALTYPE, list)
+PREDECL(REALTYPE, list);
 struct item {
 	uint64_t val;
 	struct list_item itm;
@@ -59,7 +59,7 @@ static int list_cmp(const struct item *a, const struct item *b);
 
 #if IS_HASH(REALTYPE)
 static uint32_t list_hash(const struct item *a);
-DECLARE(REALTYPE, list, struct item, itm, list_cmp, list_hash)
+DECLARE(REALTYPE, list, struct item, itm, list_cmp, list_hash);
 
 static uint32_t list_hash(const struct item *a)
 {
@@ -72,7 +72,7 @@ static uint32_t list_hash(const struct item *a)
 }
 
 #else
-DECLARE(REALTYPE, list, struct item, itm, list_cmp)
+DECLARE(REALTYPE, list, struct item, itm, list_cmp);
 #endif
 
 static int list_cmp(const struct item *a, const struct item *b)
@@ -85,7 +85,7 @@ static int list_cmp(const struct item *a, const struct item *b)
 }
 
 #else /* !IS_SORTED */
-DECLARE(REALTYPE, list, struct item, itm)
+DECLARE(REALTYPE, list, struct item, itm);
 #endif
 
 #define NITEM 10000

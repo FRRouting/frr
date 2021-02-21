@@ -27,7 +27,7 @@
 #include "lib/typesafe.h"
 #include "isisd/isis_pdu.h"
 
-PREDECL_RBTREE_UNIQ(lspdb)
+PREDECL_RBTREE_UNIQ(lspdb);
 
 struct isis;
 /* Structure for isis_lsp, this structure will only support the fixed
@@ -61,7 +61,7 @@ struct isis_lsp {
 };
 
 extern int lspdb_compare(const struct isis_lsp *a, const struct isis_lsp *b);
-DECLARE_RBTREE_UNIQ(lspdb, struct isis_lsp, dbe, lspdb_compare)
+DECLARE_RBTREE_UNIQ(lspdb, struct isis_lsp, dbe, lspdb_compare);
 
 void lsp_db_init(struct lspdb_head *head);
 void lsp_db_fini(struct lspdb_head *head);

@@ -203,7 +203,7 @@ extern size_t zlog_msg_ts(struct zlog_msg *msg, char *out, size_t outsz,
  * additional options.  It MUST be the first field in that larger struct.
  */
 
-PREDECL_ATOMLIST(zlog_targets)
+PREDECL_ATOMLIST(zlog_targets);
 struct zlog_target {
 	struct zlog_targets_item head;
 

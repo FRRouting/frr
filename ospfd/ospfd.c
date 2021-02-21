@@ -111,7 +111,7 @@ int q_spaces_compare_func(const struct q_space *a, const struct q_space *b)
 }
 
 DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
-		    p_spaces_compare_func)
+		    p_spaces_compare_func);
 
 void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 {

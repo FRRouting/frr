@@ -123,15 +123,16 @@ struct atomlist_head {
 
 /* use as:
  *
- * PREDECL_ATOMLIST(namelist)
+ * PREDECL_ATOMLIST(namelist);
  * struct name {
  *   struct namelist_item nlitem;
  * }
- * DECLARE_ATOMLIST(namelist, struct name, nlitem)
+ * DECLARE_ATOMLIST(namelist, struct name, nlitem);
  */
 #define PREDECL_ATOMLIST(prefix)                                               \
 struct prefix ## _head { struct atomlist_head ah; };                           \
-struct prefix ## _item { struct atomlist_item ai; };
+struct prefix ## _item { struct atomlist_item ai; };                           \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_ATOMLIST(var) { }
 
@@ -171,7 +172,7 @@ macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
 	assert(prefix ## _count(h) == 0);                                      \
 	memset(h, 0, sizeof(*h));                                              \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* add_head:
  * - contention on ->first pointer
@@ -221,7 +222,8 @@ struct atomsort_head {
 
 #define _PREDECL_ATOMSORT(prefix)                                              \
 struct prefix ## _head { struct atomsort_head ah; };                           \
-struct prefix ## _item { struct atomsort_item ai; };
+struct prefix ## _item { struct atomsort_item ai; };                           \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_ATOMSORT_UNIQ(var)		{ }
 #define INIT_ATOMSORT_NONUNIQ(var)	{ }
@@ -298,7 +300,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	struct atomsort_item *p = atomsort_pop(&h->ah);                        \
 	return p ? container_of(p, type, field.ai) : NULL;                     \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define PREDECL_ATOMSORT_UNIQ(prefix)                                          \
 	_PREDECL_ATOMSORT(prefix)
@@ -312,7 +314,7 @@ macro_inline int prefix ## __cmp(const struct atomsort_item *a,                \
 }                                                                              \
                                                                                \
 _DECLARE_ATOMSORT(prefix, type, field,                                         \
-		prefix ## __cmp, prefix ## __cmp)                              \
+		prefix ## __cmp, prefix ## __cmp);                             \
                                                                                \
 atomic_find_warn                                                               \
 macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
@@ -325,7 +327,7 @@ macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
 		return NULL;                                                   \
 	return p;                                                              \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define PREDECL_ATOMSORT_NONUNIQ(prefix)                                       \
 	_PREDECL_ATOMSORT(prefix)
@@ -352,8 +354,8 @@ macro_inline int prefix ## __cmp_uq(const struct atomsort_item *a,             \
 }                                                                              \
                                                                                \
 _DECLARE_ATOMSORT(prefix, type, field,                                         \
-		prefix ## __cmp, prefix ## __cmp_uq)                           \
-/* ... */
+		prefix ## __cmp, prefix ## __cmp_uq);                          \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 struct atomsort_item *atomsort_add(struct atomsort_head *h,
 		struct atomsort_item *item, int (*cmpfn)(

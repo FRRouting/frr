@@ -424,7 +424,7 @@ struct protected_resource {
 	struct in_addr router_id;
 };
 
-PREDECL_RBTREE_UNIQ(q_spaces)
+PREDECL_RBTREE_UNIQ(q_spaces);
 struct q_space {
 	struct vertex *root;
 	struct list *vertex_list;
@@ -436,7 +436,7 @@ struct q_space {
 	struct q_spaces_item q_spaces_item;
 };
 
-PREDECL_RBTREE_UNIQ(p_spaces)
+PREDECL_RBTREE_UNIQ(p_spaces);
 struct p_space {
 	struct vertex *root;
 	struct protected_resource *protected_resource;

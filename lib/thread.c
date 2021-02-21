@@ -43,7 +43,7 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master");
 DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info");
 DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats");
 
-DECLARE_LIST(thread_list, struct thread, threaditem)
+DECLARE_LIST(thread_list, struct thread, threaditem);
 
 struct cancel_req {
 	int flags;
@@ -68,7 +68,7 @@ static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 	return 0;
 }
 
-DECLARE_HEAP(thread_timer_list, struct thread, timeritem, thread_timer_cmp)
+DECLARE_HEAP(thread_timer_list, struct thread, timeritem, thread_timer_cmp);
 
 #if defined(__APPLE__)
 #include <mach/mach.h>

@@ -73,7 +73,7 @@ static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 	return prefix_cmp(&a->prefix, &b->prefix);
 }
 DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
-		    sr_prefix_sid_cfg_compare)
+		    sr_prefix_sid_cfg_compare);
 
 /**
  * Find SRGB associated to a System ID.

@@ -41,7 +41,7 @@ static int route_table_hash_cmp(const struct route_node *a,
 }
 
 DECLARE_HASH(rn_hash_node, struct route_node, nodehash, route_table_hash_cmp,
-	     prefix_hash_key)
+	     prefix_hash_key);
 /*
  * route_table_init_with_delegate
  */

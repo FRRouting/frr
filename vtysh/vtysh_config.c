@@ -91,9 +91,9 @@ static uint32_t config_hash(const struct config *c)
 	return string_hash_make(c->name);
 }
 
-DECLARE_LIST(config_master, struct config, rbt_item)
+DECLARE_LIST(config_master, struct config, rbt_item);
 DECLARE_HASH(config_master_hash, struct config, hash_item, config_cmp,
-	     config_hash)
+	     config_hash);
 
 /*
  * The config_master_head is a list for order of receipt

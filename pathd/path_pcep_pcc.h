@@ -30,9 +30,9 @@ enum pcc_status {
 	PCEP_PCC_OPERATING
 };
 
-PREDECL_HASH(plspid_map)
-PREDECL_HASH(nbkey_map)
-PREDECL_HASH(req_map)
+PREDECL_HASH(plspid_map);
+PREDECL_HASH(nbkey_map);
+PREDECL_HASH(req_map);
 
 struct plspid_map_data {
 	struct plspid_map_item mi;

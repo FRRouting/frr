@@ -100,7 +100,7 @@ static PyObject *refuse_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 struct elfreloc;
 struct elfsect;
 
-PREDECL_HASH(elfrelocs)
+PREDECL_HASH(elfrelocs);
 
 /* ELFFile and ELFSection intentionally share some behaviour, particularly
  * subscript[123:456] access to file data.  This is because relocatables
@@ -200,7 +200,7 @@ static int elfreloc_cmp(const struct elfreloc *a, const struct elfreloc *b);
 static uint32_t elfreloc_hash(const struct elfreloc *reloc);
 
 DECLARE_HASH(elfrelocs, struct elfreloc, elfrelocs_item,
-	     elfreloc_cmp, elfreloc_hash)
+	     elfreloc_cmp, elfreloc_hash);
 
 static Elf_Scn *elf_find_addr(struct elffile *ef, uint64_t addr, size_t *idx);
 static PyObject *elffile_secbyidx(struct elffile *w, Elf_Scn *scn, size_t idx);

@@ -83,7 +83,7 @@ struct qobj_nodetype {
 	RESERVED_SPACE_STRUCT(qobj_nodetype_capnp, capnp, 256)
 };
 
-PREDECL_HASH(qobj_nodes)
+PREDECL_HASH(qobj_nodes);
 
 /* anchor to be embedded somewhere in the object's struct */
 struct qobj_node {

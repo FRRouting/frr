@@ -147,10 +147,10 @@ static uint32_t req_map_hash(const struct req_map_data *e);
 
 /* Data Structure Declarations */
 DECLARE_HASH(plspid_map, struct plspid_map_data, mi, plspid_map_cmp,
-	     plspid_map_hash)
+	     plspid_map_hash);
 DECLARE_HASH(nbkey_map, struct nbkey_map_data, mi, nbkey_map_cmp,
-	     nbkey_map_hash)
-DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash)
+	     nbkey_map_hash);
+DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash);
 
 static inline int req_entry_compare(const struct req_entry *a,
 				    const struct req_entry *b)

@@ -89,7 +89,7 @@ static uint32_t bmp_bgp_hash(const struct bmp_bgp *e)
 	return jhash(&e->bgp, sizeof(e->bgp), 0x55aa5a5a);
 }
 
-DECLARE_HASH(bmp_bgph, struct bmp_bgp, bbi, bmp_bgp_cmp, bmp_bgp_hash)
+DECLARE_HASH(bmp_bgph, struct bmp_bgp, bbi, bmp_bgp_cmp, bmp_bgp_hash);
 
 struct bmp_bgph_head bmp_bgph;
 
@@ -109,11 +109,11 @@ static uint32_t bmp_bgp_peer_hash(const struct bmp_bgp_peer *e)
 }
 
 DECLARE_HASH(bmp_peerh, struct bmp_bgp_peer, bpi,
-		bmp_bgp_peer_cmp, bmp_bgp_peer_hash)
+		bmp_bgp_peer_cmp, bmp_bgp_peer_hash);
 
 struct bmp_peerh_head bmp_peerh;
 
-DECLARE_LIST(bmp_mirrorq, struct bmp_mirrorq, bmi)
+DECLARE_LIST(bmp_mirrorq, struct bmp_mirrorq, bmi);
 
 /* listener management */
 
@@ -132,7 +132,8 @@ static int bmp_listener_cmp(const struct bmp_listener *a,
 	return 0;
 }
 
-DECLARE_SORTLIST_UNIQ(bmp_listeners, struct bmp_listener, bli, bmp_listener_cmp)
+DECLARE_SORTLIST_UNIQ(bmp_listeners, struct bmp_listener, bli,
+		      bmp_listener_cmp);
 
 static int bmp_targets_cmp(const struct bmp_targets *a,
 			   const struct bmp_targets *b)
@@ -140,11 +141,11 @@ static int bmp_targets_cmp(const struct bmp_targets *a,
 	return strcmp(a->name, b->name);
 }
 
-DECLARE_SORTLIST_UNIQ(bmp_targets, struct bmp_targets, bti, bmp_targets_cmp)
+DECLARE_SORTLIST_UNIQ(bmp_targets, struct bmp_targets, bti, bmp_targets_cmp);
 
-DECLARE_LIST(bmp_session, struct bmp, bsi)
+DECLARE_LIST(bmp_session, struct bmp, bsi);
 
-DECLARE_DLIST(bmp_qlist, struct bmp_queue_entry, bli)
+DECLARE_DLIST(bmp_qlist, struct bmp_queue_entry, bli);
 
 static int bmp_qhash_cmp(const struct bmp_queue_entry *a,
 		const struct bmp_queue_entry *b)
@@ -189,7 +190,7 @@ static uint32_t bmp_qhash_hkey(const struct bmp_queue_entry *e)
 }
 
 DECLARE_HASH(bmp_qhash, struct bmp_queue_entry, bhi,
-		bmp_qhash_cmp, bmp_qhash_hkey)
+		bmp_qhash_cmp, bmp_qhash_hkey);
 
 static int bmp_active_cmp(const struct bmp_active *a,
 		const struct bmp_active *b)
@@ -206,7 +207,7 @@ static int bmp_active_cmp(const struct bmp_active *a,
 	return 0;
 }
 
-DECLARE_SORTLIST_UNIQ(bmp_actives, struct bmp_active, bai, bmp_active_cmp)
+DECLARE_SORTLIST_UNIQ(bmp_actives, struct bmp_active, bai, bmp_active_cmp);
 
 static struct bmp *bmp_new(struct bmp_targets *bt, int bmp_sock)
 {

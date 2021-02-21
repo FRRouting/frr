@@ -80,7 +80,7 @@ struct lp_fifo {
 	struct lp_lcb	lcb;
 };
 
-DECLARE_LIST(lp_fifo, struct lp_fifo, fifo)
+DECLARE_LIST(lp_fifo, struct lp_fifo, fifo);
 
 struct lp_cbq_item {
 	int		(*cbfunc)(mpls_label_t label, void *lblid, bool alloc);

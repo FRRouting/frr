@@ -41,8 +41,8 @@ struct rusage_t {
 
 #define GETRUSAGE(X) thread_getrusage(X)
 
-PREDECL_LIST(thread_list)
-PREDECL_HEAP(thread_timer_list)
+PREDECL_LIST(thread_list);
+PREDECL_HEAP(thread_timer_list);
 
 struct fd_handler {
 	/* number of pfd that fit in the allocated space of pfds. This is a

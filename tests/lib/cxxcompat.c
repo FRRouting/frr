@@ -107,7 +107,7 @@
 #include "lib/zassert.h"
 #include "lib/zclient.h"
 
-PREDECL_RBTREE_UNIQ(footree)
+PREDECL_RBTREE_UNIQ(footree);
 struct foo {
 	int dummy;
 	struct footree_item item;
@@ -116,7 +116,7 @@ static int foocmp(const struct foo *a, const struct foo *b)
 {
 	return memcmp(&a->dummy, &b->dummy, sizeof(a->dummy));
 }
-DECLARE_RBTREE_UNIQ(footree, struct foo, item, foocmp)
+DECLARE_RBTREE_UNIQ(footree, struct foo, item, foocmp);
 
 int main(int argc, char **argv)
 {

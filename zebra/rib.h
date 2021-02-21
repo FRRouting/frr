@@ -43,7 +43,7 @@ extern "C" {
 
 enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
 
-PREDECL_LIST(rnh_list)
+PREDECL_LIST(rnh_list);
 
 /* Nexthop structure. */
 struct rnh {
@@ -82,7 +82,7 @@ struct rnh {
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
 
-PREDECL_LIST(re_list)
+PREDECL_LIST(re_list);
 
 struct opaque {
 	uint16_t length;
