@@ -85,44 +85,44 @@ FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
 			.match_version = "< 7.4",
 	},
 	{ .val_bool = true },
-)
+);
 FRR_CFG_DEFAULT_BOOL(BGP_SHOW_HOSTNAME,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
-)
+);
 FRR_CFG_DEFAULT_BOOL(BGP_SHOW_NEXTHOP_HOSTNAME,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
-)
+);
 FRR_CFG_DEFAULT_BOOL(BGP_LOG_NEIGHBOR_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
-)
+);
 FRR_CFG_DEFAULT_BOOL(BGP_DETERMINISTIC_MED,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
-)
+);
 FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
 	{ .val_ulong = 10, .match_profile = "datacenter", },
 	{ .val_ulong = 120 },
-)
+);
 FRR_CFG_DEFAULT_ULONG(BGP_HOLDTIME,
 	{ .val_ulong = 9, .match_profile = "datacenter", },
 	{ .val_ulong = 180 },
-)
+);
 FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
 	{ .val_ulong = 3, .match_profile = "datacenter", },
 	{ .val_ulong = 60 },
-)
+);
 FRR_CFG_DEFAULT_BOOL(BGP_EBGP_REQUIRES_POLICY,
 	{ .val_bool = false, .match_profile = "datacenter", },
 	{ .val_bool = false, .match_version = "< 7.4", },
 	{ .val_bool = true },
-)
+);
 FRR_CFG_DEFAULT_BOOL(BGP_SUPPRESS_DUPLICATES,
 	{ .val_bool = false, .match_version = "< 7.6", },
 	{ .val_bool = true },
-)
+);
 
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),

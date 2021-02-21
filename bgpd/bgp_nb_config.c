@@ -37,15 +37,15 @@ DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
         { .val_ulong = 10, .match_profile = "datacenter", },
         { .val_ulong = 120 },
-)
+);
 FRR_CFG_DEFAULT_ULONG(BGP_HOLDTIME,
         { .val_ulong = 9, .match_profile = "datacenter", },
         { .val_ulong = 180 },
-)
+);
 FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
         { .val_ulong = 3, .match_profile = "datacenter", },
         { .val_ulong = 60 },
-)
+);
 
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args)
