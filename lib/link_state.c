@@ -36,7 +36,7 @@
 #include "link_state.h"
 
 /* Link State Memory allocation */
-DEFINE_MTYPE_STATIC(LIB, LS_DB, "Link State Database")
+DEFINE_MTYPE_STATIC(LIB, LS_DB, "Link State Database");
 
 /**
  *  Link State Node management functions

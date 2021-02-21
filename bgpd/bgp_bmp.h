@@ -309,6 +309,6 @@ enum {
 	BMP_STATS_FRR_NH_INVALID        = 65531,
 };
 
-DECLARE_MGROUP(BMP)
+DECLARE_MGROUP(BMP);
 
 #endif /*_BGP_BMP_H_*/

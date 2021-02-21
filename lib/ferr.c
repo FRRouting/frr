@@ -35,7 +35,7 @@
 #include "linklist.h"
 #include "frr_pthread.h"
 
-DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information")
+DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information");
 
 /*
  * Thread-specific key for temporary storage of allocated ferr.

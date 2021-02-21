@@ -39,11 +39,11 @@
 #include "lib/if_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(LIB, IF, "Interface")
-DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected")
-DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected")
-DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label")
-DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters")
+DEFINE_MTYPE_STATIC(LIB, IF, "Interface");
+DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected");
+DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected");
+DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label");
+DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters");
 
 static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
 					      vrf_id_t vrf_id);

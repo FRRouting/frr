@@ -54,8 +54,8 @@
 #include "seqlock.h"
 #include "atomlist.h"
 
-DEFINE_MTYPE_STATIC(LIB, RCU_THREAD,    "RCU thread")
-DEFINE_MTYPE_STATIC(LIB, RCU_NEXT,      "RCU sequence barrier")
+DEFINE_MTYPE_STATIC(LIB, RCU_THREAD,    "RCU thread");
+DEFINE_MTYPE_STATIC(LIB, RCU_NEXT,      "RCU sequence barrier");
 
 DECLARE_ATOMLIST(rcu_heads, struct rcu_head, head)
 

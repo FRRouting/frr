@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(ROUTE_NODE)
+DECLARE_MTYPE(ROUTE_NODE);
 
 /*
  * Forward declarations.

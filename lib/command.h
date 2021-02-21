@@ -34,7 +34,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(COMPLETION)
+DECLARE_MTYPE(COMPLETION);
 
 /*
  * From RFC 1123 (Requirements for Internet Hosts), Section 2.1 on hostnames:

@@ -42,10 +42,10 @@ static inline void pim_g2rp_timer_restart(struct bsm_rpinfo *bsrp,
 					  int hold_time);
 
 /* Memory Types */
-DEFINE_MTYPE_STATIC(PIMD, PIM_BSGRP_NODE, "PIM BSR advertised grp info")
-DEFINE_MTYPE_STATIC(PIMD, PIM_BSRP_NODE, "PIM BSR advertised RP info")
-DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_INFO, "PIM BSM Info")
-DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_PKT_VAR_MEM, "PIM BSM Packet")
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSGRP_NODE, "PIM BSR advertised grp info");
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSRP_NODE, "PIM BSR advertised RP info");
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_INFO, "PIM BSM Info");
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_PKT_VAR_MEM, "PIM BSM Packet");
 
 /* All bsm packets forwarded shall be fit within ip mtu less iphdr(max) */
 #define MAX_IP_HDR_LEN 24

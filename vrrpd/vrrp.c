@@ -40,8 +40,8 @@
 
 #define VRRP_LOGPFX "[CORE] "
 
-DEFINE_MTYPE_STATIC(VRRPD, VRRP_IP, "VRRP IP address")
-DEFINE_MTYPE_STATIC(VRRPD, VRRP_RTR, "VRRP Router")
+DEFINE_MTYPE_STATIC(VRRPD, VRRP_IP, "VRRP IP address");
+DEFINE_MTYPE_STATIC(VRRPD, VRRP_RTR, "VRRP Router");
 
 /* statics */
 struct hash *vrrp_vrouters_hash;

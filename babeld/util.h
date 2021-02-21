@@ -29,7 +29,7 @@ THE SOFTWARE.
 #include "log.h"
 #include "memory.h"
 
-DECLARE_MGROUP(BABELD)
+DECLARE_MGROUP(BABELD);
 
 #if defined(i386) || defined(__mc68020__) || defined(__x86_64__)
 #define DO_NTOHS(_d, _s) do{ _d = ntohs(*(const unsigned short*)(_s)); }while(0)

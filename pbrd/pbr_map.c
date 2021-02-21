@@ -37,9 +37,9 @@
 #include "pbr_debug.h"
 #include "pbr_vrf.h"
 
-DEFINE_MTYPE_STATIC(PBRD, PBR_MAP, "PBR Map")
-DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_SEQNO, "PBR Map Sequence")
-DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_INTERFACE, "PBR Map Interface")
+DEFINE_MTYPE_STATIC(PBRD, PBR_MAP, "PBR Map");
+DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_SEQNO, "PBR Map Sequence");
+DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_INTERFACE, "PBR Map Interface");
 
 static uint32_t pbr_map_sequence_unique;
 

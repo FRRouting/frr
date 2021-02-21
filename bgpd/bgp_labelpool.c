@@ -50,10 +50,10 @@ static struct labelpool *lp;
 /* request this many labels at a time from zebra */
 #define LP_CHUNK_SIZE	50
 
-DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CHUNK, "BGP Label Chunk")
-DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_FIFO, "BGP Label FIFO item")
-DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CB, "BGP Dynamic Label Assignment")
-DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CBQ, "BGP Dynamic Label Callback")
+DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CHUNK, "BGP Label Chunk");
+DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_FIFO, "BGP Label FIFO item");
+DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CB, "BGP Dynamic Label Assignment");
+DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CBQ, "BGP Dynamic Label Callback");
 
 struct lp_chunk {
 	uint32_t	first;

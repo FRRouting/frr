@@ -53,7 +53,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information")
+DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
 #define ZEBRA_PTM_SUPPORT
 

@@ -30,8 +30,8 @@
 #include "zlog.h"
 #include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread")
-DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")
+DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread");
+DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives");
 
 /* default frr_pthread start/stop routine prototypes */
 static void *fpt_run(void *arg);

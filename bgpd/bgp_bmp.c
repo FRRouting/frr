@@ -59,19 +59,19 @@ static struct bmp_bgp_peer *bmp_bgp_peer_get(struct peer *peer);
 static void bmp_active_disconnected(struct bmp_active *ba);
 static void bmp_active_put(struct bmp_active *ba);
 
-DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)")
+DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)");
 
-DEFINE_MTYPE_STATIC(BMP, BMP_CONN,	"BMP connection state")
-DEFINE_MTYPE_STATIC(BMP, BMP_TARGETS,	"BMP targets")
-DEFINE_MTYPE_STATIC(BMP, BMP_TARGETSNAME, "BMP targets name")
-DEFINE_MTYPE_STATIC(BMP, BMP_LISTENER,	"BMP listener")
-DEFINE_MTYPE_STATIC(BMP, BMP_ACTIVE,	"BMP active connection config")
-DEFINE_MTYPE_STATIC(BMP, BMP_ACLNAME,	"BMP access-list name")
-DEFINE_MTYPE_STATIC(BMP, BMP_QUEUE,	"BMP update queue item")
-DEFINE_MTYPE_STATIC(BMP, BMP,		"BMP instance state")
-DEFINE_MTYPE_STATIC(BMP, BMP_MIRRORQ,	"BMP route mirroring buffer")
-DEFINE_MTYPE_STATIC(BMP, BMP_PEER,	"BMP per BGP peer data")
-DEFINE_MTYPE_STATIC(BMP, BMP_OPEN,	"BMP stored BGP OPEN message")
+DEFINE_MTYPE_STATIC(BMP, BMP_CONN,	"BMP connection state");
+DEFINE_MTYPE_STATIC(BMP, BMP_TARGETS,	"BMP targets");
+DEFINE_MTYPE_STATIC(BMP, BMP_TARGETSNAME, "BMP targets name");
+DEFINE_MTYPE_STATIC(BMP, BMP_LISTENER,	"BMP listener");
+DEFINE_MTYPE_STATIC(BMP, BMP_ACTIVE,	"BMP active connection config");
+DEFINE_MTYPE_STATIC(BMP, BMP_ACLNAME,	"BMP access-list name");
+DEFINE_MTYPE_STATIC(BMP, BMP_QUEUE,	"BMP update queue item");
+DEFINE_MTYPE_STATIC(BMP, BMP,		"BMP instance state");
+DEFINE_MTYPE_STATIC(BMP, BMP_MIRRORQ,	"BMP route mirroring buffer");
+DEFINE_MTYPE_STATIC(BMP, BMP_PEER,	"BMP per BGP peer data");
+DEFINE_MTYPE_STATIC(BMP, BMP_OPEN,	"BMP stored BGP OPEN message");
 
 DEFINE_QOBJ_TYPE(bmp_targets)
 

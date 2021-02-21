@@ -56,11 +56,11 @@
 /* UDP receive buffer size */
 #define RIP_UDP_RCV_BUF 41600
 
-DEFINE_MGROUP(RIPD, "ripd")
-DEFINE_MTYPE_STATIC(RIPD, RIP, "RIP structure")
-DEFINE_MTYPE_STATIC(RIPD, RIP_VRF_NAME, "RIP VRF name")
-DEFINE_MTYPE_STATIC(RIPD, RIP_INFO, "RIP route info")
-DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance")
+DEFINE_MGROUP(RIPD, "ripd");
+DEFINE_MTYPE_STATIC(RIPD, RIP, "RIP structure");
+DEFINE_MTYPE_STATIC(RIPD, RIP_VRF_NAME, "RIP VRF name");
+DEFINE_MTYPE_STATIC(RIPD, RIP_INFO, "RIP route info");
+DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance");
 
 /* Prototypes. */
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,

@@ -33,10 +33,10 @@
 
 #include "plist_int.h"
 
-DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST, "Prefix List")
-DEFINE_MTYPE_STATIC(LIB, MPREFIX_LIST_STR, "Prefix List Str")
-DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST_ENTRY, "Prefix List Entry")
-DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST_TRIE, "Prefix List Trie Table")
+DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST, "Prefix List");
+DEFINE_MTYPE_STATIC(LIB, MPREFIX_LIST_STR, "Prefix List Str");
+DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST_ENTRY, "Prefix List Entry");
+DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST_TRIE, "Prefix List Trie Table");
 
 /* not currently changeable, code assumes bytes further down */
 #define PLC_BITS	8

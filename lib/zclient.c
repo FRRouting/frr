@@ -42,8 +42,8 @@
 #include "srte.h"
 #include "printfrr.h"
 
-DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
-DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
+DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient");
+DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs");
 
 /* Zebra client events. */
 enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };

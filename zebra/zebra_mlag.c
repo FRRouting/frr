@@ -659,7 +659,7 @@ void zebra_mlag_terminate(void)
 
 #ifdef HAVE_PROTOBUF_VERSION_3
 
-DEFINE_MTYPE_STATIC(ZEBRA, MLAG_PBUF, "ZEBRA MLAG PROTOBUF")
+DEFINE_MTYPE_STATIC(ZEBRA, MLAG_PBUF, "ZEBRA MLAG PROTOBUF");
 
 int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 {

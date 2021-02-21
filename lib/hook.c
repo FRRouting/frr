@@ -23,7 +23,7 @@
 #include "memory.h"
 #include "hook.h"
 
-DEFINE_MTYPE_STATIC(LIB, HOOK_ENTRY, "Hook entry")
+DEFINE_MTYPE_STATIC(LIB, HOOK_ENTRY, "Hook entry");
 
 void _hook_register(struct hook *hook, struct hookent *stackent, void *funcptr,
 		    void *arg, bool has_arg, struct frrmod_runtime *module,

@@ -32,9 +32,9 @@
 #include "northbound_db.h"
 #include "frrstr.h"
 
-DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node")
-DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration")
-DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Configuration Entry")
+DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node");
+DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration");
+DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Configuration Entry");
 
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;

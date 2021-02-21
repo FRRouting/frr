@@ -35,7 +35,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_pw.h"
 
-DEFINE_MTYPE_STATIC(LIB, PW, "Pseudowire")
+DEFINE_MTYPE_STATIC(LIB, PW, "Pseudowire");
 
 DEFINE_QOBJ_TYPE(zebra_pw)
 

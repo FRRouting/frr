@@ -97,7 +97,7 @@
 #define RIP_INSTANCE	"/frr-ripd:ripd/instance"
 #define RIP_IFACE	"/frr-interface:lib/interface/frr-ripd:rip"
 
-DECLARE_MGROUP(RIPD)
+DECLARE_MGROUP(RIPD);
 
 /* RIP structure. */
 struct rip {

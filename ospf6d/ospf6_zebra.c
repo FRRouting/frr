@@ -42,7 +42,7 @@
 #include "ospf6_area.h"
 #include "lib/json.h"
 
-DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_DISTANCE, "OSPF6 distance")
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_DISTANCE, "OSPF6 distance");
 
 unsigned char conf_debug_ospf6_zebra = 0;
 

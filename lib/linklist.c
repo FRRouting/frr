@@ -25,8 +25,8 @@
 #include "memory.h"
 #include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List")
-DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node")
+DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List");
+DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node");
 
 struct list *list_new(void)
 {

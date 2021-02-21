@@ -45,9 +45,9 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs")
-DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs")
-DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists")
+DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs");
+DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists");
 
 typedef int (*unpack_tlv_func)(enum isis_tlv_context context, uint8_t tlv_type,
 			       uint8_t tlv_len, struct stream *s,

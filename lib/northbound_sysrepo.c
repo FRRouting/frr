@@ -32,7 +32,7 @@
 #include <sysrepo/values.h>
 #include <sysrepo/xpath.h>
 
-DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module")
+DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
 
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
 

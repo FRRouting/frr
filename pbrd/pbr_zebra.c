@@ -41,7 +41,7 @@
 #include "pbr_debug.h"
 #include "pbr_vrf.h"
 
-DEFINE_MTYPE_STATIC(PBRD, PBR_INTERFACE, "PBR Interface")
+DEFINE_MTYPE_STATIC(PBRD, PBR_INTERFACE, "PBR Interface");
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient;

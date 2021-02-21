@@ -42,8 +42,8 @@
 /* default VRF name value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_NAME_INTERNAL "default"
 
-DEFINE_MTYPE_STATIC(LIB, VRF, "VRF")
-DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
+DEFINE_MTYPE_STATIC(LIB, VRF, "VRF");
+DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map");
 
 DEFINE_QOBJ_TYPE(vrf)
 

@@ -31,7 +31,7 @@
 #include "ldp_sync.h"
 
 /* Library code */
-DEFINE_MTYPE_STATIC(LIB, LDP_SYNC_INFO, "LDP SYNC info")
+DEFINE_MTYPE_STATIC(LIB, LDP_SYNC_INFO, "LDP SYNC info");
 
 /*
  * ldp_sync_info_create - Allocate the LDP_SYNC information

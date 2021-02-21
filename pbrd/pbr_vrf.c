@@ -28,7 +28,7 @@
 #include "pbr_nht.h"
 #include "pbr_zebra.h"
 
-DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_VRF, "PBR Map VRF")
+DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_VRF, "PBR Map VRF");
 
 static struct pbr_vrf *pbr_vrf_alloc(void)
 {

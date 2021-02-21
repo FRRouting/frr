@@ -49,7 +49,7 @@
 #include "sharp_globals.h"
 #include "sharp_nht.h"
 
-DEFINE_MGROUP(SHARPD, "sharpd")
+DEFINE_MGROUP(SHARPD, "sharpd");
 
 zebra_capabilities_t _caps_p[] = {
 };

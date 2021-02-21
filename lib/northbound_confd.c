@@ -32,7 +32,7 @@
 #include <confd_dp.h>
 #include <confd_maapi.h>
 
-DEFINE_MTYPE_STATIC(LIB, CONFD, "ConfD module")
+DEFINE_MTYPE_STATIC(LIB, CONFD, "ConfD module");
 
 static struct debug nb_dbg_client_confd = {0, "Northbound client: ConfD"};
 

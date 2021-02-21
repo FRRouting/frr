@@ -29,7 +29,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zapi_msg.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR_POLICY, "SR Policy")
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR_POLICY, "SR Policy");
 
 static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy);
 

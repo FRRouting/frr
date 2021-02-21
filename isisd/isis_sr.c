@@ -49,7 +49,7 @@
 #include "isisd/isis_errors.h"
 
 /* Local variables and functions */
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information")
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information");
 
 static void sr_local_block_delete(struct isis_area *area);
 static int sr_local_block_init(struct isis_area *area);

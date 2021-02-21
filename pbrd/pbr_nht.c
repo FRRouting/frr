@@ -35,7 +35,7 @@
 #include "pbrd/pbr_memory.h"
 #include "pbrd/pbr_debug.h"
 
-DEFINE_MTYPE_STATIC(PBRD, PBR_NHG, "PBR Nexthop Groups")
+DEFINE_MTYPE_STATIC(PBRD, PBR_NHG, "PBR Nexthop Groups");
 
 struct hash *pbr_nhg_hash;
 static struct hash *pbr_nhrc_hash;

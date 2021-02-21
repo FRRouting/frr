@@ -38,10 +38,10 @@
 #include "libfrr_trace.h"
 #include "libfrr.h"
 
-DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
-DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
-DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info")
-DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
+DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread");
+DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master");
+DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info");
+DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats");
 
 DECLARE_LIST(thread_list, struct thread, threaditem)
 

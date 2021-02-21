@@ -27,10 +27,10 @@
 #include "distribute.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_CTX, "Distribute ctx")
-DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE, "Distribute list")
-DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_IFNAME, "Dist-list ifname")
-DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_NAME, "Dist-list name")
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_CTX, "Distribute ctx");
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE, "Distribute list");
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_IFNAME, "Dist-list ifname");
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_NAME, "Dist-list name");
 
 static struct list *dist_ctx_list;
 

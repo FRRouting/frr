@@ -31,13 +31,13 @@
  * absolute end.
  */
 
-DECLARE_MGROUP(LOG)
-DEFINE_MGROUP_ACTIVEATEXIT(LOG, "logging subsystem")
+DECLARE_MGROUP(LOG);
+DEFINE_MGROUP_ACTIVEATEXIT(LOG, "logging subsystem");
 
-DEFINE_MTYPE_STATIC(LOG, LOG_FD,        "log file target")
-DEFINE_MTYPE_STATIC(LOG, LOG_FD_NAME,   "log file name")
-DEFINE_MTYPE_STATIC(LOG, LOG_FD_ROTATE, "log file rotate helper")
-DEFINE_MTYPE_STATIC(LOG, LOG_SYSL,      "syslog target")
+DEFINE_MTYPE_STATIC(LOG, LOG_FD,        "log file target");
+DEFINE_MTYPE_STATIC(LOG, LOG_FD_NAME,   "log file name");
+DEFINE_MTYPE_STATIC(LOG, LOG_FD_ROTATE, "log file rotate helper");
+DEFINE_MTYPE_STATIC(LOG, LOG_SYSL,      "syslog target");
 
 struct zlt_fd {
 	struct zlog_target zt;

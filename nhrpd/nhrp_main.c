@@ -29,7 +29,7 @@
 #include "netlink.h"
 #include "nhrp_errors.h"
 
-DEFINE_MGROUP(NHRPD, "NHRP")
+DEFINE_MGROUP(NHRPD, "NHRP");
 
 unsigned int debug_flags = 0;
 

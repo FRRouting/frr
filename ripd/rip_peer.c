@@ -29,7 +29,7 @@
 
 #include "ripd/ripd.h"
 
-DEFINE_MTYPE_STATIC(RIPD, RIP_PEER, "RIP peer")
+DEFINE_MTYPE_STATIC(RIPD, RIP_PEER, "RIP peer");
 
 static struct rip_peer *rip_peer_new(void)
 {

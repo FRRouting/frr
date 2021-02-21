@@ -18,7 +18,7 @@
 #include "memory.h"
 #include "resolver.h"
 
-DECLARE_MGROUP(NHRPD)
+DECLARE_MGROUP(NHRPD);
 
 #define NHRPD_DEFAULT_HOLDTIME	7200
 

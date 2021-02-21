@@ -35,7 +35,7 @@
 #include "zebra/debug.h"
 
 /* definitions */
-DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list")
+DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list");
 
 /* definitions */
 static const struct message ipset_type_msg[] = {

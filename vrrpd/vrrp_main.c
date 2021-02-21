@@ -40,7 +40,7 @@
 #include "vrrp_vty.h"
 #include "vrrp_zebra.h"
 
-DEFINE_MGROUP(VRRPD, "vrrpd")
+DEFINE_MGROUP(VRRPD, "vrrpd");
 
 char backup_config_file[256];
 

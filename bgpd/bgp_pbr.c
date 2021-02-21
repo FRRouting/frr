@@ -37,12 +37,12 @@
 #include "bgpd/bgp_flowspec_private.h"
 #include "bgpd/bgp_errors.h"
 
-DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH_ENTRY, "PBR match entry")
-DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH, "PBR match")
-DEFINE_MTYPE_STATIC(BGPD, PBR_ACTION, "PBR action")
-DEFINE_MTYPE_STATIC(BGPD, PBR_RULE, "PBR rule")
-DEFINE_MTYPE_STATIC(BGPD, PBR, "BGP PBR Context")
-DEFINE_MTYPE_STATIC(BGPD, PBR_VALMASK, "BGP PBR Val Mask Value")
+DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH_ENTRY, "PBR match entry");
+DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH, "PBR match");
+DEFINE_MTYPE_STATIC(BGPD, PBR_ACTION, "PBR action");
+DEFINE_MTYPE_STATIC(BGPD, PBR_RULE, "PBR rule");
+DEFINE_MTYPE_STATIC(BGPD, PBR, "BGP PBR Context");
+DEFINE_MTYPE_STATIC(BGPD, PBR_VALMASK, "BGP PBR Val Mask Value");
 
 /* chain strings too long to fit in one line */
 #define FSPEC_ACTION_EXCEED_LIMIT "flowspec actions exceeds limit"

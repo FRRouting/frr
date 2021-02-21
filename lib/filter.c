@@ -31,9 +31,9 @@
 #include "libfrr.h"
 #include "northbound_cli.h"
 
-DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST, "Access List")
-DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST_STR, "Access List Str")
-DEFINE_MTYPE_STATIC(LIB, ACCESS_FILTER, "Access Filter")
+DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST, "Access List");
+DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST_STR, "Access List Str");
+DEFINE_MTYPE_STATIC(LIB, ACCESS_FILTER, "Access Filter");
 
 /* Static structure for mac access_list's master. */
 static struct access_master access_master_mac = {

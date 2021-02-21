@@ -41,9 +41,9 @@
 /*
  * FRR related code.
  */
-DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon")
-DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory")
-DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data")
+DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
+DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
+DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
 
 /* Master of threads. */
 struct thread_master *master;

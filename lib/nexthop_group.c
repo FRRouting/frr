@@ -32,7 +32,7 @@
 #include "lib/nexthop_group_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(LIB, NEXTHOP_GROUP, "Nexthop Group")
+DEFINE_MTYPE_STATIC(LIB, NEXTHOP_GROUP, "Nexthop Group");
 
 /*
  * Internal struct used to hold nhg config strings

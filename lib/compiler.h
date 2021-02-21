@@ -136,6 +136,9 @@ extern "C" {
 #define macro_inline	static inline __attribute__((unused))
 #define macro_pure	static inline __attribute__((unused, pure))
 
+/* if the macro ends with a function definition */
+#define MACRO_REQUIRE_SEMICOLON() \
+	_Static_assert(1, "please add a semicolon after this macro")
 
 /* variadic macros, use like:
  * #define V_0()  ...

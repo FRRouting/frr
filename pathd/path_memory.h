@@ -21,6 +21,6 @@
 
 #include "memory.h"
 
-DECLARE_MGROUP(PATHD)
+DECLARE_MGROUP(PATHD);
 
 #endif /* _FRR_PATH_MEMORY_H_ */

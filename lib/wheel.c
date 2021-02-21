@@ -24,8 +24,8 @@
 #include "wheel.h"
 #include "log.h"
 
-DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL, "Timer Wheel")
-DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL_LIST, "Timer Wheel Slot List")
+DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL, "Timer Wheel");
+DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL_LIST, "Timer Wheel Slot List");
 
 static int debug_timer_wheel = 0;
 

@@ -31,8 +31,8 @@
 #include "frr_pthread.h"
 #include "lib_errors.h"
 
-DEFINE_MTYPE_STATIC(LIB, STREAM, "Stream")
-DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
+DEFINE_MTYPE_STATIC(LIB, STREAM, "Stream");
+DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO");
 
 /* Tests whether a position is valid */
 #define GETP_VALID(S, G) ((G) <= (S)->endp)

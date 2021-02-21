@@ -15,8 +15,8 @@
 
 #include "netlink.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry")
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE_CONFIG, "NHRP cache config entry")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry");
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE_CONFIG, "NHRP cache config entry");
 
 unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 

@@ -34,8 +34,8 @@
 #include "vrf.h"
 #include "nexthop_group.h"
 
-DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
-DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
+DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop");
+DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label");
 
 static int _nexthop_labels_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)

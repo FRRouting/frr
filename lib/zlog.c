@@ -54,8 +54,8 @@
 #include "zlog.h"
 #include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message")
-DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer")
+DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message");
+DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer");
 
 DEFINE_HOOK(zlog_init, (const char *progname, const char *protoname,
 			unsigned short instance, uid_t uid, gid_t gid),

@@ -27,8 +27,8 @@
 #include "memory.h"
 #include "version.h"
 
-DEFINE_MTYPE_STATIC(LIB, MODULE_LOADNAME, "Module loading name")
-DEFINE_MTYPE_STATIC(LIB, MODULE_LOADARGS, "Module loading arguments")
+DEFINE_MTYPE_STATIC(LIB, MODULE_LOADNAME, "Module loading name");
+DEFINE_MTYPE_STATIC(LIB, MODULE_LOADARGS, "Module loading arguments");
 
 static struct frrmod_info frrmod_default_info = {
 	.name = "libfrr",

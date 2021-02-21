@@ -23,6 +23,6 @@
 
 #include "staticd/static_memory.h"
 
-DEFINE_MGROUP(STATIC, "staticd")
+DEFINE_MGROUP(STATIC, "staticd");
 
 DEFINE_MTYPE(STATIC, STATIC_NEXTHOP, "Static Nexthop");

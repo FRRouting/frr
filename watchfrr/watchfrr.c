@@ -61,8 +61,8 @@
 
 #define PING_TOKEN	"PING"
 
-DEFINE_MGROUP(WATCHFRR, "watchfrr")
-DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry")
+DEFINE_MGROUP(WATCHFRR, "watchfrr");
+DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry");
 
 /* Needs to be global, referenced somewhere inside libfrr. */
 struct thread_master *master;

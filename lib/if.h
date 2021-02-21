@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(CONNECTED_LABEL)
+DECLARE_MTYPE(CONNECTED_LABEL);
 
 /* Interface link-layer type, if known. Derived from:
  *

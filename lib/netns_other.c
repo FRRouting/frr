@@ -26,8 +26,8 @@
 #include "log.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context")
-DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name")
+DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context");
+DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name");
 
 
 static inline int ns_compare(const struct ns *ns, const struct ns *ns2);

@@ -28,9 +28,9 @@
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
 
-DEFINE_MGROUP(MVTYSH, "vtysh")
-DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG, "Vtysh configuration")
-DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line")
+DEFINE_MGROUP(MVTYSH, "vtysh");
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG, "Vtysh configuration");
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line");
 
 vector configvec;
 
