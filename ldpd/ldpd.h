@@ -915,7 +915,7 @@ int		 ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *
 	(__IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_INTFACELOCAL))
 #endif
 
-DECLARE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm))
+DECLARE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm));
 
 extern void ldp_agentx_enabled(void);
 

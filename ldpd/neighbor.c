@@ -26,7 +26,8 @@
 #include "lde.h"
 #include "log.h"
 
-DEFINE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state), (nbr, old_state))
+DEFINE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),
+	    (nbr, old_state));
 
 static __inline int	 nbr_id_compare(const struct nbr *, const struct nbr *);
 static __inline int	 nbr_addr_compare(const struct nbr *,

@@ -97,6 +97,6 @@ extern int ospf_dr_election(struct ospf_interface *oi);
 
 DECLARE_HOOK(ospf_ism_change,
 	     (struct ospf_interface * oi, int state, int oldstate),
-	     (oi, state, oldstate))
+	     (oi, state, oldstate));
 
 #endif /* _ZEBRA_OSPF_ISM_H */

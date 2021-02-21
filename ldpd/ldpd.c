@@ -88,7 +88,7 @@ static pid_t		 lde_pid;
 
 static struct frr_daemon_info ldpd_di;
 
-DEFINE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm))
+DEFINE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm));
 
 static void ldp_load_module(const char *name)
 {

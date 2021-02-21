@@ -166,6 +166,6 @@ extern void install_element_ospf6_debug_neighbor(void);
 
 DECLARE_HOOK(ospf6_neighbor_change,
 	     (struct ospf6_neighbor * on, int state, int next_state),
-	     (on, state, next_state))
+	     (on, state, next_state));
 
 #endif /* OSPF6_NEIGHBOR_H */

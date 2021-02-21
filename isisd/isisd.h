@@ -240,7 +240,7 @@ struct isis_area {
 };
 DECLARE_QOBJ_TYPE(isis_area)
 
-DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area))
+DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
 void isis_finish(struct isis *isis);

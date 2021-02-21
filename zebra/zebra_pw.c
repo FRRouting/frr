@@ -39,8 +39,8 @@ DEFINE_MTYPE_STATIC(LIB, PW, "Pseudowire");
 
 DEFINE_QOBJ_TYPE(zebra_pw)
 
-DEFINE_HOOK(pw_install, (struct zebra_pw * pw), (pw))
-DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw))
+DEFINE_HOOK(pw_install, (struct zebra_pw * pw), (pw));
+DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw));
 
 #define MPLS_NO_LABEL MPLS_INVALID_LABEL
 

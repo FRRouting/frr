@@ -58,9 +58,9 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 #define ZEBRA_PTM_SUPPORT
 
 DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
-	    (vty, ifp))
+	    (vty, ifp));
 DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
-	    (vty, ifp))
+	    (vty, ifp));
 
 
 static void if_down_del_nbr_connected(struct interface *ifp);

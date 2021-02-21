@@ -68,7 +68,7 @@ static struct thread *t_dplane;
 static struct dplane_ctx_q rib_dplane_q;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
-	    (rn, reason))
+	    (rn, reason));
 
 /* Should we allow non Quagga processes to delete our routes */
 extern int allow_delete;

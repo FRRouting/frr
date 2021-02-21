@@ -714,10 +714,10 @@ struct bgp {
 };
 DECLARE_QOBJ_TYPE(bgp)
 
-DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp))
+DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
-		(bgp, vty))
+		(bgp, vty));
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -2364,17 +2364,17 @@ extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
 
 /* Hooks */
 DECLARE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
-	     (bgp, ifp))
-DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer))
-DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp))
-DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp))
+	     (bgp, ifp));
+DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer));
+DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
+DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_snmp_update_stats,
 	     (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
-	     (rn, pi, added))
+	     (rn, pi, added));
 DECLARE_HOOK(bgp_rpki_prefix_status,
 	     (struct peer * peer, struct attr *attr,
 	      const struct prefix *prefix),
-	     (peer, attr, prefix))
+	     (peer, attr, prefix));
 
 void peer_nsf_stop(struct peer *peer);
 

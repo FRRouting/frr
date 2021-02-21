@@ -128,12 +128,12 @@ static const struct message fragment_value_str[] = {
 DEFINE_HOOK(zebra_pbr_ipset_entry_get_stat,
 	    (struct zebra_pbr_ipset_entry *ipset, uint64_t *pkts,
 	     uint64_t *bytes),
-	    (ipset, pkts, bytes))
+	    (ipset, pkts, bytes));
 
 DEFINE_HOOK(zebra_pbr_iptable_get_stat,
 	    (struct zebra_pbr_iptable *iptable, uint64_t *pkts,
 	     uint64_t *bytes),
-	    (iptable, pkts, bytes))
+	    (iptable, pkts, bytes));
 
 DEFINE_HOOK(zebra_pbr_iptable_update,
 	    (int cmd, struct zebra_pbr_iptable *iptable), (cmd, iptable));

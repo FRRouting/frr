@@ -65,7 +65,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, L3NEIGH, "EVPN Neighbor");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVXLAN_SG, "zebra VxLAN multicast group");
 
 DEFINE_HOOK(zebra_rmac_update, (zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
-	    bool delete, const char *reason), (rmac, zl3vni, delete, reason))
+	    bool delete, const char *reason), (rmac, zl3vni, delete, reason));
 
 /* static function declarations */
 static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,

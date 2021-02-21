@@ -378,8 +378,8 @@ DECLARE_QOBJ_TYPE(interface)
  * can use 1000+ so they run after the daemon has initialised daemon-specific
  * interface data
  */
-DECLARE_HOOK(if_add, (struct interface * ifp), (ifp))
-DECLARE_KOOH(if_del, (struct interface * ifp), (ifp))
+DECLARE_HOOK(if_add, (struct interface * ifp), (ifp));
+DECLARE_KOOH(if_del, (struct interface * ifp), (ifp));
 
 #define METRIC_MAX (~0)
 

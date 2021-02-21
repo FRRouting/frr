@@ -247,17 +247,17 @@ extern void zlog_init(const char *progname, const char *protoname,
 		      unsigned short instance, uid_t uid, gid_t gid);
 DECLARE_HOOK(zlog_init, (const char *progname, const char *protoname,
 			 unsigned short instance, uid_t uid, gid_t gid),
-			(progname, protoname, instance, uid, gid))
+			(progname, protoname, instance, uid, gid));
 
 extern void zlog_fini(void);
-DECLARE_KOOH(zlog_fini, (), ())
+DECLARE_KOOH(zlog_fini, (), ());
 
 /* for tools & test programs, i.e. anything not a daemon.
  * (no cleanup needed at exit)
  */
 extern void zlog_aux_init(const char *prefix, int prio_min);
 DECLARE_HOOK(zlog_aux_init, (const char *prefix, int prio_min),
-			    (prefix, prio_min))
+			    (prefix, prio_min));
 
 extern void zlog_startup_end(void);
 

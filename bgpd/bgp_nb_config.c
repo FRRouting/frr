@@ -32,7 +32,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_damp.h"
 
-DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp))
+DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 
 FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
         { .val_ulong = 10, .match_profile = "datacenter", },

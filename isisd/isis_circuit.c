@@ -63,7 +63,7 @@
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 
-DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
+DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
 
 /*
  * Prototypes.
@@ -308,7 +308,7 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 }
 
 DEFINE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
-	    (circuit))
+	    (circuit));
 
 void isis_circuit_add_addr(struct isis_circuit *circuit,
 			   struct connected *connected)
@@ -1085,7 +1085,7 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 #ifdef FABRICD
 DEFINE_HOOK(isis_circuit_config_write,
 	    (struct isis_circuit *circuit, struct vty *vty),
-	    (circuit, vty))
+	    (circuit, vty));
 
 static int isis_interface_config_write(struct vty *vty)
 {

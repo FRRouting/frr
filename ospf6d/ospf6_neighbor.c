@@ -48,7 +48,7 @@
 
 DEFINE_HOOK(ospf6_neighbor_change,
 	    (struct ospf6_neighbor * on, int state, int next_state),
-	    (on, state, next_state))
+	    (on, state, next_state));
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 

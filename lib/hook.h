@@ -35,10 +35,10 @@ extern "C" {
  *
  *   mydaemon.h:
  *     #include "hook.h"
- *     DECLARE_HOOK (some_update_event, (struct eventinfo *info), (info))
+ *     DECLARE_HOOK (some_update_event, (struct eventinfo *info), (info));
  *
  *   mydaemon.c:
- *     DEFINE_HOOK (some_update_event, (struct eventinfo *info), (info))
+ *     DEFINE_HOOK (some_update_event, (struct eventinfo *info), (info));
  *     ...
  *     hook_call (some_update_event, info)
  *
@@ -184,7 +184,7 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 #define HOOK_ADDARG(...) (hookarg , ## __VA_ARGS__)
 
 /* use in header file - declares the hook and its arguments
- * usage:  DECLARE_HOOK(my_hook, (int arg1, struct foo *arg2), (arg1, arg2))
+ * usage:  DECLARE_HOOK(my_hook, (int arg1, struct foo *arg2), (arg1, arg2));
  * as above, "passlist" must use the same order and same names as "arglist"
  *
  * theoretically passlist is not neccessary, but let's keep things simple and
@@ -201,7 +201,9 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 		int(*funcptr) HOOK_ADDDEF arglist)                             \
 	{                                                                      \
 		return (void *)funcptr;                                        \
-	}
+	}                                                                      \
+	MACRO_REQUIRE_SEMICOLON() /* end */
+
 #define DECLARE_KOOH(hookname, arglist, passlist)                              \
 	DECLARE_HOOK(hookname, arglist, passlist)
 
@@ -230,7 +232,8 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 				hooksum += hookp.farg HOOK_ADDARG passlist;    \
 		}                                                              \
 		return hooksum;                                                \
-	}
+	}                                                                      \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DEFINE_HOOK(hookname, arglist, passlist)                               \
 	DEFINE_HOOK_INT(hookname, arglist, passlist, false)

@@ -126,8 +126,8 @@ FRR_CFG_DEFAULT_BOOL(BGP_SUPPRESS_DUPLICATES,
 
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
-		(bgp, vty))
-DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp))
+		(bgp, vty));
+DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 
 #define GR_NO_OPER                                                             \
 	"The Graceful Restart No Operation was executed as cmd same as previous one."

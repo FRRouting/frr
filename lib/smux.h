@@ -157,7 +157,7 @@ extern void oid_copy_int(oid oid[], int *val);
 extern void oid2string(oid oid[], int len, char *string);
 extern void oid_copy_str(oid oid[], const char *string, int len);
 
-DECLARE_HOOK(agentx_enabled, (), ())
+DECLARE_HOOK(agentx_enabled, (), ());
 
 #ifdef __cplusplus
 }

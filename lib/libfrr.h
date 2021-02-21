@@ -141,8 +141,8 @@ extern enum frr_cli_mode frr_get_cli_mode(void);
 extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);
 
-DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
-DECLARE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm))
+DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
+DECLARE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm));
 extern void frr_config_fork(void);
 
 extern void frr_run(struct thread_master *master);
@@ -153,10 +153,10 @@ extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 
 /* these two are before the protocol daemon does its own shutdown
  * it's named this way being the counterpart to frr_late_init */
-DECLARE_KOOH(frr_early_fini, (), ())
+DECLARE_KOOH(frr_early_fini, (), ());
 extern void frr_early_fini(void);
 /* and these two are after the daemon did its own cleanup */
-DECLARE_KOOH(frr_fini, (), ())
+DECLARE_KOOH(frr_fini, (), ());
 extern void frr_fini(void);
 
 extern char config_default[512];

@@ -69,7 +69,7 @@ struct zclient *zclient = NULL;
 
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
-	    (bgp, ifp))
+	    (bgp, ifp));
 
 /* Can we install into zebra? */
 static inline bool bgp_install_info_to_zebra(struct bgp *bgp)

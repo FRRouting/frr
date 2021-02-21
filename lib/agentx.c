@@ -36,7 +36,7 @@
 
 XREF_SETUP()
 
-DEFINE_HOOK(agentx_enabled, (), ())
+DEFINE_HOOK(agentx_enabled, (), ());
 
 static int agentx_enabled = 0;
 

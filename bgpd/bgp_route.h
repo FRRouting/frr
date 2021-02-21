@@ -550,7 +550,7 @@ static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest)
 DECLARE_HOOK(bgp_process,
 	     (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	      struct peer *peer, bool withdraw),
-	     (bgp, afi, safi, bn, peer, withdraw))
+	     (bgp, afi, safi, bn, peer, withdraw));
 
 /* BGP show options */
 #define BGP_SHOW_OPT_JSON (1 << 0)

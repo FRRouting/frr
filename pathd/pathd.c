@@ -35,11 +35,11 @@ DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy");
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE, "SR Policy candidate path");
 
 DEFINE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
-	    (candidate))
+	    (candidate));
 DEFINE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
-	    (candidate))
+	    (candidate));
 DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
-	    (candidate))
+	    (candidate));
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
 static int trigger_pathd_candidate_created_timer(struct thread *thread);

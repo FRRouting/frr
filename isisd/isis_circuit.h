@@ -231,10 +231,10 @@ int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
 #ifdef FABRICD
 DECLARE_HOOK(isis_circuit_config_write,
 	    (struct isis_circuit *circuit, struct vty *vty),
-	    (circuit, vty))
+	    (circuit, vty));
 #endif
 
 DECLARE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
-	     (circuit))
+	     (circuit));
 
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

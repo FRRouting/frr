@@ -96,7 +96,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
 DEFINE_QOBJ_TYPE(bgp_master)
 DEFINE_QOBJ_TYPE(bgp)
 DEFINE_QOBJ_TYPE(peer)
-DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp))
+DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;

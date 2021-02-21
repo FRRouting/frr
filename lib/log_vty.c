@@ -33,7 +33,7 @@
 
 #define ZLOG_MAXLVL(a, b) MAX(a, b)
 
-DEFINE_HOOK(zlog_rotate, (), ())
+DEFINE_HOOK(zlog_rotate, (), ());
 
 static const int log_default_lvl = LOG_DEBUG;
 

@@ -417,9 +417,9 @@ struct zebra_if {
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
-	     (vty, ifp))
+	     (vty, ifp));
 DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
-	     (vty, ifp))
+	     (vty, ifp));
 
 #define IS_ZEBRA_IF_VRF(ifp)                                                   \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VRF)

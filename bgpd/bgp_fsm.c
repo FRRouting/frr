@@ -57,8 +57,8 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
 
-DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
-DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer))
+DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
+DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
 
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h

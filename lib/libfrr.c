@@ -45,10 +45,10 @@
 #include "defaults.h"
 #include "frrscript.h"
 
-DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
-DEFINE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm))
-DEFINE_KOOH(frr_early_fini, (), ())
-DEFINE_KOOH(frr_fini, (), ())
+DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
+DEFINE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm));
+DEFINE_KOOH(frr_early_fini, (), ());
+DEFINE_KOOH(frr_fini, (), ());
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 char frr_vtydir[256];

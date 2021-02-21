@@ -338,11 +338,11 @@ RB_HEAD(srte_policy_head, srte_policy);
 RB_PROTOTYPE(srte_policy_head, srte_policy, entry, srte_policy_compare)
 
 DECLARE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
-	     (candidate))
+	     (candidate));
 DECLARE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
-	     (candidate))
+	     (candidate));
 DECLARE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
-	     (candidate))
+	     (candidate));
 
 extern struct srte_segment_list_head srte_segment_lists;
 extern struct srte_policy_head srte_policies;

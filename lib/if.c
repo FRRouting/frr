@@ -55,8 +55,8 @@ RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
 
 DEFINE_QOBJ_TYPE(interface)
 
-DEFINE_HOOK(if_add, (struct interface * ifp), (ifp))
-DEFINE_KOOH(if_del, (struct interface * ifp), (ifp))
+DEFINE_HOOK(if_add, (struct interface * ifp), (ifp));
+DEFINE_KOOH(if_del, (struct interface * ifp), (ifp));
 
 static struct interface_master{
 	int (*create_hook)(struct interface *ifp);

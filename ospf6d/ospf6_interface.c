@@ -49,7 +49,7 @@ DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names");
 DEFINE_QOBJ_TYPE(ospf6_interface)
 DEFINE_HOOK(ospf6_interface_change,
 	    (struct ospf6_interface * oi, int state, int old_state),
-	    (oi, state, old_state))
+	    (oi, state, old_state));
 
 unsigned char conf_debug_ospf6_interface = 0;
 

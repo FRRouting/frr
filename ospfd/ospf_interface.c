@@ -50,10 +50,10 @@
 #include "ospfd/ospf_ldp_sync.h"
 
 DEFINE_QOBJ_TYPE(ospf_interface)
-DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
-DEFINE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
-DEFINE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
-DEFINE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
+DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd));
+DEFINE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd));
+DEFINE_HOOK(ospf_if_update, (struct interface * ifp), (ifp));
+DEFINE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp));
 
 int ospf_interface_neighbor_count(struct ospf_interface *oi)
 {

@@ -199,6 +199,6 @@ extern void install_element_ospf6_debug_interface(void);
 
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
-	     (oi, state, old_state))
+	     (oi, state, old_state));
 
 #endif /* OSPF6_INTERFACE_H */

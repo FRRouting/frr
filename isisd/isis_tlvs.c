@@ -4488,9 +4488,9 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs,
 }
 
 DEFINE_HOOK(isis_adj_ip_enabled_hook, (struct isis_adjacency *adj, int family),
-	    (adj, family))
+	    (adj, family));
 DEFINE_HOOK(isis_adj_ip_disabled_hook,
-	    (struct isis_adjacency *adj, int family), (adj, family))
+	    (struct isis_adjacency *adj, int family), (adj, family));
 
 static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 				       struct isis_adjacency *adj,
