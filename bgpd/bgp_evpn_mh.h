@@ -125,9 +125,9 @@ struct bgp_evpn_es {
 	/* preference config for BUM-DF election. advertised via the ESR. */
 	uint16_t df_pref;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(bgp_evpn_es)
+DECLARE_QOBJ_TYPE(bgp_evpn_es);
 RB_HEAD(bgp_es_rb_head, bgp_evpn_es);
 RB_PROTOTYPE(bgp_es_rb_head, bgp_evpn_es, rb_node, bgp_es_rb_cmp);
 

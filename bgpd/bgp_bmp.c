@@ -73,7 +73,7 @@ DEFINE_MTYPE_STATIC(BMP, BMP_MIRRORQ,	"BMP route mirroring buffer");
 DEFINE_MTYPE_STATIC(BMP, BMP_PEER,	"BMP per BGP peer data");
 DEFINE_MTYPE_STATIC(BMP, BMP_OPEN,	"BMP stored BGP OPEN message");
 
-DEFINE_QOBJ_TYPE(bmp_targets)
+DEFINE_QOBJ_TYPE(bmp_targets);
 
 static int bmp_bgp_cmp(const struct bmp_bgp *a, const struct bmp_bgp *b)
 {

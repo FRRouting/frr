@@ -69,13 +69,13 @@ static void		 merge_l2vpns(struct ldpd_conf *, struct ldpd_conf *);
 static void		 merge_l2vpn(struct ldpd_conf *, struct l2vpn *,
 			    struct l2vpn *);
 
-DEFINE_QOBJ_TYPE(iface)
-DEFINE_QOBJ_TYPE(tnbr)
-DEFINE_QOBJ_TYPE(nbr_params)
-DEFINE_QOBJ_TYPE(l2vpn_if)
-DEFINE_QOBJ_TYPE(l2vpn_pw)
-DEFINE_QOBJ_TYPE(l2vpn)
-DEFINE_QOBJ_TYPE(ldpd_conf)
+DEFINE_QOBJ_TYPE(iface);
+DEFINE_QOBJ_TYPE(tnbr);
+DEFINE_QOBJ_TYPE(nbr_params);
+DEFINE_QOBJ_TYPE(l2vpn_if);
+DEFINE_QOBJ_TYPE(l2vpn_pw);
+DEFINE_QOBJ_TYPE(l2vpn);
+DEFINE_QOBJ_TYPE(ldpd_conf);
 
 struct ldpd_global	 global;
 struct ldpd_init	 init;

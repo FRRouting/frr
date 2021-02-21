@@ -53,9 +53,9 @@ struct zebra_pw {
 	struct zserv *client;
 	struct rnh *rnh;
 	struct thread *install_retry_timer;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(zebra_pw)
+DECLARE_QOBJ_TYPE(zebra_pw);
 
 RB_HEAD(zebra_pw_head, zebra_pw);
 RB_PROTOTYPE(zebra_pw_head, zebra_pw, pw_entry, zebra_pw_compare);

@@ -95,13 +95,13 @@ struct vrf {
 	/* Back pointer to namespace context */
 	void *ns_ctxt;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(vrf_id_head, vrf);
 RB_PROTOTYPE(vrf_id_head, vrf, id_entry, vrf_id_compare)
 RB_HEAD(vrf_name_head, vrf);
 RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
-DECLARE_QOBJ_TYPE(vrf)
+DECLARE_QOBJ_TYPE(vrf);
 
 /* Allow VRF with netns as backend */
 enum vrf_backend_type {

@@ -53,7 +53,7 @@
 #include "ospf6d.h"
 #include "lib/json.h"
 
-DEFINE_QOBJ_TYPE(ospf6)
+DEFINE_QOBJ_TYPE(ospf6);
 
 FRR_CFG_DEFAULT_BOOL(OSPF6_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },

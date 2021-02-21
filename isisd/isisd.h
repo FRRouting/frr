@@ -236,9 +236,9 @@ struct isis_area {
 	uint64_t id_len_mismatches[2];
 	uint64_t lsp_error_counter[2];
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(isis_area)
+DECLARE_QOBJ_TYPE(isis_area);
 
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 

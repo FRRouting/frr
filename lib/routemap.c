@@ -42,8 +42,8 @@ DEFINE_MTYPE(LIB, ROUTE_MAP_COMPILED, "Route map compiled");
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP, "Route map dependency");
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP_DATA, "Route map dependency data");
 
-DEFINE_QOBJ_TYPE(route_map_index)
-DEFINE_QOBJ_TYPE(route_map)
+DEFINE_QOBJ_TYPE(route_map_index);
+DEFINE_QOBJ_TYPE(route_map);
 
 #define IPv4_PREFIX_LIST "ip address prefix-list"
 #define IPv6_PREFIX_LIST "ipv6 address prefix-list"

@@ -51,7 +51,7 @@ RB_GENERATE(pbr_map_entry_head, pbr_map, pbr_map_entry, pbr_map_compare)
 
 struct pbr_map_entry_head pbr_maps = RB_INITIALIZER(&pbr_maps);
 
-DEFINE_QOBJ_TYPE(pbr_map_sequence)
+DEFINE_QOBJ_TYPE(pbr_map_sequence);
 
 static inline int pbr_map_compare(const struct pbr_map *pbrmap1,
 				  const struct pbr_map *pbrmap2)

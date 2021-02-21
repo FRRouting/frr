@@ -245,9 +245,9 @@ struct bmp_targets {
 
 	uint64_t cnt_accept, cnt_aclrefused;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(bmp_targets)
+DECLARE_QOBJ_TYPE(bmp_targets);
 
 /* per struct peer * data.  Lookup by peer->qobj_node.nid, created on demand,
  * deleted in peer_backward hook. */

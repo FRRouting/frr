@@ -32,9 +32,9 @@ struct keychain {
 
 	struct list *key;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(keychain)
+DECLARE_QOBJ_TYPE(keychain);
 
 struct key_range {
 	time_t start;
@@ -51,9 +51,9 @@ struct key {
 	struct key_range send;
 	struct key_range accept;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(key)
+DECLARE_QOBJ_TYPE(key);
 
 extern void keychain_init(void);
 extern struct keychain *keychain_lookup(const char *);

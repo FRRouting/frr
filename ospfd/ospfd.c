@@ -62,7 +62,7 @@
 #include "ospfd/ospf_gr_helper.h"
 
 
-DEFINE_QOBJ_TYPE(ospf)
+DEFINE_QOBJ_TYPE(ospf);
 
 /* OSPF process wide configuration. */
 static struct ospf_master ospf_master;

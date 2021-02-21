@@ -49,7 +49,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_ldp_sync.h"
 
-DEFINE_QOBJ_TYPE(ospf_interface)
+DEFINE_QOBJ_TYPE(ospf_interface);
 DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd));
 DEFINE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd));
 DEFINE_HOOK(ospf_if_update, (struct interface * ifp), (ifp));

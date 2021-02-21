@@ -45,7 +45,7 @@
 DEFINE_MTYPE_STATIC(LIB, VRF, "VRF");
 DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map");
 
-DEFINE_QOBJ_TYPE(vrf)
+DEFINE_QOBJ_TYPE(vrf);
 
 static __inline int vrf_id_compare(const struct vrf *, const struct vrf *);
 static __inline int vrf_name_compare(const struct vrf *, const struct vrf *);

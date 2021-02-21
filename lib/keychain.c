@@ -28,8 +28,8 @@
 DEFINE_MTYPE_STATIC(LIB, KEY, "Key");
 DEFINE_MTYPE_STATIC(LIB, KEYCHAIN, "Key chain");
 
-DEFINE_QOBJ_TYPE(keychain)
-DEFINE_QOBJ_TYPE(key)
+DEFINE_QOBJ_TYPE(keychain);
+DEFINE_QOBJ_TYPE(key);
 
 /* Master list of key chain. */
 static struct list *keychain_list;

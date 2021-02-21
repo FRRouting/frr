@@ -362,11 +362,11 @@ struct iface {
 	struct iface_af		 ipv4;
 	struct iface_af		 ipv6;
 	struct iface_ldp_sync	 ldp_sync;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(iface_head, iface);
 RB_PROTOTYPE(iface_head, iface, entry, iface_compare);
-DECLARE_QOBJ_TYPE(iface)
+DECLARE_QOBJ_TYPE(iface);
 
 /* source of targeted hellos */
 struct tnbr {
@@ -379,11 +379,11 @@ struct tnbr {
 	uint16_t		 pw_count;
 	uint32_t		 rlfa_count;
 	uint8_t			 flags;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(tnbr_head, tnbr);
 RB_PROTOTYPE(tnbr_head, tnbr, entry, tnbr_compare);
-DECLARE_QOBJ_TYPE(tnbr)
+DECLARE_QOBJ_TYPE(tnbr);
 #define F_TNBR_CONFIGURED	 0x01
 #define F_TNBR_DYNAMIC		 0x02
 
@@ -405,11 +405,11 @@ struct nbr_params {
 		uint8_t			 md5key_len;
 	} auth;
 	uint8_t			 flags;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(nbrp_head, nbr_params);
 RB_PROTOTYPE(nbrp_head, nbr_params, entry, nbr_params_compare);
-DECLARE_QOBJ_TYPE(nbr_params)
+DECLARE_QOBJ_TYPE(nbr_params);
 #define F_NBRP_KEEPALIVE	 0x01
 #define F_NBRP_GTSM		 0x02
 #define F_NBRP_GTSM_HOPS	 0x04
@@ -463,11 +463,11 @@ struct l2vpn_if {
 	ifindex_t		 ifindex;
 	int			 operative;
 	uint8_t			 mac[ETH_ALEN];
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(l2vpn_if_head, l2vpn_if);
 RB_PROTOTYPE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare);
-DECLARE_QOBJ_TYPE(l2vpn_if)
+DECLARE_QOBJ_TYPE(l2vpn_if);
 
 struct l2vpn_pw {
 	RB_ENTRY(l2vpn_pw)	 entry;
@@ -485,11 +485,11 @@ struct l2vpn_pw {
 	uint32_t		 remote_status;
 	uint8_t			 flags;
 	uint8_t			 reason;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(l2vpn_pw_head, l2vpn_pw);
 RB_PROTOTYPE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare);
-DECLARE_QOBJ_TYPE(l2vpn_pw)
+DECLARE_QOBJ_TYPE(l2vpn_pw);
 #define F_PW_STATUSTLV_CONF	0x01	/* status tlv configured */
 #define F_PW_STATUSTLV		0x02	/* status tlv negotiated */
 #define F_PW_CWORD_CONF		0x04	/* control word configured */
@@ -513,11 +513,11 @@ struct l2vpn {
 	struct l2vpn_if_head	 if_tree;
 	struct l2vpn_pw_head	 pw_tree;
 	struct l2vpn_pw_head	 pw_inactive_tree;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(l2vpn_head, l2vpn);
 RB_PROTOTYPE(l2vpn_head, l2vpn, entry, l2vpn_compare);
-DECLARE_QOBJ_TYPE(l2vpn)
+DECLARE_QOBJ_TYPE(l2vpn);
 #define L2VPN_TYPE_VPWS		1
 #define L2VPN_TYPE_VPLS		2
 
@@ -584,9 +584,9 @@ struct ldpd_conf {
 	int			 flags;
 	time_t			 config_change_time;
 	struct ldp_entity_stats  stats;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ldpd_conf)
+DECLARE_QOBJ_TYPE(ldpd_conf);
 #define	F_LDPD_NO_FIB_UPDATE	0x0001
 #define	F_LDPD_DS_CISCO_INTEROP	0x0002
 #define	F_LDPD_ENABLED		0x0004

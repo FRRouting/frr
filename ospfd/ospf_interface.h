@@ -252,9 +252,9 @@ struct ospf_interface {
 
 	uint32_t full_nbrs;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ospf_interface)
+DECLARE_QOBJ_TYPE(ospf_interface);
 
 /* Prototypes. */
 extern char *ospf_if_name(struct ospf_interface *);

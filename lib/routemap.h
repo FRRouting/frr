@@ -190,9 +190,9 @@ struct route_map_index {
 	/* List of match/sets contexts. */
 	TAILQ_HEAD(, routemap_hook_context) rhclist;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(route_map_index)
+DECLARE_QOBJ_TYPE(route_map_index);
 
 /* Route map list structure. */
 struct route_map {
@@ -225,9 +225,9 @@ struct route_map {
 	struct route_table *ipv4_prefix_table;
 	struct route_table *ipv6_prefix_table;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(route_map)
+DECLARE_QOBJ_TYPE(route_map);
 
 /* Prototypes. */
 extern void route_map_init(void);

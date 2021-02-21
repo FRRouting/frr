@@ -174,9 +174,9 @@ struct isis_circuit {
 				    */
 	struct list *snmp_adj_list; /* List in id order */
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(isis_circuit)
+DECLARE_QOBJ_TYPE(isis_circuit);
 
 void isis_circuit_init(void);
 struct isis_circuit *isis_circuit_new(struct isis *isis);

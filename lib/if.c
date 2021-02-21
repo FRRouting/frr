@@ -53,7 +53,7 @@ static int if_cmp_index_func(const struct interface *ifp1,
 RB_GENERATE(if_name_head, interface, name_entry, if_cmp_func);
 RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
 
-DEFINE_QOBJ_TYPE(interface)
+DEFINE_QOBJ_TYPE(interface);
 
 DEFINE_HOOK(if_add, (struct interface * ifp), (ifp));
 DEFINE_KOOH(if_del, (struct interface * ifp), (ifp));

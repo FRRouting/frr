@@ -57,8 +57,8 @@
 /*
  * Definitions and external declarations.
  */
-DEFINE_QOBJ_TYPE(bgpevpn)
-DEFINE_QOBJ_TYPE(bgp_evpn_es)
+DEFINE_QOBJ_TYPE(bgpevpn);
+DEFINE_QOBJ_TYPE(bgp_evpn_es);
 
 
 /*

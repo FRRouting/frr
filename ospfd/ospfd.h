@@ -386,9 +386,9 @@ struct ospf {
 	bool ti_lfa_enabled;
 	enum protection_type ti_lfa_protection_type;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ospf)
+DECLARE_QOBJ_TYPE(ospf);
 
 enum ospf_ti_lfa_p_q_space_adjacency {
 	OSPF_TI_LFA_P_Q_SPACE_ADJACENT,

@@ -175,9 +175,9 @@ struct bgp_master {
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
 
 	bool terminating;	/* global flag that sigint terminate seen */
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(bgp_master)
+DECLARE_QOBJ_TYPE(bgp_master);
 
 /* BGP route-map structure.  */
 struct bgp_rmap {
@@ -710,9 +710,9 @@ struct bgp {
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(bgp)
+DECLARE_QOBJ_TYPE(bgp);
 
 DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_inst_config_write,
@@ -1574,9 +1574,9 @@ struct peer {
 	bool advmap_config_change[AFI_MAX][SAFI_MAX];
 	bool advmap_table_change;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(peer)
+DECLARE_QOBJ_TYPE(peer);
 
 /* Inherit peer attribute from peer-group. */
 #define PEER_ATTR_INHERIT(peer, group, attr)                                   \

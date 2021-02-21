@@ -301,14 +301,14 @@ struct interface {
 	 */
 	bool configured;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 
 RB_HEAD(if_name_head, interface);
 RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func)
 RB_HEAD(if_index_head, interface);
 RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_index_func)
-DECLARE_QOBJ_TYPE(interface)
+DECLARE_QOBJ_TYPE(interface);
 
 #define IFNAME_RB_INSERT(vrf, ifp)                                                    \
 	({                                                                            \

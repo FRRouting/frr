@@ -126,9 +126,9 @@ struct eigrp {
 	/* distribute_ctx */
 	struct distribute_ctx *distribute_ctx;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(eigrp)
+DECLARE_QOBJ_TYPE(eigrp);
 
 struct eigrp_if_params {
 	uint8_t passive_interface;

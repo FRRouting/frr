@@ -58,7 +58,7 @@
 #include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_filter.h"
 
-DEFINE_QOBJ_TYPE(eigrp)
+DEFINE_QOBJ_TYPE(eigrp);
 
 static struct eigrp_master eigrp_master;
 

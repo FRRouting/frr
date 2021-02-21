@@ -81,7 +81,7 @@ unsigned long debug_sr;
 unsigned long debug_ldp_sync;
 unsigned long debug_lfa;
 
-DEFINE_QOBJ_TYPE(isis_area)
+DEFINE_QOBJ_TYPE(isis_area);
 
 /* ISIS process wide configuration. */
 static struct isis_master isis_master;

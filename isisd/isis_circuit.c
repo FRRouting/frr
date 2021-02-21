@@ -61,7 +61,7 @@
 #include "isisd/isis_nb.h"
 #include "isisd/isis_ldp_sync.h"
 
-DEFINE_QOBJ_TYPE(isis_circuit)
+DEFINE_QOBJ_TYPE(isis_circuit);
 
 DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
 

@@ -80,8 +80,8 @@ DEFINE_MTYPE(RFAPI, RFAPI_L2ADDR_OPT, "RFAPI L2 Address Option");
 DEFINE_MTYPE(RFAPI, RFAPI_AP, "RFAPI Advertised Prefix");
 DEFINE_MTYPE(RFAPI, RFAPI_MONITOR_ETH, "RFAPI Monitor Ethernet");
 
-DEFINE_QOBJ_TYPE(rfapi_nve_group_cfg)
-DEFINE_QOBJ_TYPE(rfapi_l2_group_cfg)
+DEFINE_QOBJ_TYPE(rfapi_nve_group_cfg);
+DEFINE_QOBJ_TYPE(rfapi_l2_group_cfg);
 /***********************************************************************
  *			RFAPI Support
  ***********************************************************************/
