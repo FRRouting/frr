@@ -21,6 +21,21 @@
 extern "C" {
 #endif
 
+#ifdef __cplusplus
+# if __cplusplus < 201103L
+#  error FRRouting headers must be compiled in C++11 mode or newer
+# endif
+/* C++ defines static_assert(), but not _Static_assert().  C defines
+ * _Static_assert() and has static_assert() in <assert.h>.  However, we mess
+ * with assert() in zassert.h so let's not include <assert.h> here.
+ */
+# define _Static_assert static_assert
+#else
+# if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
+#  error FRRouting must be compiled with min. -std=gnu11 (GNU ISO C11 dialect)
+# endif
+#endif
+
 /* function attributes, use like
  *   void prototype(void) __attribute__((_CONSTRUCTOR(100)));
  */
@@ -357,10 +372,8 @@ typedef signed long long _int64_t;
 /* if this breaks, 128-bit machines may have entered reality (or <long long>
  * is something weird)
  */
-#if __STDC_VERSION__ >= 201112L
 _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 	       "nobody expects the spanish intquisition");
-#endif
 
 /* since we redefined int64_t, we also need to redefine PRI*64 */
 #undef PRIu64
