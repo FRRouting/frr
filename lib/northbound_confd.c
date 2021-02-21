@@ -1483,4 +1483,5 @@ static int frr_confd_module_init(void)
 
 FRR_MODULE_SETUP(.name = "frr_confd", .version = FRR_VERSION,
 		 .description = "FRR ConfD integration module",
-		 .init = frr_confd_module_init, )
+		 .init = frr_confd_module_init,
+);

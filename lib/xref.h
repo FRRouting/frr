@@ -162,7 +162,7 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
 		xref_block_add(&_xref_block);                                  \
 	}                                                                      \
 	asm(XREF_NOTE);                                                        \
-	/* end */
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* the following blurb emits an ELF note indicating start and end of the xref
  * array in the binary.  This is technically the "correct" entry point for

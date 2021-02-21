@@ -914,4 +914,5 @@ static int bgp_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "bgpd_snmp", .version = FRR_VERSION,
 		 .description = "bgpd AgentX SNMP module",
-		 .init = bgp_snmp_module_init)
+		 .init = bgp_snmp_module_init,
+);

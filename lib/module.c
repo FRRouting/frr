@@ -43,7 +43,7 @@ union _frrmod_runtime_u frrmod_default = {
 		},
 };
 
-XREF_SETUP()
+XREF_SETUP();
 
 // if defined(HAVE_SYS_WEAK_ALIAS_ATTRIBUTE)
 // union _frrmod_runtime_u _frrmod_this_module

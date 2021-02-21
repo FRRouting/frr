@@ -1471,4 +1471,5 @@ static void install_cli_commands(void)
 
 FRR_MODULE_SETUP(.name = "bgpd_rpki", .version = "0.3.6",
 		 .description = "Enable RPKI support for FRR.",
-		 .init = bgp_rpki_module_init)
+		 .init = bgp_rpki_module_init,
+);

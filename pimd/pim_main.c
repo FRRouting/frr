@@ -92,7 +92,8 @@ FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
 		.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
 
 		.privs = &pimd_privs, .yang_modules = pimd_yang_modules,
-		.n_yang_modules = array_size(pimd_yang_modules), )
+		.n_yang_modules = array_size(pimd_yang_modules),
+);
 
 
 int main(int argc, char **argv, char **envp)

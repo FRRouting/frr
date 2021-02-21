@@ -1336,7 +1336,8 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 		.signals = watchfrr_signals,
 		.n_signals = array_size(watchfrr_signals),
 
-		.privs = &watchfrr_privs, )
+		.privs = &watchfrr_privs,
+);
 
 #define DEPRECATED_OPTIONS "aAezR:"
 

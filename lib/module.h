@@ -79,12 +79,13 @@ extern union _frrmod_runtime_u _frrmod_this_module;
 		NULL,                                                          \
 		&_frrmod_info,                                                 \
 	}};                                                                    \
-	XREF_SETUP()                                                           \
-	/* end */
+	XREF_SETUP();                                                          \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define FRR_MODULE_SETUP(...)                                                  \
-	FRR_COREMOD_SETUP(__VA_ARGS__)                                         \
-	DSO_SELF struct frrmod_runtime *frr_module = &_frrmod_this_module.r;
+	FRR_COREMOD_SETUP(__VA_ARGS__);                                        \
+	DSO_SELF struct frrmod_runtime *frr_module = &_frrmod_this_module.r;   \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 extern struct frrmod_runtime *frrmod_list;
 

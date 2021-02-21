@@ -124,8 +124,8 @@ struct frr_daemon_info {
 						       __VA_ARGS__};           \
 	FRR_COREMOD_SETUP(.name = #execname,                                   \
 			  .description = #execname " daemon",                  \
-			  .version = FRR_VERSION, )                            \
-/* end */
+			  .version = FRR_VERSION, );                           \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 extern void frr_init_vtydir(void);
 extern void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv);

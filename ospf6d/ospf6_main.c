@@ -182,7 +182,8 @@ FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
 		.n_signals = array_size(ospf6_signals),
 
 		.privs = &ospf6d_privs, .yang_modules = ospf6d_yang_modules,
-		.n_yang_modules = array_size(ospf6d_yang_modules), )
+		.n_yang_modules = array_size(ospf6d_yang_modules),
+);
 
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite
    state machine is handled here. */

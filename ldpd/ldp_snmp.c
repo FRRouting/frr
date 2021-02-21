@@ -1239,6 +1239,9 @@ static int ldp_snmp_module_init(void)
 	return 0;
 }
 
-FRR_MODULE_SETUP(.name = "ldp_snmp", .version = FRR_VERSION,
-		 .description = "ldp AgentX SNMP module",
-		 .init = ldp_snmp_module_init, )
+FRR_MODULE_SETUP(
+	.name = "ldp_snmp",
+	.version = FRR_VERSION,
+	.description = "ldp AgentX SNMP module",
+	.init = ldp_snmp_module_init,
+);

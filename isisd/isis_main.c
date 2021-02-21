@@ -193,7 +193,8 @@ FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 		.n_signals = array_size(isisd_signals),
 
 		.privs = &isisd_privs, .yang_modules = isisd_yang_modules,
-		.n_yang_modules = array_size(isisd_yang_modules), )
+		.n_yang_modules = array_size(isisd_yang_modules),
+);
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.

@@ -131,7 +131,8 @@ FRR_DAEMON_INFO(pbrd, PBR, .vty_port = PBR_VTY_PORT,
 		.privs = &pbr_privs,
 
 		.yang_modules = pbrd_yang_modules,
-		.n_yang_modules = array_size(pbrd_yang_modules), )
+		.n_yang_modules = array_size(pbrd_yang_modules),
+);
 
 int main(int argc, char **argv, char **envp)
 {

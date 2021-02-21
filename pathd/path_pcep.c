@@ -317,4 +317,5 @@ int pcep_module_init(void)
 
 FRR_MODULE_SETUP(.name = "frr_pathd_pcep", .version = FRR_VERSION,
 		 .description = "FRR pathd PCEP module",
-		 .init = pcep_module_init)
+		 .init = pcep_module_init,
+);

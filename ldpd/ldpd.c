@@ -218,7 +218,7 @@ FRR_DAEMON_INFO(ldpd, LDP,
 
 	.yang_modules = ldpd_yang_modules,
 	.n_yang_modules = array_size(ldpd_yang_modules),
-)
+);
 
 static int ldp_config_fork_apply(struct thread *t)
 {

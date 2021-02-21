@@ -34,7 +34,7 @@
 #include "lib_errors.h"
 #include "xref.h"
 
-XREF_SETUP()
+XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
 

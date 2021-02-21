@@ -127,7 +127,7 @@ bool (*tests[])(void) = {
 	test_logcall,
 };
 
-XREF_SETUP()
+XREF_SETUP();
 
 int main(int argc, char **argv)
 {

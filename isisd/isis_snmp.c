@@ -3452,6 +3452,9 @@ static int isis_snmp_module_init(void)
 	return 0;
 }
 
-FRR_MODULE_SETUP(.name = "isis_snmp", .version = FRR_VERSION,
-		 .description = "isis AgentX SNMP module",
-		 .init = isis_snmp_module_init, )
+FRR_MODULE_SETUP(
+	.name = "isis_snmp",
+	.version = FRR_VERSION,
+	.description = "isis AgentX SNMP module",
+	.init = isis_snmp_module_init,
+);

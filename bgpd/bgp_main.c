@@ -394,7 +394,8 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 		.signals = bgp_signals, .n_signals = array_size(bgp_signals),
 
 		.privs = &bgpd_privs, .yang_modules = bgpd_yang_modules,
-		.n_yang_modules = array_size(bgpd_yang_modules), )
+		.n_yang_modules = array_size(bgpd_yang_modules),
+);
 
 #define DEPRECATED_OPTIONS ""
 

@@ -129,7 +129,8 @@ FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
 		.n_signals = array_size(sharp_signals),
 
 		.privs = &sharp_privs, .yang_modules = sharpd_yang_modules,
-		.n_yang_modules = array_size(sharpd_yang_modules), )
+		.n_yang_modules = array_size(sharpd_yang_modules),
+);
 
 struct sharp_global sg;
 

@@ -134,7 +134,8 @@ FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
 		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
 		.privs = &bglobal.bfdd_privs,
 		.yang_modules = bfdd_yang_modules,
-		.n_yang_modules = array_size(bfdd_yang_modules))
+		.n_yang_modules = array_size(bfdd_yang_modules),
+);
 
 #define OPTION_CTLSOCK 1001
 #define OPTION_DPLANEADDR 2000

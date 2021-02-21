@@ -2444,4 +2444,5 @@ static int bgp_bmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "bgpd_bmp", .version = FRR_VERSION,
 		 .description = "bgpd BMP module",
-		 .init = bgp_bmp_module_init)
+		 .init = bgp_bmp_module_init,
+);

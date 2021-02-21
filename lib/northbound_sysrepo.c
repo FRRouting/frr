@@ -768,4 +768,5 @@ static int frr_sr_module_init(void)
 
 FRR_MODULE_SETUP(.name = "frr_sysrepo", .version = FRR_VERSION,
 		 .description = "FRR sysrepo integration module",
-		 .init = frr_sr_module_init, )
+		 .init = frr_sr_module_init,
+);
