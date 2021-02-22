@@ -84,18 +84,22 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 	va_end(ap);
 }
 
-#define _zlog_ref(prio, msg, ...) do {                                         \
+#define _zlog_ref(prio, msg, ...)                                              \
+	do {                                                                   \
 		static struct xrefdata _xrefdata = {                           \
+			.xref = NULL,                                          \
+			.uid = {},                                             \
 			.hashstr = (msg),                                      \
-			.hashu32 = { (prio), 0 },                              \
+			.hashu32 = {(prio), 0},                                \
 		};                                                             \
-		static const struct xref_logmsg _xref __attribute__((used)) = {\
+		static const struct xref_logmsg _xref __attribute__(           \
+			(used)) = {                                            \
 			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata, __func__), \
 			.fmtstring = (msg),                                    \
 			.priority = (prio),                                    \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
-		zlog_ref(&_xref, (msg), ## __VA_ARGS__);                       \
+		zlog_ref(&_xref, (msg), ##__VA_ARGS__);                        \
 	} while (0)
 
 #define zlog_err(...)    _zlog_ref(LOG_ERR, __VA_ARGS__)
@@ -104,19 +108,23 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 #define zlog_notice(...) _zlog_ref(LOG_NOTICE, __VA_ARGS__)
 #define zlog_debug(...)  _zlog_ref(LOG_DEBUG, __VA_ARGS__)
 
-#define _zlog_ecref(ec_, prio, msg, ...) do {                                  \
+#define _zlog_ecref(ec_, prio, msg, ...)                                       \
+	do {                                                                   \
 		static struct xrefdata _xrefdata = {                           \
+			.xref = NULL,                                          \
+			.uid = {},                                             \
 			.hashstr = (msg),                                      \
-			.hashu32 = { (prio), (ec_) },                          \
+			.hashu32 = {(prio), (ec_)},                            \
 		};                                                             \
-		static const struct xref_logmsg _xref __attribute__((used)) = {\
+		static const struct xref_logmsg _xref __attribute__(           \
+			(used)) = {                                            \
 			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata, __func__), \
 			.fmtstring = (msg),                                    \
 			.priority = (prio),                                    \
 			.ec = (ec_),                                           \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
-		zlog_ref(&_xref, "[EC %u] " msg, ec_, ## __VA_ARGS__);         \
+		zlog_ref(&_xref, "[EC %u] " msg, ec_, ##__VA_ARGS__);          \
 	} while (0)
 
 #define flog_err(ferr_id, format, ...)                                         \
