@@ -1515,9 +1515,13 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 			if (fetch->ref)
 				*fetch->ref = NULL;
 			pthread_mutex_unlock(&m->mtx);
+			if (!m->ready_run_loop)
+				GETRUSAGE(&m->last_getrusage);
+			m->ready_run_loop = true;
 			break;
 		}
 
+		m->ready_run_loop = false;
 		/* otherwise, tick through scheduling sequence */
 
 		/*
@@ -1676,7 +1680,11 @@ void thread_call(struct thread *thread)
 #endif
 	RUSAGE_T before, after;
 
-	GETRUSAGE(&before);
+	if (thread->master->ready_run_loop)
+		before = thread->master->last_getrusage;
+	else
+		GETRUSAGE(&before);
+
 	thread->real = before.real;
 
 	frrtrace(9, frr_libfrr, thread_call, thread->master,
@@ -1689,6 +1697,7 @@ void thread_call(struct thread *thread)
 	pthread_setspecific(thread_current, NULL);
 
 	GETRUSAGE(&after);
+	thread->master->last_getrusage = after;
 
 #ifndef EXCLUDE_CPU_TIME
 	realtime = thread_consumed_time(&after, &before, &helper);
