@@ -459,6 +459,11 @@ static void vtysh_client_config(struct vtysh_client *head_client, char *line)
 	vty->of = vty->of_saved;
 }
 
+static bool any_instance_connected(struct vtysh_client *client)
+{
+	return (client->fd >= 0 || client->next);
+}
+
 /* Command execution over the vty interface. */
 static int vtysh_execute_func(const char *line, int pager)
 {
@@ -630,12 +635,8 @@ static int vtysh_execute_func(const char *line, int pager)
 				}
 				if (vtysh_client[i].fd < 0
 				    && (cmd->daemon == vtysh_client[i].flag)) {
-					bool any_inst = false;
-					for (vc = &vtysh_client[i]; vc;
-					     vc = vc->next)
-						any_inst = any_inst
-							   || (vc->fd > 0);
-					if (!any_inst) {
+					if (!any_instance_connected(
+						    &vtysh_client[i])) {
 						fprintf(stderr,
 							"%s is not running\n",
 							vtysh_client[i].name);
@@ -2693,7 +2694,7 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 	char *line = do_prepend(vty, argv, argc);
 
 	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0 || vtysh_client[i].next) {
+		if (any_instance_connected(&vtysh_client[i])) {
 			vty_out(vty, headline, vtysh_client[i].name);
 			ret = vtysh_client_execute(&vtysh_client[i], line);
 			vty_out(vty, "\n");
@@ -3390,7 +3391,7 @@ DEFUN (vtysh_show_daemons,
 	unsigned int i;
 
 	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0)
+		if (any_instance_connected(&vtysh_client[i]))
 			vty_out(vty, " %s", vtysh_client[i].name);
 	vty_out(vty, "\n");
 
