@@ -33,6 +33,8 @@ import sys
 import pytest
 import json
 
+pytestmark = [pytest.mark.eigrpd]
+
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -91,7 +93,7 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-@pytest.mark.eigrp
+
 def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)

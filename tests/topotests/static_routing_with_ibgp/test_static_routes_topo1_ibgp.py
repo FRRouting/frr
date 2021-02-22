@@ -66,6 +66,8 @@ from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
 from lib.topojson import build_topo_from_json, build_config_from_json
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/static_routes_topo1_ibgp.json".format(CWD)
 try:

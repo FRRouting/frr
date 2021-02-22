@@ -69,6 +69,8 @@ from lib.common_config import apply_raw_config
 
 ERROR_LIST = ["Malformed", "Failure", "Unknown", "Incomplete"]
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
+
 
 class InvalidCLIError(Exception):
     """Raise when the CLI command is wrong"""

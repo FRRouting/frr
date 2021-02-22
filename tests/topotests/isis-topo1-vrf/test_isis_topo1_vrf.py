@@ -43,6 +43,7 @@ from lib.topolog import logger
 
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.isisd]
 
 class ISISTopo1(Topo):
     "Simple two layer ISIS vrf topology"
@@ -82,7 +83,7 @@ class ISISTopo1(Topo):
         sw.add_link(tgen.gears["r4"])
         sw.add_link(tgen.gears["r5"])
 
-@pytest.mark.isis
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(ISISTopo1, mod.__name__)

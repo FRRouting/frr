@@ -49,6 +49,8 @@ from lib.common_config import shutdown_bringup_interface
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.pbrd]
+
 #####################################################
 ##
 ##   Network Topology Definition
@@ -80,7 +82,6 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-@pytest.mark.pbr
 def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)

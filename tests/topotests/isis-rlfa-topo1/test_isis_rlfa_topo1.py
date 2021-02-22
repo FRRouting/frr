@@ -82,6 +82,8 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.isisd]
+
 # Global multi-dimensional dictionary containing all expected outputs
 outputs = {}
 
@@ -165,7 +167,6 @@ class TemplateTopo(Topo):
                         f_in.close()
                         f_out.close()
 
-@pytest.mark.isis
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(TemplateTopo, mod.__name__)

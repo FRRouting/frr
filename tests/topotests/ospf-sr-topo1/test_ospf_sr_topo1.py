@@ -48,6 +48,7 @@ from lib.topolog import logger
 # and Finally pytest
 import pytest
 
+pytestmark = [pytest.mark.ospfd]
 
 class OspfSrTopo(Topo):
     "Test topology builder"
