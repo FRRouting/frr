@@ -49,6 +49,16 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CONNECTED, "Nexthop Group Connected");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 
+/* Map backup nexthop indices between two nhes */
+struct backup_nh_map_s {
+	int map_count;
+
+	struct {
+		uint8_t orig_idx;
+		uint8_t new_idx;
+	} map[MULTIPATH_NUM];
+};
+
 /* id counter to keep in sync with kernel */
 uint32_t id_counter;
 
@@ -1627,9 +1637,10 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 		nhg_connected_tree_increment_ref(&nhe->nhg_depends);
 }
 
-static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
-				 struct nexthop *nexthop,
-				 struct zebra_sr_policy *policy)
+static struct nexthop *nexthop_set_resolved(afi_t afi,
+					    const struct nexthop *newhop,
+					    struct nexthop *nexthop,
+					    struct zebra_sr_policy *policy)
 {
 	struct nexthop *resolved_hop;
 	uint8_t num_labels = 0;
@@ -1747,6 +1758,8 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 
 	resolved_hop->rparent = nexthop;
 	_nexthop_add(&nexthop->resolved, resolved_hop);
+
+	return resolved_hop;
 }
 
 /* Checks if nexthop we are trying to resolve to is valid */
@@ -1785,12 +1798,107 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 }
 
 /*
- * Given a nexthop we need to properly recursively resolve
- * the route.  As such, do a table lookup to find and match
- * if at all possible.  Set the nexthop->ifindex and resolved_id
- * as appropriate
+ * When resolving a recursive nexthop, capture backup nexthop(s) also
+ * so they can be conveyed through the dataplane to the FIB. We'll look
+ * at the backups in the resolving nh 'nexthop' and its nhe, and copy them
+ * into the route's resolved nh 'resolved' and its nhe 'nhe'.
  */
-static int nexthop_active(afi_t afi, struct nexthop *nexthop,
+static int resolve_backup_nexthops(const struct nexthop *nexthop,
+				   const struct nhg_hash_entry *nhe,
+				   struct nexthop *resolved,
+				   struct nhg_hash_entry *resolve_nhe,
+				   struct backup_nh_map_s *map)
+{
+	int i, j, idx;
+	const struct nexthop *bnh;
+	struct nexthop *nh, *newnh;
+
+	assert(nexthop->backup_num <= NEXTHOP_MAX_BACKUPS);
+
+	if (resolve_nhe->backup_info->nhe == NULL)
+		resolve_nhe->backup_info->nhe = zebra_nhg_alloc();
+
+	/* Locate backups from the original nexthop's backup index and nhe */
+	for (i = 0; i < nexthop->backup_num; i++) {
+		idx = nexthop->backup_idx[i];
+
+		/* Do we already know about this particular backup? */
+		for (j = 0; j < map->map_count; j++) {
+			if (map->map[j].orig_idx == idx)
+				break;
+		}
+
+		if (j < map->map_count) {
+			resolved->backup_idx[resolved->backup_num] =
+				map->map[j].new_idx;
+			resolved->backup_num++;
+
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug("%s: found map idx orig %d, new %d",
+					   __func__, map->map[j].orig_idx,
+					   map->map[j].new_idx);
+
+			continue;
+		}
+
+		/* We can't handle any new map entries at this point. */
+		if (map->map_count == MULTIPATH_NUM)
+			break;
+
+		/* Need to create/copy a new backup */
+		bnh = nhe->backup_info->nhe->nhg.nexthop;
+		for (j = 0; j < idx; j++) {
+			if (bnh == NULL)
+				break;
+			bnh = bnh->next;
+		}
+
+		/* Whoops - bad index in the nexthop? */
+		if (bnh == NULL)
+			continue;
+
+		/* Update backup info in the resolving nexthop and its nhe */
+		newnh = nexthop_dup_no_recurse(bnh, NULL);
+
+		/* Need to compute the new backup index in the new
+		 * backup list, and add to map struct.
+		 */
+		j = 0;
+		nh = resolve_nhe->backup_info->nhe->nhg.nexthop;
+		if (nh) {
+			while (nh->next) {
+				nh = nh->next;
+				j++;
+			}
+
+			nh->next = newnh;
+
+		} else	/* First one */
+			resolve_nhe->backup_info->nhe->nhg.nexthop = newnh;
+
+		/* Capture index */
+		resolved->backup_idx[resolved->backup_num] = j;
+		resolved->backup_num++;
+
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("%s: added idx orig %d, new %d",
+				   __func__, idx, j);
+
+		/* Update map/cache */
+		map->map[map->map_count].orig_idx = idx;
+		map->map[map->map_count].new_idx = j;
+		map->map_count++;
+	}
+
+	return 0;
+}
+
+/*
+ * Given a nexthop we need to properly recursively resolve,
+ * do a table lookup to find and match if at all possible.
+ * Set the nexthop->ifindex and resolution info as appropriate.
+ */
+static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			  const struct prefix *top, int type, uint32_t flags,
 			  uint32_t *pmtu)
 {
@@ -1806,6 +1914,7 @@ static int nexthop_active(afi_t afi, struct nexthop *nexthop,
 	struct zebra_vrf *zvrf;
 	struct in_addr local_ipv4;
 	struct in_addr *ipv4;
+	afi_t afi = AFI_IP;
 
 	/* Reset some nexthop attributes that we'll recompute if necessary */
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
@@ -1817,11 +1926,13 @@ static int nexthop_active(afi_t afi, struct nexthop *nexthop,
 	nexthop->resolved = NULL;
 
 	/*
+	 * Set afi based on nexthop type.
 	 * Some nexthop types get special handling, possibly skipping
 	 * the normal processing.
 	 */
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
+
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		/*
 		 * If the interface exists and its operative or its a kernel
@@ -1839,6 +1950,8 @@ static int nexthop_active(afi_t afi, struct nexthop *nexthop,
 		break;
 
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		afi = AFI_IP6;
+
 		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6)) {
 			ifp = if_lookup_by_index(nexthop->ifindex,
 						 nexthop->vrf_id);
@@ -1849,14 +1962,16 @@ static int nexthop_active(afi_t afi, struct nexthop *nexthop,
 		}
 		break;
 
-	case NEXTHOP_TYPE_BLACKHOLE:
-		return 1;
-
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-	case NEXTHOP_TYPE_IPV6:
-	default:
+		afi = AFI_IP;
 		break;
+	case NEXTHOP_TYPE_IPV6:
+		afi = AFI_IP6;
+		break;
+
+	case NEXTHOP_TYPE_BLACKHOLE:
+		return 1;
 	}
 
 	/*
@@ -2053,6 +2168,8 @@ static int nexthop_active(afi_t afi, struct nexthop *nexthop,
 			return 1;
 		} else if (CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
 			struct nexthop_group *nhg;
+			struct nexthop *resolver;
+			struct backup_nh_map_s map = {};
 
 			resolved = 0;
 
@@ -2082,9 +2199,19 @@ static int nexthop_active(afi_t afi, struct nexthop *nexthop,
 
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop,
-						     NULL);
+				resolver = nexthop_set_resolved(afi, newhop,
+								nexthop, NULL);
 				resolved = 1;
+
+				/* If there are backup nexthops, capture
+				 * that info with the resolving nexthop.
+				 */
+				if (resolver && newhop->backup_num > 0) {
+					resolve_backup_nexthops(newhop,
+								match->nhe,
+								resolver, nhe,
+								&map);
+				}
 			}
 
 			/* Examine installed backup nexthops, if any. There
@@ -2147,14 +2274,17 @@ done_with_match:
 /* This function verifies reachability of one given nexthop, which can be
  * numbered or unnumbered, IPv4 or IPv6. The result is unconditionally stored
  * in nexthop->flags field. The nexthop->ifindex will be updated
- * appropriately as well.  An existing route map can turn an
- * otherwise active nexthop into inactive, but not vice versa.
+ * appropriately as well.
+ *
+ * An existing route map can turn an otherwise active nexthop into inactive,
+ * but not vice versa.
  *
  * The return value is the final value of 'ACTIVE' flag.
  */
 static unsigned nexthop_active_check(struct route_node *rn,
 				     struct route_entry *re,
-				     struct nexthop *nexthop)
+				     struct nexthop *nexthop,
+				     struct nhg_hash_entry *nhe)
 {
 	route_map_result_t ret = RMAP_PERMITMATCH;
 	afi_t family;
@@ -2191,7 +2321,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		if (nexthop_active(AFI_IP, nexthop, &rn->p, re->type,
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
 				   re->flags, &mtu))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
@@ -2200,7 +2330,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (nexthop_active(AFI_IP, nexthop, &rn->p, re->type,
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
 				   re->flags, &mtu))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
@@ -2208,7 +2338,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		family = AFI_IP6;
-		if (nexthop_active(AFI_IP6, nexthop, &rn->p, re->type,
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
 				   re->flags, &mtu))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
@@ -2219,7 +2349,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		if (rn->p.family != AF_INET)
 			family = AFI_IP6;
 
-		if (nexthop_active(AFI_IP6, nexthop, &rn->p, re->type,
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
 				   re->flags, &mtu))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
@@ -2329,18 +2459,20 @@ done:
 }
 
 /*
- * Process a list of nexthops, given an nhg, determining
+ * Process a list of nexthops, given an nhe, determining
  * whether each one is ACTIVE/installable at this time.
  */
 static uint32_t nexthop_list_active_update(struct route_node *rn,
 					   struct route_entry *re,
-					   struct nexthop_group *nhg)
+					   struct nhg_hash_entry *nhe,
+					   bool is_backup)
 {
 	union g_addr prev_src;
 	unsigned int prev_active, new_active;
 	ifindex_t prev_index;
 	uint32_t counter = 0;
 	struct nexthop *nexthop;
+	struct nexthop_group *nhg = &nhe->nhg;
 
 	nexthop = nhg->nexthop;
 
@@ -2356,15 +2488,20 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 		prev_src = nexthop->rmap_src;
 		prev_active = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		prev_index = nexthop->ifindex;
+
+		/* Include the containing nhe for primary nexthops: if there's
+		 * recursive resolution, we capture the backup info also.
+		 */
+		new_active =
+			nexthop_active_check(rn, re, nexthop,
+					     (is_backup ? NULL : nhe));
+
 		/*
 		 * We need to respect the multipath_num here
 		 * as that what we should be able to install from
 		 * a multipath perspective should not be a data plane
 		 * decision point.
 		 */
-		new_active =
-			nexthop_active_check(rn, re, nexthop);
-
 		if (new_active && counter >= zrouter.multipath_num) {
 			struct nexthop *nh;
 
@@ -2378,7 +2515,7 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 		if (new_active)
 			counter++;
 
-		/* Don't allow src setting on IPv6 addr for now */
+		/* Check for changes to the nexthop - set ROUTE_ENTRY_CHANGED */
 		if (prev_active != new_active || prev_index != nexthop->ifindex
 		    || ((nexthop->type >= NEXTHOP_TYPE_IFINDEX
 			 && nexthop->type < NEXTHOP_TYPE_IPV6)
@@ -2447,7 +2584,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	curr_nhe->id = 0;
 
 	/* Process nexthops */
-	curr_active = nexthop_list_active_update(rn, re, &curr_nhe->nhg);
+	curr_active = nexthop_list_active_update(rn, re, curr_nhe, false);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p curr_active %u", __func__, re,
@@ -2458,7 +2595,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		goto backups_done;
 
 	backup_active = nexthop_list_active_update(
-		rn, re, zebra_nhg_get_backup_nhg(curr_nhe));
+		rn, re, curr_nhe->backup_info->nhe, true /*is_backup*/);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p backup_active %u", __func__, re,
