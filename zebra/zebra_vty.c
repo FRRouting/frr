@@ -1636,6 +1636,18 @@ DEFPY_HIDDEN(proto_nexthop_group_only, proto_nexthop_group_only_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN(backup_nexthop_recursive_use_enable,
+	     backup_nexthop_recursive_use_enable_cmd,
+	     "[no] zebra nexthop resolve-via-backup",
+	     NO_STR
+	     ZEBRA_STR
+	     "Nexthop configuration \n"
+	     "Configure use of backup nexthops in recursive resolution\n")
+{
+	zebra_nhg_set_recursive_use_backups(!no);
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_ip_nht_default_route,
        no_ip_nht_default_route_cmd,
        "no ip nht resolve-via-default",
@@ -3619,6 +3631,9 @@ static int config_write_protocol(struct vty *vty)
 	if (zebra_nhg_proto_nexthops_only())
 		vty_out(vty, "zebra nexthop proto only\n");
 
+	if (!zebra_nhg_recursive_use_backups())
+		vty_out(vty, "no zebra nexthop resolve-via-backup\n");
+
 #ifdef HAVE_NETLINK
 	/* Include netlink info */
 	netlink_config_write_helper(vty);
@@ -4054,6 +4069,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
 	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
+	install_element(CONFIG_NODE, &backup_nexthop_recursive_use_enable_cmd);
 
 	install_element(VIEW_NODE, &show_nexthop_group_cmd);
 	install_element(VIEW_NODE, &show_interface_nexthop_group_cmd);

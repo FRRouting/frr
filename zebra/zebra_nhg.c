@@ -52,9 +52,10 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 /* id counter to keep in sync with kernel */
 uint32_t id_counter;
 
-/*  */
+/* Controlled through ui */
 static bool g_nexthops_enabled = true;
 static bool proto_nexthops_only;
+static bool use_recursive_backups = true;
 
 static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi,
 					   int type, bool from_dplane);
@@ -2088,10 +2089,12 @@ static int nexthop_active(afi_t afi, struct nexthop *nexthop,
 
 			/* Examine installed backup nexthops, if any. There
 			 * are only installed backups *if* there is a
-			 * dedicated fib list.
+			 * dedicated fib list. The UI can also control use
+			 * of backups for resolution.
 			 */
 			nhg = rib_get_fib_backup_nhg(match);
-			if (nhg == NULL || nhg->nexthop == NULL)
+			if (!use_recursive_backups ||
+			    nhg == NULL || nhg->nexthop == NULL)
 				goto done_with_match;
 
 			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
@@ -2832,6 +2835,17 @@ void zebra_nhg_enable_kernel_nexthops(bool set)
 bool zebra_nhg_kernel_nexthops_enabled(void)
 {
 	return g_nexthops_enabled;
+}
+
+/* Global control for use of activated backups for recursive resolution. */
+void zebra_nhg_set_recursive_use_backups(bool set)
+{
+	use_recursive_backups = set;
+}
+
+bool zebra_nhg_recursive_use_backups(void)
+{
+	return use_recursive_backups;
 }
 
 /*
