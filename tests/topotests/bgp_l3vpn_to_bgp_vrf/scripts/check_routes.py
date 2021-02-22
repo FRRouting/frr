@@ -551,14 +551,23 @@ luCommand(
 )
 luCommand(
     "ce4",
-    'vtysh -c "show bgp vrf ce4-cust2 ipv4 6.0.1.0"',
-    "2 available, best .*192.168.2.1.* Local.* 192.168.2.1 from 192.168.2.1 .192.168.2.1"
-    + ".* Origin IGP, metric 98, localpref 123, valid, internal"
-    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:56"
-    + ".* Local.* 99.0.0.4 from 0.0.0.0 .99.0.0.4"
-    + ".* Origin IGP, metric 200, localpref 50, weight 32768, valid, sourced, local, best .Weight"
-    + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:56",
-    "pass",
+    'vtysh -c "show bgp vrf ce4-cust2 ipv4 6.0.1.0 json"',
+    (
+        '{"paths":['
+        + '{"aspath":{"string":"Local"},"origin":"IGP","metric":200,"locPrf":50,'
+        + '"weight":32768,"valid":true,"sourced":true,"local":true,'
+        + '"bestpath":{"overall":true,"selectionReason":"Weight"},'
+        + '"community":{"string":"0:67"},"extendedCommunity":{"string":"RT:89:123"},'
+        + '"largeCommunity":{"string":"12:34:56"},'
+        + '"peer":{"peerId":"0.0.0.0","routerId":"99.0.0.4"}},'
+        + '{"aspath":{"string":"Local"},"origin":"IGP","metric":98,"locPrf":123,'
+        + '"valid":true,'
+        + '"community":{"string":"0:67"},"extendedCommunity":{'
+        + '"string":"RT:52:100 RT:89:123"},"largeCommunity":{"string":"12:34:56"},'
+        + '"peer":{"peerId":"192.168.2.1","routerId":"192.168.2.1"}}'
+        + "]}"
+    ),
+    "jsoncmp_pass",
     "Redundant route 1 details",
 )
 
