@@ -563,7 +563,7 @@ In general, code submitted into FRR will be rejected if it uses unsafe
 programming practices.  While there is no enforced overall ruleset, the
 following requirements have achieved consensus:
 
-- ``strcpy``, ``strcat`` and ``sprintf`` are inacceptable without exception.
+- ``strcpy``, ``strcat`` and ``sprintf`` are unacceptable without exception.
   Use ``strlcpy``, ``strlcat`` and ``snprintf`` instead.  (Rationale:  even if
   you know the operation cannot overflow the buffer, a future code change may
   inadvertedly introduce an overflow.)

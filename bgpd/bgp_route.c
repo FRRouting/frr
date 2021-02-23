@@ -525,13 +525,14 @@ static uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp)
 	}
 }
 
-void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi, char *buf)
+void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi, char *buf,
+					    size_t buf_len)
 {
 	if (pi->addpath_rx_id)
-		sprintf(buf, "path %s (addpath rxid %d)", pi->peer->host,
-			pi->addpath_rx_id);
+		snprintf(buf, buf_len, "path %s (addpath rxid %d)",
+			 pi->peer->host, pi->addpath_rx_id);
 	else
-		sprintf(buf, "path %s", pi->peer->host);
+		snprintf(buf, buf_len, "path %s", pi->peer->host);
 }
 
 /* Compare two bgp route entity.  If 'new' is preferable over 'exist' return 1.
@@ -582,7 +583,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (debug)
-		bgp_path_info_path_with_addpath_rx_str(new, new_buf);
+		bgp_path_info_path_with_addpath_rx_str(new, new_buf,
+						       sizeof(new_buf));
 
 	if (exist == NULL) {
 		*reason = bgp_path_selection_first;
@@ -593,7 +595,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (debug) {
-		bgp_path_info_path_with_addpath_rx_str(exist, exist_buf);
+		bgp_path_info_path_with_addpath_rx_str(exist, exist_buf,
+						       sizeof(exist_buf));
 		zlog_debug("%s: Comparing %s flags 0x%x with %s flags 0x%x",
 			   pfx_buf, new_buf, new->flags, exist_buf,
 			   exist->flags);
@@ -621,10 +624,10 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				prefix2str(
 					bgp_dest_get_prefix(new->net), pfx_buf,
 					sizeof(*pfx_buf) * PREFIX2STR_BUFFER);
-				bgp_path_info_path_with_addpath_rx_str(new,
-								       new_buf);
 				bgp_path_info_path_with_addpath_rx_str(
-					exist, exist_buf);
+					new, new_buf, sizeof(new_buf));
+				bgp_path_info_path_with_addpath_rx_str(
+					exist, exist_buf, sizeof(exist_buf));
 			}
 
 			if (newattr->sticky && !existattr->sticky) {
@@ -2348,7 +2351,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 			if (debug) {
 				bgp_path_info_path_with_addpath_rx_str(
-					new_select, path_buf);
+					new_select, path_buf, sizeof(path_buf));
 				zlog_debug(
 					"%pBD: %s is the bestpath from AS %u",
 					dest, path_buf,
@@ -2422,8 +2425,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	 */
 	if (debug) {
 		if (new_select)
-			bgp_path_info_path_with_addpath_rx_str(new_select,
-							       path_buf);
+			bgp_path_info_path_with_addpath_rx_str(
+				new_select, path_buf, sizeof(path_buf));
 		else
 			snprintf(path_buf, sizeof(path_buf), "NONE");
 		zlog_debug(
@@ -2438,7 +2441,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 			if (debug)
 				bgp_path_info_path_with_addpath_rx_str(
-					pi, path_buf);
+					pi, path_buf, sizeof(path_buf));
 
 			if (pi == new_select) {
 				if (debug)
@@ -6389,7 +6392,8 @@ DEFPY_YANG (bgp_network, bgp_network_cmd,
 		int ret;
 
 		ret = netmask_str2prefix_str(address_str, netmask_str,
-					     addr_prefix_str);
+					     addr_prefix_str,
+					     sizeof(addr_prefix_str));
 		if (!ret) {
 			vty_out(vty, "%% Inconsistent address and mask\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -7780,7 +7784,8 @@ DEFPY_YANG(
 	char prefix_buf[PREFIX2STR_BUFFER];
 
 	if (addr_str) {
-		if (netmask_str2prefix_str(addr_str, mask_str, prefix_buf)
+		if (netmask_str2prefix_str(addr_str, mask_str, prefix_buf,
+					   sizeof(prefix_buf))
 		    == 0) {
 			vty_out(vty, "%% Inconsistent address and mask\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -14398,7 +14403,7 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
 	char prefix_str[BUFSIZ];
 
 	ret = netmask_str2prefix_str(argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg,
-				     prefix_str);
+				     prefix_str, sizeof(prefix_str));
 	if (!ret) {
 		vty_out(vty, "%% Inconsistent address and mask\n");
 		return CMD_WARNING;

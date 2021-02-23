@@ -118,7 +118,7 @@ static void lsp_print_flooding(struct vty *vty, struct isis_lsp *lsp,
 	char lspid[255];
 	char buf[MONOTIME_STRLEN];
 
-	lspid_print(lsp->hdr.lsp_id, lspid, true, true, isis);
+	lspid_print(lsp->hdr.lsp_id, lspid, sizeof(lspid), true, true, isis);
 	vty_out(vty, "Flooding information for %s\n", lspid);
 
 	if (!lsp->flooding_neighbors[TX_LSP_NORMAL]) {

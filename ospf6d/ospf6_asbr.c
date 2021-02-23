@@ -1865,6 +1865,7 @@ static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	struct ospf6_as_external_lsa *external;
 	struct in6_addr in6;
 	int prefix_length = 0;
+	char tbuf[16];
 
 	if (lsa) {
 		external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
@@ -1885,9 +1886,11 @@ static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 		}
 		if (buf) {
 			inet_ntop(AF_INET6, &in6, buf, buflen);
-			if (prefix_length)
-				sprintf(&buf[strlen(buf)], "/%d",
-					prefix_length);
+			if (prefix_length) {
+				snprintf(tbuf, sizeof(tbuf), "/%d",
+					 prefix_length);
+				strlcat(buf, tbuf, buflen);
+			}
 		}
 	}
 	return (buf);

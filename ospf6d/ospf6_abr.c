@@ -1292,6 +1292,7 @@ static char *ospf6_inter_area_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 {
 	struct ospf6_inter_prefix_lsa *prefix_lsa;
 	struct in6_addr in6;
+	char tbuf[16];
 
 	if (lsa != NULL) {
 		prefix_lsa =
@@ -1301,8 +1302,9 @@ static char *ospf6_inter_area_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 		ospf6_prefix_in6_addr(&in6, prefix_lsa, &prefix_lsa->prefix);
 		if (buf) {
 			inet_ntop(AF_INET6, &in6, buf, buflen);
-			sprintf(&buf[strlen(buf)], "/%d",
-				prefix_lsa->prefix.prefix_length);
+			snprintf(tbuf, sizeof(tbuf), "/%d",
+				 prefix_lsa->prefix.prefix_length);
+			strlcat(buf, tbuf, buflen);
 		}
 	}
 

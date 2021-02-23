@@ -2427,9 +2427,9 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 					__func__, errno);
 				goto tmp_free_and_out;
 			}
-			tmp = XMALLOC(MTYPE_TMP,
-				      strlen(cwd) + strlen(config_file) + 2);
-			sprintf(tmp, "%s/%s", cwd, config_file);
+			size_t tmp_len = strlen(cwd) + strlen(config_file) + 2;
+			tmp = XMALLOC(MTYPE_TMP, tmp_len);
+			snprintf(tmp, tmp_len, "%s/%s", cwd, config_file);
 			fullpath = tmp;
 		} else
 			fullpath = config_file;

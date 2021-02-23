@@ -4315,13 +4315,15 @@ DEFUN (match_community,
 	int idx_comm_list = 2;
 	int ret;
 	char *argstr;
+	size_t argstr_len;
 
 	if (argc == 4) {
-		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-				 strlen(argv[idx_comm_list]->arg)
-					 + strlen("exact-match") + 2);
+		argstr_len = strlen(argv[idx_comm_list]->arg)
+			     + strlen("exact-match") + 2;
+		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, argstr_len);
 
-		sprintf(argstr, "%s exact-match", argv[idx_comm_list]->arg);
+		snprintf(argstr, argstr_len, "%s exact-match",
+			 argv[idx_comm_list]->arg);
 	} else
 		argstr = argv[idx_comm_list]->arg;
 
@@ -4362,13 +4364,15 @@ DEFUN (match_lcommunity,
 	int idx_lcomm_list = 2;
 	int ret;
 	char *argstr;
+	size_t argstr_len;
 
 	if (argc == 4) {
-		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-				strlen(argv[idx_lcomm_list]->arg)
-				+ strlen("exact-match") + 2);
+		argstr_len = strlen(argv[idx_lcomm_list]->arg)
+			     + strlen("exact-match") + 2;
+		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, argstr_len);
 
-		sprintf(argstr, "%s exact-match", argv[idx_lcomm_list]->arg);
+		snprintf(argstr, argstr_len, "%s exact-match",
+			 argv[idx_lcomm_list]->arg);
 	} else
 		argstr = argv[idx_lcomm_list]->arg;
 
@@ -5252,6 +5256,7 @@ DEFUN (set_aggregator_as,
 	int ret;
 	struct in_addr address;
 	char *argstr;
+	size_t argstr_len;
 
 	ret = inet_aton(argv[idx_ipv4]->arg, &address);
 	if (ret == 0) {
@@ -5259,11 +5264,12 @@ DEFUN (set_aggregator_as,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-			 strlen(argv[idx_number]->arg)
-				 + strlen(argv[idx_ipv4]->arg) + 2);
+	argstr_len =
+		strlen(argv[idx_number]->arg) + strlen(argv[idx_ipv4]->arg) + 2;
+	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, argstr_len);
 
-	sprintf(argstr, "%s %s", argv[idx_number]->arg, argv[idx_ipv4]->arg);
+	snprintf(argstr, argstr_len, "%s %s", argv[idx_number]->arg,
+		 argv[idx_ipv4]->arg);
 
 	ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
 			      "aggregator as", argstr);
@@ -5289,6 +5295,7 @@ DEFUN (no_set_aggregator_as,
 	int ret;
 	struct in_addr address;
 	char *argstr;
+	size_t argstr_len;
 
 	if (argc <= idx_asn)
 		return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
@@ -5300,11 +5307,11 @@ DEFUN (no_set_aggregator_as,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-			 strlen(argv[idx_asn]->arg) + strlen(argv[idx_ip]->arg)
-				 + 2);
+	argstr_len = strlen(argv[idx_asn]->arg) + strlen(argv[idx_ip]->arg) + 2;
+	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, argstr_len);
 
-	sprintf(argstr, "%s %s", argv[idx_asn]->arg, argv[idx_ip]->arg);
+	snprintf(argstr, argstr_len, "%s %s", argv[idx_asn]->arg,
+		 argv[idx_ip]->arg);
 
 	ret = generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
 				 "aggregator as", argstr);
