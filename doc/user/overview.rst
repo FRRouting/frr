@@ -474,11 +474,6 @@ changes, updates to the Development list and either this file or information
 posted at `FRR`_.
 
 
-.. index::
-   pair: bug reports; contact
-
-.. _bug-reports:
-
 Bug Reports
 ===========
 

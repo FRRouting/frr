@@ -1,3 +1,5 @@
+.. index::
+   pair: bug reports; contact
 
 .. _bug-reports:
 
