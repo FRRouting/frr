@@ -62,6 +62,8 @@ from lib.ospf import (
     verify_ospf_rib,
     create_router_ospf,
     redistribute_ospf,
+    config_ospf_interface,
+    verify_ospf_interface,
 )
 
 # Global variables
@@ -572,6 +574,89 @@ def test_ospf_redistribution_tc8_p1(request):
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
+
+    write_test_footer(tc_name)
+
+
+def test_ospf_cost_tc52_p0(request):
+    """OSPF Cost - verifying ospf interface cost functionality"""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+
+    step(
+        "Configure ospf cost as 20 on interface between R0 and R1. "
+        "Configure ospf cost as 30 between interface between R0 and R2."
+    )
+
+    r0_ospf_cost = {
+        "r0": {"links": {"r1": {"ospf": {"cost": 20}}, "r2": {"ospf": {"cost": 30}}}}
+    }
+    result = config_ospf_interface(tgen, topo, r0_ospf_cost)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that cost is updated in the ospf interface between"
+        " r0 and r1 as 30 and r0 and r2 as 20"
+    )
+    dut = "r0"
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=r0_ospf_cost)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Swap the costs between interfaces on r0, between r0 and r1 to 30"
+        ", r0 and r2 to 20"
+    )
+
+    r0_ospf_cost = {
+        "r0": {"links": {"r1": {"ospf": {"cost": 30}}, "r2": {"ospf": {"cost": 20}}}}
+    }
+    result = config_ospf_interface(tgen, topo, r0_ospf_cost)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that cost is updated in the ospf interface between r0 "
+        "and r1 as 30 and r0 and r2 as 20."
+    )
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=r0_ospf_cost)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(" Un configure cost from the interface r0 - r1.")
+
+    r0_ospf_cost = {"r0": {"links": {"r1": {"ospf": {"cost": 30, "del_action": True}}}}}
+    result = config_ospf_interface(tgen, topo, r0_ospf_cost)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {"links": {"r1": {"ospf": {"cost": 10}}, "r2": {"ospf": {"cost": 20}}}}
+    }
+    step(
+        "Verify that cost is updated in the ospf interface between r0"
+        " and r1 as 10 and r0 and r2 as 20."
+    )
+
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(" Un configure cost from the interface r0 - r2.")
+
+    r0_ospf_cost = {"r0": {"links": {"r2": {"ospf": {"cost": 20, "del_action": True}}}}}
+    result = config_ospf_interface(tgen, topo, r0_ospf_cost)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that cost is updated in the ospf interface between r0"
+        "and r1 as 10 and r0 and r2 as 10"
+    )
+
+    input_dict = {
+        "r0": {"links": {"r1": {"ospf": {"cost": 10}}, "r2": {"ospf": {"cost": 10}}}}
+    }
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
