@@ -20,8 +20,6 @@ To verify xrefs have been included in a binary or dynamic library, run
 ``readelf -n binary``.  For individual object files, it's
 ``readelf -S object.o | grep xref_array`` instead.
 
-An extraction tool will be added in a future commit.
-
 Structure and contents
 ----------------------
 
@@ -168,3 +166,50 @@ entry point.
    for C++ code when compiled by GCC.  A workaround is present for runtime
    functionality, but to extract the xrefs from a C++ source file, it needs
    to be built with clang (or a future fixed version of GCC) instead.
+
+Extraction tool
+---------------
+
+The FRR source contains a matching tool to extract xref data from compiled ELF
+binaries in ``python/xrelfo.py``.  This tool uses CPython extensions
+implemented in ``clippy`` and must therefore be executed with that.
+
+``xrelfo.py`` processes input from one or more ELF file (.o, .so, executable),
+libtool object (.lo, .la, executable wrapper script) or JSON (output from
+``xrelfo.py``) and generates an output JSON file.  During standard FRR build,
+it is invoked on all binaries and libraries and the result is combined into
+``frr.json``.
+
+ELF files from any operating system, CPU architecture and endianness can be
+processed on any host.  Any issues with this are bugs in ``xrelfo.py``
+(or clippy's ELF code.)
+
+``xrelfo.py`` also performs some sanity checking, particularly on log
+messages.  The following options are available:
+
+.. option:: -o OUTPUT
+
+   Filename to write JSON output to.  As a convention, a ``.xref`` filename
+   extension is used.
+
+.. option:: -Wlog-format
+
+   Performs extra checks on log message format strings, particularly checks
+   for ``\t`` and ``\n`` characters (which should not be used in log messages).
+
+.. option:: -Wlog-args
+
+   Generates cleanup hints for format string arguments where
+   :c:func:`printfrr()` extensions could be used, e.g. replacing ``inet_ntoa``
+   with ``%pI4``.
+
+.. option:: --profile
+
+   Runs the Python profiler to identify hotspots in the ``xrelfo.py`` code.
+
+``xrelfo.py`` uses information about C structure definitions saved in
+``python/xrefstructs.json``.  This file is included with the FRR sources and
+only needs to be regenerated when some of the ``struct xref_*`` definitions
+are changed (which should be almost never).  The file is written by
+``python/tiabwarfo.py``, which uses ``pahole`` to extract the necessary data
+from DWARF information.
