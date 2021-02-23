@@ -175,73 +175,74 @@ the ``lttng_ust_tracelog:*`` event class.
 
 To see available SystemTap USDT probes, run::
 
-  stap -L 'process("/usr/lib/frr/bgpd").mark("*")'
+   stap -L 'process("/usr/lib/frr/bgpd").mark("*")'
 
 Example::
-  root@host ~> stap -L 'process("/usr/lib/frr/bgpd").mark("*")'
-  process("/usr/lib/frr/bgpd").mark("capability_process") $arg1:long $arg2:long
-  process("/usr/lib/frr/bgpd").mark("input_filter") $arg1:long $arg2:long $arg3:long $arg4:long $arg5:long
-  process("/usr/lib/frr/bgpd").mark("keepalive_process") $arg1:long $arg2:long
-  process("/usr/lib/frr/bgpd").mark("notification_process") $arg1:long $arg2:long
-  process("/usr/lib/frr/bgpd").mark("open_process") $arg1:long $arg2:long
-  process("/usr/lib/frr/bgpd").mark("output_filter") $arg1:long $arg2:long $arg3:long $arg4:long $arg5:long
-  process("/usr/lib/frr/bgpd").mark("packet_read") $arg1:long $arg2:long
-  process("/usr/lib/frr/bgpd").mark("process_update") $arg1:long $arg2:long $arg3:long $arg4:long $arg5:long $arg6:long
-  process("/usr/lib/frr/bgpd").mark("refresh_process") $arg1:long $arg2:long
-  process("/usr/lib/frr/bgpd").mark("update_process") $arg1:long $arg2:long
+
+   root@host ~> stap -L 'process("/usr/lib/frr/bgpd").mark("*")'
+   process("/usr/lib/frr/bgpd").mark("capability_process") $arg1:long $arg2:long
+   process("/usr/lib/frr/bgpd").mark("input_filter") $arg1:long $arg2:long $arg3:long $arg4:long $arg5:long
+   process("/usr/lib/frr/bgpd").mark("keepalive_process") $arg1:long $arg2:long
+   process("/usr/lib/frr/bgpd").mark("notification_process") $arg1:long $arg2:long
+   process("/usr/lib/frr/bgpd").mark("open_process") $arg1:long $arg2:long
+   process("/usr/lib/frr/bgpd").mark("output_filter") $arg1:long $arg2:long $arg3:long $arg4:long $arg5:long
+   process("/usr/lib/frr/bgpd").mark("packet_read") $arg1:long $arg2:long
+   process("/usr/lib/frr/bgpd").mark("process_update") $arg1:long $arg2:long $arg3:long $arg4:long $arg5:long $arg6:long
+   process("/usr/lib/frr/bgpd").mark("refresh_process") $arg1:long $arg2:long
+   process("/usr/lib/frr/bgpd").mark("update_process") $arg1:long $arg2:long
 
 When using SystemTap, you can also easily attach to an existing function::
 
-  stap -L 'process("/usr/lib/frr/bgpd").function("bgp_update_receive")'
+   stap -L 'process("/usr/lib/frr/bgpd").function("bgp_update_receive")'
 
-Example:
+Example::
 
-  root@host ~> stap -L 'process("/usr/lib/frr/bgpd").function("bgp_update_receive")'
-  process("/usr/lib/frr/bgpd").function("bgp_update_receive@bgpd/bgp_packet.c:1531") $peer:struct peer* $size:bgp_size_t $attr:struct attr $restart:_Bool $nlris:struct bgp_nlri[] $__func__:char const[] const
+   root@host ~> stap -L 'process("/usr/lib/frr/bgpd").function("bgp_update_receive")'
+   process("/usr/lib/frr/bgpd").function("bgp_update_receive@bgpd/bgp_packet.c:1531") $peer:struct peer* $size:bgp_size_t $attr:struct attr $restart:_Bool $nlris:struct bgp_nlri[] $__func__:char const[] const
 
 Complete ``bgp.stp`` example using SystemTap to show BGP peer, prefix and aspath
 using ``process_update`` USDT::
 
-  global pkt_size;
-  probe begin
-  {
-    ansi_clear_screen();
-    println("Starting...");
-  }
-  probe process("/usr/lib/frr/bgpd").function("bgp_update_receive")
-  {
-    pkt_size <<< $size;
-  }
-  probe process("/usr/lib/frr/bgpd").mark("process_update")
-  {
-    aspath = @cast($arg6, "attr")->aspath;
-    printf("> %s via %s (%s)\n",
-      user_string($arg2),
-      user_string(@cast($arg1, "peer")->host),
-      user_string(@cast(aspath, "aspath")->str));
-  }
-  probe end
-  {
-    if (@count(pkt_size))
-      print(@hist_linear(pkt_size, 0, 20, 2));
-  }
+   global pkt_size;
+   probe begin
+   {
+     ansi_clear_screen();
+     println("Starting...");
+   }
+   probe process("/usr/lib/frr/bgpd").function("bgp_update_receive")
+   {
+     pkt_size <<< $size;
+   }
+   probe process("/usr/lib/frr/bgpd").mark("process_update")
+   {
+     aspath = @cast($arg6, "attr")->aspath;
+     printf("> %s via %s (%s)\n",
+       user_string($arg2),
+       user_string(@cast($arg1, "peer")->host),
+       user_string(@cast(aspath, "aspath")->str));
+   }
+   probe end
+   {
+     if (@count(pkt_size))
+       print(@hist_linear(pkt_size, 0, 20, 2));
+   }
 
 Output::
 
-  Starting...
-  > 192.168.0.0/24 via 192.168.0.1 (65534)
-  > 192.168.100.1/32 via 192.168.0.1 (65534)
-  > 172.16.16.1/32 via 192.168.0.1 (65534 65030)
-  ^Cvalue |-------------------------------------------------- count
-      0 |                                                   0
-      2 |                                                   0
-      4 |@                                                  1
-      6 |                                                   0
-      8 |                                                   0
-        ~
-    18 |                                                   0
-    20 |                                                   0
-    >20 |@@@@@                                              5
+   Starting...
+   > 192.168.0.0/24 via 192.168.0.1 (65534)
+   > 192.168.100.1/32 via 192.168.0.1 (65534)
+   > 172.16.16.1/32 via 192.168.0.1 (65534 65030)
+   ^Cvalue |-------------------------------------------------- count
+       0 |                                                   0
+       2 |                                                   0
+       4 |@                                                  1
+       6 |                                                   0
+       8 |                                                   0
+         ~
+     18 |                                                   0
+     20 |                                                   0
+     >20 |@@@@@                                              5
 
 
 Concepts
