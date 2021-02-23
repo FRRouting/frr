@@ -1229,9 +1229,9 @@ towards making documentation easier to use, write and maintain.
 CLI Commands
 ^^^^^^^^^^^^
 
-When documenting CLI please use a combination of the ``.. index::`` and
-``.. clicmd::`` directives. For example, the command :clicmd:`show pony` would
-be documented as follows:
+When documenting CLI please use the ``.. clicmd::`` directive. This directive
+will format the command and generate index entries automatically. For example,
+the command :clicmd:`show pony` would be documented as follows:
 
 .. code-block:: rest
 
@@ -1252,6 +1252,7 @@ be documented as follows:
          hjw    |_>|>     /_] //
                   /_]        /_]
 
+
 When documented this way, CLI commands can be cross referenced with the
 ``:clicmd:`` inline markup like so:
 
@@ -1262,8 +1263,27 @@ When documented this way, CLI commands can be cross referenced with the
 This is very helpful for users who want to quickly remind themselves what a
 particular command does.
 
-When documenting a cli that has a ``no`` form, please do not include
-the ``no`` in the ``.. index::`` line.
+When documenting a cli that has a ``no`` form, please do not include the ``no``
+form. I.e. ``no show pony`` would not be documented anywhere. Since most
+commands have ``no`` forms, users should be able to infer these or get help
+from vtysh's completions.
+
+When documenting commands that have lots of possible variants, just document
+the single command in summary rather than enumerating each possible variant.
+E.g. for ``show pony [foo|bar]``, do not:
+
+.. code-block:: rest
+
+   .. clicmd:: show pony
+   .. clicmd:: show pony foo
+   .. clicmd:: show pony bar
+
+Do:
+
+.. code-block:: rest
+
+   .. clicmd:: show pony [foo|bar]
+
 
 Configuration Snippets
 ^^^^^^^^^^^^^^^^^^^^^^
