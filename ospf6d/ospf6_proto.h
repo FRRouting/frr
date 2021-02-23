@@ -69,6 +69,8 @@ struct ospf6_prefix {
 #define OSPF6_PREFIX_OPTION_LA (1 << 1)  /* Local Address */
 #define OSPF6_PREFIX_OPTION_MC (1 << 2)  /* MultiCast */
 #define OSPF6_PREFIX_OPTION_P  (1 << 3)  /* Propagate (NSSA) */
+#define OSPF6_PREFIX_OPTION_DN                                                 \
+	(1 << 4) /* DN bit to prevent loops in VPN environment */
 
 /* caddr_t OSPF6_PREFIX_BODY (struct ospf6_prefix *); */
 #define OSPF6_PREFIX_BODY(x) ((caddr_t)(x) + sizeof(struct ospf6_prefix))
