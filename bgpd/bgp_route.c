@@ -113,8 +113,8 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 };
 
 #define VRFID_NONE_STR "-"
-#define SOFT_RECONFIG_THREAD_MAX_PREFIX 25000
-#define SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS 50
+#define SOFT_RECONFIG_TASK_MAX_PREFIX 25000
+#define SOFT_RECONFIG_TASK_SPLIT_DELAY_MS 50
 
 DEFINE_HOOK(bgp_process,
 	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
@@ -4549,7 +4549,7 @@ void bgp_announce_route_all(struct peer *peer)
 }
 
 /* Flag or unflag bgp_dest to determine whether it should be treated by
- * bgp_soft_reconfig_table_thread.
+ * bgp_soft_reconfig_table_task.
  * Flag if flag is true. Unflag if flag is false.
  */
 static void bgp_soft_reconfig_table_flag(struct bgp_table *table, bool flag)
@@ -4629,14 +4629,14 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 }
 
 /* Do soft reconfig table per bgp table.
- * Walk on SOFT_RECONFIG_THREAD_MAX_PREFIX bgp_dest,
+ * Walk on SOFT_RECONFIG_TASK_MAX_PREFIX bgp_dest,
  * when BGP_NODE_SOFT_RECONFIG is set,
  * reconfig bgp_dest for list of table->soft_reconfig_peers peers.
  * Schedule a new thread to continue the job.
  * Without splitting the full job into several part,
  * vtysh waits for the job to finish before responding to a BGP command
  */
-static int bgp_soft_reconfig_table_thread(struct thread *thread)
+static int bgp_soft_reconfig_table_task(struct thread *thread)
 {
 	uint32_t iter, max_iter;
 	int ret;
@@ -4650,7 +4650,7 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	table = THREAD_ARG(thread);
 	prd = NULL;
 
-	max_iter = SOFT_RECONFIG_THREAD_MAX_PREFIX;
+	max_iter = SOFT_RECONFIG_TASK_MAX_PREFIX;
 	if (table->soft_reconfig_init) {
 		/* first call of the function with a new srta structure.
 		 * Don't do any treatment this time on nodes
@@ -4695,14 +4695,18 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 		}
 	}
 
+	/* we're either starting the initial iteration,
+	 * or we're going to continue an ongoing iteration
+	 */
 	if (dest || table->soft_reconfig_init) {
 		table->soft_reconfig_init = false;
-		thread_add_timer_msec(bm->master,
-				      bgp_soft_reconfig_table_thread, table,
-				      SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS,
+		thread_add_timer_msec(bm->master, bgp_soft_reconfig_table_task,
+				      table,
+				      SOFT_RECONFIG_TASK_SPLIT_DELAY_MS,
 				      &table->soft_reconfig_thread);
 		return 0;
 	}
+	// we're done, clean up the background iteration context info"
 	for (ALL_LIST_ELEMENTS(table->soft_reconfig_peers, node, nnode, peer))
 		listnode_delete(table->soft_reconfig_peers, peer);
 	list_delete(&table->soft_reconfig_peers);
@@ -4710,7 +4714,7 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 }
 
 
-/* Cancel soft_reconfig_table thread matching bgp instance, bgp_table
+/* Cancel soft_reconfig_table task matching bgp instance, bgp_table
  * and peer.
  * - bgp cannot be NULL
  * - if table and peer are NULL, cancel all threads within the bgp instance
@@ -4718,9 +4722,9 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
  * remove peer in all threads within the bgp instance
  * - if peer is NULL, cancel all threads matching table within the bgp instance
  */
-void bgp_soft_reconfig_table_thread_cancel(struct bgp *bgp,
-					   struct bgp_table *table,
-					   struct peer *peer)
+void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
+					 const struct bgp_table *table,
+					 const struct peer *peer)
 {
 	struct peer *npeer;
 	struct listnode *node, *nnode;
@@ -4793,13 +4797,13 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 		bgp_soft_reconfig_table_flag(table, true);
 
 		if (!table->soft_reconfig_thread)
-			thread_add_timer(bm->master,
-					 bgp_soft_reconfig_table_thread, table,
-					 0, &table->soft_reconfig_thread);
+			thread_add_event(bm->master,
+					 bgp_soft_reconfig_table_task, table, 0,
+					 &table->soft_reconfig_thread);
 		/* cancel all bgp_announce_route_timer_expired threads before
-		 * bgp_soft_reconfig_table_thread jobs. They would add a timer
+		 * bgp_soft_reconfig_table_task jobs. They would add a timer
 		 * in order to delay announces and to detach announce.
-		 * Threads bgp_soft_reconfig_table_thread are already detached
+		 * Threads bgp_soft_reconfig_table_task are already detached
 		 * from vtysh. Cancellation removes a useless delay. BGP
 		 * announces will run straight after soft_reconfig in.
 		 */
