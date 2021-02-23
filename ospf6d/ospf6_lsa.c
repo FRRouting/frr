@@ -546,6 +546,9 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 		  sizeof(adv_router));
 
 	if (use_json) {
+		char seqnum[15];
+		char checksum[10];
+
 		json_obj = json_object_new_object();
 		json_object_int_add(json_obj, "age",
 				    ospf6_lsa_age_current(lsa));
@@ -554,10 +557,12 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 		json_object_string_add(json_obj, "linkStateId", id);
 		json_object_string_add(json_obj, "advertisingRouter",
 				       adv_router);
-		json_object_int_add(json_obj, "lsSequenceNumber",
-				    (unsigned long)ntohl(lsa->header->seqnum));
-		json_object_int_add(json_obj, "checksum",
-				    ntohs(lsa->header->checksum));
+		snprintf(seqnum, sizeof(seqnum), "%#010lx",
+			 (unsigned long)ntohl(lsa->header->seqnum));
+		json_object_string_add(json_obj, "lsSequenceNumber", seqnum);
+		snprintf(checksum, sizeof(checksum), "%#06hx",
+			 ntohs(lsa->header->checksum));
+		json_object_string_add(json_obj, "checksum", checksum);
 		json_object_int_add(json_obj, "length",
 				    ntohs(lsa->header->length));
 		json_object_int_add(json_obj, "flag", lsa->flag);
@@ -584,7 +589,6 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 			(void *)lsa->expire, (void *)lsa->refresh);
 		vty_out(vty, "\n");
 	}
-	return;
 }
 
 void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
@@ -606,6 +610,9 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	timersub(&now, &lsa->installed, &res);
 	timerstring(&res, duration, sizeof(duration));
 	if (use_json) {
+		char seqnum[15];
+		char checksum[10];
+
 		json_obj = json_object_new_object();
 		json_object_int_add(json_obj, "age",
 				    ospf6_lsa_age_current(lsa));
@@ -613,10 +620,12 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				       ospf6_lstype_name(lsa->header->type));
 		json_object_string_add(json_obj, "advertisingRouter",
 				       adv_router);
-		json_object_int_add(json_obj, "lsSequenceNumber",
-				    (unsigned long)ntohl(lsa->header->seqnum));
-		json_object_int_add(json_obj, "checkSum",
-				    ntohs(lsa->header->checksum));
+		snprintf(seqnum, sizeof(seqnum), "%#010lx",
+			 (unsigned long)ntohl(lsa->header->seqnum));
+		json_object_string_add(json_obj, "lsSequenceNumber", seqnum);
+		snprintf(checksum, sizeof(checksum), "%#06hx",
+			 ntohs(lsa->header->checksum));
+		json_object_string_add(json_obj, "checksum", checksum);
 		json_object_int_add(json_obj, "length",
 				    ntohs(lsa->header->length));
 		json_object_string_add(json_obj, "duration", duration);
