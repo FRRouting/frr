@@ -843,7 +843,7 @@ FPM Commands
    Use the new netlink messages ``RTM_NEWNEXTHOP`` / ``RTM_DELNEXTHOP`` to
    group repeated route next hop information.
 
-   The ``no` form uses the old known FPM behavior of including next hop
+   The ``no`` form uses the old known FPM behavior of including next hop
    information in the route (e.g. ``RTM_NEWROUTE``) messages.
 
 .. clicmd:: show fpm counters [json]

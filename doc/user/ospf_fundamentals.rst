@@ -271,6 +271,7 @@ called `intra-area routes`.
     | Transit        | Link IP address of the :abbr:`DR` | Interface IP address                     |
     +----------------+-----------------------------------+------------------------------------------+
     | Point-to-Point | Router ID of the remote router    | Local interface IP address, or the       |
+    |                |                                   | :abbr:`ifindex (MIB-II interface index)` |
     |                |                                   | for unnumbered links                     |
     +----------------+-----------------------------------+------------------------------------------+
     | Stub           | IP address                        | Subnet Mask                              |

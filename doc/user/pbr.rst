@@ -255,7 +255,7 @@ causes the policy to be installed into the kernel.
    | name   | Interface name             | String  |
    +--------+----------------------------+---------+
    | index  | Device Index               | Integer |
-   +--------+---------------------------+----------+
+   +--------+----------------------------+---------+
    | policy | PBR map for this interface | String  |
    +--------+----------------------------+---------+
    | valid  | Is the map well-formed?    | Boolean |
