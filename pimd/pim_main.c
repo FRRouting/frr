@@ -145,6 +145,8 @@ int main(int argc, char **argv, char **envp)
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
 
+	routing_control_plane_protocols_register_vrf_dependency();
+
 	frr_config_fork();
 
 #ifdef PIM_DEBUG_BYDEFAULT
