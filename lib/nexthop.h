@@ -168,7 +168,7 @@ void nexthop_del_labels(struct nexthop *);
 void nexthop_add_seg6local(struct nexthop *nexthop, uint32_t action,
 			   const struct seg6local_context *ctx);
 void nexthop_del_seg6local(struct nexthop *nexthop);
-void nexthop_add_seg6(struct nexthop *nexthop, const struct in6_addr* segs);
+void nexthop_add_seg6(struct nexthop *nexthop, const struct in6_addr *segs);
 void nexthop_del_seg6(struct nexthop *nexthop);
 
 /*

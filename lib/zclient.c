@@ -2774,7 +2774,8 @@ int srv6_manager_get_locator_chunk(struct zclient *zclient,
 	/* send request */
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
+			      VRF_DEFAULT);
 
 	/* proto */
 	stream_putc(s, zclient->redist_default);
@@ -3580,7 +3581,8 @@ enum zclient_send_status zclient_send_mlag_register(struct zclient *client,
 
 enum zclient_send_status zclient_send_mlag_deregister(struct zclient *client)
 {
-	return zebra_message_send(client, ZEBRA_MLAG_CLIENT_UNREGISTER, VRF_DEFAULT);
+	return zebra_message_send(client, ZEBRA_MLAG_CLIENT_UNREGISTER,
+				  VRF_DEFAULT);
 }
 
 enum zclient_send_status zclient_send_mlag_data(struct zclient *client,
