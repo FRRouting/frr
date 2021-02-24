@@ -62,113 +62,113 @@ use your tracer as usual.
 
 To see available USDT probes::
 
-  readelf -n /usr/lib/frr/bgpd
+   readelf -n /usr/lib/frr/bgpd
 
 Example::
 
-  root@host ~> readelf -n /usr/lib/frr/bgpd
+   root@host ~> readelf -n /usr/lib/frr/bgpd
 
-  Displaying notes found in: .note.ABI-tag
-    Owner                 Data size	Description
-    GNU                  0x00000010	NT_GNU_ABI_TAG (ABI version tag)
-      OS: Linux, ABI: 3.2.0
+   Displaying notes found in: .note.ABI-tag
+     Owner                 Data size	Description
+     GNU                  0x00000010	NT_GNU_ABI_TAG (ABI version tag)
+       OS: Linux, ABI: 3.2.0
 
-  Displaying notes found in: .note.gnu.build-id
-    Owner                 Data size	Description
-    GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
-      Build ID: 4f42933a69dcb42a519bc459b2105177c8adf55d
+   Displaying notes found in: .note.gnu.build-id
+     Owner                 Data size	Description
+     GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
+       Build ID: 4f42933a69dcb42a519bc459b2105177c8adf55d
 
-  Displaying notes found in: .note.stapsdt
-    Owner                 Data size	Description
-    stapsdt              0x00000045	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: packet_read
-      Location: 0x000000000045ee48, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-96(%rbp) 8@-104(%rbp)
-    stapsdt              0x00000047	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: open_process
-      Location: 0x000000000047c43b, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-224(%rbp) 2@-226(%rbp)
-    stapsdt              0x00000049	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: update_process
-      Location: 0x000000000047c4bf, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-208(%rbp) 2@-210(%rbp)
-    stapsdt              0x0000004f	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: notification_process
-      Location: 0x000000000047c557, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-192(%rbp) 2@-194(%rbp)
-    stapsdt              0x0000004c	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: keepalive_process
-      Location: 0x000000000047c5db, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-176(%rbp) 2@-178(%rbp)
-    stapsdt              0x0000004a	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: refresh_process
-      Location: 0x000000000047c673, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-160(%rbp) 2@-162(%rbp)
-    stapsdt              0x0000004d	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: capability_process
-      Location: 0x000000000047c6f7, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-144(%rbp) 2@-146(%rbp)
-    stapsdt              0x0000006f	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: output_filter
-      Location: 0x000000000048e33a, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-144(%rbp) 8@-152(%rbp) 4@-156(%rbp) 4@-160(%rbp) 8@-168(%rbp)
-    stapsdt              0x0000007d	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: process_update
-      Location: 0x0000000000491f10, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-800(%rbp) 8@-808(%rbp) 4@-812(%rbp) 4@-816(%rbp) 4@-820(%rbp) 8@-832(%rbp)
-    stapsdt              0x0000006e	NT_STAPSDT (SystemTap probe descriptors)
-      Provider: frr_bgp
-      Name: input_filter
-      Location: 0x00000000004940ed, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
-      Arguments: 8@-144(%rbp) 8@-152(%rbp) 4@-156(%rbp) 4@-160(%rbp) 8@-168(%rbp)
+   Displaying notes found in: .note.stapsdt
+     Owner                 Data size	Description
+     stapsdt              0x00000045	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: packet_read
+       Location: 0x000000000045ee48, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-96(%rbp) 8@-104(%rbp)
+     stapsdt              0x00000047	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: open_process
+       Location: 0x000000000047c43b, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-224(%rbp) 2@-226(%rbp)
+     stapsdt              0x00000049	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: update_process
+       Location: 0x000000000047c4bf, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-208(%rbp) 2@-210(%rbp)
+     stapsdt              0x0000004f	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: notification_process
+       Location: 0x000000000047c557, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-192(%rbp) 2@-194(%rbp)
+     stapsdt              0x0000004c	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: keepalive_process
+       Location: 0x000000000047c5db, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-176(%rbp) 2@-178(%rbp)
+     stapsdt              0x0000004a	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: refresh_process
+       Location: 0x000000000047c673, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-160(%rbp) 2@-162(%rbp)
+     stapsdt              0x0000004d	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: capability_process
+       Location: 0x000000000047c6f7, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-144(%rbp) 2@-146(%rbp)
+     stapsdt              0x0000006f	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: output_filter
+       Location: 0x000000000048e33a, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-144(%rbp) 8@-152(%rbp) 4@-156(%rbp) 4@-160(%rbp) 8@-168(%rbp)
+     stapsdt              0x0000007d	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: process_update
+       Location: 0x0000000000491f10, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-800(%rbp) 8@-808(%rbp) 4@-812(%rbp) 4@-816(%rbp) 4@-820(%rbp) 8@-832(%rbp)
+     stapsdt              0x0000006e	NT_STAPSDT (SystemTap probe descriptors)
+       Provider: frr_bgp
+       Name: input_filter
+       Location: 0x00000000004940ed, Base: 0x00000000005a09d2, Semaphore: 0x0000000000000000
+       Arguments: 8@-144(%rbp) 8@-152(%rbp) 4@-156(%rbp) 4@-160(%rbp) 8@-168(%rbp)
 
 
 To see available LTTng probes, run the target, create a session and then::
 
-  lttng list --userspace | grep frr
+   lttng list --userspace | grep frr
 
 Example::
 
-  root@host ~> lttng list --userspace | grep frr
-  PID: 11157 - Name: /usr/lib/frr/bgpd
-        frr_libfrr:route_node_get (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:list_sort (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:list_delete_node (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:list_remove (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:list_add (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:memfree (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:memalloc (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:frr_pthread_stop (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:frr_pthread_run (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
-        frr_libfrr:thread_call (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:thread_cancel_async (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:thread_cancel (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:schedule_write (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:schedule_read (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:schedule_event (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:schedule_timer (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:hash_release (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:hash_insert (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_libfrr:hash_get (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:output_filter (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:input_filter (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:process_update (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:packet_read (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:refresh_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:capability_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:notification_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:update_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:keepalive_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
-        frr_bgp:open_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
+   root@host ~> lttng list --userspace | grep frr
+   PID: 11157 - Name: /usr/lib/frr/bgpd
+         frr_libfrr:route_node_get (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:list_sort (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:list_delete_node (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:list_remove (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:list_add (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:memfree (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:memalloc (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:frr_pthread_stop (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:frr_pthread_run (loglevel: TRACE_DEBUG_LINE (13)) (type: tracepoint)
+         frr_libfrr:thread_call (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:thread_cancel_async (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:thread_cancel (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:schedule_write (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:schedule_read (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:schedule_event (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:schedule_timer (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:hash_release (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:hash_insert (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_libfrr:hash_get (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:output_filter (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:input_filter (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:process_update (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:packet_read (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:refresh_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:capability_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:notification_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:update_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:keepalive_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
+         frr_bgp:open_process (loglevel: TRACE_INFO (6)) (type: tracepoint)
 
 When using LTTng, you can also get zlogs as trace events by enabling
 the ``lttng_ust_tracelog:*`` event class.
