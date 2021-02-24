@@ -427,6 +427,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 		cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
 						    &nifp->nat_nbma, &if_ad->addr);
 		cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
+		cie->mtu = htons(if_ad->mtu);
 		nhrp_ext_complete(zb, ext);
 	}
 

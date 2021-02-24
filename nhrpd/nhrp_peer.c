@@ -581,6 +581,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 					    &nifp->nat_nbma, &pp->if_ad->addr);
 			if (!cie)
 				goto err;
+			cie->mtu = htons(pp->if_ad->mtu);
 			nhrp_ext_complete(zb, ext);
 			break;
 		default:
@@ -696,9 +697,10 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 				goto err;
 			zbuf_copy(zb, &payload, zbuf_used(&payload));
 			if (natted) {
-				nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
+				cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
 					      &p->peer->vc->remote.nbma,
 					      &p->src_proto);
+				cie->mtu = htons(p->if_ad->mtu);
 			}
 			nhrp_ext_complete(zb, ext);
 			break;
@@ -961,6 +963,7 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 						    &nifp->nbma, &if_ad->addr);
 				if (!cie)
 					goto err;
+				cie->mtu = htons(if_ad->mtu);
 				cie->holding_time = htons(if_ad->holdtime);
 			}
 			break;
