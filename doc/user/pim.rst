@@ -489,7 +489,7 @@ cause great confusion.
    Display information about known S,G's and incoming interface as well as the
    OIL and how they were chosen.
 
-.. clicmd:: show ip pim upstream
+.. clicmd:: show ip pim [vrf NAME] upstream [A.B.C.D [A.B.C.D]] [json]
 
    Display upstream information about a S,G mroute.  Allow the user to
    specify sub Source and Groups that we are only interested in.
@@ -503,7 +503,7 @@ cause great confusion.
 
    Display upstream information for S,G's and the RPF data associated with them.
 
-.. clicmd:: show ip pim mlag upstream
+.. clicmd:: show ip pim [vrf NAME] mlag upstream [A.B.C.D [A.B.C.D]] [json]
 
    Display upstream entries that are synced across MLAG switches.
    Allow the user to specify sub Source and Groups address filters.

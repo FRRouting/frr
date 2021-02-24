@@ -257,9 +257,6 @@ internal or external.
    Enable a BGP protocol process with the specified ASN. After
    this statement you can input any `BGP Commands`.
 
-
-   Destroy a BGP protocol process with the specified ASN.
-
 .. clicmd:: bgp router-id A.B.C.D
 
    This command specifies the router-ID. If *bgpd* connects to *zebra* it gets
@@ -1204,6 +1201,13 @@ Route Aggregation-IPv6 Address Family
 
 Redistribution
 --------------
+
+Redistribution configuration should be placed under the ``address-family``
+section for the specific AF to redistribute into. Protocol availability for
+redistribution is determined by BGP AF; for example, you cannot redistribute
+OSPFv3 into ``address-family ipv4 unicast`` as OSPFv3 supports IPv6.
+
+.. clicmd:: redistribute <babel|connected|eigrp|isis|kernel|openfabric|ospf|ospf6|rip|ripng|sharp|static|table> [metric (0-4294967295)] [route-map WORD]
 
 Redistribute routes from other protocols into BGP.
 

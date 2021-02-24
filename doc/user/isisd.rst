@@ -129,6 +129,11 @@ ISIS Fast-Reroute
 
    Limit LFA backup computation up to the specified prefix priority.
 
+.. clicmd:: fast-reroute lfa tiebreaker [downstream | lowest-backup-metric | node-protecting] index (1-255) [level-1 | level-2]
+
+   Configure a tie-breaker for multiple LFA backups. Lower indexes are
+   processed first.
+
 .. clicmd:: fast-reroute load-sharing disable [level-1 | level-2]
 
    Disable load sharing across multiple LFA backups.
@@ -560,6 +565,8 @@ A Segment Routing configuration, with IPv4, IPv6, SRGB and MSD configuration.
     lsp-gen-interval 2
     segment-routing on
     segment-routing node-msd 8
+    segment-routing prefix 10.1.1.1/32 index 100 explicit-null
+    segment-routing prefix 2001:db8:1000::1/128 index 101 explicit-null
    !
 
 

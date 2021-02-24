@@ -339,16 +339,6 @@ The asterisk (*) marks the best, e.g. active, candidate path. Note that for segm
 retrieved via PCEP a random number based name is generated.
 
 
-.. clicmd:: show debugging pathd
-
-   Display the current status of the pathd debugging.
-
-
-.. clicmd:: show debugging pathd-pcep
-
-   Display the current status of the pcep module debugging.
-
-
 .. clicmd:: show sr-te pcep counters
 
    Display the counters from pceplib.
