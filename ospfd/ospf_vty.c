@@ -140,44 +140,37 @@ int ospf_oi_count(struct interface *ifp)
 		all_vrf = strmatch(vrf_name, "all");                           \
 	}
 
-static struct ospf *ospf_cmd_lookup_ospf(struct vty *vty,
-					 struct cmd_token *argv[],
-					 const int argc, uint32_t enable,
-					 unsigned short *instance)
+static int ospf_router_cmd_parse(struct vty *vty, struct cmd_token *argv[],
+				 const int argc, unsigned short *instance,
+				 const char **vrf_name)
 {
-	struct ospf *ospf = NULL;
 	int idx_vrf = 0, idx_inst = 0;
-	const char *vrf_name = NULL;
-	bool created = false;
 
 	*instance = 0;
-	if (argv_find(argv, argc, "(1-65535)", &idx_inst))
+	if (argv_find(argv, argc, "(1-65535)", &idx_inst)) {
+		if (ospf_instance == 0) {
+			vty_out(vty,
+				"%% OSPF is not running in instance mode\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
 		*instance = strtoul(argv[idx_inst]->arg, NULL, 10);
+	}
 
+	*vrf_name = NULL;
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
-		vrf_name = argv[idx_vrf + 1]->arg;
-		if (vrf_name == NULL || strmatch(vrf_name, VRF_DEFAULT_NAME))
-			vrf_name = NULL;
-		if (enable) {
-			/* Allocate VRF aware instance */
-			ospf = ospf_get(*instance, vrf_name, &created);
-		} else {
-			ospf = ospf_lookup_by_inst_name(*instance, vrf_name);
+		if (ospf_instance != 0) {
+			vty_out(vty,
+				"%% VRF is not supported in instance mode\n");
+			return CMD_WARNING_CONFIG_FAILED;
 		}
-	} else {
-		if (enable) {
-			ospf = ospf_get(*instance, NULL, &created);
-		} else {
-			ospf = ospf_lookup_instance(*instance);
-		}
+
+		*vrf_name = argv[idx_vrf + 1]->arg;
+		if (*vrf_name && strmatch(*vrf_name, VRF_DEFAULT_NAME))
+			*vrf_name = NULL;
 	}
 
-	if (created) {
-		if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
-			SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
-	}
-
-	return ospf;
+	return CMD_SUCCESS;
 }
 
 static void ospf_show_vrf_name(struct ospf *ospf, struct vty *vty,
@@ -213,27 +206,34 @@ DEFUN_NOSH (router_ospf,
        "Instance ID\n"
        VRF_CMD_HELP_STR)
 {
-	struct ospf *ospf = NULL;
-	int ret = CMD_SUCCESS;
-	unsigned short instance = 0;
+	unsigned short instance;
+	const char *vrf_name;
+	bool created = false;
+	struct ospf *ospf;
+	int ret;
 
-	ospf = ospf_cmd_lookup_ospf(vty, argv, argc, 1, &instance);
-	if (!ospf)
-		return CMD_WARNING_CONFIG_FAILED;
+	ret = ospf_router_cmd_parse(vty, argv, argc, &instance, &vrf_name);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
-	/* The following logic to set the vty qobj index is in place to be able
-	   to ignore the commands which dont belong to this instance. */
-	if (ospf->instance != instance) {
+	if (instance != ospf_instance) {
 		VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
-		ret = CMD_NOT_MY_INSTANCE;
-	} else {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
-				instance, ospf->name ? ospf->name : "NIL",
-				ospf->vrf_id, ospf->oi_running);
-		VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
+		return CMD_NOT_MY_INSTANCE;
 	}
+
+	ospf = ospf_get(instance, vrf_name, &created);
+
+	if (created)
+		if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+			SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug(
+			"Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
+			ospf->instance, ospf->name ? ospf->name : "NIL",
+			ospf->vrf_id, ospf->oi_running);
+
+	VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
 
 	return ret;
 }
@@ -247,19 +247,25 @@ DEFUN (no_router_ospf,
        "Instance ID\n"
        VRF_CMD_HELP_STR)
 {
+	unsigned short instance;
+	const char *vrf_name;
 	struct ospf *ospf;
-	unsigned short instance = 0;
+	int ret;
 
-	ospf = ospf_cmd_lookup_ospf(vty, argv, argc, 0, &instance);
-	if (ospf == NULL) {
-		if (instance)
-			return CMD_NOT_MY_INSTANCE;
-		else
-			return CMD_WARNING;
-	}
-	ospf_finish(ospf);
+	ret = ospf_router_cmd_parse(vty, argv, argc, &instance, &vrf_name);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
-	return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	ospf = ospf_lookup(instance, vrf_name);
+	if (ospf)
+		ospf_finish(ospf);
+	else
+		ret = CMD_WARNING_CONFIG_FAILED;
+
+	return ret;
 }
 
 
@@ -3381,11 +3387,11 @@ DEFUN (show_ip_ospf_instance,
 	json_object *json = NULL;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -4131,11 +4137,11 @@ DEFUN (show_ip_ospf_instance_interface,
 	json_object *json = NULL;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -4526,11 +4532,11 @@ DEFUN (show_ip_ospf_instance_neighbor,
 	int ret = CMD_SUCCESS;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -4741,11 +4747,11 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
 	int ret = CMD_SUCCESS;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 	if (uj)
 		json = json_object_new_object();
@@ -4881,11 +4887,11 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
 		show_ip_ospf_neighbour_header(vty);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (!uj)
@@ -5359,11 +5365,11 @@ DEFPY (show_ip_ospf_instance_neighbor_id,
 {
 	struct ospf *ospf;
 
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_id_common(vty, ospf, &router_id, !!json,
@@ -5532,11 +5538,11 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
 	int ret = CMD_SUCCESS;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -5727,11 +5733,11 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
 	int ret = CMD_SUCCESS;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -5859,11 +5865,11 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
 	bool uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, idx_ifname,
@@ -7136,10 +7142,11 @@ DEFUN (show_ip_ospf_instance_database,
 
 	if (argv_find(argv, argc, "(1-65535)", &idx)) {
 		instance = strtoul(argv[idx]->arg, NULL, 10);
-		ospf = ospf_lookup_instance(instance);
-		if (ospf == NULL)
+		if (instance != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
-		if (!ospf->oi_running)
+
+		ospf = ospf_lookup_instance(instance);
+		if (!ospf || !ospf->oi_running)
 			return CMD_SUCCESS;
 
 		return (show_ip_ospf_database_common(
@@ -7212,15 +7219,12 @@ DEFUN (show_ip_ospf_instance_database_max,
 		json = json_object_new_object();
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running) {
-		vty_out(vty, "%% OSPF instance not found\n");
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
-	}
 
 	show_ip_ospf_database_common(vty, ospf, 1, argc, argv, 0, json, uj);
 
@@ -7355,13 +7359,12 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 
 	if (argv_find(argv, argc, "(1-65535)", &idx)) {
 		instance = strtoul(argv[idx]->arg, NULL, 10);
-		ospf = ospf_lookup_instance(instance);
-		if (ospf == NULL)
+		if (instance != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
-		if (!ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found\n");
+
+		ospf = ospf_lookup_instance(instance);
+		if (!ospf || !ospf->oi_running)
 			return CMD_SUCCESS;
-		}
 
 		return (show_ip_ospf_database_type_adv_router_common(
 			vty, ospf, idx ? 1 : 0, argc, argv, use_vrf, json, uj));
@@ -8819,7 +8822,7 @@ DEFUN (ip_ospf_area,
 	else
 		ospf = ospf_lookup_instance(instance);
 
-	if (instance && ospf == NULL) {
+	if (instance && instance != ospf_instance) {
 		/*
 		 * At this point we know we have received
 		 * an instance and there is no ospf instance
@@ -8944,7 +8947,7 @@ DEFUN (no_ip_ospf_area,
 	else
 		ospf = ospf_lookup_instance(instance);
 
-	if (instance && ospf == NULL)
+	if (instance && instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	argv_find(argv, argc, "area", &idx);
@@ -10918,11 +10921,11 @@ DEFUN (show_ip_ospf_instance_border_routers,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_border_routers_common(vty, ospf, 0);
@@ -11086,11 +11089,11 @@ DEFUN (show_ip_ospf_instance_route,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_route_common(vty, ospf, NULL, 0);
@@ -11189,8 +11192,7 @@ DEFPY (clear_ip_ospf_neighbor,
 	 */
 	if (instance != 0) {
 		/* This means clear only the particular ospf process */
-		ospf = ospf_lookup_instance(instance);
-		if (ospf == NULL)
+		if (instance != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -11220,8 +11222,7 @@ DEFPY (clear_ip_ospf_process,
 	/* Check if instance is not passed as an argument */
 	if (instance != 0) {
 		/* This means clear only the particular ospf process */
-		ospf = ospf_lookup_instance(instance);
-		if (ospf == NULL)
+		if (instance != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -11545,7 +11546,6 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 	struct ospf_if_params *params;
 	const char *auth_str;
 	int write = 0;
-	struct ospf *ospf = vrf->info;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 
@@ -11698,9 +11698,9 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			/* Area  print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
-				if (ospf && ospf->instance)
+				if (ospf_instance)
 					vty_out(vty, " ip ospf %d",
-						ospf->instance);
+						ospf_instance);
 				else
 					vty_out(vty, " ip ospf");
 
