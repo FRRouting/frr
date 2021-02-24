@@ -11,7 +11,7 @@ Installing Dependencies
       git autoconf automake libtool make cmake pcre readline texinfo \
       pkg-config pam json-c bison flex python-pytest \
       c-ares python systemd python2-ipaddress python-sphinx \
-      systemd-libs net-snmp perl libcap
+      systemd-libs net-snmp perl libcap libelf
 
 .. include:: building-libyang.rst
 

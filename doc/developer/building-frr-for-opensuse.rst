@@ -13,7 +13,8 @@ Installing Dependencies
    zypper in  git autoconf automake libtool make   \
      readline-devel texinfo net-snmp-devel groff pkgconfig libjson-c-devel\
      pam-devel python3-pytest bison flex c-ares-devel python3-devel\
-     python3-Sphinx perl patch systemd-devel libcap-devel libyang-devel
+     python3-Sphinx perl patch systemd-devel libcap-devel libyang-devel \
+     libelf-devel
 
 Building & Installing FRR
 -------------------------

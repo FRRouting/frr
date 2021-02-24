@@ -11,7 +11,7 @@ Add packages:
    sudo apt-get install git autoconf automake libtool make \
      libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
      libc-ares-dev python3-dev python3-pytest python3-sphinx build-essential \
-     libsnmp-dev libsystemd-dev libcap-dev
+     libsnmp-dev libsystemd-dev libcap-dev libelf-dev
 
 .. include:: building-libyang.rst
 
