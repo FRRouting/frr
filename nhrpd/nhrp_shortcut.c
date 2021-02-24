@@ -212,7 +212,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c = NULL;
 	struct nhrp_cache *c_dst_proto = NULL;
-	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma, cie_proto_nat_ext;
+	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
 	char buf[4][SU_ADDRSTRLEN];
@@ -235,17 +235,6 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			       "Shortcut: Resolution failed");
 		}
 		return;
-	}
-
-
-	/* Parse extensions */
-	memset(&nat_nbma, 0, sizeof(nat_nbma));
-	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
-		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
-		case NHRP_EXTENSION_NAT_ADDRESS:
-			nhrp_cie_pull(&extpl, pp->hdr, &nat_nbma, &cie_proto_nat_ext);
-			break;
-		}
 	}
 
 	/* Minor sanity check */
@@ -283,17 +272,33 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			prefix.prefixlen = route_prefix.prefixlen;
 	}
 
+	/* Parse extensions */
+	memset(&nat_nbma, 0, sizeof(nat_nbma));
+	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
+		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
+		case NHRP_EXTENSION_NAT_ADDRESS: {
+			struct nhrp_cie_header *cie_nat;
+			do {
+				union sockunion cie_nat_proto, cie_nat_nbma;
+				sockunion_family(&cie_nat_proto) = AF_UNSPEC;
+				sockunion_family(&cie_nat_nbma) = AF_UNSPEC;
+				cie_nat = nhrp_cie_pull(&extpl, pp->hdr, &cie_nat_nbma, &cie_nat_proto);
+				/* We are interested only in peer CIE */
+				if (cie_nat && sockunion_same(&cie_nat_proto, proto)) {
+					nat_nbma = cie_nat_nbma;
+				}
+			} while (cie_nat);
+		} break;
+		default:
+			break;
+		}
+	}
+
 	/* Update cache entry for the protocol to nbma binding */
 	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
 		debugf(NHRP_DEBUG_COMMON,"Remote Device is NATTED, NHRP NAT Extension present");
-		debugf(NHRP_DEBUG_COMMON,"Client Protocol Address %s", sockunion2str(&cie_proto_nat_ext, buf[1], sizeof(buf[1])));
 		debugf(NHRP_DEBUG_COMMON,"Client NBMA Address %s", sockunion2str(&nat_nbma, buf[1], sizeof(buf[1])));
-		if (!sockunion_same(&cie_proto_nat_ext, proto)) {
-			debugf(NHRP_DEBUG_COMMON,"NHRP NAT extension does not match proto %s", sockunion2str(proto, buf[0], sizeof(buf[0])));
-			nbma = &cie_nbma;
-		} else {
-			nbma = &nat_nbma;
-		}
+		nbma = &nat_nbma;
     }
 	/* For NHRP resolution reply the cie_nbma in mandatory part is the address of the actual address of the sender */
     else if (!sockunion_same(&cie_nbma, &pp->peer->vc->remote.nbma) && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp)) {
