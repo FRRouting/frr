@@ -20,6 +20,7 @@
 #ifndef _FRR_TYPERB_H
 #define _FRR_TYPERB_H
 
+#include <string.h>
 #include "typesafe.h"
 
 #ifdef __cplusplus
