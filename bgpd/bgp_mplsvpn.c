@@ -544,7 +544,9 @@ static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
 		}
 
 		for (size_t i = 1; i < 255; i++) {
-			sid_buf.s6_addr16[7] = i;
+			sid_buf.s6_addr[15] = (i & 0xff00) >> 8;
+			sid_buf.s6_addr[14] = (i & 0x00ff);
+
 			if (sid_exist(bgp, &sid_buf))
 				continue;
 			alloced = true;
