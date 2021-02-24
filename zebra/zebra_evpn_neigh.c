@@ -2464,7 +2464,7 @@ int zebra_evpn_neigh_del_ip(zebra_evpn_t *zevpn, struct ipaddr *ip)
 
 	/* see if the AUTO mac needs to be deleted */
 	if (CHECK_FLAG(zmac->flags, ZEBRA_MAC_AUTO)
-	    && !listcount(zmac->neigh_list))
+	    && !zebra_evpn_mac_in_use(zmac))
 		zebra_evpn_mac_del(zevpn, zmac);
 
 	return 0;

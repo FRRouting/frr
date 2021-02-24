@@ -1183,6 +1183,11 @@ void zebra_if_update_all_links(void)
 						zif->link?zif->link->name:"unk",
 						zif->link_ifindex);
 		}
+
+		/* Update VLAN<=>SVI map */
+		if (IS_ZEBRA_IF_VLAN(ifp))
+			zebra_evpn_acc_bd_svi_set(zif, NULL,
+						  !!if_is_operative(ifp));
 	}
 }
 
