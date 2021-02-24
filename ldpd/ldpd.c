@@ -86,6 +86,30 @@ static struct imsgev	*iev_lde, *iev_lde_sync;
 static pid_t		 ldpe_pid;
 static pid_t		 lde_pid;
 
+static struct frr_daemon_info ldpd_di;
+
+DEFINE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm))
+
+static void ldp_load_module(const char *name)
+{
+	const char *dir;
+	dir = ldpd_di.module_path ? ldpd_di.module_path : frr_moduledir;
+	char moderr[256];
+	struct frrmod_runtime *module;
+
+	module = frrmod_load(name, dir, moderr, sizeof(moderr));
+	if (!module) {
+		fprintf(stderr, "%s: failed to load %s", __func__, name);
+		log_warnx("%s: failed to load %s", __func__, name);
+	}
+}
+
+void ldp_agentx_enabled(void)
+{
+	ldp_load_module("snmp");
+	hook_call(ldp_register_mib, master);
+}
+
 enum ldpd_process ldpd_process;
 
 #define LDP_DEFAULT_CONFIG	"ldpd.conf"
@@ -93,8 +117,6 @@ enum ldpd_process ldpd_process;
 
 /* Master of threads. */
 struct thread_master *master;
-
-static struct frr_daemon_info ldpd_di;
 
 /* ldpd privileges */
 static zebra_capabilities_t _caps_p [] =
@@ -1342,6 +1364,9 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		if (ldpd_process == PROC_LDP_ENGINE)
 			ldpe_reset_ds_nbrs();
 	}
+
+	if (ldpd_process == PROC_LDP_ENGINE)
+		ldpe_set_config_change_time();
 
 	conf->flags = xconf->flags;
 }

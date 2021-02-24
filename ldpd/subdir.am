@@ -41,6 +41,10 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/util.c \
 	# end
 
+if SNMP
+module_LTLIBRARIES += ldpd/ldpd_snmp.la
+endif
+
 clippy_scan += \
 	ldpd/ldp_vty_cmds.c \
 	# end
@@ -59,3 +63,8 @@ noinst_HEADERS += \
 
 ldpd_ldpd_SOURCES = ldpd/ldpd.c
 ldpd_ldpd_LDADD = ldpd/libldp.a lib/libfrr.la $(LIBCAP)
+
+ldpd_ldpd_snmp_la_SOURCES = ldpd/ldp_snmp.c
+ldpd_ldpd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
+ldpd_ldpd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ldpd_ldpd_snmp_la_LIBADD = lib/libfrrsnmp.la

@@ -33,6 +33,7 @@
 #include "memory.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "libfrr.h"
 
 static void	 ldpe_shutdown(void);
 static int	 ldpe_dispatch_main(struct thread *);
@@ -103,15 +104,13 @@ char *pkt_ptr; /* packet buffer */
 void
 ldpe(void)
 {
-	struct thread		 thread;
-
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("ldp engine");
 #endif
 	ldpd_process = PROC_LDP_ENGINE;
 	log_procname = log_procnames[ldpd_process];
 
-	master = thread_master_create(NULL);
+	master = frr_init();
 
 	/* setup signal handler */
 	signal_init(master, array_size(ldpe_signals), ldpe_signals);
@@ -133,9 +132,12 @@ ldpe(void)
 	/* create base configuration */
 	leconf = config_new_empty();
 
-	/* Fetch next active thread. */
+	struct thread thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
+
+	/* NOTREACHED */
+	return;
 }
 
 void
@@ -386,6 +388,9 @@ ldpe_dispatch_main(struct thread *thread)
 
 			memcpy(&init, imsg.data, sizeof(init));
 			ldpe_init(&init);
+			break;
+		case IMSG_AGENTX_ENABLED:
+			ldp_agentx_enabled();
 			break;
 		case IMSG_CLOSE_SOCKETS:
 			af = imsg.hdr.peerid;
@@ -1072,4 +1077,11 @@ ldpe_check_filter_af(int af, struct ldpd_af_conf *af_conf,
 {
 	if (strcmp(af_conf->acl_thello_accept_from, filter_name) == 0)
 		ldpe_remove_dynamic_tnbrs(af);
+}
+
+void
+ldpe_set_config_change_time(void)
+{
+	/* SNMP update time when ever there is a config change */
+	leconf->config_change_time = time(NULL);
 }

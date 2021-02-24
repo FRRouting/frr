@@ -127,15 +127,13 @@ static struct quagga_signal_t lde_signals[] =
 void
 lde(void)
 {
-	struct thread		 thread;
-
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("label decision engine");
 #endif
 	ldpd_process = PROC_LDE_ENGINE;
 	log_procname = log_procnames[PROC_LDE_ENGINE];
 
-	master = thread_master_create(NULL);
+	master = frr_init();
 
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);
@@ -157,9 +155,12 @@ lde(void)
 	/* create base configuration */
 	ldeconf = config_new_empty();
 
-	/* Fetch next active thread. */
+	struct thread thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
+
+	/* NOTREACHED */
+	return;
 }
 
 void
@@ -565,6 +566,9 @@ lde_dispatch_parent(struct thread *thread)
 
 			memcpy(&init, imsg.data, sizeof(init));
 			lde_init(&init);
+			break;
+		case IMSG_AGENTX_ENABLED:
+			ldp_agentx_enabled();
 			break;
 		case IMSG_RECONF_CONF:
 			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
