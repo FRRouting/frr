@@ -244,8 +244,8 @@ static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
 			ensure_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);
 
 		if (sid_diff(bgp_vrf->vpn_policy[afi].tovpn_sid,
-			     bgp_vrf->vpn_policy[afi].
-			     tovpn_zebra_vrf_sid_last_sent)) {
+			     bgp_vrf->vpn_policy[afi]
+				     .tovpn_zebra_vrf_sid_last_sent)) {
 			vpn_leak_zebra_vrf_sid_update(bgp_vrf, afi);
 		}
 

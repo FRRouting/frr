@@ -9269,9 +9269,10 @@ DEFPY (af_sid_vpn_export,
 				       BGP_VPN_POLICY_TOVPN_SID_AUTO)))
 		return CMD_SUCCESS;
 
-	/* mode change between sid_idx and sid_auto isn't supported.
-	 * user must negate sid vpn export when they want to change
-	 * the mode */
+	/*
+	 * mode change between sid_idx and sid_auto isn't supported.
+	 * user must negate sid vpn export when they want to change the mode
+	 */
 	if ((sid_auto && bgp->vpn_policy[afi].tovpn_sid_index != 0)
 	    || (sid_idx != 0 && CHECK_FLAG(bgp->vpn_policy[afi].flags,
 					   BGP_VPN_POLICY_TOVPN_SID_AUTO))) {
@@ -9948,16 +9949,18 @@ DEFPY (bgp_srv6_locator,
        "Specify SRv6 locator\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int ret;
 
 	if (strlen(bgp->srv6_locator_name) > 0
 	    && strcmp(name, bgp->srv6_locator_name) != 0) {
 		vty_out(vty, "srv6 locator is already configured\n");
 		return CMD_WARNING_CONFIG_FAILED;
-	} else
-		snprintf(bgp->srv6_locator_name,
-			 sizeof(bgp->srv6_locator_name), "%s", name);
+	}
 
-	int ret = bgp_zebra_srv6_manager_get_locator_chunk(name);
+	snprintf(bgp->srv6_locator_name,
+		 sizeof(bgp->srv6_locator_name), "%s", name);
+
+	ret = bgp_zebra_srv6_manager_get_locator_chunk(name);
 	if (ret < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
