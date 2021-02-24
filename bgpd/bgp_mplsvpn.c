@@ -366,7 +366,7 @@ void vpn_leak_zebra_vrf_sid_update(struct bgp *bgp, afi_t afi)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	enum seg6local_action_t act;
-	struct seg6local_context ctx = {{0}};
+	struct seg6local_context ctx = { {0} };
 	struct in6_addr *tovpn_sid = NULL;
 	struct in6_addr *tovpn_sid_ls = NULL;
 	struct vrf *vrf;
@@ -374,8 +374,7 @@ void vpn_leak_zebra_vrf_sid_update(struct bgp *bgp, afi_t afi)
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
-			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, "
-				   "can't set zebra vrf label",
+			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, can't set zebra vrf label",
 				   __func__, bgp->name_pretty, afi2str(afi));
 		return;
 	}
@@ -419,8 +418,7 @@ void vpn_leak_zebra_vrf_sid_withdraw(struct bgp *bgp, afi_t afi)
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
-			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, "
-				   "can't set zebra vrf label",
+			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, can't set zebra vrf label",
 				   __func__, bgp->name_pretty, afi2str(afi));
 		return;
 	}
@@ -513,14 +511,17 @@ static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
 {
 	struct listnode *node;
 	struct bgp_srv6_function *func;
+
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func))
 		if (sid_same(&func->sid, sid))
 			return true;
 	return false;
 }
 
-/* if index != 0: try to allocate as index-mode
- * else: try to allocate as auto-mode */
+/*
+ * if index != 0: try to allocate as index-mode
+ * else: try to allocate as auto-mode
+ */
 static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
 			  struct in6_addr *sid)
 {
@@ -540,14 +541,14 @@ static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
 				return false;
 			alloced = true;
 			break;
-		} else {
-			for (size_t i=1; i<255; i++) {
-				sid_buf.s6_addr16[7] = i;
-				if (sid_exist(bgp, &sid_buf))
-					continue;
-				alloced = true;
-				break;
-			}
+		}
+
+		for (size_t i = 1; i < 255; i++) {
+			sid_buf.s6_addr16[7] = i;
+			if (sid_exist(bgp, &sid_buf))
+				continue;
+			alloced = true;
+			break;
 		}
 	}
 
@@ -576,8 +577,10 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid)
 		return;
 
-	/* skip when bgp vpn instance ins't allocated
-	 * or srv6 locator chunk isn't allocated */
+	/*
+	 * skip when bgp vpn instance ins't allocated
+	 * or srv6 locator chunk isn't allocated
+	 */
 	if (!bgp_vpn || !bgp_vpn->srv6_locator_chunks || !bgp_vrf)
 		return;
 
@@ -611,7 +614,6 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 			   afi2str(afi));
 	}
 	bgp_vrf->vpn_policy[afi].tovpn_sid = sid;
-	return;
 }
 
 static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
@@ -705,9 +707,8 @@ static void setsids(struct bgp_path_info *bpi,
 	}
 
 	extra = bgp_path_info_extra_get(bpi);
-	for (i = 0; i < num_sids; i++) {
+	for (i = 0; i < num_sids; i++)
 		memcpy(&extra->sid[i], &sid[i], sizeof(struct in6_addr));
-	}
 	extra->num_sids = num_sids;
 }
 
@@ -726,8 +727,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	struct bgp_path_info *bpi;
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp_path_info *new;
-
 	uint32_t num_sids = 0;
+
 	if (new_attr->srv6_l3vpn || new_attr->srv6_vpn)
 		num_sids = 1;
 
@@ -813,9 +814,11 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		 */
 		if (num_sids) {
 			if (new_attr->srv6_l3vpn)
-				setsids(bpi, &new_attr->srv6_l3vpn->sid, num_sids);
+				setsids(bpi, &new_attr->srv6_l3vpn->sid,
+					num_sids);
 			else if (new_attr->srv6_vpn)
-				setsids(bpi, &new_attr->srv6_vpn->sid, num_sids);
+				setsids(bpi, &new_attr->srv6_vpn->sid,
+					num_sids);
 		}
 
 		if (nexthop_self_flag)
@@ -1149,7 +1152,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 	/* Set SID for SRv6 VPN */
 	if (!sid_zero(bgp_vrf->vpn_policy[afi].tovpn_sid)) {
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
-				sizeof(struct bgp_attr_srv6_l3vpn)* 100);
+				sizeof(struct bgp_attr_srv6_l3vpn) * 100);
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
 		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
 		memcpy(&static_attr.srv6_l3vpn->sid,

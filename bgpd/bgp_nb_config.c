@@ -11451,8 +11451,8 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vpn_modify(
 		if (!bgp)
 			return NB_OK;
 
-		if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type
-		    && BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF
+		    && bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"import|export vpn valid only for bgp vrf or default instance");
@@ -11491,8 +11491,8 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_vpn_modify(
 		if (!bgp)
 			return NB_OK;
 
-		if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type
-		    && BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF
+		    && bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"import|export vpn valid only for bgp vrf or default instance");
