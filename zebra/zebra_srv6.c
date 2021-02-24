@@ -220,7 +220,7 @@ static int zebra_srv6_manager_get_locator_chunk(struct srv6_locator **loc,
 			  (*loc)->name, zebra_route_string(client->proto),
 			  client->instance);
 
-	if ((*loc)->status_up)
+	if (*loc && (*loc)->status_up)
 		ret = zsend_srv6_manager_get_locator_chunk_response(client,
 								    vrf_id,
 								    *loc);
