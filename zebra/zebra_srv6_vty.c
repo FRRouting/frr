@@ -147,29 +147,30 @@ DEFUN (show_srv6_locator_detail,
 	if (uj) {
 		vty_out(vty, "JSON format isn't supported\n");
 		return CMD_WARNING;
-	} else {
-		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
-			if (strcmp(locator->name, locator_name) != 0) {
-				continue;
-			}
-
-			prefix2str(&locator->prefix, str, sizeof(str));
-			vty_out(vty, "Name: %s\n", locator->name);
-			vty_out(vty, "Prefix: %s\n", str);
-			vty_out(vty, "Function-Bit-Len: %u\n",
-				locator->function_bits_length);
-
-			vty_out(vty, "Chunks:\n");
-			struct listnode *node;
-			struct srv6_locator_chunk *chunk;
-			for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node, chunk)) {
-				prefix2str(&chunk->prefix, str, sizeof(str));
-				vty_out(vty, "- prefix: %s, owner: %s\n", str,
-					zebra_route_string(chunk->proto));
-			}
-		}
-
 	}
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+		struct listnode *node;
+		struct srv6_locator_chunk *chunk;
+
+		if (strcmp(locator->name, locator_name) != 0)
+			continue;
+
+		prefix2str(&locator->prefix, str, sizeof(str));
+		vty_out(vty, "Name: %s\n", locator->name);
+		vty_out(vty, "Prefix: %s\n", str);
+		vty_out(vty, "Function-Bit-Len: %u\n",
+			locator->function_bits_length);
+
+		vty_out(vty, "Chunks:\n");
+		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node,
+					  chunk)) {
+			prefix2str(&chunk->prefix, str, sizeof(str));
+			vty_out(vty, "- prefix: %s, owner: %s\n", str,
+				zebra_route_string(chunk->proto));
+		}
+	}
+
 
 	return CMD_SUCCESS;
 }
@@ -264,16 +265,23 @@ DEFUN (locator_prefix,
 	} else {
 		for (ALL_LIST_ELEMENTS_RO(locator->chunks, node, chunk)) {
 			uint8_t zero[16] = {0};
+
 			if (memcmp(&chunk->prefix.prefix, zero, 16) == 0) {
 				struct zserv *client;
 				struct listnode *client_node;
+
 				chunk->prefix = prefix;
-				for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, client_node, client)) {
+				for (ALL_LIST_ELEMENTS_RO(zrouter.client_list,
+							  client_node,
+							  client)) {
+					struct srv6_locator *tmp;
+
 					if (client->proto != chunk->proto)
 						continue;
-					struct srv6_locator *tmp;
 					srv6_manager_get_locator_chunk_call(
-							&tmp, client, locator->name, VRF_DEFAULT);
+							&tmp, client,
+							locator->name,
+							VRF_DEFAULT);
 				}
 			}
 		}

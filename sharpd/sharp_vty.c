@@ -318,6 +318,7 @@ DEFPY (install_routes,
 	} else if (seg6l_oif) {
 		struct seg6local_context ctx;
 		enum seg6local_action_t action;
+
 		memset(&ctx, 0, sizeof(struct seg6local_context));
 		if (seg6l_enddx4) {
 			action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
@@ -1047,7 +1048,8 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &show_sharp_ted_cmd);
 
 	install_element(ENABLE_NODE, &sharp_srv6_manager_get_locator_chunk_cmd);
-	install_element(ENABLE_NODE, &sharp_srv6_manager_release_locator_chunk_cmd);
+	install_element(ENABLE_NODE,
+			&sharp_srv6_manager_release_locator_chunk_cmd);
 	install_element(ENABLE_NODE, &show_sharp_segment_routing_srv6_cmd);
 
 	return;

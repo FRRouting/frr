@@ -338,7 +338,8 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 					 uint32_t nhgid,
 					 const struct nexthop_group *nhg,
 					 const struct nexthop_group *backup_nhg,
-					 uint32_t routes, uint32_t flags, char *opaque)
+					 uint32_t routes, uint32_t flags,
+					 char *opaque)
 {
 	uint32_t temp, i;
 	bool v4 = false;
@@ -924,7 +925,7 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-int sharp_zebra_srv6_manager_get_locator_chunk(const char* locator_name)
+int sharp_zebra_srv6_manager_get_locator_chunk(const char *locator_name)
 {
 	return srv6_manager_get_locator_chunk(zclient, locator_name);
 }
@@ -942,6 +943,7 @@ static void sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	uint16_t len;
 	char name[256] = {0};
 	struct prefix_ipv6 *chunk = NULL;
+
 	chunk = prefix_ipv6_new();
 
 	s = zclient->ibuf;
@@ -965,16 +967,17 @@ static void sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 
 	struct listnode *loc_node;
 	struct sharp_srv6_locator *loc;
+
 	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+		struct listnode *chunk_node;
+		struct prefix_ipv6 *c;
+
 		if (strcmp(loc->name, name))
 			continue;
 
-		struct listnode *chunk_node;
-		struct prefix_ipv6 *c;
-		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, c)) {
+		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, c))
 			if (!prefix_cmp(c, chunk))
 				return;
-		}
 		listnode_add(loc->chunks, chunk);
 	}
 	return;
@@ -983,7 +986,6 @@ stream_failure:
 	free(chunk);
 
 	zlog_err("%s: can't get locator_chunk!!", __func__);
-	return;
 }
 
 void sharp_zebra_init(void)
@@ -1007,5 +1009,6 @@ void sharp_zebra_init(void)
 	zclient->redistribute_route_add = sharp_redistribute_route;
 	zclient->redistribute_route_del = sharp_redistribute_route;
 	zclient->opaque_msg_handler = sharp_opaque_handler;
-	zclient->process_srv6_locator_chunk = sharp_zebra_process_srv6_locator_chunk;
+	zclient->process_srv6_locator_chunk =
+		sharp_zebra_process_srv6_locator_chunk;
 }

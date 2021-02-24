@@ -115,6 +115,7 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 void zebra_srv6_locator_delete(struct srv6_locator *locator)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+
 	listnode_delete(srv6->locators, locator);
 }
 
@@ -206,6 +207,8 @@ static int zebra_srv6_manager_get_locator_chunk(struct srv6_locator **loc,
 						const char *locator_name,
 						vrf_id_t vrf_id)
 {
+	int ret = 0;
+
 	*loc = assign_srv6_locator_chunk(client->proto, client->instance,
 					 client->session_id, locator_name);
 
@@ -217,7 +220,6 @@ static int zebra_srv6_manager_get_locator_chunk(struct srv6_locator **loc,
 			  (*loc)->name, zebra_route_string(client->proto),
 			  client->instance);
 
-	int ret = 0;
 	if ((*loc)->status_up)
 		ret = zsend_srv6_manager_get_locator_chunk_response(client,
 								    vrf_id,
@@ -244,9 +246,8 @@ static int release_srv6_locator_chunk(uint8_t proto, uint16_t instance,
 	struct srv6_locator *loc = NULL;
 
 	loc = zebra_srv6_locator_lookup(locator_name);
-	if (!loc) {
+	if (!loc)
 		return -1;
-	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Releasing srv6-locator on %s", __func__,

@@ -474,7 +474,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
-	struct seg6local_context seg6l_ctx = {{0}};
+	struct seg6local_context seg6l_ctx = { {0} };
 	struct in6_addr seg6_segs = {0};
 	int num_segs = 0;
 
@@ -556,7 +556,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
-	struct seg6local_context seg6l_ctx = {{0}};
+	struct seg6local_context seg6l_ctx = { {0} };
 	struct in6_addr seg6_segs = {0};
 	int num_segs = 0;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
@@ -1336,6 +1336,7 @@ static size_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	struct seg6_iptunnel_encap *ipt;
 	struct ipv6_sr_hdr *srh;
 	const size_t srhlen = 24;
+
 	memset(buffer, 0, buflen);
 
 	ipt = (struct seg6_iptunnel_encap *)buffer;
@@ -2479,16 +2480,16 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					break;
 				case SEG6_LOCAL_ACTION_END_DX4:
 					nl_attr_put32(&req->n, buflen,
-						      SEG6_LOCAL_ACTION,
-						      SEG6_LOCAL_ACTION_END_DX4);
+						SEG6_LOCAL_ACTION,
+						SEG6_LOCAL_ACTION_END_DX4);
 					nl_attr_put(&req->n, buflen,
 						    SEG6_LOCAL_NH4, &ctx->nh4,
 						    sizeof(struct in_addr));
 					break;
 				case SEG6_LOCAL_ACTION_END_DT6:
 					nl_attr_put32(&req->n, buflen,
-						      SEG6_LOCAL_ACTION,
-						      SEG6_LOCAL_ACTION_END_DT6);
+						SEG6_LOCAL_ACTION,
+						SEG6_LOCAL_ACTION_END_DT6);
 					nl_attr_put32(&req->n, buflen,
 						      SEG6_LOCAL_TABLE,
 						      ctx->table);
