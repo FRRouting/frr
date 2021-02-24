@@ -288,6 +288,7 @@ DEFPY (locator_prefix,
 
 					if (client->proto != chunk->proto)
 						continue;
+
 					srv6_manager_get_locator_chunk_call(
 							&tmp, client,
 							locator->name,
