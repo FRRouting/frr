@@ -25,6 +25,7 @@
 #include <net-snmp/agent/snmp_vars.h>
 
 #include "thread.h"
+#include "hook.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,6 +104,7 @@ struct index_oid {
 #define SNMP_IP6ADDRESS(V) (*var_len = sizeof(struct in6_addr), (uint8_t *)&V)
 
 extern void smux_init(struct thread_master *tm);
+extern void smux_agentx_enable(void);
 extern void smux_register_mib(const char *, struct variable *, size_t, int,
 			      oid[], size_t);
 extern int smux_header_generic(struct variable *, oid[], size_t *, int,
@@ -150,6 +152,8 @@ extern void oid_copy_addr(oid[], const struct in_addr *, int);
 extern void oid_copy_int(oid oid[], int *val);
 extern void oid2string(oid oid[], int len, char *string);
 extern void oid_copy_str(oid oid[], const char *string, int len);
+
+DECLARE_HOOK(agentx_enabled, (), ())
 
 #ifdef __cplusplus
 }
