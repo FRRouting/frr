@@ -569,20 +569,18 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	while ((ext = nhrp_ext_pull(&pp->extensions, &payload)) != NULL) {
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS:
-
-			if (sockunion_family(&nifp->nat_nbma) == AF_UNSPEC)
-				break;
-
 			ext = nhrp_ext_push(zb, hdr,
 					    NHRP_EXTENSION_NAT_ADDRESS);
 			if (!ext)
 				goto err;
-			cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
+			if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC) {
+				cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
 					    &nifp->nat_nbma, &pp->if_ad->addr);
-			if (!cie)
-				goto err;
-			cie->mtu = htons(pp->if_ad->mtu);
-			nhrp_ext_complete(zb, ext);
+				if (!cie)
+					goto err;
+				cie->mtu = htons(pp->if_ad->mtu);
+				nhrp_ext_complete(zb, ext);
+			}
 			break;
 		default:
 			if (nhrp_ext_reply(zb, hdr, ifp, ext, &payload) < 0)
