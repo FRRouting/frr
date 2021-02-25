@@ -622,6 +622,10 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 						    &pp->if_ad->addr);
 				if (!cie)
 					goto err;
+				cie->prefix_length =
+					8 * sockunion_get_addrlen(
+							&pp->if_ad->addr);
+
 				cie->mtu = htons(pp->if_ad->mtu);
 				nhrp_ext_complete(zb, ext);
 			}
