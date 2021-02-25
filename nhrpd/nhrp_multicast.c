@@ -50,7 +50,7 @@ static void nhrp_multicast_send(struct nhrp_peer *p, struct zbuf *zb)
 		   sockunion_get_addr(&p->vc->remote.nbma),
 		   addrlen, addrlen == 4 ? 0x0800 : 0x86DD);
 
-	debugf(NHRP_DEBUG_COMMON, "Multicast Packet: %s -> %s, ret = %d, size = %d, addrlen = %d",
+	debugf(NHRP_DEBUG_COMMON, "Multicast Packet: %s -> %s, ret = %d, size = %zu, addrlen = %zu",
 		   sockunion2str(&p->vc->local.nbma, buf[0], sizeof(buf[0])),
 		   sockunion2str(&p->vc->remote.nbma, buf[1], sizeof(buf[1])),
 		   ret, zbuf_used(zb), addrlen);
