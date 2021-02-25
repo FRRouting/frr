@@ -327,9 +327,9 @@ int zebra_evpn_neigh_send_add_to_client(vni_t vni, struct ipaddr *ip,
 	if (CHECK_FLAG(neigh_flags, ZEBRA_NEIGH_SVI_IP))
 		SET_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP);
 
-	return zebra_evpn_macip_send_msg_to_client(
-		vni, macaddr, ip, flags, seq, ZEBRA_NEIGH_ACTIVE,
-		zmac ? zmac->es : NULL, ZEBRA_MACIP_ADD);
+	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, ip, flags, seq,
+						   ZEBRA_NEIGH_ACTIVE, zmac->es,
+						   ZEBRA_MACIP_ADD);
 }
 
 /*
@@ -1370,7 +1370,7 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 			return -1;
 		}
 
-		memset(&zmac->fwd_info, 0, sizeof(zmac->fwd_info));
+		zebra_evpn_mac_clear_fwd_info(zmac);
 		memset(&zmac->flags, 0, sizeof(uint32_t));
 		SET_FLAG(zmac->flags, ZEBRA_MAC_AUTO);
 	} else {

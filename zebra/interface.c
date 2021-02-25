@@ -241,6 +241,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 #endif /* HAVE_RTADV */
 
 		zebra_evpn_if_cleanup(zebra_if);
+		zebra_evpn_mac_ifp_del(ifp);
 
 		if_nhg_dependents_release(ifp);
 		zebra_if_nhg_dependents_free(zebra_if);
@@ -826,6 +827,7 @@ void if_delete_update(struct interface *ifp)
 		memset(&zif->brslave_info, 0,
 		       sizeof(struct zebra_l2info_brslave));
 		zebra_evpn_if_cleanup(zif);
+		zebra_evpn_mac_ifp_del(ifp);
 	}
 
 	if (!ifp->configured) {
@@ -1603,6 +1605,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 					bond_slave->bond_ifindex);
 		}
 	}
+
+	if (zebra_if->flags & ZIF_FLAG_LACP_BYPASS)
+		vty_out(vty, "  LACP bypass: on\n");
 
 	zebra_evpn_if_es_print(vty, zebra_if);
 	vty_out(vty, "  protodown: %s %s\n",

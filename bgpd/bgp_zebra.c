@@ -2660,6 +2660,7 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 	char buf[ESI_STR_LEN];
 	struct in_addr originator_ip;
 	uint8_t active;
+	uint8_t bypass;
 	uint16_t df_pref;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
@@ -2671,14 +2672,16 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 	originator_ip.s_addr = stream_get_ipv4(s);
 	active = stream_getc(s);
 	df_pref = stream_getw(s);
+	bypass = stream_getc(s);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug(
-			"Rx add ESI %s originator-ip %pI4 active %u df_pref %u",
-			esi_to_str(&esi, buf, sizeof(buf)),
-			&originator_ip, active, df_pref);
+			"Rx add ESI %s originator-ip %pI4 active %u df_pref %u %s",
+			esi_to_str(&esi, buf, sizeof(buf)), &originator_ip,
+			active, df_pref, bypass ? "bypass" : "");
 
-	bgp_evpn_local_es_add(bgp, &esi, originator_ip, active, df_pref);
+	bgp_evpn_local_es_add(bgp, &esi, originator_ip, active, df_pref,
+			      !!bypass);
 
 	return 0;
 }
