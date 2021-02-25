@@ -144,7 +144,7 @@ static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 		zlog_debug("send End-of-RIB for %s to %s",
 			   get_afi_safi_str(afi, safi, false), peer->host);
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
@@ -726,7 +726,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	/* ============================================== */
 
 	/* Allocate new stream. */
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make notify packet. */
 	bgp_packet_set_marker(s, BGP_MSG_NOTIFY);
@@ -864,7 +864,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
 	if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
@@ -963,7 +963,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_CAPABILITY);

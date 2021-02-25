@@ -538,6 +538,22 @@ static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 	return as4;
 }
 
+static int bgp_capability_ext_message(struct peer *peer,
+				      struct capability_header *hdr)
+{
+	if (hdr->length != CAPABILITY_CODE_EXT_MESSAGE_LEN) {
+		flog_err(
+			EC_BGP_PKT_OPEN,
+			"%s: BGP Extended Message capability has incorrect data length %d",
+			peer->host, hdr->length);
+		return -1;
+	}
+
+	SET_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV);
+
+	return 0;
+}
+
 static int bgp_capability_addpath(struct peer *peer,
 				  struct capability_header *hdr)
 {
@@ -761,6 +777,7 @@ static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_ORF_OLD, "ORF (Old)"},
 	{CAPABILITY_CODE_FQDN, "FQDN"},
 	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
+	{CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message"},
 	{0}};
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
@@ -778,6 +795,7 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_ORF_OLD] = CAPABILITY_CODE_ORF_LEN,
 		[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
 		[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
+		[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
 };
 
 /* value the capability must be a multiple of.
@@ -799,6 +817,7 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_ORF_OLD] = 1,
 		[CAPABILITY_CODE_FQDN] = 1,
 		[CAPABILITY_CODE_ENHANCED_RR] = 1,
+		[CAPABILITY_CODE_EXT_MESSAGE] = 1,
 };
 
 /**
@@ -867,6 +886,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHANCED_RR:
+		case CAPABILITY_CODE_EXT_MESSAGE:
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
@@ -954,6 +974,9 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			break;
 		case CAPABILITY_CODE_ENHE:
 			ret = bgp_capability_enhe(peer, &caphdr);
+			break;
+		case CAPABILITY_CODE_EXT_MESSAGE:
+			ret = bgp_capability_ext_message(peer, &caphdr);
 			break;
 		case CAPABILITY_CODE_FQDN:
 			ret = bgp_capability_hostname(peer, &caphdr);
@@ -1190,6 +1213,12 @@ int bgp_open_option_parse(struct peer *peer, uint8_t length, int *mp_capability)
 			return -1;
 		}
 	}
+
+	/* Extended Message Support */
+	peer->max_packet_size =
+		CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV)
+			? BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE
+			: BGP_MAX_PACKET_SIZE;
 
 	/* Check there are no common AFI/SAFIs and send Unsupported Capability
 	   error. */
@@ -1475,6 +1504,13 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 	else
 		local_as = peer->local_as;
 	stream_putl(s, local_as);
+
+	/* Extended Message Support */
+	SET_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV);
+	stream_putc(s, BGP_OPEN_OPT_CAP);
+	stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE_LEN + 2);
+	stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE);
+	stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE_LEN);
 
 	/* AddPath */
 	FOREACH_AFI_SAFI (afi, safi) {

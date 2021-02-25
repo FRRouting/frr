@@ -898,11 +898,13 @@ next:
 			packet = stream_dup(s);
 		bgp_packet_set_size(packet);
 		if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64" send UPDATE len %zd numpfx %d",
-				   subgrp->update_group->id, subgrp->id,
-				   (stream_get_endp(packet)
-				    - stream_get_getp(packet)),
-				   num_pfx);
+			zlog_debug(
+				"u%" PRIu64 ":s%" PRIu64
+				" send UPDATE len %zd (max message len: %hu) numpfx %d",
+				subgrp->update_group->id, subgrp->id,
+				(stream_get_endp(packet)
+				 - stream_get_getp(packet)),
+				peer->max_packet_size, num_pfx);
 		pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), packet, &vecarr);
 		stream_reset(s);
 		stream_reset(snlri);
@@ -1128,7 +1130,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 			   tx_id_buf, attrstr);
 	}
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
@@ -1206,7 +1208,7 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 			   tx_id_buf);
 	}
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
