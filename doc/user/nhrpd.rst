@@ -180,6 +180,34 @@ https://git-old.alpinelinux.org/user/tteras/strongswan/
 Actively maintained patches are also available at:
 https://gitlab.alpinelinux.org/alpine/aports/-/tree/master/main/strongswan
 
+.. _multicast-functionality:
+
+Multicast Functionality
+=======================
+
+nhrpd can be configured to forward multicast packets, allowing routing
+protocols that use multicast (such as OSPF) to be supported in the DMVPN
+network.
+
+This support requires an NFLOG redirection rule to work:
+
+ .. code-block:: shell
+
+   iptables -I OUTPUT -d 224.0.0.0/24 -o gre1 -j NFLOG --nflog-group 2
+
+.. index::  nhrp multicast-nflog-group (1-65535)
+.. clicmd:: nhrp multicast-nflog-group (1-65535)
+
+   Sets the nflog group that nhrpd will listen on for multicast packets. This
+   value must match the nflog-group value set in the iptables rule.
+
+.. index::  ip nhrp map multicast A.B.C.D|X:X::X:X A.B.C.D|dynamic
+.. clicmd:: ip nhrp map multicast A.B.C.D|X:X::X:X A.B.C.D|dynamic
+
+   Sends multicast packets to the specified NBMA address. If dynamic is
+   specified then destination NBMA address (or addresses) are learnt
+   dynamically.
+
 .. _nhrp-events:
 
 NHRP Events
