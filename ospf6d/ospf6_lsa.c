@@ -145,7 +145,7 @@ const char *ospf6_lstype_short_name(uint16_t type)
 	const struct ospf6_lsa_handler *handler;
 
 	handler = ospf6_get_lsa_handler(type);
-	if (handler && handler != &unknown_handler)
+	if (handler)
 		return handler->lh_short_name;
 
 	snprintf(buf, sizeof(buf), "0x%04hx", ntohs(type));
@@ -420,9 +420,10 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	if (use_json)
 		json_obj = json_object_new_object();
 
-	if ((type == OSPF6_LSTYPE_INTER_PREFIX)
-	    || (type == OSPF6_LSTYPE_INTER_ROUTER)
-	    || (type == OSPF6_LSTYPE_AS_EXTERNAL)) {
+	switch (type) {
+	case OSPF6_LSTYPE_INTER_PREFIX:
+	case OSPF6_LSTYPE_INTER_ROUTER:
+	case OSPF6_LSTYPE_AS_EXTERNAL:
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -447,7 +448,13 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 				(unsigned long)ntohl(lsa->header->seqnum),
 				handler->lh_get_prefix_str(lsa, buf,
 							   sizeof(buf), 0));
-	} else if (type != OSPF6_LSTYPE_UNKNOWN) {
+		break;
+	case OSPF6_LSTYPE_ROUTER:
+	case OSPF6_LSTYPE_NETWORK:
+	case OSPF6_LSTYPE_GROUP_MEMBERSHIP:
+	case OSPF6_LSTYPE_TYPE_7:
+	case OSPF6_LSTYPE_LINK:
+	case OSPF6_LSTYPE_INTRA_PREFIX:
 		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)
 		       != NULL) {
 			if (use_json) {
@@ -481,7 +488,8 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 		}
 		if (use_json)
 			json_object_free(json_obj);
-	} else {
+		break;
+	default:
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -500,6 +508,7 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 				ospf6_lstype_short_name(lsa->header->type), id,
 				adv_router, ospf6_lsa_age_current(lsa),
 				(unsigned long)ntohl(lsa->header->seqnum));
+		break;
 	}
 }
 
