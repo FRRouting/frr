@@ -5833,22 +5833,102 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	return CMD_SUCCESS;
 }
 
+static int add_rt(struct bgp *bgp, struct ecommunity *ecom, bool is_import)
+{
+	/* Do nothing if we already have this route-target */
+	if (is_import) {
+		if (!bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl, ecom))
+			bgp_evpn_configure_import_rt_for_vrf(bgp, ecom);
+		else
+			return -1;
+	} else {
+		if (!bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl, ecom))
+			bgp_evpn_configure_export_rt_for_vrf(bgp, ecom);
+		else
+			return -1;
+	}
+
+	return 0;
+}
+
+static int del_rt(struct bgp *bgp, struct ecommunity *ecom, bool is_import)
+{
+	/* Verify we already have this route-target */
+	if (is_import) {
+		if (!bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl, ecom))
+			return -1;
+
+		bgp_evpn_unconfigure_import_rt_for_vrf(bgp, ecom);
+	} else {
+		if (!bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl, ecom))
+			return -1;
+
+		bgp_evpn_unconfigure_export_rt_for_vrf(bgp, ecom);
+	}
+
+	return 0;
+}
+
+static int parse_rtlist(struct bgp *bgp, struct vty *vty, int argc,
+			struct cmd_token **argv, int rt_idx, bool is_add,
+			bool is_import)
+{
+	int ret = CMD_SUCCESS;
+	struct ecommunity *ecom = NULL;
+
+	for (int i = rt_idx; i < argc; i++) {
+		ecom = ecommunity_str2com(argv[i]->arg, ECOMMUNITY_ROUTE_TARGET,
+					  0);
+
+		if (!ecom) {
+			vty_out(vty, "%% Malformed Route Target list\n");
+			ret = CMD_WARNING;
+			continue;
+		}
+
+		ecommunity_str(ecom);
+
+		if (is_add) {
+			if (add_rt(bgp, ecom, is_import) != 0) {
+				vty_out(vty,
+					"%% RT specified already configured for this VRF: %s\n",
+					argv[i]->arg);
+				ecommunity_free(&ecom);
+				ret = CMD_WARNING;
+			}
+
+		} else {
+			if (del_rt(bgp, ecom, is_import) != 0) {
+				vty_out(vty,
+					"%% RT specified does not match configuration for this VRF: %s\n",
+					argv[i]->arg);
+				ret = CMD_WARNING;
+			}
+
+			ecommunity_free(&ecom);
+		}
+	}
+
+	return ret;
+}
+
 /* import/export rt for l3vni-vrf */
 DEFUN (bgp_evpn_vrf_rt,
        bgp_evpn_vrf_rt_cmd,
-       "route-target <both|import|export> RT",
+       "route-target <both|import|export> RTLIST...",
        "Route Target\n"
        "import and export\n"
        "import\n"
        "export\n"
-       "Route target (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
+	int ret = CMD_SUCCESS;
+	int tmp_ret = CMD_SUCCESS;
 	int rt_type;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	struct ecommunity *ecomadd = NULL;
 
 	if (!bgp)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!strcmp(argv[1]->arg, "import"))
 		rt_type = RT_TYPE_IMPORT;
@@ -5858,46 +5938,53 @@ DEFUN (bgp_evpn_vrf_rt,
 		rt_type = RT_TYPE_BOTH;
 	else {
 		vty_out(vty, "%% Invalid Route Target type\n");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
-
-	ecomadd = ecommunity_str2com(argv[2]->arg, ECOMMUNITY_ROUTE_TARGET, 0);
-	if (!ecomadd) {
-		vty_out(vty, "%% Malformed Route Target list\n");
-		return CMD_WARNING;
-	}
-	ecommunity_str(ecomadd);
 
 	/* Add/update the import route-target */
-	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_IMPORT) {
-		/* Do nothing if we already have this import route-target */
-		if (!bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl, ecomadd))
-			bgp_evpn_configure_import_rt_for_vrf(bgp, ecomadd);
-	}
+	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_IMPORT)
+		tmp_ret = parse_rtlist(bgp, vty, argc, argv, 2, true, true);
 
-	/* Add/update the export route-target */
-	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_EXPORT) {
-		/* Do nothing if we already have this export route-target */
-		if (!bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl, ecomadd))
-			bgp_evpn_configure_export_rt_for_vrf(bgp, ecomadd);
-	}
+	if (ret == CMD_SUCCESS && tmp_ret != CMD_SUCCESS)
+		ret = tmp_ret;
 
-	return CMD_SUCCESS;
+	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_EXPORT)
+		tmp_ret = parse_rtlist(bgp, vty, argc, argv, 2, true, false);
+
+	if (ret == CMD_SUCCESS && tmp_ret != CMD_SUCCESS)
+		ret = tmp_ret;
+
+	return ret;
+}
+
+DEFUN (bgp_evpn_vrf_rt_auto,
+       bgp_evpn_vrf_rt_auto_cmd,
+       "route-target <both|import|export> auto",
+       "Route Target\n"
+       "import and export\n"
+       "import\n"
+       "export\n"
+       "Automatically derive route target\n")
+{
+	// TODO: auto
+	vty_out(vty, "AUTO TODO\n");
+	return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_bgp_evpn_vrf_rt,
        no_bgp_evpn_vrf_rt_cmd,
-       "no route-target <both|import|export> RT",
+       "no route-target <both|import|export> RTLIST...",
        NO_STR
        "Route Target\n"
        "import and export\n"
        "import\n"
        "export\n"
-       EVPN_ASN_IP_HELP_STR)
+       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	int rt_type, found_ecomdel;
-	struct ecommunity *ecomdel = NULL;
+	int ret = CMD_SUCCESS;
+	int tmp_ret = CMD_SUCCESS;
+	int rt_type;
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -5910,7 +5997,7 @@ DEFUN (no_bgp_evpn_vrf_rt,
 		rt_type = RT_TYPE_BOTH;
 	else {
 		vty_out(vty, "%% Invalid Route Target type\n");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (rt_type == RT_TYPE_IMPORT) {
@@ -5934,56 +6021,34 @@ DEFUN (no_bgp_evpn_vrf_rt,
 		}
 	}
 
-	ecomdel = ecommunity_str2com(argv[3]->arg, ECOMMUNITY_ROUTE_TARGET, 0);
-	if (!ecomdel) {
-		vty_out(vty, "%% Malformed Route Target list\n");
-		return CMD_WARNING;
-	}
-	ecommunity_str(ecomdel);
+	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_IMPORT)
+		tmp_ret = parse_rtlist(bgp, vty, argc, argv, 3, false, true);
 
-	if (rt_type == RT_TYPE_IMPORT) {
-		if (!bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl,
-						  ecomdel)) {
-			ecommunity_free(&ecomdel);
-			vty_out(vty,
-				"%% RT specified does not match configuration for this VRF\n");
-			return CMD_WARNING;
-		}
-		bgp_evpn_unconfigure_import_rt_for_vrf(bgp, ecomdel);
-	} else if (rt_type == RT_TYPE_EXPORT) {
-		if (!bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl,
-						  ecomdel)) {
-			ecommunity_free(&ecomdel);
-			vty_out(vty,
-				"%% RT specified does not match configuration for this VRF\n");
-			return CMD_WARNING;
-		}
-		bgp_evpn_unconfigure_export_rt_for_vrf(bgp, ecomdel);
-	} else if (rt_type == RT_TYPE_BOTH) {
-		found_ecomdel = 0;
+	if (ret == CMD_SUCCESS && tmp_ret != CMD_SUCCESS)
+		ret = tmp_ret;
 
-		if (bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl,
-						 ecomdel)) {
-			bgp_evpn_unconfigure_import_rt_for_vrf(bgp, ecomdel);
-			found_ecomdel = 1;
-		}
+	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_EXPORT)
+		tmp_ret = parse_rtlist(bgp, vty, argc, argv, 3, false, false);
 
-		if (bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl,
-						 ecomdel)) {
-			bgp_evpn_unconfigure_export_rt_for_vrf(bgp, ecomdel);
-			found_ecomdel = 1;
-		}
+	if (ret == CMD_SUCCESS && tmp_ret != CMD_SUCCESS)
+		ret = tmp_ret;
 
-		if (!found_ecomdel) {
-			ecommunity_free(&ecomdel);
-			vty_out(vty,
-				"%% RT specified does not match configuration for this VRF\n");
-			return CMD_WARNING;
-		}
-	}
+	return ret;
+}
 
-	ecommunity_free(&ecomdel);
-	return CMD_SUCCESS;
+DEFUN (no_bgp_evpn_vrf_rt_auto,
+       no_bgp_evpn_vrf_rt_auto_cmd,
+       "no route-target <both|import|export> auto",
+       NO_STR
+       "Route Target\n"
+       "import and export\n"
+       "import\n"
+       "export\n"
+       "Automatically derive route target\n")
+{
+	// TODO: auto
+	vty_out(vty, "AUTO TODO\n");
+	return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFPY(bgp_evpn_ead_ess_frag_evi_limit, bgp_evpn_ead_es_frag_evi_limit_cmd,
@@ -6593,6 +6658,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_NODE, &no_bgp_evpn_vrf_rd_without_val_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rt_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rt_auto_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_auto_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_rt_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_ead_es_rt_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_frag_evi_limit_cmd);
