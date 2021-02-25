@@ -3214,16 +3214,16 @@ stream_failure:
 	return;
 }
 
-static int zebra_neigh_read_ip(struct stream *s, struct prefix *add)
+static int zebra_neigh_read_ip(struct stream *s, struct ipaddr *add)
 {
-	STREAM_GETC(s, add->family);
-	if (add->family != AF_INET && add->family != AF_INET6)
+	uint8_t family;
+
+	STREAM_GETC(s, family);
+	if (family != AF_INET && family != AF_INET6)
 		return -1;
-	STREAM_GET(&add->u.prefix, s, family2addrsize(add->family));
-	if (add->family == AF_INET)
-		add->prefixlen = IPV4_MAX_BITLEN;
-	else
-		add->prefixlen = IPV6_MAX_BITLEN;
+
+	STREAM_GET(&add->ip.addr, s, family2addrsize(family));
+	add->ipa_type = family;
 	return 0;
 stream_failure:
 	return -1;
@@ -3233,11 +3233,11 @@ static int zebra_neigh_get(struct stream *s, struct zapi_nbr *api, bool add)
 {
 	int ret;
 
-	ret = zebra_neigh_read_ip(s, &api->pfx_in);
+	ret = zebra_neigh_read_ip(s, &api->ip_in);
 	if (ret < 0)
 		return -1;
 	if (add) {
-		ret = zebra_neigh_read_ip(s, &api->pfx_out);
+		ret = zebra_neigh_read_ip(s, &api->ip_out);
 		if (ret < 0)
 			return -1;
 	}
@@ -3306,43 +3306,38 @@ static inline void zebra_neigh_add(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	struct zapi_nbr api;
 	int ret;
-	struct zebra_ns *zns = zvrf->zns;
-	ns_id_t ns_id;
-
-	if (!zns)
-		return;
-	ns_id = zns->ns_id;
+	const struct interface *ifp;
 
 	s = msg;
 	memset(&api, 0, sizeof(api));
 	ret = zebra_neigh_get(s, &api, true);
 	if (ret < 0)
 		return;
-	kernel_neigh_update(1, api.index, &api.pfx_in.u.prefix,
-			    (char *)&api.pfx_out.u.prefix,
-			    family2addrsize(api.pfx_out.family),
-			    ns_id, api.pfx_in.family, false, client->proto);
+	ifp = if_lookup_by_index(api.index, zvrf_id(zvrf));
+	if (!ifp)
+		return;
+	dplane_neigh_ip_update(DPLANE_OP_NEIGH_IP_INSTALL, ifp, &api.ip_out,
+			       &api.ip_in, false, client->proto);
 }
+
 
 static inline void zebra_neigh_del(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_nbr api;
 	int ret;
-	struct zebra_ns *zns = zvrf->zns;
-	ns_id_t ns_id;
+	struct interface *ifp;
 
-	if (!zns)
-		return;
-	ns_id = zns->ns_id;
 	s = msg;
 	memset(&api, 0, sizeof(api));
 	ret = zebra_neigh_get(s, &api, false);
 	if (ret < 0)
 		return;
-	kernel_neigh_update(0, api.index, &api.pfx_in.u.prefix,
-			    NULL, 0, ns_id, api.pfx_in.family,
-			    true, client->proto);
+	ifp = if_lookup_by_index(api.index, zvrf_id(zvrf));
+	if (!ifp)
+		return;
+	dplane_neigh_ip_update(DPLANE_OP_NEIGH_IP_DELETE, ifp, &api.ip_out,
+			       &api.ip_in, true, client->proto);
 }
 
 

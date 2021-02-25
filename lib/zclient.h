@@ -23,6 +23,7 @@
 
 /* For struct zapi_route. */
 #include "prefix.h"
+#include "ipaddr.h"
 
 /* For struct interface and struct connected. */
 #include "if.h"
@@ -806,13 +807,13 @@ struct zclient_options {
 extern struct zclient_options zclient_options_default;
 
 /* link layer representation for GRE like interfaces
- * pfx_in is the underlay IP, pfx_out is the tunnel dest
+ * ip_in is the underlay IP, ip_out is the tunnel dest
  * index stands for the index of the interface
  */
 struct zapi_nbr {
 	int cmd;
-	struct prefix pfx_in;
-	struct prefix pfx_out;
+	struct ipaddr ip_in;
+	struct ipaddr ip_out;
 	ifindex_t index;
 };
 

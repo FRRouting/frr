@@ -185,6 +185,10 @@ static uint16_t neigh_state_to_netlink(uint16_t dplane_state)
 		state |= NUD_PROBE;
 	if (dplane_state & DPLANE_NUD_INCOMPLETE)
 		state |= NUD_INCOMPLETE;
+	if (dplane_state & DPLANE_NUD_PERMANENT)
+		state |= NUD_PERMANENT;
+	if (dplane_state & DPLANE_NUD_FAILED)
+		state |= NUD_FAILED;
 
 	return state;
 }
@@ -254,6 +258,7 @@ static inline int zebra2proto(int proto)
 		break;
 	case ZEBRA_ROUTE_TABLE:
 	case ZEBRA_ROUTE_NHG:
+	case ZEBRA_ROUTE_NEIGH:
 		proto = RTPROT_ZEBRA;
 		break;
 	case ZEBRA_ROUTE_CONNECT:
@@ -2750,7 +2755,9 @@ int kernel_neigh_update(int add, int ifindex, void *addr, char *lla, int llalen,
  * entry.
  * @ctx:		Dataplane context
  * @cmd:		Netlink command (RTM_NEWNEIGH or RTM_DELNEIGH)
- * @mac:		A neighbor cache link layer address
+ * @lla:		A pointer to neighbor cache link layer address
+ * @llalen:		Length of the pointer to neighbor cache link layer
+ * address
  * @ip:		A neighbor cache n/w layer destination address
  *			In the case of bridge FDB, this represnts the remote
  *			VTEP IP.
@@ -2762,18 +2769,18 @@ int kernel_neigh_update(int add, int ifindex, void *addr, char *lla, int llalen,
  * @state:		NUD_* states
  * @data:		data buffer pointer
  * @datalen:		total amount of data buffer space
+ * @protocol:		protocol information
  *
  * Return:		0 when the msg doesn't fit entirely in the buffer
  *				otherwise the number of bytes written to buf.
  */
 static ssize_t netlink_neigh_update_msg_encode(
-	const struct zebra_dplane_ctx *ctx, int cmd, const struct ethaddr *mac,
-	const struct ipaddr *ip, bool replace_obj, uint8_t family, uint8_t type,
-	uint8_t flags, uint16_t state, uint32_t nhg_id, bool nfy,
+	const struct zebra_dplane_ctx *ctx, int cmd, const void *lla,
+	int llalen, const struct ipaddr *ip, bool replace_obj, uint8_t family,
+	uint8_t type, uint8_t flags, uint16_t state, uint32_t nhg_id, bool nfy,
 	uint8_t nfy_flags, bool ext, uint32_t ext_flags, void *data,
-	size_t datalen)
+	size_t datalen, uint8_t protocol)
 {
-	uint8_t protocol = RTPROT_ZEBRA;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
@@ -2805,8 +2812,8 @@ static ssize_t netlink_neigh_update_msg_encode(
 			 sizeof(protocol)))
 		return 0;
 
-	if (mac) {
-		if (!nl_attr_put(&req->n, datalen, NDA_LLADDR, mac, 6))
+	if (lla) {
+		if (!nl_attr_put(&req->n, datalen, NDA_LLADDR, lla, llalen))
 			return 0;
 	}
 
@@ -2872,10 +2879,11 @@ netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
 	struct ethaddr dst_mac = {.octet = {0}};
 
 	return netlink_neigh_update_msg_encode(
-		ctx, cmd, &dst_mac, dplane_ctx_neigh_get_ipaddr(ctx), false,
-		PF_BRIDGE, 0, NTF_SELF, (NUD_NOARP | NUD_PERMANENT), 0 /*nhg*/,
-		false /*nfy*/, 0 /*nfy_flags*/, false /*ext*/, 0 /*ext_flags*/,
-		buf, buflen);
+		ctx, cmd, (const void *)&dst_mac, ETH_ALEN,
+		dplane_ctx_neigh_get_ipaddr(ctx), false, PF_BRIDGE, 0, NTF_SELF,
+		(NUD_NOARP | NUD_PERMANENT), 0 /*nhg*/, false /*nfy*/,
+		0 /*nfy_flags*/, false /*ext*/, 0 /*ext_flags*/, buf, buflen,
+		zebra2proto(dplane_ctx_get_type(ctx)));
 }
 
 #ifndef NDA_RTA
@@ -3307,9 +3315,10 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	}
 
 	total = netlink_neigh_update_msg_encode(
-		ctx, cmd, dplane_ctx_mac_get_addr(ctx), &vtep_ip, true,
-		AF_BRIDGE, 0, flags, state, nhg_id, nfy, nfy_flags,
-		false /*ext*/, 0 /*ext_flags*/, data, datalen);
+		ctx, cmd, (const void *)dplane_ctx_mac_get_addr(ctx), ETH_ALEN,
+		&vtep_ip, true, AF_BRIDGE, 0, flags, state, nhg_id, nfy,
+		nfy_flags, false /*ext*/, 0 /*ext_flags*/, data, datalen,
+		zebra2proto(dplane_ctx_get_type(ctx)));
 
 	return total;
 }
@@ -3743,7 +3752,12 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 					int cmd, void *buf, size_t buflen)
 {
 	const struct ipaddr *ip;
-	const struct ethaddr *mac;
+	const struct ethaddr *mac = NULL;
+	const struct ipaddr *link_ip = NULL;
+	const void *link_ptr = NULL;
+	char buf2[ETHER_ADDR_STRLEN];
+
+	int llalen;
 	uint8_t flags;
 	uint16_t state;
 	uint8_t family;
@@ -3752,10 +3766,24 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	bool ext = false;
 
 	ip = dplane_ctx_neigh_get_ipaddr(ctx);
-	mac = dplane_ctx_neigh_get_mac(ctx);
-	if (is_zero_mac(mac))
-		mac = NULL;
 
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_NEIGH_IP_INSTALL
+	    || dplane_ctx_get_op(ctx) == DPLANE_OP_NEIGH_IP_DELETE) {
+		link_ip = dplane_ctx_neigh_get_link_ip(ctx);
+		llalen = IPADDRSZ(link_ip);
+		link_ptr = (const void *)&(link_ip->ip.addr);
+		ipaddr2str(link_ip, buf2, sizeof(buf2));
+	} else {
+		mac = dplane_ctx_neigh_get_mac(ctx);
+		llalen = ETH_ALEN;
+		link_ptr = (const void *)mac;
+		if (is_zero_mac(mac))
+			mac = NULL;
+		if (mac)
+			prefix_mac2str(mac, buf2, sizeof(buf2));
+		else
+			snprintf(buf2, sizeof(buf2), "null");
+	}
 	update_flags = dplane_ctx_neigh_get_update_flags(ctx);
 	flags = neigh_flags_to_netlink(dplane_ctx_neigh_get_flags(ctx));
 	state = neigh_state_to_netlink(dplane_ctx_neigh_get_state(ctx));
@@ -3769,7 +3797,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 		 */
 		if (update_flags & DPLANE_NEIGH_WAS_STATIC)
 			ext = true;
-	} else {
+	} else if (!(update_flags & DPLANE_NEIGH_NO_EXTENSION)) {
 		ext = true;
 		/* local neigh */
 		if (update_flags & DPLANE_NEIGH_SET_STATIC)
@@ -3777,15 +3805,16 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	}
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"Tx %s family %s IF %s(%u) Neigh %pIA MAC %pEA flags 0x%x state 0x%x %sext_flags 0x%x",
+			"Tx %s family %s IF %s(%u) Neigh %pIA %s %s flags 0x%x state 0x%x %sext_flags 0x%x",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
-			ip, mac, flags, state, ext ? "ext " : "", ext_flags);
+			ip, link_ip ? "Link " : "MAC ", buf2, flags, state,
+			ext ? "ext " : "", ext_flags);
 
 	return netlink_neigh_update_msg_encode(
-		ctx, cmd, mac, ip, true, family, RTN_UNICAST, flags, state,
-		0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/, ext, ext_flags, buf,
-		buflen);
+		ctx, cmd, link_ptr, llalen, ip, true, family, RTN_UNICAST,
+		flags, state, 0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/, ext,
+		ext_flags, buf, buflen, zebra2proto(dplane_ctx_get_type(ctx)));
 }
 
 static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
@@ -3797,9 +3826,11 @@ static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
 	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
 		ret = netlink_neigh_update_ctx(ctx, RTM_NEWNEIGH, buf, buflen);
 		break;
 	case DPLANE_OP_NEIGH_DELETE:
+	case DPLANE_OP_NEIGH_IP_DELETE:
 		ret = netlink_neigh_update_ctx(ctx, RTM_DELNEIGH, buf, buflen);
 		break;
 	case DPLANE_OP_VTEP_ADD:

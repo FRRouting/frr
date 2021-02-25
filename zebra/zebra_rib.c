@@ -112,6 +112,7 @@ static const struct {
 	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 4},
 	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 6},
 	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, 6},
+	[ZEBRA_ROUTE_NEIGH] = {ZEBRA_ROUTE_NEIGH, 255, 6},
 	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
@@ -3924,6 +3925,8 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_NEIGH_INSTALL:
 			case DPLANE_OP_NEIGH_UPDATE:
 			case DPLANE_OP_NEIGH_DELETE:
+			case DPLANE_OP_NEIGH_IP_INSTALL:
+			case DPLANE_OP_NEIGH_IP_DELETE:
 			case DPLANE_OP_VTEP_ADD:
 			case DPLANE_OP_VTEP_DELETE:
 			case DPLANE_OP_NEIGH_DISCOVER:
