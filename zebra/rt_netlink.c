@@ -1570,7 +1570,8 @@ static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 	nl_attr_put(&req.n, sizeof(req), NDA_PROTOCOL, &protocol,
 		    sizeof(protocol));
 	req.ndm.ndm_type = RTN_UNICAST;
-	nl_attr_put32(&req.n, family2addrsize(family), NDA_DST, addr);
+	nl_attr_put(&req.n, sizeof(req), NDA_DST, addr,
+		    family2addrsize(family));
 	if (lla)
 		nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
