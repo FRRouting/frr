@@ -201,6 +201,7 @@ struct vrf_route_target {
 	/* flags based on config to determine how RTs are handled */
 	uint8_t flags;
 #define BGP_VRF_RT_AUTO (1 << 0)
+#define BGP_VRF_RT_WILD (1 << 1)
 
 	struct ecommunity *ecom;
 };
@@ -605,12 +606,17 @@ extern void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
 				bool is_l3);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);
+extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						   struct ecommunity *ecomdel);
+extern void bgp_evpn_unconfigure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
-						 struct ecommunity *ecomadd);
+						 struct ecommunity *ecomadd,
+						 bool is_wildcard);
+extern void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 						   struct ecommunity *ecomdel);
+extern void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern int bgp_evpn_handle_export_rt_change(struct bgp *bgp,
 					    struct bgpevpn *vpn);
 extern void bgp_evpn_handle_autort_change(struct bgp *bgp);
