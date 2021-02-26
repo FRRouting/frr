@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 #if PY_VERSION_HEX >= 0x03040000 /* 3.4 */
 	Py_SetStandardStreamEncoding("UTF-8", NULL);
 #endif
-	char *name = wconv(argv[0]);
+	wchar_t *name = wconv(argv[0]);
 	Py_SetProgramName(name);
 	PyImport_AppendInittab("_clippy", command_py_init);
 
