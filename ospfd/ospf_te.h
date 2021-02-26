@@ -74,25 +74,22 @@
 #define GMPLS   	0x02
 #define INTER_AS	0x04
 #define PSEUDO_TE	0x08
-#define FLOOD_AREA	0x10
-#define FLOOD_AS	0x20
-#define EMULATED	0x80
+#define EMULATED	0x10
 
-#define IS_STD_TE(x)	    (x & STD_TE)
+#define IS_STD_TE(x)		(x & STD_TE)
 #define IS_PSEUDO_TE(x)		(x & PSEUDO_TE)
 #define IS_INTER_AS(x) 		(x & INTER_AS)
 #define IS_EMULATED(x)		(x & EMULATED)
-#define IS_FLOOD_AREA(x)	(x & FLOOD_AREA)
-#define IS_FLOOD_AS(x)		(x & FLOOD_AS)
-#define IS_INTER_AS_EMU(x) 	(x & INTER_AS & EMULATED)
-#define IS_INTER_AS_AS(x)	(x & INTER_AS & FLOOD_AS)
 
 /* Flags to manage TE Link LSA */
-#define LPFLG_LSA_INACTIVE		0x0
-#define LPFLG_LSA_ACTIVE		0x1
-#define LPFLG_LSA_ENGAGED		0x2
-#define LPFLG_LOOKUP_DONE		0x4
-#define LPFLG_LSA_FORCED_REFRESH	0x8
+#define LPFLG_LSA_INACTIVE		0x00
+#define LPFLG_LSA_ACTIVE		0x01
+#define LPFLG_LSA_ENGAGED		0x02
+#define LPFLG_LOOKUP_DONE		0x04
+#define LPFLG_LSA_FORCED_REFRESH	0x08
+#define LPFLG_LSA_FLOOD_AS		0x10
+
+#define IS_FLOOD_AS(x)		(x & LPFLG_LSA_FLOOD_AS)
 
 /* Macro to log debug message */
 #define ote_debug(...)                                                         \

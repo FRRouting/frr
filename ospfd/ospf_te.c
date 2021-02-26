@@ -82,7 +82,8 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_status);
 static void ospf_mpls_te_config_write_router(struct vty *vty);
 static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa);
 static int ospf_mpls_te_lsa_originate_area(void *arg);
-static int ospf_mpls_te_lsa_originate_as(void *arg);
+static int ospf_mpls_te_lsa_inter_as_as(void *arg);
+static int ospf_mpls_te_lsa_inter_as_area(void *arg);
 static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa);
 
 static void del_mpls_te_link(void *val);
@@ -92,6 +93,7 @@ int ospf_mpls_te_init(void)
 {
 	int rc;
 
+	/* Register Opaque AREA LSA Type 1 for Traffic Engineering */
 	rc = ospf_register_opaque_functab(
 		OSPF_OPAQUE_AREA_LSA, OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA,
 		ospf_mpls_te_new_if, ospf_mpls_te_del_if,
@@ -110,8 +112,42 @@ int ospf_mpls_te_init(void)
 		return rc;
 	}
 
+	/*
+	 * Wee need also to register Opaque LSA Type 6 i.e. Inter-AS RFC5392 for
+	 * both AREA and AS at least to have the possibility to call the show()
+	 * function when looking to the opaque LSA of the OSPF database.
+	 */
+	rc = ospf_register_opaque_functab(OSPF_OPAQUE_AREA_LSA,
+					  OPAQUE_TYPE_INTER_AS_LSA, NULL,
+					  NULL, NULL, NULL, NULL, NULL, NULL,
+					  ospf_mpls_te_show_info,
+					  ospf_mpls_te_lsa_inter_as_area,
+					  ospf_mpls_te_lsa_refresh, NULL, NULL);
+	if (rc != 0) {
+		flog_warn(
+			EC_OSPF_OPAQUE_REGISTRATION,
+			"MPLS-TE (%s): Failed to register Inter-AS with Area scope",
+			__func__);
+		return rc;
+	}
+
+	rc = ospf_register_opaque_functab(OSPF_OPAQUE_AS_LSA,
+					  OPAQUE_TYPE_INTER_AS_LSA, NULL,
+					  NULL, NULL, NULL, NULL, NULL, NULL,
+					  ospf_mpls_te_show_info,
+					  ospf_mpls_te_lsa_inter_as_as,
+					  ospf_mpls_te_lsa_refresh, NULL, NULL);
+	if (rc != 0) {
+		flog_warn(
+			EC_OSPF_OPAQUE_REGISTRATION,
+			"MPLS-TE (%s): Failed to register Inter-AS with AS scope",
+			__func__);
+		return rc;
+	}
+
 	memset(&OspfMplsTE, 0, sizeof(struct ospf_mpls_te));
 	OspfMplsTE.enabled = false;
+	OspfMplsTE.export = false;
 	OspfMplsTE.inter_as = Off;
 	OspfMplsTE.iflist = list_new();
 	OspfMplsTE.iflist->del = del_mpls_te_link;
@@ -121,63 +157,18 @@ int ospf_mpls_te_init(void)
 	return rc;
 }
 
-/* Additional register for RFC5392 support */
-static int ospf_mpls_te_register(enum inter_as_mode mode)
-{
-	int rc = 0;
-	uint8_t scope;
-
-	if (OspfMplsTE.inter_as != Off)
-		return rc;
-
-	if (mode == AS)
-		scope = OSPF_OPAQUE_AS_LSA;
-	else
-		scope = OSPF_OPAQUE_AREA_LSA;
-
-	rc = ospf_register_opaque_functab(scope, OPAQUE_TYPE_INTER_AS_LSA, NULL,
-					  NULL, NULL, NULL, NULL, NULL, NULL,
-					  ospf_mpls_te_show_info,
-					  ospf_mpls_te_lsa_originate_as,
-					  ospf_mpls_te_lsa_refresh, NULL, NULL);
-
-	if (rc != 0) {
-		flog_warn(EC_OSPF_OPAQUE_REGISTRATION,
-			  "MPLS-TE (%s): Failed to register Inter-AS functions",
-			  __func__);
-		return rc;
-	}
-
-	return rc;
-}
-
-static int ospf_mpls_te_unregister(void)
-{
-	uint8_t scope;
-
-	if (OspfMplsTE.inter_as == Off)
-		return 0;
-
-	if (OspfMplsTE.inter_as == AS)
-		scope = OSPF_OPAQUE_AS_LSA;
-	else
-		scope = OSPF_OPAQUE_AREA_LSA;
-
-	ospf_delete_opaque_functab(scope, OPAQUE_TYPE_INTER_AS_LSA);
-
-	return 0;
-}
-
 void ospf_mpls_te_term(void)
 {
 	list_delete(&OspfMplsTE.iflist);
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
 				   OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);
+	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
+				   OPAQUE_TYPE_INTER_AS_LSA);
+	ospf_delete_opaque_functab(OSPF_OPAQUE_AS_LSA,
+				   OPAQUE_TYPE_INTER_AS_LSA);
 
 	OspfMplsTE.enabled = false;
-
-	ospf_mpls_te_unregister();
 	OspfMplsTE.inter_as = Off;
 
 	return;
@@ -185,10 +176,7 @@ void ospf_mpls_te_term(void)
 
 void ospf_mpls_te_finish(void)
 {
-	// list_delete_all_node(OspfMplsTE.iflist);
-
 	OspfMplsTE.enabled = false;
-	ospf_mpls_te_unregister();
 	OspfMplsTE.inter_as = Off;
 }
 
@@ -484,6 +472,13 @@ static void set_linkparams_inter_as(struct mpls_te_link *lp,
 	lp->ras.header.type = htons(TE_LINK_SUBTLV_RAS);
 	lp->ras.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
 	lp->ras.value = htonl(as);
+
+	/* Set Type & Flooding flag accordingly */
+	lp->type = INTER_AS;
+	if (OspfMplsTE.inter_as == AS)
+		SET_FLAG(lp->flags, LPFLG_LSA_FLOOD_AS);
+	else
+		UNSET_FLAG(lp->flags, LPFLG_LSA_FLOOD_AS);
 }
 
 static void unset_linkparams_inter_as(struct mpls_te_link *lp)
@@ -497,6 +492,10 @@ static void unset_linkparams_inter_as(struct mpls_te_link *lp)
 	lp->ras.header.type = htons(0);
 	lp->ras.header.length = htons(0);
 	lp->ras.value = htonl(0);
+
+	/* Reset Type & Flooding flag accordingly */
+	lp->type = STD_TE;
+	UNSET_FLAG(lp->flags, LPFLG_LSA_FLOOD_AS);
 }
 
 void set_linkparams_llri(struct mpls_te_link *lp, uint32_t local,
@@ -694,10 +693,12 @@ static void update_linkparams(struct mpls_te_link *lp)
 
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 			/* Then, switch it to INTER-AS */
-			if (OspfMplsTE.inter_as == AS)
-				lp->flags = INTER_AS | FLOOD_AS;
-			else {
-				lp->flags = INTER_AS | FLOOD_AREA;
+			if (OspfMplsTE.inter_as == AS) {
+				lp->type = INTER_AS;
+				SET_FLAG(lp->flags, LPFLG_LSA_FLOOD_AS);
+			} else {
+				lp->type = INTER_AS;
+				UNSET_FLAG(lp->flags, LPFLG_LSA_FLOOD_AS);
 				lp->area = ospf_area_lookup_by_area_id(
 					ospf_lookup_by_vrf_id(VRF_DEFAULT),
 					OspfMplsTE.interas_areaid);
@@ -716,7 +717,8 @@ static void update_linkparams(struct mpls_te_link *lp)
 		    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 			/* Then, switch it to Standard TE */
-			lp->flags = STD_TE | FLOOD_AREA;
+			lp->flags = STD_TE;
+			UNSET_FLAG(lp->flags, LPFLG_LSA_FLOOD_AS);
 		}
 		unset_linkparams_inter_as(lp);
 	}
@@ -820,7 +822,7 @@ static int ospf_mpls_te_new_if(struct interface *ifp)
 	 * active */
 	/* This default behavior will be adapted with call to
 	 * ospf_mpls_te_update_if() */
-	new->type = STD_TE | FLOOD_AREA;
+	new->type = STD_TE;
 	new->flags = LPFLG_LSA_INACTIVE;
 
 	/* Initialize Link Parameters from Interface */
@@ -1125,11 +1127,12 @@ static void build_link_tlv(struct stream *s, struct mpls_te_link *lp)
 static void ospf_mpls_te_lsa_body_set(struct stream *s, struct mpls_te_link *lp)
 {
 	/*
-	 * The router address TLV is type 1, and ...
-	 *                                      It must appear in exactly one
-	 * Traffic Engineering LSA originated by a router.
+	 * The router address TLV is type 1, and ... It must appear in exactly
+	 * one Traffic Engineering LSA originated by a router but not in
+	 * Inter-AS TLV.
 	 */
-	build_router_tlv(s);
+	if (!IS_INTER_AS(lp->type))
+		build_router_tlv(s);
 
 	/*
 	 * Only one Link TLV shall be carried in each LSA, allowing for fine
@@ -1160,7 +1163,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 
 	/* Set opaque-LSA header fields depending of the type of RFC */
 	if (IS_INTER_AS(lp->type)) {
-		if (IS_FLOOD_AS(lp->type)) {
+		if (IS_FLOOD_AS(lp->flags)) {
 			/* Enable AS external as we flood Inter-AS with Opaque
 			 * Type 11
 			 */
@@ -1274,7 +1277,7 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
 		/* Process only enabled LSA with area scope flooding */
 		if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE)
-		    || IS_FLOOD_AS(lp->type))
+		    || IS_FLOOD_AS(lp->flags))
 			continue;
 
 		if (lp->area == NULL)
@@ -1375,6 +1378,7 @@ static int ospf_mpls_te_lsa_originate_as(void *arg)
 	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
 		/* Process only enabled INTER_AS Links or Pseudo-Links */
 		if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE)
+		    || !CHECK_FLAG(lp->flags, LPFLG_LSA_FLOOD_AS)
 		    || !IS_INTER_AS(lp->type))
 			continue;
 
@@ -1398,10 +1402,10 @@ static int ospf_mpls_te_lsa_originate_as(void *arg)
 		ote_debug(
 			"MPLS-TE (%s): Let's finally re-originate the Inter-AS LSA %d through the %s for Link %s",
 			__func__, lp->instance,
-			IS_FLOOD_AS(lp->type) ? "AS" : "Area",
+			IS_FLOOD_AS(lp->flags) ? "AS" : "Area",
 			lp->ifp ? lp->ifp->name : "Unknown");
 
-		if (IS_FLOOD_AS(lp->type)) {
+		if (IS_FLOOD_AS(lp->flags)) {
 			top = (struct ospf *)arg;
 			ospf_mpls_te_lsa_originate2(top, lp);
 		} else {
@@ -1412,6 +1416,30 @@ static int ospf_mpls_te_lsa_originate_as(void *arg)
 
 	rc = 0;
 	return rc;
+}
+
+/*
+ * As Inter-AS LSA must be registered with both AREA and AS flooding, and
+ * because all origination callback functions are call (disregarding the Opaque
+ * LSA type and Flooding scope) it is necessary to determine which flooding
+ * scope is associated with the LSA origination as parameter is of type void and
+ * must be cast to struct *ospf for AS flooding and to struct *ospf_area for
+ * Area flooding.
+ */
+static int ospf_mpls_te_lsa_inter_as_as(void *arg)
+{
+	if (OspfMplsTE.inter_as == AS)
+		return ospf_mpls_te_lsa_originate_as(arg);
+	else
+		return 0;
+}
+
+static int ospf_mpls_te_lsa_inter_as_area(void *arg)
+{
+	if (OspfMplsTE.inter_as == Area)
+		return ospf_mpls_te_lsa_originate_area(arg);
+	else
+		return 0;
 }
 
 static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
@@ -1482,7 +1510,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 
 	/* Flood updated LSA through AS or Area depending of the RFC of the link
 	 */
-	if (IS_FLOOD_AS(lp->type))
+	if (IS_FLOOD_AS(lp->flags))
 		ospf_flood_through_as(top, NULL, new);
 	else
 		ospf_flood_through_area(area, NULL /*nbr*/, new);
@@ -1508,10 +1536,8 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
 	/* Check if the pseudo link is ready to flood */
-	if (!(CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE))
-	    || !(IS_FLOOD_AREA(lp->type) || IS_FLOOD_AS(lp->type))) {
+	if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE))
 		return;
-	}
 
 	ote_debug("MPLS-TE (%s): Schedule %s%s%s LSA for interface %s", __func__,
 		  opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
@@ -1521,7 +1547,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 
 	lsa.area = lp->area;
 	lsa.data = &lsah;
-	if (IS_FLOOD_AS(lp->type)) {
+	if (IS_FLOOD_AS(lp->flags)) {
 		lsah.type = OSPF_OPAQUE_AS_LSA;
 		tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_INTER_AS_LSA, lp->instance);
 		lsah.id.s_addr = htonl(tmp);
@@ -1551,14 +1577,11 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 
 	switch (opcode) {
 	case REORIGINATE_THIS_LSA:
-		if (IS_FLOOD_AS(lp->type)) {
+		if (IS_FLOOD_AS(lp->flags)) {
 			ospf_opaque_lsa_reoriginate_schedule(
 				(void *)top, OSPF_OPAQUE_AS_LSA,
 				OPAQUE_TYPE_INTER_AS_LSA);
-			break;
-		}
-
-		if (IS_FLOOD_AREA(lp->type)) {
+		} else {
 			if (IS_INTER_AS(lp->type))
 				ospf_opaque_lsa_reoriginate_schedule(
 					(void *)lp->area, OSPF_OPAQUE_AREA_LSA,
@@ -1567,7 +1590,6 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 				ospf_opaque_lsa_reoriginate_schedule(
 					(void *)lp->area, OSPF_OPAQUE_AREA_LSA,
 					OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);
-			break;
 		}
 		break;
 	case REFRESH_THIS_LSA:
@@ -2238,11 +2260,7 @@ DEFUN (no_ospf_mpls_te,
 	 * This is to avoid having an inter-as value different from
 	 * Off when mpls-te gets restarted (after being removed)
 	 */
-	if (OspfMplsTE.inter_as != Off) {
-		/* Deregister the Callbacks for Inter-AS support */
-		ospf_mpls_te_unregister();
-		OspfMplsTE.inter_as = Off;
-	}
+	OspfMplsTE.inter_as = Off;
 
 	return CMD_SUCCESS;
 }
@@ -2277,7 +2295,7 @@ DEFUN (ospf_mpls_te_router_addr,
 			return CMD_SUCCESS;
 
 		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-			if ((lp->area == NULL) || IS_FLOOD_AS(lp->type))
+			if ((lp->area == NULL) || IS_FLOOD_AS(lp->flags))
 				continue;
 
 			if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
@@ -2287,7 +2305,7 @@ DEFUN (ospf_mpls_te_router_addr,
 		}
 
 		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-			if ((lp->area == NULL) || IS_FLOOD_AS(lp->type))
+			if ((lp->area == NULL) || IS_FLOOD_AS(lp->flags))
 				continue;
 
 			if (need_to_reoriginate)
@@ -2331,14 +2349,6 @@ static int set_inter_as_mode(struct vty *vty, const char *mode_name,
 			"MPLS-TE (%s): Inter-AS enable with %s flooding support",
 			__func__, mode2text[mode]);
 
-		/* Register new callbacks regarding the flooding scope (AS or
-		 * Area) */
-		if (ospf_mpls_te_register(mode) < 0) {
-			vty_out(vty,
-				"Internal error: Unable to register Inter-AS functions\n");
-			return CMD_WARNING;
-		}
-
 		/* Enable mode and re-originate LSA if needed */
 		if ((OspfMplsTE.inter_as == Off)
 		    && (mode != OspfMplsTE.inter_as)) {
@@ -2348,9 +2358,11 @@ static int set_inter_as_mode(struct vty *vty, const char *mode_name,
 						  lp)) {
 				if (IS_INTER_AS(lp->type)) {
 					if (mode == AS)
-						lp->type |= FLOOD_AS;
+						SET_FLAG(lp->flags,
+							 LPFLG_LSA_FLOOD_AS);
 					else
-						lp->type |= FLOOD_AREA;
+						UNSET_FLAG(lp->flags,
+							   LPFLG_LSA_FLOOD_AS);
 					ospf_mpls_te_lsa_schedule(
 						lp, REORIGINATE_THIS_LSA);
 				}
@@ -2412,8 +2424,6 @@ DEFUN (no_ospf_mpls_te_inter_as,
 			    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
 				ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 
-		/* Deregister the Callbacks for Inter-AS support */
-		ospf_mpls_te_unregister();
 		OspfMplsTE.inter_as = Off;
 	}
 
