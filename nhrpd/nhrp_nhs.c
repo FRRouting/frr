@@ -162,7 +162,7 @@ static int nhrp_reg_send_req(struct thread *t)
 	struct interface *ifp = nhs->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_afi_data *if_ad = &nifp->afi[nhs->afi];
-	union sockunion *dst_proto;
+	union sockunion *dst_proto, nhs_proto;
 	struct zbuf *zb;
 	struct nhrp_packet_header *hdr;
 	struct nhrp_extension_header *ext;
@@ -214,9 +214,22 @@ static int nhrp_reg_send_req(struct thread *t)
 	nhrp_ext_request(zb, hdr, ifp);
 
 	/* Cisco NAT detection extension */
+	if (sockunion_family(&r->proto_addr) != AF_UNSPEC) {
+		nhs_proto = r->proto_addr;
+	} else if (sockunion_family(&nhs->proto_addr) != AF_UNSPEC) {
+		nhs_proto = nhs->proto_addr;
+	} else {
+		/* cisco magic: If NHS is not known then use all 0s as
+		 * client protocol address in NAT Extension header
+		 */
+		memset(&nhs_proto, 0, sizeof(nhs_proto));
+		sockunion_family(&nhs_proto) = afi2family(nhs->afi);
+	}
+
 	hdr->flags |= htons(NHRP_FLAG_REGISTRATION_NAT);
 	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
-	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nbma, &if_ad->addr);
+	/* push NHS details */
+	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &r->peer->vc->remote.nbma, &nhs_proto);
 	cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
 	cie->mtu = htons(if_ad->mtu);
 	nhrp_ext_complete(zb, ext);
