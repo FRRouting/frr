@@ -669,6 +669,21 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 	if ((!is_qnode
 	     || spftree_pc->lfa.protected_resource.type == LFA_NODE_PROTECTION)
 	    && vertex_child) {
+		/*
+		 * If vertex is the penultimate hop router, then pushing an
+		 * Adj-SID towards the final hop means that the No-PHP flag of
+		 * the original Prefix-SID must be honored. We do that by
+		 * removing the previously added Prefix-SID from the repair list
+		 * when those conditions are met.
+		 */
+		if (vertex->depth == (vertex_dest->depth - 2)
+		    && VTYPE_IP(vertex_dest->type)
+		    && vertex_dest->N.ip.sr.present
+		    && !CHECK_FLAG(vertex_dest->N.ip.sr.sid.flags,
+				   ISIS_PREFIX_SID_NO_PHP)) {
+			list_delete_all_node(repair_list);
+		}
+
 		label_qnode = tilfa_find_qnode_adj_sid(spftree_pc, vertex->N.id,
 						       vertex_child->N.id);
 		if (label_qnode == MPLS_INVALID_LABEL) {

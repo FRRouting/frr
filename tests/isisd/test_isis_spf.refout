@@ -3146,9 +3146,9 @@ rt3                  TE-IS        50     rt5                  -         rt5(4)
 
 IS-IS L1 IPv4 routing table:
 
- Prefix         Metric  Interface  Nexthop  Label(s)        
- -----------------------------------------------------------
- 10.0.255.3/32  60      -          rt5      16050/18/16030  
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.3/32  60      -          rt5      16050/18  
 
 P-space (self):
  rt2
@@ -3194,9 +3194,9 @@ rt3                  TE-IS        50     rt5                  -         rt5(4)
 
 IS-IS L1 IPv6 routing table:
 
- Prefix           Metric  Interface  Nexthop  Label(s)        
- -------------------------------------------------------------
- 2001:db8::3/128  60      -          rt5      16051/19/16031  
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::3/128  60      -          rt5      16051/19  
 
 test# test isis topology 2 root rt1 ti-lfa system-id rt1 pseudonode-id 1
 P-space (self):
@@ -3236,7 +3236,7 @@ IS-IS L1 IPv4 routing table:
 
  Prefix         Metric  Interface  Nexthop  Label(s)        
  -----------------------------------------------------------
- 10.0.255.4/32  65      -          rt2      16020/18/16040  
+ 10.0.255.4/32  65      -          rt2      16020/18        
  10.0.255.5/32  75      -          rt2      16020/18/16050  
  10.0.255.6/32  75      -          rt2      16020/18/16060  
 
@@ -3277,7 +3277,7 @@ IS-IS L1 IPv6 routing table:
 
  Prefix           Metric  Interface  Nexthop  Label(s)        
  -------------------------------------------------------------
- 2001:db8::4/128  65      -          rt2      16021/19/16041  
+ 2001:db8::4/128  65      -          rt2      16021/19        
  2001:db8::5/128  75      -          rt2      16021/19/16051  
  2001:db8::6/128  75      -          rt2      16021/19/16061  
 
@@ -3508,7 +3508,7 @@ IS-IS L1 IPv4 routing table:
  -----------------------------------------------------------
  10.0.255.2/32  100     -          rt3      16050/17/16020  
  10.0.255.4/32  90      -          rt3      16050/17/16040  
- 10.0.255.6/32  80      -          rt3      16050/17/16060  
+ 10.0.255.6/32  80      -          rt3      16050/17        
  10.0.255.8/32  90      -          rt3      16050/17/16080  
 
 test# test isis topology 4 root rt4 ti-lfa system-id rt6 ipv4-only
@@ -3553,7 +3553,7 @@ IS-IS L1 IPv4 routing table:
 
  Prefix         Metric  Interface  Nexthop  Label(s)        
  -----------------------------------------------------------
- 10.0.255.6/32  100     -          rt2      16050/17/16060  
+ 10.0.255.6/32  100     -          rt2      16050/17        
  10.0.255.8/32  110     -          rt2      16050/17/16080  
 
 test# test isis topology 5 root rt1 ti-lfa system-id rt2 ipv4-only
@@ -3865,7 +3865,7 @@ IS-IS L1 IPv4 routing table:
  10.0.255.1/32   100     -          rt5      16110/17/16010  
  10.0.255.4/32   90      -          rt5      16110/17/16040  
  10.0.255.7/32   80      -          rt5      16110/17/16070  
- 10.0.255.10/32  70      -          rt5      16110/17/16100  
+ 10.0.255.10/32  70      -          rt5      16110/17        
 
 test# test isis topology 8 root rt2 ti-lfa system-id rt5 ipv4-only
 P-space (self):
@@ -3979,9 +3979,9 @@ rt3                  TE-IS        120    rt2                  -         rt4(4)
 
 IS-IS L1 IPv4 routing table:
 
- Prefix         Metric  Interface  Nexthop  Label(s)        
- -----------------------------------------------------------
- 10.0.255.3/32  130     -          rt2      16040/18/16030  
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.3/32  130     -          rt2      16040/18  
 
 P-space (self):
  rt2
@@ -4030,9 +4030,9 @@ rt3                  TE-IS        120    rt2                  -         rt4(4)
 
 IS-IS L1 IPv6 routing table:
 
- Prefix           Metric  Interface  Nexthop  Label(s)        
- -------------------------------------------------------------
- 2001:db8::3/128  130     -          rt2      16041/19/16031  
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::3/128  130     -          rt2      16041/19  
 
 test# test isis topology 9 root rt1 ti-lfa system-id rt2
 P-space (self):
@@ -4079,7 +4079,7 @@ IS-IS L1 IPv4 routing table:
  Prefix         Metric  Interface  Nexthop  Label(s)        
  -----------------------------------------------------------
  10.0.255.2/32  130     -          rt3      16030/18/16020  
- 10.0.255.4/32  120     -          rt3      16030/18/16040  
+ 10.0.255.4/32  120     -          rt3      16030/18        
  10.0.255.5/32  130     -          rt3      16030/18/16050  
  10.0.255.6/32  150     -          rt3      16030/18/16060  
  10.0.255.7/32  150     -          rt3      16030/18/16070  
@@ -4130,7 +4130,7 @@ IS-IS L1 IPv6 routing table:
  Prefix           Metric  Interface  Nexthop  Label(s)        
  -------------------------------------------------------------
  2001:db8::2/128  130     -          rt3      16031/19/16021  
- 2001:db8::4/128  120     -          rt3      16031/19/16041  
+ 2001:db8::4/128  120     -          rt3      16031/19        
  2001:db8::5/128  130     -          rt3      16031/19/16051  
  2001:db8::6/128  150     -          rt3      16031/19/16061  
  2001:db8::7/128  150     -          rt3      16031/19/16071  
@@ -4213,9 +4213,9 @@ IS-IS L1 IPv4 routing table:
  10.0.255.3/32  80      -          rt6      16060/16/16030  
                         -          rt7      16070/16/16030  
                         -          rt8      16080/16/16030  
- 10.0.255.4/32  50      -          rt6      16060/16/16040  
-                        -          rt7      16070/16/16040  
-                        -          rt8      16080/16/16040  
+ 10.0.255.4/32  50      -          rt6      16060/16        
+                        -          rt7      16070/16        
+                        -          rt8      16080/16        
  10.0.255.5/32  60      -          rt6      16060/16/16050  
                         -          rt7      16070/16/16050  
                         -          rt8      16080/16/16050  
@@ -4295,9 +4295,9 @@ IS-IS L1 IPv6 routing table:
  2001:db8::3/128  80      -          rt6      16061/17/16031  
                           -          rt7      16071/17/16031  
                           -          rt8      16081/17/16031  
- 2001:db8::4/128  50      -          rt6      16061/17/16041  
-                          -          rt7      16071/17/16041  
-                          -          rt8      16081/17/16041  
+ 2001:db8::4/128  50      -          rt6      16061/17        
+                          -          rt7      16071/17        
+                          -          rt8      16081/17        
  2001:db8::5/128  60      -          rt6      16061/17/16051  
                           -          rt7      16071/17/16051  
                           -          rt8      16081/17/16051  
@@ -4351,9 +4351,9 @@ rt3                  TE-IS        50     rt5                  -         rt1(4)
 
 IS-IS L1 IPv4 routing table:
 
- Prefix         Metric  Interface  Nexthop  Label(s)        
- -----------------------------------------------------------
- 10.0.255.8/32  60      -          rt5      16040/26/16080  
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.8/32  60      -          rt5      16040/26  
 
 P-space (self):
  rt1
@@ -4403,9 +4403,9 @@ rt3                  TE-IS        50     rt5                  -         rt1(4)
 
 IS-IS L1 IPv6 routing table:
 
- Prefix           Metric  Interface  Nexthop  Label(s)        
- -------------------------------------------------------------
- 2001:db8::8/128  60      -          rt5      16041/27/16081  
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::8/128  60      -          rt5      16041/27  
 
 test# test isis topology 10 root rt1 ti-lfa system-id rt2
 P-space (self):
@@ -4460,8 +4460,8 @@ IS-IS L1 IPv4 routing table:
                         -          rt4      16070/18/16020  
  10.0.255.5/32  100     -          rt3      20060/18/16050  
                         -          rt4      16070/18/16050  
- 10.0.255.8/32  90      -          rt3      20060/18/16080  
-                        -          rt4      16070/18/16080  
+ 10.0.255.8/32  90      -          rt3      20060/18        
+                        -          rt4      16070/18        
 
 P-space (self):
  rt3
@@ -4515,8 +4515,8 @@ IS-IS L1 IPv6 routing table:
                           -          rt4      16071/19/16021  
  2001:db8::5/128  100     -          rt3      20061/19/16051  
                           -          rt4      16071/19/16051  
- 2001:db8::8/128  90      -          rt3      20061/19/16081  
-                          -          rt4      16071/19/16081  
+ 2001:db8::8/128  90      -          rt3      20061/19        
+                          -          rt4      16071/19        
 
 test# test isis topology 10 root rt1 ti-lfa system-id rt4
 P-space (self):
@@ -4563,7 +4563,7 @@ IS-IS L1 IPv4 routing table:
  Prefix         Metric  Interface  Nexthop  Label(s)        
  -----------------------------------------------------------
  10.0.255.4/32  100     -          rt2      16080/20/16040  
- 10.0.255.7/32  90      -          rt2      16080/20/16070  
+ 10.0.255.7/32  90      -          rt2      16080/20        
 
 P-space (self):
  rt2
@@ -4609,7 +4609,7 @@ IS-IS L1 IPv6 routing table:
  Prefix           Metric  Interface  Nexthop  Label(s)        
  -------------------------------------------------------------
  2001:db8::4/128  100     -          rt2      16081/21/16041  
- 2001:db8::7/128  90      -          rt2      16081/21/16071  
+ 2001:db8::7/128  90      -          rt2      16081/21        
 
 test# test isis topology 11 root rt2 ti-lfa system-id rt4
 P-space (self):
@@ -4747,12 +4747,12 @@ rt3                  TE-IS        740    rt2                  -         rt5(4)
 
 IS-IS L1 IPv4 routing table:
 
- Prefix         Metric  Interface  Nexthop  Label(s)              
- -----------------------------------------------------------------
- 10.0.255.3/32  750     -          rt2      16080/17/16/16/16030  
- 10.0.255.5/32  350     -          rt2      16080/17/16/16050     
- 10.0.255.7/32  150     -          rt2      16080/17/16070        
- 10.0.255.9/32  160     -          rt2      16080/17/18/16090     
+ Prefix         Metric  Interface  Nexthop  Label(s)        
+ -----------------------------------------------------------
+ 10.0.255.3/32  750     -          rt2      16080/17/16/16  
+ 10.0.255.5/32  350     -          rt2      16080/17/16     
+ 10.0.255.7/32  150     -          rt2      16080/17        
+ 10.0.255.9/32  160     -          rt2      16080/17/18     
 
 test# test isis topology 13 root rt1 ti-lfa system-id rt3 ipv4-only
 P-space (self):
