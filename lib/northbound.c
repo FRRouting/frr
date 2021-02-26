@@ -1817,6 +1817,16 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 
 		/* Find the list entry pointer. */
 		nn = dn->schema->priv;
+		if (!nn->cbs.lookup_entry) {
+			flog_warn(
+				EC_LIB_NB_OPERATIONAL_DATA,
+				"%s: data path doesn't support iteration over operational data: %s",
+				__func__, xpath);
+			list_delete(&list_dnodes);
+			yang_dnode_free(dnode);
+			return NB_ERR;
+		}
+
 		list_entry =
 			nb_callback_lookup_entry(nn, list_entry, &list_keys);
 		if (list_entry == NULL) {
