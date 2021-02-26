@@ -80,6 +80,8 @@ static void extendbuf(char **what, const char *arg)
 }
 #define extend(x) extendbuf(&value, x)
 
+#ifndef __clang_analyzer__
+
 %}
 
 ID		[A-Za-z0-9_]+
@@ -156,6 +158,8 @@ SPECIAL		[(),]
 .				/* printf("-- '%s' in init\n", yytext); */ BEGIN(INITIAL); return yytext[0];
 
 %%
+
+#endif /* __clang_analyzer__ */
 
 static int yylex_clr(char **retbuf)
 {
