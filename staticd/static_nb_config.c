@@ -103,10 +103,32 @@ static void static_path_list_tag_modify(struct nb_cb_modify_args *args,
 	static_install_path(rn, pn, info->safi, info->svrf);
 }
 
+struct nexthop_iter {
+	int count;
+	bool blackhole;
+};
+
+static int nexthop_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct nexthop_iter *iter = arg;
+	int nh_type;
+
+	nh_type = yang_dnode_get_enum(dnode, "./nh-type");
+
+	if (nh_type == STATIC_BLACKHOLE)
+		iter->blackhole = true;
+
+	iter->count++;
+
+	return YANG_ITER_CONTINUE;
+}
+
 static bool static_nexthop_create(struct nb_cb_create_args *args,
 				  const struct lyd_node *rn_dnode,
 				  struct stable_info *info)
 {
+	const struct lyd_node *pn_dnode;
+	struct nexthop_iter iter;
 	struct route_node *rn;
 	struct static_path *pn;
 	struct ipaddr ipaddr;
@@ -127,6 +149,20 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 					ifname);
 				return NB_ERR_VALIDATION;
 			}
+		}
+
+		iter.count = 0;
+		iter.blackhole = false;
+
+		pn_dnode = yang_dnode_get_parent(args->dnode, "path-list");
+		yang_dnode_iterate(nexthop_iter_cb, &iter, pn_dnode,
+				   "./frr-nexthops/nexthop");
+
+		if (iter.blackhole && iter.count > 1) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Route can not have blackhole and non-blackhole nexthops simultaneously");
+			return NB_ERR_VALIDATION;
 		}
 		break;
 	case NB_EV_PREPARE:
