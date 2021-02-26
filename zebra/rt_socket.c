@@ -394,7 +394,8 @@ enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx)
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
-int kernel_configure_arp(struct interface *ifp, int family, ns_id_t ns_id)
+int kernel_configure_if_link(struct interface *ifp, struct interface *link_ifp,
+			     ns_id_t ns_id)
 {
 	return 0;
 }

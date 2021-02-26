@@ -3282,10 +3282,9 @@ stream_failure:
 static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	int fam;
+	uint8_t fam;
 	ifindex_t idx;
 	struct interface *ifp;
-	ns_id_t ns_id;
 
 	s = msg;
 	STREAM_GETC(s, fam);
@@ -3295,8 +3294,7 @@ static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
 	ifp = if_lookup_by_index_per_ns(zvrf->zns, idx);
 	if (!ifp)
 		return;
-	ns_id = zvrf->zns->ns_id;
-	kernel_configure_arp(ifp, fam, ns_id);
+	dplane_neigh_table_update(ifp, fam, 1, 0, 0);
 stream_failure:
 	return;
 }

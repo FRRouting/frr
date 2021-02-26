@@ -169,6 +169,8 @@ enum dplane_op_e {
 	/* LINK LAYER IP address update */
 	DPLANE_OP_NEIGH_IP_INSTALL,
 	DPLANE_OP_NEIGH_IP_DELETE,
+
+	DPLANE_OP_NEIGH_TABLE_UPDATE,
 };
 
 /*
@@ -516,6 +518,15 @@ dplane_ctx_get_br_port_sph_filters(const struct zebra_dplane_ctx *ctx);
 uint32_t
 dplane_ctx_get_br_port_backup_nhg_id(const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for neighbor table information */
+uint8_t dplane_ctx_neightable_get_family(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_app_probes(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_mcast_probes(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_ucast_probes(const struct zebra_dplane_ctx *ctx);
+
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
@@ -673,6 +684,15 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
  */
 enum zebra_dplane_result dplane_neigh_discover(const struct interface *ifp,
 					       const struct ipaddr *ip);
+
+/*
+ * Enqueue a neighbor table parameter set
+ */
+enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
+						   const uint8_t family,
+						   const uint32_t app_probes,
+						   const uint32_t ucast_probes,
+						   const uint32_t mcast_probes);
 
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;

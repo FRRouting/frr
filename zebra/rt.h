@@ -81,7 +81,9 @@ extern int mpls_kernel_init(void);
 extern uint32_t kernel_get_speed(struct interface *ifp, int *error);
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
 
-extern int kernel_configure_arp(struct interface *ifp, int family, ns_id_t ns_id);
+extern int kernel_configure_if_link(struct interface *ifp,
+				    struct interface *link_ifp, ns_id_t ns_id);
+
 /*
  * Southbound Initialization routines to get initial starting
  * state.
