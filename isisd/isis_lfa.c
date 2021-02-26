@@ -541,10 +541,16 @@ static int tilfa_repair_list_apply(struct isis_spftree *spftree,
 		struct isis_spf_adj *sadj = vadj->sadj;
 		struct mpls_label_stack *label_stack;
 
+		/*
+		 * Don't try to apply the repair list if one was already applied
+		 * before (can't have ECMP past the P-node).
+		 */
+		if (vadj->label_stack)
+			continue;
+
 		if (!isis_vertex_adj_exists(spftree, vertex_pnode, sadj))
 			continue;
 
-		assert(!vadj->label_stack);
 		label_stack = tilfa_compute_label_stack(spftree->lspdb, sadj,
 							repair_list);
 		if (!label_stack) {
