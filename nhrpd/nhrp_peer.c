@@ -966,32 +966,37 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			}
 			break;
 		case NHRP_EXTENSION_NAT_ADDRESS:
-			if(packet_types[hdr->type].type == PACKET_REQUEST) {
-				debugf(NHRP_DEBUG_COMMON,"Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the request packet");
-				proto = &pp->src_proto;
-			} else if(packet_types[hdr->type].type == PACKET_REPLY) {
-				debugf(NHRP_DEBUG_COMMON,"Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the reply packet");
-				/* For reply packet use protocol specified in CIE of mandatory part for cache lookup */
-				if(sockunion_family(&cie_protocol_mandatory) != AF_UNSPEC)
-					proto = &cie_protocol_mandatory;
-			}
+			/* if NAT extension is not empty then copy it across else attempt to populate it */
+			if (len > 0) {
+				zbuf_copy(zb, &extpl, len);
+			} else {
+				if(packet_types[hdr->type].type == PACKET_REQUEST) {
+					debugf(NHRP_DEBUG_COMMON,"Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the request packet");
+					proto = &pp->src_proto;
+				} else if(packet_types[hdr->type].type == PACKET_REPLY) {
+					debugf(NHRP_DEBUG_COMMON,"Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the reply packet");
+					/* For reply packet use protocol specified in CIE of mandatory part for cache lookup */
+					if(sockunion_family(&cie_protocol_mandatory) != AF_UNSPEC)
+						proto = &cie_protocol_mandatory;
+				}
 
-			if(proto) {
-				debugf(NHRP_DEBUG_COMMON,"Proto is %s", sockunion2str(proto, buf, sizeof(buf)));
-				c = nhrp_cache_get(nifp->ifp, proto, 0);
-				if(c) {
-					debugf(NHRP_DEBUG_COMMON,"c->cur.remote_nbma_natoa is %s", sockunion2str(&c->cur.remote_nbma_natoa, buf, sizeof(buf)) ? buf : "NULL");
-					if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
-						cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,&c->cur.remote_nbma_natoa, proto);
-						if (!cie)
-							goto err;
+				if(proto) {
+					debugf(NHRP_DEBUG_COMMON,"Proto is %s", sockunion2str(proto, buf, sizeof(buf)));
+					c = nhrp_cache_get(nifp->ifp, proto, 0);
+					if(c) {
+						debugf(NHRP_DEBUG_COMMON,"c->cur.remote_nbma_natoa is %s", sockunion2str(&c->cur.remote_nbma_natoa, buf, sizeof(buf)) ? buf : "NULL");
+						if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
+							cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,&c->cur.remote_nbma_natoa, proto);
+							if (!cie)
+								goto err;
+						}
+					} else {
+						debugf(NHRP_DEBUG_COMMON,"No cache entry for Proto is %s", sockunion2str(proto, buf, sizeof(buf)));
+						zbuf_put(zb, extpl.head, len);
 					}
 				} else {
-					debugf(NHRP_DEBUG_COMMON,"No cache entry for Proto is %s", sockunion2str(proto, buf, sizeof(buf)));
 					zbuf_put(zb, extpl.head, len);
 				}
-			} else {
-				zbuf_put(zb, extpl.head, len);
 			}
 			break;
 		default:
