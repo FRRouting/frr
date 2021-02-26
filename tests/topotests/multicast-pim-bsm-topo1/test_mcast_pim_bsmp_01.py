@@ -644,7 +644,6 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     next_hop_lhr = topo["routers"]["i1"]["links"]["l1"]["ipv4"].split("/")[0]
 
     input_dict = {
-        "f1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": NEXT_HOP1}]},
         "i1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": next_hop_rp}]},
         "l1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": next_hop_lhr}]},
     }
@@ -706,7 +705,8 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     input_dict = {
         "f1": {
             "static_routes": [
-                {"network": [BSR1_ADDR, CRP], "next_hop": "blackhole", "delete": True}
+                {"network": [BSR1_ADDR, CRP], "next_hop": "blackhole", "delete": True},
+                {"network": BSR1_ADDR, "next_hop": NEXT_HOP1}
             ]
         }
     }
