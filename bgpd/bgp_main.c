@@ -162,6 +162,9 @@ __attribute__((__noreturn__)) void sigint(void)
 	assert(bm->terminating == false);
 	bm->terminating = true;	/* global flag that shutting down */
 
+	/* Disable BFD events to avoid wasting processing. */
+	bfd_protocol_integration_set_shutdown(true);
+
 	bgp_terminate();
 
 	bgp_exit(0);

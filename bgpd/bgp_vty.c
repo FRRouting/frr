@@ -14411,7 +14411,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		vty_out(vty, "\n");
 
 	/* BFD information. */
-	bgp_bfd_show_info(vty, p, use_json, json_neigh);
+	if (p->bfd_config)
+		bgp_bfd_show_info(vty, p, json_neigh);
 
 	if (use_json) {
 		if (p->conf_if) /* Configured interface name. */
@@ -16818,11 +16819,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			peer->rtt_expected, peer->rtt_keepalive_conf);
 
 	/* bfd */
-	if (peer->bfd_info) {
-		if (!peer_group_active(peer) || !g_peer->bfd_info) {
-			bgp_bfd_peer_config_write(vty, peer, addr);
-		}
-	}
+	if (peer->bfd_config)
+		bgp_bfd_peer_config_write(vty, peer, addr);
 
 	/* password */
 	if (peergroup_flag_check(peer, PEER_FLAG_PASSWORD))
