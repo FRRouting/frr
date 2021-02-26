@@ -1749,7 +1749,6 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 	struct listnode *node;
 	struct bgp_path_es_info *es_info;
 	struct bgp_path_info *pi;
-	char prefix_buf[PREFIX_STRLEN];
 	struct bgp *bgp;
 	struct bgpevpn *vpn;
 
@@ -1776,11 +1775,8 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 			zlog_debug(
-				"update path %d %s linked to es %s on oper chg",
-				es_info->vni,
-				prefix2str(&pi->net->p, prefix_buf,
-					   sizeof(prefix_buf)),
-				es->esi_str);
+				"update path %d %pFX linked to es %s on oper chg",
+				es_info->vni, &pi->net->p, es->esi_str);
 
 		bgp_evpn_update_type2_route_entry(bgp, vpn, pi->net, pi,
 						  __func__);
@@ -1804,7 +1800,6 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 	struct listnode *node;
 	struct bgp_path_es_info *es_info;
 	struct bgp_path_info *pi;
-	char prefix_buf[PREFIX_STRLEN];
 	bool tmp_local;
 	struct attr *attr_new;
 	struct attr attr_tmp;
@@ -1829,10 +1824,9 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 			zlog_debug(
-				"update path %s linked to es %s on chg to %s",
-				prefix2str(&pi->net->p, prefix_buf,
-					   sizeof(prefix_buf)),
-				es->esi_str, is_local ? "local" : "non-local");
+				"update path %pFX linked to es %s on chg to %s",
+				&pi->net->p, es->esi_str,
+				is_local ? "local" : "non-local");
 
 		attr_tmp = *pi->attr;
 		if (is_local)
@@ -4441,7 +4435,6 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 {
 	struct bgp_path_evpn_nh_info *nh_info;
 	struct bgp_evpn_nh *nh;
-	char prefix_buf[PREFIX_STRLEN];
 	struct ipaddr ip;
 
 	/* EVPN nexthop setup in bgp has been turned off */
@@ -4450,10 +4443,8 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 
 	if (!bgp_vrf->evpn_nh_table) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-			zlog_debug("path %s linked to vrf %s failed",
-				   prefix2str(&pi->net->p, prefix_buf,
-					      sizeof(prefix_buf)),
-				   bgp_vrf->name);
+			zlog_debug("path %pFX linked to vrf %s failed",
+				   &pi->net->p, bgp_vrf->name);
 		return;
 	}
 
@@ -4500,10 +4491,8 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	bgp_evpn_path_nh_unlink(nh_info);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-		zlog_debug(
-			"path %s linked to nh %s %s",
-			prefix2str(&pi->net->p, prefix_buf, sizeof(prefix_buf)),
-			nh->bgp_vrf->name, nh->nh_str);
+		zlog_debug("path %pFX linked to nh %s %s", &pi->net->p,
+			   nh->bgp_vrf->name, nh->nh_str);
 
 	/* link mac-ip path to the new nh */
 	nh_info->nh = nh;
@@ -4516,10 +4505,8 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES)) {
 		if (!nh->ref_pi)
 			zlog_debug(
-				"path %s linked to nh %s %s with no valid pi",
-				prefix2str(&pi->net->p, prefix_buf,
-					   sizeof(prefix_buf)),
-				nh->bgp_vrf->name, nh->nh_str);
+				"path %pFX linked to nh %s %s with no valid pi",
+				&pi->net->p, nh->bgp_vrf->name, nh->nh_str);
 	}
 }
 
