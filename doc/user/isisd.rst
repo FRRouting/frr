@@ -121,9 +121,15 @@ ISIS Timer
 ISIS Fast-Reroute
 =================
 
+Unless stated otherwise, commands in this section apply to all LFA
+flavors (local LFA, Remote LFA and TI-LFA).
+
 .. clicmd:: spf prefix-priority [critical | high | medium] WORD
 
    Assign a priority to the prefixes that match the specified access-list.
+
+   By default loopback prefixes have medium priority and non-loopback prefixes
+   have low priority.
 
 .. clicmd:: fast-reroute priority-limit [critical | high | medium] [level-1 | level-2]
 
@@ -131,7 +137,7 @@ ISIS Fast-Reroute
 
 .. clicmd:: fast-reroute lfa tiebreaker [downstream | lowest-backup-metric | node-protecting] index (1-255) [level-1 | level-2]
 
-   Configure a tie-breaker for multiple LFA backups. Lower indexes are
+   Configure a tie-breaker for multiple local LFA backups. Lower indexes are
    processed first.
 
 .. clicmd:: fast-reroute load-sharing disable [level-1 | level-2]
@@ -140,8 +146,8 @@ ISIS Fast-Reroute
 
 .. clicmd:: fast-reroute remote-lfa prefix-list [WORD] [level-1 | level-2]
 
-   Configure a prefix-list to select eligible PQ nodes (valid for all protected
-   interfaces).
+   Configure a prefix-list to select eligible PQ nodes for remote LFA
+   backups (valid for all protected interfaces).
 
 .. _isis-region:
 
@@ -239,15 +245,11 @@ ISIS interface
 
 .. clicmd:: isis fast-reroute lfa [level-1 | level-2]
 
-   Enable per-prefix LFA fast reroute link protection.
+   Enable per-prefix local LFA fast reroute link protection.
 
 .. clicmd:: isis fast-reroute lfa [level-1 | level-2] exclude interface IFNAME
 
-   Exclude an interface from the LFA backup nexthop computation.
-
-.. clicmd:: isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
-
-   Enable per-prefix TI-LFA fast reroute link or node protection.
+   Exclude an interface from the local LFA backup nexthop computation.
 
 .. clicmd:: isis fast-reroute remote-lfa tunnel mpls-ldp [level-1 | level-2]
 
@@ -258,6 +260,10 @@ ISIS interface
 .. clicmd:: isis fast-reroute remote-lfa maximum-metric (1-16777215) [level-1 | level-2]
 
    Limit Remote LFA PQ node selection within the specified metric.
+
+.. clicmd:: isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
+
+   Enable per-prefix TI-LFA fast reroute link or node protection.
 
 
 .. _showing-isis-information:
