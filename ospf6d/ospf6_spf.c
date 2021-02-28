@@ -649,14 +649,10 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 	ospf6_spf_reason_string(ospf6->spf_reason, rbuf, sizeof(rbuf));
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
-		zlog_debug("SPF runtime: %lld sec %lld usec",
-			   (long long)runtime.tv_sec,
-			   (long long)runtime.tv_usec);
-
-	zlog_info(
-		"SPF processing: # Areas: %d, SPF runtime: %lld sec %lld usec, Reason: %s",
-		areas_processed, (long long)runtime.tv_sec,
-		(long long)runtime.tv_usec, rbuf);
+		zlog_debug(
+			"SPF processing: # Areas: %d, SPF runtime: %lld sec %lld usec, Reason: %s",
+			areas_processed, (long long)runtime.tv_sec,
+			(long long)runtime.tv_usec, rbuf);
 
 	ospf6->last_spf_reason = ospf6->spf_reason;
 	ospf6_reset_spf_reason(ospf6);
@@ -718,9 +714,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
-		zlog_debug("SPF: calculation timer delay = %ld", delay);
-
-	zlog_info("SPF: Scheduled in %ld msec", delay);
+		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
 	ospf6->t_spf_calc = NULL;
 	thread_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6,
