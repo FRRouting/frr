@@ -1181,7 +1181,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		mesh_group_name = yang_dnode_get_string(args->dnode, ".");
+		mesh_group_name = yang_dnode_get_string(args->dnode, "mesh-group-name");
 
 		result = ip_no_msdp_mesh_group_cmd_worker(pim, mesh_group_name,
 				args->errmsg,
@@ -2716,11 +2716,11 @@ int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
-		ifp_name = yang_dnode_get_string(if_dnode, ".");
 		mcast_if_count =
 			yang_get_list_elements_count(if_dnode);
 		/* Limiting mcast interfaces to number of VIFs */
 		if (mcast_if_count == MAXVIFS) {
+			ifp_name = yang_dnode_get_string(if_dnode, "name");
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s",
 				 MAXVIFS, ifp_name);
@@ -2991,7 +2991,7 @@ int lib_interface_igmp_address_family_static_group_create(
 	case NB_EV_VALIDATE:
 		if_dnode =  yang_dnode_get_parent(args->dnode, "interface");
 		if (!is_pim_interface(if_dnode)) {
-			ifp_name = yang_dnode_get_string(if_dnode, ".");
+			ifp_name = yang_dnode_get_string(if_dnode, "name");
 			snprintf(args->errmsg, args->errmsg_len,
 				 "multicast not enabled on interface %s",
 				 ifp_name);
