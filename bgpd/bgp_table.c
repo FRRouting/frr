@@ -205,8 +205,14 @@ static ssize_t printfrr_bd(char *buf, size_t bsz, const char *fmt,
 			   int prec, const void *ptr)
 {
 	const struct bgp_dest *dest = ptr;
-	const struct prefix *p = bgp_dest_get_prefix(dest);
+	const struct prefix *p;
 
-	prefix2str(p, buf, bsz);
+	if (dest) {
+		p = bgp_dest_get_prefix(dest);
+		prefix2str(p, buf, bsz);
+	} else {
+		strlcpy(buf, "NULL", bsz);
+	}
+
 	return 2;
 }
