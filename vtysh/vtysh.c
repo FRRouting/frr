@@ -2851,6 +2851,24 @@ DEFUN (vtysh_show_error_code,
 }
 
 /* Northbound. */
+DEFUN (show_config_running,
+       show_config_running_cmd,
+       "show configuration running\
+          [<json|xml> [translate WORD]]\
+          [with-defaults]" DAEMONS_LIST,
+       SHOW_STR
+       "Configuration information\n"
+       "Running configuration\n"
+       "Change output format to JSON\n"
+       "Change output format to XML\n"
+       "Translate output\n"
+       "YANG module translator\n"
+       "Show default values\n"
+       DAEMONS_STR)
+{
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+}
+
 DEFUN (show_yang_operational_data,
        show_yang_operational_data_cmd,
        "show yang operational-data XPATH\
@@ -4564,6 +4582,7 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
 
 	/* northbound */
+	install_element(ENABLE_NODE, &show_config_running_cmd);
 	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);

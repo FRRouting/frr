@@ -1906,7 +1906,6 @@ void nb_cli_init(struct thread_master *tm)
 	if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
 		install_element(ENABLE_NODE, &config_exclusive_cmd);
 		install_element(ENABLE_NODE, &config_private_cmd);
-		install_element(ENABLE_NODE, &show_config_running_cmd);
 		install_element(ENABLE_NODE,
 				&show_config_compare_without_candidate_cmd);
 		install_element(ENABLE_NODE, &show_config_transaction_cmd);
@@ -1919,6 +1918,7 @@ void nb_cli_init(struct thread_master *tm)
 	}
 
 	/* Other commands. */
+	install_element(ENABLE_NODE, &show_config_running_cmd);
 	install_element(CONFIG_NODE, &yang_module_translator_load_cmd);
 	install_element(CONFIG_NODE, &yang_module_translator_unload_cmd);
 	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
