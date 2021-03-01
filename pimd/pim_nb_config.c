@@ -2411,7 +2411,7 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 		}
 
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
-		if (iif->ifindex == oif->ifindex) {
+		if (oif && iif && (iif->ifindex == oif->ifindex)) {
 			strlcpy(args->errmsg,
 				"% IIF same as OIF and loopfree enforcement is enabled; rejecting",
 				args->errmsg_len);
