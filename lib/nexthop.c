@@ -739,6 +739,16 @@ static ssize_t printfrr_nh(char *buf, size_t bsz, const char *fmt,
 	const char *s, *v_is = "", *v_via = "", *v_viaif = "via ";
 	ssize_t ret = 3;
 
+	/* NULL-check */
+	if (nexthop == NULL) {
+		if (fmt[2] == 'v' && fmt[3] == 'v')
+			ret++;
+
+		strlcpy(buf, "NULL", bsz);
+
+		return ret;
+	}
+
 	switch (fmt[2]) {
 	case 'v':
 		if (fmt[3] == 'v') {
