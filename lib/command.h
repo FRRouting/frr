@@ -398,6 +398,7 @@ struct cmd_node {
 #define BGP_SOFT_IN_STR "Send route-refresh unless using 'soft-reconfiguration inbound'\n"
 #define BGP_SOFT_OUT_STR "Resend all outbound updates\n"
 #define BGP_SOFT_RSCLIENT_RIB_STR "Soft reconfig for rsclient RIB\n"
+#define BGP_ORR_DEBUG "Enable Optimal Route Reflection Debugging logs\n"
 #define OSPF_STR "OSPF information\n"
 #define NEIGHBOR_STR "Specify neighbor router\n"
 #define DEBUG_STR "Debugging functions\n"

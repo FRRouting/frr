@@ -1838,6 +1838,8 @@ int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 /* Change peer's AS number.  */
 void peer_as_change(struct peer *peer, as_t as, int as_specified)
 {
+	afi_t afi;
+	safi_t safi;
 	bgp_peer_sort_t origtype, newtype;
 
 	/* Stop peer. */
@@ -1876,6 +1878,11 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 
 	/* reflector-client reset */
 	if (newtype != BGP_PEER_IBGP) {
+
+		FOREACH_AFI_SAFI (afi, safi)
+			UNSET_FLAG(peer->af_flags[afi][safi],
+				   PEER_FLAG_ORR_GROUP);
+
 		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_UNICAST],
 			   PEER_FLAG_REFLECTOR_CLIENT);
 		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_MULTICAST],
@@ -4531,6 +4538,11 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	/* Special check for reflector client.  */
 	if (flag & PEER_FLAG_REFLECTOR_CLIENT && ptype != BGP_PEER_IBGP)
 		return BGP_ERR_NOT_INTERNAL_PEER;
+
+	/* Do not remove reflector client when ORR is configured on this peer */
+	if (flag & PEER_FLAG_REFLECTOR_CLIENT && !set
+	    && peer_orr_rrclient_check(peer, afi, safi))
+		return BGP_ERR_PEER_ORR_CONFIGURED;
 
 	/* Special check for remove-private-AS.  */
 	if (flag & PEER_FLAG_REMOVE_PRIVATE_AS && ptype == BGP_PEER_IBGP)

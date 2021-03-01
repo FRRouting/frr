@@ -72,6 +72,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_orr.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_rpki.h"
 
@@ -12195,7 +12196,8 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
           |rpki <invalid|valid|notfound>\
           |version (1-4294967295)\
           |alias WORD\
-          ] [json$uj [detail$detail] | wide$wide]",
+          |optimal-route-reflection [WORD$orr_group_name]\
+	  ] [json$uj [detail$detail] | wide$wide]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
       "Display the entries for all address families\n"
@@ -12226,7 +12228,9 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
       "Display prefixes with matching version numbers\n"
       "Version number and above\n"
       "Display prefixes with matching BGP community alias\n"
-      "BGP community alias\n" JSON_STR
+      "BGP community alias\n"
+      "Display Optimal Route Reflection RR Clients\n"
+      "ORR Group name\n" JSON_STR
       "Display detailed version of JSON output\n"
       "Increase table width for longer prefixes\n")
 {
@@ -12242,6 +12246,7 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 	bool first = true;
 	uint16_t show_flags = 0;
 	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
+	bool orr_group = false;
 
 	if (uj) {
 		argc--;
@@ -12321,6 +12326,9 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 		bgp_community_alias = argv[idx + 1]->arg;
 	}
 
+	if (argv_find(argv, argc, "optimal-route-reflection", &idx))
+		orr_group = true;
+
 	if (!all) {
 		/* show bgp: AFI_IP6, show ip bgp: AFI_IP */
 		if (community)
@@ -12335,6 +12343,9 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 			return bgp_show(vty, bgp, afi, safi, sh_type,
 					bgp_community_alias, show_flags,
 					rpki_target_state);
+		else if (orr_group)
+			return bgp_show_orr(vty, bgp, afi, safi, orr_group_name,
+					    show_flags);
 		else
 			return bgp_show(vty, bgp, afi, safi, sh_type, NULL,
 					show_flags, rpki_target_state);
@@ -12382,6 +12393,11 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 						vty, bgp, afi, safi, sh_type,
 						bgp_community_alias, show_flags,
 						rpki_target_state);
+
+				else if (orr_group)
+					return bgp_show_orr(vty, bgp, afi, safi,
+							    orr_group_name,
+							    show_flags);
 				else
 					bgp_show(vty, bgp, afi, safi, sh_type,
 						 NULL, show_flags,
@@ -12419,6 +12435,10 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 							sh_type, prefix_version,
 							show_flags,
 							rpki_target_state);
+				else if (orr_group)
+					return bgp_show_orr(vty, bgp, afi, safi,
+							    orr_group_name,
+							    show_flags);
 				else
 					bgp_show(vty, bgp, afi, safi, sh_type,
 						 NULL, show_flags,

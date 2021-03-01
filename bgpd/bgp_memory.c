@@ -142,6 +142,11 @@ DEFINE_MTYPE(BGPD, BGP_FLOWSPEC_INDEX, "BGP flowspec index");
 
 DEFINE_MTYPE(BGPD, BGP_SRV6_L3VPN, "BGP prefix-sid srv6 l3vpn servcie");
 DEFINE_MTYPE(BGPD, BGP_SRV6_VPN, "BGP prefix-sid srv6 vpn service");
+
 DEFINE_MTYPE(BGPD, BGP_SRV6_SID, "BGP srv6 segment-id");
 DEFINE_MTYPE(BGPD, BGP_SRV6_FUNCTION, "BGP srv6 function");
 DEFINE_MTYPE(BGPD, EVPN_REMOTE_IP, "BGP EVPN Remote IP hash entry");
+
+DEFINE_MTYPE(BGPD, BGP_ORR_GROUP, "BGP Optimal Route Reflection Group");
+DEFINE_MTYPE(BGPD, BGP_ORR_GROUP_NAME,
+	     "BGP Optimal Route Reflection Group Name");

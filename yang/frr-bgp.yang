@@ -337,6 +337,8 @@ module frr-bgp {
     uses global-filter-config;
 
     uses global-afi-safi-vpn-config;
+
+    uses optimal-route-reflection;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-unicast" {

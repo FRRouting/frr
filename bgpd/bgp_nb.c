@@ -1483,6 +1483,31 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
+                        .xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/name",
+                        .cbs = {
+                                .modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_name_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_name_destroy,
+                        }
+                },
+                {
+                        .xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/primary",
+                        .cbs = {
+				.modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_primary_modify,
+                        }
+                },
+		{
+                        .xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/secondary",
+                        .cbs = {
+                                .modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_secondary_modify,
+                        }
+                },
+                {
+                        .xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/tertiary",
+                        .cbs = {
+                                .modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_tertiary_modify,
+                        }
+                },
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ebgp/maximum-paths",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_paths_modify,

@@ -311,6 +311,44 @@ submodule frr-bgp-common {
     }
   }
 
+  grouping optimal-route-reflection {
+    description
+      "Grouping used to include optimal route reflection group
+       configuration for a set of BGP Route Reflector clients.";
+    container optimal-route-reflection {
+      leaf name {
+        type string;
+        mandatory true;
+        description
+        "Optimal Route Reflection Group name.";
+      }
+
+      leaf primary {
+        type inet:ip-address;
+	default 0.0.0.0;
+        description
+          "Route Reflector calculates SPF with respect to the configured
+           Primary Root when primary is up and reachable.";
+      }
+
+      leaf secondary {
+        type inet:ip-address;
+	default 0.0.0.0;
+        description
+          "Route Reflector calculates SPF with respect to the configured
+           Secondary Root when Primary Root is down or unreachable.";
+      }
+
+      leaf tertiary {
+        type inet:ip-address;
+	default 0.0.0.0;
+        description
+          "Route Reflector calculates SPF with respect to the configured
+           Tertiary Root when primary and Secondary are down or unreachable.";
+      }
+    }
+  }
+
   grouping global-bgp-config {
     leaf instance-type-view {
       type boolean;

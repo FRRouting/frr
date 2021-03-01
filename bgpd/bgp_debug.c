@@ -69,6 +69,7 @@ unsigned long conf_bgp_debug_pbr;
 unsigned long conf_bgp_debug_graceful_restart;
 unsigned long conf_bgp_debug_evpn_mh;
 unsigned long conf_bgp_debug_bfd;
+unsigned long conf_bgp_debug_optimal_route_reflection;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -89,6 +90,7 @@ unsigned long term_bgp_debug_pbr;
 unsigned long term_bgp_debug_graceful_restart;
 unsigned long term_bgp_debug_evpn_mh;
 unsigned long term_bgp_debug_bfd;
+unsigned long term_bgp_debug_optimal_route_reflection;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -2058,6 +2060,33 @@ DEFPY (debug_bgp_evpn_mh,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_bgp_optimal_route_reflection,
+       debug_bgp_optimal_route_reflection_cmd,
+       "[no$no] debug bgp optimal-route-reflection",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       BGP_ORR_DEBUG)
+{
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(optimal_route_reflection, ORR);
+		else
+			DEBUG_ON(optimal_route_reflection, ORR);
+	} else {
+		if (no) {
+			TERM_DEBUG_OFF(optimal_route_reflection, ORR);
+			vty_out(vty,
+				"BGP Optimal Route Reflection debugging is off\n");
+		} else {
+			TERM_DEBUG_ON(optimal_route_reflection, ORR);
+			vty_out(vty,
+				"BGP Optimal Route Reflection debugging is on\n");
+		}
+	}
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_bgp_labelpool,
        debug_bgp_labelpool_cmd,
        "debug bgp labelpool",
@@ -2168,6 +2197,7 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_ES);
 	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_RT);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
+	TERM_DEBUG_OFF(optimal_route_reflection, ORR);
 
 	vty_out(vty, "All possible debugging has been turned off\n");
 
@@ -2259,6 +2289,10 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	if (BGP_DEBUG(bfd, BFD_LIB))
 		vty_out(vty, "  BGP BFD library debugging is on\n");
+
+	if (BGP_DEBUG(optimal_route_reflection, ORR))
+		vty_out(vty,
+			"  BGP Optimal Route Reflection debugging is on\n");
 
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
@@ -2387,6 +2421,11 @@ static int bgp_config_write_debug(struct vty *vty)
 
 	if (CONF_BGP_DEBUG(bfd, BFD_LIB)) {
 		vty_out(vty, "debug bgp bfd\n");
+		write++;
+	}
+
+	if (CONF_BGP_DEBUG(optimal_route_reflection, ORR)) {
+		vty_out(vty, "debug bgp optimal-route-reflection\n");
 		write++;
 	}
 
@@ -2522,6 +2561,10 @@ void bgp_debug_init(void)
 	/* debug bgp bfd */
 	install_element(ENABLE_NODE, &debug_bgp_bfd_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_bfd_cmd);
+
+	/* debug bgp optimal route reflection */
+	install_element(ENABLE_NODE, &debug_bgp_optimal_route_reflection_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_optimal_route_reflection_cmd);
 }
 
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug

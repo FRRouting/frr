@@ -9043,6 +9043,151 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_deca
 	return NB_OK;
 }
 
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/name
+ */
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_name_modify(
+	struct nb_cb_modify_args *args)
+{
+	int ret;
+	afi_t afi;
+	safi_t safi;
+	const char *name, *af_name, *primary_str;
+	const char *secondary_str = NULL, *tertiary_str = NULL;
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	struct peer *primary = NULL, *secondary = NULL, *tertiary = NULL;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp)
+			return NB_OK;
+
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		name = yang_dnode_get_string(args->dnode, "./name");
+		primary_str = yang_dnode_get_string(args->dnode, "./primary");
+
+		if (yang_dnode_exists(args->dnode, "./secondary")) {
+			secondary_str = yang_dnode_get_string(args->dnode,
+							      "./secondary");
+		}
+
+		if (yang_dnode_exists(args->dnode, "./tertiary")) {
+			tertiary_str = yang_dnode_get_string(args->dnode,
+							     "./tertiary");
+		}
+
+		ret = bgp_afi_safi_orr_group_set(bgp, afi, safi, name, primary,
+						 secondary, tertiary);
+
+		if (ret != CMD_SUCCESS)
+			return NB_ERR_INCONSISTENCY;
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/name
+ */
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_name_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	int ret;
+	afi_t afi;
+	safi_t safi;
+	const char *name, *af_name;
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		name = yang_dnode_get_string(args->dnode, "./name");
+
+		ret = bgp_afi_safi_orr_group_unset(bgp, afi, safi, name);
+
+		if (ret != CMD_SUCCESS)
+			return NB_ERR_INCONSISTENCY;
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/primary
+ */
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_primary_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/secondary
+ */
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_secondary_modify(
+        struct nb_cb_modify_args *args)
+{
+        switch (args->event) {
+        case NB_EV_VALIDATE:
+        case NB_EV_PREPARE:
+        case NB_EV_ABORT:
+        case NB_EV_APPLY:
+                /* TODO: implement me. */
+                break;
+        }
+
+        return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/tertiary
+ */
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_tertiary_modify(
+        struct nb_cb_modify_args *args)
+{
+        switch (args->event) {
+        case NB_EV_VALIDATE:
+        case NB_EV_PREPARE:
+        case NB_EV_ABORT:
+        case NB_EV_APPLY:
+                /* TODO: implement me. */
+                break;
+        }
+
+        return NB_OK;
+}
+
 static int
 bgp_global_afi_safi_ip_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)

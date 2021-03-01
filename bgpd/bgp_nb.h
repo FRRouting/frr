@@ -623,6 +623,16 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_deca
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_decay_destroy(
 	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_name_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_name_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_primary_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_secondary_modify(
+        struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_tertiary_modify(
+        struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
@@ -4874,5 +4884,8 @@ void bgp_peer_group_afi_safi_default_originate_apply_finish(
 #define FRR_BGP_PEER_GROUP_AFI_SAFI_XPATH                                      \
 	"./peer-groups/peer-group[peer-group-name='%s']/afi-safis/afi-safi[afi-safi-name='%s']"
 #define FRR_BGP_AF_XPATH "/afi-safis/afi-safi[afi-safi-name='%s']"
-
+#define FRR_BGP_AFI_SAFI_ORR_XPATH                                             \
+	"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/"                  \
+	"optimal-route-reflection[name='%s'][primary='%s'][secondary='%s']"    \
+	"[tertiary='%s']"
 #endif
