@@ -52,6 +52,11 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object");
 
+/* UI controls whether to notify about changes that only involve backup
+ * nexthops. Default is to notify all changes.
+ */
+static bool rnh_hide_backups;
+
 static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);
 static void copy_state(struct rnh *rnh, const struct route_entry *re,
@@ -1320,4 +1325,17 @@ int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family)
 		return 1;
 	else
 		return 0;
+}
+
+/*
+ * UI control to avoid notifications if backup nexthop status changes
+ */
+void rnh_set_hide_backups(bool hide_p)
+{
+	rnh_hide_backups = hide_p;
+}
+
+bool rnh_get_hide_backups(void)
+{
+	return rnh_hide_backups;
 }
