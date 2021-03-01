@@ -61,7 +61,7 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);
 static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		       struct route_node *rn);
-static int compare_state(struct route_entry *r1, struct route_entry *r2);
+static bool compare_state(struct route_entry *r1, struct route_entry *r2);
 static void print_rnh(struct route_node *rn, struct vty *vty);
 static int zebra_client_cleanup_rnh(struct zserv *client);
 
@@ -593,14 +593,73 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
  * check in a couple of places, so this is a single home for the logic we
  * use.
  */
+
+static const int RNH_INVALID_NH_FLAGS = (NEXTHOP_FLAG_RECURSIVE |
+					 NEXTHOP_FLAG_DUPLICATE |
+					 NEXTHOP_FLAG_RNH_FILTERED);
+
 static bool rnh_nexthop_valid(const struct route_entry *re,
 			      const struct nexthop *nh)
 {
 	return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
 		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
-		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)
-		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_DUPLICATE)
-		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RNH_FILTERED));
+		&& !CHECK_FLAG(nh->flags, RNH_INVALID_NH_FLAGS));
+}
+
+/*
+ * Determine whether an re's nexthops are valid for tracking.
+ */
+static bool rnh_check_re_nexthops(const struct route_entry *re,
+				  const struct rnh *rnh)
+{
+	bool ret = false;
+	const struct nexthop *nexthop = NULL;
+
+	/* Check route's nexthops */
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
+		if (rnh_nexthop_valid(re, nexthop))
+			break;
+	}
+
+	/* Check backup nexthops, if any. */
+	if (nexthop == NULL && re->nhe->backup_info &&
+	    re->nhe->backup_info->nhe) {
+		for (ALL_NEXTHOPS(re->nhe->backup_info->nhe->nhg, nexthop)) {
+			if (rnh_nexthop_valid(re, nexthop))
+				break;
+		}
+	}
+
+	if (nexthop == NULL) {
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug(
+				"        Route Entry %s no nexthops",
+				zebra_route_string(re->type));
+
+		goto done;
+	}
+
+	/* Some special checks if registration asked for them. */
+	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
+		if ((re->type == ZEBRA_ROUTE_CONNECT)
+		    || (re->type == ZEBRA_ROUTE_STATIC))
+			ret = true;
+		if (re->type == ZEBRA_ROUTE_NHRP) {
+
+			for (nexthop = re->nhe->nhg.nexthop;
+			     nexthop;
+			     nexthop = nexthop->next)
+				if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
+					break;
+			if (nexthop)
+				ret = true;
+		}
+	} else {
+		ret = true;
+	}
+
+done:
+	return ret;
 }
 
 /*
@@ -609,13 +668,12 @@ static bool rnh_nexthop_valid(const struct route_entry *re,
  */
 static struct route_entry *
 zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
-				struct route_node *nrn, struct rnh *rnh,
+				struct route_node *nrn, const struct rnh *rnh,
 				struct route_node **prn)
 {
 	struct route_table *route_table;
 	struct route_node *rn;
 	struct route_entry *re;
-	struct nexthop *nexthop;
 
 	*prn = NULL;
 
@@ -679,35 +737,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
 			 */
-			for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-				if (rnh_nexthop_valid(re, nexthop))
-					break;
-			}
-
-			if (nexthop == NULL) {
-				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-					zlog_debug(
-						"        Route Entry %s no nexthops",
-						zebra_route_string(re->type));
-				continue;
-			}
-
-			if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
-				if ((re->type == ZEBRA_ROUTE_CONNECT)
-				    || (re->type == ZEBRA_ROUTE_STATIC))
-					break;
-				if (re->type == ZEBRA_ROUTE_NHRP) {
-
-					for (nexthop = re->nhe->nhg.nexthop;
-					     nexthop;
-					     nexthop = nexthop->next)
-						if (nexthop->type
-						    == NEXTHOP_TYPE_IFINDEX)
-							break;
-					if (nexthop)
-						break;
-				}
-			} else
+			if (rnh_check_re_nexthops(re, rnh))
 				break;
 		}
 
@@ -969,7 +999,135 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 }
 
 /*
- * Compare two route_entries' nexthops.
+ * Locate the next primary nexthop, used when comparing current rnh info with
+ * an updated route.
+ */
+static struct nexthop *next_valid_primary_nh(struct route_entry *re,
+					     struct nexthop *nh)
+{
+	struct nexthop_group *nhg;
+	struct nexthop *bnh;
+	int i, idx;
+	bool default_path = true;
+
+	/* Fib backup ng present: some backups are installed,
+	 * and we're configured for special handling if there are backups.
+	 */
+	if (rnh_hide_backups && (re->fib_backup_ng.nexthop != NULL))
+		default_path = false;
+
+	/* Default path: no special handling, just using the 'installed'
+	 * primary nexthops and the common validity test.
+	 */
+	if (default_path) {
+		if (nh == NULL) {
+			nhg = rib_get_fib_nhg(re);
+			nh = nhg->nexthop;
+		} else
+			nh = nexthop_next(nh);
+
+		while (nh) {
+			if (rnh_nexthop_valid(re, nh))
+				break;
+			else
+				nh = nexthop_next(nh);
+		}
+
+		return nh;
+	}
+
+	/* Hide backup activation/switchover events.
+	 *
+	 * If we've had a switchover, an inactive primary won't be in
+	 * the fib list at all - the 'fib' list could even be empty
+	 * in the case where no primary is installed. But we want to consider
+	 * those primaries "valid" if they have an activated backup nh.
+	 *
+	 * The logic is something like:
+	 * if (!fib_nhg)
+	 *     // then all primaries are installed
+	 * else
+	 *     for each primary in re nhg
+	 *         if in fib_nhg
+	 *             primary is installed
+	 *         else if a backup is installed
+	 *             primary counts as installed
+	 *         else
+	 *             primary !installed
+	 */
+
+	/* Start with the first primary */
+	if (nh == NULL)
+		nh = re->nhe->nhg.nexthop;
+	else
+		nh = nexthop_next(nh);
+
+	while (nh) {
+
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: checking primary NH %pNHv",
+				   __func__, nh);
+
+		/* If this nexthop is in the fib list, it's installed */
+		nhg = rib_get_fib_nhg(re);
+
+		for (bnh = nhg->nexthop; bnh; bnh = nexthop_next(bnh)) {
+			if (nexthop_cmp(nh, bnh) == 0)
+				break;
+		}
+
+		if (bnh != NULL) {
+			/* Found the match */
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s:     NH in fib list", __func__);
+			break;
+		}
+
+		/* Else if this nexthop's backup is installed, it counts */
+		nhg = rib_get_fib_backup_nhg(re);
+		bnh = nhg->nexthop;
+
+		for (idx = 0; bnh != NULL; idx++) {
+			/* If we find an active backup nh for this
+			 * primary, we're done;
+			 */
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s: checking backup %pNHv [%d]",
+					   __func__, bnh, idx);
+
+			if (!CHECK_FLAG(bnh->flags, NEXTHOP_FLAG_ACTIVE))
+				continue;
+
+			for (i = 0; i < nh->backup_num; i++) {
+				/* Found a matching activated backup nh */
+				if (nh->backup_idx[i] == idx) {
+					if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+						zlog_debug("%s: backup %d activated",
+							   __func__, i);
+
+					goto done;
+				}
+			}
+
+			/* Note that we're not recursing here if the
+			 * backups are recursive: the primary's index is
+			 * only valid in the top-level backup list.
+			 */
+			bnh = bnh->next;
+		}
+
+		/* Try the next primary nexthop */
+		nh = nexthop_next(nh);
+	}
+
+done:
+
+	return nh;
+}
+
+/*
+ * Compare two route_entries' nexthops. Account for backup nexthops
+ * and for the 'fib' nexthop lists, if present.
  */
 static bool compare_valid_nexthops(struct route_entry *r1,
 				   struct route_entry *r2)
@@ -978,34 +1136,23 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 	struct nexthop_group *nhg1, *nhg2;
 	struct nexthop *nh1, *nh2;
 
-	/* Account for backup nexthops and for the 'fib' nexthop lists,
-	 * if present.
-	 */
-	nhg1 = rib_get_fib_nhg(r1);
-	nhg2 = rib_get_fib_nhg(r2);
+	/* Start with the primary nexthops */
 
-	nh1 = nhg1->nexthop;
-	nh2 = nhg2->nexthop;
+	nh1 = next_valid_primary_nh(r1, NULL);
+	nh2 = next_valid_primary_nh(r2, NULL);
 
 	while (1) {
-		/* Find each list's next valid nexthop */
-		while ((nh1 != NULL) && !rnh_nexthop_valid(r1, nh1))
-			nh1 = nexthop_next(nh1);
-
-		while ((nh2 != NULL) && !rnh_nexthop_valid(r2, nh2))
-			nh2 = nexthop_next(nh2);
+		/* Find any differences in the nexthop lists */
 
 		if (nh1 && nh2) {
 			/* Any difference is a no-match */
 			if (nexthop_cmp(nh1, nh2) != 0) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-					zlog_debug("%s: nh1, nh2 differ",
-						   __func__);
+					zlog_debug("%s: nh1: %pNHv, nh2: %pNHv differ",
+						   __func__, nh1, nh2);
 				goto done;
 			}
 
-			nh1 = nexthop_next(nh1);
-			nh2 = nexthop_next(nh2);
 		} else if (nh1 || nh2) {
 			/* One list has more valid nexthops than the other */
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
@@ -1015,6 +1162,37 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 			goto done;
 		} else
 			break; /* Done with both lists */
+
+		nh1 = next_valid_primary_nh(r1, nh1);
+		nh2 = next_valid_primary_nh(r2, nh2);
+	}
+
+	/* If configured, don't compare installed backup state - we've
+	 * accounted for that with the primaries above.
+	 *
+	 * But we do want to compare the routes' backup info,
+	 * in case the owning route has changed the backups -
+	 * that change we do want to report.
+	 */
+	if (rnh_hide_backups) {
+		uint32_t hash1 = 0, hash2 = 0;
+
+		if (r1->nhe->backup_info)
+			hash1 = nexthop_group_hash(
+				&r1->nhe->backup_info->nhe->nhg);
+
+		if (r2->nhe->backup_info)
+			hash2 = nexthop_group_hash(
+				&r2->nhe->backup_info->nhe->nhg);
+
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: backup hash1 %#x, hash2 %#x",
+				   __func__, hash1, hash2);
+
+		if (hash1 != hash2)
+			goto done;
+		else
+			goto finished;
 	}
 
 	/* The test for the backups is slightly different: the only installed
@@ -1038,8 +1216,8 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 			/* Any difference is a no-match */
 			if (nexthop_cmp(nh1, nh2) != 0) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-					zlog_debug("%s: backup nh1, nh2 differ",
-						   __func__);
+					zlog_debug("%s: backup nh1: %pNHv, nh2: %pNHv differ",
+						   __func__, nh1, nh2);
 				goto done;
 			}
 
@@ -1057,35 +1235,40 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 			break; /* Done with both lists */
 	}
 
-	/* Well, it's a match */
-	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("%s: matched", __func__);
+finished:
 
+	/* Well, it's a match */
 	matched_p = true;
 
 done:
 
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("%s: %smatched",
+			   __func__, (matched_p ? "" : "NOT "));
+
 	return matched_p;
 }
 
-static int compare_state(struct route_entry *r1, struct route_entry *r2)
+/* Returns 'false' if no difference. */
+static bool compare_state(struct route_entry *r1,
+			  struct route_entry *r2)
 {
 	if (!r1 && !r2)
-		return 0;
+		return false;
 
 	if ((!r1 && r2) || (r1 && !r2))
-		return 1;
+		return true;
 
 	if (r1->distance != r2->distance)
-		return 1;
+		return true;
 
 	if (r1->metric != r2->metric)
-		return 1;
+		return true;
 
 	if (!compare_valid_nexthops(r1, r2))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
