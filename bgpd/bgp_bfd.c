@@ -51,7 +51,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 {
 	struct peer *peer = arg;
 
-	if (BGP_DEBUG(zebra, ZEBRA))
+	if (BGP_DEBUG(bfd, BFD_LIB))
 		zlog_debug("%s: neighbor %s vrf %s(%u) bfd state %s -> %s",
 			   __func__, peer->conf_if ? peer->conf_if : peer->host,
 			   bfd_sess_vrf(bsp), bfd_sess_vrf_id(bsp),
@@ -61,7 +61,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 	if (bss->state == BSS_DOWN && bss->previous_state == BSS_UP) {
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
 		    && bfd_sess_cbit(bsp) && !bss->remote_cbit) {
-			if (BGP_DEBUG(zebra, ZEBRA))
+			if (BGP_DEBUG(bfd, BFD_LIB))
 				zlog_info(
 					"%s BFD DOWN message ignored in the process of graceful restart when C bit is cleared",
 					peer->host);
@@ -167,7 +167,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		if ((p->su_local
 		     && p->su_local->sin.sin_addr.s_addr != src.v4.s_addr)
 		    || p->su.sin.sin_addr.s_addr != dst.v4.s_addr) {
-			if (BGP_DEBUG(zebra, ZEBRA))
+			if (BGP_DEBUG(bfd, BFD_LIB))
 				zlog_debug(
 					"%s: address [%pI4->%pI4] to [%pI4->%pI4]",
 					__func__, &src.v4, &dst.v4,
@@ -185,7 +185,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		if ((p->su_local
 		     && memcmp(&p->su_local->sin6, &src.v6, sizeof(src.v6)))
 		    || memcmp(&p->su.sin6, &dst.v6, sizeof(dst.v6))) {
-			if (BGP_DEBUG(zebra, ZEBRA))
+			if (BGP_DEBUG(bfd, BFD_LIB))
 				zlog_debug(
 					"%s: address [%pI6->%pI6] to [%pI6->%pI6]",
 					__func__, &src.v6, &dst.v6,
@@ -205,7 +205,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 
 	/* Update interface. */
 	if (p->nexthop.ifp && bfd_sess_interface(session) == NULL) {
-		if (BGP_DEBUG(zebra, ZEBRA))
+		if (BGP_DEBUG(bfd, BFD_LIB))
 			zlog_debug("%s: interface none to %s", __func__,
 				   p->nexthop.ifp->name);
 
@@ -222,7 +222,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 	 * - eBGP multi hop / TTL security changed.
 	 */
 	if (!PEER_IS_MULTIHOP(p) && bfd_sess_hop_count(session) > 1) {
-		if (BGP_DEBUG(zebra, ZEBRA))
+		if (BGP_DEBUG(bfd, BFD_LIB))
 			zlog_debug("%s: TTL %d to 1", __func__,
 				   bfd_sess_hop_count(session));
 
@@ -230,7 +230,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		changed = true;
 	}
 	if (PEER_IS_MULTIHOP(p) && p->ttl != bfd_sess_hop_count(session)) {
-		if (BGP_DEBUG(zebra, ZEBRA))
+		if (BGP_DEBUG(bfd, BFD_LIB))
 			zlog_debug("%s: TTL %d to %d", __func__,
 				   bfd_sess_hop_count(session), p->ttl);
 
@@ -240,7 +240,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 
 	/* Update VRF. */
 	if (bfd_sess_vrf_id(session) != p->bgp->vrf_id) {
-		if (BGP_DEBUG(zebra, ZEBRA))
+		if (BGP_DEBUG(bfd, BFD_LIB))
 			zlog_debug(
 				"%s: VRF %s(%d) to %s(%d)", __func__,
 				bfd_sess_vrf(session), bfd_sess_vrf_id(session),
