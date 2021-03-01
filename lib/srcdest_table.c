@@ -313,8 +313,13 @@ static ssize_t printfrr_rn(char *buf, size_t bsz, const char *fmt,
 	const struct route_node *rn = ptr;
 	const struct prefix *dst_p, *src_p;
 
-	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
-	srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p, buf, bsz);
+	if (rn) {
+		srcdest_rnode_prefixes(rn, &dst_p, &src_p);
+		srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p, buf, bsz);
+	} else {
+		strlcpy(buf, "NULL", bsz);
+	}
+
 	return 2;
 }
 
