@@ -66,6 +66,7 @@ class BFDTopo(Topo):
         switch.add_link(tgen.gears["r2"])
         switch.add_link(tgen.gears["r3"])
 
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(BFDTopo, mod.__name__)

@@ -281,6 +281,7 @@ def teardown_module():
 #
 #####################################################
 
+
 def config_to_send_igmp_join_and_traffic(tgen, tc_name):
     """
     API to do pre-configuration to send IGMP join and multicast
@@ -961,7 +962,12 @@ def test_add_RP_after_join_received_p1(request):
     input_dict = {
         "r1": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.2.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.2.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         }
     }
@@ -1147,32 +1153,32 @@ def test_reachable_static_RP_after_join_p0(request):
 
 def test_send_join_on_higher_preffered_rp_p1(request):
     """
-    TC_11_P1 : Verify PIM join send towards the higher preferred RP
-    TC_12_P1 : Verify PIM prune send towards the lower preferred RP
-    TC_13_P1 : Verify RPF interface is updated in mroute (kernel) when higher
-               preferred overlapping RP configured
-    TC_14_P1 : Verify IIF and OIL in "show ip pim state" updated properly when
-               higher preferred overlapping RP configured
-    TC_15_P1 : Verify upstream interfaces(IIF) and join state are updated when
-               higher preferred overlapping RP is configured
-    TC_16_P1 : Verify join is send to lower preferred RP, when higher
-               preferred RP gets deleted
-    TC_17_P1 : Verify prune is send to higher preferred RP when higher
-               preferred RP gets deleted
-    TC_18_P1 : Verify RPF interface updated in mroute when higher preferred RP
-               gets deleted
-    TC_19_P1 : Verify IIF and OIL in "show ip pim state" updated when higher
-               preferred overlapping RP is deleted
-    TC_20_P1 : Verfiy PIM upstream IIF updated when higher preferred
-               overlapping RP deleted
+     TC_11_P1 : Verify PIM join send towards the higher preferred RP
+     TC_12_P1 : Verify PIM prune send towards the lower preferred RP
+     TC_13_P1 : Verify RPF interface is updated in mroute (kernel) when higher
+                preferred overlapping RP configured
+     TC_14_P1 : Verify IIF and OIL in "show ip pim state" updated properly when
+                higher preferred overlapping RP configured
+     TC_15_P1 : Verify upstream interfaces(IIF) and join state are updated when
+                higher preferred overlapping RP is configured
+     TC_16_P1 : Verify join is send to lower preferred RP, when higher
+                preferred RP gets deleted
+     TC_17_P1 : Verify prune is send to higher preferred RP when higher
+                preferred RP gets deleted
+     TC_18_P1 : Verify RPF interface updated in mroute when higher preferred RP
+                gets deleted
+     TC_19_P1 : Verify IIF and OIL in "show ip pim state" updated when higher
+                preferred overlapping RP is deleted
+     TC_20_P1 : Verfiy PIM upstream IIF updated when higher preferred
+                overlapping RP deleted
 
-   Topology used:
-                 _______r2
-                |
-      iperf     |
-        r0-----r1
-                |
-                |_______r4
+    Topology used:
+                  _______r2
+                 |
+       iperf     |
+         r0-----r1
+                 |
+                 |_______r4
     """
 
     tgen = get_topogen()
@@ -1241,7 +1247,12 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     input_dict = {
         "r4": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.4.17", "group_addr_range": ["225.1.1.1/32"],}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.4.17",
+                        "group_addr_range": ["225.1.1.1/32"],
+                    }
+                ]
             }
         }
     }
@@ -1483,22 +1494,42 @@ def test_RP_configured_as_LHR_1_p1(request):
     input_dict = {
         "r1": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.1.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.1.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r2": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.1.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.1.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r3": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.1.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.1.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r4": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.1.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.1.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
     }
@@ -1677,22 +1708,42 @@ def test_RP_configured_as_LHR_2_p1(request):
     input_dict = {
         "r1": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.1.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.1.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r2": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.1.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.1.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r3": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.1.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.1.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r4": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.1.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.1.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
     }
@@ -1863,22 +1914,42 @@ def test_RP_configured_as_FHR_1_p1(request):
     input_dict = {
         "r1": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.3.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.3.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r2": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.3.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.3.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r3": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.3.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.3.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r4": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.3.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.3.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
     }
@@ -2050,22 +2121,42 @@ def test_RP_configured_as_FHR_2_p2(request):
     input_dict = {
         "r1": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.3.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.3.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r2": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.3.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.3.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r3": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.3.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.3.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
         "r4": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.3.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.3.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         },
     }
@@ -2733,7 +2824,12 @@ def test_multiple_groups_same_RP_address_p2(request):
     input_dict = {
         "r1": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.2.17", "group_addr_range": GROUP_RANGE_ALL,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.2.17",
+                        "group_addr_range": GROUP_RANGE_ALL,
+                    }
+                ]
             }
         }
     }
@@ -2893,12 +2989,22 @@ def test_multiple_groups_different_RP_address_p2(request):
     input_dict = {
         "r2": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.2.17", "group_addr_range": GROUP_RANGE_LIST_1,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.2.17",
+                        "group_addr_range": GROUP_RANGE_LIST_1,
+                    }
+                ]
             }
         },
         "r4": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.4.17", "group_addr_range": GROUP_RANGE_LIST_2,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.4.17",
+                        "group_addr_range": GROUP_RANGE_LIST_2,
+                    }
+                ]
             }
         },
     }
@@ -3148,12 +3254,22 @@ def test_multiple_groups_different_RP_address_p2(request):
     input_dict = {
         "r2": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.2.17", "group_addr_range": GROUP_RANGE_LIST_1,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.2.17",
+                        "group_addr_range": GROUP_RANGE_LIST_1,
+                    }
+                ]
             }
         },
         "r4": {
             "pim": {
-                "rp": [{"rp_addr": "1.0.4.17", "group_addr_range": GROUP_RANGE_LIST_2,}]
+                "rp": [
+                    {
+                        "rp_addr": "1.0.4.17",
+                        "group_addr_range": GROUP_RANGE_LIST_2,
+                    }
+                ]
             }
         },
     }

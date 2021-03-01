@@ -268,7 +268,7 @@ def test_pe1_converge_evpn():
             break
         count += 1
         sleep(1)
-    #tgen.mininet_cli()
+    # tgen.mininet_cli()
     assertmsg = "BGP Peer 10.4.4.4 did not connect"
     assert passed, assertmsg
 
@@ -505,8 +505,10 @@ def test_r1_mplsvpn_VrfTable():
     associated_int = r1_snmp.get(
         "mplsL3VpnVrfAssociatedInterfaces.{}".format(snmp_str_to_oid("VRF-a"))
     )
-    assertmsg = "mplsL3VpnVrfAssociatedInterfaces incorrect should be 3 value {}".format(
-        associated_int
+    assertmsg = (
+        "mplsL3VpnVrfAssociatedInterfaces incorrect should be 3 value {}".format(
+            associated_int
+        )
     )
 
     assert associated_int == "3", assertmsg
@@ -622,7 +624,7 @@ rte_table_test = {
         "unknown(0)",
         "ipv4(1)",
         "unknown(0)",
-   ],
+    ],
     "mplsL3VpnVrfRteInetCidrNextHop": [
         "C0 A8 64 0A",
         "C0 A8 C8 0A",
@@ -651,7 +653,15 @@ rte_table_test = {
         "bgp(14)",
         "local(2)",
     ],
-    "mplsL3VpnVrfRteInetCidrNextHopAS": ["65001", "65001", "0", "65001", "0", "65001", "0"],
+    "mplsL3VpnVrfRteInetCidrNextHopAS": [
+        "65001",
+        "65001",
+        "0",
+        "65001",
+        "0",
+        "65001",
+        "0",
+    ],
     "mplsL3VpnVrfRteInetCidrMetric1": ["0", "0", "20", "0", "0", "0", "0"],
     "mplsL3VpnVrfRteInetCidrMetric2": ["-1", "-1", "-1", "-1", "-1", "-1", "-1"],
     "mplsL3VpnVrfRteInetCidrMetric3": ["-1", "-1", "-1", "-1", "-1", "-1", "-1"],
@@ -665,7 +675,7 @@ rte_table_test = {
         "active(1)",
         "active(1)",
         "active(1)",
-       "active(1)",
+        "active(1)",
     ],
 }
 

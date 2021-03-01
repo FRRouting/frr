@@ -88,6 +88,7 @@ NEXT_HOP_IP = {}
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
+
 class CreateTopo(Topo):
     """
     Test CreateTopo - topology 1.
@@ -126,9 +127,11 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('These tests will not run. (have kernel "{}", '
-            'requires kernel >= 4.19)'.format(platform.release()))
+    if version_cmp(platform.release(), "4.19") < 0:
+        error_msg = (
+            'These tests will not run. (have kernel "{}", '
+            "requires kernel >= 4.19)".format(platform.release())
+        )
         pytest.skip(error_msg)
 
     # Checking BGP convergence

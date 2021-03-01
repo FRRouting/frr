@@ -102,7 +102,7 @@ from lib.pim import (
     clear_ip_mroute,
     clear_ip_pim_interface_traffic,
     verify_igmp_config,
-    clear_ip_mroute_verify
+    clear_ip_mroute_verify,
 )
 from lib.topolog import logger
 from lib.topojson import build_topo_from_json, build_config_from_json

@@ -31,6 +31,7 @@ from lib.ltemplate import *
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
+
 def test_check_linux_vrf():
     CliOnFail = None
     # For debugging, uncomment the next line

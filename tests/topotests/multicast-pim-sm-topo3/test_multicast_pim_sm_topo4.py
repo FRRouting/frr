@@ -1009,7 +1009,11 @@ def test_PIM_hello_tx_rx_p1(request):
     intf_c1_l1 = topo["routers"]["c1"]["links"]["l1"]["interface"]
 
     step("verify before stats on C1")
-    state_dict = {"c1": {intf_c1_l1: ["helloTx", "helloRx"],}}
+    state_dict = {
+        "c1": {
+            intf_c1_l1: ["helloTx", "helloRx"],
+        }
+    }
 
     c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
@@ -1040,7 +1044,11 @@ def test_PIM_hello_tx_rx_p1(request):
     ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
 
     step("verify before stats on l1")
-    l1_state_dict = {"l1": {intf_l1_c1: ["helloTx", "helloRx"],}}
+    l1_state_dict = {
+        "l1": {
+            intf_l1_c1: ["helloTx", "helloRx"],
+        }
+    }
 
     l1_state_before = verify_pim_interface_traffic(tgen, l1_state_dict)
     assert isinstance(
@@ -1077,7 +1085,11 @@ def test_PIM_hello_tx_rx_p1(request):
     l1_state_after = {}
 
     step("verify before stats on C1")
-    state_dict = {"c1": {intf_c1_l1: ["helloTx", "helloRx"],}}
+    state_dict = {
+        "c1": {
+            intf_c1_l1: ["helloTx", "helloRx"],
+        }
+    }
 
     c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(

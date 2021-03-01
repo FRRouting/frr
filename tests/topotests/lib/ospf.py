@@ -94,7 +94,9 @@ def create_router_ospf(tgen, topo, input_dict=None, build=False, load_config=Tru
     return result
 
 
-def __create_ospf_global(tgen, input_dict, router, build=False, load_config=True, ospf="ospf"):
+def __create_ospf_global(
+    tgen, input_dict, router, build=False, load_config=True, ospf="ospf"
+):
     """
     Helper API to create ospf global configuration.
 

@@ -166,6 +166,7 @@ def test_ospf_initial_convergence_step1():
         "step1/show_ip_route_initial.ref",
     )
 
+
 def test_ospf_link_protection_step2():
     logger.info("Test (step 2): check OSPF link protection")
     tgen = get_topogen()
@@ -175,9 +176,7 @@ def test_ospf_link_protection_step2():
         pytest.skip(tgen.errors)
 
     # enable TI-LFA link protection on all interfaces
-    tgen.net["rt1"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "fast-reroute ti-lfa"'
-    )
+    tgen.net["rt1"].cmd('vtysh -c "conf t" -c "router ospf" -c "fast-reroute ti-lfa"')
 
     router_compare_json_output(
         "rt1",
@@ -196,6 +195,7 @@ def test_ospf_link_protection_step2():
         "show ip route json",
         "step2/show_ip_route_initial.ref",
     )
+
 
 def test_ospf_node_protection_step3():
     logger.info("Test (step 3): check OSPF node protection")
@@ -228,6 +228,7 @@ def test_ospf_node_protection_step3():
         "step3/show_ip_route_initial.ref",
     )
 
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
@@ -236,6 +237,7 @@ def test_memory_leak():
         pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

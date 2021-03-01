@@ -31,6 +31,7 @@ from lib.ltemplate import *
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
+
 def test_add_routes():
     CliOnFail = None
     # For debugging, uncomment the next line

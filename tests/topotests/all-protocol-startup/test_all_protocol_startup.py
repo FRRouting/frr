@@ -352,7 +352,7 @@ def test_converge_protocols():
         actual = (
             net["r%s" % i]
             .cmd(
-                'vtysh -c "show ip route" | sed -e \'/^Codes: /,/^\s*$/d\' | env LC_ALL=en_US.UTF-8 sort 2> /dev/null'
+                "vtysh -c \"show ip route\" | sed -e '/^Codes: /,/^\s*$/d' | env LC_ALL=en_US.UTF-8 sort 2> /dev/null"
             )
             .rstrip()
         )
@@ -383,7 +383,7 @@ def test_converge_protocols():
         actual = (
             net["r%s" % i]
             .cmd(
-                'vtysh -c "show ipv6 route" | sed -e \'/^Codes: /,/^\s*$/d\' | env LC_ALL=en_US.UTF-8 sort 2> /dev/null'
+                "vtysh -c \"show ipv6 route\" | sed -e '/^Codes: /,/^\s*$/d' | env LC_ALL=en_US.UTF-8 sort 2> /dev/null"
             )
             .rstrip()
         )

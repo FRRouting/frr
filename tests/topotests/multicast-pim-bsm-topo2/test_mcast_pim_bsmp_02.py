@@ -695,7 +695,8 @@ def test_RP_priority_p0(request):
     assert (
         rp_add1 == rp2[group]
     ), "Testcase {} :Failed \n Error : rp expected {} rp received {}".format(
-        tc_name, rp_add1,
+        tc_name,
+        rp_add1,
     )
 
     # Verify if that rp is installed

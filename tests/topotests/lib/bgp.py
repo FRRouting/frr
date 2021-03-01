@@ -2516,8 +2516,9 @@ def verify_best_path_as_per_admin_distance(
 
 
 @retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
-def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None,
-aspath=None, multi_nh=None):
+def verify_bgp_rib(
+    tgen, addr_type, dut, input_dict, next_hop=None, aspath=None, multi_nh=None
+):
     """
     This API is to verify whether bgp rib has any
     matching route for a nexthop.
@@ -2663,25 +2664,35 @@ aspath=None, multi_nh=None):
                                 if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
                                     list1 = next_hop
-                                found_hops = [rib_r["ip"] for rib_r in
-                                              rib_routes_json["routes"][
-                                                  st_rt][0]["nexthops"]]
+                                found_hops = [
+                                    rib_r["ip"]
+                                    for rib_r in rib_routes_json["routes"][st_rt][0][
+                                        "nexthops"
+                                    ]
+                                ]
                                 list2 = found_hops
-                                missing_list_of_nexthops = \
-                                    set(list2).difference(list1)
-                                additional_nexthops_in_required_nhs = \
-                                    set(list1).difference(list2)
+                                missing_list_of_nexthops = set(list2).difference(list1)
+                                additional_nexthops_in_required_nhs = set(
+                                    list1
+                                ).difference(list2)
 
                                 if list2:
                                     if additional_nexthops_in_required_nhs:
-                                        logger.info("Missing nexthop %s for route"\
-                                        " %s in RIB of router %s\n", \
-                                        additional_nexthops_in_required_nhs,  \
-                                        st_rt, dut)
-                                        errormsg=("Nexthop {} is Missing for "\
-                                        "route {} in RIB of router {}\n".format(
+                                        logger.info(
+                                            "Missing nexthop %s for route"
+                                            " %s in RIB of router %s\n",
                                             additional_nexthops_in_required_nhs,
-                                            st_rt, dut))
+                                            st_rt,
+                                            dut,
+                                        )
+                                        errormsg = (
+                                            "Nexthop {} is Missing for "
+                                            "route {} in RIB of router {}\n".format(
+                                                additional_nexthops_in_required_nhs,
+                                                st_rt,
+                                                dut,
+                                            )
+                                        )
                                         return errormsg
                                     else:
                                         nh_found = True

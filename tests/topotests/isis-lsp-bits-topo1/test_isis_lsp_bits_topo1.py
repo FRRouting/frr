@@ -73,7 +73,7 @@ from functools import partial
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -87,8 +87,10 @@ from mininet.topo import Topo
 # Global multi-dimensional dictionary containing all expected outputs
 outputs = {}
 
+
 class TemplateTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
@@ -96,36 +98,36 @@ class TemplateTopo(Topo):
         #
         # Define FRR Routers
         #
-        for router in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
+        for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
             tgen.add_router(router)
 
         #
         # Define connections
         #
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['rt1'], nodeif="eth-sw1")
-        switch.add_link(tgen.gears['rt2'], nodeif="eth-sw1")
-        switch.add_link(tgen.gears['rt3'], nodeif="eth-sw1")
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["rt1"], nodeif="eth-sw1")
+        switch.add_link(tgen.gears["rt2"], nodeif="eth-sw1")
+        switch.add_link(tgen.gears["rt3"], nodeif="eth-sw1")
 
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['rt2'], nodeif="eth-rt4")
-        switch.add_link(tgen.gears['rt4'], nodeif="eth-rt2")
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4")
+        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2")
 
-        switch = tgen.add_switch('s4')
-        switch.add_link(tgen.gears['rt3'], nodeif="eth-rt5")
-        switch.add_link(tgen.gears['rt5'], nodeif="eth-rt3")
+        switch = tgen.add_switch("s4")
+        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt5")
+        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt3")
 
-        switch = tgen.add_switch('s6')
-        switch.add_link(tgen.gears['rt4'], nodeif="eth-rt5")
-        switch.add_link(tgen.gears['rt5'], nodeif="eth-rt4")
+        switch = tgen.add_switch("s6")
+        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
+        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
 
-        switch = tgen.add_switch('s7')
-        switch.add_link(tgen.gears['rt4'], nodeif="eth-rt6")
-        switch.add_link(tgen.gears['rt6'], nodeif="eth-rt4")
+        switch = tgen.add_switch("s7")
+        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt6")
+        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt4")
 
-        switch = tgen.add_switch('s8')
-        switch.add_link(tgen.gears['rt5'], nodeif="eth-rt6")
-        switch.add_link(tgen.gears['rt6'], nodeif="eth-rt5")
+        switch = tgen.add_switch("s8")
+        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt6")
+        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt5")
 
 
 def setup_module(mod):
@@ -138,15 +140,14 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_ISIS,
-            os.path.join(CWD, '{}/isisd.conf'.format(rname))
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
 
     tgen.start_router()
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -154,6 +155,7 @@ def teardown_module(mod):
 
     # This function tears down the whole topology.
     tgen.stop_topology()
+
 
 def router_compare_json_output(rname, command, reference):
     "Compare router JSON output"
@@ -170,6 +172,7 @@ def router_compare_json_output(rname, command, reference):
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
+
 #
 # Step 1
 #
@@ -184,12 +187,13 @@ def test_isis_adjacencies_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, 
+            rname,
             "show yang operational-data /frr-interface:lib isisd",
             "step1/show_yang_interface_isis_adjacencies.ref",
         )
+
 
 def test_rib_ipv4_step1():
     logger.info("Test (step 1): verify IPv4 RIB")
@@ -199,10 +203,11 @@ def test_rib_ipv4_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
             rname, "show ip route isis json", "step1/show_ip_route.ref"
         )
+
 
 def test_rib_ipv6_step1():
     logger.info("Test (step 1): verify IPv6 RIB")
@@ -212,10 +217,11 @@ def test_rib_ipv6_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
             rname, "show ipv6 route isis json", "step1/show_ipv6_route.ref"
         )
+
 
 #
 # Step 2
@@ -235,14 +241,19 @@ def test_rib_ipv4_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Disabling setting the attached-bit on RT2 and RT4')
-    tgen.net['rt2'].cmd('vtysh -c "conf t" -c "router isis 1" -c "no attached-bit send"')
-    tgen.net['rt4'].cmd('vtysh -c "conf t" -c "router isis 1" -c "no attached-bit send"')
+    logger.info("Disabling setting the attached-bit on RT2 and RT4")
+    tgen.net["rt2"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "no attached-bit send"'
+    )
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "no attached-bit send"'
+    )
 
-    for rname in ['rt1', 'rt6']:
+    for rname in ["rt1", "rt6"]:
         router_compare_json_output(
             rname, "show ip route isis json", "step2/show_ip_route.ref"
         )
+
 
 def test_rib_ipv6_step2():
     logger.info("Test (step 2): verify IPv6 RIB")
@@ -252,10 +263,11 @@ def test_rib_ipv6_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt6']:
+    for rname in ["rt1", "rt6"]:
         router_compare_json_output(
             rname, "show ipv6 route isis json", "step2/show_ipv6_route.ref"
         )
+
 
 #
 # Step 3
@@ -265,7 +277,7 @@ def test_rib_ipv6_step2():
 # -disble processing a LSP with attach bit set
 #
 # Expected changes:
-# -RT1 and RT6 should not install a default route 
+# -RT1 and RT6 should not install a default route
 #
 def test_rib_ipv4_step3():
     logger.info("Test (step 3): verify IPv4 RIB")
@@ -275,18 +287,23 @@ def test_rib_ipv4_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Enable setting the attached-bit on RT2 and RT4')
-    tgen.net['rt2'].cmd('vtysh -c "conf t" -c "router isis 1" -c "attached-bit send"')
-    tgen.net['rt4'].cmd('vtysh -c "conf t" -c "router isis 1" -c "attached-bit send"')
+    logger.info("Enable setting the attached-bit on RT2 and RT4")
+    tgen.net["rt2"].cmd('vtysh -c "conf t" -c "router isis 1" -c "attached-bit send"')
+    tgen.net["rt4"].cmd('vtysh -c "conf t" -c "router isis 1" -c "attached-bit send"')
 
-    logger.info('Disable processing received attached-bit in LSP on RT1 and RT6')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "attached-bit receive ignore"')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "attached-bit receive ignore"')
+    logger.info("Disable processing received attached-bit in LSP on RT1 and RT6")
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "attached-bit receive ignore"'
+    )
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "attached-bit receive ignore"'
+    )
 
-    for rname in ['rt1', 'rt6']:
+    for rname in ["rt1", "rt6"]:
         router_compare_json_output(
             rname, "show ip route isis json", "step3/show_ip_route.ref"
         )
+
 
 def test_rib_ipv6_step3():
     logger.info("Test (step 3): verify IPv6 RIB")
@@ -296,10 +313,11 @@ def test_rib_ipv6_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt6']:
+    for rname in ["rt1", "rt6"]:
         router_compare_json_output(
             rname, "show ipv6 route isis json", "step3/show_ipv6_route.ref"
         )
+
 
 #
 # Step 4
@@ -319,13 +337,21 @@ def test_rib_ipv4_step4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('restore default processing on received attached-bit in LSP on RT1 and RT6')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "no attached-bit receive ignore"')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "no attached-bit receive ignore"')
+    logger.info(
+        "restore default processing on received attached-bit in LSP on RT1 and RT6"
+    )
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "no attached-bit receive ignore"'
+    )
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "no attached-bit receive ignore"'
+    )
 
-    for rname in ['rt1', 'rt6']:
+    for rname in ["rt1", "rt6"]:
         router_compare_json_output(
-            rname, "show ip route isis json", "step4/show_ip_route.ref")
+            rname, "show ip route isis json", "step4/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step4():
     logger.info("Test (step 4): verify IPv6 RIB")
@@ -335,19 +361,22 @@ def test_rib_ipv6_step4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt6']:
+    for rname in ["rt1", "rt6"]:
         router_compare_json_output(
-            rname, "show ipv6 route isis json", "step4/show_ipv6_route.ref")
+            rname, "show ipv6 route isis json", "step4/show_ipv6_route.ref"
+        )
+
 
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

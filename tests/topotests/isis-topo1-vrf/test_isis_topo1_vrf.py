@@ -45,6 +45,7 @@ from mininet.topo import Topo
 
 pytestmark = [pytest.mark.isisd]
 
+
 class ISISTopo1(Topo):
     "Simple two layer ISIS vrf topology"
 

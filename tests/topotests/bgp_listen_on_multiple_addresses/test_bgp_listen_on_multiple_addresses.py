@@ -142,7 +142,7 @@ def _bgp_converge_initial(router_name, peer_address, timeout=180):
     """
     Waits for the BGP connection between a given router and a given peer
     (specified by its IP address) to be established. If the connection is
-    not established within a given timeout, then an exception is raised. 
+    not established within a given timeout, then an exception is raised.
     """
     tgen = get_topogen()
     router = tgen.routers()[router_name]
