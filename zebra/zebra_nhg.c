@@ -3737,10 +3737,10 @@ bool zebra_nhg_proto_nexthops_only(void)
 	return proto_nexthops_only;
 }
 
-/* Add NHE from upper level proto */
-struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
-					   uint16_t instance, uint32_t session,
-					   struct nexthop_group *nhg, afi_t afi)
+/*
+ * Add NHE from upper level proto/daemon
+ */
+struct nhg_hash_entry *zebra_nhe_proto_add(struct nhg_hash_entry *nhe)
 {
 	struct nhg_hash_entry lookup;
 	struct nhg_hash_entry *new, *old;
@@ -3748,11 +3748,15 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	struct nexthop *newhop;
 	bool replace = false;
 	int ret = 0;
+	const struct nexthop_group *nhg;
 
-	if (!nhg->nexthop) {
+	if (nhe)
+		nhg = &nhe->nhg;
+
+	if (!nhe || !nhg->nexthop) {
 		if (IS_ZEBRA_DEBUG_NHG)
 			zlog_debug("%s: id %u, no nexthops passed to add",
-				   __func__, id);
+				   __func__, (nhe ? nhe->id : 0));
 		return NULL;
 	}
 
@@ -3769,7 +3773,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 			if (IS_ZEBRA_DEBUG_NHG)
 				zlog_debug(
 					"%s: id %u, backup nexthops not supported",
-					__func__, id);
+					__func__, nhe->id);
 			return NULL;
 		}
 
@@ -3777,7 +3781,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 			if (IS_ZEBRA_DEBUG_NHG)
 				zlog_debug(
 					"%s: id %u, blackhole nexthop not supported",
-					__func__, id);
+					__func__, nhe->id);
 			return NULL;
 		}
 
@@ -3785,7 +3789,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 			if (IS_ZEBRA_DEBUG_NHG)
 				zlog_debug(
 					"%s: id %u, nexthop without gateway not supported",
-					__func__, id);
+					__func__, nhe->id);
 			return NULL;
 		}
 
@@ -3793,19 +3797,19 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 			if (IS_ZEBRA_DEBUG_NHG)
 				zlog_debug(
 					"%s: id %u, nexthop without ifindex is not supported",
-					__func__, id);
+					__func__, nhe->id);
 			return NULL;
 		}
 		SET_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
 
-	zebra_nhe_init(&lookup, afi, nhg->nexthop);
+	zebra_nhe_init(&lookup, nhe->afi, nhg->nexthop);
 	lookup.nhg.nexthop = nhg->nexthop;
 	lookup.nhg.nhgr = nhg->nhgr;
-	lookup.id = id;
-	lookup.type = type;
+	lookup.id = nhe->id;
+	lookup.type = nhe->type;
 
-	old = zebra_nhg_lookup_id(id);
+	old = zebra_nhg_lookup_id(nhe->id);
 
 	if (old) {
 		/*
@@ -3821,13 +3825,13 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 		zebra_nhg_release_all_deps(old);
 	}
 
-	new = zebra_nhg_rib_find_nhe(&lookup, afi);
+	new = zebra_nhg_rib_find_nhe(&lookup, nhe->afi);
 
 	zebra_nhg_increment_ref(new);
 
 	/* Capture zapi client info */
-	new->zapi_instance = instance;
-	new->zapi_session = session;
+	new->zapi_instance = nhe->zapi_instance;
+	new->zapi_session = nhe->zapi_session;
 
 	zebra_nhg_set_valid_if_active(new);
 
