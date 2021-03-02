@@ -1079,6 +1079,7 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	struct interface *ifp;
 	int remote_cbit = false;
 	int state = BFD_STATUS_UNKNOWN;
+	time_t now;
 	size_t addrlen;
 	struct prefix dp;
 	struct prefix sp;
@@ -1119,6 +1120,9 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 		break;
 	}
 
+	/* Cache current time to avoid multiple monotime clock calls. */
+	now = monotime(NULL);
+
 	/* Notify all matching sessions about update. */
 	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
 		/* Skip disabled or not installed entries. */
@@ -1151,7 +1155,7 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 		if ((int)bsp->bss.state == state)
 			continue;
 
-		bsp->bss.last_event = monotime(NULL);
+		bsp->bss.last_event = now;
 		bsp->bss.previous_state = bsp->bss.state;
 		bsp->bss.state = state;
 		bsp->bss.remote_cbit = remote_cbit;
