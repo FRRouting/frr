@@ -259,6 +259,7 @@ struct va_format {
 };
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pFB" (struct fbuf *)
 #pragma FRR printfrr_ext "%pVA" (struct va_format *)
 #endif
 
