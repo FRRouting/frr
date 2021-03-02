@@ -137,8 +137,6 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 
 #define flog_err_sys(ferr_id, format, ...)                                     \
 	flog_err(ferr_id, format, ##__VA_ARGS__)
-#define flog(priority, ferr_id, format, ...)                                   \
-	zlog(priority, "[EC %u] " format, ferr_id, ##__VA_ARGS__)
 
 extern void zlog_sigsafe(const char *text, size_t len);
 
