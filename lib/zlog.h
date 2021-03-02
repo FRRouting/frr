@@ -85,31 +85,6 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 	va_end(ap);
 }
 
-#define _zlog_ref(prio, msg, ...)                                              \
-	do {                                                                   \
-		static struct xrefdata _xrefdata = {                           \
-			.xref = NULL,                                          \
-			.uid = {},                                             \
-			.hashstr = (msg),                                      \
-			.hashu32 = {(prio), 0},                                \
-		};                                                             \
-		static const struct xref_logmsg _xref __attribute__(           \
-			(used)) = {                                            \
-			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata, __func__), \
-			.fmtstring = (msg),                                    \
-			.priority = (prio),                                    \
-			.args = (#__VA_ARGS__),                                \
-		};                                                             \
-		XREF_LINK(_xref.xref);                                         \
-		zlog_ref(&_xref, (msg), ##__VA_ARGS__);                        \
-	} while (0)
-
-#define zlog_err(...)    _zlog_ref(LOG_ERR, __VA_ARGS__)
-#define zlog_warn(...)   _zlog_ref(LOG_WARNING, __VA_ARGS__)
-#define zlog_info(...)   _zlog_ref(LOG_INFO, __VA_ARGS__)
-#define zlog_notice(...) _zlog_ref(LOG_NOTICE, __VA_ARGS__)
-#define zlog_debug(...)  _zlog_ref(LOG_DEBUG, __VA_ARGS__)
-
 #define _zlog_ecref(ec_, prio, msg, ...)                                       \
 	do {                                                                   \
 		static struct xrefdata _xrefdata = {                           \
@@ -127,8 +102,14 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 			.args = (#__VA_ARGS__),                                \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
-		zlog_ref(&_xref, "[EC %u] " msg, ec_, ##__VA_ARGS__);          \
+		zlog_ref(&_xref, (msg), ##__VA_ARGS__);                        \
 	} while (0)
+
+#define zlog_err(...)    _zlog_ecref(0, LOG_ERR, __VA_ARGS__)
+#define zlog_warn(...)   _zlog_ecref(0, LOG_WARNING, __VA_ARGS__)
+#define zlog_info(...)   _zlog_ecref(0, LOG_INFO, __VA_ARGS__)
+#define zlog_notice(...) _zlog_ecref(0, LOG_NOTICE, __VA_ARGS__)
+#define zlog_debug(...)  _zlog_ecref(0, LOG_DEBUG, __VA_ARGS__)
 
 #define flog_err(ferr_id, format, ...)                                         \
 	_zlog_ecref(ferr_id, LOG_ERR, format, ## __VA_ARGS__)
@@ -136,7 +117,7 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 	_zlog_ecref(ferr_id, LOG_WARNING, format, ## __VA_ARGS__)
 
 #define flog_err_sys(ferr_id, format, ...)                                     \
-	flog_err(ferr_id, format, ##__VA_ARGS__)
+	_zlog_ecref(ferr_id, LOG_ERR, format, ## __VA_ARGS__)
 
 extern void zlog_sigsafe(const char *text, size_t len);
 
@@ -249,6 +230,11 @@ DECLARE_HOOK(zlog_init, (const char *progname, const char *protoname,
 
 extern void zlog_fini(void);
 DECLARE_KOOH(zlog_fini, (), ());
+
+extern void zlog_set_prefix_ec(bool enable);
+extern bool zlog_get_prefix_ec(void);
+extern void zlog_set_prefix_xid(bool enable);
+extern bool zlog_get_prefix_xid(void);
 
 /* for tools & test programs, i.e. anything not a daemon.
  * (no cleanup needed at exit)
