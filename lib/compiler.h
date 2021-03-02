@@ -140,6 +140,21 @@ extern "C" {
 #define MACRO_REQUIRE_SEMICOLON() \
 	_Static_assert(1, "please add a semicolon after this macro")
 
+#if CONFDATE < 20210601
+#ifdef ENABLE_BGP_VNC
+/* temporarily disabled for transition for LabN CI
+ * NB: it's not possible to generate a deprecation warning for this, hence
+ * the shortened transition period (since otherwise new uses of the old syntax
+ * may creep in without errors)
+ */
+#undef MACRO_REQUIRE_SEMICOLON
+#define MACRO_REQUIRE_SEMICOLON() \
+	/* nothing */
+#endif /* ENABLE_BGP_VNC */
+#else /* CONFDATE >= 20210601 */
+CPP_NOTICE("time to remove this CONFDATE block")
+#endif
+
 /* variadic macros, use like:
  * #define V_0()  ...
  * #define V_1(x) ...
