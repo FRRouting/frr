@@ -74,6 +74,7 @@ bgp_evpn_es_path_update_on_vtep_chg(struct bgp_evpn_es_vtep *es_vtep,
 				    bool active);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
+static int bgp_evpn_run_consistency_checks(struct thread *t);
 
 /******************************************************************************
  * per-ES (Ethernet Segment) routing table
@@ -3578,6 +3579,19 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
  * show commands) at this point. A more drastic action can be executed (based
  * on user config) in the future.
  */
+static void bgp_evpn_es_cons_checks_timer_start(void)
+{
+	if (!bgp_mh_info->consistency_checking || bgp_mh_info->t_cons_check)
+		return;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("periodic consistency checking started");
+
+	thread_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
+			 BGP_EVPN_CONS_CHECK_INTERVAL,
+			 &bgp_mh_info->t_cons_check);
+}
+
 /* queue up the es for background consistency checks */
 static void bgp_evpn_es_cons_checks_pend_add(struct bgp_evpn_es *es)
 {
@@ -3588,6 +3602,10 @@ static void bgp_evpn_es_cons_checks_pend_add(struct bgp_evpn_es *es)
 	if (CHECK_FLAG(es->flags, BGP_EVPNES_CONS_CHECK_PEND))
 		/* already queued for consistency checking */
 		return;
+
+	/* start the periodic timer for consistency checks if it is not
+	 * already running */
+	bgp_evpn_es_cons_checks_timer_start();
 
 	SET_FLAG(es->flags, BGP_EVPNES_CONS_CHECK_PEND);
 	listnode_init(&es->pend_es_listnode, es);
@@ -3807,11 +3825,6 @@ void bgp_evpn_mh_init(void)
 	bgp_mh_info->install_l3nhg = false;
 	bgp_mh_info->host_routes_use_l3nhg = BGP_EVPN_MH_USE_ES_L3NHG_DEF;
 
-	if (bgp_mh_info->consistency_checking)
-		thread_add_timer(bm->master, bgp_evpn_run_consistency_checks,
-				NULL, BGP_EVPN_CONS_CHECK_INTERVAL,
-				&bgp_mh_info->t_cons_check);
-
 	memset(&zero_esi_buf, 0, sizeof(esi_t));
 }
 
@@ -3827,7 +3840,8 @@ void bgp_evpn_mh_finish(void)
 			 es_next) {
 		bgp_evpn_es_local_info_clear(es);
 	}
-	thread_cancel(&bgp_mh_info->t_cons_check);
+	if (bgp_mh_info->t_cons_check)
+		thread_cancel(&bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
 
