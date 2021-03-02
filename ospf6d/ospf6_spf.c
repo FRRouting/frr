@@ -722,16 +722,24 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 }
 
 void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
-			       struct ospf6_vertex *v)
+			       struct ospf6_vertex *v, json_object *json_obj,
+			       bool use_json)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_vertex *c;
 	char *next_prefix;
 	int len;
 	int restnum;
+	json_object *json_childs = NULL;
+	json_object *json_child = NULL;
 
-	/* "prefix" is the space prefix of the display line */
-	vty_out(vty, "%s+-%s [%d]\n", prefix, v->name, v->cost);
+	if (use_json) {
+		json_childs = json_object_new_object();
+		json_object_int_add(json_obj, "cost", v->cost);
+	} else {
+		/* "prefix" is the space prefix of the display line */
+		vty_out(vty, "%s+-%s [%d]\n", prefix, v->name, v->cost);
+	}
 
 	len = strlen(prefix) + 4;
 	next_prefix = (char *)malloc(len);
@@ -743,10 +751,27 @@ void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
 
 	restnum = listcount(v->child_list);
 	for (ALL_LIST_ELEMENTS(v->child_list, node, nnode, c)) {
-		restnum--;
-		ospf6_spf_display_subtree(vty, next_prefix, restnum, c);
-	}
+		if (use_json)
+			json_child = json_object_new_object();
+		else
+			restnum--;
 
+		ospf6_spf_display_subtree(vty, next_prefix, restnum, c,
+					  json_child, use_json);
+
+		if (use_json)
+			json_object_object_add(json_childs, c->name,
+					       json_child);
+	}
+	if (use_json) {
+		json_object_boolean_add(json_obj, "isLeafNode",
+					!listcount(v->child_list));
+		if (listcount(v->child_list))
+			json_object_object_add(json_obj, "children",
+					       json_childs);
+		else
+			json_object_free(json_childs);
+	}
 	free(next_prefix);
 }
 
