@@ -2114,7 +2114,7 @@ def scapy_send_bsr_raw_packet(
             )
         else:
             cmd = (
-                "/usr/bin/python {}/send_bsr_packet.py '{}' '{}' "
+                "/usr/bin/python2 {}/send_bsr_packet.py '{}' '{}' "
                 "--interval={} --count={}".format(
                     CWD, packet, sender_interface, interval, count
                 )
