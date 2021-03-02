@@ -1366,7 +1366,11 @@ static ssize_t printfrr_ea(char *buf, size_t bsz, const char *fmt,
 {
 	const struct ethaddr *mac = ptr;
 
-	prefix_mac2str(mac, buf, bsz);
+	if (mac)
+		prefix_mac2str(mac, buf, bsz);
+	else
+		strlcpy(buf, "NULL", bsz);
+
 	return 2;
 }
 
@@ -1376,7 +1380,11 @@ static ssize_t printfrr_ia(char *buf, size_t bsz, const char *fmt,
 {
 	const struct ipaddr *ipa = ptr;
 
-	ipaddr2str(ipa, buf, bsz);
+	if (ipa)
+		ipaddr2str(ipa, buf, bsz);
+	else
+		strlcpy(buf, "NULL", bsz);
+
 	return 2;
 }
 
@@ -1384,7 +1392,11 @@ printfrr_ext_autoreg_p("I4", printfrr_i4)
 static ssize_t printfrr_i4(char *buf, size_t bsz, const char *fmt,
 			   int prec, const void *ptr)
 {
-	inet_ntop(AF_INET, ptr, buf, bsz);
+	if (ptr)
+		inet_ntop(AF_INET, ptr, buf, bsz);
+	else
+		strlcpy(buf, "NULL", bsz);
+
 	return 2;
 }
 
@@ -1392,7 +1404,11 @@ printfrr_ext_autoreg_p("I6", printfrr_i6)
 static ssize_t printfrr_i6(char *buf, size_t bsz, const char *fmt,
 			   int prec, const void *ptr)
 {
-	inet_ntop(AF_INET6, ptr, buf, bsz);
+	if (ptr)
+		inet_ntop(AF_INET6, ptr, buf, bsz);
+	else
+		strlcpy(buf, "NULL", bsz);
+
 	return 2;
 }
 
@@ -1400,7 +1416,11 @@ printfrr_ext_autoreg_p("FX", printfrr_pfx)
 static ssize_t printfrr_pfx(char *buf, size_t bsz, const char *fmt,
 			    int prec, const void *ptr)
 {
-	prefix2str(ptr, buf, bsz);
+	if (ptr)
+		prefix2str(ptr, buf, bsz);
+	else
+		strlcpy(buf, "NULL", bsz);
+
 	return 2;
 }
 
@@ -1411,16 +1431,22 @@ static ssize_t printfrr_psg(char *buf, size_t bsz, const char *fmt,
 	const struct prefix_sg *sg = ptr;
 	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
 
-	if (sg->src.s_addr == INADDR_ANY)
-		bprintfrr(&fb, "(*,");
-	else
-		bprintfrr(&fb, "(%pI4,", &sg->src);
+	if (sg) {
+		if (sg->src.s_addr == INADDR_ANY)
+			bprintfrr(&fb, "(*,");
+		else
+			bprintfrr(&fb, "(%pI4,", &sg->src);
 
-	if (sg->grp.s_addr == INADDR_ANY)
-		bprintfrr(&fb, "*)");
-	else
-		bprintfrr(&fb, "%pI4)", &sg->grp);
+		if (sg->grp.s_addr == INADDR_ANY)
+			bprintfrr(&fb, "*)");
+		else
+			bprintfrr(&fb, "%pI4)", &sg->grp);
 
-	fb.pos[0] = '\0';
+		fb.pos[0] = '\0';
+
+	} else {
+		strlcpy(buf, "NULL", bsz);
+	}
+
 	return 3;
 }
