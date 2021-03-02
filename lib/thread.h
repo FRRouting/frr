@@ -46,8 +46,8 @@ PREDECL_HEAP(thread_timer_list)
 
 struct fd_handler {
 	/* number of pfd that fit in the allocated space of pfds. This is a
-	 * constant
-	 * and is the same for both pfds and copy. */
+	 * constant and is the same for both pfds and copy.
+	 */
 	nfds_t pfdsize;
 
 	/* file descriptors to monitor for i/o */
@@ -59,12 +59,6 @@ struct fd_handler {
 	struct pollfd *copy;
 	/* number of pollfds stored in copy */
 	nfds_t copycount;
-};
-
-struct cancel_req {
-	struct thread *thread;
-	void *eventobj;
-	struct thread **threadref;
 };
 
 struct xref_threadsched {
@@ -240,7 +234,10 @@ extern void _thread_execute(const struct xref_threadsched *xref,
 extern void thread_cancel(struct thread **event);
 extern void thread_cancel_async(struct thread_master *, struct thread **,
 				void *);
-extern void thread_cancel_event(struct thread_master *, void *);
+/* Cancel ready tasks with an arg matching 'arg' */
+extern void thread_cancel_event_ready(struct thread_master *m, void *arg);
+/* Cancel all tasks with an arg matching 'arg', including timers and io */
+extern void thread_cancel_event(struct thread_master *m, void *arg);
 extern struct thread *thread_fetch(struct thread_master *, struct thread *);
 extern void thread_call(struct thread *);
 extern unsigned long thread_timer_remain_second(struct thread *);

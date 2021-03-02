@@ -31,7 +31,7 @@
 
 #define BGP_TIMER_OFF(T)                                                       \
 	do {                                                                   \
-		THREAD_OFF(T);						       \
+		THREAD_OFF((T));					       \
 	} while (0)
 
 #define BGP_EVENT_ADD(P, E)                                                    \
@@ -44,7 +44,7 @@
 #define BGP_EVENT_FLUSH(P)                                                     \
 	do {                                                                   \
 		assert(peer);                                                  \
-		thread_cancel_event(bm->master, (P));                          \
+		thread_cancel_event_ready(bm->master, (P));                    \
 	} while (0)
 
 #define BGP_UPDATE_GROUP_TIMER_ON(T, F)					       \
@@ -53,10 +53,10 @@
 		    PEER_ROUTE_ADV_DELAY(peer))				       \
 			thread_add_timer_msec(bm->master, (F), peer,	       \
 				(BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME * 1000),\
-				T);					       \
+				(T));					       \
 		else							       \
 			thread_add_timer_msec(bm->master, (F), peer,	       \
-					      0, T);			       \
+					      0, (T));			       \
 	} while (0)							       \
 
 #define BGP_MSEC_JITTER 10
