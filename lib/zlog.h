@@ -54,10 +54,14 @@ struct xref_logmsg {
 	const char *args;
 };
 
+/* whether flag was added in config mode or enable mode */
+#define LOGMSG_FLAG_EPHEMERAL	(1 << 0)
+#define LOGMSG_FLAG_PERSISTENT	(1 << 1)
+
 struct xrefdata_logmsg {
 	struct xrefdata xrefdata;
 
-	/* nothing more here right now */
+	uint8_t fl_print_bt;
 };
 
 /* These functions are set up to write to stdout/stderr without explicit
@@ -94,15 +98,19 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 
 #define _zlog_ecref(ec_, prio, msg, ...)                                       \
 	do {                                                                   \
-		static struct xrefdata _xrefdata = {                           \
-			.xref = NULL,                                          \
-			.uid = {},                                             \
-			.hashstr = (msg),                                      \
-			.hashu32 = {(prio), (ec_)},                            \
+		static struct xrefdata_logmsg _xrefdata = {                    \
+			.xrefdata =                                            \
+				{                                              \
+					.xref = NULL,                          \
+					.uid = {},                             \
+					.hashstr = (msg),                      \
+					.hashu32 = {(prio), (ec_)},            \
+				},                                             \
 		};                                                             \
 		static const struct xref_logmsg _xref __attribute__(           \
 			(used)) = {                                            \
-			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata, __func__), \
+			.xref = XREF_INIT(XREFT_LOGMSG, &_xrefdata.xrefdata,   \
+					  __func__),                           \
 			.fmtstring = (msg),                                    \
 			.priority = (prio),                                    \
 			.ec = (ec_),                                           \
