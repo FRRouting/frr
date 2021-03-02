@@ -359,12 +359,14 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 		      void *ctx);
 void nhrp_nhs_interface_del(struct interface *ifp);
 
-int nhrp_multicast_add(struct interface *ifp, afi_t afi, union sockunion *nbma_addr);
-int nhrp_multicast_del(struct interface *ifp, afi_t afi, union sockunion *nbma_addr);
+int nhrp_multicast_add(struct interface *ifp, afi_t afi,
+		       union sockunion *nbma_addr);
+int nhrp_multicast_del(struct interface *ifp, afi_t afi,
+		       union sockunion *nbma_addr);
 void nhrp_multicast_interface_del(struct interface *ifp);
 void nhrp_multicast_foreach(struct interface *ifp, afi_t afi,
-		      void (*cb)(struct nhrp_multicast *, void *),
-		      void *ctx);
+			    void (*cb)(struct nhrp_multicast *, void *),
+			    void *ctx);
 
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
 void nhrp_route_announce(int add, enum nhrp_cache_type type,

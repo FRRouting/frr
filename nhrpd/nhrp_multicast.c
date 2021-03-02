@@ -47,19 +47,22 @@ static void nhrp_multicast_send(struct nhrp_peer *p, struct zbuf *zb)
 
 	addrlen = sockunion_get_addrlen(&p->vc->remote.nbma);
 	ret = os_sendmsg(zb->head, zbuf_used(zb), p->ifp->ifindex,
-		   sockunion_get_addr(&p->vc->remote.nbma),
-		   addrlen, addrlen == 4 ? 0x0800 : 0x86DD);
+			 sockunion_get_addr(&p->vc->remote.nbma), addrlen,
+			 addrlen == 4 ? 0x0800 : 0x86DD);
 
-	debugf(NHRP_DEBUG_COMMON, "Multicast Packet: %s -> %s, ret = %d, size = %zu, addrlen = %zu",
-		   sockunion2str(&p->vc->local.nbma, buf[0], sizeof(buf[0])),
-		   sockunion2str(&p->vc->remote.nbma, buf[1], sizeof(buf[1])),
-		   ret, zbuf_used(zb), addrlen);
+	debugf(NHRP_DEBUG_COMMON,
+	       "Multicast Packet: %s -> %s, ret = %d, size = %zu, addrlen = %zu",
+	       sockunion2str(&p->vc->local.nbma, buf[0], sizeof(buf[0])),
+	       sockunion2str(&p->vc->remote.nbma, buf[1], sizeof(buf[1])), ret,
+	       zbuf_used(zb), addrlen);
 }
 
-static void nhrp_multicast_forward_nbma(union sockunion *nbma_addr, struct interface *ifp, struct zbuf *pkt)
+static void nhrp_multicast_forward_nbma(union sockunion *nbma_addr,
+					struct interface *ifp, struct zbuf *pkt)
 {
 	struct nhrp_peer *p = nhrp_peer_get(ifp, nbma_addr);
-	if(p && p->online) {
+
+	if (p && p->online) {
 		/* Send packet */
 		nhrp_multicast_send(p, pkt);
 	}
@@ -71,7 +74,8 @@ static void nhrp_multicast_forward_cache(struct nhrp_cache *c, void *pctx)
 	struct mcast_ctx *ctx = (struct mcast_ctx *)pctx;
 
 	if (c->cur.type == NHRP_CACHE_DYNAMIC && c->cur.peer)
-		nhrp_multicast_forward_nbma(&c->cur.peer->vc->remote.nbma, ctx->ifp, ctx->pkt);
+		nhrp_multicast_forward_nbma(&c->cur.peer->vc->remote.nbma,
+					    ctx->ifp, ctx->pkt);
 }
 
 static void nhrp_multicast_forward(struct nhrp_multicast *mcast, void *pctx)
@@ -84,7 +88,8 @@ static void nhrp_multicast_forward(struct nhrp_multicast *mcast, void *pctx)
 
 	/* dynamic */
 	if (sockunion_family(&mcast->nbma_addr) == AF_UNSPEC) {
-		nhrp_cache_foreach(ctx->ifp, nhrp_multicast_forward_cache, pctx);
+		nhrp_cache_foreach(ctx->ifp, nhrp_multicast_forward_cache,
+				   pctx);
 		return;
 	}
 
@@ -102,7 +107,7 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	afi_t afi;
 	struct mcast_ctx ctx;
 
-	debugf(NHRP_DEBUG_COMMON,"Inside %s\n", __func__);
+	debugf(NHRP_DEBUG_COMMON, "Inside %s\n", __func__);
 
 	nf = znl_pull(zb, sizeof(*nf));
 	if (!nf)
@@ -120,7 +125,8 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 			/* NFULA_HWHDR exists and is supposed to contain source
 			 * hardware address. However, for ip_gre it seems to be
 			 * the nexthop destination address if the packet matches
-			 * route. */
+			 * route.
+			 */
 		}
 	}
 
@@ -131,15 +137,15 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	if (!ifp)
 		return;
 
-	debugf(NHRP_DEBUG_COMMON,"Outgoing interface = %s\n", ifp->name);
+	debugf(NHRP_DEBUG_COMMON, "Outgoing interface = %s\n", ifp->name);
 
-	ctx = (struct mcast_ctx) {
-		.ifp = ifp,
-		.pkt = &pktpl,
+	ctx = (struct mcast_ctx){
+		.ifp = ifp, .pkt = &pktpl,
 	};
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
-		nhrp_multicast_foreach(ifp, afi, nhrp_multicast_forward, (void *)&ctx);
+		nhrp_multicast_foreach(ifp, afi, nhrp_multicast_forward,
+				       (void *)&ctx);
 	}
 }
 
@@ -195,7 +201,8 @@ static void netlink_mcast_log_register(int fd, int group)
 	zbuf_free(zb);
 }
 
-static int nhrp_multicast_free(struct interface *ifp, struct nhrp_multicast *mcast)
+static int nhrp_multicast_free(struct interface *ifp,
+			       struct nhrp_multicast *mcast)
 {
 	list_del(&mcast->list_entry);
 	XFREE(MTYPE_NHRP_MULTICAST, mcast);
@@ -217,13 +224,16 @@ static void netlink_mcast_set_nflog_group(struct interface *ifp, int nlgroup)
 			return;
 
 		netlink_mcast_log_register(netlink_mcast_log_fd, nlgroup);
-		thread_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
+		thread_add_read(master, netlink_mcast_log_recv, 0,
+				netlink_mcast_log_fd,
 				&netlink_mcast_log_thread);
-		debugf(NHRP_DEBUG_COMMON, "Register nflog group: %d", netlink_mcast_nflog_group);
+		debugf(NHRP_DEBUG_COMMON, "Register nflog group: %d",
+		       netlink_mcast_nflog_group);
 	}
 }
 
-int nhrp_multicast_add(struct interface *ifp, afi_t afi, union sockunion *nbma_addr)
+int nhrp_multicast_add(struct interface *ifp, afi_t afi,
+		       union sockunion *nbma_addr)
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
@@ -238,9 +248,7 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi, union sockunion *nbma_a
 	mcast = XMALLOC(MTYPE_NHRP_MULTICAST, sizeof(struct nhrp_multicast));
 
 	*mcast = (struct nhrp_multicast){
-		.afi = afi,
-		.ifp = ifp,
-		.nbma_addr = *nbma_addr,
+		.afi = afi, .ifp = ifp, .nbma_addr = *nbma_addr,
 	};
 	list_add_tail(&mcast->list_entry, &nifp->afi[afi].mcastlist_head);
 
@@ -253,7 +261,8 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi, union sockunion *nbma_a
 	return NHRP_OK;
 }
 
-int nhrp_multicast_del(struct interface *ifp, afi_t afi, union sockunion *nbma_addr)
+int nhrp_multicast_del(struct interface *ifp, afi_t afi,
+		       union sockunion *nbma_addr)
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast, *tmp;
@@ -283,25 +292,27 @@ void nhrp_multicast_interface_del(struct interface *ifp)
 	afi_t afi;
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
-		debugf(NHRP_DEBUG_COMMON, "Cleaning up multicast entries (%d)", !list_empty(&nifp->afi[afi].mcastlist_head));
+		debugf(NHRP_DEBUG_COMMON,
+		       "Cleaning up multicast entries (%d)",
+		       !list_empty(&nifp->afi[afi].mcastlist_head));
 
 		list_for_each_entry_safe(
-				mcast, tmp, &nifp->afi[afi].mcastlist_head,
-				list_entry) {
+			mcast, tmp, &nifp->afi[afi].mcastlist_head, list_entry)
+		{
 			nhrp_multicast_free(ifp, mcast);
 		}
 	}
 }
 
 void nhrp_multicast_foreach(struct interface *ifp, afi_t afi,
-		      void (*cb)(struct nhrp_multicast *, void *),
-		      void *ctx)
+			    void (*cb)(struct nhrp_multicast *, void *),
+			    void *ctx)
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
 
 	list_for_each_entry(mcast, &nifp->afi[afi].mcastlist_head, list_entry)
 	{
-		cb (mcast, ctx);
+		cb(mcast, ctx);
 	}
 }

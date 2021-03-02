@@ -375,8 +375,7 @@ void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb)
 
 	os_sendmsg(zb->head, zbuf_used(zb), p->ifp->ifindex,
 		   sockunion_get_addr(&p->vc->remote.nbma),
-		   sockunion_get_addrlen(&p->vc->remote.nbma),
-		   ETH_P_NHRP);
+		   sockunion_get_addrlen(&p->vc->remote.nbma), ETH_P_NHRP);
 	zbuf_reset(zb);
 }
 

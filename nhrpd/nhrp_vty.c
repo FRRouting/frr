@@ -779,8 +779,8 @@ static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg,
 	ctx->count++;
 
 	if (reg && reg->peer)
-		sockunion2str(&reg->peer->vc->remote.nbma,
-			      buf[0], sizeof(buf[0]));
+		sockunion2str(&reg->peer->vc->remote.nbma, buf[0],
+			      sizeof(buf[0]));
 	else
 		snprintf(buf[0], sizeof(buf[0]), "-");
 	sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1],
@@ -1094,7 +1094,8 @@ struct write_map_ctx {
 	const char *aficmd;
 };
 
-static void interface_config_write_nhrp_map(struct nhrp_cache_config *c, void *data)
+static void interface_config_write_nhrp_map(struct nhrp_cache_config *c,
+					    void *data)
 {
 	struct write_map_ctx *ctx = data;
 	struct vty *vty = ctx->vty;
@@ -1106,7 +1107,8 @@ static void interface_config_write_nhrp_map(struct nhrp_cache_config *c, void *d
 	vty_out(vty, " %s nhrp map %s %s\n", ctx->aficmd,
 		sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
 		c->type == NHRP_CACHE_LOCAL
-		? "local" : sockunion2str(&c->nbma, buf[1], sizeof(buf[1])));
+			? "local"
+			: sockunion2str(&c->nbma, buf[1], sizeof(buf[1])));
 }
 
 static int interface_config_write(struct vty *vty)
@@ -1170,8 +1172,8 @@ static int interface_config_write(struct vty *vty)
 				.family = afi2family(afi),
 				.aficmd = aficmd,
 			};
-			nhrp_cache_config_foreach(ifp, interface_config_write_nhrp_map,
-						  &mapctx);
+			nhrp_cache_config_foreach(
+				ifp, interface_config_write_nhrp_map, &mapctx);
 
 			list_for_each_entry(nhs, &ad->nhslist_head,
 					    nhslist_entry)
@@ -1196,8 +1198,8 @@ static int interface_config_write(struct vty *vty)
 							== AF_UNSPEC
 						? "dynamic"
 						: sockunion2str(
-							  &mcast->nbma_addr, buf,
-							  sizeof(buf)));
+							  &mcast->nbma_addr,
+							  buf, sizeof(buf)));
 			}
 		}
 
