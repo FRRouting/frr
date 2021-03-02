@@ -1260,27 +1260,36 @@ static int nb_callback_configuration(struct nb_context *context,
 	}
 
 	if (ret != NB_OK) {
-		int priority;
-		enum lib_log_refs ref;
-
 		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 
 		switch (event) {
 		case NB_EV_VALIDATE:
-			priority = LOG_WARNING;
-			ref = EC_LIB_NB_CB_CONFIG_VALIDATE;
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]%s%s",
+				  nb_err_name(ret), nb_event_name(event),
+				  nb_operation_name(operation), xpath,
+				  errmsg[0] ? " message: " : "", errmsg);
 			break;
 		case NB_EV_PREPARE:
-			priority = LOG_WARNING;
-			ref = EC_LIB_NB_CB_CONFIG_PREPARE;
+			flog_warn(EC_LIB_NB_CB_CONFIG_PREPARE,
+				  "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]%s%s",
+				  nb_err_name(ret), nb_event_name(event),
+				  nb_operation_name(operation), xpath,
+				  errmsg[0] ? " message: " : "", errmsg);
 			break;
 		case NB_EV_ABORT:
-			priority = LOG_WARNING;
-			ref = EC_LIB_NB_CB_CONFIG_ABORT;
+			flog_warn(EC_LIB_NB_CB_CONFIG_ABORT,
+				  "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]%s%s",
+				  nb_err_name(ret), nb_event_name(event),
+				  nb_operation_name(operation), xpath,
+				  errmsg[0] ? " message: " : "", errmsg);
 			break;
 		case NB_EV_APPLY:
-			priority = LOG_ERR;
-			ref = EC_LIB_NB_CB_CONFIG_APPLY;
+			flog_err(EC_LIB_NB_CB_CONFIG_APPLY,
+				 "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]%s%s",
+				 nb_err_name(ret), nb_event_name(event),
+				 nb_operation_name(operation), xpath,
+				 errmsg[0] ? " message: " : "", errmsg);
 			break;
 		default:
 			flog_err(EC_LIB_DEVELOPMENT,
@@ -1288,15 +1297,6 @@ static int nb_callback_configuration(struct nb_context *context,
 				 event, xpath);
 			exit(1);
 		}
-
-		flog(priority, ref,
-		     "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-		     nb_err_name(ret), nb_event_name(event),
-		     nb_operation_name(operation), xpath);
-		if (strlen(errmsg) > 0)
-			flog(priority, ref,
-			     "error processing configuration change: %s",
-			     errmsg);
 	}
 
 	return ret;
