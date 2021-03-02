@@ -343,14 +343,13 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
  */
 
 /*
- * Add NHE. If already exists, Replace.
+ * Add NHE using id and info from 'nhe'. If id already exists, replace. The
+ * caller's data isn't touched - it's just used to locate or create an nhe
+ * internally.
  *
- * Returns allocated NHE on success, otherwise NULL.
+ * Returns > 0 on success, otherwise < 0.
  */
-struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
-					   uint16_t instance, uint32_t session,
-					   struct nexthop_group *nhg,
-					   afi_t afi);
+struct nhg_hash_entry *zebra_nhe_proto_add(struct nhg_hash_entry *nhe);
 
 /*
  * Del NHE.
