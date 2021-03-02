@@ -642,10 +642,13 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
 
     next_hop_rp = topo["routers"]["f1"]["links"]["i1"]["ipv4"].split("/")[0]
     next_hop_lhr = topo["routers"]["i1"]["links"]["l1"]["ipv4"].split("/")[0]
+    next_hop_fhr = topo["routers"]["i1"]["links"]["f1"]["ipv4"].split("/")[0]
+    CRP = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet9"]["candidate_rp"]
 
     input_dict = {
         "i1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": next_hop_rp}]},
         "l1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": next_hop_lhr}]},
+        "f1": {"static_routes": [{"network": CRP, "next_hop": next_hop_fhr, "delete": True}]},
     }
 
     result = create_static_routes(tgen, input_dict)
@@ -654,7 +657,6 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     # Use scapy to send pre-defined packet from senser to receiver
 
     group = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet9"]["group"]
-    CRP = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet9"]["candidate_rp"]
     step("waiting for BSR to timeout before configuring blackhole route")
     clear_bsrp_data(tgen, topo)
 
