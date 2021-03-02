@@ -247,9 +247,11 @@ def test_ospf_redistribution_tc5_p0(request):
         if result is not True:
             break
 
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: OSPF routes are present after deleting ip address of newly "
+        "configured interface of R0 \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     protocol = "ospf"
     result = verify_rib(
@@ -262,9 +264,11 @@ def test_ospf_redistribution_tc5_p0(request):
         attempts=5,
         expected=False,
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: OSPF routes are present in fib after deleting ip address of newly "
+        "configured interface of R0 \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     step("Add back the deleted ip address on newly configured interface of R0")
     topo1 = {
@@ -366,9 +370,11 @@ def test_ospf_redistribution_tc6_p0(request):
         result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
         if result is not True:
             break
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: OSPF routes are present after deleting ip address of newly "
+        "configured loopback of R0 \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     protocol = "ospf"
     result = verify_rib(
@@ -380,9 +386,11 @@ def test_ospf_redistribution_tc6_p0(request):
         next_hop=nh,
         expected=False,
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: OSPF routes are present in fib after deleting ip address of newly "
+        "configured loopback of R0 \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     step("Add back the deleted ip address on newly configured interface of R0")
     topo1 = {

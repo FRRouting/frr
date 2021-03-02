@@ -504,9 +504,10 @@ def test_ambiguous_overlapping_addresses_in_different_vrfs_p0(request):
         )
 
         result = verify_rib(tgen, addr_type, dut, input_dict_1, tag=500, expected=False)
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "Routes are present with tag value 500 \n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info("Expected Behavior: {}".format(result))
 
     step(
@@ -1142,9 +1143,10 @@ def test_prefixes_leaking_p0(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_1, metric=123, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "Routes are present with metric value 123 \n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info("Expected Behavior: {}".format(result))
 
         result = verify_rib(tgen, addr_type, dut, input_dict_2, metric=123)
@@ -1155,9 +1157,10 @@ def test_prefixes_leaking_p0(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_2, metric=0, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "Routes are present with metric value 0 \n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)

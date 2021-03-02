@@ -1317,18 +1317,20 @@ def test_BGP_GR_TC_4_p0(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Phase 5] : R2 is about to come up now  ")
@@ -1788,9 +1790,10 @@ def test_BGP_GR_TC_6_1_2_p1(request):
         result = verify_r_bit(
             tgen, topo, addr_type, input_dict, dut="r2", peer="r1", expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r2: R-bit is set to True\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
     logger.info("Restart BGPd on R2 ")
     kill_router_daemons(tgen, "r2", ["bgpd"])
@@ -1808,9 +1811,10 @@ def test_BGP_GR_TC_6_1_2_p1(request):
         result = verify_r_bit(
             tgen, topo, addr_type, input_dict, dut="r2", peer="r1", expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r2: R-bit is set to True\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
     write_test_footer(tc_name)
 
@@ -2092,18 +2096,20 @@ def test_BGP_GR_TC_17_p1(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Phase 5] : R2 is about to come up now  ")
@@ -2122,9 +2128,10 @@ def test_BGP_GR_TC_17_p1(request):
         result = verify_r_bit(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2", expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: R-bit is set to True\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
         # Verifying BGP RIB routes
         next_hop = next_hop_per_address_family(
@@ -2450,18 +2457,20 @@ def test_BGP_GR_TC_20_p1(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Phase 5] : R2 is about to come up now  ")
@@ -2734,9 +2743,10 @@ def test_BGP_GR_TC_31_1_p1(request):
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
     logger.info("[Phase 4] : R1 is about to come up now  ")
     start_router_daemons(tgen, "r1", ["bgpd"])
@@ -3215,9 +3225,10 @@ def test_BGP_GR_TC_9_p1(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes
@@ -3225,9 +3236,10 @@ def test_BGP_GR_TC_9_p1(request):
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Phase 5] : R2 is about to come up now  ")
@@ -3257,9 +3269,10 @@ def test_BGP_GR_TC_9_p1(request):
         result = verify_f_bit(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2", expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: F-bit is set to True\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
     write_test_footer(tc_name)
 
@@ -3391,9 +3404,10 @@ def test_BGP_GR_TC_17_p1(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes
@@ -3401,9 +3415,10 @@ def test_BGP_GR_TC_17_p1(request):
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
         logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Phase 5] : R2 is about to come up now  ")
@@ -3425,9 +3440,10 @@ def test_BGP_GR_TC_17_p1(request):
         result = verify_r_bit(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2", expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: R-bit is set to True\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
         # Verifying BGP RIB routes
         next_hop = next_hop_per_address_family(
@@ -3647,9 +3663,10 @@ def test_BGP_GR_TC_43_p1(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r2: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         protocol = "bgp"
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
@@ -3954,9 +3971,10 @@ def test_BGP_GR_TC_44_p1(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
@@ -4981,9 +4999,10 @@ def test_BGP_GR_TC_48_p1(request):
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
         dut = "r2"
         peer = "r1"
@@ -4994,15 +5013,17 @@ def test_BGP_GR_TC_48_p1(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r2: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r2: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
     step("Bring up BGP on R1 and remove Peer-level GR config from R1")
 
@@ -5361,15 +5382,17 @@ def test_BGP_GR_TC_52_p1(request):
         result = verify_bgp_rib(
             tgen, addr_type, dut, input_topo, next_hop, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in BGP RIB\n Error: {}".format(
             tc_name, result
-        )
+        ))
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "r1: routes are still present in ZEBRA\n Error: {}".format(
             tc_name, result
-        )
+        ))
 
     step("Bring up BGP on R2 and remove Peer-level GR config from R1")
 
