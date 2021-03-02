@@ -147,7 +147,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
  * Non-MT-safe version
  */
 ssize_t
-vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
+vbprintfrr(struct fbuf *cb_in, const char *fmt0, va_list ap)
 {
 	const char *fmt;	/* format string */
 	int ch;			/* character from fmt */
@@ -178,6 +178,8 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 	va_list orgap;          /* original argument pointer */
 	char *convbuf;		/* wide to multibyte conversion result */
 	char *extstart = NULL;	/* where printfrr_ext* started printing */
+	struct fbuf cb_copy, *cb;
+	struct fmt_outpos *opos;
 
 	static const char xdigs_lower[16] = "0123456789abcdef";
 	static const char xdigs_upper[16] = "0123456789ABCDEF";
@@ -269,6 +271,16 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 	argtable = NULL;
 	nextarg = 1;
 	va_copy(orgap, ap);
+
+	if (cb_in) {
+		/* prevent printfrr exts from polluting cb->outpos */
+		cb_copy = *cb_in;
+		cb_copy.outpos = NULL;
+		cb_copy.outpos_n = cb_copy.outpos_i = 0;
+		cb = &cb_copy;
+	} else
+		cb = NULL;
+
 	io_init(&io, cb);
 	ret = 0;
 
@@ -297,6 +309,11 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 		prec = -1;
 		sign = '\0';
 		ox[1] = '\0';
+
+		if (cb_in && cb_in->outpos_i < cb_in->outpos_n)
+			opos = &cb_in->outpos[cb_in->outpos_i];
+		else
+			opos = NULL;
 
 rflag:		ch = *fmt++;
 reswitch:	switch (ch) {
@@ -502,35 +519,6 @@ reswitch:	switch (ch) {
 			size = (prec >= 0) ? strnlen(cp, prec) : strlen(cp);
 			sign = '\0';
 			break;
-#ifdef DANGEROUS_PERCENT_N
-		/* FRR does not use %n in printf formats.  This is just left
-		 * here in case someone tries to use %n and starts debugging
-		 * why the f* it doesn't work
-		 */
-		case 'n':
-			/*
-			 * Assignment-like behavior is specified if the
-			 * value overflows or is otherwise unrepresentable.
-			 * C99 says to use `signed char' for %hhn conversions.
-			 */
-			if (flags & LLONGINT)
-				*GETARG(long long *) = ret;
-			else if (flags & SIZET)
-				*GETARG(ssize_t *) = (ssize_t)ret;
-			else if (flags & PTRDIFFT)
-				*GETARG(ptrdiff_t *) = ret;
-			else if (flags & INTMAXT)
-				*GETARG(intmax_t *) = ret;
-			else if (flags & LONGINT)
-				*GETARG(long *) = ret;
-			else if (flags & SHORTINT)
-				*GETARG(short *) = ret;
-			else if (flags & CHARINT)
-				*GETARG(signed char *) = ret;
-			else
-				*GETARG(int *) = ret;
-			continue;	/* no output */
-#endif
 		case 'O':
 			flags |= LONGINT;
 			/*FALLTHROUGH*/
@@ -660,6 +648,7 @@ number:			if ((dprec = prec) >= 0)
 			cp = buf;
 			size = 1;
 			sign = '\0';
+			opos = NULL;
 			break;
 		}
 
@@ -694,6 +683,9 @@ number:			if ((dprec = prec) >= 0)
 		if ((flags & (LADJUST|ZEROPAD)) == 0)
 			PAD(width - realsz, blanks);
 
+		if (opos)
+			opos->off_start = cb->pos - cb->buf;
+
 		/* prefix */
 		if (sign)
 			PRINT(&sign, 1);
@@ -711,6 +703,12 @@ number:			if ((dprec = prec) >= 0)
 		/* leading zeroes from decimal precision */
 		PAD(dprec - size, zeroes);
 		PRINT(cp, size);
+
+		if (opos) {
+			opos->off_end = cb->pos - cb->buf;
+			cb_in->outpos_i++;
+		}
+
 		/* left-adjusting padding (always blank) */
 		if (flags & LADJUST)
 			PAD(width - realsz, blanks);
@@ -759,9 +757,16 @@ ext_printed:
 			cb->pos = extstart;
 			PAD(npad, blanks);
 			cb->pos += nmove;
+			extstart += npad;
 		}
 
 		io.avail = cb ? cb->len - (cb->pos - cb->buf) : 0;
+
+		if (opos && extstart <= cb->pos) {
+			opos->off_start = extstart - cb->buf;
+			opos->off_end = cb->pos - cb->buf;
+			cb_in->outpos_i++;
+		}
 
 		/* left-adjusting padding (always blank) */
 		if (flags & LADJUST)
@@ -780,6 +785,8 @@ error:
 		free(convbuf);
 	if ((argtable != NULL) && (argtable != statargtable))
 		free (argtable);
+	if (cb_in)
+		cb_in->pos = cb->pos;
 	return (ret);
 	/* NOTREACHED */
 }

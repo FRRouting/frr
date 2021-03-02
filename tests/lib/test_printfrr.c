@@ -95,11 +95,21 @@ static void printchk(const char *ref, const char *fmt, ...)
 		errors++;
 	}
 
+	struct fmt_outpos outpos[16];
+	struct fbuf fb = {
+		.buf = bufrr,
+		.pos = bufrr,
+		.len = sizeof(bufrr) - 1,
+		.outpos = outpos,
+		.outpos_n = array_size(outpos),
+	};
+
 	va_start(ap, fmt);
-	vsnprintfrr(bufrr, sizeof(bufrr), fmt, ap);
+	vbprintfrr(&fb, fmt, ap);
+	fb.pos[0] = '\0';
 	va_end(ap);
 
-	printf("fmt: \"%s\"\nref: \"%s\"\nfrr: \"%s\"\n%s\n\n",
+	printf("fmt: \"%s\"\nref: \"%s\"\nfrr: \"%s\"\n%s\n",
 	       fmt, ref, bufrr, strcmp(ref, bufrr) ? "ERROR" : "ok");
 	if (strcmp(ref, bufrr))
 		errors++;
@@ -107,6 +117,14 @@ static void printchk(const char *ref, const char *fmt, ...)
 		printf("return value <> length mismatch\n");
 		errors++;
 	}
+
+	for (size_t i = 0; i < fb.outpos_i; i++)
+		printf("\t[%zu: %u..%u] = \"%.*s\"\n", i,
+			outpos[i].off_start,
+			outpos[i].off_end,
+			(int)(outpos[i].off_end - outpos[i].off_start),
+			bufrr + outpos[i].off_start);
+	printf("\n");
 }
 
 int main(int argc, char **argv)

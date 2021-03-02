@@ -28,10 +28,17 @@
 extern "C" {
 #endif
 
+struct fmt_outpos {
+	unsigned int off_start, off_end;
+};
+
 struct fbuf {
 	char *buf;
 	char *pos;
 	size_t len;
+
+	struct fmt_outpos *outpos;
+	size_t outpos_n, outpos_i;
 };
 
 #define at(a, b) PRINTFRR(a, b)
