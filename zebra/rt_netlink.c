@@ -1767,6 +1767,33 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 		nl_attr_nest_end(&req->n, nest);
 	}
 
+	/*
+	 * Always install blackhole routes without using nexthops, because of
+	 * the following kernel problems:
+	 * 1. Kernel nexthops don't suport unreachable/prohibit route types.
+	 * 2. Blackhole kernel nexthops are deleted when loopback is down.
+	 */
+	nexthop = dplane_ctx_get_ng(ctx)->nexthop;
+	if (nexthop) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			nexthop = nexthop->resolved;
+
+		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_ADMINPROHIB:
+				req->r.rtm_type = RTN_PROHIBIT;
+				break;
+			case BLACKHOLE_REJECT:
+				req->r.rtm_type = RTN_UNREACHABLE;
+				break;
+			default:
+				req->r.rtm_type = RTN_BLACKHOLE;
+				break;
+			}
+			return NLMSG_ALIGN(req->n.nlmsg_len);
+		}
+	}
+
 	if ((!fpm && kernel_nexthops_supported()
 	     && (!proto_nexthops_only()
 		 || is_proto_nhg(dplane_ctx_get_nhe_id(ctx), 0)))
@@ -1820,27 +1847,6 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	if (nexthop_num == 1) {
 		nexthop_num = 0;
 		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
-			/*
-			 * So we want to cover 2 types of blackhole
-			 * routes here:
-			 * 1) A normal blackhole route( ala from a static
-			 *    install.
-			 * 2) A recursively resolved blackhole route
-			 */
-			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-				switch (nexthop->bh_type) {
-				case BLACKHOLE_ADMINPROHIB:
-					req->r.rtm_type = RTN_PROHIBIT;
-					break;
-				case BLACKHOLE_REJECT:
-					req->r.rtm_type = RTN_UNREACHABLE;
-					break;
-				default:
-					req->r.rtm_type = RTN_BLACKHOLE;
-					break;
-				}
-				return NLMSG_ALIGN(req->n.nlmsg_len);
-			}
 			if (CHECK_FLAG(nexthop->flags,
 				       NEXTHOP_FLAG_RECURSIVE)) {
 
