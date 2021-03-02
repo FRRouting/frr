@@ -36,6 +36,8 @@
 DEFINE_HOOK(zlog_rotate, (), ());
 DEFINE_HOOK(zlog_cli_show, (struct vty * vty), (vty));
 
+static unsigned logmsgs_with_persist_bt;
+
 static const int log_default_lvl = LOG_DEBUG;
 
 static int log_config_stdout_lvl = ZLOG_DISABLED;
@@ -264,6 +266,44 @@ DEFUN_HIDDEN (no_config_log_monitor,
        "Disable terminal line (monitor) logging\n"
        LOG_LEVEL_DESC)
 {
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_uid_backtrace,
+       debug_uid_backtrace_cmd,
+       "[no] debug unique-id UID backtrace",
+       NO_STR
+       DEBUG_STR
+       "Options per individual log message, by unique ID\n"
+       "Log message unique ID (XXXXX-XXXXX)\n"
+       "Add backtrace to log when message is printed\n")
+{
+	struct xrefdata search, *xrd;
+	struct xrefdata_logmsg *xrdl;
+	uint8_t flag;
+
+	strlcpy(search.uid, uid, sizeof(search.uid));
+	xrd = xrefdata_uid_find(&xrefdata_uid, &search);
+
+	if (!xrd) {
+		vty_out(vty, "%% no log message with ID \"%s\" found\n", uid);
+		return CMD_WARNING;
+	}
+	if (xrd->xref->type != XREFT_LOGMSG) {
+		vty_out(vty, "%% ID \"%s\" is not a log message\n", uid);
+		return CMD_WARNING;
+	}
+	xrdl = container_of(xrd, struct xrefdata_logmsg, xrefdata);
+
+	flag = (vty->node == CONFIG_NODE) ? LOGMSG_FLAG_PERSISTENT
+					  : LOGMSG_FLAG_EPHEMERAL;
+
+	if ((xrdl->fl_print_bt & flag) == (no ? 0 : flag))
+		return CMD_SUCCESS;
+	if (flag == LOGMSG_FLAG_PERSISTENT)
+		logmsgs_with_persist_bt += no ? -1 : 1;
+
+	xrdl->fl_print_bt ^= flag;
 	return CMD_SUCCESS;
 }
 
@@ -751,6 +791,24 @@ void log_config_write(struct vty *vty)
 		vty_out(vty, "no log error-category\n");
 	if (!zlog_get_prefix_xid())
 		vty_out(vty, "no log unique-id\n");
+
+	if (logmsgs_with_persist_bt) {
+		struct xrefdata *xrd;
+		struct xrefdata_logmsg *xrdl;
+
+		vty_out(vty, "!\n");
+
+		frr_each (xrefdata_uid, &xrefdata_uid, xrd) {
+			if (xrd->xref->type != XREFT_LOGMSG)
+				continue;
+
+			xrdl = container_of(xrd, struct xrefdata_logmsg,
+					    xrefdata);
+			if (xrdl->fl_print_bt & LOGMSG_FLAG_PERSISTENT)
+				vty_out(vty, "debug unique-id %s backtrace\n",
+					xrd->uid);
+		}
+	}
 }
 
 static int log_vty_init(const char *progname, const char *protoname,
@@ -801,4 +859,7 @@ void log_cmd_init(void)
 	install_element(CONFIG_NODE, &config_log_filterfile_cmd);
 	install_element(CONFIG_NODE, &no_config_log_filterfile_cmd);
 	install_element(CONFIG_NODE, &log_immediate_mode_cmd);
+
+	install_element(ENABLE_NODE, &debug_uid_backtrace_cmd);
+	install_element(CONFIG_NODE, &debug_uid_backtrace_cmd);
 }
