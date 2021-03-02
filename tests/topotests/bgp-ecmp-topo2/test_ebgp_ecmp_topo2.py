@@ -324,6 +324,7 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
 
     write_test_footer(tc_name)
 
+
 @pytest.mark.parametrize("ecmp_num", ["8", "16", "32"])
 @pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
 def test_ecmp_after_clear_bgp(request, ecmp_num, test_type):
@@ -349,7 +350,7 @@ def test_ecmp_after_clear_bgp(request, ecmp_num, test_type):
             addr_type,
             dut,
             input_dict_1,
-            next_hop=NEXT_HOPS[addr_type][:int(ecmp_num)],
+            next_hop=NEXT_HOPS[addr_type][: int(ecmp_num)],
             protocol=protocol,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
@@ -372,7 +373,7 @@ def test_ecmp_after_clear_bgp(request, ecmp_num, test_type):
             addr_type,
             dut,
             input_dict_1,
-            next_hop=NEXT_HOPS[addr_type][:int(ecmp_num)],
+            next_hop=NEXT_HOPS[addr_type][: int(ecmp_num)],
             protocol=protocol,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(

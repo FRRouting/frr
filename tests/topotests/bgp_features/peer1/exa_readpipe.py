@@ -8,7 +8,7 @@ if len(sys.argv) != 2:
 fifo = sys.argv[1]
 
 while True:
-    pipe = open(fifo, 'r')
+    pipe = open(fifo, "r")
     with pipe:
         line = pipe.readline().strip()
         if line != "":

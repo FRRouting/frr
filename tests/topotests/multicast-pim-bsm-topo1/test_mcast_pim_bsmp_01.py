@@ -706,7 +706,7 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
         "f1": {
             "static_routes": [
                 {"network": [BSR1_ADDR, CRP], "next_hop": "blackhole", "delete": True},
-                {"network": BSR1_ADDR, "next_hop": NEXT_HOP1}
+                {"network": BSR1_ADDR, "next_hop": NEXT_HOP1},
             ]
         }
     }
@@ -1118,7 +1118,10 @@ def test_static_rp_override_p1(request):
         "l1": {
             "pim": {
                 "rp": [
-                    {"rp_addr": "33.33.33.33", "group_addr_range": ["225.1.1.1/32"],}
+                    {
+                        "rp_addr": "33.33.33.33",
+                        "group_addr_range": ["225.1.1.1/32"],
+                    }
                 ]
             }
         }
@@ -1294,7 +1297,8 @@ def test_bsmp_stress_add_del_restart_p2(request):
         assert (
             rp_add1 == rp2[group]
         ), "Testcase {} :Failed \n Error : rp expected {} rp received {}".format(
-            tc_name, rp_add1,
+            tc_name,
+            rp_add1,
         )
 
         # Verify if that rp is installed
@@ -1632,7 +1636,14 @@ def test_iif_join_state_p0(request):
     # Add back route for RP to make it reachable
     step("Add back route for RP to make it reachable")
     input_dict = {
-        "l1": {"static_routes": [{"network": rp_ip, "next_hop": next_hop_lhr,}]}
+        "l1": {
+            "static_routes": [
+                {
+                    "network": rp_ip,
+                    "next_hop": next_hop_lhr,
+                }
+            ]
+        }
     }
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)

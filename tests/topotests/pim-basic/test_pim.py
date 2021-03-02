@@ -45,6 +45,7 @@ from mininet.topo import Topo
 
 pytestmark = [pytest.mark.pimd]
 
+
 class PIMTopo(Topo):
     def build(self, *_args, **_opts):
         "Build function"

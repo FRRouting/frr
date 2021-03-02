@@ -45,17 +45,18 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
-#Basic scenario for BGP-LU. Nodes are directly connected.
-#Node 3 is advertising many routes to 2, which advertises them
-#as BGP-LU to 1; this way we get routes with actual labels, as
-#opposed to implicit-null routes in the 2-node case.
+# Basic scenario for BGP-LU. Nodes are directly connected.
+# Node 3 is advertising many routes to 2, which advertises them
+# as BGP-LU to 1; this way we get routes with actual labels, as
+# opposed to implicit-null routes in the 2-node case.
 #
 #  AS1      BGP-LU        AS2         iBGP        AS2
-#+-----+                +-----+                 +-----+
-#|     |.1            .2|     |.2             .3|     |
-#|  1  +----------------+  2  +-----------------+  3  |
-#|     |   10.0.0.0/24  |     |   10.0.1.0/24   |     |
-#+-----+                +-----+                 +-----+
+# +-----+                +-----+                 +-----+
+# |     |.1            .2|     |.2             .3|     |
+# |  1  +----------------+  2  +-----------------+  3  |
+# |     |   10.0.0.0/24  |     |   10.0.1.0/24   |     |
+# +-----+                +-----+                 +-----+
+
 
 class TemplateTopo(Topo):
     "Test topology builder"
@@ -82,7 +83,6 @@ class TemplateTopo(Topo):
         switch = tgen.add_switch("s2")
         switch.add_link(tgen.gears["R2"])
         switch.add_link(tgen.gears["R3"])
-
 
 
 def setup_module(mod):
@@ -115,15 +115,19 @@ def teardown_module(mod):
     # This function tears down the whole topology.
     tgen.stop_topology()
 
+
 def check_labelpool(router):
     json_file = "{}/{}/labelpool.summ.json".format(CWD, router.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(topotest.router_json_cmp, router, "show bgp labelpool summary json", expected)
+    test_func = partial(
+        topotest.router_json_cmp, router, "show bgp labelpool summary json", expected
+    )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"{}" JSON output mismatches - Did not converge'.format(router.name)
     assert result is None, assertmsg
-    
+
+
 def test_converge_bgplu():
     "Wait for protocol convergence"
 
@@ -132,12 +136,13 @@ def test_converge_bgplu():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    #tgen.mininet_cli();
+    # tgen.mininet_cli();
     r1 = tgen.gears["R1"]
     r2 = tgen.gears["R2"]
 
     check_labelpool(r1)
     check_labelpool(r2)
+
 
 def test_clear_bgplu():
     "Wait for protocol convergence"
@@ -147,7 +152,7 @@ def test_clear_bgplu():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    #tgen.mininet_cli();
+    # tgen.mininet_cli();
     r1 = tgen.gears["R1"]
     r2 = tgen.gears["R2"]
 
@@ -163,6 +168,7 @@ def test_clear_bgplu():
     r2.vtysh_cmd("clear bgp 10.0.1.3")
     check_labelpool(r1)
     check_labelpool(r2)
+
 
 def test_memory_leak():
     "Run the memory leak test and report results."

@@ -603,6 +603,7 @@ def ping_anycast_gw(tgen):
     local_host.run(cmd_str)
     remote_host.run(cmd_str)
 
+
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
     """
     checks if mac is present and if desination matches the one provided

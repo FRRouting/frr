@@ -50,6 +50,7 @@ import pytest
 
 pytestmark = [pytest.mark.ospfd]
 
+
 class OspfSrTopo(Topo):
     "Test topology builder"
 

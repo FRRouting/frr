@@ -44,7 +44,7 @@ from lib.topolog import logger
 from mininet.topo import Topo
 
 
-#TODO: select markers based on daemons used during test
+# TODO: select markers based on daemons used during test
 # pytest module level markers
 """
 pytestmark = pytest.mark.bfdd # single marker

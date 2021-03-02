@@ -86,12 +86,11 @@ class SnmpTester(object):
     def _get_snmp_oid(snmp_output):
         tokens = snmp_output.strip().split()
 
-#        if len(tokens) > 5:
-#            return None
-
+        #        if len(tokens) > 5:
+        #            return None
 
         # third token is the value of the object
-        return tokens[0].split('.',1)[1] 
+        return tokens[0].split(".", 1)[1]
 
     def _parse_multiline(self, snmp_output):
         results = snmp_output.strip().split("\r\n")
@@ -142,7 +141,11 @@ class SnmpTester(object):
                     print("FAIL: missing oid key {}".format(oid))
                     return False
                 if results_dict[oid] != values[index]:
-                    print("FAIL{} {} |{}| == |{}|".format(oid, index, results_dict[oid], values[index]))
+                    print(
+                        "FAIL{} {} |{}| == |{}|".format(
+                            oid, index, results_dict[oid], values[index]
+                        )
+                    )
                     return False
                 index += 1
             return True

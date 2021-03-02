@@ -49,15 +49,14 @@ from lib.common_config import (
     shutdown_bringup_interface,
     topo_daemons,
     verify_rib,
-    stop_router, start_router,
+    stop_router,
+    start_router,
     create_static_routes,
     start_router_daemons,
-    kill_router_daemons
+    kill_router_daemons,
 )
 
-from lib.ospf import (
-    verify_ospf_neighbor, verify_ospf_rib,
-    create_router_ospf)
+from lib.ospf import verify_ospf_neighbor, verify_ospf_rib, create_router_ospf
 
 from lib.topolog import logger
 from lib.topojson import build_topo_from_json, build_config_from_json
@@ -69,8 +68,13 @@ pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
 topo = None
 
 NETWORK = {
-    "ipv4": ["11.0.20.1/32", "11.0.20.2/32", "11.0.20.3/32", "11.0.20.4/32",
-             "11.0.20.5/32"]
+    "ipv4": [
+        "11.0.20.1/32",
+        "11.0.20.2/32",
+        "11.0.20.3/32",
+        "11.0.20.4/32",
+        "11.0.20.5/32",
+    ]
 }
 """
 Topology:
@@ -101,6 +105,7 @@ try:
         topo = json.load(topoJson)
 except IOError:
     assert False, "Could not read file {}".format(jsonFile)
+
 
 class CreateTopo(Topo):
     """
@@ -190,78 +195,70 @@ def test_ospf_chaos_tc31_p1(request):
 
     step(
         "Create static routes(10.0.20.1/32) in R1 and redistribute "
-        "to OSPF using route map.")
+        "to OSPF using route map."
+    )
 
     # Create Static routes
     input_dict = {
         "r0": {
             "static_routes": [
                 {
-                    "network": NETWORK['ipv4'][0],
+                    "network": NETWORK["ipv4"][0],
                     "no_of_ip": 5,
-                    "next_hop": 'Null0',
+                    "next_hop": "Null0",
                 }
             ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_red_r0 = {
-        "r0": {
-            "ospf": {
-                "redistribute": [{
-                    "redist_type": "static"
-                    }]
-            }
-        }
-    }
+    ospf_red_r0 = {"r0": {"ospf": {"redistribute": [{"redist_type": "static"}]}}}
     result = create_router_ospf(tgen, topo, ospf_red_r0)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify OSPF neighbors after base config is done.")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                      " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step("Verify that route is advertised to R1.")
-    dut = 'r1'
-    protocol = 'ospf'
-    nh = topo['routers']['r0']['links']['r1']['ipv4'].split('/')[0]
+    dut = "r1"
+    protocol = "ospf"
+    nh = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(
-        tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Kill OSPFd daemon on R0.")
     kill_router_daemons(tgen, "r0", ["ospfd"])
 
     step("Verify OSPF neighbors are down after killing ospfd in R0")
-    dut = 'r0'
+    dut = "r0"
     # Api call verify whether OSPF is converged
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut,
-        expected=False)
-    assert ospf_covergence is not True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
+    assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step("Verify that route advertised to R1 are deleted from RIB and FIB.")
-    dut = 'r1'
-    protocol = 'ospf'
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-        expected=False)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
     step("Bring up OSPFd daemon on R0.")
     start_router_daemons(tgen, "r0", ["ospfd"])
@@ -269,33 +266,32 @@ def test_ospf_chaos_tc31_p1(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R0")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step(
         "All the neighbours are up and routes are installed before the"
-        " restart. Verify OSPF route table and ip route table.")
-    dut = 'r1'
-    protocol = 'ospf'
+        " restart. Verify OSPF route table and ip route table."
+    )
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-    next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Kill OSPFd daemon on R1.")
     kill_router_daemons(tgen, "r1", ["ospfd"])
 
     step("Verify OSPF neighbors are down after killing ospfd in R1")
-    dut = 'r1'
+    dut = "r1"
     # Api call verify whether OSPF is converged
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut,
-        expected=False)
-    assert ospf_covergence is not True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
+    assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step("Bring up OSPFd daemon on R1.")
     start_router_daemons(tgen, "r1", ["ospfd"])
@@ -303,23 +299,22 @@ def test_ospf_chaos_tc31_p1(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R1")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                      " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step(
         "All the neighbours are up and routes are installed before the"
-        " restart. Verify OSPF route table and ip route table.")
+        " restart. Verify OSPF route table and ip route table."
+    )
 
-    dut = 'r1'
-    protocol = 'ospf'
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-    next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -335,104 +330,91 @@ def test_ospf_chaos_tc32_p1(request):
 
     step(
         "Create static routes(10.0.20.1/32) in R1 and redistribute "
-        "to OSPF using route map.")
+        "to OSPF using route map."
+    )
 
     # Create Static routes
     input_dict = {
         "r0": {
             "static_routes": [
                 {
-                    "network": NETWORK['ipv4'][0],
+                    "network": NETWORK["ipv4"][0],
                     "no_of_ip": 5,
-                    "next_hop": 'Null0',
+                    "next_hop": "Null0",
                 }
             ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_red_r0 = {
-        "r0": {
-            "ospf": {
-                "redistribute": [{
-                    "redist_type": "static"
-                    }]
-            }
-        }
-    }
+    ospf_red_r0 = {"r0": {"ospf": {"redistribute": [{"redist_type": "static"}]}}}
     result = create_router_ospf(tgen, topo, ospf_red_r0)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify OSPF neighbors after base config is done.")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step("Verify that route is advertised to R1.")
-    dut = 'r1'
-    protocol = 'ospf'
+    dut = "r1"
+    protocol = "ospf"
 
-    nh = topo['routers']['r0']['links']['r1']['ipv4'].split('/')[0]
+    nh = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-    next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Restart frr on R0")
-    stop_router(tgen, 'r0')
-    start_router(tgen, 'r0')
+    stop_router(tgen, "r0")
+    start_router(tgen, "r0")
 
     step("Verify OSPF neighbors are up after restarting R0")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step(
         "All the neighbours are up and routes are installed before the"
-        " restart. Verify OSPF route table and ip route table.")
-    dut = 'r1'
-    protocol = 'ospf'
+        " restart. Verify OSPF route table and ip route table."
+    )
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-    next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Restart frr on R1")
-    stop_router(tgen, 'r1')
-    start_router(tgen, 'r1')
+    stop_router(tgen, "r1")
+    start_router(tgen, "r1")
 
     step("Verify OSPF neighbors are up after restarting R1")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step(
         "All the neighbours are up and routes are installed before the"
-        " restart. Verify OSPF route table and ip route table.")
-    dut = 'r1'
-    protocol = 'ospf'
+        " restart. Verify OSPF route table and ip route table."
+    )
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-    next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -453,70 +435,62 @@ def test_ospf_chaos_tc34_p1(request):
 
     step(
         "Create static routes(10.0.20.1/32) in R1 and redistribute "
-        "to OSPF using route map.")
+        "to OSPF using route map."
+    )
 
     # Create Static routes
     input_dict = {
         "r0": {
             "static_routes": [
                 {
-                    "network": NETWORK['ipv4'][0],
+                    "network": NETWORK["ipv4"][0],
                     "no_of_ip": 5,
-                    "next_hop": 'Null0',
+                    "next_hop": "Null0",
                 }
             ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_red_r0 = {
-        "r0": {
-            "ospf": {
-                "redistribute": [{
-                    "redist_type": "static"
-                    }]
-            }
-        }
-    }
+    ospf_red_r0 = {"r0": {"ospf": {"redistribute": [{"redist_type": "static"}]}}}
     result = create_router_ospf(tgen, topo, ospf_red_r0)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify OSPF neighbors after base config is done.")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step("Verify that route is advertised to R1.")
-    dut = 'r1'
-    protocol = 'ospf'
-    nh = topo['routers']['r0']['links']['r1']['ipv4'].split('/')[0]
+    dut = "r1"
+    protocol = "ospf"
+    nh = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-    next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Kill staticd daemon on R0.")
     kill_router_daemons(tgen, "r0", ["staticd"])
 
     step("Verify that route advertised to R1 are deleted from RIB and FIB.")
-    dut = 'r1'
-    protocol = 'ospf'
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-            expected=False)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
     step("Bring up staticd daemon on R0.")
     start_router_daemons(tgen, "r0", ["staticd"])
@@ -524,22 +498,21 @@ def test_ospf_chaos_tc34_p1(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R0")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step(
         "All the neighbours are up and routes are installed before the"
-        " restart. Verify OSPF route table and ip route table.")
-    dut = 'r1'
-    protocol = 'ospf'
+        " restart. Verify OSPF route table and ip route table."
+    )
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-    next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Kill staticd daemon on R1.")
     kill_router_daemons(tgen, "r1", ["staticd"])
@@ -550,23 +523,22 @@ def test_ospf_chaos_tc34_p1(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R1")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step(
         "All the neighbours are up and routes are installed before the"
-        " restart. Verify OSPF route table and ip route table.")
+        " restart. Verify OSPF route table and ip route table."
+    )
 
-    dut = 'r1'
-    protocol = 'ospf'
+    dut = "r1"
+    protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-    next_hop=nh)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 

@@ -69,6 +69,7 @@ from lib.bgp import (
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 from lib.topotest import version_cmp
+
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/static_routes_topo4_ibgp.json".format(CWD)
 try:
@@ -84,6 +85,7 @@ NETWORK = {"ipv4": "2.2.2.2/32", "ipv6": "22:22::2/128"}
 NEXT_HOP_IP = {}
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
 
 class CreateTopo(Topo):
     """
@@ -123,9 +125,11 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('These tests will not run. (have kernel "{}", '
-            'requires kernel >= 4.19)'.format(platform.release()))
+    if version_cmp(platform.release(), "4.19") < 0:
+        error_msg = (
+            'These tests will not run. (have kernel "{}", '
+            "requires kernel >= 4.19)".format(platform.release())
+        )
         pytest.skip(error_msg)
 
     # Checking BGP convergence

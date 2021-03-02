@@ -597,9 +597,10 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
 
     input_traffic = {"l1": {"traffic_sent": [intf_l1_i1]}}
     result = verify_multicast_traffic(tgen, input_traffic, expected=False)
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        " Traffic is not stopped yet \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " " Traffic is not stopped yet \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -612,9 +613,10 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
     result = verify_igmp_groups(
         tgen, dut, intf_l1_i1, IGMP_JOIN_RANGE_1, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        "IGMP groups are not deleted \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "IGMP groups are not deleted \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -655,9 +657,10 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -722,9 +725,10 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
 
     input_traffic = {"f1": {"traffic_sent": [intf_f1_i8]}}
     result = verify_multicast_traffic(tgen, input_traffic, expected=False)
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        " Traffic is not stopped yet \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " " Traffic is not stopped yet \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -737,9 +741,10 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
     result = verify_igmp_groups(
         tgen, dut, intf_f1_i8, IGMP_JOIN_RANGE_1, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        "IGMP groups are not deleted \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "IGMP groups are not deleted \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -775,9 +780,10 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -959,9 +965,10 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -1022,9 +1029,10 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -1190,9 +1198,10 @@ def test_shut_noshut_source_interface_when_upstream_cleared_from_LHR_p1(request)
     result = verify_ip_mroutes(
         tgen, "f1", source_i2, IGMP_JOIN_RANGE_1, intf_f1_i2, intf_f1_r2, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n mroutes are"
-        " still present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n mroutes are" " still present \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behavior: {}".format(result))
 
@@ -1630,7 +1639,14 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     input_dict_2 = {
         "l1": {
             "igmp": {
-                "interfaces": {intf_l1_i1: {"igmp": {"version": "2", "delete": True,}}}
+                "interfaces": {
+                    intf_l1_i1: {
+                        "igmp": {
+                            "version": "2",
+                            "delete": True,
+                        }
+                    }
+                }
             }
         }
     }
@@ -1642,9 +1658,10 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     dut = "l1"
     interface = topo["routers"]["l1"]["links"]["i1"]["interface"]
     result = verify_igmp_groups(tgen, dut, interface, IGMP_JOIN_RANGE_1, expected=False)
-    assert result is not True, (
-        "Testcase {} : Failed \n Groups are not"
-        " present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Groups are not" " present \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -1712,7 +1729,14 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     input_dict_2 = {
         "l1": {
             "igmp": {
-                "interfaces": {intf_l1_i1: {"igmp": {"version": "2", "delete": True,}}}
+                "interfaces": {
+                    intf_l1_i1: {
+                        "igmp": {
+                            "version": "2",
+                            "delete": True,
+                        }
+                    }
+                }
             }
         }
     }
@@ -1725,9 +1749,10 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     dut = "l1"
     interface = topo["routers"]["l1"]["links"]["i1"]["interface"]
     result = verify_igmp_groups(tgen, dut, interface, IGMP_JOIN_RANGE_1, expected=False)
-    assert result is not True, (
-        "Testcase {} : Failed \n Groups are not"
-        " present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Groups are not" " present \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -1811,7 +1836,14 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     input_dict_2 = {
         "l1": {
             "igmp": {
-                "interfaces": {intf_l1_i1: {"igmp": {"version": "2", "delete": True,}}}
+                "interfaces": {
+                    intf_l1_i1: {
+                        "igmp": {
+                            "version": "2",
+                            "delete": True,
+                        }
+                    }
+                }
             }
         }
     }
@@ -1831,9 +1863,10 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     result = verify_ip_mroutes(
         tgen, dut, source, IGMP_JOIN_RANGE_1, iif, oil, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n routes are still"
-        " present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n routes are still" " present \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -1995,7 +2028,14 @@ def test_verify_remove_add_igmp_commands_when_pim_configured_p0(request):
     input_dict_2 = {
         "l1": {
             "igmp": {
-                "interfaces": {intf_l1_i1: {"igmp": {"version": "2", "delete": True,}}}
+                "interfaces": {
+                    intf_l1_i1: {
+                        "igmp": {
+                            "version": "2",
+                            "delete": True,
+                        }
+                    }
+                }
             }
         }
     }
@@ -2009,9 +2049,10 @@ def test_verify_remove_add_igmp_commands_when_pim_configured_p0(request):
     )
 
     result = verify_igmp_config(tgen, input_dict_1, expected=False)
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        "IGMP interface is not removed \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "IGMP interface is not removed \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -2914,9 +2955,10 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "mroute still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroute still present \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -3259,9 +3301,10 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "mroute still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroute still present \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -3287,9 +3330,10 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
             IGMP_JOIN_RANGE_1,
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "upstream still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "upstream still present \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -3311,9 +3355,10 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     result = verify_pim_rp_info(
         tgen, topo, dut, GROUP_RANGE_1, "Unknown", rp_address, SOURCE, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        "RP iif is not updated \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "RP iif is not updated \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -3459,9 +3504,10 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     result = verify_pim_rp_info(
         tgen, topo, dut, GROUP_RANGE_1, "Unknown", rp_address, SOURCE, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        "RP iif is not updated \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "RP iif is not updated \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -3606,9 +3652,10 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     result = verify_pim_rp_info(
         tgen, topo, dut, GROUP_RANGE_1, "Unknown", rp_address, SOURCE, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        "RP iif is not updated \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "RP iif is not updated \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -3873,7 +3920,12 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
         "l1": {
             "igmp": {
                 "interfaces": {
-                    "l1-i1-eth1": {"igmp": {"version": "2", "delete": True,}}
+                    "l1-i1-eth1": {
+                        "igmp": {
+                            "version": "2",
+                            "delete": True,
+                        }
+                    }
                 }
             }
         }
@@ -4107,9 +4159,10 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n"
-            "mroutes are cleared \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n" "mroutes are cleared \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -4181,9 +4234,10 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n"
-            " mroutes are cleared \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n" " mroutes are cleared \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -4248,9 +4302,10 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     result = verify_ip_mroutes(
         tgen, dut, src_address, _IGMP_JOIN_RANGE, iif, oil, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n"
-        " mroutes are cleared \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n" " mroutes are cleared \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behaviour: {}".format(result))
 
@@ -4459,9 +4514,10 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n"
-            " mroutes are cleared \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n" " mroutes are cleared \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -4524,9 +4580,10 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n"
-            " mroutes are cleared \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n" " mroutes are cleared \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 
@@ -4595,9 +4652,10 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n"
-            " mroutes are cleared \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n" " mroutes are cleared \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
 

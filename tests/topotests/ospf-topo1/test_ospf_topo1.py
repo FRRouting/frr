@@ -47,6 +47,7 @@ from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ospfd]
 
+
 class OSPFTopo(Topo):
     "Test topology builder"
 

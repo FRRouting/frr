@@ -86,6 +86,7 @@ from mininet.topo import Topo
 
 pytestmark = [pytest.mark.isisd]
 
+
 class TemplateTopo(Topo):
     "Test topology builder"
 

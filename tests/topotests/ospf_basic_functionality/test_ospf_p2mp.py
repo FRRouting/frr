@@ -146,7 +146,6 @@ def setup_module(mod):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-
     logger.info("Running setup_module() done")
 
 
@@ -397,10 +396,7 @@ def test_ospf_p2mp_tc1_p0(request):
             "links": {
                 "r3": {
                     "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
-                    "ospf": {
-                        "area": "0.0.0.0",
-                        "networkType":"POINTOMULTIPOINT"
-                    },
+                    "ospf": {"area": "0.0.0.0", "networkType": "POINTOMULTIPOINT"},
                 }
             }
         }

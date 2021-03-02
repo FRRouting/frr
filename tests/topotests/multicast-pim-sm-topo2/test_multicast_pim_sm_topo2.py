@@ -877,7 +877,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
             data["src_address"],
             _IGMP_JOIN_RANGE,
             data["iif"],
-            data["oil"]
+            data["oil"],
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -1122,8 +1122,9 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
 
     done_flag = False
     for retry in range(1, 11):
-        result = verify_upstream_iif(tgen, "l1", "Unknown", source, IGMP_JOIN_RANGE_2,
-            expected=False)
+        result = verify_upstream_iif(
+            tgen, "l1", "Unknown", source, IGMP_JOIN_RANGE_2, expected=False
+        )
         if result is not True:
             done_flag = True
         else:
@@ -1515,7 +1516,7 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
                 _IGMP_JOIN_RANGE,
                 data["iif"],
                 data["oil"],
-                expected=False
+                expected=False,
             )
             if result is not True:
                 done_flag = True
@@ -1928,9 +1929,10 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
         "f1-i8-eth2",
         expected=False,
     )
-    assert result is not True, (
-        "Testcase {} : Failed \n mroutes are"
-        " still present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n mroutes are" " still present \n Error: {}".format(
+        tc_name, result
     )
     logger.info("Expected Behavior: {}".format(result))
 
