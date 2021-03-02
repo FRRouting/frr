@@ -1702,7 +1702,7 @@ static void bgp_evpn_local_es_activate(struct bgp *bgp, struct bgp_evpn_es *es,
 		/* generate EAD-ES */
 		build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi,
 					es->originator_ip);
-		bgp_evpn_type1_route_update(bgp, es, NULL, &p);
+		(void)bgp_evpn_type1_route_update(bgp, es, NULL, &p);
 	}
 }
 
