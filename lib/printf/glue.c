@@ -255,3 +255,21 @@ ssize_t printfrr_exti(struct fbuf *buf, struct printfrr_eargs *ea,
 	}
 	return -1;
 }
+
+printfrr_ext_autoreg_p("VA", printfrr_va)
+static ssize_t printfrr_va(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
+{
+	const struct va_format *vaf = ptr;
+	va_list ap;
+
+	if (!vaf || !vaf->fmt || !vaf->va)
+		return bputs(buf, "NULL");
+
+	/* make sure we don't alter the data passed in - especially since
+	 * bprintfrr (and thus this) might be called on the same format twice,
+	 * when allocating a larger buffer in asnprintfrr()
+	 */
+	va_copy(ap, *vaf->va);
+	return vbprintfrr(buf, vaf->fmt, ap);
+}

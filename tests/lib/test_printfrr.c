@@ -128,6 +128,21 @@ static int printchk(const char *ref, const char *fmt, ...)
 	return 0;
 }
 
+static void test_va(const char *ref, const char *fmt, ...) PRINTFRR(2, 3);
+static void test_va(const char *ref, const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list ap;
+
+	va_start(ap, fmt);
+	vaf.fmt = fmt;
+	vaf.va = &ap;
+
+	printchk(ref, "VA [%pVA] %s", &vaf, "--");
+
+	va_end(ap);
+}
+
 int main(int argc, char **argv)
 {
 	size_t i;
@@ -167,6 +182,8 @@ int main(int argc, char **argv)
 	printchk("192.168.1.2         ", "%-20pI4", &ip);
 
 	printcmp("%p", &ip);
+
+	test_va("VA [192.168.1.2 1234] --", "%pI4 %u", &ip, 1234);
 
 	snprintfrr(buf, sizeof(buf), "test%s", "#1");
 	csnprintfrr(buf, sizeof(buf), "test%s", "#2");

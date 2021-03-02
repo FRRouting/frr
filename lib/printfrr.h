@@ -251,6 +251,17 @@ static inline ssize_t bputch(struct fbuf *buf, char ch)
 	return 1;
 }
 
+/* %pVA extension, equivalent to Linux kernel %pV */
+
+struct va_format {
+	const char *fmt;
+	va_list *va;
+};
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pVA" (struct va_format *)
+#endif
+
 /* when using non-ISO-C compatible extension specifiers... */
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
