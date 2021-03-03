@@ -63,6 +63,33 @@ static void quagga_signal_handler(int signo)
 	sigmaster.caught = 1;
 }
 
+/*
+ * Check whether any signals have been received and are pending. This is done
+ * with the application's key signals blocked. The complete set of signals
+ * is returned in 'setp', so the caller can restore them when appropriate.
+ * If there are pending signals, returns 'true', 'false' otherwise.
+ */
+bool frr_sigevent_check(sigset_t *setp)
+{
+	sigset_t blocked;
+	int i;
+	bool ret;
+
+	sigemptyset(setp);
+	sigemptyset(&blocked);
+
+	/* Set up mask of application's signals */
+	for (i = 0; i < sigmaster.sigc; i++)
+		sigaddset(&blocked, sigmaster.signals[i].signal);
+
+	pthread_sigmask(SIG_BLOCK, &blocked, setp);
+
+	/* Now that the application's signals are blocked, test. */
+	ret = (sigmaster.caught != 0);
+
+	return ret;
+}
+
 /* check if signals have been caught and run appropriate handlers */
 int quagga_sigevent_process(void)
 {
