@@ -1572,23 +1572,14 @@ void ospf6_message_terminate(void)
 	iobuflen = 0;
 }
 
-int ospf6_receive(struct thread *thread)
+static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 {
-	int sockfd;
 	unsigned int len;
 	struct in6_addr src, dst;
 	ifindex_t ifindex;
 	struct iovec iovector[2];
 	struct ospf6_interface *oi;
 	struct ospf6_header *oh;
-	struct ospf6 *ospf6;
-
-	/* add next read thread */
-	ospf6 = THREAD_ARG(thread);
-	sockfd = THREAD_FD(thread);
-
-	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
-			&ospf6->t_ospf6_receive);
 
 	/* initialize */
 	memset(&src, 0, sizeof(src));
@@ -1687,6 +1678,21 @@ int ospf6_receive(struct thread *thread)
 	}
 
 	return 0;
+}
+
+int ospf6_receive(struct thread *thread)
+{
+	int sockfd;
+	struct ospf6 *ospf6;
+
+	/* add next read thread */
+	ospf6 = THREAD_ARG(thread);
+	sockfd = THREAD_FD(thread);
+
+	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
+			&ospf6->t_ospf6_receive);
+
+	return ospf6_read_helper(sockfd, ospf6);
 }
 
 static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
