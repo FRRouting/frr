@@ -117,10 +117,14 @@ DEFPY_YANG_NOSH(
 	char source_str[INET6_ADDRSTRLEN + 32];
 	char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
 
-	if (multihop)
+	if (multihop) {
+		if (!local_address_str) {
+			vty_out(vty, "%% local-address is required when using multihop\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		snprintf(source_str, sizeof(source_str), "[source-addr='%s']",
 			 local_address_str);
-	else
+	} else
 		source_str[0] = 0;
 
 	slen = snprintf(xpath, sizeof(xpath),
