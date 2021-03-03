@@ -4682,6 +4682,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 					listnode_delete(
 						table->soft_reconfig_peers,
 						peer);
+					bgp_announce_route(peer, table->afi, table->safi);
 					if (list_isempty(
 						    table->soft_reconfig_peers)) {
 						list_delete(
@@ -4706,10 +4707,16 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 				      &table->soft_reconfig_thread);
 		return 0;
 	}
-	// we're done, clean up the background iteration context info"
-	for (ALL_LIST_ELEMENTS(table->soft_reconfig_peers, node, nnode, peer))
+	/* we're done, clean up the background iteration context info and
+	schedule route annoucement
+	*/
+	for (ALL_LIST_ELEMENTS(table->soft_reconfig_peers, node, nnode, peer)) {
 		listnode_delete(table->soft_reconfig_peers, peer);
+		bgp_announce_route(peer, table->afi, table->safi);
+	}
+
 	list_delete(&table->soft_reconfig_peers);
+
 	return 0;
 }
 
@@ -4800,20 +4807,14 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 			thread_add_event(bm->master,
 					 bgp_soft_reconfig_table_task, table, 0,
 					 &table->soft_reconfig_thread);
-		/* cancel all bgp_announce_route_timer_expired threads before
-		 * bgp_soft_reconfig_table_task jobs. They would add a timer
-		 * in order to delay announces and to detach announce.
-		 * Threads bgp_soft_reconfig_table_task are already detached
-		 * from vtysh. Cancellation removes a useless delay. BGP
-		 * announces will run straight after soft_reconfig in.
+		/* cancel bgp_announce_route_timer_expired threads before
+		 * bgp_soft_reconfig_table_task jobs. Otherwise it blocks vtysh until
+		 * timers are over.
+		 * It will rescheduled at bgp_soft_reconfig_table_task jobs end.
 		 */
-		for (ALL_LIST_ELEMENTS(peer->bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				paf = peer_af_find(peer, afi, safi);
-				if (paf)
-					BGP_TIMER_OFF(paf->t_announce_route);
-			}
-		}
+		paf = peer_af_find(peer, afi, safi);
+		if (paf)
+			bgp_stop_announce_route_timer(paf);
 	} else
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
