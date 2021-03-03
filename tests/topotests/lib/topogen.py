@@ -1006,7 +1006,7 @@ def diagnose_env_linux():
     if not os.path.isdir("/tmp"):
         logger.warning("could not find /tmp for logs")
     else:
-        os.system("mkdir /tmp/topotests")
+        os.system("mkdir -p /tmp/topotests")
         # Log diagnostics to file so it can be examined later.
         fhandler = logging.FileHandler(filename="/tmp/topotests/diagnostics.txt")
         fhandler.setLevel(logging.DEBUG)
