@@ -1572,9 +1572,14 @@ void ospf6_message_terminate(void)
 	iobuflen = 0;
 }
 
+enum ospf6_read_return_enum {
+	OSPF6_READ_ERROR,
+	OSPF6_READ_CONTINUE,
+};
+
 static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 {
-	unsigned int len;
+	int len;
 	struct in6_addr src, dst;
 	ifindex_t ifindex;
 	struct iovec iovector[2];
@@ -1593,9 +1598,12 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 
 	/* receive message */
 	len = ospf6_recvmsg(&src, &dst, &ifindex, iovector, sockfd);
-	if (len > iobuflen) {
+	if (len < 0)
+		return OSPF6_READ_ERROR;
+
+	if ((uint)len > iobuflen) {
 		flog_err(EC_LIB_DEVELOPMENT, "Excess message read");
-		return 0;
+		return OSPF6_READ_ERROR;
 	}
 
 	oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
@@ -1604,19 +1612,19 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
 					   RECV_HDR))
 			zlog_debug("Message received on disabled interface");
-		return 0;
+		return OSPF6_READ_CONTINUE;
 	}
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
 					   RECV_HDR))
 			zlog_debug("%s: Ignore message on passive interface %s",
 				   __func__, oi->interface->name);
-		return 0;
+		return OSPF6_READ_CONTINUE;
 	}
 
 	oh = (struct ospf6_header *)recvbuf;
 	if (ospf6_rxpacket_examin(oi, oh, len) != MSG_OK)
-		return 0;
+		return OSPF6_READ_CONTINUE;
 
 	/* Being here means, that no sizing/alignment issues were detected in
 	   the input packet. This renders the additional checks performed below
@@ -1677,13 +1685,14 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		assert(0);
 	}
 
-	return 0;
+	return OSPF6_READ_CONTINUE;
 }
 
 int ospf6_receive(struct thread *thread)
 {
 	int sockfd;
 	struct ospf6 *ospf6;
+	int count = 0;
 
 	/* add next read thread */
 	ospf6 = THREAD_ARG(thread);
@@ -1692,7 +1701,17 @@ int ospf6_receive(struct thread *thread)
 	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 			&ospf6->t_ospf6_receive);
 
-	return ospf6_read_helper(sockfd, ospf6);
+	while (count < 20) {
+		count++;
+		switch (ospf6_read_helper(sockfd, ospf6)) {
+		case OSPF6_READ_ERROR:
+			return 0;
+		case OSPF6_READ_CONTINUE:
+			break;
+		}
+	}
+
+	return 0;
 }
 
 static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,

@@ -257,10 +257,13 @@ int ospf6_recvmsg(struct in6_addr *src, struct in6_addr *dst,
 	rmsghdr.msg_control = (caddr_t)cmsgbuf;
 	rmsghdr.msg_controllen = sizeof(cmsgbuf);
 
-	retval = recvmsg(ospf6_sock, &rmsghdr, 0);
-	if (retval < 0)
-		zlog_warn("recvmsg failed: %s", safe_strerror(errno));
-	else if (retval == iov_totallen(message))
+	retval = recvmsg(ospf6_sock, &rmsghdr, MSG_DONTWAIT);
+	if (retval < 0) {
+		if (errno != EAGAIN && errno != EWOULDBLOCK)
+			zlog_warn("stream_recvmsg failed: %s",
+				  safe_strerror(errno));
+		return retval;
+	} else if (retval == iov_totallen(message))
 		zlog_warn("recvmsg read full buffer size: %d", retval);
 
 	/* source address */
