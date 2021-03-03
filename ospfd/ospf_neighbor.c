@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "lib/bfd.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "memory.h"
@@ -99,8 +100,6 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 
 	nbr->crypt_seqnum = 0;
 
-	ospf_bfd_info_nbr_create(oi, nbr);
-
 	/* Initialize GR Helper info*/
 	nbr->gr_helper_info.recvd_grace_period = 0;
 	nbr->gr_helper_info.actual_grace_period = 0;
@@ -149,7 +148,7 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	thread_cancel_event(master, nbr);
 
-	ospf_bfd_info_free(&nbr->bfd_info);
+	bfd_sess_free(&nbr->bfd_session);
 
 	OSPF_NSM_TIMER_OFF(nbr->gr_helper_info.t_grace_timer);
 
@@ -457,6 +456,9 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 	/* New nbr, save the crypto sequence number if necessary */
 	if (ntohs(ospfh->auth_type) == OSPF_AUTH_CRYPTOGRAPHIC)
 		nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
+
+	/* Configure BFD if interface has it. */
+	ospf_neighbor_bfd_apply(nbr);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("NSM[%s:%pI4]: start", IF_NAME(oi),

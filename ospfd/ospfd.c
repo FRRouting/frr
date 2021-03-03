@@ -42,6 +42,7 @@
 #include "ldp_sync.h"
 
 #include "ospfd/ospfd.h"
+#include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
@@ -1930,6 +1931,9 @@ static void ospf_nbr_nbma_add(struct ospf_nbr_nbma *nbr_nbma,
 		nbr->address = p;
 
 		nbr_nbma->nbr = nbr;
+
+		/* Configure BFD if interface has it. */
+		ospf_neighbor_bfd_apply(nbr);
 
 		OSPF_NSM_EVENT_EXECUTE(nbr, NSM_Start);
 	}

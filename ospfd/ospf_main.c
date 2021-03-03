@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include <lib/version.h>
+#include "bfd.h"
 #include "getopt.h"
 #include "thread.h"
 #include "prefix.h"
@@ -98,6 +99,7 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+	bfd_protocol_integration_set_shutdown(true);
 	ospf_terminate();
 	exit(0);
 }
@@ -214,7 +216,7 @@ int main(int argc, char **argv)
 	ospf_vty_clear_init();
 
 	/* OSPF BFD init */
-	ospf_bfd_init();
+	ospf_bfd_init(master);
 
 	/* OSPF LDP IGP Sync init */
 	ospf_ldp_sync_init();

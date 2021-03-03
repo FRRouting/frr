@@ -22,6 +22,7 @@
 #ifndef _ZEBRA_OSPF_INTERFACE_H
 #define _ZEBRA_OSPF_INTERFACE_H
 
+#include "lib/bfd.h"
 #include "qobj.h"
 #include "hook.h"
 #include "ospfd/ospf_packet.h"
@@ -104,7 +105,16 @@ struct ospf_if_params {
 	uint32_t network_lsa_seqnum; /* Network LSA seqnum */
 
 	/* BFD configuration */
-	struct bfd_info *bfd_info;
+	struct bfd_configuration {
+		/** BFD session detection multiplier. */
+		uint8_t detection_multiplier;
+		/** BFD session minimum required receive interval. */
+		uint32_t min_rx;
+		/** BFD session minimum required transmission interval. */
+		uint32_t min_tx;
+		/** BFD profile. */
+		char profile[BFD_PROFILE_NAME_LEN];
+	} * bfd_config;
 
 	/* MPLS LDP-IGP Sync configuration */
 	struct ldp_sync_info *ldp_sync_info;
@@ -285,7 +295,6 @@ extern struct ospf_if_params *ospf_lookup_if_params(struct interface *,
 						    struct in_addr);
 extern struct ospf_if_params *ospf_get_if_params(struct interface *,
 						 struct in_addr);
-extern void ospf_del_if_params(struct ospf_if_params *);
 extern void ospf_free_if_params(struct interface *, struct in_addr);
 extern void ospf_if_update_params(struct interface *, struct in_addr);
 
