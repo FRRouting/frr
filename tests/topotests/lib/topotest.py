@@ -1424,7 +1424,7 @@ class Router(Node):
             zebra_option = self.daemons_options["zebra"]
             self.cmd(
                 "ASAN_OPTIONS=log_path=zebra.asan {0} {1} --log file:zebra.log --log-level debug -s 90000000 -d > zebra.out 2> zebra.err".format(
-                    zebra_path, zebra_option, self.logdir, self.name
+                    zebra_path, zebra_option
                 )
             )
             logger.debug("{}: {} zebra started".format(self, self.routertype))
@@ -1439,7 +1439,7 @@ class Router(Node):
             staticd_option = self.daemons_options["staticd"]
             self.cmd(
                 "ASAN_OPTIONS=log_path=staticd.asan {0} {1} --log file:staticd.log --log-level debug -d > staticd.out 2> staticd.err".format(
-                    staticd_path, staticd_option, self.logdir, self.name
+                    staticd_path, staticd_option
                 )
             )
             logger.debug("{}: {} staticd started".format(self, self.routertype))
@@ -1831,8 +1831,8 @@ class LinuxRouter(Router):
 class FreeBSDRouter(Router):
     "A FreeBSD Router Node with IPv4/IPv6 forwarding enabled."
 
-    def __init__(eslf, name, **params):
-        Router.__init__(Self, name, **params)
+    def __init__(self, name, **params):
+        Router.__init__(self, name, **params)
 
 
 class LegacySwitch(OVSSwitch):
