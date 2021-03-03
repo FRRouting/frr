@@ -55,10 +55,35 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname);
 }
 
+struct session_iter {
+	int count;
+	bool wildcard;
+};
+
+static int session_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct session_iter *iter = arg;
+	const char *ifname;
+
+	ifname = yang_dnode_get_string(dnode, "./interface");
+
+	if (strmatch(ifname, "*"))
+		iter->wildcard = true;
+
+	iter->count++;
+
+	return YANG_ITER_CONTINUE;
+}
+
 static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 {
+	const struct lyd_node *sess_dnode;
+	struct session_iter iter;
 	struct bfd_session *bs;
+	const char *source;
+	const char *dest;
 	const char *ifname;
+	const char *vrfname;
 	struct bfd_key bk;
 	struct prefix p;
 
@@ -78,6 +103,33 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"When using link-local you must specify an interface");
+			return NB_ERR_VALIDATION;
+		}
+
+		iter.count = 0;
+		iter.wildcard = false;
+
+		sess_dnode = yang_dnode_get_parent(args->dnode, "sessions");
+
+		dest = yang_dnode_get_string(args->dnode, "./dest-addr");
+		vrfname = yang_dnode_get_string(args->dnode, "./vrf");
+
+		if (mhop) {
+			source = yang_dnode_get_string(args->dnode, "./source-addr");
+
+			yang_dnode_iterate(session_iter_cb, &iter, sess_dnode,
+					   "./multi-hop[source-addr='%s'][dest-addr='%s'][vrf='%s']",
+					   source, dest, vrfname);
+		} else {
+			yang_dnode_iterate(session_iter_cb, &iter, sess_dnode,
+					   "./single-hop[dest-addr='%s'][vrf='%s']",
+					   dest, vrfname);
+		}
+
+		if (iter.wildcard && iter.count > 1) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"It is not allowed to configure the same peer with and without ifname");
 			return NB_ERR_VALIDATION;
 		}
 		break;
