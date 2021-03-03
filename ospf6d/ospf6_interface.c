@@ -1622,12 +1622,11 @@ DEFUN (ipv6_ospf6_cost,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
 	if (oi->cost == lcost)
 		return CMD_SUCCESS;
 
 	oi->cost = lcost;
-	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
-
 	ospf6_interface_force_recalculate_cost(oi);
 
 	return CMD_SUCCESS;
