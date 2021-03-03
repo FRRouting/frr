@@ -1312,14 +1312,14 @@ def test_evpn_routes_from_VNFs_p1(request):
     )
     for addr_type in ADDR_TYPES:
         input_routes = {key: topo["routers"][key] for key in ["r1"]}
-        result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
+        result = verify_rib(tgen, addr_type, "d2", input_routes, expected=True)
         assert result is True, "Testcase {} :Failed \n Error: {}".format(
             tc_name, result
         )
 
     for addr_type in ADDR_TYPES:
         input_routes = {key: topo["routers"][key] for key in ["r2"]}
-        result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
+        result = verify_rib(tgen, addr_type, "d2", input_routes, expected=True)
         assert result is True, "Testcase {} :Failed \n Error: {}".format(
             tc_name, result
         )
@@ -1475,8 +1475,8 @@ def test_evpn_routes_from_VNFs_p1(request):
                     tgen, dut, intf_name, intf_ipv6, vrf, create=False
                 )
 
-    logger.info("Wait for 60 sec.")
-    sleep(60)
+    result = verify_bgp_convergence(tgen, topo, dut)
+    assert result is True, "Failed to converge on {}".format(dut)
 
     step(
         "Verify that DCG-2 receives EVPN routes corresponding to "
