@@ -55,36 +55,35 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname);
 }
 
-static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
-			      union nb_resource *resource, bool mhop)
+static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 {
 	struct bfd_session *bs;
 	const char *ifname;
 	struct bfd_key bk;
 	struct prefix p;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		/*
 		 * When `dest-addr` is IPv6 and link-local we must
 		 * require interface name, otherwise we can't figure
 		 * which interface to use to send the packets.
 		 */
-		yang_dnode_get_prefix(&p, dnode, "./dest-addr");
+		yang_dnode_get_prefix(&p, args->dnode, "./dest-addr");
 
-		ifname = yang_dnode_get_string(dnode, "./interface");
+		ifname = yang_dnode_get_string(args->dnode, "./interface");
 
 		if (p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
 		    && strcmp(ifname, "*") == 0) {
-			zlog_warn(
-				"%s: when using link-local you must specify an interface.",
-				__func__);
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"When using link-local you must specify an interface");
 			return NB_ERR_VALIDATION;
 		}
 		break;
 
 	case NB_EV_PREPARE:
-		bfd_session_get_key(mhop, dnode, &bk);
+		bfd_session_get_key(mhop, args->dnode, &bk);
 		bs = bfd_key_lookup(bk);
 
 		/* This session was already configured by another daemon. */
@@ -93,14 +92,14 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 			SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 			bs->refcount++;
 
-			resource->ptr = bs;
+			args->resource->ptr = bs;
 			break;
 		}
 
 		bs = bfd_session_new();
 
 		/* Fill the session key. */
-		bfd_session_get_key(mhop, dnode, &bs->key);
+		bfd_session_get_key(mhop, args->dnode, &bs->key);
 
 		/* Set configuration flags. */
 		bs->refcount = 1;
@@ -110,23 +109,23 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		if (bs->key.family == AF_INET6)
 			SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
 
-		resource->ptr = bs;
+		args->resource->ptr = bs;
 		break;
 
 	case NB_EV_APPLY:
-		bs = resource->ptr;
+		bs = args->resource->ptr;
 
 		/* Only attempt to registrate if freshly allocated. */
 		if (bs->discrs.my_discr == 0 && bs_registrate(bs) == NULL)
 			return NB_ERR_RESOURCE;
 
-		nb_running_set_entry(dnode, bs);
+		nb_running_set_entry(args->dnode, bs);
 		break;
 
 	case NB_EV_ABORT:
-		bs = resource->ptr;
+		bs = args->resource->ptr;
 		if (bs->refcount <= 1)
-			bfd_session_free(resource->ptr);
+			bfd_session_free(bs);
 		break;
 	}
 
@@ -474,8 +473,7 @@ int bfdd_bfd_profile_desired_echo_transmission_interval_modify(
  */
 int bfdd_bfd_sessions_single_hop_create(struct nb_cb_create_args *args)
 {
-	return bfd_session_create(args->event, args->dnode, args->resource,
-				  false);
+	return bfd_session_create(args, false);
 }
 
 int bfdd_bfd_sessions_single_hop_destroy(struct nb_cb_destroy_args *args)
@@ -759,8 +757,7 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
  */
 int bfdd_bfd_sessions_multi_hop_create(struct nb_cb_create_args *args)
 {
-	return bfd_session_create(args->event, args->dnode, args->resource,
-				  true);
+	return bfd_session_create(args, true);
 }
 
 int bfdd_bfd_sessions_multi_hop_destroy(struct nb_cb_destroy_args *args)
