@@ -427,7 +427,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	struct nhrp_cie_header *cie;
 	struct nhrp_extension_header *ext;
 	struct nhrp_cache *c;
-	union sockunion cie_nbma, cie_nbma_nat, cie_proto, *proto_addr, *nbma_addr;
+	union sockunion cie_nbma, cie_nbma_nat, cie_proto, *proto_addr, *nbma_addr, *claimed_nbma_addr;
 	int holdtime, prefix_len, hostprefix_len;
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_peer *peer;
@@ -510,6 +510,11 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 		else
 			nbma_addr = &pp->src_nbma;
 
+		if(sockunion_family(&cie_nbma) != AF_UNSPEC)
+			claimed_nbma_addr = &cie_nbma;
+		else
+			claimed_nbma_addr = &pp->src_nbma;
+
 		holdtime = htons(cie->holding_time);
 		debugf(NHRP_DEBUG_COMMON,
 		       "shortcut res_rep: holdtime is %u (if 0, using %u)",
@@ -533,7 +538,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 		       nbma_addr ? buf : "(NULL)");
 		if (!nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC, holdtime,
 						   nhrp_peer_get(pp->ifp, nbma_addr),
-					       htons(cie->mtu), nbma_addr)) {
+					       htons(cie->mtu), nbma_addr, claimed_nbma_addr)) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
 			continue;
 		}
@@ -677,7 +682,7 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 
 		if (!nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC, holdtime,
 					       nhrp_peer_ref(p->peer),
-					       htons(cie->mtu), nbma_natoa)) {
+					       htons(cie->mtu), nbma_natoa, nbma_addr)) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
 			continue;
 		}

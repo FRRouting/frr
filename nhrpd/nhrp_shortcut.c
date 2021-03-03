@@ -325,7 +325,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma);
+						  htons(cie->mtu), nbma, &cie_nbma);
 		} else {
 			debugf(NHRP_DEBUG_COMMON,
 			       "Shortcut: no cache for nbma %s", buf[2]);
@@ -340,7 +340,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 				nhrp_cache_update_binding(c_dst_proto, NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma);
+						  htons(cie->mtu), nbma, &cie_nbma);
 			} else {
 				debugf(NHRP_DEBUG_COMMON,
 			       "Shortcut: no cache for nbma %s", buf[2]);

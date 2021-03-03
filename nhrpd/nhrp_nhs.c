@@ -32,7 +32,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c;
 	struct zbuf extpl;
-	union sockunion cie_nbma, cie_proto, *proto;
+	union sockunion cie_nbma, cie_nbma_nhs, cie_proto, cie_proto_nhs, *proto;
+	char buf[64];
 	int ok = 0, holdtime;
 	unsigned short mtu = 0;
 
@@ -66,6 +67,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 
 	/* Parse extensions */
 	sockunion_family(&nifp->nat_nbma) = AF_UNSPEC;
+	sockunion_family(&cie_nbma_nhs) = AF_UNSPEC;
 	while ((ext = nhrp_ext_pull(&p->extensions, &extpl)) != NULL) {
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS:
@@ -75,9 +77,15 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 					     &cie_proto)) {
 				nifp->nat_nbma = cie_nbma;
 				debugf(NHRP_DEBUG_IF,
-				       "%s: NAT detected, real NBMA address: %pSU",
-				       ifp->name, &nifp->nbma);
+				       "%s: NAT detected, real NBMA address: %s",
+				       ifp->name,
+				       sockunion2str(&nifp->nbma, buf,
+						     sizeof(buf)));
 			}
+			break;
+		case NHRP_EXTENSION_RESPONDER_ADDRESS:
+			/* NHS adds its own record as responder address */
+			nhrp_cie_pull(&extpl, p->hdr, &cie_nbma_nhs, &cie_proto_nhs);
 			break;
 		}
 	}
@@ -96,7 +104,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
 	if (c)
 		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, holdtime,
-					  nhrp_peer_ref(r->peer), mtu, NULL);
+					  nhrp_peer_ref(r->peer), mtu, NULL, &cie_nbma_nhs);
 }
 
 static int nhrp_reg_timeout(struct thread *t)
@@ -111,7 +119,7 @@ static int nhrp_reg_timeout(struct thread *t)
 		c = nhrp_cache_get(r->nhs->ifp, &r->proto_addr, 0);
 		if (c)
 			nhrp_cache_update_binding(c, NHRP_CACHE_NHS, -1, NULL,
-						  0, NULL);
+						  0, NULL, NULL);
 		sockunion_family(&r->proto_addr) = AF_UNSPEC;
 	}
 

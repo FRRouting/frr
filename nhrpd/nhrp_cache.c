@@ -212,7 +212,7 @@ static int nhrp_cache_do_timeout(struct thread *t)
 
 	c->t_timeout = NULL;
 	if (c->cur.type != NHRP_CACHE_INVALID)
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
+		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL, NULL);
 	return 0;
 }
 
@@ -301,7 +301,7 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 	case NOTIFY_PEER_DOWN:
 	case NOTIFY_PEER_IFCONFIG_CHANGED:
 		notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
+		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL, NULL);
 		break;
 	case NOTIFY_PEER_NBMA_CHANGING:
 		if (c->cur.type == NHRP_CACHE_DYNAMIC)
@@ -422,7 +422,7 @@ static void nhrp_cache_newpeer_notifier(struct notifier_block *n,
 
 int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 			      int holding_time, struct nhrp_peer *p,
-			      uint32_t mtu, union sockunion *nbma_oa)
+			      uint32_t mtu, union sockunion *nbma_oa, union sockunion *nbma_claimed)
 {
 	char buf[2][SU_ADDRSTRLEN];
 
@@ -464,6 +464,12 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 			memset(&c->cur.remote_nbma_natoa, 0,
 			       sizeof(c->cur.remote_nbma_natoa));
 
+		if (nbma_claimed)
+			c->cur.remote_nbma_claimed = *nbma_claimed;
+		else
+			memset(&c->cur.remote_nbma_claimed, 0,
+			       sizeof(c->cur.remote_nbma_claimed));
+
 		nhrp_peer_unref(p);
 	} else {
 		debugf(NHRP_DEBUG_COMMON,
@@ -477,6 +483,9 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 		c->new.holding_time = holding_time;
 		if (nbma_oa)
 			c->new.remote_nbma_natoa = *nbma_oa;
+
+		if (nbma_claimed)
+			c->new.remote_nbma_claimed = *nbma_claimed;
 
 		if (holding_time > 0)
 			c->new.expires = monotime(NULL) + holding_time;

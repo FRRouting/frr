@@ -226,6 +226,7 @@ struct nhrp_cache {
 	struct {
 		enum nhrp_cache_type type;
 		union sockunion remote_nbma_natoa;
+		union sockunion remote_nbma_claimed;
 		struct nhrp_peer *peer;
 		time_t expires;
 		uint32_t mtu;
@@ -385,7 +386,8 @@ void nhrp_cache_config_foreach(struct interface *ifp,
 void nhrp_cache_set_used(struct nhrp_cache *, int);
 int nhrp_cache_update_binding(struct nhrp_cache *, enum nhrp_cache_type type,
 			      int holding_time, struct nhrp_peer *p,
-			      uint32_t mtu, union sockunion *nbma_natoa);
+			      uint32_t mtu, union sockunion *nbma_natoa,
+			      union sockunion *claimed_nbma);
 void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *,
 			   notifier_fn_t);
 void nhrp_cache_notify_del(struct nhrp_cache *c, struct notifier_block *);
