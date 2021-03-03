@@ -27,7 +27,7 @@ ubuntu apt repositories; in order to install it:
 
 .. code-block:: shell
 
-   curl https://bootstrap.pypa.io/get-pip.py --output get-pip.py
+   curl https://bootstrap.pypa.io/2.7/get-pip.py --output get-pip.py
    sudo python2 ./get-pip.py
 
    # And verify the installation
