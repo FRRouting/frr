@@ -556,6 +556,8 @@ class TopoRouter(TopoGear):
     RD_PBRD = 16
     RD_PATH = 17
     RD_SNMP = 18
+    RD_OSPF_1 = 19
+    RD_OSPF_2 = 20
     RD = {
         RD_ZEBRA: "zebra",
         RD_RIP: "ripd",
@@ -575,6 +577,8 @@ class TopoRouter(TopoGear):
         RD_PBRD: "pbrd",
         RD_PATH: "pathd",
         RD_SNMP: "snmpd",
+        RD_OSPF_1: "ospfd-1",
+        RD_OSPF_2: "ospfd-2",
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -659,7 +663,8 @@ class TopoRouter(TopoGear):
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
-        TopoRouter.RD_PIM, TopoRouter.RD_PBR, TopoRouter.RD_SNMP.
+        TopoRouter.RD_PIM, TopoRouter.RD_PBR, TopoRouter.RD_SNMP,
+        TopoRouter.RD_OSPF_1, TopoRouter.RD_OSPF_2.
         """
         daemonstr = self.RD.get(daemon)
         self.logger.info('loading "{}" configuration: {}'.format(daemonstr, source))

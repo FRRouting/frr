@@ -59,6 +59,7 @@ static struct zlog_cfg_filterfile zt_filterfile = {
 
 static const char *zlog_progname;
 static const char *zlog_protoname;
+static uint16_t zlog_instance;
 
 static const struct facility_map {
 	int facility;
@@ -152,6 +153,9 @@ DEFUN_NOSH (show_logging,
 	    SHOW_STR
 	    "Show current logging configuration\n")
 {
+	if (zlog_instance)
+		vty_out(vty, "\nInstance: %u\n", zlog_instance);
+
 	log_show_syslog(vty);
 
 	vty_out(vty, "Stdout logging: ");
@@ -733,6 +737,7 @@ static int log_vty_init(const char *progname, const char *protoname,
 {
 	zlog_progname = progname;
 	zlog_protoname = protoname;
+	zlog_instance = instance;
 
 	zlog_set_prefix_ec(true);
 	zlog_set_prefix_xid(true);
