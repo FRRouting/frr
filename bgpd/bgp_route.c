@@ -12385,6 +12385,9 @@ static int bgp_table_stats_walker(struct thread *t)
 	case AFI_IP6:
 		space = IPV6_MAX_BITLEN;
 		break;
+	case AFI_L2VPN:
+		space = EVPN_ROUTE_PREFIXLEN;
+		break;
 	default:
 		return 0;
 	}
