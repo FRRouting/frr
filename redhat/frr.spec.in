@@ -758,7 +758,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
-* Tue Nov 2 2020 Donald Sharp <sharpd@nvidia.com> - 7.5
+* Mon Nov  2 2020 Donald Sharp <sharpd@nvidia.com> - 7.5
 - BFD
 - 	Profile support
 - 	Minimum ttl support
