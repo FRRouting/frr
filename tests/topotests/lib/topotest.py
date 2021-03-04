@@ -1143,6 +1143,8 @@ class Router(Node):
             "ospfd-1": 0,
             "ospfd-2": 0,
             "ospf6d": 0,
+            "ospf6d-1": 0,
+            "ospf6d-2": 0,
             "isisd": 0,
             "bgpd": 0,
             "pimd": 0,
