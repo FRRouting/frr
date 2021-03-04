@@ -175,6 +175,10 @@ void ospf_bfd_write_config(struct vty *vty, const struct ospf_if_params *params
 	else
 #endif /* ! HAVE_BFDD */
 		vty_out(vty, " ip ospf bfd\n");
+
+	if (params->bfd_config->profile[0])
+		vty_out(vty, " ip ospf bfd profile %s\n",
+			params->bfd_config->profile);
 }
 
 void ospf_interface_bfd_show(struct vty *vty, const struct interface *ifp,
@@ -250,6 +254,49 @@ DEFUN(
 	return CMD_SUCCESS;
 }
 
+DEFUN (ip_ospf_bfd_prof,
+       ip_ospf_bfd_prof_cmd,
+       "ip ospf bfd profile BFDPROF",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Enables BFD support\n"
+       BFD_PROFILE_STR
+       BFD_PROFILE_NAME_STR)
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+	int idx_prof = 4;
+
+	ospf_interface_enable_bfd(ifp);
+	params = IF_DEF_PARAMS(ifp);
+	strlcpy(params->bfd_config->profile, argv[idx_prof]->arg,
+		sizeof(params->bfd_config->profile));
+	ospf_interface_bfd_apply(ifp);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_ospf_bfd_prof,
+       no_ip_ospf_bfd_prof_cmd,
+       "no ip ospf bfd profile [BFDPROF]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Enables BFD support\n"
+       BFD_PROFILE_STR
+       BFD_PROFILE_NAME_STR)
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	ospf_interface_enable_bfd(ifp);
+	params = IF_DEF_PARAMS(ifp);
+	params->bfd_config->profile[0] = 0;
+	ospf_interface_bfd_apply(ifp);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_ip_ospf_bfd,
        no_ip_ospf_bfd_cmd,
 #if HAVE_BFDD > 0
@@ -280,5 +327,7 @@ void ospf_bfd_init(struct thread_master *tm)
 	/* Install BFD command */
 	install_element(INTERFACE_NODE, &ip_ospf_bfd_cmd);
 	install_element(INTERFACE_NODE, &ip_ospf_bfd_param_cmd);
+	install_element(INTERFACE_NODE, &ip_ospf_bfd_prof_cmd);
+	install_element(INTERFACE_NODE, &no_ip_ospf_bfd_prof_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_bfd_cmd);
 }
