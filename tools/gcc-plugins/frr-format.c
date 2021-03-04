@@ -268,8 +268,7 @@ check_format_string (tree fntype, unsigned HOST_WIDE_INT format_num,
   /* We expect a string object type as the format arg.  */
   if (is_char_ref)
     {
-      error ("format argument should be a %qs reference but"
-	     " a string was found", format_name (expected_format_type));
+      error ("format argument should be a %qs reference but a string was found", format_name (expected_format_type));
       *no_add_attrs = true;
       return false;
     }
@@ -360,7 +359,7 @@ decode_format_attr (tree args, function_format_info *info, int validated_p)
   if (info->first_arg_num != 0 && info->first_arg_num <= info->format_num)
     {
       gcc_assert (!validated_p);
-      error ("format string argument follows the args to be formatted");
+      error ("format string argument follows the arguments to be formatted");
       return false;
     }
 
@@ -490,10 +489,10 @@ static const format_flag_pair printf_flag_pairs[] =
 
 #define ETAB_SZ 128
 static kernel_ext_fmt ext_p[ETAB_SZ] = {
-  { NULL }
+  { }
 };
 static kernel_ext_fmt ext_d[ETAB_SZ] = {
-  { NULL }
+  { }
 };
 
 static const format_char_info print_char_table[] =
@@ -741,8 +740,8 @@ check_function_format (tree attrs, int nargs, tree *argarray,
 			break;
 		    }
 		  if (args != 0)
-		    warning (OPT_Wsuggest_attribute_format, "function %qD "
-			     "might be a candidate for %qs frr_format attribute",
+		    warning (OPT_Wsuggest_attribute_format,
+			     "function %qD might be a candidate for %qs %<frr_format%> attribute",
 			     current_function_decl,
 			     format_types[info.format_type].name);
 		}
@@ -924,7 +923,7 @@ avoid_dollar_number (const char *format)
     format++;
   if (*format == '$')
     {
-      warning (OPT_Wformat_, "$ operand number used after format without operand number");
+      warning (OPT_Wformat_, "%<$%> operand number used after format without operand number");
       return true;
     }
   return false;
@@ -955,7 +954,7 @@ finish_dollar_format_checking (format_check_results *res, int pointer_gap_ok)
 	    found_pointer_gap = true;
 	  else
 	    warning_at (res->format_string_loc, OPT_Wformat_,
-			"format argument %d unused before used argument %d in $-style format",
+			"format argument %d unused before used argument %d in %<$%>-style format",
 			i + 1, dollar_max_arg_used);
 	}
     }
@@ -1099,7 +1098,7 @@ check_format_info (function_format_info *info, tree params,
     }
   if (res.number_dollar_extra_args > 0 && res.number_non_literal == 0
       && res.number_other == 0)
-    warning_at (loc, OPT_Wformat_extra_args, "unused arguments in $-style format");
+    warning_at (loc, OPT_Wformat_extra_args, "unused arguments in %<$%>-style format");
   if (res.number_empty > 0 && res.number_non_literal == 0
       && res.number_other == 0)
     warning_at (loc, OPT_Wformat_zero_length, "zero-length %s format string",
@@ -1534,8 +1533,7 @@ flag_chars_t::validate (const format_kind_info *fki,
 				       : s->long_name);
 	      if (ADJ_STD (t->std) > C_STD_VER)
 		warning_at (format_string_loc, OPT_Wformat_,
-			    "%s does not support %s with"
-			    " the %<%%%c%> %s format",
+			    "%s does not support %s with the %<%%%c%> %s format",
 			    C_STD_NAME (t->std), _(long_name),
 			    format_char, fki->name);
 	    }
@@ -2040,8 +2038,7 @@ argument_parser::find_format_char_info (char format_char)
       format_warning_at_char (format_string_loc, format_string_cst,
 			      format_chars - orig_format_chars,
 			      OPT_Wformat_,
-			      "unknown conversion type character"
-			      " %qc in format",
+			      "unknown conversion type character %qc in format",
 			      format_char);
       return NULL;
     }
@@ -2128,8 +2125,7 @@ argument_parser::give_y2k_warnings (const format_char_info *fci,
     y2k_level = 2;
   if (y2k_level == 3)
     warning_at (format_string_loc, OPT_Wformat_y2k,
-		"%<%%%c%> yields only last 2 digits of "
-		"year in some locales", format_char);
+		"%<%%%c%> yields only last 2 digits of year in some locales", format_char);
   else if (y2k_level == 2)
     warning_at (format_string_loc, OPT_Wformat_y2k,
 		"%<%%%c%> yields only last 2 digits of year",
@@ -2188,9 +2184,7 @@ argument_parser::handle_conversions (const format_char_info *fci,
       format_warning_at_char (format_string_loc, format_string_cst,
 			      format_chars - orig_format_chars,
 			      OPT_Wformat_,
-			      "use of %qs length modifier with %qc type"
-			      " character has either no effect"
-			      " or undefined behavior",
+			      "use of %qs length modifier with %qc type character has either no effect or undefined behavior",
 			      len_modifier.chars, format_char);
       /* Heuristic: skip one argument when an invalid length/type
 	 combination is encountered.  */
@@ -2249,12 +2243,10 @@ check_argument_type (const format_char_info *fci,
 	{
 	  if (suppressed)
 	    warning_at (format_string_loc, OPT_Wformat_,
-			"operand number specified with "
-			"suppressed assignment");
+			"operand number specified with suppressed assignment");
 	  else
 	    warning_at (format_string_loc, OPT_Wformat_,
-			"operand number specified for format "
-			"taking no argument");
+			"operand number specified for format taking no argument");
 	}
     }
   else
@@ -2576,8 +2568,7 @@ check_format_info_main (format_check_results *res,
 	    format_warning_at_char (format_string_loc, format_string_cst,
 				    format_chars - orig_format_chars,
 				    OPT_Wformat_,
-				    "%qc directive redundant after prior "
-				    "occurence of the same", format_char);
+				    "%qc directive redundant after prior occurence of the same", format_char);
 	  else if (!color_begin)
 	    format_warning_at_char (format_string_loc, format_string_cst,
 				    format_chars - orig_format_chars,
@@ -2594,8 +2585,7 @@ check_format_info_main (format_check_results *res,
 	    format_warning_at_char (format_string_loc, format_string_cst,
 				    format_chars - orig_format_chars,
 				    OPT_Wformat_,
-				    "%qc conversion used within a quoted "
-				    "sequence",
+				    "%qc conversion used within a quoted sequence",
 				    format_char);
 	}
 
@@ -2821,16 +2811,14 @@ check_format_types (const substring_loc &fmt_loc,
 		  && i == 0
 		  && cur_param != 0
 		  && integer_zerop (cur_param))
-		warning (OPT_Wformat_, "writing through null pointer "
-			 "(argument %d)", arg_num);
+		warning (OPT_Wformat_, "writing through null pointer (argument %d)", arg_num);
 
 	      /* Check for reading through a NULL pointer.  */
 	      if (types->reading_from_flag
 		  && i == 0
 		  && cur_param != 0
 		  && integer_zerop (cur_param))
-		warning (OPT_Wformat_, "reading through null pointer "
-			 "(argument %d)", arg_num);
+		warning (OPT_Wformat_, "reading through null pointer (argument %d)", arg_num);
 
 	      if (cur_param != 0 && TREE_CODE (cur_param) == ADDR_EXPR)
 		cur_param = TREE_OPERAND (cur_param, 0);
@@ -2849,8 +2837,7 @@ check_format_types (const substring_loc &fmt_loc,
 			  && (CONSTANT_CLASS_P (cur_param)
 			      || (DECL_P (cur_param)
 				  && TREE_READONLY (cur_param))))))
-		warning (OPT_Wformat_, "writing into constant object "
-			 "(argument %d)", arg_num);
+		warning (OPT_Wformat_, "writing into constant object (argument %d)", arg_num);
 
 	      /* If there are extra type qualifiers beyond the first
 		 indirection, then this makes the types technically
@@ -2861,8 +2848,7 @@ check_format_types (const substring_loc &fmt_loc,
 		      || TYPE_VOLATILE (cur_type)
 		      || TYPE_ATOMIC (cur_type)
 		      || TYPE_RESTRICT (cur_type)))
-		warning (OPT_Wformat_, "extra type qualifiers in format "
-			 "argument (argument %d)",
+		warning (OPT_Wformat_, "extra type qualifiers in format argument (argument %d)",
 			 arg_num);
 
 	    }
@@ -3095,8 +3081,7 @@ check_kef_type (const substring_loc &fmt_loc,
 		  || TYPE_VOLATILE (cur_type)
 		  || TYPE_ATOMIC (cur_type)
 		  || TYPE_RESTRICT (cur_type)))
-	    warning (OPT_Wformat_, "extra type qualifiers in format "
-		     "argument (argument %d)",
+	    warning (OPT_Wformat_, "extra type qualifiers in format argument (argument %d)",
 		     arg_num);
 
 	}
@@ -3541,17 +3526,24 @@ print_type (c_pretty_printer *cpp, tree t, bool *quoted)
 
 /* C-specific implementation of range_label::get_text () vfunc for
    range_label_for_type_mismatch.  */
+#if BUILDING_GCC_VERSION >= 10000
+#define label_borrow(text) label_text::borrow(text)
+#define label_take(text)   label_text::take(text)
+#else
+#define label_borrow(text) label_text((char *)text, false)
+#define label_take(text)   label_text(text, true)
+#endif
 
 label_text
 frr_range_label_for_type_mismatch::get_text (unsigned /*range_idx*/) const
 {
   if (m_labelled_type == NULL_TREE)
-    return label_text (NULL, false);
+    return label_borrow("(null tree)");
 
   c_pretty_printer cpp;
   bool quoted = false;
   print_type (&cpp, m_labelled_type, &quoted);
-  return label_text (xstrdup (pp_formatted_text (&cpp)), true);
+  return label_take(xstrdup (pp_formatted_text (&cpp)));
 }
 
 #define range_label_for_type_mismatch frr_range_label_for_type_mismatch
@@ -3583,7 +3575,7 @@ class range_label_for_format_type_mismatch
 
     char *result = concat (text.m_buffer, p, NULL);
     text.maybe_free ();
-    return label_text (result, true);
+    return label_take(result);
   }
 
  private:
@@ -3695,8 +3687,7 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 	format_warning_at_substring
 	  (fmt_loc, &fmt_label, param_loc, &param_label,
 	   corrected_substring, OPT_Wformat_,
-	   "%s %<%s%.*s%> expects argument of type %<%s%s%>, "
-	   "but argument %d has type %qT%s",
+	   "%s %<%s%.*s%> expects argument of type %<%s%s%>, but argument %d has type %qT%s",
 	   gettext (kind_descriptions[kind]),
 	   (kind == CF_KIND_FORMAT ? "%" : ""),
 	   format_length, format_start,
@@ -3716,8 +3707,7 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 	format_warning_at_substring
 	  (fmt_loc, &fmt_label, param_loc, &param_label,
 	   corrected_substring, OPT_Wformat_,
-	   "%s %<%s%.*s%> expects argument of type %<%T%s%>, "
-	   "but argument %d has type %qT%s",
+	   "%s %<%s%.*s%> expects argument of type %<%T%s%>, but argument %d has type %qT%s",
 	   gettext (kind_descriptions[kind]),
 	   (kind == CF_KIND_FORMAT ? "%" : ""),
 	   format_length, format_start,
@@ -3875,7 +3865,7 @@ handle_frr_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	  if (arg_num != info.first_arg_num)
 	    {
 	      if (!(flags & (int) ATTR_FLAG_BUILT_IN))
-		error ("args to be formatted is not %<...%>");
+		error ("arguments to be formatted is not %<...%>");
 	      *no_add_attrs = true;
 	      return NULL_TREE;
 	    }
@@ -4149,7 +4139,7 @@ setup_type (const char *name, tree *dst)
   tmp = identifier_global_value (*dst);
   if (tmp && TREE_CODE (tmp) != TYPE_DECL)
     {
-      warning (0, "%<%s%> is not defined as a type", name);
+      warning (0, "%qs is not defined as a type", name);
       *dst = NULL;
       return;
     }
@@ -4316,7 +4306,7 @@ handle_pragma_printfrr_ext (cpp_reader *dummy)
           if (0)
             {
               warning_at (loc, OPT_Wformat_,
-                          "%<#pragma FRR printfrr_ext%>: duplicate printf format suffix \"%s\"", s);
+                          "%<#pragma FRR printfrr_ext%>: duplicate printf format suffix %qs", s);
               warning_at (etab->origin_loc, OPT_Wformat_,
                           "%<#pragma FRR printfrr_ext%>: previous definition was here");
               return;
@@ -4328,9 +4318,9 @@ handle_pragma_printfrr_ext (cpp_reader *dummy)
       if (!strncmp(s + 2, etab->suffix, MIN(strlen(s + 2), strlen(etab->suffix))))
         {
           warning_at (loc, OPT_Wformat_,
-                      "%<#pragma FRR printfrr_ext%>: overlapping printf format suffix \"%s\"", s);
+                      "%<#pragma FRR printfrr_ext%>: overlapping printf format suffix %qs", s);
           warning_at (etab->origin_loc, OPT_Wformat_,
-                      "%<#pragma FRR printfrr_ext%>: previous definition for \"%%%c%s\" was here", s[1], etab->suffix);
+                      "%<#pragma FRR printfrr_ext%>: previous definition for %<%%%c%s%> was here", s[1], etab->suffix);
           return;
         }
     }
@@ -4388,7 +4378,7 @@ handle_pragma_printfrr_ext (cpp_reader *dummy)
     {
       switch (ttype) {
       case CPP_NAME:
-        error_at (loc, "%<#pragma FRR printfrr_ext%>: unexpected identifier.  Note the only supported qualifier is \"const\".");
+        error_at (loc, "%<#pragma FRR printfrr_ext%>: unexpected identifier.  Note the only supported qualifier is %<const%>");
         goto out_drop;
 
       case CPP_MULT:

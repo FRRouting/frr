@@ -2,14 +2,7 @@
 
 #include "isisd/isis_spf.c"
 
-struct thread_master *master;
-int isis_sock_init(struct isis_circuit *circuit);
-int isis_sock_init(struct isis_circuit *circuit)
-{
-	return 0;
-}
-
-struct zebra_privs_t isisd_privs;
+#include "test_common.h"
 
 static struct isis_vertex **vertices;
 static size_t vertex_count;

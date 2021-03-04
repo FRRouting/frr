@@ -63,6 +63,10 @@
  * 0x0c Flow-spec Redirect to IPv4 - draft-ietf-idr-flowspec-redirect
  */
 #define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4   0x0c
+/* from draft-ietf-idr-flow-spec-v6-09
+ * 0x0b Flow-spec Redirect to IPv6
+ */
+#define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6   0x0b
 
 /* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
@@ -73,8 +77,12 @@
 #define ECOMMUNITY_EVPN_SUBTYPE_ND           0x08
 
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY 0x01
-#define ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG		0x01
-#define ECOMMUNITY_EVPN_SUBTYPE_ND_OVERRIDE_FLAG	0x02
+
+#define ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG   0x01
+#define ECOMMUNITY_EVPN_SUBTYPE_ND_OVERRIDE_FLAG 0x02
+#define ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG       0x04
+
+#define ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG (1 << 0) /* single-active */
 
 /* Low-order octet of the Extended Communities type field for OPAQUE types */
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
@@ -86,6 +94,7 @@
 
 /* Extended Communities value is eight octet long.  */
 #define ECOMMUNITY_SIZE                        8
+#define IPV6_ECOMMUNITY_SIZE                  20
 
 /* Extended Communities type flag.  */
 #define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40
@@ -94,6 +103,11 @@
 struct ecommunity {
 	/* Reference counter.  */
 	unsigned long refcnt;
+
+	/* Size of Each Unit of Extended Communities attribute.
+	 * to differentiate between IPv6 ext comm and ext comm
+	 */
+	uint8_t unit_size;
 
 	/* Size of Extended Communities attribute.  */
 	int size;
@@ -115,10 +129,22 @@ struct ecommunity_ip {
 	uint16_t val;
 };
 
+struct ecommunity_ip6 {
+	struct in6_addr ip;
+	uint16_t val;
+};
+
 /* Extended community value is eight octet.  */
 struct ecommunity_val {
 	char val[ECOMMUNITY_SIZE];
 };
+
+/* IPv6 Extended community value is eight octet.  */
+struct ecommunity_val_ipv6 {
+	char val[IPV6_ECOMMUNITY_SIZE];
+};
+
+#define ecom_length_size(X, Y)    ((X)->size * (Y))
 
 /*
  * Encode BGP Route Target AS:nn.
@@ -189,6 +215,8 @@ extern void ecommunity_init(void);
 extern void ecommunity_finish(void);
 extern void ecommunity_free(struct ecommunity **);
 extern struct ecommunity *ecommunity_parse(uint8_t *, unsigned short);
+extern struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt,
+						unsigned short length);
 extern struct ecommunity *ecommunity_dup(struct ecommunity *);
 extern struct ecommunity *ecommunity_merge(struct ecommunity *,
 					   struct ecommunity *);
@@ -198,6 +226,8 @@ extern bool ecommunity_cmp(const void *arg1, const void *arg2);
 extern void ecommunity_unintern(struct ecommunity **);
 extern unsigned int ecommunity_hash_make(const void *);
 extern struct ecommunity *ecommunity_str2com(const char *, int, int);
+extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
+						  int keyword_included);
 extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
 extern void ecommunity_strfree(char **s);
 extern bool ecommunity_match(const struct ecommunity *,
@@ -205,9 +235,13 @@ extern bool ecommunity_match(const struct ecommunity *,
 extern char *ecommunity_str(struct ecommunity *);
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
 						uint8_t, uint8_t);
+
 extern bool ecommunity_add_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval,
 			       bool unique, bool overwrite);
+extern bool ecommunity_add_val_ipv6(struct ecommunity *ecom,
+				    struct ecommunity_val_ipv6 *eval,
+				    bool unique, bool overwrite);
 
 /* for vpn */
 extern struct ecommunity *ecommunity_new(void);
@@ -218,7 +252,8 @@ extern bool ecommunity_del_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;
 extern int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
-			       struct bgp_pbr_entry_action *api);
+				      struct bgp_pbr_entry_action *api,
+				      afi_t afi);
 
 extern void bgp_compute_aggregate_ecommunity(
 					struct bgp_aggregate *aggregate,

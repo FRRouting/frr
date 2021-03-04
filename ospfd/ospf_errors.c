@@ -158,6 +158,12 @@ static struct log_ref ferr_ospf_err[] = {
 		.suggestion = "Restart OSPF instance, If the problem persists, report the problem for troubleshooting"
 	},
 	{
+		.code = EC_OSPF_SR_SID_OVERFLOW,
+		.title = "OSPF SR Segment-ID overflow",
+		.description = "OSPF Segment Routing ID index or label exceed Global or Local Block Range",
+		.suggestion = "Restart OSPF instance, If the problem persists, report the problem for troubleshooting"
+	},
+	{
 		.code = EC_OSPF_INVALID_ALGORITHM,
 		.title = "OSPF SR Invalid Algorithm",
 		.description = "OSPF Segment Routing invalid Algorithm",

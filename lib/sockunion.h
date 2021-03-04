@@ -103,6 +103,10 @@ extern union sockunion *sockunion_dup(const union sockunion *);
 extern void sockunion_free(union sockunion *);
 extern void sockunion_init(union sockunion *);
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pSU"  (union sockunion *)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

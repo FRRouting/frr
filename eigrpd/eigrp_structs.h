@@ -60,7 +60,7 @@ struct eigrp_master {
 struct eigrp_metrics {
 	uint32_t delay;
 	uint32_t bandwidth;
-	unsigned char mtu[3];
+	uint8_t mtu[3];
 	uint8_t hop_count;
 	uint8_t reliability;
 	uint8_t load;

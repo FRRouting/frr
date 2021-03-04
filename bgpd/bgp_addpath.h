@@ -65,7 +65,7 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat,
 void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 			      enum bgp_addpath_strat addpath_type);
 
-void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_node *bn, afi_t afi,
+void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *dest, afi_t afi,
 			    safi_t safi);
 
 void bgp_addpath_type_changed(struct bgp *bgp);

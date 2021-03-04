@@ -663,7 +663,7 @@ kernel.
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
    Apply a route-map filter to routes for the specified protocol. PROTOCOL can
-   be: 
+   be:
 
    - any,
    - babel,
@@ -708,6 +708,24 @@ that sets the preferred source address, and applies the route-map to all
 
    ip protocol rip route-map RM1
 
+IPv6 example for OSPFv3.
+
+.. code-block:: frr
+
+   ipv6 prefix-list ANY seq 10 permit any
+   route-map RM6 permit 10
+       match ipv6 address prefix-list ANY
+       set src 2001:db8:425:1000::3
+
+   ipv6 protocol ospf6 route-map RM6
+
+
+.. note::
+
+   For both IPv4 and IPv6, the IP address has to exist at the point the
+   route-map is created.  Be wary of race conditions if the interface is
+   not created at startup.  On Debian, FRR might start before ifupdown
+   completes. Consider a reboot test.
 
 .. _zebra-fib-push-interface:
 
@@ -852,6 +870,20 @@ FPM Commands
    will not attempt to connect to it anymore.
 
 
+.. index:: fpm use-next-hop-groups
+.. clicmd:: fpm use-next-hop-groups
+
+   Use the new netlink messages ``RTM_NEWNEXTHOP`` / ``RTM_DELNEXTHOP`` to
+   group repeated route next hop information.
+
+
+.. index:: no fpm use-next-hop-groups
+.. clicmd:: no fpm use-next-hop-groups
+
+   Use the old known FPM behavior of including next hop information in the
+   route (e.g. ``RTM_NEWROUTE``) messages.
+
+
 .. index:: show fpm counters [json]
 .. clicmd:: show fpm counters [json]
 
@@ -967,15 +999,15 @@ zebra Terminal Mode Commands
 .. index:: show ip protocol
 .. clicmd:: show ip protocol
 
-.. index:: show ipforward
-.. clicmd:: show ipforward
+.. index:: show ip forward
+.. clicmd:: show ip forward
 
    Display whether the host's IP forwarding function is enabled or not.
    Almost any UNIX kernel can be configured with IP forwarding disabled.
    If so, the box can't work as a router.
 
-.. index:: show ipv6forward
-.. clicmd:: show ipv6forward
+.. index:: show ipv6 forward
+.. clicmd:: show ipv6 forward
 
    Display whether the host's IP v6 forwarding is enabled or not.
 
@@ -1018,14 +1050,34 @@ Many routing protocols require a router-id to be configured. To have a
 consistent router-id across all daemons, the following commands are available
 to configure and display the router-id:
 
-.. index:: [no] router-id A.B.C.D [vrf NAME]
-.. clicmd:: [no] router-id A.B.C.D [vrf NAME]
+.. index:: [no] [ip] router-id A.B.C.D
+.. clicmd:: [no] [ip] router-id A.B.C.D
 
-   Configure the router-id of this router.
+   Allow entering of the router-id.  This command also works under the
+   vrf subnode, to allow router-id's per vrf.
 
-.. index:: show router-id [vrf NAME]
-.. clicmd:: show router-id [vrf NAME]
+.. index:: [no] [ip] router-id A.B.C.D vrf NAME
+.. clicmd:: [no] [ip] router-id A.B.C.D vrf NAME
+
+   Configure the router-id of this router from the configure NODE.
+   A show run of this command will display the router-id command
+   under the vrf sub node.  This command is deprecated and will
+   be removed at some point in time in the future.
+
+.. index:: show [ip] router-id [vrf NAME]
+.. clicmd:: show [ip] router-id [vrf NAME]
 
    Display the user configured router-id.
 
+For protocols requiring an IPv6 router-id, the following commands are available:
 
+.. index:: [no] ipv6 router-id X:X::X:X
+.. clicmd:: [no] ipv6 router-id X:X::X:X
+
+   Configure the IPv6 router-id of this router. Like its IPv4 counterpart,
+   this command works under the vrf subnode, to allow router-id's per vrf.
+
+.. index:: show ipv6 router-id [vrf NAME]
+.. clicmd:: show ipv6 router-id [vrf NAME]
+
+   Display the user configured IPv6 router-id.

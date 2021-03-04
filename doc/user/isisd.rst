@@ -33,8 +33,8 @@ ISIS router
 To start the ISIS process you have to specify the ISIS router. As of this
 writing, *isisd* does not support multiple ISIS processes.
 
-.. index:: [no] router isis WORD
-.. clicmd:: [no] router isis WORD
+.. index:: [no] router isis WORD [vrf NAME]
+.. clicmd:: [no] router isis WORD [vrf NAME]
 
    Enable or disable the ISIS process by specifying the ISIS domain with
    'WORD'.  *isisd* does not yet support multiple ISIS processes but you must
@@ -202,8 +202,8 @@ ISIS interface
 
 .. _ip-router-isis-word:
 
-.. index:: [no] <ip|ipv6> router isis WORD
-.. clicmd:: [no] <ip|ipv6> router isis WORD
+.. index:: [no] <ip|ipv6> router isis WORD [vrf NAME]
+.. clicmd:: [no] <ip|ipv6> router isis WORD [vrf NAME]
 
    Activate ISIS adjacency on this interface. Note that the name of ISIS
    instance must be the same as the one used to configure the ISIS process (see
@@ -418,8 +418,8 @@ Showing ISIS information
    Show topology IS-IS paths to Intermediate Systems, globally, in area
    (level-1) or domain (level-2).
 
-.. index:: show ip route isis
-.. clicmd:: show ip route isis
+.. index:: show isis route [level-1|level-2]
+.. clicmd:: show isis route [level-1|level-2]
 
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
@@ -493,7 +493,15 @@ Known limitations:
 .. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
 
    Set the Segment Routing Global Block i.e. the label range used by MPLS
-   to store label in the MPLS FIB.
+   to store label in the MPLS FIB for Prefix SID. Note that the block size
+   may not exceed 65535.
+
+.. index:: [no] segment-routing local-block (0-1048575) (0-1048575)
+.. clicmd:: [no] segment-routing local-block (0-1048575) (0-1048575)
+
+   Set the Segment Routing Local Block i.e. the label range used by MPLS
+   to store label in the MPLS FIB for Adjacency SID. Note that the block size
+   may not exceed 65535.
 
 .. index:: [no] segment-routing node-msd (1-16)
 .. clicmd:: [no] segment-routing node-msd (1-16)
@@ -742,4 +750,23 @@ A Segment Routing configuration, with IPv4, IPv6, SRGB and MSD configuration.
     segment-routing prefix 10.1.1.1/32 index 100 explicit-null
     segment-routing prefix 2001:db8:1000::1/128 index 101 explicit-null
    !
+
+ISIS Vrf Configuration Examples
+===============================
+
+A simple vrf example:
+
+.. code-block:: frr
+
+   !
+   interface eth0 vrf RED
+    ip router isis FOO vrf RED
+    isis network point-to-point
+    isis circuit-type level-2-only
+   !
+   router isis FOO vrf RED
+    net 47.0023.0000.0000.0000.0000.0000.0000.1900.0004.00
+    metric-style wide
+    is-type level-2-only
+
 

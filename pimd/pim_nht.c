@@ -735,10 +735,8 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	pim = vrf->info;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		if (PIM_DEBUG_PIM_NHT)
-			zlog_debug(
-				"%s: Decode of nexthop update from zebra failed",
-				__func__);
+		zlog_err("%s: Decode of nexthop update from zebra failed",
+			 __func__);
 		return 0;
 	}
 

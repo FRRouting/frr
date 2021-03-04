@@ -309,8 +309,7 @@ void
 log_msg_notification(int out, struct nbr *nbr, struct notify_msg *nm)
 {
 	if (nm->status_code & STATUS_FATAL) {
-		debug_msg(out, "notification: lsr-id %s, status %s "
-		    "(fatal error)", inet_ntoa(nbr->id),
+		debug_msg(out, "notification: lsr-id %s, status %s (fatal error)", inet_ntoa(nbr->id),
 		    status_code_name(nm->status_code));
 		return;
 	}
@@ -321,5 +320,5 @@ log_msg_notification(int out, struct nbr *nbr, struct notify_msg *nm)
 		debug_msg(out, "notification:   fec %s", log_map(&nm->fec));
 	if (nm->flags & F_NOTIF_PW_STATUS)
 		debug_msg(out, "notification:   pw-status %s",
-		    (nm->pw_status) ? "not forwarding" : "forwarding");
+		    (nm->pw_status == PW_FORWARDING) ? "forwarding" : "not forwarding");
 }

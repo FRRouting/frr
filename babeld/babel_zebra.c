@@ -251,7 +251,7 @@ void babelz_zebra_init(void)
     install_element(CONFIG_NODE, &debug_babel_cmd);
     install_element(CONFIG_NODE, &no_debug_babel_cmd);
 
-    install_element(VIEW_NODE, &show_debugging_babel_cmd);
+    install_element(ENABLE_NODE, &show_debugging_babel_cmd);
 }
 
 void

@@ -78,8 +78,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			pim_addr_dump("<nexthop?>", &nexthop->mrib_nexthop_addr,
 				      nexthop_str, sizeof(nexthop_str));
 			zlog_debug(
-				"%s: Using last lookup for %s at %lld, %" PRId64
-				" addr %s",
+				"%s: Using last lookup for %s at %lld, %" PRId64" addr %s",
 				__func__, addr_str, nexthop->last_lookup_time,
 				pim->last_route_change_time, nexthop_str);
 		}
@@ -347,6 +346,7 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 			    struct pim_upstream *up)
 {
 	if (up->rpf.source_nexthop.interface) {
+		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
 		up->rpf.source_nexthop.interface = NULL;
 		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
 			PIM_NET_INADDR_ANY;

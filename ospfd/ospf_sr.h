@@ -1,13 +1,14 @@
 /*
  * This is an implementation of Segment Routing
- * as per draft draft-ietf-ospf-segment-routing-extensions-24
+ * as per RFC 8665 - OSPF Extensions for Segment Routing
+ * and RFC 8476 - Signaling Maximum SID Depth (MSD) Using OSPF
  *
  * Module name: Segment Routing header definitions
  *
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  * Author: Anselme Sawadogo <anselmesawadogo@gmail.com>
  *
- * Copyright (C) 2016 - 2018 Orange Labs http://www.orange.com
+ * Copyright (C) 2016 - 2020 Orange Labs http://www.orange.com
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -37,19 +38,26 @@
 #define SET_LABEL(label) ((label << 8) & SET_LABEL_MASK)
 #define GET_LABEL(label) ((label >> 8) & GET_LABEL_MASK)
 
-/* Label range for Adj-SID attribution purpose. Start just right after SRGB */
-#define ADJ_SID_MIN                     MPLS_DEFAULT_MAX_SRGB_LABEL
-#define ADJ_SID_MAX                     (MPLS_DEFAULT_MAX_SRGB_LABEL + 1000)
-
 #define OSPF_SR_DEFAULT_METRIC		1
 
-/* Segment Routing TLVs as per draft-ietf-ospf-segment-routing-extensions-19 */
+/* Segment Routing TLVs as per RFC 8665 */
 
 /* Segment ID could be a Label (3 bytes) or an Index (4 bytes) */
 #define SID_LABEL	3
 #define SID_LABEL_SIZE(U) (U - 1)
 #define SID_INDEX	4
 #define SID_INDEX_SIZE(U) (U)
+
+/* Macro to log debug message */
+#define osr_debug(...)                                                         \
+	do {                                                                   \
+		if (IS_DEBUG_OSPF_SR)                                          \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
+
+/* Macro to check if SR Prefix has no valid route */
+#define IS_NO_ROUTE(srp) ((srp->route == NULL) || (srp->route->paths == NULL)  \
+			   || list_isempty(srp->route->paths))
 
 /* SID/Label Sub TLV - section 2.1 */
 #define SUBTLV_SID_LABEL		1
@@ -77,8 +85,9 @@ struct ri_sr_tlv_sr_algorithm {
 	uint8_t value[ALGORITHM_COUNT];
 };
 
-/* RI SID/Label Range TLV - section 3.2 */
-#define RI_SR_TLV_SID_LABEL_RANGE	9
+/* RI SID/Label Range TLV used for SRGB & SRLB - section 3.2 & 3.3 */
+#define RI_SR_TLV_SRGB_LABEL_RANGE	9
+#define RI_SR_TLV_SRLB_LABEL_RANGE	14
 struct ri_sr_tlv_sid_label_range {
 	struct tlv_header header;
 /* Only 24 upper most bits are significant */
@@ -88,7 +97,7 @@ struct ri_sr_tlv_sid_label_range {
 	struct subtlv_sid_label lower;
 };
 
-/* RI Node/MSD TLV as per draft-ietf-ospf-segment-routing-msd-05 */
+/* RI Node/MSD TLV as per RFC 8476 */
 #define RI_SR_TLV_NODE_MSD		12
 struct ri_sr_tlv_node_msd {
 	struct tlv_header header;
@@ -172,23 +181,48 @@ struct ext_subtlv_lan_adj_sid {
  * Following section define structure used to manage Segment Routing
  * information and TLVs / SubTLVs
  */
+/* Default min and size of SR Global Block label range */
+#define DEFAULT_SRGB_LABEL        16000
+#define DEFAULT_SRGB_SIZE         8000
 
-/* Structure aggregating SRGB info retrieved from an lsa */
-struct sr_srgb {
+/* Default min and size of SR Local Block label range */
+#define DEFAULT_SRLB_LABEL        15000
+#define DEFAULT_SRLB_SIZE         1000
+
+/* Structure aggregating SR Range Block info retrieved from an lsa */
+struct sr_block {
 	uint32_t range_size;
 	uint32_t lower_bound;
 };
 
+/* Segment Routing Global Block allocation */
+struct sr_global_block {
+	bool reserved;
+	uint32_t start;
+	uint32_t size;
+};
+
+/* Segment Routing Local Block allocation */
+struct sr_local_block {
+	bool reserved;
+	uint32_t start;
+	uint32_t end;
+	uint32_t current;
+	uint32_t max_block;
+	uint64_t *used_mark;
+};
+#define SRLB_BLOCK_SIZE 64
+
 /* SID type to make difference between loopback interfaces and others */
-enum sid_type { PREF_SID, ADJ_SID, LAN_ADJ_SID };
+enum sid_type { PREF_SID, LOCAL_SID, ADJ_SID, LAN_ADJ_SID };
+
+/* Status of Segment Routing: Off (Disable), On (Enable), (Up) Started */
+enum sr_status { SR_OFF, SR_ON, SR_UP, SR_DOWN };
 
 /* Structure aggregating all OSPF Segment Routing information for the node */
 struct ospf_sr_db {
-	/* Status of Segment Routing: enable or disable */
-	bool enabled;
-
-	/* Ongoing Update following an OSPF SPF */
-	bool update;
+	/* Status of Segment Routing */
+	enum sr_status status;
 
 	/* Flooding Scope: Area = 10 or AS = 11 */
 	uint8_t scope;
@@ -210,9 +244,16 @@ struct ospf_sr_db {
 	 * Segment Routing Global Block i.e. label range
 	 * Only one range supported in this code
 	 */
-	struct sr_srgb srgb;
+	struct sr_global_block srgb;
+
+	/* Segment Routing Local Block */
+	struct sr_local_block srlb;
+
 	/* Maximum SID Depth supported by the node */
 	uint8_t msd;
+
+	/* Thread timer to start Label Manager */
+	struct thread *t_start_lm;
 };
 
 /* Structure aggregating all received SR info from LSAs by node */
@@ -222,9 +263,9 @@ struct sr_node {
 	uint32_t instance;
 
 	uint8_t algo[ALGORITHM_COUNT]; /* Algorithms supported by the node */
-	/* Segment Routing Global Block i.e. label range */
-	struct sr_srgb srgb;
-	uint8_t msd; /* Maximum SID Depth */
+	struct sr_block srgb;          /* Segment Routing Global Block */
+	struct sr_block srlb;          /* Segment Routing Local Block */
+	uint8_t msd;                   /* Maximum SID Depth */
 
 	/* List of Prefix & Link advertise by this node */
 	struct list *ext_prefix; /* For Node SID */
@@ -234,10 +275,8 @@ struct sr_node {
 	struct sr_node *neighbor;
 };
 
-
 /* Segment Routing - NHLFE info: support IPv4 Only */
 struct sr_nhlfe {
-	struct prefix_ipv4 prefv4;
 	struct in_addr nexthop;
 	ifindex_t ifindex;
 	mpls_label_t label_in;
@@ -251,6 +290,9 @@ struct sr_link {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
 
+	/* Interface address */
+	struct in_addr itf_addr;
+
 	/* Flags to manage this link parameters. */
 	uint8_t flags[2];
 
@@ -258,7 +300,7 @@ struct sr_link {
 	uint32_t sid[2];
 	enum sid_type type;
 
-	/* SR NHLFE for this link */
+	/* SR NHLFE (Primary + Backup) for this link */
 	struct sr_nhlfe nhlfe[2];
 
 	/* Back pointer to SR Node which advertise this Link */
@@ -271,6 +313,9 @@ struct sr_prefix {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
 
+	/* Prefix itself */
+	struct prefix_ipv4 prefv4;
+
 	/* Flags to manage this prefix parameters. */
 	uint8_t flags;
 
@@ -278,17 +323,17 @@ struct sr_prefix {
 	uint32_t sid;
 	enum sid_type type;
 
-	/* SR NHLFE for this prefix */
+	/* Incoming label for this prefix */
+	mpls_label_t label_in;
+
+	/* Back pointer to OSPF Route for remote prefix */
+	struct ospf_route *route;
+
+	/* NHLFE for local prefix */
 	struct sr_nhlfe nhlfe;
 
 	/* Back pointer to SR Node which advertise this Prefix */
 	struct sr_node *srn;
-
-	/*
-	 * Pointer to SR Node which is the next hop for this Prefix
-	 * or NULL if next hop is the destination of the prefix
-	 */
-	struct sr_node *nexthop;
 };
 
 /* Prototypes definition */
@@ -296,6 +341,9 @@ struct sr_prefix {
 extern int ospf_sr_init(void);
 extern void ospf_sr_term(void);
 extern void ospf_sr_finish(void);
+/* Segment Routing label allocation functions */
+extern mpls_label_t ospf_sr_local_block_request_label(void);
+extern int ospf_sr_local_block_release_label(mpls_label_t label);
 /* Segment Routing LSA update & delete functions */
 extern void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa);
 extern void ospf_sr_ri_lsa_delete(struct ospf_lsa *lsa);
@@ -303,10 +351,14 @@ extern void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa);
 extern void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa);
 extern void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa);
 extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa);
+/* Segment Routing Extending Link management */
+struct ext_itf;
+extern void ospf_sr_ext_itf_add(struct ext_itf *exti);
+extern void ospf_sr_ext_itf_delete(struct ext_itf *exti);
 /* Segment Routing configuration functions */
-extern uint32_t get_ext_link_label_value(void);
 extern void ospf_sr_config_write_router(struct vty *vty);
-extern void ospf_sr_update_prefix(struct interface *ifp, struct prefix *p);
+extern void ospf_sr_update_local_prefix(struct interface *ifp,
+					struct prefix *p);
 /* Segment Routing re-routing function */
-extern void ospf_sr_update_timer_add(struct ospf *ospf);
+extern void ospf_sr_update_task(struct ospf *ospf);
 #endif /* _FRR_OSPF_SR_H */

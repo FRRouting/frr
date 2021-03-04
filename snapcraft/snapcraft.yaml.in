@@ -259,7 +259,7 @@ parts:
            - usr/lib/x86_64-linux-gnu/libssh.so*
         source: https://github.com/rtrlib/rtrlib.git
         source-type: git
-        source-tag: v0.6.3
+        source-tag: v0.7.0
         plugin: cmake
         configflags:
            - -DCMAKE_BUILD_TYPE=Release
@@ -273,12 +273,12 @@ parts:
            - libpcre3
         source: https://github.com/CESNET/libyang.git
         source-type: git
-        source-tag: v0.16-r3
+        source-tag: v1.0.184
         plugin: cmake
         configflags:
            - -DCMAKE_INSTALL_PREFIX:PATH=/usr
            - -DENABLE_LYD_PRIV=ON
-           - -DENABLE_CACHE=OFF
+           - -DENABLE_CACHE=ON
            - -DCMAKE_BUILD_TYPE:String="Release"
     frr: 
         after: [rtrlib,libyang]
@@ -392,6 +392,6 @@ parts:
 
 passthrough:
     layout:
-         /usr/lib/x86_64-linux-gnu/libyang:
-             bind: $SNAP/usr/lib/x86_64-linux-gnu/libyang
+         /usr/lib/x86_64-linux-gnu/libyang1:
+             bind: $SNAP/usr/lib/x86_64-linux-gnu/libyang1
 

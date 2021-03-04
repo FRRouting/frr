@@ -53,7 +53,7 @@ follow these steps:
          zlog_debug(string.format("afi: %d: %s %d ifdx: %d aspath: %s localpref: %d",
                     prefix.family, prefix.route, nexthop.metric,
                     nexthop.ifindex, nexthop.aspath, nexthop.localpref))
-    
+
          nexthop.metric =  33
          nexthop.localpref = 13
          return 3

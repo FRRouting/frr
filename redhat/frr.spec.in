@@ -25,7 +25,6 @@
 %{!?with_pbrd:          %global  with_pbrd          1 }
 %{!?with_pimd:          %global  with_pimd          1 }
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
-%{!?with_rpki:          %global  with_rpki          0 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 
@@ -170,7 +169,7 @@ BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
-BuildRequires:  libyang-devel >= 0.16.74
+BuildRequires:  libyang-devel >= 1.0.184
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -191,9 +190,6 @@ BuildRequires:  platform-python-devel
 Requires:       initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
-%endif
-%if %{with_rpki}
-BuildRequires:  librtr-devel >= 0.5
 %endif
 %if "%{initsystem}" == "systemd"
 BuildRequires:      systemd
@@ -259,6 +255,32 @@ Requires: %{name} = %{version}-%{release}
 %description devel
 The frr-devel package contains the header and object files neccessary for
 developing OSPF-API and frr applications.
+
+
+%package rpki-rtrlib
+Summary: BGP RPKI support (rtrlib)
+Group: System Environment/Daemons
+BuildRequires:  librtr-devel >= 0.5
+Requires: %{name} = %{version}-%{release}
+
+%description rpki-rtrlib
+Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
+against cryptographic information stored in WHOIS databases.  This is
+used to prevent hijacking of networks on the wider internet.  It is only
+relevant to internet service providers using their own autonomous system
+number.
+
+
+%package snmp
+Summary: SNMP support
+Group: System Environment/Daemons
+BuildRequires: net-snmp-devel
+Requires: %{name} = %{version}-%{release}
+
+%description snmp
+Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
+through the AgentX protocol.  Provides read-only access to current
+routing state through standard SNMP MIBs.
 
 
 %prep
@@ -370,16 +392,13 @@ developing OSPF-API and frr applications.
 %if "%{initsystem}" == "systemd"
     --enable-systemd \
 %endif
-%if %{with_rpki}
     --enable-rpki \
-%else
-    --disable-rpki \
-%endif
 %if %{with_bfdd}
     --enable-bfdd \
 %else
     --disable-bfdd \
 %endif
+    --enable-snmp
     # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
@@ -425,10 +444,6 @@ ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 %endif
 
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
-# add rpki module to daemon
-%if %{with_rpki}
-    sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{buildroot}%{_sysconfdir}/frr/daemons
-%endif
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
@@ -666,13 +681,11 @@ fi
 %if %{with_bfdd}
     %{_sbindir}/bfdd
 %endif
-%{_libdir}/lib*.so.0
-%{_libdir}/lib*.so.0.*
+%{_libdir}/libfrr.so*
+%{_libdir}/libfrrcares*
+%{_libdir}/libfrrospf*
 %if %{with_fpm}
     %{_libdir}/frr/modules/zebra_fpm.so
-%endif
-%if %{with_rpki}
-    %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
 %{_libdir}/frr/modules/zebra_cumulus_mlag.so
 %{_libdir}/frr/modules/dplane_fpm_nl.so
@@ -706,10 +719,26 @@ fi
 %else
 %{_sbindir}/generate_support_bundle.pyc
 %{_sbindir}/generate_support_bundle.pyo
-%{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
 %endif
+
+
+%post rpki-rtrlib
+# add rpki module to daemons
+sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{_sysconfdir}/frr/daemons
+
+%postun rpki-rtrlib
+# remove rpki module from daemons
+sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
+
+%files rpki-rtrlib
+%{_libdir}/frr/modules/bgpd_rpki.so
+
+
+%files snmp
+%{_libdir}/libfrrsnmp.so*
+%{_libdir}/frr/modules/*snmp.so
 
 
 %files devel
@@ -729,7 +758,156 @@ fi
 
 
 %changelog
-* Tue Jun 30 2020 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Wed Mar  3 2021 Martin Winter <mwinter@opensourcerouting.org> - 7.5.1
+- BABEL:
+-    Fix connected route leak on change
+- BFD:
+-    Session lookup was sometimes wrong
+-    Memory leak and handling cleanups
+-    In some situations handle vrf appropriately when receiving packets
+- BGP:
+-    Peer Group Inheritance Fixes
+-    Dissallow attempt to peer peers reachable via blackholes
+-    Send BMP down message when reachability fails
+-    Cleanup handling of aggregator data when the AGG AS is 0
+-    Handle `neighbor <peer-group allowas-in` config changes properly
+-    Properly parse community and lcommunity values in some circumstances
+-    Allow peer-groups to configure `ttl-security hops`
+-    Prevent v6 routes with v4 nexthops from being installed
+-    Allow `default-originate` to be cleared from a peer group
+-    Fix evpn route-map vni filter at origin
+-    local routes were using non-default distance
+-    Properly track if the nexthop was updated in some circumstances
+-    Cleanup `show running` when running bgp with `-e X` values
+-    Various Memory leaks in show commands
+-    Properly withdraw exported routes when deleting a VRF
+-    Avoid resetting ebgp-multihop if peer setting is the same as peer-group
+-    Properly encode flowspec rules to zebra in some rare circumstances
+-    Generate statistics for routes in bgp when we have exactly 1 route
+-    Properly apply route-map for the default-originate command
+- EIGRP:
+-    Properly set MTU for eigrp packets sent
+-    Various memory leaks and using uninited data fixes
+- ISIS:
+-    When last area address is removed, resign if we were the DR
+-    Various memory leaks and using uninited data fixes
+- LDP:
+-    Various memory leaks and using uninited data fixes
+- NHRP:
+-    Use onlink routes when prefix == nh
+-    Shortcut routes are installed with proper nexthop
+- OSPF:
+-    Prevent duplicate packet read in multiple vrf situation
+-    Fix area removal at interface level
+-    Restore Point to MultiPoint interface types
+-    Correctly handle MTU change on startup
+-    Multi Instance initialization sometimes was not successful
+-    NSSA translate-always was not working properly
+- OSPFv3:
+-    Don't send hellos on loopback interfaces
+-    Handle ECMP better when a sub-path is removed
+-    Memory leak and handling fixes
+-    Fix Link LSA not updating when router priority is modified
+-    Some output from show commands was wrong
+-    Intra area remote connected prefixes sometimes not installed
+- PBR:
+-    Various memory leaks and using uninited data fixes
+- PIM:
+-    SGRpt prune received during prune didn't override holdtime
+-    Various memory leaks and using uninited data fixes
+- STATIC:
+-    Fix VRF and usage on startup in some instances
+-    Tableid was being mishandled in some cases
+- VTYSH:
+-    Disable bracketed paste in readline.
+- WATCHFRR:
+-    Various memory leaks and using uninited data fixes
+- ZEBRA:
+-    Always install blackhole routes using kernel routes instead of nexthops
+-    Various memory leaks and using uninited data fixes
+-    Dissallow resolution to duplicate nexthops that created infinite nexthops
+-    Apply the route-map delay-timer globally
+-    Some routes were stuck in Queued state when using the FPM
+-    Better handle vrf creation when using namespaces
+-    Set NUD_NOARP on sticky mac entries in addtion to NTF_STICKY
+-    Allow `set src X` to work on startup
+- FRR Library:
+-    Fix a variety of memory leaks
+-    Fix VRF Creation in some instances
+-    RPKI context editing was not properly handled in reload situations
+-    routemap code was not properly handling modification of CLI in some instances
+- SNAPCRAFT:
+-    Update to using rtrlib 0.7.0
+-    Fix passthrough path for Libyang 1.x
+- ALPINE:
+-    Remove old docker deps
+
+* Mon Nov  2 2020 Donald Sharp <sharpd@nvidia.com> - 7.5
+- BFD
+- 	Profile support
+- 	Minimum ttl support
+- BGP
+- 	rpki VRF support
+- 	GR fixes
+- 	Add wide option to display of routes
+- 	Add `maximum-prefix <num> force`
+- 	Add `bestpath-routes` to neighbor command
+- 	Add `bgp shutdown message MSG...` command
+- 	Add v6 Flowspec support
+- 	Add `neighbor <neigh> shutdown rtt` command
+- 	Allow update-delay to be applied globaly
+- EVPN
+- 	Beginning of MultiHoming Support
+- ISIS
+- 	Segment Routing Support
+- 	VRF Support
+- 	Guard against adj timer display overflow
+- 	Add support for Anycast-SIDs
+- 	Add support for Topology Independent LFA (TI-LFA)
+- 	Add `lsp-gen-interval 2` to isis configuration
+- OSPF
+- 	Segment Routing support for ECMP
+- 	Various LSA fixes
+- 	Prevent crash if transferring config amongst instances
+- PBR
+- 	Adding json support to commands
+- 	DSCP/ECN based PBR Matching
+- PIM
+- 	Add more json support to commands
+- 	Fix missing mesh-group commands
+- 	MSDP SA forwarding
+- 	Clear (s,g,rpt) ifchannel on (*, G) prune received
+- 	Fix igmp querier election and IP address mapping
+- 	Crash fix when RP is removed
+- STATIC
+- 	Northbound Support
+- YANG
+- 	Filter and route-map Support
+- 	OSPF model definition
+- 	BGP model definition
+- VTYSH
+- 	Speed up output across daemons
+- 	Fix build-time errors for some --enable flags
+- 	Speed up output of configuration across daemons
+- ZEBRA
+- 	nexthop group support for FPM
+- 	northbound support for rib model
+- 	Backup nexthop support
+- 	netlink batching support
+- 	Allow upper level protocols to request ARP
+- 	Add json output for zebra ES, ES-EVI and access vlan dumps
+- 
+- Upgrade to using libyang1.0.184
+- 
+- RPM
+- 	Moved RPKI to subpackage
+- 	Added SNMP subpackage
+- 
+- As always there are too many bugfixes to list individually.  This release
+- compromises just over 1k of commits by the community, with contributors from
+- 70 people.
+
+* Tue Jun 30 2020 Martin Winter <mwinter@opensourcerouting.org> - 7.4
 - BGPd
 -    Use sequence numbers for community lists
 -    Fixes to nexthop groups
@@ -859,7 +1037,7 @@ fi
 -   fix missing vrrpd daemon
 - Others
 -   Rename man pages (to avoid conflicts with other packages)
--   Various other fixes for code cleanup and memory leaks 
+-   Various other fixes for code cleanup and memory leaks
 
 * Fri Dec 27 2019 Donatas Abraitis <donatas.abraitis@gmail.com>
 - Add CentOS 8 support

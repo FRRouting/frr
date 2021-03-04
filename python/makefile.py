@@ -73,10 +73,17 @@ while lines:
         out_lines.append(line)
         continue
 
-    m = make_rule_re.match(line)
+    full_line = line
+    full_lines = lines[:]
+    while full_line.endswith('\\'):
+        full_line = full_line[:-1] + full_lines.pop(0)
+
+    m = make_rule_re.match(full_line)
     if m is None:
         out_lines.append(line)
         continue
+
+    line, lines = full_line, full_lines
 
     target, dep = m.group(1), m.group(2)
 

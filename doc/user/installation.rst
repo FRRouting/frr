@@ -31,8 +31,11 @@ From Source
 
 Building FRR from source is the best way to ensure you have the latest features
 and bug fixes. Details for each supported platform, including dependency
-package listings, permissions, and other gotchas, are in the developer's
-documentation. This section provides a brief overview on the process.
+package listings, permissions, and other gotchas, are in the `developer's
+documentation
+<http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_. This
+section provides a brief overview on the process.
+
 
 Getting the Source
 ^^^^^^^^^^^^^^^^^^
@@ -255,12 +258,6 @@ options from the list below.
    mind.  Specifically turn on -g3 -O0 for compiling options and add inclusion
    of grammar sandbox.
 
-.. option:: --enable-fuzzing
-
-   Turn on some compile options to allow you to run fuzzing tools against the
-   system. This flag is intended as a developer only tool and should not be
-   used for normal operations.
-
 .. option:: --disable-snmp
 
    Build without SNMP support.
@@ -278,6 +275,18 @@ options from the list below.
    Alpine Linux does not allow non-numeric characters in the version string.
    With this option, we provide a way to strip out these characters for APK dev
    package builds.
+
+..option:: --disable-version-build-config
+
+   Remove the "configuerd with" field that has all of the build configuration
+   arguments when reporting the version string in `show version` command.
+
+..option:: --with-pkg-extra-version=VER
+   Add extra version field, for packagers/distributions
+
+..option::  --with-pkg-git-version
+
+   Add git information to MOTD and build version string
 
 .. option:: --enable-multipath=X
 
@@ -516,34 +525,13 @@ Additional kernel modules are also needed to support MPLS forwarding.
    features can be found in
    http://schd.ws/hosted_files/ossna2017/fe/vrf-tutorial-oss.pdf.
 
-   The following impacts how BGP TCP sockets are managed across VRFs:
-
-   .. code-block:: shell
-
-      net.ipv4.tcp_l3mdev_accept=0
-
-   With this setting a BGP TCP socket is opened per VRF.  This setting
-   ensures that other TCP services, such as SSH, provided for non-VRF
-   purposes are blocked from VRF associated Linux interfaces.
-
-   .. code-block:: shell
-
-      net.ipv4.tcp_l3mdev_accept=1
-
-   With this setting a single BGP TCP socket is shared across the
-   system.  This setting exposes any TCP service running on the system,
-   e.g., SSH, to all VRFs.  Generally this setting is not used in
-   environments where VRFs are used to support multiple administrative
-   groups.
+   A separate BGP TCP socket is opened per VRF.
 
    **Important note** as of June 2018, Kernel versions 4.14-4.18 have a
    known bug where VRF-specific TCP sockets are not properly handled. When
    running these kernel versions, if unable to establish any VRF BGP
-   adjacencies, either downgrade to 4.13 or set
-   'net.ipv4.tcp_l3mdev_accept=1'. The fix for this issue is planned to be
-   included in future kernel versions. So upgrading your kernel may also
-   address this issue.
-
+   adjacencies, downgrade to 4.13. The issue was fixed in 4.14.57, 4.17.9
+   and more recent kernel versions.
 
 Building
 ^^^^^^^^

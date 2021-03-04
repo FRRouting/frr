@@ -22,9 +22,9 @@
 struct isis_circuit;
 
 void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command);
-void isis_bfd_circuit_param_set(struct isis_circuit *circuit,
-				uint32_t min_rx, uint32_t min_tx,
-				uint32_t detect_mult, int defaults);
+void isis_bfd_circuit_param_set(struct isis_circuit *circuit, uint32_t min_rx,
+				uint32_t min_tx, uint32_t detect_mult,
+				const char *profile, int defaults);
 void isis_bfd_init(void);
 
 #endif

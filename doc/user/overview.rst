@@ -31,7 +31,8 @@ information, as well as links to additional resources.
 Several distributions provide packages for FRR. Check your distribution's
 repositories to find out if a suitable version is available.
 
-Up-to-date Debian packages are available at https://deb.frrouting.org/.
+Up-to-date Debian & Redhat packages are available at https://deb.frrouting.org/
+& https://rpm.frrouting.org/ respectively.
 
 For instructions on installing from source, refer to the
 `developer documentation <http://docs.frrouting.org/projects/dev-guide/en/latest/>`_.
@@ -290,6 +291,8 @@ BGP
   :t:`A Border Gateway Protocol 4 (BGP-4). Updates RFC1771. Y. Rekhter, T. Li & S. Hares. January 2006.`
 - :rfc:`4364`
   :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. Feb 2006.`
+- :rfc:`4486`
+  :t:`Subcodes for BGP Cease Notification Message. E. Chen, V. Gillet. April 2006.`
 - :rfc:`4659`
   :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006.`
 - :rfc:`4893`
@@ -320,6 +323,8 @@ BGP
   :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017`
 - :rfc:`8195`
   :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt, June 2017`
+- :rfc:`8203`
+  :t:`BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder. July 2017.`
 - :rfc:`8212`
   :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017`
 - :rfc:`8277`
@@ -395,6 +400,13 @@ MPLS
 - :rfc:`7552`
   :t:`Updates to LDP for IPv6, R. Asati, C. Pignataro, K. Raza, V. Manral, and R. Papneja. June 2015.`
 
+VRRP
+----
+
+- :rfc:`3768`
+  :t:`Virtual Router Redundancy Protocol (VRRP). R. Hinden. April 2004.`
+- :rfc:`5798`
+  :t:`Virtual Router Redundancy Protocol (VRRP) Version 3 for IPv4 and IPv6. S. Nadas. June 2000.`
 
 SNMP
 ----

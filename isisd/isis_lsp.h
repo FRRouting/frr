@@ -29,6 +29,7 @@
 
 PREDECL_RBTREE_UNIQ(lspdb)
 
+struct isis;
 /* Structure for isis_lsp, this structure will only support the fixed
  * System ID (Currently 6) (atleast for now). In order to support more
  * We will have to split the header into two parts, and for readability
@@ -115,13 +116,36 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		struct isis_tlvs *tlvs, struct stream *stream,
 		struct isis_area *area, int level, bool confusion);
 void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
-void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag);
-void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost);
-void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost);
+void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag,
+		 struct isis *isis);
+void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost,
+	       struct isis *isis);
+void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost,
+		      struct isis *isis);
 int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
-		  char dynhost);
+		  char dynhost, struct isis *isis);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
+
+#define LSP_ITER_CONTINUE 0
+#define LSP_ITER_STOP -1
+
+/* Callback used by isis_lsp_iterate_ip_reach() function. */
+struct isis_subtlvs;
+typedef int (*lsp_ip_reach_iter_cb)(const struct prefix *prefix,
+				    uint32_t metric, bool external,
+				    struct isis_subtlvs *subtlvs, void *arg);
+
+/* Callback used by isis_lsp_iterate_is_reach() function. */
+typedef int (*lsp_is_reach_iter_cb)(const uint8_t *id, uint32_t metric,
+				    bool oldmetric,
+				    struct isis_ext_subtlvs *subtlvs,
+				    void *arg);
+
+int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
+			      lsp_ip_reach_iter_cb cb, void *arg);
+int isis_lsp_iterate_is_reach(struct isis_lsp *lsp, uint16_t mtid,
+			      lsp_is_reach_iter_cb cb, void *arg);
 
 #define lsp_flood(lsp, circuit) \
 	_lsp_flood((lsp), (circuit), __func__, __FILE__, __LINE__)

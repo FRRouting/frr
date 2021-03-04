@@ -1283,8 +1283,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	pim_inet4_dump("<bsr?>", bshdr->bsr_addr.addr, bsr_str,
 		       sizeof(bsr_str));
 	if (bshdr->hm_len > 32) {
-		zlog_warn("Bad hashmask length for IPv4; got %" PRIu8
-			  ", expected value in range 0-32",
+		zlog_warn("Bad hashmask length for IPv4; got %hhu, expected value in range 0-32",
 			  bshdr->hm_len);
 		pim->bsm_dropped++;
 		return -1;

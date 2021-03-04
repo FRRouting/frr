@@ -710,8 +710,7 @@ fill_rtt_message(struct interface *ifp)
             DO_HTONL(babel_ifp->sendbuf + babel_ifp->buffered_hello + 10, time);
             return 1;
         } else {
-            flog_err(EC_BABEL_PACKET, "No space left for timestamp sub-TLV "
-                     "(this shouldn't happen)");
+            flog_err(EC_BABEL_PACKET, "No space left for timestamp sub-TLV (this shouldn't happen)");
             return -1;
         }
     }

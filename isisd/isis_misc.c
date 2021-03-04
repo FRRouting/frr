@@ -190,7 +190,7 @@ const char *nlpid2str(uint8_t nlpid)
 	case NLPID_ESIS:
 		return "ES-IS";
 	default:
-		snprintf(buf, sizeof(buf), "%" PRIu8, nlpid);
+		snprintf(buf, sizeof(buf), "%hhu", nlpid);
 		return buf;
 	}
 }
@@ -440,12 +440,14 @@ struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen)
 const char *print_sys_hostname(const uint8_t *sysid)
 {
 	struct isis_dynhn *dyn;
+	struct isis *isis = NULL;
 
 	if (!sysid)
 		return "nullsysid";
 
 	/* For our system ID return our host name */
-	if (memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN) == 0)
+	isis = isis_lookup_by_sysid(sysid);
+	if (isis && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
 
 	dyn = dynhn_find_by_id(sysid);

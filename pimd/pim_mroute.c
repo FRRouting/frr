@@ -592,12 +592,9 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	struct pim_interface *pim_ifp;
 	const struct ip *ip_hdr;
 	const struct igmpmsg *msg;
-	char ip_src_str[INET_ADDRSTRLEN] = "";
-	char ip_dst_str[INET_ADDRSTRLEN] = "";
-	char src_str[INET_ADDRSTRLEN] = "<src?>";
-	char grp_str[INET_ADDRSTRLEN] = "<grp?>";
 	struct in_addr ifaddr;
 	struct igmp_sock *igmp;
+	const struct prefix *connected_src;
 
 	if (buf_size < (int)sizeof(struct ip))
 		return 0;
@@ -617,34 +614,37 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 		if (!ifp || !ifp->info)
 			return 0;
 
+		connected_src = pim_if_connected_to_source(ifp, ip_hdr->ip_src);
+
+		if (!connected_src) {
+			if (PIM_DEBUG_IGMP_PACKETS) {
+				zlog_debug("Recv IGMP packet on interface: %s from a non-connected source: %pI4",
+					   ifp->name, &ip_hdr->ip_src);
+			}
+			return 0;
+		}
+
 		pim_ifp = ifp->info;
-		ifaddr = pim_find_primary_addr(ifp);
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
-						   ifaddr);
+		ifaddr = connected_src->u.prefix4;
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
 
 		if (PIM_DEBUG_MROUTE) {
-			pim_inet4_dump("<src?>", ip_hdr->ip_src, ip_src_str,
-				       sizeof(ip_src_str));
-			pim_inet4_dump("<dst?>", ip_hdr->ip_dst, ip_dst_str,
-				       sizeof(ip_dst_str));
-
 			zlog_debug(
-				"%s(%s): igmp kernel upcall on %s(%p) for %s -> %s",
+				"%s(%s): igmp kernel upcall on %s(%p) for %pI4 -> %pI4",
 				__func__, pim->vrf->name, ifp->name, igmp,
-				ip_src_str, ip_dst_str);
+				&ip_hdr->ip_src, &ip_hdr->ip_dst);
 		}
 		if (igmp)
 			pim_igmp_packet(igmp, (char *)buf, buf_size);
-
+		else if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug("No IGMP socket on interface: %s with connected source: %pFX",
+				   ifp->name, connected_src);
+		}
 	} else if (ip_hdr->ip_p) {
 		if (PIM_DEBUG_MROUTE_DETAIL) {
-			pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str,
-				       sizeof(src_str));
-			pim_inet4_dump("<grp?>", ip_hdr->ip_dst, grp_str,
-				       sizeof(grp_str));
 			zlog_debug(
-				"%s: no kernel upcall proto=%d src: %s dst: %s msg_size=%d",
-				__func__, ip_hdr->ip_p, src_str, grp_str,
+				"%s: no kernel upcall proto=%d src: %pI4 dst: %pI4 msg_size=%d",
+				__func__, ip_hdr->ip_p, &ip_hdr->ip_src, &ip_hdr->ip_dst,
 				buf_size);
 		}
 
@@ -656,15 +656,11 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 		if (!ifp)
 			return 0;
 		if (PIM_DEBUG_MROUTE) {
-			pim_inet4_dump("<src?>", msg->im_src, src_str,
-				       sizeof(src_str));
-			pim_inet4_dump("<grp?>", msg->im_dst, grp_str,
-				       sizeof(grp_str));
 			zlog_debug(
-				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d  size=%d",
+				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pI4,%pI4) on %s vifi=%d  size=%d",
 				__func__, igmpmsgtype2str[msg->im_msgtype],
 				msg->im_msgtype, ip_hdr->ip_p,
-				pim->mroute_socket, src_str, grp_str, ifp->name,
+				pim->mroute_socket, &msg->im_src, &msg->im_dst, ifp->name,
 				msg->im_vif, buf_size);
 		}
 

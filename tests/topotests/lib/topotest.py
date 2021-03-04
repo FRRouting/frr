@@ -29,14 +29,15 @@ import re
 import sys
 import functools
 import glob
-import StringIO
 import subprocess
 import tempfile
 import platform
 import difflib
 import time
+import signal
 
 from lib.topolog import logger
+from copy import deepcopy
 
 if sys.version_info[0] > 2:
     import configparser
@@ -50,6 +51,35 @@ from mininet.log import setLogLevel, info
 from mininet.cli import CLI
 from mininet.link import Intf
 
+def gdb_core(obj, daemon, corefiles):
+    gdbcmds = '''
+        info threads
+        bt full
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+    '''
+    gdbcmds = [['-ex', i.strip()] for i in gdbcmds.strip().split('\n')]
+    gdbcmds = [item for sl in gdbcmds for item in sl]
+
+    daemon_path = os.path.join(obj.daemondir, daemon)
+    backtrace = subprocess.check_output(
+        ['gdb', daemon_path, corefiles[0], '--batch'] + gdbcmds
+    )
+    sys.stderr.write(
+        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
+        % (obj.name, daemon)
+    )
+    sys.stderr.write("%s" % backtrace)
+    return backtrace
 
 class json_cmp_result(object):
     "json_cmp result class for better assertion messages"
@@ -66,144 +96,212 @@ class json_cmp_result(object):
         "Returns True if there were errors, otherwise False."
         return len(self.errors) > 0
 
+    def gen_report(self):
+        headline = ["Generated JSON diff error report:", ""]
+        return headline + self.errors
+
     def __str__(self):
-        return "\n".join(self.errors)
+        return (
+            "Generated JSON diff error report:\n\n\n" + "\n".join(self.errors) + "\n\n"
+        )
 
 
-def json_diff(d1, d2):
+def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     """
-    Returns a string with the difference between JSON data.
+    Internal workhorse which compares two JSON data structures and generates an error report suited to be read by a human eye.
     """
-    json_format_opts = {
-        "indent": 4,
-        "sort_keys": True,
-    }
-    dstr1 = json.dumps(d1, **json_format_opts)
-    dstr2 = json.dumps(d2, **json_format_opts)
-    return difflines(dstr2, dstr1, title1="Expected value", title2="Current value", n=0)
 
-
-def _json_list_cmp(list1, list2, parent, result):
-    "Handles list type entries."
-    # Check second list2 type
-    if not isinstance(list1, type([])) or not isinstance(list2, type([])):
-        result.add_error(
-            "{} has different type than expected ".format(parent)
-            + "(have {}, expected {}):\n{}".format(
-                type(list1), type(list2), json_diff(list1, list2)
+    def dump_json(v):
+        if isinstance(v, (dict, list)):
+            return "\t" + "\t".join(
+                json.dumps(v, indent=4, separators=(",", ": ")).splitlines(True)
             )
-        )
-        return
+        else:
+            return "'{}'".format(v)
 
-    # Check list size
-    if len(list2) > len(list1):
-        result.add_error(
-            "{} too few items ".format(parent)
-            + "(have {}, expected {}:\n {})".format(
-                len(list1), len(list2), json_diff(list1, list2)
+    def json_type(v):
+        if isinstance(v, (list, tuple)):
+            return "Array"
+        elif isinstance(v, dict):
+            return "Object"
+        elif isinstance(v, (int, float)):
+            return "Number"
+        elif isinstance(v, bool):
+            return "Boolean"
+        elif isinstance(v, str):
+            return "String"
+        elif v == None:
+            return "null"
+
+    def get_errors(other_acc):
+        return other_acc[1]
+
+    def get_errors_n(other_acc):
+        return other_acc[0]
+
+    def add_error(acc, msg, points=1):
+        return (acc[0] + points, acc[1] + "{}: {}\n".format(path, msg))
+
+    def merge_errors(acc, other_acc):
+        return (acc[0] + other_acc[0], acc[1] + other_acc[1])
+
+    def add_idx(idx):
+        return "{}[{}]".format(path, idx)
+
+    def add_key(key):
+        return "{}->{}".format(path, key)
+
+    def has_errors(other_acc):
+        return other_acc[0] > 0
+
+    if d2 == "*" or (
+        not isinstance(d1, (list, dict))
+        and not isinstance(d2, (list, dict))
+        and d1 == d2
+    ):
+        return acc
+    elif (
+        not isinstance(d1, (list, dict))
+        and not isinstance(d2, (list, dict))
+        and d1 != d2
+    ):
+        acc = add_error(
+            acc,
+            "d1 has element with value '{}' but in d2 it has value '{}'".format(d1, d2),
+        )
+    elif (
+        isinstance(d1, list)
+        and isinstance(d2, list)
+        and ((len(d2) > 0 and d2[0] == "__ordered__") or exact)
+    ):
+        if not exact:
+            del d2[0]
+        if len(d1) != len(d2):
+            acc = add_error(
+                acc,
+                "d1 has Array of length {} but in d2 it is of length {}".format(
+                    len(d1), len(d2)
+                ),
             )
+        else:
+            for idx, v1, v2 in zip(range(0, len(d1)), d1, d2):
+                acc = merge_errors(
+                    acc, gen_json_diff_report(v1, v2, exact=exact, path=add_idx(idx))
+                )
+    elif isinstance(d1, list) and isinstance(d2, list):
+        if len(d1) < len(d2):
+            acc = add_error(
+                acc,
+                "d1 has Array of length {} but in d2 it is of length {}".format(
+                    len(d1), len(d2)
+                ),
+            )
+        else:
+            for idx2, v2 in zip(range(0, len(d2)), d2):
+                found_match = False
+                closest_diff = None
+                closest_idx = None
+                for idx1, v1 in zip(range(0, len(d1)), d1):
+                    tmp_v1 = deepcopy(v1)
+                    tmp_v2 = deepcopy(v2)
+                    tmp_diff = gen_json_diff_report(tmp_v1, tmp_v2, path=add_idx(idx1))
+                    if not has_errors(tmp_diff):
+                        found_match = True
+                        del d1[idx1]
+                        break
+                    elif not closest_diff or get_errors_n(tmp_diff) < get_errors_n(
+                        closest_diff
+                    ):
+                        closest_diff = tmp_diff
+                        closest_idx = idx1
+                if not found_match and isinstance(v2, (list, dict)):
+                    sub_error = "\n\n\t{}".format(
+                        "\t".join(get_errors(closest_diff).splitlines(True))
+                    )
+                    acc = add_error(
+                        acc,
+                        (
+                            "d2 has the following element at index {} which is not present in d1: "
+                            + "\n\n{}\n\n\tClosest match in d1 is at index {} with the following errors: {}"
+                        ).format(idx2, dump_json(v2), closest_idx, sub_error),
+                    )
+                if not found_match and not isinstance(v2, (list, dict)):
+                    acc = add_error(
+                        acc,
+                        "d2 has the following element at index {} which is not present in d1: {}".format(
+                            idx2, dump_json(v2)
+                        ),
+                    )
+    elif isinstance(d1, dict) and isinstance(d2, dict) and exact:
+        invalid_keys_d1 = [k for k in d1.keys() if k not in d2.keys()]
+        invalid_keys_d2 = [k for k in d2.keys() if k not in d1.keys()]
+        for k in invalid_keys_d1:
+            acc = add_error(acc, "d1 has key '{}' which is not present in d2".format(k))
+        for k in invalid_keys_d2:
+            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
+        valid_keys_intersection = [k for k in d1.keys() if k in d2.keys()]
+        for k in valid_keys_intersection:
+            acc = merge_errors(
+                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+            )
+    elif isinstance(d1, dict) and isinstance(d2, dict):
+        none_keys = [k for k, v in d2.items() if v == None]
+        none_keys_present = [k for k in d1.keys() if k in none_keys]
+        for k in none_keys_present:
+            acc = add_error(
+                acc, "d1 has key '{}' which is not supposed to be present".format(k)
+            )
+        keys = [k for k, v in d2.items() if v != None]
+        invalid_keys_intersection = [k for k in keys if k not in d1.keys()]
+        for k in invalid_keys_intersection:
+            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
+        valid_keys_intersection = [k for k in keys if k in d1.keys()]
+        for k in valid_keys_intersection:
+            acc = merge_errors(
+                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+            )
+    else:
+        acc = add_error(
+            acc,
+            "d1 has element of type '{}' but the corresponding element in d2 is of type '{}'".format(
+                json_type(d1), json_type(d2)
+            ),
+            points=2,
         )
-        return
 
-    # List all unmatched items errors
-    unmatched = []
-    for expected in list2:
-        matched = False
-        for value in list1:
-            if json_cmp({"json": value}, {"json": expected}) is None:
-                matched = True
-                break
-
-        if not matched:
-            unmatched.append(expected)
-
-    # If there are unmatched items, error out.
-    if unmatched:
-        result.add_error(
-            "{} value is different (\n{})".format(parent, json_diff(list1, list2))
-        )
+    return acc
 
 
-def json_cmp(d1, d2):
+def json_cmp(d1, d2, exact=False):
     """
     JSON compare function. Receives two parameters:
-    * `d1`: json value
-    * `d2`: json subset which we expect
+    * `d1`: parsed JSON data structure
+    * `d2`: parsed JSON data structure
 
-    Returns `None` when all keys that `d1` has matches `d2`,
-    otherwise a string containing what failed.
+    Returns 'None' when all JSON Object keys and all Array elements of d2 have a match
+    in d1, e.g. when d2 is a "subset" of d1 without honoring any order. Otherwise an
+    error report is generated and wrapped in a 'json_cmp_result()'. There are special
+    parameters and notations explained below which can be used to cover rather unusual
+    cases:
 
-    Note: key absence can be tested by adding a key with value `None`.
+    * when 'exact is set to 'True' then d1 and d2 are tested for equality (including
+      order within JSON Arrays)
+    * using 'null' (or 'None' in Python) as JSON Object value is checking for key
+      absence in d1
+    * using '*' as JSON Object value or Array value is checking for presence in d1
+      without checking the values
+    * using '__ordered__' as first element in a JSON Array in d2 will also check the
+      order when it is compared to an Array in d1
     """
-    squeue = [(d1, d2, "json")]
-    result = json_cmp_result()
 
-    for s in squeue:
-        nd1, nd2, parent = s
+    (errors_n, errors) = gen_json_diff_report(deepcopy(d1), deepcopy(d2), exact=exact)
 
-        # Handle JSON beginning with lists.
-        if isinstance(nd1, type([])) or isinstance(nd2, type([])):
-            _json_list_cmp(nd1, nd2, parent, result)
-            if result.has_errors():
-                return result
-            else:
-                return None
-
-        # Expect all required fields to exist.
-        s1, s2 = set(nd1), set(nd2)
-        s2_req = set([key for key in nd2 if nd2[key] is not None])
-        diff = s2_req - s1
-        if diff != set({}):
-            result.add_error(
-                "expected key(s) {} in {} (have {}):\n{}".format(
-                    str(list(diff)), parent, str(list(s1)), json_diff(nd1, nd2)
-                )
-            )
-
-        for key in s2.intersection(s1):
-            # Test for non existence of key in d2
-            if nd2[key] is None:
-                result.add_error(
-                    '"{}" should not exist in {} (have {}):\n{}'.format(
-                        key, parent, str(s1), json_diff(nd1[key], nd2[key])
-                    )
-                )
-                continue
-
-            # If nd1 key is a dict, we have to recurse in it later.
-            if isinstance(nd2[key], type({})):
-                if not isinstance(nd1[key], type({})):
-                    result.add_error(
-                        '{}["{}"] has different type than expected '.format(parent, key)
-                        + "(have {}, expected {}):\n{}".format(
-                            type(nd1[key]),
-                            type(nd2[key]),
-                            json_diff(nd1[key], nd2[key]),
-                        )
-                    )
-                    continue
-                nparent = '{}["{}"]'.format(parent, key)
-                squeue.append((nd1[key], nd2[key], nparent))
-                continue
-
-            # Check list items
-            if isinstance(nd2[key], type([])):
-                _json_list_cmp(nd1[key], nd2[key], parent, result)
-                continue
-
-            # Compare JSON values
-            if nd1[key] != nd2[key]:
-                result.add_error(
-                    '{}["{}"] value is different (\n{})'.format(
-                        parent, key, json_diff(nd1[key], nd2[key])
-                    )
-                )
-                continue
-
-    if result.has_errors():
+    if errors_n > 0:
+        result = json_cmp_result()
+        result.add_error(errors)
         return result
-
-    return None
+    else:
+        return None
 
 
 def router_output_cmp(router, cmd, expected):
@@ -218,12 +316,12 @@ def router_output_cmp(router, cmd, expected):
     )
 
 
-def router_json_cmp(router, cmd, data):
+def router_json_cmp(router, cmd, data, exact=False):
     """
     Runs `cmd` that returns JSON data (normally the command ends with 'json')
     and compare with `data` contents.
     """
-    return json_cmp(router.vtysh_cmd(cmd, isjson=True), data)
+    return json_cmp(router.vtysh_cmd(cmd, isjson=True), data, exact)
 
 
 def run_and_expect(func, what, count=20, wait=3):
@@ -352,6 +450,10 @@ def pid_exists(pid):
 
     if pid <= 0:
         return False
+    try:
+        os.waitpid(pid, os.WNOHANG)
+    except:
+        pass
     try:
         os.kill(pid, 0)
     except OSError as err:
@@ -618,6 +720,49 @@ def ip4_route(node):
     return result
 
 
+def ip4_vrf_route(node):
+    """
+    Gets a structured return of the command 'ip route show vrf {0}-cust1'.
+    It can be used in conjuction with json_cmp() to provide accurate assert explanations.
+
+    Return example:
+    {
+        '10.0.1.0/24': {
+            'dev': 'eth0',
+            'via': '172.16.0.1',
+            'proto': '188',
+        },
+        '10.0.2.0/24': {
+            'dev': 'eth1',
+            'proto': 'kernel',
+        }
+    }
+    """
+    output = normalize_text(
+            node.run("ip route show vrf {0}-cust1".format(node.name))).splitlines()
+
+    result = {}
+    for line in output:
+        columns = line.split(" ")
+        route = result[columns[0]] = {}
+        prev = None
+        for column in columns:
+            if prev == "dev":
+                route["dev"] = column
+            if prev == "via":
+                route["via"] = column
+            if prev == "proto":
+                # translate protocol names back to numbers
+                route["proto"] = proto_name_to_number(column)
+            if prev == "metric":
+                route["metric"] = column
+            if prev == "scope":
+                route["scope"] = column
+            prev = column
+
+    return result
+
+
 def ip6_route(node):
     """
     Gets a structured return of the command 'ip -6 route'. It can be used in
@@ -655,6 +800,98 @@ def ip6_route(node):
                 route["pref"] = column
             prev = column
 
+    return result
+
+
+def ip6_vrf_route(node):
+    """
+    Gets a structured return of the command 'ip -6 route show vrf {0}-cust1'.
+    It can be used in conjuction with json_cmp() to provide accurate assert explanations.
+
+    Return example:
+    {
+        '2001:db8:1::/64': {
+            'dev': 'eth0',
+            'proto': '188',
+        },
+        '2001:db8:2::/64': {
+            'dev': 'eth1',
+            'proto': 'kernel',
+        }
+    }
+    """
+    output = normalize_text(
+            node.run("ip -6 route show vrf {0}-cust1".format(node.name))).splitlines()
+    result = {}
+    for line in output:
+        columns = line.split(" ")
+        route = result[columns[0]] = {}
+        prev = None
+        for column in columns:
+            if prev == "dev":
+                route["dev"] = column
+            if prev == "via":
+                route["via"] = column
+            if prev == "proto":
+                # translate protocol names back to numbers
+                route["proto"] = proto_name_to_number(column)
+            if prev == "metric":
+                route["metric"] = column
+            if prev == "pref":
+                route["pref"] = column
+            prev = column
+
+    return result
+
+
+def ip_rules(node):
+    """
+    Gets a structured return of the command 'ip rule'. It can be used in
+    conjuction with json_cmp() to provide accurate assert explanations.
+
+    Return example:
+    [
+        {
+            "pref": "0"
+            "from": "all"
+        },
+        {
+            "pref": "32766"
+            "from": "all"
+        },
+        {
+            "to": "3.4.5.0/24",
+            "iif": "r1-eth2",
+            "pref": "304",
+            "from": "1.2.0.0/16",
+            "proto": "zebra"
+        }
+    ]
+    """
+    output = normalize_text(node.run("ip rule")).splitlines()
+    result = []
+    for line in output:
+        columns = line.split(" ")
+
+        route = {}
+        # remove last character, since it is ':'
+        pref = columns[0][:-1]
+        route["pref"] = pref
+        prev = None
+        for column in columns:
+            if prev == "from":
+                route["from"] = column
+            if prev == "to":
+                route["to"] = column
+            if prev == "proto":
+                route["proto"] = column
+            if prev == "iif":
+                route["iif"] = column
+            if prev == "fwmark":
+                route["fwmark"] = column
+            prev = column
+
+        result.append(route)
     return result
 
 
@@ -801,6 +1038,8 @@ class Router(Node):
             "staticd": 0,
             "bfdd": 0,
             "sharpd": 0,
+            "babeld": 0,
+            "pbrd": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -857,42 +1096,77 @@ class Router(Node):
         self.cmd("chown {0}:{0}vty /etc/{0}".format(self.routertype))
 
     def terminate(self):
-        # Delete Running Quagga or FRR Daemons
+        # Stop running FRR daemons
         self.stopRouter()
-        # rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
-        # for d in StringIO.StringIO(rundaemons):
-        #     self.cmd('kill -7 `cat %s`' % d.rstrip())
-        #     self.waitOutput()
+
         # Disable forwarding
         set_sysctl(self, "net.ipv4.ip_forward", 0)
         set_sysctl(self, "net.ipv6.conf.all.forwarding", 0)
         super(Router, self).terminate()
         os.system("chmod -R go+rw /tmp/topotests")
 
+    # Return count of running daemons
+    def listDaemons(self):
+        ret = []
+        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
+        errors = ""
+        if re.search(r"No such file or directory", rundaemons):
+            return 0
+        if rundaemons is not None:
+            bet = rundaemons.split('\n')
+            for d in bet[:-1]:
+                daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                if daemonpid.isdigit() and pid_exists(int(daemonpid)):
+                    ret.append(os.path.basename(d.rstrip().rsplit(".", 1)[0]))
+
+        return ret
+
     def stopRouter(self, wait=True, assertOnError=True, minErrorVersion="5.1"):
-        # Stop Running Quagga or FRR Daemons
+        # Stop Running FRR Daemons
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
         errors = ""
         if re.search(r"No such file or directory", rundaemons):
             return errors
         if rundaemons is not None:
-            numRunning = 0
-            for d in StringIO.StringIO(rundaemons):
+            dmns = rundaemons.split('\n')
+            # Exclude empty string at end of list
+            for d in dmns[:-1]:
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
+                    daemonname = os.path.basename(d.rstrip().rsplit(".", 1)[0])
                     logger.info(
                         "{}: stopping {}".format(
-                            self.name, os.path.basename(d.rstrip().rsplit(".", 1)[0])
+                            self.name, daemonname
                         )
                     )
-                    self.cmd("kill -TERM %s" % daemonpid)
-                    self.waitOutput()
-                    if pid_exists(int(daemonpid)):
-                        numRunning += 1
-            if wait and numRunning > 0:
-                sleep(2, "{}: waiting for daemons stopping".format(self.name))
+                    try:
+                        os.kill(int(daemonpid), signal.SIGTERM)
+                    except OSError as err:
+                        if err.errno == errno.ESRCH:
+                            logger.error("{}: {} left a dead pidfile (pid={})".format(self.name, daemonname, daemonpid))
+                        else:
+                            logger.info("{}: {} could not kill pid {}: {}".format(self.name, daemonname, daemonpid, str(err)))
+
+            if not wait:
+                return errors
+
+            running = self.listDaemons()
+
+            if running:
+                sleep(0.1, "{}: waiting for daemons stopping: {}".format(self.name, ', '.join(running)))
+                running = self.listDaemons()
+
+                counter = 20
+                while counter > 0 and running:
+                    sleep(0.5, "{}: waiting for daemons stopping: {}".format(self.name, ', '.join(running)))
+                    running = self.listDaemons()
+                    counter -= 1
+
+            if running:
                 # 2nd round of kill if daemons didn't exit
-                for d in StringIO.StringIO(rundaemons):
+                dmns = rundaemons.split('\n')
+                # Exclude empty string at end of list
+                for d in dmns[:-1]:
                     daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                     if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                         logger.info(
@@ -904,13 +1178,16 @@ class Router(Node):
                         self.cmd("kill -7 %s" % daemonpid)
                         self.waitOutput()
                     self.cmd("rm -- {}".format(d.rstrip()))
-        if wait:
-            errors = self.checkRouterCores(reportOnce=True)
-            if self.checkRouterVersion("<", minErrorVersion):
-                # ignore errors in old versions
-                errors = ""
-            if assertOnError and len(errors) > 0:
-                assert "Errors found - details follow:" == 0, errors
+
+        if not wait:
+            return errors
+
+        errors = self.checkRouterCores(reportOnce=True)
+        if self.checkRouterVersion("<", minErrorVersion):
+            # ignore errors in old versions
+            errors = ""
+        if assertOnError and len(errors) > 0:
+            assert "Errors found - details follow:" == 0, errors
         return errors
 
     def removeIPs(self):
@@ -1022,62 +1299,7 @@ class Router(Node):
                 logger.info("BFD Test, but no bfdd compiled or installed")
                 return "BFD Test, but no bfdd compiled or installed"
 
-        self.restartRouter()
-        return ""
-
-    def restartRouter(self):
-        # Starts actual daemons without init (ie restart)
-        # cd to per node directory
-        self.cmd("cd {}/{}".format(self.logdir, self.name))
-        self.cmd("umask 000")
-        # Re-enable to allow for report per run
-        self.reportCores = True
-        if self.version == None:
-            self.version = self.cmd(
-                os.path.join(self.daemondir, "bgpd") + " -v"
-            ).split()[2]
-            logger.info("{}: running version: {}".format(self.name, self.version))
-        # Start Zebra first
-        if self.daemons["zebra"] == 1:
-            zebra_path = os.path.join(self.daemondir, "zebra")
-            zebra_option = self.daemons_options["zebra"]
-            self.cmd(
-                "{0} {1} > zebra.out 2> zebra.err &".format(
-                    zebra_path, zebra_option, self.logdir, self.name
-                )
-            )
-            self.waitOutput()
-            logger.debug("{}: {} zebra started".format(self, self.routertype))
-            sleep(1, "{}: waiting for zebra to start".format(self.name))
-        # Start staticd next if required
-        if self.daemons["staticd"] == 1:
-            staticd_path = os.path.join(self.daemondir, "staticd")
-            staticd_option = self.daemons_options["staticd"]
-            self.cmd(
-                "{0} {1} > staticd.out 2> staticd.err &".format(
-                    staticd_path, staticd_option, self.logdir, self.name
-                )
-            )
-            self.waitOutput()
-            logger.debug("{}: {} staticd started".format(self, self.routertype))
-        # Fix Link-Local Addresses
-        # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
-        self.cmd(
-            "for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; IFS=':'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done"
-        )
-        # Now start all the other daemons
-        for daemon in self.daemons:
-            # Skip disabled daemons and zebra
-            if self.daemons[daemon] == 0 or daemon == "zebra" or daemon == "staticd":
-                continue
-            daemon_path = os.path.join(self.daemondir, daemon)
-            self.cmd(
-                "{0} {1} > {2}.out 2> {2}.err &".format(
-                    daemon_path, self.daemons_options.get(daemon, ""), daemon
-                )
-            )
-            self.waitOutput()
-            logger.debug("{}: {} {} started".format(self, self.routertype, daemon))
+        return self.startRouterDaemons()
 
     def getStdErr(self, daemon):
         return self.getLog("err", daemon)
@@ -1087,6 +1309,170 @@ class Router(Node):
 
     def getLog(self, log, daemon):
         return self.cmd("cat {}/{}/{}.{}".format(self.logdir, self.name, daemon, log))
+
+    def startRouterDaemons(self, daemons=None):
+        "Starts all FRR daemons for this router."
+
+        bundle_data = ''
+
+        if os.path.exists('/etc/frr/support_bundle_commands.conf'):
+            bundle_data = subprocess.check_output(
+                ["cat /etc/frr/support_bundle_commands.conf"], shell=True)
+        self.cmd(
+            "echo '{}' > /etc/frr/support_bundle_commands.conf".format(bundle_data)
+        )
+
+        # Starts actual daemons without init (ie restart)
+        # cd to per node directory
+        self.cmd("cd {}/{}".format(self.logdir, self.name))
+        self.cmd("umask 000")
+
+        # Re-enable to allow for report per run
+        self.reportCores = True
+
+        # XXX: glue code forward ported from removed function.
+        if self.version == None:
+            self.version = self.cmd(
+                os.path.join(self.daemondir, "bgpd") + " -v"
+            ).split()[2]
+            logger.info("{}: running version: {}".format(self.name, self.version))
+
+        # If `daemons` was specified then some upper API called us with
+        # specific daemons, otherwise just use our own configuration.
+        daemons_list = []
+        if daemons != None:
+            daemons_list = daemons
+        else:
+            # Append all daemons configured.
+            for daemon in self.daemons:
+                if self.daemons[daemon] == 1:
+                    daemons_list.append(daemon)
+
+        # Start Zebra first
+        if "zebra" in daemons_list:
+            zebra_path = os.path.join(self.daemondir, "zebra")
+            zebra_option = self.daemons_options["zebra"]
+            self.cmd(
+                "{0} {1} --log stdout --log-level debug -s 90000000 -d > zebra.out 2> zebra.err".format(
+                    zebra_path, zebra_option, self.logdir, self.name
+                )
+            )
+            logger.debug("{}: {} zebra started".format(self, self.routertype))
+
+            # Remove `zebra` so we don't attempt to start it again.
+            while "zebra" in daemons_list:
+                daemons_list.remove("zebra")
+
+        # Start staticd next if required
+        if "staticd" in daemons_list:
+            staticd_path = os.path.join(self.daemondir, "staticd")
+            staticd_option = self.daemons_options["staticd"]
+            self.cmd(
+                "{0} {1} --log stdout --log-level debug -d > staticd.out 2> staticd.err".format(
+                    staticd_path, staticd_option, self.logdir, self.name
+                )
+            )
+            logger.debug("{}: {} staticd started".format(self, self.routertype))
+
+            # Remove `staticd` so we don't attempt to start it again.
+            while "staticd" in daemons_list:
+                daemons_list.remove("staticd")
+
+        # Fix Link-Local Addresses
+        # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
+        self.cmd(
+            "for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; IFS=':'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done"
+        )
+
+        # Now start all the other daemons
+        for daemon in daemons_list:
+            # Skip disabled daemons and zebra
+            if self.daemons[daemon] == 0:
+                continue
+
+            daemon_path = os.path.join(self.daemondir, daemon)
+            self.cmd(
+                "{0} {1} --log stdout --log-level debug -d > {2}.out 2> {2}.err".format(
+                    daemon_path, self.daemons_options.get(daemon, ""), daemon
+                )
+            )
+            logger.debug("{}: {} {} started".format(self, self.routertype, daemon))
+
+        # Check if daemons are running.
+        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
+        if re.search(r"No such file or directory", rundaemons):
+            return "Daemons are not running"
+
+        return ""
+
+    def killRouterDaemons(
+        self, daemons, wait=True, assertOnError=True, minErrorVersion="5.1"
+    ):
+        # Kill Running Quagga or FRR specific
+        # Daemons(user specified daemon only) using SIGKILL
+        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
+        errors = ""
+        daemonsNotRunning = []
+        if re.search(r"No such file or directory", rundaemons):
+            return errors
+        for daemon in daemons:
+            if rundaemons is not None and daemon in rundaemons:
+                numRunning = 0
+                dmns = rundaemons.split('\n')
+                # Exclude empty string at end of list
+                for d in dmns[:-1]:
+                    if re.search(r"%s" % daemon, d):
+                        daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                        if daemonpid.isdigit() and pid_exists(int(daemonpid)):
+                            logger.info(
+                                "{}: killing {}".format(
+                                    self.name,
+                                    os.path.basename(d.rstrip().rsplit(".", 1)[0]),
+                                )
+                            )
+                            self.cmd("kill -9 %s" % daemonpid)
+                            self.waitOutput()
+                            if pid_exists(int(daemonpid)):
+                                numRunning += 1
+                        if wait and numRunning > 0:
+                            sleep(
+                                2,
+                                "{}: waiting for {} daemon to be stopped".format(
+                                    self.name, daemon
+                                ),
+                            )
+
+                            # 2nd round of kill if daemons didn't exit
+                            for d in dmns[:-1]:
+                                if re.search(r"%s" % daemon, d):
+                                    daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                                    if daemonpid.isdigit() and pid_exists(
+                                        int(daemonpid)
+                                    ):
+                                        logger.info(
+                                            "{}: killing {}".format(
+                                                self.name,
+                                                os.path.basename(
+                                                    d.rstrip().rsplit(".", 1)[0]
+                                                ),
+                                            )
+                                        )
+                                        self.cmd("kill -9 %s" % daemonpid)
+                                        self.waitOutput()
+                                    self.cmd("rm -- {}".format(d.rstrip()))
+                    if wait:
+                        errors = self.checkRouterCores(reportOnce=True)
+                        if self.checkRouterVersion("<", minErrorVersion):
+                            # ignore errors in old versions
+                            errors = ""
+                        if assertOnError and len(errors) > 0:
+                            assert "Errors found - details follow:" == 0, errors
+            else:
+                daemonsNotRunning.append(daemon)
+        if len(daemonsNotRunning) > 0:
+            errors = errors + "Daemons are not running", daemonsNotRunning
+
+        return errors
 
     def checkRouterCores(self, reportLeaks=True, reportOnce=False):
         if reportOnce and not self.reportCores:
@@ -1100,20 +1486,7 @@ class Router(Node):
                     "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
                 )
                 if len(corefiles) > 0:
-                    daemon_path = os.path.join(self.daemondir, daemon)
-                    backtrace = subprocess.check_output(
-                        [
-                            "gdb {} {} --batch -ex bt 2> /dev/null".format(
-                                daemon_path, corefiles[0]
-                            )
-                        ],
-                        shell=True,
-                    )
-                    sys.stderr.write(
-                        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
-                        % (self.name, daemon)
-                    )
-                    sys.stderr.write("%s" % backtrace)
+                    backtrace = gdb_core(self, daemon, corefiles)
                     traces = (
                         traces
                         + "\n%s: %s crashed. Core file found - Backtrace follows:\n%s"
@@ -1183,20 +1556,7 @@ class Router(Node):
                     "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
                 )
                 if len(corefiles) > 0:
-                    daemon_path = os.path.join(self.daemondir, daemon)
-                    backtrace = subprocess.check_output(
-                        [
-                            "gdb {} {} --batch -ex bt 2> /dev/null".format(
-                                daemon_path, corefiles[0]
-                            )
-                        ],
-                        shell=True,
-                    )
-                    sys.stderr.write(
-                        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
-                        % (self.name, daemon)
-                    )
-                    sys.stderr.write("%s\n" % backtrace)
+                    gdb_core(self, daemon, corefiles)
                 else:
                     # No core found - If we find matching logfile in /tmp, then print last 20 lines from it.
                     if os.path.isfile(

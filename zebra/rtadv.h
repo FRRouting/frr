@@ -147,10 +147,10 @@ enum ipv6_nd_prefix_source {
 	PREFIX_SRC_BOTH,
 };
 
-typedef enum {
+enum ipv6_nd_suppress_ra_status {
 	RA_ENABLE = 0,
 	RA_SUPPRESS,
-} ipv6_nd_suppress_ra_status;
+};
 
 extern void rtadv_init(struct zebra_vrf *zvrf);
 extern void rtadv_vrf_terminate(struct zebra_vrf *zvrf);

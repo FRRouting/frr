@@ -74,6 +74,7 @@ enum cmd_token_type {
 enum { CMD_ATTR_NORMAL,
        CMD_ATTR_DEPRECATED,
        CMD_ATTR_HIDDEN,
+       CMD_ATTR_YANG,
 };
 
 /* Comamand token struct. */

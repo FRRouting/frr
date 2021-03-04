@@ -40,11 +40,17 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
    You should enable ``PowerTools`` repo if using CentOS 8 which
    is disabled by default.
 
-4. Checkout FRR::
+4. Add librtr-devel. Install librtr-devel from rpm.frrouting.org
+   repository (See https://rpm.frrouting.org to add repository
+   if it's not yet added)
+
+      yum install librtr-devel
+
+5. Checkout FRR::
 
       git clone https://github.com/frrouting/frr.git frr
 
-5. Run Bootstrap and make distribution tar.gz::
+6. Run Bootstrap and make distribution tar.gz::
 
       cd frr
       ./bootstrap.sh
@@ -56,7 +62,7 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
       The only ``configure`` option respected when building RPMs is
       ``--with-pkg-extra-version``.
 
-6. Create RPM directory structure and populate with sources::
+7. Create RPM directory structure and populate with sources::
 
      mkdir rpmbuild
      mkdir rpmbuild/SOURCES
@@ -64,7 +70,7 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
      cp redhat/*.spec rpmbuild/SPECS/
      cp frr*.tar.gz rpmbuild/SOURCES/
 
-7. Edit :file:`rpm/SPECS/frr.spec` with configuration as needed.
+8. Edit :file:`rpm/SPECS/frr.spec` with configuration as needed.
 
    Look at the beginning of the file and adjust the following parameters to
    enable or disable features as required::
@@ -89,7 +95,7 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
       %{!?with_pimd:          %global  with_pimd          1 }
       %{!?with_rpki:          %global  with_rpki          0 }
 
-8. Build the RPM::
+9. Build the RPM::
 
       rpmbuild --define "_topdir `pwd`/rpmbuild" -ba rpmbuild/SPECS/frr.spec
 

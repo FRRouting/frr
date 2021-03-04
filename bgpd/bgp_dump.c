@@ -302,13 +302,13 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 
 
 static struct bgp_path_info *
-bgp_dump_route_node_record(int afi, struct bgp_node *rn,
+bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 			   struct bgp_path_info *path, unsigned int seq)
 {
 	struct stream *obuf;
 	size_t sizep;
 	size_t endp;
-	const struct prefix *p = bgp_node_get_prefix(rn);
+	const struct prefix *p = bgp_dest_get_prefix(dest);
 
 	obuf = bgp_dump_obuf;
 	stream_reset(obuf);
@@ -391,7 +391,7 @@ static unsigned int bgp_dump_routes_func(int afi, int first_run,
 					 unsigned int seq)
 {
 	struct bgp_path_info *path;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp *bgp;
 	struct bgp_table *table;
 
@@ -412,10 +412,10 @@ static unsigned int bgp_dump_routes_func(int afi, int first_run,
 	/* Walk down each BGP route. */
 	table = bgp->rib[afi][SAFI_UNICAST];
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		path = bgp_node_get_bgp_path_info(rn);
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		path = bgp_dest_get_bgp_path_info(dest);
 		while (path) {
-			path = bgp_dump_route_node_record(afi, rn, path, seq);
+			path = bgp_dump_route_node_record(afi, dest, path, seq);
 			seq++;
 		}
 	}

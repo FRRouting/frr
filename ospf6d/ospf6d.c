@@ -1236,7 +1236,7 @@ void ospf6_init(void)
 
 	install_element_ospf6_clear_interface();
 
-	install_element(VIEW_NODE, &show_debugging_ospf6_cmd);
+	install_element(ENABLE_NODE, &show_debugging_ospf6_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
 
@@ -1267,10 +1267,6 @@ void ospf6_init(void)
 		VIEW_NODE,
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
-
-	/* Make ospf protocol socket. */
-	ospf6_serv_sock();
-	thread_add_read(master, ospf6_receive, NULL, ospf6_sock, NULL);
 }
 
 void ospf6_clean(void)

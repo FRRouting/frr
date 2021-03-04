@@ -48,7 +48,7 @@ def pytest_assertrepr_compare(op, left, right):
         if not isinstance(json_result, json_cmp_result):
             return None
 
-    return json_result.errors
+    return json_result.gen_report()
 
 
 def pytest_configure(config):

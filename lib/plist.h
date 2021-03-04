@@ -79,6 +79,20 @@ extern void prefix_bgp_orf_remove_all(afi_t, char *);
 extern int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 				       bool use_json);
 
+extern struct prefix_list *prefix_list_get(afi_t afi, int orf,
+					   const char *name);
+extern void prefix_list_delete(struct prefix_list *plist);
+extern int64_t prefix_new_seq_get(struct prefix_list *plist);
+
+extern struct prefix_list_entry *prefix_list_entry_new(void);
+extern void prefix_list_entry_delete(struct prefix_list *plist,
+				     struct prefix_list_entry *pentry,
+				     int update_list);
+extern struct prefix_list_entry *
+prefix_list_entry_lookup(struct prefix_list *plist, struct prefix *prefix,
+			 enum prefix_list_type type, int64_t seq, int le,
+			 int ge);
+
 #ifdef __cplusplus
 }
 #endif

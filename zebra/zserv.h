@@ -72,7 +72,7 @@ struct client_gr_info {
 	enum zserv_client_capabilities capabilities;
 
 	/* GR commands */
-	bool delete;
+	bool do_delete;
 	bool gr_enable;
 	bool stale_client;
 
@@ -96,6 +96,14 @@ struct zserv {
 	/* Client file descriptor. */
 	int sock;
 
+	/* Attributes used to permit access to zapi clients from
+	 * other pthreads: the client has a busy counter, and a
+	 * 'closed' flag. These attributes are managed using a
+	 * lock, via the acquire_client() and release_client() apis.
+	 */
+	int busy_count;
+	bool is_closed;
+
 	/* Input/output buffer to the client. */
 	pthread_mutex_t ibuf_mtx;
 	struct stream_fifo *ibuf_fifo;
@@ -116,7 +124,7 @@ struct zserv {
 	/* Event for message processing, for the main pthread */
 	struct thread *t_process;
 
-	/* Threads for the main pthread */
+	/* Event for the main pthread */
 	struct thread *t_cleanup;
 
 	/* This client's redistribute flag. */
@@ -127,7 +135,7 @@ struct zserv {
 	vrf_bitmap_t redist_default[AFI_MAX];
 
 	/* Router-id information. */
-	vrf_bitmap_t ridinfo;
+	vrf_bitmap_t ridinfo[AFI_MAX];
 
 	bool notify_owner;
 
@@ -186,6 +194,10 @@ struct zserv {
 	uint32_t v6_nh_watch_rem_cnt;
 	uint32_t vxlan_sg_add_cnt;
 	uint32_t vxlan_sg_del_cnt;
+	uint32_t local_es_add_cnt;
+	uint32_t local_es_del_cnt;
+	uint32_t local_es_evi_add_cnt;
+	uint32_t local_es_evi_del_cnt;
 	uint32_t error_cnt;
 
 	time_t nh_reg_time;
@@ -274,6 +286,17 @@ extern void zserv_start(char *path);
 extern int zserv_send_message(struct zserv *client, struct stream *msg);
 
 /*
+ * Send a batch of messages to a connected Zebra API client.
+ *
+ * client
+ *    the client to send to
+ *
+ * fifo
+ *    the list of messages to send
+ */
+extern int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo);
+
+/*
  * Retrieve a client by its protocol and instance number.
  *
  * proto
@@ -306,6 +329,27 @@ struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
 					uint32_t session_id);
 
 /*
+ * Retrieve a client object by the complete tuple of
+ * {protocol, instance, session}. This version supports use
+ * from a different pthread: the object will be returned marked
+ * in-use. The caller *must* release the client object with the
+ * release_client() api, to ensure that the in-use marker is cleared properly.
+ *
+ * Returns:
+ *    The Zebra API client.
+ */
+extern struct zserv *zserv_acquire_client(uint8_t proto,
+					  unsigned short instance,
+					  uint32_t session_id);
+
+/*
+ * Release a client object that was acquired with the acquire_client() api.
+ * After this has been called, the pointer must not be used - it may be freed
+ * in another pthread if the client has closed.
+ */
+extern void zserv_release_client(struct zserv *client);
+
+/*
  * Close a client.
  *
  * Kills a client's thread, removes the client from the client list and cleans
@@ -330,10 +374,6 @@ extern void zserv_close_client(struct zserv *client);
  */
 void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
-
-#if defined(HANDLE_ZAPI_FUZZING)
-extern void zserv_read_file(char *input);
-#endif
 
 /* TODO */
 __attribute__((__noreturn__)) int zebra_finalize(struct thread *event);

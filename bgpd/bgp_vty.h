@@ -178,6 +178,7 @@ extern int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 int bgp_vty_find_and_parse_bgp(struct vty *vty, struct cmd_token **argv,
 			       int argc, struct bgp **bgp, bool use_json);
 extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-				safi_t safi, bool show_failed, bool use_json);
+				safi_t safi, bool show_failed,
+				bool show_established, bool use_json);
 
 #endif /* _QUAGGA_BGP_VTY_H */

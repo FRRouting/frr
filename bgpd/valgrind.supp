@@ -1,17 +1,18 @@
 {
-   <libyang_0.16.46>
-   Memcheck:Leak
-   fun:calloc
-   fun:_dlerror_run
-   fun:dlopen@@GLIBC_2.2.5
-   fun:ly_load_plugins_dir
-   fun:ly_load_plugins
-}
-{
    <zlog_keep_working_at_exit>
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
    fun:qcalloc
    fun:zlog_target_clone
+}
+{
+   <libyang1_1.0.184>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:_dlerror_run
+   fun:dlopen@@GLIBC_2.2.5
+   obj:/usr/lib/x86_64-linux-gnu/libyang.so.1.9.2
+   fun:ly_load_plugins
 }

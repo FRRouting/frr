@@ -22,11 +22,13 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-ubuntu1404.rst \
 	doc/developer/building-frr-for-ubuntu1604.rst \
 	doc/developer/building-frr-for-ubuntu1804.rst \
+	doc/developer/building-frr-for-ubuntu2004.rst \
 	doc/developer/building-libyang.rst \
 	doc/developer/building.rst \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
 	doc/developer/frr-release-procedure.rst \
+	doc/developer/grpc.rst \
 	doc/developer/hooks.rst \
 	doc/developer/include-compile.rst \
 	doc/developer/index.rst \

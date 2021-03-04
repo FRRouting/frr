@@ -712,8 +712,7 @@ int ifm_read(struct if_msghdr *ifm)
 	{
 		if (ifp->ifindex != ifm->ifm_index) {
 			zlog_debug(
-				"%s: index mismatch, ifname %s, ifp index %d, "
-				"ifm index %d",
+				"%s: index mismatch, ifname %s, ifp index %d, ifm index %d",
 				__func__, ifp->name, ifp->ifindex,
 				ifm->ifm_index);
 			return -1;
@@ -833,9 +832,7 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 					? ip_masklen(mask->sin.sin_addr)
 					: ip6_masklen(mask->sin6.sin6_addr);
 			zlog_debug(
-				"%s: ifindex %d, ifname %s, ifam_addrs {%s}, "
-				"ifam_flags 0x%x, addr %s/%d broad %s dst %s "
-				"gateway %s",
+				"%s: ifindex %d, ifname %s, ifam_addrs {%s}, ifam_flags 0x%x, addr %s/%d broad %s dst %s gateway %s",
 				__func__, ifm->ifam_index,
 				(ifnlen ? ifname : "(nil)"),
 				rtatostr(ifm->ifam_addrs, fbuf, sizeof(fbuf)),
@@ -868,6 +865,7 @@ int ifam_read(struct ifa_msghdr *ifam)
 {
 	struct interface *ifp = NULL;
 	union sockunion addr, mask, brd;
+	bool dest_same = false;
 	char ifname[INTERFACE_NAMSIZ];
 	short ifnlen = 0;
 	char isalias = 0;
@@ -894,6 +892,10 @@ int ifam_read(struct ifa_msghdr *ifam)
 	   rely upon the interface type. */
 	if (if_is_pointopoint(ifp))
 		SET_FLAG(flags, ZEBRA_IFA_PEER);
+	else {
+		if (memcmp(&addr, &brd, sizeof(addr)) == 0)
+			dest_same = true;
+	}
 
 #if 0
   /* it might seem cute to grab the interface metric here, however
@@ -910,13 +912,14 @@ int ifam_read(struct ifa_msghdr *ifam)
 		if (ifam->ifam_type == RTM_NEWADDR)
 			connected_add_ipv4(ifp, flags, &addr.sin.sin_addr,
 					   ip_masklen(mask.sin.sin_addr),
-					   &brd.sin.sin_addr,
+					   dest_same ? NULL : &brd.sin.sin_addr,
 					   (isalias ? ifname : NULL),
 					   METRIC_MAX);
 		else
 			connected_delete_ipv4(ifp, flags, &addr.sin.sin_addr,
 					      ip_masklen(mask.sin.sin_addr),
-					      &brd.sin.sin_addr);
+					      dest_same ? NULL
+							: &brd.sin.sin_addr);
 		break;
 	case AF_INET6:
 		/* Unset interface index from link-local address when IPv6 stack
@@ -978,8 +981,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 	/* rt_msghdr version check. */
 	if (rtm->rtm_version != RTM_VERSION)
 		flog_warn(EC_ZEBRA_RTM_VERSION_MISMATCH,
-			  "Routing message version different %d should be %d."
-			  "This may cause problem\n",
+			  "Routing message version different %d should be %d.This may cause problem\n",
 			  rtm->rtm_version, RTM_VERSION);
 
 	/* Be sure structure is cleared */
@@ -1140,7 +1142,7 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (rtm->rtm_type == RTM_CHANGE)
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
 			   0, zebra_flags, &p, NULL, NULL, 0, RT_TABLE_MAIN, 0,
-			   0, true);
+			   0, true, false);
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
 		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0,
@@ -1149,7 +1151,7 @@ void rtm_read(struct rt_msghdr *rtm)
 	else
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
 			   0, zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
-			   0, true);
+			   0, true, false);
 }
 
 /* Interface function for the kernel routing table updates.  Support
@@ -1466,6 +1468,101 @@ void kernel_init(struct zebra_ns *zns)
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	return;
+}
+
+void kernel_update_multi(struct dplane_ctx_q *ctx_list)
+{
+	struct zebra_dplane_ctx *ctx;
+	struct dplane_ctx_q handled_list;
+	enum zebra_dplane_result res;
+
+	TAILQ_INIT(&handled_list);
+
+	while (true) {
+		ctx = dplane_ctx_dequeue(ctx_list);
+		if (ctx == NULL)
+			break;
+
+		/*
+		 * A previous provider plugin may have asked to skip the
+		 * kernel update.
+		 */
+		if (dplane_ctx_is_skip_kernel(ctx)) {
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			goto skip_one;
+		}
+
+		switch (dplane_ctx_get_op(ctx)) {
+
+		case DPLANE_OP_ROUTE_INSTALL:
+		case DPLANE_OP_ROUTE_UPDATE:
+		case DPLANE_OP_ROUTE_DELETE:
+			res = kernel_route_update(ctx);
+			break;
+
+		case DPLANE_OP_NH_INSTALL:
+		case DPLANE_OP_NH_UPDATE:
+		case DPLANE_OP_NH_DELETE:
+			res = kernel_nexthop_update(ctx);
+			break;
+
+		case DPLANE_OP_LSP_INSTALL:
+		case DPLANE_OP_LSP_UPDATE:
+		case DPLANE_OP_LSP_DELETE:
+			res = kernel_lsp_update(ctx);
+			break;
+
+		case DPLANE_OP_PW_INSTALL:
+		case DPLANE_OP_PW_UNINSTALL:
+			res = kernel_pw_update(ctx);
+			break;
+
+		case DPLANE_OP_ADDR_INSTALL:
+		case DPLANE_OP_ADDR_UNINSTALL:
+			res = kernel_address_update_ctx(ctx);
+			break;
+
+		case DPLANE_OP_MAC_INSTALL:
+		case DPLANE_OP_MAC_DELETE:
+			res = kernel_mac_update_ctx(ctx);
+			break;
+
+		case DPLANE_OP_NEIGH_INSTALL:
+		case DPLANE_OP_NEIGH_UPDATE:
+		case DPLANE_OP_NEIGH_DELETE:
+		case DPLANE_OP_VTEP_ADD:
+		case DPLANE_OP_VTEP_DELETE:
+		case DPLANE_OP_NEIGH_DISCOVER:
+			res = kernel_neigh_update_ctx(ctx);
+			break;
+
+		case DPLANE_OP_RULE_ADD:
+		case DPLANE_OP_RULE_DELETE:
+		case DPLANE_OP_RULE_UPDATE:
+			res = kernel_pbr_rule_update(ctx);
+			break;
+
+		/* Ignore 'notifications' - no-op */
+		case DPLANE_OP_SYS_ROUTE_ADD:
+		case DPLANE_OP_SYS_ROUTE_DELETE:
+		case DPLANE_OP_ROUTE_NOTIFY:
+		case DPLANE_OP_LSP_NOTIFY:
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			break;
+
+		default:
+			res = ZEBRA_DPLANE_REQUEST_FAILURE;
+			break;
+		}
+
+	skip_one:
+		dplane_ctx_set_status(ctx, res);
+
+		dplane_ctx_enqueue_tail(&handled_list, ctx);
+	}
+
+	TAILQ_INIT(ctx_list);
+	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
 #endif /* !HAVE_NETLINK */

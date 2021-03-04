@@ -302,34 +302,68 @@ int isis_mpls_te_update(struct interface *ifp)
 /* Followings are vty command functions */
 #ifndef FABRICD
 
-DEFUN (show_isis_mpls_te_router,
-       show_isis_mpls_te_router_cmd,
-       "show " PROTO_NAME " mpls-te router",
-       SHOW_STR
-       PROTO_HELP
-       MPLS_TE_STR
-       "Router information\n")
+DEFUN(show_isis_mpls_te_router,
+      show_isis_mpls_te_router_cmd,
+      "show " PROTO_NAME " [vrf <NAME|all>] mpls-te router",
+      SHOW_STR
+      PROTO_HELP
+      VRF_CMD_HELP_STR "All VRFs\n"
+      MPLS_TE_STR "Router information\n")
 {
 
-	struct listnode *anode;
+	struct listnode *anode, *inode;
 	struct isis_area *area;
+	struct isis *isis = NULL;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx_vrf = 0;
 
-	if (!isis) {
+	if (!im) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
+	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+				for (ALL_LIST_ELEMENTS_RO(isis->area_list,
+							  anode, area)) {
+					if (!IS_MPLS_TE(area->mta))
+						continue;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+					vty_out(vty, "Area %s:\n",
+						area->area_tag);
+					if (ntohs(area->mta->router_id.s_addr)
+					    != 0)
+						vty_out(vty,
+							"  MPLS-TE Router-Address: %s\n",
+							inet_ntoa(
+								area->mta
+									->router_id));
+					else
+						vty_out(vty, "  N/A\n");
+				}
+			}
+			return 0;
+		}
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
+						  area)) {
 
-		if (!IS_MPLS_TE(area->mta))
-			continue;
+				if (!IS_MPLS_TE(area->mta))
+					continue;
 
-		vty_out(vty, "Area %s:\n", area->area_tag);
-		if (ntohs(area->mta->router_id.s_addr) != 0)
-			vty_out(vty, "  MPLS-TE Router-Address: %s\n",
-				inet_ntoa(area->mta->router_id));
-		else
-			vty_out(vty, "  N/A\n");
+				vty_out(vty, "Area %s:\n", area->area_tag);
+				if (ntohs(area->mta->router_id.s_addr) != 0)
+					vty_out(vty,
+						"  MPLS-TE Router-Address: %s\n",
+						inet_ntoa(
+							area->mta->router_id));
+				else
+					vty_out(vty, "  N/A\n");
+			}
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -351,12 +385,12 @@ static void show_ext_sub(struct vty *vty, char *name,
 	sbuf_reset(&buf);
 
 	if (IS_SUBTLV(ext, EXT_ADM_GRP))
-		sbuf_push(&buf, 4, "Administrative Group: 0x%" PRIx32 "\n",
+		sbuf_push(&buf, 4, "Administrative Group: 0x%x\n",
 			ext->adm_group);
 	if (IS_SUBTLV(ext, EXT_LLRI)) {
-		sbuf_push(&buf, 4, "Link Local  ID: %" PRIu32 "\n",
+		sbuf_push(&buf, 4, "Link Local  ID: %u\n",
 			  ext->local_llri);
-		sbuf_push(&buf, 4, "Link Remote ID: %" PRIu32 "\n",
+		sbuf_push(&buf, 4, "Link Remote ID: %u\n",
 			  ext->remote_llri);
 	}
 	if (IS_SUBTLV(ext, EXT_LOCAL_ADDR))
@@ -394,7 +428,7 @@ static void show_ext_sub(struct vty *vty, char *name,
 			  ext->te_metric);
 	if (IS_SUBTLV(ext, EXT_RMT_AS))
 		sbuf_push(&buf, 4,
-			  "Inter-AS TE Remote AS number: %" PRIu32 "\n",
+			  "Inter-AS TE Remote AS number: %u\n",
 			  ext->remote_as);
 	if (IS_SUBTLV(ext, EXT_RMT_IP))
 		sbuf_push(&buf, 4,
@@ -402,19 +436,18 @@ static void show_ext_sub(struct vty *vty, char *name,
 			  inet_ntoa(ext->remote_ip));
 	if (IS_SUBTLV(ext, EXT_DELAY))
 		sbuf_push(&buf, 4,
-			  "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
+			  "%s Average Link Delay: %u (micro-sec)\n",
 			  IS_ANORMAL(ext->delay) ? "Anomalous" : "Normal",
 			  ext->delay);
 	if (IS_SUBTLV(ext, EXT_MM_DELAY)) {
-		sbuf_push(&buf, 4, "%s Min/Max Link Delay: %" PRIu32 " / %"
-			  PRIu32 " (micro-sec)\n",
+		sbuf_push(&buf, 4, "%s Min/Max Link Delay: %u / %u (micro-sec)\n",
 			  IS_ANORMAL(ext->min_delay) ? "Anomalous" : "Normal",
 			  ext->min_delay & TE_EXT_MASK,
 			  ext->max_delay & TE_EXT_MASK);
 	}
 	if (IS_SUBTLV(ext, EXT_DELAY_VAR))
 		sbuf_push(&buf, 4,
-			  "Delay Variation: %" PRIu32 " (micro-sec)\n",
+			  "Delay Variation: %u (micro-sec)\n",
 			  ext->delay_var & TE_EXT_MASK);
 	if (IS_SUBTLV(ext, EXT_PKT_LOSS))
 		sbuf_push(&buf, 4, "%s Link Packet Loss: %g (%%)\n",
@@ -450,30 +483,35 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
-	struct listnode *anode, *cnode;
+	struct listnode *anode, *cnode, *inode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct interface *ifp;
 	int idx_interface = 4;
+	struct isis *isis = NULL;
 
-	if (!isis) {
+	if (!im) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
 
 	if (argc == idx_interface) {
 		/* Show All Interfaces. */
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
+						  area)) {
 
-			if (!IS_MPLS_TE(area->mta))
-				continue;
+				if (!IS_MPLS_TE(area->mta))
+					continue;
 
-			vty_out(vty, "Area %s:\n", area->area_tag);
+				vty_out(vty, "Area %s:\n", area->area_tag);
 
-			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
-						  circuit))
-				show_ext_sub(vty, circuit->interface->name,
-					     circuit->ext);
+				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
+							  cnode, circuit))
+					show_ext_sub(vty,
+						     circuit->interface->name,
+						     circuit->ext);
+			}
 		}
 	} else {
 		/* Interface name is specified. */

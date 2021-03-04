@@ -520,3 +520,32 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 
 	return 0;
 }
+
+/*
+ * This routine scan all upstream and update register state and remove pimreg
+ * when couldreg becomes false.
+ */
+void pim_reg_del_on_couldreg_fail(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim;
+	struct pim_upstream *up;
+
+	if (!pim_ifp)
+		return;
+
+	pim = pim_ifp->pim;
+
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+		if (ifp != up->rpf.source_nexthop.interface)
+			continue;
+
+		if (!pim_upstream_could_register(up)
+		    && (up->reg_state != PIM_REG_NOINFO)) {
+			pim_channel_del_oif(up->channel_oil, pim->regiface,
+					    PIM_OIF_FLAG_PROTO_PIM, __func__);
+			THREAD_OFF(up->t_rs_timer);
+			up->reg_state = PIM_REG_NOINFO;
+		}
+	}
+}

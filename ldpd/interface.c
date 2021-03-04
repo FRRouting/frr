@@ -528,8 +528,7 @@ if_leave_ipv4_group(struct iface *iface, struct in_addr *addr)
 
 	if (setsockopt_ipv4_multicast(global.ipv4.ldp_disc_socket,
 	    IP_DROP_MEMBERSHIP, if_addr, addr->s_addr, iface->ifindex) < 0) {
-		log_warn("%s: error IP_DROP_MEMBERSHIP, interface %s "
-		    "address %s", __func__, iface->name, inet_ntoa(*addr));
+		log_warn("%s: error IP_DROP_MEMBERSHIP, interface %s address %s", __func__, iface->name, inet_ntoa(*addr));
 		return (-1);
 	}
 

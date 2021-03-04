@@ -234,8 +234,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		 * check)".
 		 */
 		if (flags & F_HELLO_TARGETED) {
-			log_debug("%s: lsr-id %s: invalid targeted hello "
-			    "transport address %s", __func__, inet_ntoa(lsr_id),
+			log_debug("%s: lsr-id %s: invalid targeted hello transport address %s", __func__, inet_ntoa(lsr_id),
 			     log_addr(af, &trans_addr));
 			return;
 		}
@@ -250,8 +249,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		* targeted LDP Hello packet's source or destination addresses".
 		*/
 		if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&src->v6)) {
-			log_debug("%s: lsr-id %s: targeted hello with "
-			    "link-local source address", __func__,
+			log_debug("%s: lsr-id %s: targeted hello with link-local source address", __func__,
 			    inet_ntoa(lsr_id));
 			return;
 		}
@@ -318,8 +316,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		 * send a fatal Notification message with status code of
 		 * 'Transport Connection Mismatch' and reset the session".
 		 */
-		log_debug("%s: lsr-id %s: remote transport preference does not "
-		    "match the local preference", __func__, inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %s: remote transport preference does not match the local preference", __func__, inet_ntoa(lsr_id));
 		if (nbr)
 			session_shutdown(nbr, S_TRANS_MISMTCH, msg->id,
 			    msg->type);
@@ -359,8 +356,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	if (nbr && nbr->af == af &&
 	    (ldp_addrcmp(af, &nbr->raddr, &trans_addr) ||
 	    nbr->raddr_scope != scope_id)) {
-		log_warnx("%s: lsr-id %s: hello packet advertising a different "
-		    "transport address", __func__, inet_ntoa(lsr_id));
+		log_warnx("%s: lsr-id %s: hello packet advertising a different transport address", __func__, inet_ntoa(lsr_id));
 		if (adj)
 			adj_del(adj, S_SHUTDOWN);
 		return;
@@ -368,8 +364,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	if (nbr == NULL) {
 		nbrt = nbr_find_addr(af, &trans_addr);
 		if (nbrt) {
-			log_debug("%s: transport address %s is already being "
-			    "used by lsr-id %s", __func__, log_addr(af,
+			log_debug("%s: transport address %s is already being used by lsr-id %s", __func__, log_addr(af,
 			    &trans_addr), inet_ntoa(nbrt->id));
 			if (adj)
 				adj_del(adj, S_SHUTDOWN);

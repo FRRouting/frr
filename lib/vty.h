@@ -43,7 +43,7 @@ extern "C" {
 #define VTY_MAXHIST 20
 #define VTY_MAXDEPTH 8
 
-#define VTY_MAXCFGCHANGES 8
+#define VTY_MAXCFGCHANGES 16
 
 struct vty_error {
 	char error_buf[VTY_BUFSIZ];
@@ -133,6 +133,14 @@ struct vty {
 
 	/* Base candidate configuration. */
 	struct nb_config *candidate_config_base;
+
+	/* Dynamic transaction information. */
+	struct timeval backoff_start;
+	size_t backoff_cmd_count;
+	struct thread *t_pending_commit;
+	char *pending_cmds_buf;
+	size_t pending_cmds_buflen;
+	size_t pending_cmds_bufpos;
 
 	/* Confirmed-commit timeout and rollback configuration. */
 	struct thread *t_confirmed_commit_timeout;

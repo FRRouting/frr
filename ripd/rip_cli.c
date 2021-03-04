@@ -37,7 +37,7 @@
 /*
  * XPath: /frr-ripd:ripd/instance
  */
-DEFPY_NOSH (router_rip,
+DEFPY_YANG_NOSH (router_rip,
        router_rip_cmd,
        "router rip [vrf NAME]",
        "Enable a routing process\n"
@@ -62,7 +62,7 @@ DEFPY_NOSH (router_rip,
 	return ret;
 }
 
-DEFPY (no_router_rip,
+DEFPY_YANG (no_router_rip,
        no_router_rip_cmd,
        "no router rip [vrf NAME]",
        NO_STR
@@ -100,7 +100,7 @@ void cli_show_router_rip(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/allow-ecmp
  */
-DEFPY (rip_allow_ecmp,
+DEFPY_YANG (rip_allow_ecmp,
        rip_allow_ecmp_cmd,
        "[no] allow-ecmp",
        NO_STR
@@ -124,7 +124,7 @@ void cli_show_rip_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/default-information-originate
  */
-DEFPY (rip_default_information_originate,
+DEFPY_YANG (rip_default_information_originate,
        rip_default_information_originate_cmd,
        "[no] default-information originate",
        NO_STR
@@ -150,7 +150,7 @@ void cli_show_rip_default_information_originate(struct vty *vty,
 /*
  * XPath: /frr-ripd:ripd/instance/default-metric
  */
-DEFPY (rip_default_metric,
+DEFPY_YANG (rip_default_metric,
        rip_default_metric_cmd,
        "default-metric (1-16)",
        "Set a metric of redistribute routes\n"
@@ -162,7 +162,7 @@ DEFPY (rip_default_metric,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (no_rip_default_metric,
+DEFPY_YANG (no_rip_default_metric,
        no_rip_default_metric_cmd,
        "no default-metric [(1-16)]",
        NO_STR
@@ -184,7 +184,7 @@ void cli_show_rip_default_metric(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/distance/default
  */
-DEFPY (rip_distance,
+DEFPY_YANG (rip_distance,
        rip_distance_cmd,
        "distance (1-255)",
        "Administrative distance\n"
@@ -196,7 +196,7 @@ DEFPY (rip_distance,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (no_rip_distance,
+DEFPY_YANG (no_rip_distance,
        no_rip_distance_cmd,
        "no distance [(1-255)]",
        NO_STR
@@ -221,7 +221,7 @@ void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/distance/source
  */
-DEFPY (rip_distance_source,
+DEFPY_YANG (rip_distance_source,
        rip_distance_source_cmd,
        "[no] distance (1-255) A.B.C.D/M$prefix [WORD$acl]",
        NO_STR
@@ -258,7 +258,7 @@ void cli_show_rip_distance_source(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/explicit-neighbor
  */
-DEFPY (rip_neighbor,
+DEFPY_YANG (rip_neighbor,
        rip_neighbor_cmd,
        "[no] neighbor A.B.C.D",
        NO_STR
@@ -280,7 +280,7 @@ void cli_show_rip_neighbor(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/network
  */
-DEFPY (rip_network_prefix,
+DEFPY_YANG (rip_network_prefix,
        rip_network_prefix_cmd,
        "[no] network A.B.C.D/M",
        NO_STR
@@ -302,7 +302,7 @@ void cli_show_rip_network_prefix(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/interface
  */
-DEFPY (rip_network_if,
+DEFPY_YANG (rip_network_if,
        rip_network_if_cmd,
        "[no] network WORD",
        NO_STR
@@ -324,7 +324,7 @@ void cli_show_rip_network_interface(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/offset-list
  */
-DEFPY (rip_offset_list,
+DEFPY_YANG (rip_offset_list,
        rip_offset_list_cmd,
        "[no] offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
        NO_STR
@@ -367,7 +367,7 @@ void cli_show_rip_offset_list(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/passive-default
  */
-DEFPY (rip_passive_default,
+DEFPY_YANG (rip_passive_default,
        rip_passive_default_cmd,
        "[no] passive-interface default",
        NO_STR
@@ -393,7 +393,7 @@ void cli_show_rip_passive_default(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-ripd:ripd/instance/passive-interface
  *        /frr-ripd:ripd/instance/non-passive-interface
  */
-DEFPY (rip_passive_interface,
+DEFPY_YANG (rip_passive_interface,
        rip_passive_interface_cmd,
        "[no] passive-interface IFNAME",
        NO_STR
@@ -434,7 +434,7 @@ void cli_show_rip_non_passive_interface(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/redistribute
  */
-DEFPY (rip_redistribute,
+DEFPY_YANG (rip_redistribute,
        rip_redistribute_cmd,
        "[no] redistribute " FRR_REDIST_STR_RIPD "$protocol [{metric (0-16)|route-map WORD}]",
        NO_STR
@@ -477,7 +477,7 @@ void cli_show_rip_redistribute(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/static-route
  */
-DEFPY (rip_route,
+DEFPY_YANG (rip_route,
        rip_route_cmd,
        "[no] route A.B.C.D/M",
        NO_STR
@@ -499,7 +499,7 @@ void cli_show_rip_route(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/timers
  */
-DEFPY (rip_timers,
+DEFPY_YANG (rip_timers,
        rip_timers_cmd,
        "timers basic (5-2147483647)$update (5-2147483647)$timeout (5-2147483647)$garbage",
        "Adjust routing timers\n"
@@ -518,7 +518,7 @@ DEFPY (rip_timers,
 	return nb_cli_apply_changes(vty, "./timers");
 }
 
-DEFPY (no_rip_timers,
+DEFPY_YANG (no_rip_timers,
        no_rip_timers_cmd,
        "no timers basic [(5-2147483647) (5-2147483647) (5-2147483647)]",
        NO_STR
@@ -547,7 +547,7 @@ void cli_show_rip_timers(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripd:ripd/instance/version
  */
-DEFPY (rip_version,
+DEFPY_YANG (rip_version,
        rip_version_cmd,
        "version (1-2)",
        "Set routing protocol version\n"
@@ -560,7 +560,7 @@ DEFPY (rip_version,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (no_rip_version,
+DEFPY_YANG (no_rip_version,
        no_rip_version_cmd,
        "no version [(1-2)]",
        NO_STR
@@ -596,7 +596,7 @@ void cli_show_rip_version(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/split-horizon
  */
-DEFPY (ip_rip_split_horizon,
+DEFPY_YANG (ip_rip_split_horizon,
        ip_rip_split_horizon_cmd,
        "[no] ip rip split-horizon [poisoned-reverse$poisoned_reverse]",
        NO_STR
@@ -641,7 +641,7 @@ void cli_show_ip_rip_split_horizon(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/v2-broadcast
  */
-DEFPY (ip_rip_v2_broadcast,
+DEFPY_YANG (ip_rip_v2_broadcast,
        ip_rip_v2_broadcast_cmd,
        "[no] ip rip v2-broadcast",
        NO_STR
@@ -667,7 +667,7 @@ void cli_show_ip_rip_v2_broadcast(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/version-receive
  */
-DEFPY (ip_rip_receive_version,
+DEFPY_YANG (ip_rip_receive_version,
        ip_rip_receive_version_cmd,
        "ip rip receive version <{1$v1|2$v2}|none>",
        IP_STR
@@ -694,7 +694,7 @@ DEFPY (ip_rip_receive_version,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-DEFPY (no_ip_rip_receive_version,
+DEFPY_YANG (no_ip_rip_receive_version,
        no_ip_rip_receive_version_cmd,
        "no ip rip receive version [<{1|2}|none>]",
        NO_STR
@@ -736,7 +736,7 @@ void cli_show_ip_rip_receive_version(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/version-send
  */
-DEFPY (ip_rip_send_version,
+DEFPY_YANG (ip_rip_send_version,
        ip_rip_send_version_cmd,
        "ip rip send version <{1$v1|2$v2}|none>",
        IP_STR
@@ -763,7 +763,7 @@ DEFPY (ip_rip_send_version,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-DEFPY (no_ip_rip_send_version,
+DEFPY_YANG (no_ip_rip_send_version,
        no_ip_rip_send_version_cmd,
        "no ip rip send version [<{1|2}|none>]",
        NO_STR
@@ -805,7 +805,7 @@ void cli_show_ip_rip_send_version(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/authentication-scheme
  */
-DEFPY (ip_rip_authentication_mode,
+DEFPY_YANG (ip_rip_authentication_mode,
        ip_rip_authentication_mode_cmd,
        "ip rip authentication mode <md5$mode [auth-length <rfc|old-ripd>$auth_length]|text$mode>",
        IP_STR
@@ -837,7 +837,7 @@ DEFPY (ip_rip_authentication_mode,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-DEFPY (no_ip_rip_authentication_mode,
+DEFPY_YANG (no_ip_rip_authentication_mode,
        no_ip_rip_authentication_mode_cmd,
        "no ip rip authentication mode [<md5 [auth-length <rfc|old-ripd>]|text>]",
        NO_STR
@@ -888,7 +888,7 @@ void cli_show_ip_rip_authentication_scheme(struct vty *vty,
 /*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/authentication-password
  */
-DEFPY (ip_rip_authentication_string,
+DEFPY_YANG (ip_rip_authentication_string,
        ip_rip_authentication_string_cmd,
        "ip rip authentication string LINE$password",
        IP_STR
@@ -916,7 +916,7 @@ DEFPY (ip_rip_authentication_string,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-DEFPY (no_ip_rip_authentication_string,
+DEFPY_YANG (no_ip_rip_authentication_string,
        no_ip_rip_authentication_string_cmd,
        "no ip rip authentication string [LINE]",
        NO_STR
@@ -943,7 +943,7 @@ void cli_show_ip_rip_authentication_string(struct vty *vty,
 /*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/authentication-key-chain
  */
-DEFPY (ip_rip_authentication_key_chain,
+DEFPY_YANG (ip_rip_authentication_key_chain,
        ip_rip_authentication_key_chain_cmd,
        "ip rip authentication key-chain LINE$keychain",
        IP_STR
@@ -965,7 +965,7 @@ DEFPY (ip_rip_authentication_key_chain,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-DEFPY (no_ip_rip_authentication_key_chain,
+DEFPY_YANG (no_ip_rip_authentication_key_chain,
        no_ip_rip_authentication_key_chain_cmd,
        "no ip rip authentication key-chain [LINE]",
        NO_STR
@@ -992,7 +992,7 @@ void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
 /*
  * XPath: /frr-ripd:clear-rip-route
  */
-DEFPY (clear_ip_rip,
+DEFPY_YANG (clear_ip_rip,
        clear_ip_rip_cmd,
        "clear ip rip [vrf WORD]",
        CLEAR_STR

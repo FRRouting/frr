@@ -594,10 +594,14 @@ route_match_prefix_list_flowspec(afi_t afi, struct prefix_list *plist,
 
 	memset(&api, 0, sizeof(api));
 
+	if (family2afi(p->u.prefix_flowspec.family) != afi)
+		return RMAP_NOMATCH;
+
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill(
 					    (uint8_t *)p->u.prefix_flowspec.ptr,
-					    p->u.prefix_flowspec.prefixlen, &api);
+					    p->u.prefix_flowspec.prefixlen, &api,
+					    afi);
 	if (ret < 0)
 		return RMAP_NOMATCH;
 	if (api.match_bitmask & PREFIX_DST_PRESENT ||
@@ -1027,11 +1031,11 @@ route_match_rd(void *rule, const struct prefix *prefix,
 		prd_rule = (struct prefix_rd *)rule;
 		path = (struct bgp_path_info *)object;
 
-		if (path->net == NULL || path->net->prn == NULL)
+		if (path->net == NULL || path->net->pdest == NULL)
 			return RMAP_NOMATCH;
 
-		prd_route =
-			(struct prefix_rd *)bgp_node_get_prefix(path->net->prn);
+		prd_route = (struct prefix_rd *)bgp_dest_get_prefix(
+			path->net->pdest);
 		if (memcmp(prd_route->val, prd_rule->val, ECOMMUNITY_SIZE) == 0)
 			return RMAP_MATCH;
 	}
@@ -1664,6 +1668,45 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 	route_map_rule_tag_free,
 };
 
+static enum route_map_cmd_result_t
+route_set_srte_color(void *rule, const struct prefix *prefix,
+		     route_map_object_t type, void *object)
+{
+	uint32_t *srte_color = rule;
+	struct bgp_path_info *path;
+
+	if (type != RMAP_BGP)
+		return RMAP_OKAY;
+
+	path = object;
+
+	path->attr->srte_color = *srte_color;
+	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
+
+	return RMAP_OKAY;
+}
+
+/* Route map `sr-te color' compile function */
+static void *route_set_srte_color_compile(const char *arg)
+{
+	uint32_t *color;
+
+	color = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+	*color = atoi(arg);
+
+	return color;
+}
+
+/* Free route map's compiled `sr-te color' value. */
+static void route_set_srte_color_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for sr-te color set. */
+struct route_map_rule_cmd route_set_srte_color_cmd = {
+	"sr-te color", route_set_srte_color, route_set_srte_color_compile,
+	route_set_srte_color_free};
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
 struct rmap_ip_nexthop_set {
@@ -2602,6 +2645,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix,
 			ecommunity_free(&old_ecom);
 	} else {
 		ecom_lb.size = 1;
+		ecom_lb.unit_size = ECOMMUNITY_SIZE;
 		ecom_lb.val = (uint8_t *)lb_eval.val;
 		new_ecom = ecommunity_dup(&ecom_lb);
 	}
@@ -3705,7 +3749,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 	afi_t afi;
 	safi_t safi;
 	struct peer *peer;
-	struct bgp_node *bn;
+	struct bgp_dest *bn;
 	struct bgp_static *bgp_static;
 	struct bgp_aggregate *aggregate;
 	struct listnode *node, *nnode;
@@ -3756,8 +3800,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug(
-					"Processing route_map %s update on "
-					"table map",
+					"Processing route_map %s update on table map",
 					rmap_name);
 			if (route_update)
 				bgp_zebra_announce_table(bgp, afi, safi);
@@ -3766,7 +3809,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 		/* For network route-map updates. */
 		for (bn = bgp_table_top(bgp->route[afi][safi]); bn;
 		     bn = bgp_route_next(bn)) {
-			bgp_static = bgp_node_get_bgp_static_info(bn);
+			bgp_static = bgp_dest_get_bgp_static_info(bn);
 			if (!bgp_static)
 				continue;
 
@@ -3781,7 +3824,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 			if (route_update && !bgp_static->backdoor) {
 				const struct prefix *bn_p =
-					bgp_node_get_prefix(bn);
+					bgp_dest_get_prefix(bn);
 
 				if (bgp_debug_zebra(bn_p))
 					zlog_debug(
@@ -3798,7 +3841,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 		/* For aggregate-address route-map updates. */
 		for (bn = bgp_table_top(bgp->aggregate[afi][safi]); bn;
 		     bn = bgp_route_next(bn)) {
-			aggregate = bgp_node_get_bgp_aggregate_info(bn);
+			aggregate = bgp_dest_get_bgp_aggregate_info(bn);
 			if (!aggregate)
 				continue;
 
@@ -3813,7 +3856,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 			if (route_update) {
 				const struct prefix *bn_p =
-					bgp_node_get_prefix(bn);
+					bgp_dest_get_prefix(bn);
 
 				if (bgp_debug_zebra(bn_p))
 					zlog_debug(
@@ -5359,8 +5402,7 @@ DEFUN (no_match_ipv6_next_hop,
 
 DEFPY (match_ipv4_next_hop,
        match_ipv4_next_hop_cmd,
-       "[no$no] match ip next-hop address [A.B.C.D]",
-       NO_STR
+       "match ip next-hop address A.B.C.D",
        MATCH_STR
        IP_STR
        "Match IP next-hop address of route\n"
@@ -5369,15 +5411,22 @@ DEFPY (match_ipv4_next_hop,
 {
 	int idx_ipv4 = 4;
 
-	if (no)
-		return bgp_route_match_delete(vty, "ip next-hop address", NULL,
-				      RMAP_EVENT_MATCH_DELETED);
+	return bgp_route_match_add(vty, "ip next-hop address",
+				   argv[idx_ipv4]->arg, RMAP_EVENT_MATCH_ADDED);
+}
 
-	if (argv[idx_ipv4]->arg)
-		return bgp_route_match_add(vty, "ip next-hop address",
-					   argv[idx_ipv4]->arg,
-					   RMAP_EVENT_MATCH_ADDED);
-	return CMD_SUCCESS;
+DEFPY (no_match_ipv4_next_hop,
+       no_match_ipv4_next_hop_cmd,
+       "no match ip next-hop address [A.B.C.D]",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match IP next-hop address of route\n"
+       "IP address\n"
+       "IP address of next-hop\n")
+{
+	return bgp_route_match_delete(vty, "ip next-hop address", NULL,
+				      RMAP_EVENT_MATCH_DELETED);
 }
 
 DEFUN (set_ipv6_nexthop_peer,
@@ -5676,6 +5725,9 @@ void bgp_route_map_init(void)
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
+	route_map_set_srte_color_hook(generic_set_add);
+	route_map_no_set_srte_color_hook(generic_set_delete);
+
 	route_map_set_ip_nexthop_hook(generic_set_add);
 	route_map_no_set_ip_nexthop_hook(generic_set_delete);
 
@@ -5718,6 +5770,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
 	route_map_install_set(&route_set_table_id_cmd);
+	route_map_install_set(&route_set_srte_color_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
 	route_map_install_set(&route_set_weight_cmd);
@@ -5847,6 +5900,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &match_ipv4_next_hop_cmd);
+	install_element(RMAP_NODE, &no_match_ipv4_next_hop_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_global_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_global_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_prefer_global_cmd);

@@ -79,15 +79,17 @@ struct thread_master *master;
 
 static void __attribute__((noreturn)) ospf6_exit(int status)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 
 	frr_early_fini();
 
 	if (ospf6) {
+		vrf = vrf_lookup_by_id(ospf6->vrf_id);
 		ospf6_delete(ospf6);
 		ospf6 = NULL;
-	}
+	} else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	bfd_gbl_exit();
 
@@ -99,7 +101,6 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 	ospf6_asbr_terminate();
 	ospf6_lsa_terminate();
 
-	ospf6_serv_close();
 	/* reverse access_list_init */
 	access_list_reset();
 
@@ -166,6 +167,7 @@ struct quagga_signal_t ospf6_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,

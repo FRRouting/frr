@@ -327,8 +327,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 				/* This should absolutely never occur. */
 				flog_err_sys(
 					EC_LIB_SYSTEM_CALL,
-					"%s: corruption detected: iov_small overflowed; "
-					"head %p, tail %p, head->next %p",
+					"%s: corruption detected: iov_small overflowed; head %p, tail %p, head->next %p",
 					__func__, (void *)b->head,
 					(void *)b->tail, (void *)b->head->next);
 				iov = XMALLOC(MTYPE_TMP,

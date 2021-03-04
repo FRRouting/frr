@@ -1535,7 +1535,7 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 			      safi_t safi, struct prefix *p)
 {
 	afi_t afi; /* of the VN address */
-	struct bgp_node *bn;
+	struct bgp_dest *bd;
 	struct bgp_path_info *bpi;
 	uint8_t type = ZEBRA_ROUTE_BGP;
 	struct bgp *bgp;
@@ -1562,11 +1562,11 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 	} else {
 		prd = &rfd->rd;
 	}
-	bn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
+	bd = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
-	vty_out(vty, "  bn=%p%s", bn, HVTYNL);
+	vty_out(vty, "  bd=%p%s", bd, HVTYNL);
 
-	for (bpi = bgp_node_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
+	for (bpi = bgp_dest_get_bgp_path_info(bd); bpi; bpi = bpi->next) {
 		if (bpi->peer == rfd->peer && bpi->type == type
 		    && bpi->sub_type == BGP_ROUTE_RFP && bpi->extra
 		    && bpi->extra->vnc.export.rfapi_handle == (void *)rfd) {

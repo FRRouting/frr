@@ -2,15 +2,7 @@
 
 #include "isisd/isis_lsp.c"
 
-struct thread_master *master;
-
-int isis_sock_init(struct isis_circuit *circuit);
-int isis_sock_init(struct isis_circuit *circuit)
-{
-	return 0;
-}
-
-struct zebra_privs_t isisd_privs;
+#include "test_common.h"
 
 static void test_lsp_build_list_nonzero_ht(void)
 {
@@ -82,6 +74,7 @@ static void test_lsp_build_list_nonzero_ht(void)
 
 int main(int argc, char **argv)
 {
+	struct isis *isis = NULL;
 	isis = calloc(sizeof(*isis), 1);
 	test_lsp_build_list_nonzero_ht();
 	return 0;

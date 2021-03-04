@@ -80,7 +80,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
 		memcpy(&sin6.sin6_addr, &bs->key.peer, sizeof(sin6.sin6_addr));
-		if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+		if (bs->ifp && IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
 			sin6.sin6_scope_id = bs->ifp->ifindex;
 
 		sin6.sin6_port =
@@ -147,6 +147,8 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 	bep.my_discr = htonl(bfd->discrs.my_discr);
 
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
+		if (bvrf->bg_echov6 == -1)
+			return;
 		sd = bvrf->bg_echov6;
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
@@ -163,7 +165,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 		salen = sizeof(sin6);
 	} else {
 		sd = bvrf->bg_echo;
-		memset(&sin6, 0, sizeof(sin6));
+		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		memcpy(&sin.sin_addr, &bfd->key.peer, sizeof(sin.sin_addr));
 		sin.sin_port = htons(BFD_DEF_ECHO_PORT);
@@ -541,6 +543,7 @@ int bfd_recv_cb(struct thread *t)
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	struct sockaddr_any local, peer;
 	uint8_t msgbuf[1516];
+	struct interface *ifp = NULL;
 	struct bfd_vrf_global *bvrf = THREAD_ARG(t);
 
 	vrfid = bvrf->vrf->vrf_id;
@@ -570,6 +573,15 @@ int bfd_recv_cb(struct thread *t)
 				     &local, &peer);
 	}
 
+	/* update vrf-id because when in vrf-lite mode,
+	 * the socket is on default namespace
+	 */
+	if (ifindex) {
+		ifp = if_lookup_by_index(ifindex, vrfid);
+		if (ifp)
+			vrfid = ifp->vrf_id;
+	}
+
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
@@ -577,7 +589,7 @@ int bfd_recv_cb(struct thread *t)
 		return 0;
 	}
 
-	/* Validate packet TTL. */
+	/* Validate single hop packet TTL. */
 	if ((!is_mhop) && (ttl != BFD_TTL_VAL)) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
@@ -630,10 +642,10 @@ int bfd_recv_cb(struct thread *t)
 	 * Single hop: set local address that received the packet.
 	 */
 	if (is_mhop) {
-		if ((BFD_TTL_VAL - bfd->mh_ttl) > BFD_TTL_VAL) {
+		if (ttl < bfd->mh_ttl) {
 			cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 				 "exceeded max hop count (expected %d, got %d)",
-				 bfd->mh_ttl, BFD_TTL_VAL);
+				 bfd->mh_ttl, ttl);
 			return 0;
 		}
 	} else if (bfd->local_address.sa_sin.sin_family == AF_UNSPEC) {
@@ -949,8 +961,9 @@ int bp_peer_socket(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
-	    && bs->key.vrfname[0])
+	else if ((!vrf_is_backend_netns() && bs->vrf->vrf_id != VRF_DEFAULT)
+		 || ((CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+		      && bs->key.vrfname[0])))
 		device_to_bind = (const char *)bs->key.vrfname;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
@@ -1016,8 +1029,9 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
-	    && bs->key.vrfname[0])
+	else if ((!vrf_is_backend_netns() && bs->vrf->vrf_id != VRF_DEFAULT)
+		 || ((CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+		      && bs->key.vrfname[0])))
 		device_to_bind = (const char *)bs->key.vrfname;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
@@ -1049,7 +1063,7 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	memcpy(&sin6.sin6_addr, &bs->key.local, sizeof(sin6.sin6_addr));
-	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+	if (bs->ifp && IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
 		sin6.sin6_scope_id = bs->ifp->ifindex;
 
 	pcount = 0;
@@ -1145,8 +1159,14 @@ int bp_udp6_shop(const struct vrf *vrf)
 		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf->vrf_id,
 				vrf->name);
 	}
-	if (sd == -1)
-		zlog_fatal("udp6-shop: socket: %s", strerror(errno));
+	if (sd == -1) {
+		if (errno != EAFNOSUPPORT)
+			zlog_fatal("udp6-shop: socket: %s", strerror(errno));
+		else
+			zlog_warn("udp6-shop: V6 is not supported, continuing");
+
+		return -1;
+	}
 
 	bp_set_ipv6opts(sd);
 	bp_bind_ipv6(sd, BFD_DEFDESTPORT);
@@ -1162,8 +1182,14 @@ int bp_udp6_mhop(const struct vrf *vrf)
 		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf->vrf_id,
 				vrf->name);
 	}
-	if (sd == -1)
-		zlog_fatal("udp6-mhop: socket: %s", strerror(errno));
+	if (sd == -1) {
+		if (errno != EAFNOSUPPORT)
+			zlog_fatal("udp6-mhop: socket: %s", strerror(errno));
+		else
+			zlog_warn("udp6-mhop: V6 is not supported, continuing");
+
+		return -1;
+	}
 
 	bp_set_ipv6opts(sd);
 	bp_bind_ipv6(sd, BFD_DEF_MHOP_DEST_PORT);
@@ -1194,8 +1220,15 @@ int bp_echov6_socket(const struct vrf *vrf)
 	frr_with_privs(&bglobal.bfdd_privs) {
 		s = vrf_socket(AF_INET6, SOCK_DGRAM, 0, vrf->vrf_id, vrf->name);
 	}
-	if (s == -1)
-		zlog_fatal("echov6-socket: socket: %s", strerror(errno));
+	if (s == -1) {
+		if (errno != EAFNOSUPPORT)
+			zlog_fatal("echov6-socket: socket: %s",
+				   strerror(errno));
+		else
+			zlog_warn("echov6-socket: V6 is not supported, continuing");
+
+		return -1;
+	}
 
 	bp_set_ipv6opts(s);
 	bp_bind_ipv6(s, BFD_DEF_ECHO_PORT);

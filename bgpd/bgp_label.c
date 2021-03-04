@@ -45,7 +45,7 @@ extern struct zclient *zclient;
 int bgp_parse_fec_update(void)
 {
 	struct stream *s;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp *bgp;
 	struct bgp_table *table;
 	struct prefix p;
@@ -75,33 +75,33 @@ int bgp_parse_fec_update(void)
 		zlog_debug("no %u unicast table", p.family);
 		return -1;
 	}
-	rn = bgp_node_lookup(table, &p);
-	if (!rn) {
+	dest = bgp_node_lookup(table, &p);
+	if (!dest) {
 		zlog_debug("no node for the prefix");
 		return -1;
 	}
 
 	/* treat it as implicit withdraw - the label is invalid */
 	if (label == MPLS_INVALID_LABEL)
-		bgp_unset_valid_label(&rn->local_label);
+		bgp_unset_valid_label(&dest->local_label);
 	else {
-		label_ntop(label, 1, &rn->local_label);
-		bgp_set_valid_label(&rn->local_label);
+		label_ntop(label, 1, &dest->local_label);
+		bgp_set_valid_label(&dest->local_label);
 	}
-	SET_FLAG(rn->flags, BGP_NODE_LABEL_CHANGED);
-	bgp_unlock_node(rn);
-	bgp_process(bgp, rn, afi, safi);
+	SET_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED);
+	bgp_dest_unlock_node(dest);
+	bgp_process(bgp, dest, afi, safi);
 	return 1;
 }
 
-mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *pi,
+mpls_label_t bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 			   struct peer *to, afi_t afi, safi_t safi)
 {
 	struct peer *from;
 	mpls_label_t remote_label;
 	int reflect;
 
-	if (!rn || !pi || !to)
+	if (!dest || !pi || !to)
 		return MPLS_INVALID_LABEL;
 
 	remote_label = pi->extra ? pi->extra->label[0] : MPLS_INVALID_LABEL;
@@ -117,7 +117,7 @@ mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *pi,
 	if (CHECK_FLAG(to->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
 		return remote_label;
 
-	return rn->local_label;
+	return dest->local_label;
 }
 
 /**
@@ -131,7 +131,7 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 			       bool allocated)
 {
 	struct bgp_path_info *pi;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	pi = labelid;
 	/* Is this path still valid? */
@@ -143,11 +143,11 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		return -1;
 	}
 
-	rn = pi->net;
+	dest = pi->net;
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__, rn,
-			   new_label, allocated);
+		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__,
+			   bgp_dest_to_rnode(dest), new_label, allocated);
 
 	if (!allocated) {
 		/*
@@ -155,11 +155,11 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		 */
 		if (pi->attr->label_index == MPLS_INVALID_LABEL_INDEX
 		    && pi->attr->label != MPLS_LABEL_NONE
-		    && CHECK_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
-			bgp_unregister_for_label(rn);
+		    && CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
+			bgp_unregister_for_label(dest);
 			label_ntop(MPLS_LABEL_IMPLICIT_NULL, 1,
-				   &rn->local_label);
-			bgp_set_valid_label(&rn->local_label);
+				   &dest->local_label);
+			bgp_set_valid_label(&dest->local_label);
 		}
 		return 0;
 	}
@@ -173,7 +173,8 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		flog_err(
 			EC_BGP_LABEL,
 			"%s: FEC %pRN Rejecting allocated label %u as Label Index is %u",
-			__func__, rn, new_label, pi->attr->label_index);
+			__func__, bgp_dest_to_rnode(dest), new_label,
+			pi->attr->label_index);
 
 		bgp_register_for_label(pi->net, pi);
 
@@ -188,12 +189,13 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		/* Shouldn't happen: different label allocation */
 		flog_err(EC_BGP_LABEL,
 			 "%s: %pRN had label %u but got new assignment %u",
-			 __func__, rn, pi->attr->label, new_label);
+			 __func__, bgp_dest_to_rnode(dest), pi->attr->label,
+			 new_label);
 		/* continue means use new one */
 	}
 
-	label_ntop(new_label, 1, &rn->local_label);
-	bgp_set_valid_label(&rn->local_label);
+	label_ntop(new_label, 1, &dest->local_label);
+	bgp_set_valid_label(&dest->local_label);
 
 	/*
 	 * Get back to registering the FEC
@@ -203,7 +205,7 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 	return 0;
 }
 
-void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_path_info *pi,
+void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 			     bool reg)
 {
 	bool with_label_index = false;
@@ -215,8 +217,8 @@ void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_path_info *pi,
 	size_t flags_pos = 0;
 	char addr[PREFIX_STRLEN];
 
-	p = bgp_node_get_prefix(rn);
-	local_label = &(rn->local_label);
+	p = bgp_dest_get_prefix(dest);
+	local_label = &(dest->local_label);
 	/* this prevents the loop when we're called by
 	 * bgp_reg_for_label_callback()
 	 */
@@ -280,9 +282,9 @@ void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_path_info *pi,
 			flags |= ZEBRA_FEC_REGISTER_LABEL_INDEX;
 			stream_putl(s, pi->attr->label_index);
 		}
-		SET_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);
+		SET_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL);
 	} else
-		UNSET_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);
+		UNSET_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL);
 
 	/* Set length and flags */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -392,8 +394,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		/* There needs to be at least one label */
 		if (prefixlen < 24) {
 			flog_err(EC_BGP_UPDATE_RCV,
-				 "%s [Error] Update packet error"
-				 " (wrong label length %d)",
+				 "%s [Error] Update packet error (wrong label length %d)",
 				 peer->host, prefixlen);
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_INVAL_NETWORK);

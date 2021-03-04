@@ -138,6 +138,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
 	pim_ifp->ucast_bsm_accept = true;
+	pim_ifp->am_i_dr = false;
 
 	/*
 	  RFC 3376: 8.3. Query Response Interval
@@ -340,7 +341,7 @@ pim_sec_addr_find(struct pim_interface *pim_ifp, struct prefix *addr)
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
-		if (prefix_cmp(&sec_addr->addr, addr)) {
+		if (prefix_cmp(&sec_addr->addr, addr) == 0) {
 			return sec_addr;
 		}
 	}
@@ -1503,14 +1504,14 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 	}
 }
 
-int pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
+struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
 {
 	struct listnode *cnode;
 	struct connected *c;
 	struct prefix p;
 
 	if (!ifp)
-		return 0;
+		return NULL;
 
 	p.family = AF_INET;
 	p.u.prefix4 = src;
@@ -1519,11 +1520,11 @@ int pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 		if ((c->address->family == AF_INET)
 		    && prefix_match(CONNECTED_PREFIX(c), &p)) {
-			return 1;
+			return CONNECTED_PREFIX(c);
 		}
 	}
 
-	return 0;
+	return NULL;
 }
 
 bool pim_if_is_vrf_device(struct interface *ifp)

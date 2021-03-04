@@ -174,15 +174,15 @@ char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size)
 
 	if (type == RD_TYPE_AS) {
 		decode_rd_as(pnt + 2, &rd_as);
-		snprintf(buf, size, "%u:%" PRIu32, rd_as.as, rd_as.val);
+		snprintf(buf, size, "%u:%u", rd_as.as, rd_as.val);
 		return buf;
 	} else if (type == RD_TYPE_AS4) {
 		decode_rd_as4(pnt + 2, &rd_as);
-		snprintf(buf, size, "%u:%" PRIu32, rd_as.as, rd_as.val);
+		snprintf(buf, size, "%u:%u", rd_as.as, rd_as.val);
 		return buf;
 	} else if (type == RD_TYPE_IP) {
 		decode_rd_ip(pnt + 2, &rd_ip);
-		snprintf(buf, size, "%s:%" PRIu16, inet_ntoa(rd_ip.ip),
+		snprintf(buf, size, "%s:%hu", inet_ntoa(rd_ip.ip),
 			 rd_ip.val);
 		return buf;
 	}

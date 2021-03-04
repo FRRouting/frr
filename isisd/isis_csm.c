@@ -48,8 +48,6 @@
 #include "isisd/isis_events.h"
 #include "isisd/isis_errors.h"
 
-extern struct isis *isis;
-
 static const char *const csm_statestr[] = {"C_STATE_NA", "C_STATE_INIT",
 				     "C_STATE_CONF", "C_STATE_UP"};
 
@@ -66,9 +64,10 @@ struct isis_circuit *
 isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 {
 	int old_state;
+	struct isis *isis = NULL;
 
 	old_state = circuit ? circuit->state : C_STATE_NA;
-	if (isis->debugs & DEBUG_EVENTS)
+	if (IS_DEBUG_EVENTS)
 		zlog_debug("CSM_EVENT: %s", EVENT2STR(event));
 
 	switch (old_state) {
@@ -84,9 +83,17 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			circuit->state = C_STATE_CONF;
 			break;
 		case IF_UP_FROM_Z:
+			isis = isis_lookup_by_vrfid(((struct interface *)arg)->vrf_id);
+			if (isis == NULL) {
+				zlog_warn(
+					" %s : ISIS routing instance not found",
+					__func__);
+				break;
+			}
 			circuit = isis_circuit_new();
 			isis_circuit_if_add(circuit, (struct interface *)arg);
 			listnode_add(isis->init_circ_list, circuit);
+			circuit->isis = isis;
 			circuit->state = C_STATE_INIT;
 			break;
 		case ISIS_DISABLE:
@@ -111,7 +118,8 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			circuit->state = C_STATE_UP;
 			isis_event_circuit_state_change(circuit, circuit->area,
 							1);
-			listnode_delete(isis->init_circ_list, circuit);
+			listnode_delete(circuit->isis->init_circ_list,
+					circuit);
 			break;
 		case IF_UP_FROM_Z:
 			assert(circuit);
@@ -122,7 +130,8 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			break;
 		case IF_DOWN_FROM_Z:
 			isis_circuit_if_del(circuit, (struct interface *)arg);
-			listnode_delete(isis->init_circ_list, circuit);
+			listnode_delete(circuit->isis->init_circ_list,
+					circuit);
 			isis_circuit_del(circuit);
 			circuit = NULL;
 			break;
@@ -137,27 +146,11 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 		case IF_UP_FROM_Z:
 			isis_circuit_if_add(circuit, (struct interface *)arg);
 			if (isis_circuit_up(circuit) != ISIS_OK) {
+				isis_circuit_if_del(circuit, (struct interface *)arg);
 				flog_err(
 					EC_ISIS_CONFIG,
 					"Could not bring up %s because of invalid config.",
 					circuit->interface->name);
-				flog_err(
-					EC_ISIS_CONFIG,
-					"Clearing config for %s. Please re-examine it.",
-					circuit->interface->name);
-				if (circuit->ip_router) {
-					circuit->ip_router = 0;
-					circuit->area->ip_circuits--;
-				}
-				if (circuit->ipv6_router) {
-					circuit->ipv6_router = 0;
-					circuit->area->ipv6_circuits--;
-				}
-				circuit_update_nlpids(circuit);
-				isis_circuit_deconfigure(circuit,
-							 circuit->area);
-				listnode_add(isis->init_circ_list, circuit);
-				circuit->state = C_STATE_INIT;
 				break;
 			}
 			circuit->state = C_STATE_UP;
@@ -185,6 +178,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			zlog_warn("circuit already connected");
 			break;
 		case ISIS_DISABLE:
+			isis = circuit->area->isis;
 			isis_circuit_down(circuit);
 			isis_circuit_deconfigure(circuit,
 						 (struct isis_area *)arg);
@@ -192,6 +186,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			isis_event_circuit_state_change(
 				circuit, (struct isis_area *)arg, 0);
 			listnode_add(isis->init_circ_list, circuit);
+			circuit->isis = isis;
 			break;
 		case IF_DOWN_FROM_Z:
 			isis_circuit_down(circuit);
@@ -207,7 +202,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 		zlog_warn("Invalid circuit state %d", old_state);
 	}
 
-	if (isis->debugs & DEBUG_EVENTS)
+	if (IS_DEBUG_EVENTS)
 		zlog_debug("CSM_STATE_CHANGE: %s -> %s ", STATE2STR(old_state),
 			   circuit ? STATE2STR(circuit->state)
 				   : STATE2STR(C_STATE_NA));

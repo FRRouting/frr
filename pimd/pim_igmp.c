@@ -138,7 +138,7 @@ struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 		if (ifaddr.s_addr == igmp->ifaddr.s_addr)
 			return igmp;
 
-	return 0;
+	return NULL;
 }
 
 struct igmp_sock *igmp_sock_lookup_by_fd(struct list *igmp_sock_list, int fd)
@@ -150,7 +150,7 @@ struct igmp_sock *igmp_sock_lookup_by_fd(struct list *igmp_sock_list, int fd)
 		if (fd == igmp->fd)
 			return igmp;
 
-	return 0;
+	return NULL;
 }
 
 static int pim_igmp_other_querier_expire(struct thread *t)
@@ -310,7 +310,7 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return 0;
 	}
 
-	if (if_lookup_address(&from, AF_INET, ifp->vrf_id)) {
+	if (if_lookup_exact_address(&from, AF_INET, ifp->vrf_id)) {
 		if (PIM_DEBUG_IGMP_PACKETS)
 			zlog_debug("Recv IGMP query on interface: %s from ourself %s",
 				   ifp->name, from_str);
@@ -351,9 +351,7 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 	 */
 	if (query_version != pim_ifp->igmp_version) {
 		zlog_warn(
-			"Recv IGMP query v%d from %s on %s but we are using v%d, please "
-			"configure all PIM routers on this subnet to use the same "
-			"IGMP version",
+			"Recv IGMP query v%d from %s on %s but we are using v%d, please configure all PIM routers on this subnet to use the same IGMP version",
 			query_version, from_str, ifp->name,
 			pim_ifp->igmp_version);
 		return 0;
@@ -997,6 +995,7 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 {
 	struct pim_interface *pim_ifp;
 	struct igmp_sock *igmp;
+	struct sockaddr_in sin;
 	int fd;
 
 	pim_ifp = ifp->info;
@@ -1005,7 +1004,18 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	if (fd < 0) {
 		zlog_warn("Could not open IGMP socket for %s on %s",
 			  inet_ntoa(ifaddr), ifp->name);
-		return 0;
+		return NULL;
+	}
+
+	sin.sin_family = AF_INET;
+	sin.sin_addr = ifaddr;
+	sin.sin_port = 0;
+	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)) != 0) {
+		zlog_warn("Could not bind IGMP socket for %s on %s",
+			  inet_ntoa(ifaddr), ifp->name);
+		close(fd);
+
+		return NULL;
 	}
 
 	igmp = igmp_sock_new(fd, ifaddr, ifp, mtrace_only);

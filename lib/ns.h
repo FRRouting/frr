@@ -53,6 +53,11 @@ struct ns {
 	/* Identifier, mapped on the NSID value */
 	ns_id_t internal_ns_id;
 
+	/* Identifier, value of NSID of default netns,
+	 * relative value in that local netns
+	 */
+	ns_id_t relative_default_ns;
+
 	/* Name */
 	char *name;
 
@@ -120,7 +125,14 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id);
 extern char *ns_netns_pathname(struct vty *vty, const char *name);
 
 /* Parse and execute a function on all the NETNS */
-extern void ns_walk_func(int (*func)(struct ns *));
+#define NS_WALK_CONTINUE 0
+#define NS_WALK_STOP 1
+
+extern void ns_walk_func(int (*func)(struct ns *,
+				     void *,
+				     void **),
+			 void *param_in,
+			 void **param_out);
 
 /* API to get the NETNS name, from the ns pointer */
 extern const char *ns_get_name(struct ns *ns);
@@ -149,10 +161,7 @@ extern ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool map);
  */
 extern void ns_init(void);
 
-/* API to retrieve default NS */
-extern ns_id_t ns_get_default_id(void);
-
-#define NS_DEFAULT ns_get_default_id()
+#define NS_DEFAULT 0
 
 /* API that can be used to change from NS */
 extern int ns_switchback_to_initial(void);
@@ -174,7 +183,9 @@ extern struct ns *ns_lookup_name(const char *name);
  */
 extern int ns_enable(struct ns *ns, void (*func)(ns_id_t, void *));
 extern struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id);
+extern ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid);
 extern void ns_disable(struct ns *ns);
+extern struct ns *ns_get_default(void);
 
 #ifdef __cplusplus
 }

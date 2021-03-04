@@ -120,6 +120,8 @@ extern void yang_get_default_string_buf(char *buf, size_t size,
 
 /* empty */
 extern struct yang_data *yang_data_new_empty(const char *xpath);
+extern bool yang_dnode_get_empty(const struct lyd_node *dnode,
+				 const char *xpath_fmt, ...);
 
 /* ip prefix */
 extern void yang_str2prefix(const char *value, union prefixptr prefix);
@@ -190,6 +192,9 @@ extern struct yang_data *yang_data_new_date_and_time(const char *xpath,
 
 /* nexthop enum2str */
 extern const char *yang_nexthop_type2str(uint32_t ntype);
+
+const char *yang_afi_safi_value2identity(afi_t afi, safi_t safi);
+void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi);
 
 #ifdef __cplusplus
 }

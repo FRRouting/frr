@@ -55,8 +55,14 @@ This is the recommended test writing routine:
 * Create topology from json
 * Create configuration from json
 * Write the tests
+* Format the new code using `black <https://github.com/psf/black>`_
 * Create a Pull Request
 
+.. Note::
+
+   BGP tests MUST use generous convergence timeouts - you must ensure
+   that any test involving BGP uses a convergence timeout of at least
+   130 seconds.
 
 File Hierarchy
 ^^^^^^^^^^^^^^

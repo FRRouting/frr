@@ -201,7 +201,6 @@ static int bgp_process_reads(struct thread *thread)
 
 	while (more) {
 		/* static buffer for transferring packets */
-		static unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
 		/* shorter alias to peer's input buffer */
 		struct ringbuf *ibw = peer->ibuf_work;
 		/* packet size as given by header */
@@ -231,8 +230,9 @@ static int bgp_process_reads(struct thread *thread)
 		 */
 		if (ringbuf_remain(ibw) >= pktsize) {
 			struct stream *pkt = stream_new(pktsize);
-			assert(ringbuf_get(ibw, pktbuf, pktsize) == pktsize);
-			stream_put(pkt, pktbuf, pktsize);
+			assert(STREAM_WRITEABLE(pkt) == pktsize);
+			assert(ringbuf_get(ibw, pkt->data, pktsize) == pktsize);
+			stream_set_endp(pkt, pktsize);
 
 			frr_with_mutex(&peer->io_mtx) {
 				stream_fifo_push(peer->ibuf, pkt);

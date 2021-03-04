@@ -117,6 +117,10 @@ struct nhg_hash_entry {
  */
 #define NEXTHOP_GROUP_BACKUP (1 << 5)
 
+/*
+ * Track FPM installation status..
+ */
+#define NEXTHOP_GROUP_FPM (1 << 6)
 };
 
 /* Was this one we created, either this session or previously? */
@@ -198,6 +202,12 @@ void zebra_nhg_hash_free(void *p);
 void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
 		    const struct nexthop *nh);
 
+/*
+ * Shallow copy of 'orig', into new/allocated nhe.
+ */
+struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
+				      uint32_t id);
+
 /* Allocate, free backup nexthop info objects */
 struct nhg_backup_info *zebra_nhg_backup_alloc(void);
 void zebra_nhg_backup_free(struct nhg_backup_info **p);
@@ -266,8 +276,15 @@ struct zebra_dplane_ctx;
 extern void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx);
 
 
-/* Sweet the nhg hash tables for old entries on restart */
+/* Sweep the nhg hash tables for old entries on restart */
 extern void zebra_nhg_sweep_table(struct hash *hash);
+
+/*
+ * We are shutting down but the nexthops should be kept
+ * as that -r has been specified and we don't want to delete
+ * the routes unintentionally
+ */
+extern void zebra_nhg_mark_keep(void);
 
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */

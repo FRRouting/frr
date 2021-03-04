@@ -25,6 +25,7 @@
 #include "pbr_memory.h"
 #include "pbr_map.h"
 #include "pbr_debug.h"
+#include "pbr_nht.h"
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_VRF, "PBR Map VRF")
 
@@ -59,6 +60,7 @@ static int pbr_vrf_enable(struct vrf *vrf)
 {
 	DEBUGD(&pbr_dbg_event, "%s: %u (%s)", __func__, vrf->vrf_id, vrf->name);
 
+	pbr_nht_vrf_update(vrf->info);
 	pbr_map_vrf_update(vrf->info);
 
 	return 0;

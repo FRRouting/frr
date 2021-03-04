@@ -23,6 +23,7 @@ Basics
 
    basic
    vtysh
+   grpc
    filter
    routemap
    ipv6
@@ -71,6 +72,7 @@ Appendix
    bugs
    packet-dumps
    glossary
+   frr-reload
 
 ################
 Copyright notice

@@ -29,6 +29,7 @@ import os
 import sys
 import json
 from functools import partial
+from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -97,6 +98,7 @@ def setup_module(mod):
 
     # set up PE bridges with the EVPN member interfaces facing the CE hosts
     pe1.run("ip link add name br101 type bridge stp_state 0")
+    pe1.run("ip addr add 10.10.1.1/24 dev br101")
     pe1.run("ip link set dev br101 up")
     pe1.run(
         "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.10.10.10 nolearning"
@@ -106,6 +108,7 @@ def setup_module(mod):
     pe1.run("ip link set dev PE1-eth0 master br101")
 
     pe2.run("ip link add name br101 type bridge stp_state 0")
+    pe2.run("ip addr add 10.10.1.3/24 dev br101")
     pe2.run("ip link set dev br101 up")
     pe2.run(
         "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.30.30.30 nolearning"
@@ -142,6 +145,15 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def show_vni_json_elide_ifindex(pe, vni, expected):
+    output_json = pe.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
+
+    if "ifindex" in output_json:
+        output_json.pop("ifindex")
+
+    return topotest.json_cmp(output_json, expected)
+
+
 def test_pe1_converge_evpn():
     "Wait for protocol convergence"
 
@@ -154,9 +166,7 @@ def test_pe1_converge_evpn():
     json_file = "{}/{}/evpn.vni.json".format(CWD, pe1.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(
-        topotest.router_json_cmp, pe1, "show evpn vni 101 json", expected
-    )
+    test_func = partial(show_vni_json_elide_ifindex, pe1, 101, expected)
     _, result = topotest.run_and_expect(test_func, None, count=125, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
     assert result is None, assertmsg
@@ -175,9 +185,7 @@ def test_pe2_converge_evpn():
     json_file = "{}/{}/evpn.vni.json".format(CWD, pe2.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(
-        topotest.router_json_cmp, pe2, "show evpn vni 101 json", expected
-    )
+    test_func = partial(show_vni_json_elide_ifindex, pe2, 101, expected)
     _, result = topotest.run_and_expect(test_func, None, count=125, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe2.name)
     assert result is None, assertmsg
@@ -194,7 +202,7 @@ def mac_learn_test(host, local):
     mac_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
     mac_output_json = json.loads(mac_output)
     assertmsg = "Local MAC output does not match interface mac {}".format(mac)
-    assert mac_output_json[mac]["type"] == "local"
+    assert mac_output_json[mac]["type"] == "local", assertmsg
 
 
 def mac_test_local_remote(local, remote):
@@ -273,6 +281,103 @@ def test_local_remote_mac_pe2():
     mac_test_local_remote(pe2, pe1)
 
     # Memory leak test template
+
+
+def ip_learn_test(tgen, host, local, remote, ip_addr):
+    "check the host IP gets learned by the VNI"
+    host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
+    int_lines = host_output.splitlines()
+    mac_line = int_lines[7].split(": ")
+    mac = mac_line[1]
+    print(host_output)
+
+    # check we have a local association between the MAC and IP
+    local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
+    print(local_output)
+    local_output_json = json.loads(local_output)
+    mac_type = local_output_json[mac]["type"]
+    assertmsg = "Failed to learn local IP address on host {}".format(host.name)
+    assert local_output_json[mac]["neighbors"] != "none", assertmsg
+    learned_ip = local_output_json[mac]["neighbors"]["active"][0]
+
+    assertmsg = "local learned mac wrong type: {} ".format(mac_type)
+    assert mac_type == "local", assertmsg
+
+    assertmsg = "learned address mismatch with configured address host: {} learned: {}".format(
+        ip_addr, learned_ip
+    )
+    assert ip_addr == learned_ip, assertmsg
+
+    # now lets check the remote
+    count = 0
+    converged = False
+    while count < 30:
+        remote_output = remote.vtysh_cmd(
+            "show evpn mac vni 101 mac {} json".format(mac)
+        )
+        print(remote_output)
+        remote_output_json = json.loads(remote_output)
+        type = remote_output_json[mac]["type"]
+        if not remote_output_json[mac]["neighbors"] == "none":
+            # due to a kernel quirk, learned IPs can be inactive
+            if (
+                remote_output_json[mac]["neighbors"]["active"]
+                or remote_output_json[mac]["neighbors"]["inactive"]
+            ):
+                converged = True
+                break
+        count += 1
+        sleep(1)
+
+    print("tries: {}".format(count))
+    assertmsg = "{} remote learned mac no address: {} ".format(host.name, mac)
+    # some debug for this failure
+    if not converged == True:
+        log_output = remote.run("cat zebra.log")
+        print(log_output)
+
+    assert converged == True, assertmsg
+    if remote_output_json[mac]["neighbors"]["active"]:
+        learned_ip = remote_output_json[mac]["neighbors"]["active"][0]
+    else:
+        learned_ip = remote_output_json[mac]["neighbors"]["inactive"][0]
+    assertmsg = "remote learned mac wrong type: {} ".format(type)
+    assert type == "remote", assertmsg
+
+    assertmsg = "remote learned address mismatch with configured address host: {} learned: {}".format(
+        ip_addr, learned_ip
+    )
+    assert ip_addr == learned_ip, assertmsg
+
+
+def test_ip_pe1_learn():
+    "run the IP learn test for PE1"
+
+    tgen = get_topogen()
+    host1 = tgen.gears["host1"]
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+    pe2.vtysh_cmd("debug zebra vxlan")
+    pe2.vtysh_cmd("debug zebra kernel")
+    # lets populate that arp cache
+    host1.run("ping -c1 10.10.1.1")
+    ip_learn_test(tgen, host1, pe1, pe2, "10.10.1.55")
+    # tgen.mininet_cli()
+
+
+def test_ip_pe2_learn():
+    "run the IP learn test for PE2"
+
+    tgen = get_topogen()
+    host2 = tgen.gears["host2"]
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+    pe1.vtysh_cmd("debug zebra vxlan")
+    pe1.vtysh_cmd("debug zebra kernel")
+    # lets populate that arp cache
+    host2.run("ping -c1 10.10.1.3")
+    ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
+    # tgen.mininet_cli()
 
 
 def test_memory_leak():

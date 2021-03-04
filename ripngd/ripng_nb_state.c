@@ -144,6 +144,7 @@ ripngd_instance_state_routes_route_get_next(struct nb_cb_get_next_args *args)
 		rn = agg_route_top(ripng->table);
 	else
 		rn = agg_route_next((struct agg_node *)args->list_entry);
+	/* Optimization: skip empty route nodes. */
 	while (rn && rn->info == NULL)
 		rn = agg_route_next(rn);
 

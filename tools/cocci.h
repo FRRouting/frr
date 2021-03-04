@@ -7,6 +7,18 @@
 #define DEFUN_HIDDEN(funcname, cmdname, str, help)                             \
 	static int funcname(const struct cmd_element *self, struct vty *vty,   \
 			    int argc, struct cmd_token *argv[])
+#define DEFUN_NOSH(funcname, cmdname, str, help)                               \
+	static int funcname(const struct cmd_element *self, struct vty *vty,   \
+			    int argc, struct cmd_token *argv[])
+#define DEFPY(funcname, cmdname, str, help)                                    \
+	static int funcname(const struct cmd_element *self, struct vty *vty,   \
+			    int argc, struct cmd_token *argv[])
+#define DEFPY_HIDDEN(funcname, cmdname, str, help)                             \
+	static int funcname(const struct cmd_element *self, struct vty *vty,   \
+			    int argc, struct cmd_token *argv[])
+#define DEFPY_NOSH(funcname, cmdname, str, help)                               \
+	static int funcname(const struct cmd_element *self, struct vty *vty,   \
+			    int argc, struct cmd_token *argv[])
 
 #define ENABLE_BGP_VNC 1
 #define ALL_LIST_ELEMENTS_RO(list, node, data)                                 \
@@ -85,3 +97,28 @@
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
 #define FOREACH_SAFI(safi) for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
+#define frr_with_privs(p) \
+	for (int x = 1; x; x--)
+#define frr_with_mutex(m) \
+	for (int x = 1; x; x--)
+
+#define ALL_LSDB_TYPED_ADVRTR(lsdb, type, adv_router, lsa)                     \
+	const struct route_node *iterend =                                     \
+		ospf6_lsdb_head(lsdb, 2, type, adv_router, &lsa);              \
+	lsa;                                                                   \
+	lsa = ospf6_lsdb_next(iterend, lsa)
+
+#define ALL_LSDB_TYPED(lsdb, type, lsa)                                        \
+	const struct route_node *iterend =                                     \
+		ospf6_lsdb_head(lsdb, 1, type, 0, &lsa);                       \
+	lsa;                                                                   \
+	lsa = ospf6_lsdb_next(iterend, lsa)
+
+#define ALL_LSDB(lsdb, lsa)                                                    \
+	const struct route_node *iterend =                                     \
+		ospf6_lsdb_head(lsdb, 0, 0, 0, &lsa);                          \
+	lsa;                                                                   \
+	lsa = ospf6_lsdb_next(iterend, lsa)
+
+#define QOBJ_FIELDS struct qobj_node qobj_node;

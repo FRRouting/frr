@@ -159,9 +159,19 @@ static void *frr_pthread_inner(void *arg)
 int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 {
 	int ret;
+	sigset_t oldsigs, blocksigs;
+
+	/* Ensure we never handle signals on a background thread by blocking
+	 * everything here (new thread inherits signal mask)
+	 */
+	sigfillset(&blocksigs);
+	pthread_sigmask(SIG_BLOCK, &blocksigs, &oldsigs);
 
 	fpt->rcu_thread = rcu_thread_prepare();
 	ret = pthread_create(&fpt->thread, attr, frr_pthread_inner, fpt);
+
+	/* Restore caller's signals */
+	pthread_sigmask(SIG_SETMASK, &oldsigs, NULL);
 
 	/*
 	 * Per pthread_create(3), the contents of fpt->thread are undefined if

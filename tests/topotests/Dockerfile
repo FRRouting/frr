@@ -19,6 +19,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         libjson-c-dev \
         libpcre3-dev \
         libpython-dev \
+        libpython3-dev \
         libreadline-dev \
         libc-ares-dev \
         libcap-dev \
@@ -26,7 +27,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         mininet \
         pkg-config \
         python-pip \
-        python-sphinx \
+        python3 \
+        python3-dev \
+        python3-sphinx \
+        python3-pytest \
         rsync \
         strace \
         tcpdump \

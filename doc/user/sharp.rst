@@ -78,7 +78,8 @@ keyword. At present, no sharp commands will be preserved in the config.
    The nexthop or import choice chooses the type of nexthop we are asking
    zebra to watch for us.  This choice affects zebra's decision on what
    matches.  Connected tells zebra whether or not that we want the route
-   matched against to be a static or connected route.  The no form of
+   matched against to be a static or connected route for the nexthop keyword,
+   for the import keyword connected means exact match.  The no form of
    the command obviously turns this watching off.
 
 .. index:: sharp data nexthop
@@ -88,13 +89,13 @@ keyword. At present, no sharp commands will be preserved in the config.
    may have been turned on.
 
 .. index:: sharp lsp
-.. clicmd:: sharp lsp (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
+.. clicmd:: sharp lsp [update] (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
 
    Install an LSP using the specified in-label, with nexthops as
-   listed in nexthop-group ``NAME``. The LSP is installed as type
-   ZEBRA_LSP_SHARP. If ``prefix`` is specified, an existing route with
-   type ``TYPE`` (and optional ``instance`` id) will be updated to use
-   the LSP.
+   listed in nexthop-group ``NAME``. If ``update`` is included, the
+   update path is used. The LSP is installed as type ZEBRA_LSP_SHARP.
+   If ``prefix`` is specified, an existing route with type ``TYPE``
+   (and optional ``instance`` id) will be updated to use the LSP.
 
 .. index:: sharp remove lsp
 .. clicmd:: sharp remove lsp (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
@@ -103,3 +104,43 @@ keyword. At present, no sharp commands will be preserved in the config.
    nexthops are specified in nexthop-group ``NAME``. If ``prefix`` is
    specified, remove label bindings from the route of type ``TYPE``
    also.
+
+.. index:: sharp send opaque
+.. clicmd:: sharp send opaque type (1-255) (1-1000)
+
+   Send opaque ZAPI messages with subtype ``type``. Sharpd will send
+   a stream of messages if the count is greater than one.
+
+.. index:: sharp send opaque unicast
+.. clicmd:: sharp send opaque unicast type (1-255) $proto_str [{instance (0-1000) | session (1-1000)}] (1-1000)
+
+   Send unicast opaque ZAPI messages with subtype ``type``. The
+   protocol, instance, and session_id identify a single target zapi
+   client. Sharpd will send a stream of messages if the count is
+   greater than one.
+
+.. index:: sharp send opaque reg unreg
+.. clicmd:: sharp send opaque <reg | unreg> $proto_str [{instance (0-1000) | session (1-1000)}] type (1-1000)
+
+   Send opaque ZAPI registration and unregistration messages for a
+   single subtype. The messages must specify a protocol daemon by
+   name, and can include optional zapi ``instance`` and ``session``
+   values.
+
+.. index:: sharp create session
+.. clicmd:: sharp create session (1-1024)
+
+   Create an additional zapi client session for testing, using the
+   specified session id.
+
+.. index:: sharp remove session
+.. clicmd:: sharp remove session (1-1024)
+
+   Remove a test zapi client session that was created with the
+   specified session id.
+
+.. index:: sharp neigh discover
+.. clicmd:: sharp neigh discover [vrf NAME] <A.B.C.D|X:X::X:X> IFNAME
+
+   Send an ARP/NDP request to trigger the addition of a neighbor in the ARP
+   table.

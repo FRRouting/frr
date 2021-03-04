@@ -21,7 +21,7 @@
 from collections import OrderedDict
 from json import dumps as json_dumps
 from re import search as re_search
-import ipaddr
+import ipaddress
 import pytest
 
 # Import topogen and topotest helpers
@@ -37,6 +37,7 @@ from lib.common_config import (
     create_prefix_lists,
     create_route_maps,
     create_bgp_community_lists,
+    create_vrf_cfg,
 )
 
 from lib.bgp import create_router_bgp
@@ -49,7 +50,6 @@ def build_topo_from_json(tgen, topo):
     Reads configuration from JSON file. Adds routers, creates interface
     names dynamically and link routers as defined in JSON to create
     topology. Assigns IPs dynamically to all interfaces of each router.
-
     * `tgen`: Topogen object
     * `topo`: json file data
     """
@@ -65,12 +65,12 @@ def build_topo_from_json(tgen, topo):
         listRouters.append(routerN)
 
     if "ipv4base" in topo:
-        ipv4Next = ipaddr.IPv4Address(topo["link_ip_start"]["ipv4"])
+        ipv4Next = ipaddress.IPv4Address(topo["link_ip_start"]["ipv4"])
         ipv4Step = 2 ** (32 - topo["link_ip_start"]["v4mask"])
         if topo["link_ip_start"]["v4mask"] < 32:
             ipv4Next += 1
     if "ipv6base" in topo:
-        ipv6Next = ipaddr.IPv6Address(topo["link_ip_start"]["ipv6"])
+        ipv6Next = ipaddress.IPv6Address(topo["link_ip_start"]["ipv6"])
         ipv6Step = 2 ** (128 - topo["link_ip_start"]["v6mask"])
         if topo["link_ip_start"]["v6mask"] < 127:
             ipv6Next += 1
@@ -181,7 +181,7 @@ def build_topo_from_json(tgen, topo):
                             destRouter_link_json["ipv6"] = "{}/{}".format(
                                 ipv6Next + 1, topo["link_ip_start"]["v6mask"]
                             )
-                            ipv6Next = ipaddr.IPv6Address(int(ipv6Next) + ipv6Step)
+                            ipv6Next = ipaddress.IPv6Address(int(ipv6Next) + ipv6Step)
 
             logger.debug(
                 "Generated link data for router: %s\n%s",
@@ -203,6 +203,7 @@ def build_config_from_json(tgen, topo, save_bkup=True):
 
     func_dict = OrderedDict(
         [
+            ("vrfs", create_vrf_cfg),
             ("links", create_interfaces_cfg),
             ("static_routes", create_static_routes),
             ("prefix_lists", create_prefix_lists),

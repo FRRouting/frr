@@ -64,6 +64,7 @@ unsigned long conf_bgp_debug_flowspec;
 unsigned long conf_bgp_debug_labelpool;
 unsigned long conf_bgp_debug_pbr;
 unsigned long conf_bgp_debug_graceful_restart;
+unsigned long conf_bgp_debug_evpn_mh;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -82,6 +83,7 @@ unsigned long term_bgp_debug_flowspec;
 unsigned long term_bgp_debug_labelpool;
 unsigned long term_bgp_debug_pbr;
 unsigned long term_bgp_debug_graceful_restart;
+unsigned long term_bgp_debug_evpn_mh;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -913,8 +915,8 @@ DEFUN (debug_bgp_keepalive_peer,
        "debug bgp keepalives <A.B.C.D|X:X::X:X|WORD>",
        DEBUG_STR
        BGP_STR
-       "BGP Neighbor Events\n"
-       "BGP neighbor IP address to debug\n"
+       "BGP keepalives\n"
+       "BGP IPv4 neighbor to debug\n"
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
@@ -2006,6 +2008,57 @@ DEFUN (no_debug_bgp_pbr,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_bgp_evpn_mh,
+       debug_bgp_evpn_mh_cmd,
+       "[no$no] debug bgp evpn mh <es$es|route$rt>",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "EVPN\n"
+       "Multihoming\n"
+       "Ethernet Segment debugging\n"
+       "Route debugging\n")
+{
+	if (es) {
+		if (vty->node == CONFIG_NODE) {
+			if (no)
+				DEBUG_OFF(evpn_mh, EVPN_MH_ES);
+			else
+				DEBUG_ON(evpn_mh, EVPN_MH_ES);
+		} else {
+			if (no) {
+				TERM_DEBUG_OFF(evpn_mh, EVPN_MH_ES);
+				vty_out(vty,
+					"BGP EVPN-MH ES debugging is off\n");
+			} else {
+				TERM_DEBUG_ON(evpn_mh, EVPN_MH_ES);
+				vty_out(vty,
+					"BGP EVPN-MH ES debugging is on\n");
+			}
+		}
+	}
+	if (rt) {
+		if (vty->node == CONFIG_NODE) {
+			if (no)
+				DEBUG_OFF(evpn_mh, EVPN_MH_RT);
+			else
+				DEBUG_ON(evpn_mh, EVPN_MH_RT);
+		} else {
+			if (no) {
+				TERM_DEBUG_OFF(evpn_mh, EVPN_MH_RT);
+				vty_out(vty,
+					"BGP EVPN-MH route debugging is off\n");
+			} else {
+				TERM_DEBUG_ON(evpn_mh, EVPN_MH_RT);
+				vty_out(vty,
+					"BGP EVPN-MH route debugging is on\n");
+			}
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_bgp_labelpool,
        debug_bgp_labelpool_cmd,
        "debug bgp labelpool",
@@ -2085,6 +2138,8 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(pbr, PBR);
 	TERM_DEBUG_OFF(pbr, PBR_ERROR);
 	TERM_DEBUG_OFF(graceful_restart, GRACEFUL_RESTART);
+	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_ES);
+	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_RT);
 
 	vty_out(vty, "All possible debugging has been turned off\n");
 
@@ -2144,7 +2199,7 @@ DEFUN_NOSH (show_debugging_bgp,
 				     bgp_debug_zebra_prefixes);
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		vty_out(vty, "  BGP graceful-restart debugging is on");
+		vty_out(vty, "  BGP graceful-restart debugging is on\n");
 
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
 		vty_out(vty, "  BGP allow martian next hop debugging is on\n");
@@ -2168,6 +2223,11 @@ DEFUN_NOSH (show_debugging_bgp,
 		vty_out(vty, "  BGP policy based routing debugging is on\n");
 	if (BGP_DEBUG(pbr, PBR_ERROR))
 		vty_out(vty, "  BGP policy based routing error debugging is on\n");
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		vty_out(vty, "  BGP EVPN-MH ES debugging is on\n");
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+		vty_out(vty, "  BGP EVPN-MH route debugging is on\n");
 
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
@@ -2284,6 +2344,16 @@ static int bgp_config_write_debug(struct vty *vty)
 		vty_out(vty, "debug bgp graceful-restart\n");
 		write++;
 	}
+
+	if (CONF_BGP_DEBUG(evpn_mh, EVPN_MH_ES)) {
+		vty_out(vty, "debug bgp evpn mh es\n");
+		write++;
+	}
+	if (CONF_BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
+		vty_out(vty, "debug bgp evpn mh route\n");
+		write++;
+	}
+
 	return write;
 }
 
@@ -2410,6 +2480,8 @@ void bgp_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_bgp_pbr_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_pbr_cmd);
 
+	install_element(ENABLE_NODE, &debug_bgp_evpn_mh_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_evpn_mh_cmd);
 }
 
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug
@@ -2539,11 +2611,11 @@ bool bgp_debug_update(struct peer *peer, const struct prefix *p,
 	return false;
 }
 
-bool bgp_debug_bestpath(struct bgp_node *rn)
+bool bgp_debug_bestpath(struct bgp_dest *dest)
 {
 	if (BGP_DEBUG(bestpath, BESTPATH)) {
 		if (bgp_debug_per_prefix(
-			    bgp_node_get_prefix(rn), term_bgp_debug_bestpath,
+			    bgp_dest_get_prefix(dest), term_bgp_debug_bestpath,
 			    BGP_DEBUG_BESTPATH, bgp_debug_bestpath_prefixes))
 			return true;
 	}
@@ -2620,7 +2692,8 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 		bgp_fs_nlri_get_string((unsigned char *)fs->prefix.ptr,
 				       fs->prefix.prefixlen,
 				       return_string,
-				       NLRI_STRING_FORMAT_DEBUG, NULL);
+				       NLRI_STRING_FORMAT_DEBUG, NULL,
+				       family2afi(fs->prefix.family));
 		snprintf(str, size, "FS %s Match{%s}", afi2str(afi),
 			 return_string);
 	} else

@@ -83,8 +83,8 @@ sharing a link, for example:
 - DR/BDR election results.
 - Any optional capabilities supported by each router.
 
-The Hello protocol is comparatively trivial and will not be explored in greater
-detail than here.
+The Hello protocol is comparatively trivial and will not be explored in more
+detail.
 
 .. index:: OSPF LSA overview
 .. _ospf-lsas:
@@ -233,7 +233,7 @@ called `intra-area routes`.
 
   Cost
      The output cost of that interface, scaled inversely to some commonly known
-     reference value, :clicmd:`auto-cost reference-bandwidth (1-4294967`.
+     reference value, :clicmd:`auto-cost reference-bandwidth (1-4294967)`.
 
   Link Type
      Transit Network

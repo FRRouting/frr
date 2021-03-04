@@ -65,12 +65,22 @@ struct prefix_list_entry {
 	unsigned long refcnt;
 	unsigned long hitcnt;
 
+	struct prefix_list *pl;
+
 	struct prefix_list_entry *next;
 	struct prefix_list_entry *prev;
 
 	/* up the chain for best match search */
 	struct prefix_list_entry *next_best;
+
+	/* Flag to track trie/list installation status. */
+	bool installed;
 };
+
+extern void prefix_list_entry_free(struct prefix_list_entry *pentry);
+extern void prefix_list_entry_delete2(struct prefix_list_entry *ple);
+extern void prefix_list_entry_update_start(struct prefix_list_entry *ple);
+extern void prefix_list_entry_update_finish(struct prefix_list_entry *ple);
 
 #ifdef __cplusplus
 }

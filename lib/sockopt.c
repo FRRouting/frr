@@ -264,8 +264,7 @@ int setsockopt_ipv4_multicast(int sock, int optname, struct in_addr if_addr,
 		 * up */
 		char buf[1][INET_ADDRSTRLEN];
 		zlog_info(
-			"setsockopt_ipv4_multicast attempting to drop and "
-			"re-add (fd %d, mcast %s, ifindex %u)",
+			"setsockopt_ipv4_multicast attempting to drop and re-add (fd %d, mcast %s, ifindex %u)",
 			sock, inet_ntop(AF_INET, &mreqn.imr_multiaddr, buf[0],
 					sizeof(buf[0])),
 			ifindex);
@@ -306,8 +305,7 @@ int setsockopt_ipv4_multicast(int sock, int optname, struct in_addr if_addr,
 		 * up */
 		char buf[1][INET_ADDRSTRLEN];
 		zlog_info(
-			"setsockopt_ipv4_multicast attempting to drop and "
-			"re-add (fd %d, mcast %s, ifindex %u)",
+			"setsockopt_ipv4_multicast attempting to drop and re-add (fd %d, mcast %s, ifindex %u)",
 			sock, inet_ntop(AF_INET, &mreq.imr_multiaddr, buf[0],
 					sizeof(buf[0])),
 			ifindex);

@@ -24,6 +24,7 @@
 #define _ZEBRA_PRIVS_H
 
 #include <pthread.h>
+#include <stdint.h>
 #include "lib/queue.h"
 
 #ifdef __cplusplus

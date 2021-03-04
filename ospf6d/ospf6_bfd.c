@@ -89,8 +89,8 @@ void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command)
 	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
 
 	bfd_peer_sendmsg(zclient, bfd_info, AF_INET6, &on->linklocal_addr,
-			 on->ospf6_if->linklocal_addr, ifp->name, 0, 0,
-			 cbit, command, 0, VRF_DEFAULT);
+			 on->ospf6_if->linklocal_addr, ifp->name, 0, 0, cbit,
+			 command, 0, ifp->vrf_id);
 
 	if (command == ZEBRA_BFD_DEST_DEREGISTER)
 		bfd_info_free((struct bfd_info **)&on->bfd_info);
@@ -143,7 +143,7 @@ static void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi, int command)
  */
 static int ospf6_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct listnode *node;
 	struct interface *ifp;
 	struct ospf6_interface *oi;
@@ -308,7 +308,7 @@ static void ospf6_bfd_if_param_set(struct ospf6_interface *oi, uint32_t min_rx,
 	int command = 0;
 
 	bfd_set_param((struct bfd_info **)&(oi->bfd_info), min_rx, min_tx,
-		      detect_mult, defaults, &command);
+		      detect_mult, NULL, defaults, &command);
 	if (command)
 		ospf6_bfd_reg_dereg_all_nbr(oi, command);
 }

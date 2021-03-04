@@ -12,6 +12,7 @@ FRRouting Developer's Guide
    testing
    bgpd
    fpm
+   grpc
    ospf
    zebra
    vtysh

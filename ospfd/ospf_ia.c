@@ -88,8 +88,7 @@ static void ospf_ia_network_route(struct ospf *ospf, struct route_table *rt,
 		if ((or = rn1->info)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_ia_network_route(): "
-					"Found a route to the same network");
+					"ospf_ia_network_route(): Found a route to the same network");
 			/* Check the existing route. */
 			if ((res = ospf_route_cmp(ospf, new_or, or)) < 0) {
 				/* New route is better, so replace old one. */
@@ -151,8 +150,7 @@ static void ospf_ia_router_route(struct ospf *ospf, struct route_table *rtrs,
 	if (or) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_ia_router_route(): "
-				"a route to the same ABR through the same area exists");
+				"ospf_ia_router_route(): a route to the same ABR through the same area exists");
 		/* New route is better */
 		if ((ret = ospf_route_cmp(ospf, new_or, or)) < 0) {
 			listnode_delete(rn->info, or);
@@ -329,8 +327,7 @@ static void ospf_update_network_route(struct ospf *ospf, struct route_table *rt,
 				   backbone paths */
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_update_network_route(): "
-				"Allowing Shortcut ABR to add new route");
+				"ospf_update_network_route(): Allowing Shortcut ABR to add new route");
 		new_or = ospf_route_new();
 		new_or->type = OSPF_DESTINATION_NETWORK;
 		new_or->id = lsa->header.id;
@@ -367,8 +364,7 @@ static void ospf_update_network_route(struct ospf *ospf, struct route_table *rt,
 					     or->u.std.area_id)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_update_network_route(): Shortcut: "
-					"this intra-area path is not backbone");
+					"ospf_update_network_route(): Shortcut: this intra-area path is not backbone");
 			return;
 		}
 	} else /* Not Shortcut ABR */
@@ -376,8 +372,7 @@ static void ospf_update_network_route(struct ospf *ospf, struct route_table *rt,
 		if (!OSPF_IS_AREA_ID_BACKBONE(or->u.std.area_id)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_update_network_route(): "
-					"route is not BB-associated");
+					"ospf_update_network_route(): route is not BB-associated");
 			return; /* We can update only BB routes */
 		}
 	}
@@ -392,16 +387,14 @@ static void ospf_update_network_route(struct ospf *ospf, struct route_table *rt,
 	if (or->cost == cost) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_update_network_route(): "
-				"new route is same distance, adding nexthops");
+				"ospf_update_network_route(): new route is same distance, adding nexthops");
 		ospf_route_copy_nexthops(or, abr_or->paths);
 	}
 
 	if (or->cost > cost) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_update_network_route(): "
-				"new route is better, overriding nexthops");
+				"ospf_update_network_route(): new route is better, overriding nexthops");
 		ospf_route_subst_nexthops(or, abr_or->paths);
 		or->cost = cost;
 
@@ -649,8 +642,7 @@ void ospf_ia_routing(struct ospf *ospf, struct route_table *rt,
 				    */
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
-						"ospf_ia_routing(): "
-						"Active BB connection not found");
+						"ospf_ia_routing(): Active BB connection not found");
 				for (ALL_LIST_ELEMENTS_RO(ospf->areas, node,
 							  area))
 					OSPF_EXAMINE_SUMMARIES_ALL(area, rt,

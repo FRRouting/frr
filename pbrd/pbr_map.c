@@ -75,6 +75,7 @@ static void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms)
 {
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
 
+	QOBJ_UNREG(pbrms);
 	XFREE(MTYPE_PBR_MAP_SEQNO, pbrms);
 }
 
@@ -292,7 +293,7 @@ void pbr_map_policy_interface_update(const struct interface *ifp, bool state_up)
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
 			if (pmi->ifp == ifp && pbr_map_interface_is_valid(pmi))
-				pbr_send_pbr_map(pbrms, pmi, state_up, false);
+				pbr_send_pbr_map(pbrms, pmi, state_up, true);
 }
 
 static void pbrms_vrf_update(struct pbr_map_sequence *pbrms,
@@ -397,7 +398,7 @@ void pbr_map_delete_vrf(struct pbr_map_sequence *pbrms)
 	pbr_map_delete_common(pbrms);
 }
 
-struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
+struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, char *ifname,
 					     struct pbr_map_interface **ppmi)
 {
 	struct pbr_map_sequence *pbrms;
@@ -407,7 +408,8 @@ struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
-			if (pmi->ifp->ifindex != ifindex)
+			if (strncmp(pmi->ifp->name, ifname, INTERFACE_NAMSIZ)
+			    != 0)
 				continue;
 
 			if (ppmi)
@@ -441,6 +443,59 @@ static void pbr_map_add_interfaces(struct pbr_map *pbrm)
 			}
 		}
 	}
+}
+
+/* Decodes a standardized DSCP into its representative value */
+uint8_t pbr_map_decode_dscp_enum(const char *name)
+{
+	/* Standard Differentiated Services Field Codepoints */
+	if (!strcmp(name, "cs0"))
+		return 0;
+	if (!strcmp(name, "cs1"))
+		return 8;
+	if (!strcmp(name, "cs2"))
+		return 16;
+	if (!strcmp(name, "cs3"))
+		return 24;
+	if (!strcmp(name, "cs4"))
+		return 32;
+	if (!strcmp(name, "cs5"))
+		return 40;
+	if (!strcmp(name, "cs6"))
+		return 48;
+	if (!strcmp(name, "cs7"))
+		return 56;
+	if (!strcmp(name, "af11"))
+		return 10;
+	if (!strcmp(name, "af12"))
+		return 12;
+	if (!strcmp(name, "af13"))
+		return 14;
+	if (!strcmp(name, "af21"))
+		return 18;
+	if (!strcmp(name, "af22"))
+		return 20;
+	if (!strcmp(name, "af23"))
+		return 22;
+	if (!strcmp(name, "af31"))
+		return 26;
+	if (!strcmp(name, "af32"))
+		return 28;
+	if (!strcmp(name, "af33"))
+		return 30;
+	if (!strcmp(name, "af41"))
+		return 34;
+	if (!strcmp(name, "af42"))
+		return 36;
+	if (!strcmp(name, "af43"))
+		return 38;
+	if (!strcmp(name, "ef"))
+		return 46;
+	if (!strcmp(name, "voice-admit"))
+		return 44;
+
+	/* No match? Error out */
+	return -1;
 }
 
 struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
@@ -546,7 +601,7 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst && !pbrms->mark)
+	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield)
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }
 
@@ -602,7 +657,7 @@ bool pbr_map_check_valid(const char *name)
 	return pbrm->valid;
 }
 
-void pbr_map_schedule_policy_from_nhg(const char *nh_group)
+void pbr_map_schedule_policy_from_nhg(const char *nh_group, bool installed)
 {
 	struct pbr_map_sequence *pbrms;
 	struct pbr_map *pbrm;
@@ -617,7 +672,7 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 
 			if (pbrms->nhgrp_name
 			    && (strcmp(nh_group, pbrms->nhgrp_name) == 0)) {
-				pbrms->nhs_installed = true;
+				pbrms->nhs_installed = installed;
 
 				pbr_map_check(pbrms, false);
 			}
@@ -625,7 +680,7 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 			if (pbrms->nhg
 			    && (strcmp(nh_group, pbrms->internal_nhg_name)
 				== 0)) {
-				pbrms->nhs_installed = true;
+				pbrms->nhs_installed = installed;
 
 				pbr_map_check(pbrms, false);
 			}
@@ -666,12 +721,23 @@ void pbr_map_policy_delete(struct pbr_map *pbrm, struct pbr_map_interface *pmi)
 {
 	struct listnode *node;
 	struct pbr_map_sequence *pbrms;
+	bool sent = false;
 
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
-		pbr_send_pbr_map(pbrms, pmi, false, false);
+		if (pbr_send_pbr_map(pbrms, pmi, false, true))
+			sent = true; /* rule removal sent to zebra */
 
 	pmi->delete = true;
+
+	/*
+	 * If we actually sent something for deletion, wait on zapi callback
+	 * before clearing data.
+	 */
+	if (sent)
+		return;
+
+	pbr_map_final_interface_deletion(pbrm, pmi);
 }
 
 /*
@@ -713,6 +779,67 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 						pbr_send_pbr_map(pbrms, pmi,
 								 false, false);
 			}
+		}
+	}
+}
+
+void pbr_map_check_vrf_nh_group_change(const char *nh_group,
+				       struct pbr_vrf *pbr_vrf,
+				       uint32_t old_vrf_id)
+{
+	struct pbr_map *pbrm;
+	struct pbr_map_sequence *pbrms;
+	struct listnode *node;
+
+
+	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
+		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
+			if (pbrms->nhgrp_name)
+				continue;
+
+			if (pbrms->nhg == NULL)
+				continue;
+
+			if (strcmp(nh_group, pbrms->internal_nhg_name))
+				continue;
+
+			if (pbrms->nhg->nexthop == NULL)
+				continue;
+
+			if (pbrms->nhg->nexthop->vrf_id != old_vrf_id)
+				continue;
+
+			pbrms->nhg->nexthop->vrf_id = pbr_vrf_id(pbr_vrf);
+		}
+	}
+}
+
+void pbr_map_check_interface_nh_group_change(const char *nh_group,
+					     struct interface *ifp,
+					     ifindex_t oldifindex)
+{
+	struct pbr_map *pbrm;
+	struct pbr_map_sequence *pbrms;
+	struct listnode *node;
+
+	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
+		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
+			if (pbrms->nhgrp_name)
+				continue;
+
+			if (pbrms->nhg == NULL)
+				continue;
+
+			if (strcmp(nh_group, pbrms->internal_nhg_name))
+				continue;
+
+			if (pbrms->nhg->nexthop == NULL)
+				continue;
+
+			if (pbrms->nhg->nexthop->ifindex != oldifindex)
+				continue;
+
+			pbrms->nhg->nexthop->ifindex = ifp->ifindex;
 		}
 	}
 }

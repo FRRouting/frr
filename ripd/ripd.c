@@ -742,8 +742,7 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 						ntohs(md5->family),
 						ntohs(md5->type));
 					zlog_debug(
-						"    RIP-2 packet len %d Key ID %d"
-						" Auth Data len %d",
+						"    RIP-2 packet len %d Key ID %d Auth Data len %d",
 						ntohs(md5->packet_len),
 						md5->keyid, md5->auth_len);
 					zlog_debug("    Sequence Number %ld",
@@ -757,8 +756,7 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 						ntohs(rte->family),
 						ntohs(rte->tag));
 					zlog_debug(
-						"    MD5: %02X%02X%02X%02X%02X%02X%02X%02X"
-						"%02X%02X%02X%02X%02X%02X%02X%02X",
+						"    MD5: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
 						p[0], p[1], p[2], p[3], p[4],
 						p[5], p[6], p[7], p[8], p[9],
 						p[10], p[11], p[12], p[13],
@@ -904,8 +902,7 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	      || (md5->auth_len == RIP_AUTH_MD5_COMPAT_SIZE))) {
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug(
-				"RIPv2 MD5 authentication, strange authentication "
-				"length field %d",
+				"RIPv2 MD5 authentication, strange authentication length field %d",
 				md5->auth_len);
 		return 0;
 	}
@@ -916,8 +913,7 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	if (packet_len > (length - RIP_HEADER_SIZE - RIP_AUTH_MD5_SIZE)) {
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug(
-				"RIPv2 MD5 authentication, packet length field %d "
-				"greater than received length %d!",
+				"RIPv2 MD5 authentication, packet length field %d greater than received length %d!",
 				md5->packet_len, length);
 		return 0;
 	}
@@ -1645,8 +1641,7 @@ void rip_redistribute_delete(struct rip *rip, int type, int sub_type,
 
 				if (IS_RIP_DEBUG_EVENT)
 					zlog_debug(
-						"Poison %s/%d on the interface %s with an "
-						"infinity metric [delete]",
+						"Poison %s/%d on the interface %s with an infinity metric [delete]",
 						inet_ntoa(p->prefix),
 						p->prefixlen,
 						ifindex2ifname(
@@ -1814,8 +1809,7 @@ static int rip_read(struct thread *t)
 
 	if (ifc == NULL) {
 		zlog_info(
-			"rip_read: cannot find connected address for packet from %s "
-			"port %d on interface %s (VRF %s)",
+			"rip_read: cannot find connected address for packet from %s port %d on interface %s (VRF %s)",
 			inet_ntoa(from.sin_addr), ntohs(from.sin_port),
 			ifp->name, rip->vrf_name);
 		return -1;
@@ -1937,8 +1931,7 @@ static int rip_read(struct thread *t)
 		if (packet->command != RIP_REQUEST) {
 			if (IS_RIP_DEBUG_PACKET)
 				zlog_debug(
-					"RIPv1"
-					" dropped because authentication enabled");
+					"RIPv1 dropped because authentication enabled");
 			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
 			return -1;
@@ -1961,8 +1954,7 @@ static int rip_read(struct thread *t)
 		if (packet->rte->family != htons(RIP_FAMILY_AUTH)) {
 			if (IS_RIP_DEBUG_PACKET)
 				zlog_debug(
-					"RIPv2"
-					" dropped because authentication enabled");
+					"RIPv2 dropped because authentication enabled");
 			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
 			return -1;
@@ -3430,6 +3422,8 @@ static void rip_distribute_update_all_wrapper(struct access_list *notused)
 /* Delete all added rip route. */
 void rip_clean(struct rip *rip)
 {
+	rip_interfaces_clean(rip);
+
 	if (rip->enabled)
 		rip_instance_disable(rip);
 
@@ -3451,7 +3445,6 @@ void rip_clean(struct rip *rip)
 	route_table_finish(rip->enable_network);
 	vector_free(rip->passive_nondefault);
 	list_delete(&rip->offset_list_master);
-	rip_interfaces_clean(rip);
 	route_table_finish(rip->distance_table);
 
 	RB_REMOVE(rip_instance_head, &rip_instances, rip);
@@ -3675,13 +3668,20 @@ static int rip_vrf_enable(struct vrf *vrf)
 		 */
 		if (yang_module_find("frr-ripd") && old_vrf_name) {
 			struct lyd_node *rip_dnode;
+			char oldpath[XPATH_MAXLEN];
+			char newpath[XPATH_MAXLEN];
 
 			rip_dnode = yang_dnode_get(
 				running_config->dnode,
 				"/frr-ripd:ripd/instance[vrf='%s']/vrf",
 				old_vrf_name);
 			if (rip_dnode) {
+				yang_dnode_get_path(rip_dnode->parent, oldpath,
+						    sizeof(oldpath));
 				yang_dnode_change_leaf(rip_dnode, vrf->name);
+				yang_dnode_get_path(rip_dnode->parent, newpath,
+						    sizeof(newpath));
+				nb_running_move_tree(oldpath, newpath);
 				running_config->version++;
 			}
 		}

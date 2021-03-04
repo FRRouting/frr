@@ -54,45 +54,25 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
  * format accepted: AA:BB:CC:DD:EE:FF:GG:HH:II:JJ
  * if id is null, check only is done
  */
-bool str2esi(const char *str, struct eth_segment_id *id)
+bool str2esi(const char *str, esi_t *id)
 {
-	unsigned int a[ESI_LEN];
+	unsigned int a[ESI_BYTES];
 	int i;
 
 	if (!str)
 		return false;
 	if (sscanf(str, "%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x", a + 0, a + 1,
 		   a + 2, a + 3, a + 4, a + 5, a + 6, a + 7, a + 8, a + 9)
-	    != ESI_LEN) {
+	    != ESI_BYTES) {
 		/* error in incoming str length */
 		return false;
 	}
 	/* valid mac address */
 	if (!id)
 		return true;
-	for (i = 0; i < ESI_LEN; ++i)
+	for (i = 0; i < ESI_BYTES; ++i)
 		id->val[i] = a[i] & 0xff;
 	return true;
-}
-
-char *esi2str(struct eth_segment_id *id)
-{
-	char *ptr;
-	uint8_t *val;
-
-	if (!id)
-		return NULL;
-
-	val = id->val;
-	ptr = XMALLOC(MTYPE_TMP,
-		      (ESI_LEN * 2 + ESI_LEN - 1 + 1) * sizeof(char));
-
-	snprintf(ptr, (ESI_LEN * 2 + ESI_LEN - 1 + 1),
-		 "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x", val[0],
-		 val[1], val[2], val[3], val[4], val[5], val[6], val[7], val[8],
-		 val[9]);
-
-	return ptr;
 }
 
 char *ecom_mac2str(char *ecom_mac)
@@ -215,7 +195,8 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 /*
  * return true if attr contains router flag extended community
  */
-void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag)
+void bgp_attr_evpn_na_flag(struct attr *attr,
+		uint8_t *router_flag, bool *proxy)
 {
 	struct ecommunity *ecom;
 	int i;
@@ -237,10 +218,14 @@ void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag)
 		if (type == ECOMMUNITY_ENCODE_EVPN &&
 		    sub_type == ECOMMUNITY_EVPN_SUBTYPE_ND) {
 			val = *pnt++;
-			if (val & ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG) {
+
+			if (val & ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG)
 				*router_flag = 1;
-				break;
-			}
+
+			if (val & ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG)
+				*proxy = true;
+
+			break;
 		}
 	}
 }
@@ -291,15 +276,4 @@ extern bool is_zero_gw_ip(const union gw_addr *gw_ip, const afi_t afi)
 		return true;
 
 	return false;
-}
-
-extern bool is_zero_esi(const struct eth_segment_id *esi)
-{
-	int i;
-
-	for (i = 0; i < ESI_LEN; i++)
-		if (esi->val[i])
-			return false;
-
-	return true;
 }

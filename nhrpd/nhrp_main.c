@@ -23,6 +23,7 @@
 #include "memory.h"
 #include "command.h"
 #include "libfrr.h"
+#include "filter.h"
 
 #include "nhrpd.h"
 #include "netlink.h"
@@ -116,6 +117,7 @@ static struct quagga_signal_t sighandlers[] = {
 };
 
 static const struct frr_yang_module_info *const nhrpd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 };
 

@@ -28,7 +28,7 @@ struct ospf6_area {
 	struct ospf6 *ospf6;
 
 	/* Area-ID */
-	uint32_t area_id;
+	in_addr_t area_id;
 
 #define OSPF6_AREA_FMT_DOTTEDQUAD 1
 #define OSPF6_AREA_FMT_DECIMAL    2
@@ -116,6 +116,21 @@ struct ospf6_area {
 #define IS_AREA_ACTIVE(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_ACTIVE))
 #define IS_AREA_TRANSIT(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_TRANSIT))
 #define IS_AREA_STUB(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_STUB))
+
+#define OSPF6_CMD_AREA_GET(str, oa)                                            \
+	{                                                                      \
+		char *ep;                                                      \
+		uint32_t area_id = htonl(strtoul(str, &ep, 10));               \
+		if (*ep && inet_pton(AF_INET, str, &area_id) != 1) {           \
+			vty_out(vty, "Malformed Area-ID: %s\n", str);          \
+			return CMD_SUCCESS;                                    \
+		}                                                              \
+		int format = !*ep ? OSPF6_AREA_FMT_DECIMAL                     \
+				  : OSPF6_AREA_FMT_DOTTEDQUAD;                 \
+		oa = ospf6_area_lookup(area_id, ospf6);                        \
+		if (oa == NULL)                                                \
+			oa = ospf6_area_create(area_id, ospf6, format);        \
+	}
 
 /* prototypes */
 extern int ospf6_area_cmp(void *va, void *vb);

@@ -421,14 +421,12 @@ int main(int argc, char **argv, char **env)
 
 	if (markfile + writeconfig + dryrun + boot_flag > 1) {
 		fprintf(stderr,
-			"Invalid combination of arguments.  Please specify at "
-			"most one of:\n\t-b, -C, -m, -w\n");
+			"Invalid combination of arguments.  Please specify at most one of:\n\t-b, -C, -m, -w\n");
 		return 1;
 	}
 	if (inputfile && (writeconfig || boot_flag)) {
 		fprintf(stderr,
-			"WARNING: Combinining the -f option with -b or -w is "
-			"NOT SUPPORTED since its\nresults are inconsistent!\n");
+			"WARNING: Combinining the -f option with -b or -w is NOT SUPPORTED since its\nresults are inconsistent!\n");
 	}
 
 	snprintf(vtysh_config, sizeof(vtysh_config), "%s%s%s", sysconfdir,

@@ -326,13 +326,6 @@ struct pw_status_tlv {
 #define PW_STATUS_TLV_SIZE	8
 #define PW_STATUS_TLV_LEN	4
 
-#define PW_FORWARDING		0
-#define PW_NOT_FORWARDING	(1 << 0)
-#define PW_LOCAL_RX_FAULT	(1 << 1)
-#define PW_LOCAL_TX_FAULT	(1 << 2)
-#define PW_PSN_RX_FAULT		(1 << 3)
-#define PW_PSN_TX_FAULT		(1 << 4)
-
 #define	NO_LABEL		UINT32_MAX
 
 #endif /* !_LDP_H_ */

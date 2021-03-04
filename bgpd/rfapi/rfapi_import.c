@@ -4177,8 +4177,8 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 					struct rfapi_import_table *it,
 					afi_t afi, safi_t safi)
 {
-	struct bgp_node *rn1;
-	struct bgp_node *rn2;
+	struct bgp_dest *dest1;
+	struct bgp_dest *dest2;
 
 	/* Only these SAFIs have 2-level RIBS */
 	assert(safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP);
@@ -4188,17 +4188,18 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 	 * route tables attached to them, and import the routes
 	 * if they have matching route targets
 	 */
-	for (rn1 = bgp_table_top(bgp->rib[afi][safi]); rn1;
-	     rn1 = bgp_route_next(rn1)) {
+	for (dest1 = bgp_table_top(bgp->rib[afi][safi]); dest1;
+	     dest1 = bgp_route_next(dest1)) {
 
-		if (bgp_node_has_bgp_path_info_data(rn1)) {
+		if (bgp_dest_has_bgp_path_info_data(dest1)) {
 
-			for (rn2 = bgp_table_top(bgp_node_get_bgp_table_info(rn1)); rn2;
-			     rn2 = bgp_route_next(rn2)) {
+			for (dest2 = bgp_table_top(
+				     bgp_dest_get_bgp_table_info(dest1));
+			     dest2; dest2 = bgp_route_next(dest2)) {
 
 				struct bgp_path_info *bpi;
 
-				for (bpi = bgp_node_get_bgp_path_info(rn2);
+				for (bpi = bgp_dest_get_bgp_path_info(dest2);
 				     bpi; bpi = bpi->next) {
 					uint32_t label = 0;
 
@@ -4213,11 +4214,12 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 						safi))(
 						it, /* which import table */
 						FIF_ACTION_UPDATE, bpi->peer,
-						NULL, bgp_node_get_prefix(rn2),
+						NULL,
+						bgp_dest_get_prefix(dest2),
 						NULL, afi,
 						(struct prefix_rd *)
-							bgp_node_get_prefix(
-								rn1),
+							bgp_dest_get_prefix(
+								dest1),
 						bpi->attr, bpi->type,
 						bpi->sub_type, &label);
 				}

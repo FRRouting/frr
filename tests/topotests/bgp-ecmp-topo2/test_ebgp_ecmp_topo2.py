@@ -61,9 +61,10 @@ from lib.common_config import (
     check_address_types,
     interface_status,
     reset_config_on_routers,
+    required_linux_kernel_version
 )
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
+from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
 from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology and configuration creation
@@ -107,6 +108,11 @@ def setup_module(mod):
     """
     global NEXT_HOPS, INTF_LIST_R3, INTF_LIST_R2, TEST_STATIC
     global ADDR_TYPES
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version('4.15')
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -290,14 +296,20 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
         input_dict_1 = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
 
         logger.info("Verifying %s routes on r3", addr_type)
+
+        # Only test the count of nexthops; the actual nexthop addresses
+        # can vary and are not deterministic.
+        #
         result = verify_rib(
             tgen,
             addr_type,
             dut,
             input_dict_1,
-            next_hop=NEXT_HOPS[addr_type],
+            next_hop=NEXT_HOPS[addr_type][: int(ecmp_num)],
             protocol=protocol,
+            count_only=True
         )
+
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
@@ -336,8 +348,12 @@ def test_ecmp_after_clear_bgp(request, test_type):
             tc_name, result
         )
 
-    # Clear bgp
-    result = clear_bgp_and_verify(tgen, topo, dut)
+    # Clear BGP
+    for addr_type in ADDR_TYPES:
+        clear_bgp(tgen, addr_type, dut)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:

@@ -67,6 +67,7 @@ from lib.common_config import (
     verify_bgp_community,
     step,
     check_address_types,
+    required_linux_kernel_version
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
@@ -142,6 +143,11 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version('4.15')
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
     global ADDR_TYPES
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -1163,6 +1169,39 @@ def test_large_community_boundary_values(request):
     }
 
     result = create_bgp_community_lists(tgen, input_dict_4)
+    assert result is not True, "Test case {} : Failed \n Error: {}".format(
+        tc_name, result
+    )
+
+
+def test_large_community_invalid_chars(request):
+    """
+    BGP canonical lcommunities must only be digits
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    input_dict = {
+        "r4": {
+            "bgp_community_lists": [
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "ANY",
+                    "value": "1:a:2",
+                    "large": True,
+                }
+            ]
+        }
+    }
+
+    step("Checking boundary value for community 1:a:2")
+    result = create_bgp_community_lists(tgen, input_dict)
     assert result is not True, "Test case {} : Failed \n Error: {}".format(
         tc_name, result
     )

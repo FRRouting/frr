@@ -33,12 +33,24 @@
 #define OSPF_PATH_TYPE2_EXTERNAL	4
 #define OSPF_PATH_MAX			5
 
+/* Segment Routing information to complement ospf_path structure */
+struct sr_nexthop_info {
+	/* Output label associated to this route */
+	mpls_label_t label_out;
+	/*
+	 * Pointer to SR Node which is the next hop for this route
+	 * or NULL if next hop is the destination of the prefix
+	 */
+	struct sr_node *nexthop;
+};
+
 /* OSPF Path. */
 struct ospf_path {
 	struct in_addr nexthop;
 	struct in_addr adv_router;
 	ifindex_t ifindex;
 	unsigned char unnumbered;
+	struct sr_nexthop_info srni;
 };
 
 /* Below is the structure linked to every
@@ -120,6 +132,7 @@ extern void ospf_route_table_free(struct route_table *);
 
 extern void ospf_route_install(struct ospf *, struct route_table *);
 extern void ospf_route_table_dump(struct route_table *);
+extern void ospf_route_table_print(struct vty *vty, struct route_table *rt);
 
 extern void ospf_intra_add_router(struct route_table *, struct vertex *,
 				  struct ospf_area *);
@@ -134,7 +147,8 @@ extern void ospf_intra_add_stub(struct route_table *, struct router_lsa_link *,
 extern int ospf_route_cmp(struct ospf *, struct ospf_route *,
 			  struct ospf_route *);
 extern void ospf_route_copy_nexthops(struct ospf_route *, struct list *);
-extern void ospf_route_copy_nexthops_from_vertex(struct ospf_route *,
+extern void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
+						 struct ospf_route *,
 						 struct vertex *);
 
 extern void ospf_route_subst(struct route_node *, struct ospf_route *,

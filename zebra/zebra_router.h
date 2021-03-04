@@ -125,6 +125,12 @@ struct zebra_router {
 	/* L3-VNI hash table (for EVPN). Only in default instance */
 	struct hash *l3vni_table;
 
+	/* Tables and other global info maintained for EVPN multihoming */
+	struct zebra_evpn_mh_info *mh_info;
+
+	/* EVPN MH broadcast domains indexed by the VID */
+	struct hash *evpn_vlan_table;
+
 	struct hash *rules_hash;
 
 	struct hash *ipset_hash;
@@ -186,6 +192,9 @@ extern void zebra_router_init(void);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
+extern struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
+							uint32_t tableid,
+							afi_t afi, safi_t safi);
 extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 						   uint32_t tableid, afi_t afi,
 						   safi_t safi);

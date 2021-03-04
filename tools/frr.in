@@ -77,7 +77,7 @@ vtysh_b ()
 {
 	# Rember, that all variables have been incremented by 1 in convert_daemon_prios()
 	if [ "$vtysh_enable" = 2 -a -f $C_PATH/frr.conf ]; then
-		$VTYSH -b -n
+		$VTYSH -b
 	fi
 }
 

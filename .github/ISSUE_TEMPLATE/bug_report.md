@@ -37,7 +37,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Versions**
  - OS Kernel: [e.g. Linux, OpenBSD, etc] [version]
- - FRR Version [version]
+ - FRR Version: [version]
 
 **Additional context**
 Add any other context about the problem here.

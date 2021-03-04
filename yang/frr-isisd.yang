@@ -25,7 +25,32 @@ module frr-isisd {
     "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
      List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines a model for managing FRR isisd daemon.";
+    "This module defines a model for managing FRR isisd daemon.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2020-04-06 {
     description
@@ -315,6 +340,13 @@ module frr-isisd {
         "Area-tag associated to this circuit.";
     }
 
+    leaf vrf {
+      type string;
+      default "default";
+      description
+        "VRF NAME.";
+    }
+
     leaf ipv4-routing {
       type boolean;
       default "false";
@@ -336,11 +368,18 @@ module frr-isisd {
         "IS-type of this circuit.";
     }
 
-    leaf bfd-monitoring {
-      type boolean;
-      default "false";
-      description
-        "Monitor IS-IS peers on this circuit.";
+    container bfd-monitoring {
+      leaf enabled {
+        type boolean;
+        default "false";
+        description
+          "Monitor IS-IS peers on this circuit.";
+      }
+      leaf profile {
+        type string;
+        description
+          "Let BFD use a pre-configured profile.";
+      }
     }
 
     container csnp-interval {
@@ -761,13 +800,19 @@ module frr-isisd {
     description
       "Configuration of the IS-IS routing daemon.";
     list instance {
-      key "area-tag";
+      key "area-tag vrf";
       description
         "IS-IS routing instance.";
       leaf area-tag {
         type string;
         description
           "Area-tag associated to this routing instance.";
+      }
+
+      leaf vrf {
+        type string;
+        description
+          "VRF NAME.";
       }
 
       leaf is-type {
@@ -1188,6 +1233,23 @@ module frr-isisd {
                 "Upper value in the label range.";
           }
         }
+        container srlb {
+          description
+            "Local blocks to be advertised.";
+          must "./upper-bound > ./lower-bound";
+          leaf lower-bound {
+              type uint32;
+              default "15000";
+              description
+                "Lower value in the label range.";
+          }
+          leaf upper-bound {
+              type uint32;
+              default "15999";
+              description
+                "Upper value in the label range.";
+          }
+        }
         container msd {
           description
             "MSD configuration.";
@@ -1273,6 +1335,16 @@ module frr-isisd {
       description
         "IS-IS interface parameters.";
       uses interface-config;
+    }
+  }
+
+  augment "/frr-interface:lib/frr-interface:interface/frr-interface:state" {
+    description
+      "Extends interface model with IS-IS operational data.";
+    container isis {
+      presence "Present if an IS-IS circuit is defined for this interface.";
+      description
+        "IS-IS interface operational data.";
 
       uses interface-state;
     }

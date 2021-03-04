@@ -56,12 +56,13 @@ const char *const ospf6_interface_state_str[] = {
 	"None",    "Down", "Loopback", "Waiting", "PointToPoint",
 	"DROther", "BDR",  "DR",       NULL};
 
-struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex)
+struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex,
+							  vrf_id_t vrf_id)
 {
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ifindex, vrf_id);
 	if (ifp == NULL)
 		return (struct ospf6_interface *)NULL;
 
@@ -247,6 +248,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_send_lsupdate);
 	THREAD_OFF(oi->thread_send_lsack);
 	THREAD_OFF(oi->thread_sso);
+	THREAD_OFF(oi->thread_wait_timer);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
@@ -301,6 +303,7 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_link_lsa);
 	THREAD_OFF(oi->thread_intra_prefix_lsa);
 	THREAD_OFF(oi->thread_as_extern_lsa);
+	THREAD_OFF(oi->thread_wait_timer);
 }
 
 static struct in6_addr *
@@ -504,6 +507,7 @@ static void ospf6_interface_state_change(uint8_t next_state,
 			  IPV6_JOIN_GROUP);
 
 	OSPF6_ROUTER_LSA_SCHEDULE(oi->area);
+	OSPF6_LINK_LSA_SCHEDULE(oi);
 	if (next_state == OSPF6_INTERFACE_DOWN) {
 		OSPF6_NETWORK_LSA_EXECUTE(oi);
 		OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi);
@@ -783,7 +787,7 @@ int interface_up(struct thread *thread)
 	else {
 		ospf6_interface_state_change(OSPF6_INTERFACE_WAITING, oi);
 		thread_add_timer(master, wait_timer, oi, oi->dead_interval,
-				 NULL);
+				 &oi->thread_wait_timer);
 	}
 
 	return 0;
@@ -1022,7 +1026,7 @@ DEFUN (show_ipv6_ospf6_interface,
 	return CMD_SUCCESS;
 }
 
-static int ospf6_interface_show_traffic(struct vty *vty, uint32_t vrf_id,
+static int ospf6_interface_show_traffic(struct vty *vty,
 					struct interface *intf_ifp,
 					int display_once)
 {
@@ -1030,7 +1034,10 @@ static int ospf6_interface_show_traffic(struct vty *vty, uint32_t vrf_id,
 	struct vrf *vrf = NULL;
 	struct ospf6_interface *oi = NULL;
 
-	vrf = vrf_lookup_by_id(vrf_id);
+	if (intf_ifp)
+		vrf = vrf_lookup_by_id(intf_ifp->vrf_id);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (!display_once) {
 		vty_out(vty, "\n");
@@ -1105,7 +1112,7 @@ DEFUN (show_ipv6_ospf6_interface_traffic,
 		}
 	}
 
-	ospf6_interface_show_traffic(vty, VRF_DEFAULT, ifp, display_once);
+	ospf6_interface_show_traffic(vty, ifp, display_once);
 
 
 	return CMD_SUCCESS;
@@ -1674,8 +1681,11 @@ DEFUN (no_ipv6_ospf6_passive,
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_sso);
-	thread_add_event(master, ospf6_hello_send, oi, 0,
-			 &oi->thread_send_hello);
+
+	/* don't send hellos over loopback interface */
+	if (!if_is_loopback(oi->interface))
+		thread_add_event(master, ospf6_hello_send, oi, 0,
+				 &oi->thread_send_hello);
 
 	return CMD_SUCCESS;
 }
@@ -1966,8 +1976,7 @@ static int ospf6_ifp_up(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug(
-			"Zebra Interface state change: "
-			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			"Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu6, ifp->bandwidth);
 
@@ -1980,8 +1989,7 @@ static int ospf6_ifp_down(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug(
-			"Zebra Interface state change: "
-			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			"Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu6, ifp->bandwidth);
 

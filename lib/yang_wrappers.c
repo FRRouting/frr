@@ -792,6 +792,29 @@ struct yang_data *yang_data_new_empty(const char *xpath)
 	return yang_data_new(xpath, NULL);
 }
 
+bool yang_dnode_get_empty(const struct lyd_node *dnode, const char *xpath_fmt,
+			  ...)
+{
+	va_list ap;
+	char xpath[XPATH_MAXLEN];
+	const struct lyd_node_leaf_list *dleaf;
+
+	assert(dnode);
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	dnode = yang_dnode_get(dnode, xpath);
+	if (dnode) {
+		dleaf = (const struct lyd_node_leaf_list *)dnode;
+		if (dleaf->value_type == LY_TYPE_EMPTY)
+			return true;
+	}
+
+	return false;
+}
+
 /*
  * Derived type: IP prefix.
  */
@@ -1189,5 +1212,65 @@ const char *yang_nexthop_type2str(uint32_t ntype)
 	default:
 		return "unknown";
 		break;
+	}
+}
+
+
+const char *yang_afi_safi_value2identity(afi_t afi, safi_t safi)
+{
+	if (afi == AFI_IP && safi == SAFI_UNICAST)
+		return "frr-routing:ipv4-unicast";
+	if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+		return "frr-routing:ipv6-unicast";
+	if (afi == AFI_IP && safi == SAFI_MULTICAST)
+		return "frr-routing:ipv4-multicast";
+	if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+		return "frr-routing:ipv6-multicast";
+	if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+		return "frr-routing:l3vpn-ipv4-unicast";
+	if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
+		return "frr-routing:l3vpn-ipv6-unicast";
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+		return "frr-routing:l2vpn-evpn";
+	if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
+		return "frr-routing:ipv4-labeled-unicast";
+	if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
+		return "frr-routing:ipv6-labeled-unicast";
+
+	return NULL;
+}
+
+void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi)
+{
+	if (strmatch(key, "frr-routing:ipv4-unicast")) {
+		*afi = AFI_IP;
+		*safi = SAFI_UNICAST;
+	} else if (strmatch(key, "frr-routing:ipv6-unicast")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_UNICAST;
+	} else if (strmatch(key, "frr-routing:ipv4-multicast")) {
+		*afi = AFI_IP;
+		*safi = SAFI_MULTICAST;
+	} else if (strmatch(key, "frr-routing:ipv6-multicast")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_MULTICAST;
+	} else if (strmatch(key, "frr-routing:l3vpn-ipv4-unicast")) {
+		*afi = AFI_IP;
+		*safi = SAFI_MPLS_VPN;
+	} else if (strmatch(key, "frr-routing:l3vpn-ipv6-unicast")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_MPLS_VPN;
+	} else if (strmatch(key, "frr-routing:ipv4-labeled-unicast")) {
+		*afi = AFI_IP;
+		*safi = SAFI_LABELED_UNICAST;
+	} else if (strmatch(key, "frr-routing:ipv6-labeled-unicast")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_LABELED_UNICAST;
+	} else if (strmatch(key, "frr-routing:l2vpn-evpn")) {
+		*afi = AFI_L2VPN;
+		*safi = SAFI_EVPN;
+	} else {
+		*afi = AFI_UNSPEC;
+		*safi = SAFI_UNSPEC;
 	}
 }

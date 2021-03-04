@@ -58,7 +58,7 @@ typedef unsigned int word_t;
  * @n: The current word number that is being used.
  * @m: total number of words in 'data'
  */
-#define bitfield_t struct { word_t *data; size_t n, m; }
+typedef struct {word_t *data; size_t n, m; } bitfield_t;
 
 /**
  * Initialize the bits.
@@ -96,6 +96,16 @@ typedef unsigned int word_t;
  */
 #define bf_release_index(v, id)                                                \
 	(v).data[bf_index(id)] &= ~(1 << (bf_offset(id)))
+
+/* check if an id is in use */
+#define bf_test_index(v, id)                                                \
+	((v).data[bf_index(id)] & (1 << (bf_offset(id))))
+
+/* check if the bit field has been setup */
+#define bf_is_inited(v) ((v).data)
+
+/* compare two bitmaps of the same length */
+#define bf_cmp(v1, v2) (memcmp((v1).data, (v2).data, ((v1).m * sizeof(word_t))))
 
 /*
  * return 0th index back to bitfield
@@ -145,6 +155,37 @@ typedef unsigned int word_t;
 		(b) |= sh;                                                     \
 		(b) += (w * WORD_SIZE);                                        \
 	} while (0)
+
+static inline unsigned int bf_find_next_set_bit(bitfield_t v,
+		word_t start_index)
+{
+	int start_bit;
+	unsigned long i, offset;
+
+	start_bit = start_index & (WORD_SIZE - 1);
+
+	for (i = bf_index(start_index); i < v.m; ++i) {
+		if (v.data[i] == 0) {
+			/* if the whole word is empty move to the next */
+			start_bit = 0;
+			continue;
+		}
+		/* scan one word for set bits */
+		for (offset = start_bit; offset < WORD_SIZE; ++offset) {
+			if ((v.data[i] >> offset) & 1)
+				return ((i * WORD_SIZE) + offset);
+		}
+		/* move to the next word */
+		start_bit = 0;
+	}
+	return WORD_MAX;
+}
+
+/* iterate through all the set bits */
+#define bf_for_each_set_bit(v, b, max)                 \
+	for ((b) = bf_find_next_set_bit((v), 0);           \
+			(b) < max;                                 \
+			(b) = bf_find_next_set_bit((v), (b) + 1))
 
 /*
  * Free the allocated memory for data

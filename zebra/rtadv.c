@@ -46,13 +46,13 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
 
-#ifndef VTYSH_EXTRACT_PL
-#include "zebra/rtadv_clippy.c"
-#endif
-
 extern struct zebra_privs_t zserv_privs;
 
 #if defined(HAVE_RTADV)
+
+#ifndef VTYSH_EXTRACT_PL
+#include "zebra/rtadv_clippy.c"
+#endif
 
 DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
 
@@ -171,7 +171,7 @@ static int rtadv_recv_packet(struct zebra_vrf *zvrf, int sock, uint8_t *buf,
 
 /* Send router advertisement packet. */
 static void rtadv_send_packet(int sock, struct interface *ifp,
-			      ipv6_nd_suppress_ra_status stop)
+			      enum ipv6_nd_suppress_ra_status stop)
 {
 	struct msghdr msg;
 	struct iovec iov;
@@ -1003,7 +1003,7 @@ void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 }
 
 static void ipv6_nd_suppress_ra_set(struct interface *ifp,
-				    ipv6_nd_suppress_ra_status status)
+				    enum ipv6_nd_suppress_ra_status status)
 {
 	struct zebra_if *zif;
 	struct zebra_vrf *zvrf;
@@ -2282,13 +2282,11 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 		interval = rtadv->MaxRtrAdvInterval;
 		if (interval % 1000)
 			vty_out(vty,
-				"  ND router advertisements are sent every "
-				"%d milliseconds\n",
+				"  ND router advertisements are sent every %d milliseconds\n",
 				interval);
 		else
 			vty_out(vty,
-				"  ND router advertisements are sent every "
-				"%d seconds\n",
+				"  ND router advertisements are sent every %d seconds\n",
 				interval / 1000);
 		if (!rtadv->UseFastRexmit)
 			vty_out(vty,
@@ -2302,8 +2300,7 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 			vty_out(vty,
 				"  ND router advertisements lifetime tracks ra-interval\n");
 		vty_out(vty,
-			"  ND router advertisement default router preference is "
-			"%s\n",
+			"  ND router advertisement default router preference is %s\n",
 			rtadv_pref_strs[rtadv->DefaultPreference]);
 		if (rtadv->AdvManagedFlag)
 			vty_out(vty,
@@ -2648,7 +2645,7 @@ void rtadv_init(struct zebra_vrf *zvrf)
 {
 	/* Empty.*/;
 }
-void rtadv_terminate(struct zebra_vrf *zvrf)
+void rtadv_terminate(void)
 {
 	/* Empty.*/;
 }
@@ -2675,6 +2672,30 @@ void rtadv_stop_ra(struct interface *ifp)
 void rtadv_stop_ra_all(void)
 {
 	/* Empty.*/;
+}
+
+/*
+ * If the end user does not have RADV enabled we should
+ * handle this better
+ */
+void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug(
+			"Received %s command, but ZEBRA is not compiled with Router Advertisements on",
+			zserv_command_string(hdr->command));
+
+	return;
+}
+
+void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug(
+			"Received %s command, but ZEBRA is not compiled with Router Advertisements on",
+			zserv_command_string(hdr->command));
+
+	return;
 }
 
 #endif /* HAVE_RTADV */

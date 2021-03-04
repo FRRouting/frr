@@ -53,9 +53,7 @@ int ospf_if_add_allspfrouters(struct ospf *top, struct prefix *p,
 	if (ret < 0)
 		flog_err(
 			EC_LIB_SOCKET,
-			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			"ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
-			"on # of multicast group memberships has been exceeded?",
+			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, ifindex %u, AllSPFRouters): %s; perhaps a kernel limit on # of multicast group memberships has been exceeded?",
 			top->fd, inet_ntoa(p->u.prefix4), ifindex,
 			safe_strerror(errno));
 	else {
@@ -78,8 +76,7 @@ int ospf_if_drop_allspfrouters(struct ospf *top, struct prefix *p,
 					ifindex);
 	if (ret < 0)
 		flog_err(EC_LIB_SOCKET,
-			 "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
-			 "ifindex %u, AllSPFRouters): %s",
+			 "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, ifindex %u, AllSPFRouters): %s",
 			 top->fd, inet_ntoa(p->u.prefix4), ifindex,
 			 safe_strerror(errno));
 	else {
@@ -104,9 +101,7 @@ int ospf_if_add_alldrouters(struct ospf *top, struct prefix *p,
 	if (ret < 0)
 		flog_err(
 			EC_LIB_SOCKET,
-			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			"ifindex %u, AllDRouters): %s; perhaps a kernel limit "
-			"on # of multicast group memberships has been exceeded?",
+			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, ifindex %u, AllDRouters): %s; perhaps a kernel limit on # of multicast group memberships has been exceeded?",
 			top->fd, inet_ntoa(p->u.prefix4), ifindex,
 			safe_strerror(errno));
 	else
@@ -127,8 +122,7 @@ int ospf_if_drop_alldrouters(struct ospf *top, struct prefix *p,
 					ifindex);
 	if (ret < 0)
 		flog_err(EC_LIB_SOCKET,
-			 "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
-			 "ifindex %u, AllDRouters): %s",
+			 "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, ifindex %u, AllDRouters): %s",
 			 top->fd, inet_ntoa(p->u.prefix4), ifindex,
 			 safe_strerror(errno));
 	else
@@ -167,8 +161,7 @@ int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 	ret = setsockopt_ipv4_multicast_if(top->fd, p->u.prefix4, ifindex);
 	if (ret < 0)
 		flog_err(EC_LIB_SOCKET,
-			 "can't setsockopt IP_MULTICAST_IF(fd %d, addr %s, "
-			 "ifindex %u): %s",
+			 "can't setsockopt IP_MULTICAST_IF(fd %d, addr %s, ifindex %u): %s",
 			 top->fd, inet_ntoa(p->u.prefix4), ifindex,
 			 safe_strerror(errno));
 #endif

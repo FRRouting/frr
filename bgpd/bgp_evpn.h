@@ -81,7 +81,7 @@ static inline int is_route_parent_evpn(struct bgp_path_info *ri)
 {
 	struct bgp_path_info *parent_ri;
 	struct bgp_table *table;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	/* If not imported (or doesn't have a parent), bail. */
 	if (ri->sub_type != BGP_ROUTE_IMPORTED ||
@@ -96,10 +96,10 @@ static inline int is_route_parent_evpn(struct bgp_path_info *ri)
 		;
 
 	/* See if of family L2VPN/EVPN */
-	rn = parent_ri->net;
-	if (!rn)
+	dest = parent_ri->net;
+	if (!dest)
 		return 0;
-	table = bgp_node_table(rn);
+	table = bgp_dest_table(dest);
 	if (table &&
 	    table->afi == AFI_L2VPN &&
 	    table->safi == SAFI_EVPN)
@@ -120,7 +120,7 @@ static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 {
 	struct bgp_path_info *parent_pi;
 	struct bgp_table *table;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
 	    !pi->extra ||
@@ -128,10 +128,10 @@ static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 		return true;
 
 	parent_pi = (struct bgp_path_info *)pi->extra->parent;
-	rn = parent_pi->net;
-	if (!rn)
+	dest = parent_pi->net;
+	if (!dest)
 		return true;
-	table = bgp_node_table(rn);
+	table = bgp_dest_table(dest);
 	if (table &&
 	    table->afi == AFI_L2VPN &&
 	    table->safi == SAFI_EVPN)
@@ -176,7 +176,7 @@ extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 					int state);
 extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
-				    uint8_t flags, uint32_t seq);
+				    uint8_t flags, uint32_t seq, esi_t *esi);
 extern int bgp_evpn_local_l3vni_add(vni_t vni, vrf_id_t vrf_id,
 				    struct ethaddr *rmac,
 				    struct ethaddr *vrr_rmac,
@@ -188,10 +188,6 @@ extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				  struct in_addr originator_ip,
 				  vrf_id_t tenant_vrf_id,
 				  struct in_addr mcast_grp);
-extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
-				 struct ipaddr *originator_ip);
-extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi,
-				 struct ipaddr *originator_ip);
 extern void bgp_evpn_flood_control_change(struct bgp *bgp);
 extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);

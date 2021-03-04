@@ -133,6 +133,7 @@ struct pim_interface {
 
 	/* Turn on Active-Active for this interface */
 	bool activeactive;
+	bool am_i_dr;
 
 	int64_t pim_ifstat_start; /* start timestamp for stats */
 	uint64_t pim_ifstat_bsm_rx;
@@ -222,7 +223,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
 void pim_if_create_pimreg(struct pim_instance *pim);
 
-int pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
+struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
 int pim_update_source_set(struct interface *ifp, struct in_addr source);
 
 bool pim_if_is_vrf_device(struct interface *ifp);

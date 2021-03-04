@@ -683,8 +683,7 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 
 		if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 			zlog_info(
-				"%s:[%s:%s], %s -> %s): "
-				"scheduling new router-LSA origination",
+				"%s:[%s:%s], %s -> %s): scheduling new router-LSA origination",
 				__func__, inet_ntoa(nbr->router_id),
 				ospf_get_name(oi->ospf),
 				lookup_msg(ospf_nsm_state_msg, old_state, NULL),
@@ -785,8 +784,7 @@ int ospf_nsm_event(struct thread *thread)
 			 */
 			flog_err(
 				EC_OSPF_FSM_INVALID_STATE,
-				"NSM[%s:%s:%s]: %s (%s): "
-				"Warning: action tried to change next_state to %s",
+				"NSM[%s:%s:%s]: %s (%s): Warning: action tried to change next_state to %s",
 				IF_NAME(nbr->oi), inet_ntoa(nbr->router_id),
 				ospf_get_name(nbr->oi->ospf),
 				lookup_msg(ospf_nsm_state_msg, nbr->state,

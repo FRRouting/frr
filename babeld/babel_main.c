@@ -137,6 +137,7 @@ struct option longopts[] =
   };
 
 static const struct frr_yang_module_info *const babeld_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_vrf_info,
 };

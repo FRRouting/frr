@@ -201,7 +201,12 @@ struct ospf_ri_sr_info {
 	 * Segment Routing Global Block i.e. label range
 	 * Only one range supported in this code
 	 */
-	struct ri_sr_tlv_sid_label_range range;
+	struct ri_sr_tlv_sid_label_range srgb;
+	/*
+	 * Segment Routing Local Block.
+	 * Only one block is authorized - see section 3.3
+	 */
+	struct ri_sr_tlv_sid_label_range srlb;
 	/* Maximum SID Depth supported by the node */
 	struct ri_sr_tlv_node_msd msd;
 };
@@ -242,7 +247,6 @@ extern int ospf_router_info_init(void);
 extern void ospf_router_info_term(void);
 extern void ospf_router_info_finish(void);
 extern int ospf_router_info_enable(void);
-extern void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb,
-				       uint8_t msd);
+extern void ospf_router_info_update_sr(bool enable, struct sr_node *self);
 extern struct scope_info ospf_router_info_get_flooding_scope(void);
 #endif /* _ZEBRA_OSPF_ROUTER_INFO_H */

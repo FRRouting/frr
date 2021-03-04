@@ -616,6 +616,8 @@ DEFPY  (ldp_show_mpls_ldp_binding,
 	"Show detailed information\n"
 	JSON_STR)
 {
+	if (!(ldpd_conf->flags & F_LDPD_ENABLED))
+		return CMD_SUCCESS;
 	if (!local_label_str)
 		local_label = NO_LABEL;
 	if (!remote_label_str)

@@ -121,8 +121,12 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 
 	if (code) {
 		ref = log_ref_get(code);
-		if (!ref)
+		if (!ref) {
+			if (top)
+				json_object_free(top);
+			list_delete(&errlist);
 			return;
+		}
 		listnode_add(errlist, ref);
 	}
 
@@ -130,7 +134,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 		if (json) {
 			char key[11];
 
-			snprintf(key, sizeof(key), "%"PRIu32, ref->code);
+			snprintf(key, sizeof(key), "%u", ref->code);
 			obj = json_object_new_object();
 			json_object_string_add(obj, "title", ref->title);
 			json_object_string_add(obj, "description",
@@ -142,7 +146,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 			char pbuf[256];
 			char ubuf[256];
 
-			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
+			snprintf(pbuf, sizeof(pbuf), "\nError %u - %s",
 				 ref->code, ref->title);
 			memset(ubuf, '=', strlen(pbuf));
 			ubuf[strlen(pbuf)] = '\0';

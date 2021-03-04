@@ -50,8 +50,7 @@ static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 {
 	if (nh_label->num_labels > 1) {
 		flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
-			  "%s: can't push %u labels at "
-			  "once (maximum is 1)",
+			  "%s: can't push %u labels at once (maximum is 1)",
 			  __func__, nh_label->num_labels);
 		return -1;
 	}
@@ -359,20 +358,6 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 		}
 	} /* Elevated privs */
 
-	if (RSYSTEM_ROUTE(type)
-	    && dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE) {
-		struct nexthop *nexthop;
-
-		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			}
-		}
-	}
-
 	return res;
 }
 
@@ -416,6 +401,27 @@ extern int kernel_interface_set_master(struct interface *master,
 uint32_t kernel_get_speed(struct interface *ifp, int *error)
 {
 	return ifp->speed;
+}
+
+int kernel_upd_mac_nh(uint32_t nh_id, struct in_addr vtep_ip)
+{
+	return 0;
+}
+
+int kernel_del_mac_nh(uint32_t nh_id)
+{
+	return 0;
+}
+
+int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
+		struct nh_grp *nh_ids)
+{
+	return 0;
+}
+
+int kernel_del_mac_nhg(uint32_t nhg_id)
+{
+	return 0;
 }
 
 #endif /* !HAVE_NETLINK */

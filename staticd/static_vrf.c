@@ -30,26 +30,74 @@
 #include "static_zebra.h"
 #include "static_vty.h"
 
+DEFINE_MTYPE_STATIC(STATIC, STATIC_RTABLE_INFO, "Static Route Table Info");
+
 static void zebra_stable_node_cleanup(struct route_table *table,
 				      struct route_node *node)
 {
-	struct static_route *si, *next;
+	struct static_nexthop *nh;
+	struct static_path *pn;
+	struct static_route_info *si;
+	struct route_table *src_table;
+	struct route_node *src_node;
+	struct static_path *src_pn;
+	struct static_route_info *src_si;
 
-	if (node->info)
-		for (si = node->info; si; si = next) {
-			next = si->next;
-			XFREE(MTYPE_STATIC_ROUTE, si);
+	si = node->info;
+
+	if (si) {
+		frr_each_safe(static_path_list, &si->path_list, pn) {
+			frr_each_safe(static_nexthop_list, &pn->nexthop_list,
+				       nh) {
+				static_nexthop_list_del(&pn->nexthop_list, nh);
+				XFREE(MTYPE_STATIC_NEXTHOP, nh);
+			}
+			static_path_list_del(&si->path_list, pn);
+			XFREE(MTYPE_STATIC_PATH, pn);
 		}
+
+		/* clean up for dst table */
+		src_table = srcdest_srcnode_table(node);
+		if (src_table) {
+			/* This means the route_node is part of the top
+			 * hierarchy and refers to a destination prefix.
+			 */
+			for (src_node = route_top(src_table); src_node;
+			     src_node = route_next(src_node)) {
+				src_si = src_node->info;
+
+				frr_each_safe(static_path_list,
+					      &src_si->path_list, src_pn) {
+					frr_each_safe(static_nexthop_list,
+						      &src_pn->nexthop_list,
+						      nh) {
+						static_nexthop_list_del(
+							&src_pn->nexthop_list,
+							nh);
+						XFREE(MTYPE_STATIC_NEXTHOP, nh);
+					}
+					static_path_list_del(&src_si->path_list,
+							     src_pn);
+					XFREE(MTYPE_STATIC_PATH, src_pn);
+				}
+
+				XFREE(MTYPE_STATIC_ROUTE, src_node->info);
+			}
+		}
+
+		XFREE(MTYPE_STATIC_ROUTE, node->info);
+	}
 }
 
 static struct static_vrf *static_vrf_alloc(void)
 {
 	struct route_table *table;
 	struct static_vrf *svrf;
+	struct stable_info *info;
 	safi_t safi;
 	afi_t afi;
 
-	svrf = XCALLOC(MTYPE_TMP, sizeof(struct static_vrf));
+	svrf = XCALLOC(MTYPE_STATIC_RTABLE_INFO, sizeof(struct static_vrf));
 
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
@@ -57,6 +105,14 @@ static struct static_vrf *static_vrf_alloc(void)
 				table = srcdest_table_init();
 			else
 				table = route_table_init();
+
+			info = XCALLOC(MTYPE_STATIC_RTABLE_INFO,
+				       sizeof(struct stable_info));
+			info->svrf = svrf;
+			info->afi = afi;
+			info->safi = safi;
+			route_table_set_info(table, info);
+
 			table->cleanup = zebra_stable_node_cleanup;
 			svrf->stable[afi][safi] = table;
 		}
@@ -81,12 +137,6 @@ static int static_vrf_enable(struct vrf *vrf)
 
 	static_fixup_vrf_ids(vrf->info);
 
-	/*
-	 * We may have static routes that are now possible to
-	 * insert into the appropriate tables
-	 */
-	static_config_install_delayed_routes(vrf->info);
-
 	return 0;
 }
 
@@ -102,16 +152,19 @@ static int static_vrf_delete(struct vrf *vrf)
 	struct static_vrf *svrf;
 	safi_t safi;
 	afi_t afi;
+	void *info;
 
 	svrf = vrf->info;
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = svrf->stable[afi][safi];
+			info = route_table_get_info(table);
 			route_table_finish(table);
+			XFREE(MTYPE_STATIC_RTABLE_INFO, info);
 			svrf->stable[afi][safi] = NULL;
 		}
 	}
-	XFREE(MTYPE_TMP, svrf);
+	XFREE(MTYPE_STATIC_RTABLE_INFO, svrf);
 	return 0;
 }
 

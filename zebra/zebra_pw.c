@@ -24,6 +24,8 @@
 #include "thread.h"
 #include "command.h"
 #include "vrf.h"
+#include "lib/json.h"
+#include "printfrr.h"
 
 #include "zebra/debug.h"
 #include "zebra/rib.h"
@@ -72,7 +74,7 @@ struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 	pw->protocol = protocol;
 	pw->vrf_id = zvrf_id(zvrf);
 	pw->client = client;
-	pw->status = PW_STATUS_DOWN;
+	pw->status = PW_NOT_FORWARDING;
 	pw->local_label = MPLS_NO_LABEL;
 	pw->remote_label = MPLS_NO_LABEL;
 	pw->flags = F_PSEUDOWIRE_CWORD;
@@ -96,7 +98,7 @@ void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
 
 	/* uninstall */
-	if (pw->status == PW_STATUS_UP) {
+	if (pw->status == PW_FORWARDING) {
 		hook_call(pw_uninstall, pw);
 		dplane_pw_uninstall(pw);
 	} else if (pw->install_retry_timer)
@@ -123,9 +125,12 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 	pw->flags = flags;
 	pw->data = *data;
 
-	if (zebra_pw_enabled(pw))
-		zebra_register_rnh_pseudowire(pw->vrf_id, pw);
-	else {
+	if (zebra_pw_enabled(pw)) {
+		bool nht_exists;
+		zebra_register_rnh_pseudowire(pw->vrf_id, pw, &nht_exists);
+		if (nht_exists)
+			zebra_pw_update(pw);
+	} else {
 		if (pw->protocol == ZEBRA_ROUTE_STATIC)
 			zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
 		zebra_pw_uninstall(pw);
@@ -154,6 +159,7 @@ void zebra_pw_update(struct zebra_pw *pw)
 {
 	if (zebra_pw_check_reachability(pw) < 0) {
 		zebra_pw_uninstall(pw);
+		zebra_pw_install_failure(pw, PW_NOT_FORWARDING);
 		/* wait for NHT and try again later */
 	} else {
 		/*
@@ -173,17 +179,17 @@ static void zebra_pw_install(struct zebra_pw *pw)
 
 	hook_call(pw_install, pw);
 	if (dplane_pw_install(pw) == ZEBRA_DPLANE_REQUEST_FAILURE) {
-		zebra_pw_install_failure(pw);
+		zebra_pw_install_failure(pw, PW_NOT_FORWARDING);
 		return;
 	}
 
-	if (pw->status == PW_STATUS_DOWN)
-		zebra_pw_update_status(pw, PW_STATUS_UP);
+	if (pw->status != PW_FORWARDING)
+		zebra_pw_update_status(pw, PW_FORWARDING);
 }
 
 static void zebra_pw_uninstall(struct zebra_pw *pw)
 {
-	if (pw->status == PW_STATUS_DOWN)
+	if (pw->status != PW_FORWARDING)
 		return;
 
 	if (IS_ZEBRA_DEBUG_PW)
@@ -196,7 +202,7 @@ static void zebra_pw_uninstall(struct zebra_pw *pw)
 	dplane_pw_uninstall(pw);
 
 	if (zebra_pw_enabled(pw))
-		zebra_pw_update_status(pw, PW_STATUS_DOWN);
+		zebra_pw_update_status(pw, PW_NOT_FORWARDING);
 }
 
 /*
@@ -205,12 +211,11 @@ static void zebra_pw_uninstall(struct zebra_pw *pw)
  * to retry the installation later. This function can be called by an external
  * agent that performs the pseudowire installation in an asynchronous way.
  */
-void zebra_pw_install_failure(struct zebra_pw *pw)
+void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
 {
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug(
-			"%u: failed installing pseudowire %s, "
-			"scheduling retry in %u seconds",
+			"%u: failed installing pseudowire %s, scheduling retry in %u seconds",
 			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
 
 	/* schedule to retry later */
@@ -218,7 +223,7 @@ void zebra_pw_install_failure(struct zebra_pw *pw)
 	thread_add_timer(zrouter.master, zebra_pw_install_retry, pw,
 			 PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
 
-	zebra_pw_update_status(pw, PW_STATUS_DOWN);
+	zebra_pw_update_status(pw, pwstatus);
 }
 
 static int zebra_pw_install_retry(struct thread *thread)
@@ -498,10 +503,205 @@ DEFUN (show_pseudowires,
 		vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", pw->ifname,
 			(pw->af != AF_UNSPEC) ? buf_nbr : "-", buf_labels,
 			zebra_route_string(pw->protocol),
-			(zebra_pw_enabled(pw) && pw->status == PW_STATUS_UP)
+			(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING)
 				? "UP"
 				: "DOWN");
 	}
+
+	return CMD_SUCCESS;
+}
+
+static void vty_show_mpls_pseudowire_detail(struct vty *vty)
+{
+	struct zebra_vrf *zvrf;
+	struct zebra_pw *pw;
+	struct route_entry *re;
+	struct nexthop *nexthop;
+	struct nexthop_group *nhg;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return;
+
+	RB_FOREACH (pw, zebra_pw_head, &zvrf->pseudowires) {
+		char buf_nbr[INET6_ADDRSTRLEN];
+		char buf_nh[100];
+
+		vty_out(vty, "Interface: %s\n", pw->ifname);
+		inet_ntop(pw->af, &pw->nexthop, buf_nbr, sizeof(buf_nbr));
+		vty_out(vty, "  Neighbor: %s\n",
+			(pw->af != AF_UNSPEC) ? buf_nbr : "-");
+		if (pw->local_label != MPLS_NO_LABEL)
+			vty_out(vty, "  Local Label: %u\n", pw->local_label);
+		else
+			vty_out(vty, "  Local Label: %s\n", "-");
+		if (pw->remote_label != MPLS_NO_LABEL)
+			vty_out(vty, "  Remote Label: %u\n", pw->remote_label);
+		else
+			vty_out(vty, "  Remote Label: %s\n", "-");
+		vty_out(vty, "  Protocol: %s\n",
+			zebra_route_string(pw->protocol));
+		if (pw->protocol == ZEBRA_ROUTE_LDP)
+			vty_out(vty, "  VC-ID: %u\n", pw->data.ldp.pwid);
+		vty_out(vty, "  Status: %s \n",
+			(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING)
+			? "Up"
+			: "Down");
+		re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
+			       &pw->nexthop, NULL);
+		if (re == NULL)
+			continue;
+
+		nhg = rib_get_fib_nhg(re);
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+			snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv",
+				   nexthop);
+			vty_out(vty, "  Next Hop: %s\n", buf_nh);
+			if (nexthop->nh_label)
+				vty_out(vty, "  Next Hop label: %u\n",
+					nexthop->nh_label->label[0]);
+			else
+				vty_out(vty, "  Next Hop label: %s\n",
+					"-");
+		}
+
+		/* Include any installed backups */
+		nhg = rib_get_fib_backup_nhg(re);
+		if (nhg == NULL)
+			continue;
+
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+			snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv",
+				   nexthop);
+			vty_out(vty, "  Next Hop: %s\n", buf_nh);
+			if (nexthop->nh_label)
+				vty_out(vty, "  Next Hop label: %u\n",
+					nexthop->nh_label->label[0]);
+			else
+				vty_out(vty, "  Next Hop label: %s\n",
+					"-");
+		}
+	}
+}
+
+static void vty_show_mpls_pseudowire(struct zebra_pw *pw, json_object *json_pws)
+{
+	struct route_entry *re;
+	struct nexthop *nexthop;
+	struct nexthop_group *nhg;
+	char buf_nbr[INET6_ADDRSTRLEN];
+	char buf_nh[100];
+	json_object *json_pw = NULL;
+	json_object *json_nexthop = NULL;
+	json_object *json_nexthops = NULL;
+
+	json_nexthops = json_object_new_array();
+	json_pw = json_object_new_object();
+
+	json_object_string_add(json_pw, "interface", pw->ifname);
+	if (pw->af == AF_UNSPEC)
+		json_object_string_add(json_pw, "neighbor", "-");
+	else {
+		inet_ntop(pw->af, &pw->nexthop, buf_nbr, sizeof(buf_nbr));
+		json_object_string_add(json_pw, "neighbor", buf_nbr);
+	}
+	if (pw->local_label != MPLS_NO_LABEL)
+		json_object_int_add(json_pw, "localLabel", pw->local_label);
+	else
+		json_object_string_add(json_pw, "localLabel", "-");
+	if (pw->remote_label != MPLS_NO_LABEL)
+		json_object_int_add(json_pw, "remoteLabel", pw->remote_label);
+	else
+		json_object_string_add(json_pw, "remoteLabel", "-");
+	json_object_string_add(json_pw, "protocol",
+			       zebra_route_string(pw->protocol));
+	if (pw->protocol == ZEBRA_ROUTE_LDP)
+		json_object_int_add(json_pw, "vcId", pw->data.ldp.pwid);
+	json_object_string_add(
+		json_pw, "Status",
+		(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING) ? "Up"
+								      : "Down");
+	re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
+		       &pw->nexthop, NULL);
+	if (re == NULL)
+		goto done;
+
+	nhg = rib_get_fib_nhg(re);
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		json_nexthop = json_object_new_object();
+		snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv", nexthop);
+		json_object_string_add(json_nexthop, "nexthop", buf_nh);
+		if (nexthop->nh_label)
+			json_object_int_add(
+				json_nexthop, "nhLabel",
+				nexthop->nh_label->label[0]);
+		else
+			json_object_string_add(json_nexthop, "nhLabel",
+					       "-");
+
+		json_object_array_add(json_nexthops, json_nexthop);
+	}
+
+	/* Include installed backup nexthops also */
+	nhg = rib_get_fib_backup_nhg(re);
+	if (nhg == NULL)
+		goto done;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		json_nexthop = json_object_new_object();
+		snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv", nexthop);
+		json_object_string_add(json_nexthop, "nexthop", buf_nh);
+		if (nexthop->nh_label)
+			json_object_int_add(
+				json_nexthop, "nhLabel",
+				nexthop->nh_label->label[0]);
+		else
+			json_object_string_add(json_nexthop, "nhLabel",
+					       "-");
+
+		json_object_array_add(json_nexthops, json_nexthop);
+	}
+
+done:
+
+	json_object_object_add(json_pw, "nexthops", json_nexthops);
+	json_object_array_add(json_pws, json_pw);
+}
+
+static void vty_show_mpls_pseudowire_detail_json(struct vty *vty)
+{
+	json_object *json = NULL;
+	json_object *json_pws = NULL;
+	struct zebra_vrf *zvrf;
+	struct zebra_pw *pw;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return;
+
+	json = json_object_new_object();
+	json_pws = json_object_new_array();
+	RB_FOREACH (pw, zebra_pw_head, &zvrf->pseudowires) {
+		vty_show_mpls_pseudowire(pw, json_pws);
+	}
+	json_object_object_add(json, "pw", json_pws);
+	vty_out(vty, "%s\n",
+		json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
+	json_object_free(json);
+}
+
+DEFUN(show_pseudowires_detail, show_pseudowires_detail_cmd,
+      "show mpls pseudowires detail [json]$json",
+      SHOW_STR MPLS_STR
+      "Pseudowires\n"
+      "Detailed output\n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+
+	if (uj)
+		vty_show_mpls_pseudowire_detail_json(vty);
+	else
+		vty_show_mpls_pseudowire_detail(vty);
 
 	return CMD_SUCCESS;
 }
@@ -525,8 +725,7 @@ static int zebra_pw_config(struct vty *vty)
 				pw->local_label, pw->remote_label);
 		else
 			vty_out(vty,
-				" ! Incomplete config, specify the static "
-				"MPLS labels\n");
+				" ! Incomplete config, specify the static MPLS labels\n");
 
 		if (pw->af != AF_UNSPEC) {
 			char buf[INET6_ADDRSTRLEN];
@@ -534,8 +733,7 @@ static int zebra_pw_config(struct vty *vty)
 			vty_out(vty, " neighbor %s\n", buf);
 		} else
 			vty_out(vty,
-				" ! Incomplete config, specify a neighbor "
-				"address\n");
+				" ! Incomplete config, specify a neighbor address\n");
 
 		if (!(pw->flags & F_PSEUDOWIRE_CWORD))
 			vty_out(vty, " control-word exclude\n");
@@ -568,4 +766,5 @@ void zebra_pw_vty_init(void)
 	install_element(PW_NODE, &pseudowire_control_word_cmd);
 
 	install_element(VIEW_NODE, &show_pseudowires_cmd);
+	install_element(VIEW_NODE, &show_pseudowires_detail_cmd);
 }

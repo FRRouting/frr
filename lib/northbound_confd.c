@@ -285,8 +285,10 @@ frr_confd_cdb_diff_iter(confd_hkeypath_t *kp, enum cdb_iter_op cdb_op,
 
 static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 {
+	struct nb_context context = {};
 	struct nb_config *candidate;
 	struct cdb_iter_args iter_args;
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	candidate = nb_config_dup(running_config);
@@ -321,24 +323,21 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	 * required to apply them.
 	 */
 	transaction = NULL;
-	ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_CONFD, NULL,
-					  NULL, &transaction);
+	context.client = NB_CLIENT_CONFD;
+	ret = nb_candidate_commit_prepare(&context, candidate, NULL,
+					  &transaction, errmsg, sizeof(errmsg));
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 		enum confd_errcode errcode;
-		const char *errmsg;
 
 		switch (ret) {
 		case NB_ERR_LOCKED:
 			errcode = CONFD_ERRCODE_IN_USE;
-			errmsg = "Configuration is locked by another process";
 			break;
 		case NB_ERR_RESOURCE:
 			errcode = CONFD_ERRCODE_RESOURCE_DENIED;
-			errmsg = "Failed do allocate resources";
 			break;
 		default:
-			errcode = CONFD_ERRCODE_INTERNAL;
-			errmsg = "Internal error";
+			errcode = CONFD_ERRCODE_APPLICATION;
 			break;
 		}
 
@@ -376,8 +375,10 @@ static int frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
 	/* Apply the transaction. */
 	if (transaction) {
 		struct nb_config *candidate = transaction->config;
+		char errmsg[BUFSIZ] = {0};
 
-		nb_candidate_commit_apply(transaction, true, NULL);
+		nb_candidate_commit_apply(transaction, true, NULL, errmsg,
+					  sizeof(errmsg));
 		nb_config_free(candidate);
 	}
 
@@ -401,8 +402,9 @@ static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
 	/* Abort the transaction. */
 	if (transaction) {
 		struct nb_config *candidate = transaction->config;
+		char errmsg[BUFSIZ] = {0};
 
-		nb_candidate_commit_abort(transaction);
+		nb_candidate_commit_abort(transaction, errmsg, sizeof(errmsg));
 		nb_config_free(candidate);
 	}
 
@@ -612,7 +614,7 @@ static int frr_confd_data_get_elem(struct confd_trans_ctx *tctx,
 				   confd_hkeypath_t *kp)
 {
 	struct nb_node *nb_node;
-	char xpath[BUFSIZ];
+	char xpath[XPATH_MAXLEN];
 	struct yang_data *data;
 	confd_value_t v;
 	const void *list_entry = NULL;
@@ -650,7 +652,7 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 				   confd_hkeypath_t *kp, long next)
 {
 	struct nb_node *nb_node;
-	char xpath[BUFSIZ];
+	char xpath[XPATH_MAXLEN];
 	struct yang_data *data;
 	const void *parent_list_entry, *nb_next;
 	confd_value_t v[LIST_MAXKEYS];
@@ -758,8 +760,8 @@ static int frr_confd_data_get_object(struct confd_trans_ctx *tctx,
 {
 	struct nb_node *nb_node;
 	const struct lys_node *child;
-	char xpath[BUFSIZ];
-	char xpath_child[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
+	char xpath_child[XPATH_MAXLEN * 2];
 	struct list *elements;
 	struct yang_data *data;
 	const void *list_entry;
@@ -832,7 +834,7 @@ static int frr_confd_data_get_object(struct confd_trans_ctx *tctx,
 static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 					  confd_hkeypath_t *kp, long next)
 {
-	char xpath[BUFSIZ];
+	char xpath[XPATH_MAXLEN];
 	struct nb_node *nb_node;
 	struct list *elements;
 	const void *parent_list_entry;
@@ -916,7 +918,7 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 		/* Loop through list child nodes. */
 		LY_TREE_FOR (nb_node->snode->child, child) {
 			struct nb_node *nb_node_child = child->priv;
-			char xpath_child[XPATH_MAXLEN];
+			char xpath_child[XPATH_MAXLEN * 2];
 			confd_value_t *v;
 
 			if (nvalues > CONFD_MAX_CHILD_NODES)
@@ -1059,7 +1061,7 @@ static int frr_confd_action_execute(struct confd_user_info *uinfo,
 				    struct xml_tag *name, confd_hkeypath_t *kp,
 				    confd_tag_value_t *params, int nparams)
 {
-	char xpath[BUFSIZ];
+	char xpath[XPATH_MAXLEN];
 	struct nb_node *nb_node;
 	struct list *input;
 	struct list *output;
@@ -1091,7 +1093,7 @@ static int frr_confd_action_execute(struct confd_user_info *uinfo,
 
 	/* Process input nodes. */
 	for (int i = 0; i < nparams; i++) {
-		char xpath_input[BUFSIZ];
+		char xpath_input[XPATH_MAXLEN * 2];
 		char value_str[YANG_VALUE_MAXLEN];
 
 		snprintf(xpath_input, sizeof(xpath_input), "%s/%s", xpath,

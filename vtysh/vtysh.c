@@ -39,7 +39,6 @@
 #include "filter.h"
 #include "vtysh/vtysh.h"
 #include "log.h"
-#include "bgpd/bgp_vty.h"
 #include "ns.h"
 #include "vrf.h"
 #include "libfrr.h"
@@ -707,7 +706,7 @@ int vtysh_mark_file(const char *filename)
 	}
 
 	vty = vty_new();
-	vty->wfd = STDERR_FILENO;
+	vty->wfd = STDOUT_FILENO;
 	vty->type = VTY_TERM;
 	vty->node = CONFIG_NODE;
 
@@ -807,6 +806,9 @@ int vtysh_mark_file(const char *filename)
 				   && (tried == 1)) {
 				vty_out(vty, "exit-vni\n");
 			} else if ((prev_node == KEYCHAIN_KEY_NODE)
+				   && (tried == 1)) {
+				vty_out(vty, "exit\n");
+			} else if ((prev_node == BFD_PEER_NODE)
 				   && (tried == 1)) {
 				vty_out(vty, "exit\n");
 			} else if (tried) {
@@ -1492,6 +1494,13 @@ static struct cmd_node bfd_peer_node = {
 	.parent_node = BFD_NODE,
 	.prompt = "%s(config-bfd-peer)# ",
 };
+
+static struct cmd_node bfd_profile_node = {
+	.name = "bfd profile",
+	.node = BFD_PROFILE_NODE,
+	.parent_node = BFD_NODE,
+	.prompt = "%s(config-bfd-profile)# ",
+};
 #endif /* HAVE_BFDD */
 
 /* Defined in lib/vty.c */
@@ -1882,10 +1891,11 @@ DEFUNSH(VTYSH_LDPD, ldp_member_pseudowire_ifname,
 }
 #endif
 
-DEFUNSH(VTYSH_ISISD, router_isis, router_isis_cmd, "router isis WORD",
+DEFUNSH(VTYSH_ISISD, router_isis, router_isis_cmd,
+	"router isis WORD [vrf NAME]",
 	ROUTER_STR
 	"ISO IS-IS\n"
-	"ISO Routing area tag\n")
+	"ISO Routing area tag\n" VRF_CMD_HELP_STR)
 {
 	vty->node = ISIS_NODE;
 	return CMD_SUCCESS;
@@ -1945,6 +1955,15 @@ DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
 	"Configure VRF name\n")
 {
 	vty->node = BFD_PEER_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BFDD, bfd_profile_enter, bfd_profile_enter_cmd,
+	"profile WORD",
+	BFD_PROFILE_STR
+	BFD_PROFILE_NAME_STR)
+{
+	vty->node = BFD_PROFILE_NODE;
 	return CMD_SUCCESS;
 }
 #endif /* HAVE_BFDD */
@@ -2013,7 +2032,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_exit_all, vtysh_exit_all_cmd, "exit",
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
+DEFUNSH(VTYSH_REALLYALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_all(self, vty, argc, argv);
@@ -2177,7 +2196,7 @@ DEFUNSH(VTYSH_EIGRPD, vtysh_quit_eigrpd, vtysh_quit_eigrpd_cmd, "quit",
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_EIGRPD, vtysh_exit_babeld, vtysh_exit_babeld_cmd, "exit",
+DEFUNSH(VTYSH_BABELD, vtysh_exit_babeld, vtysh_exit_babeld_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
@@ -2245,6 +2264,18 @@ DEFUNSH(VTYSH_FABRICD, vtysh_quit_fabricd, vtysh_quit_fabricd_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_fabricd(self, vty, argc, argv);
+}
+
+DEFUNSH(VTYSH_KEYS, vtysh_exit_keys, vtysh_exit_keys_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_KEYS, vtysh_quit_keys, vtysh_quit_keys_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_keys(self, vty, argc, argv);
 }
 
 DEFUNSH(VTYSH_ALL, vtysh_exit_line_vty, vtysh_exit_line_vty_cmd, "exit",
@@ -2829,17 +2860,22 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
-       "write terminal ["DAEMONS_LIST"]",
+       "write terminal ["DAEMONS_LIST"] [no-header]",
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n"
-       DAEMONS_STR)
+       DAEMONS_STR
+       "Skip \"Building configuration...\" header\n")
 {
 	unsigned int i;
 	char line[] = "do write terminal\n";
 
-	vty_out(vty, "Building configuration...\n");
-	vty_out(vty, "\nCurrent configuration:\n");
-	vty_out(vty, "!\n");
+	if (!strcmp(argv[argc - 1]->arg, "no-header"))
+		argc--;
+	else {
+		vty_out(vty, "Building configuration...\n");
+		vty_out(vty, "\nCurrent configuration:\n");
+		vty_out(vty, "!\n");
+	}
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if ((argc < 3)
@@ -2858,10 +2894,11 @@ DEFUN (vtysh_write_terminal,
 
 DEFUN (vtysh_show_running_config,
        vtysh_show_running_config_cmd,
-       "show running-config ["DAEMONS_LIST"]",
+       "show running-config ["DAEMONS_LIST"] [no-header]",
        SHOW_STR
        "Current operating configuration\n"
-       DAEMONS_STR)
+       DAEMONS_STR
+       "Skip \"Building configuration...\" header\n")
 {
 	return vtysh_write_terminal(self, vty, argc, argv);
 }
@@ -3048,9 +3085,7 @@ DEFUN (vtysh_write_memory,
 		 * ourselves
 		 */
 		if (!used_watchfrr) {
-			printf("\nWarning: attempting direct configuration write without "
-			       "watchfrr.\nFile permissions and ownership may be "
-			       "incorrect, or write may fail.\n\n");
+			printf("\nWarning: attempting direct configuration write without watchfrr.\nFile permissions and ownership may be incorrect, or write may fail.\n\n");
 			ret = vtysh_write_config_integrated();
 		}
 		return ret;
@@ -3679,10 +3714,16 @@ static char *vtysh_completion_entry_function(const char *ignore,
 void vtysh_readline_init(void)
 {
 	/* readline related settings. */
+	char *disable_bracketed_paste =
+		XSTRDUP(MTYPE_TMP, "set enable-bracketed-paste off");
+
 	rl_initialize();
+	rl_parse_and_bind(disable_bracketed_paste);
 	rl_bind_key('?', (rl_command_func_t *)vtysh_rl_describe);
 	rl_completion_entry_function = vtysh_completion_entry_function;
 	rl_attempted_completion_function = new_completion;
+
+	XFREE(MTYPE_TMP, disable_bracketed_paste);
 }
 
 char *vtysh_prompt(void)
@@ -3796,6 +3837,7 @@ void vtysh_init_vty(void)
 #if HAVE_BFDD > 0
 	install_node(&bfd_node);
 	install_node(&bfd_peer_node);
+	install_node(&bfd_profile_node);
 #endif /* HAVE_BFDD */
 
 	struct cmd_node *node;
@@ -3885,10 +3927,10 @@ void vtysh_init_vty(void)
 	install_element(ISIS_NODE, &vtysh_quit_isisd_cmd);
 	install_element(OPENFABRIC_NODE, &vtysh_exit_fabricd_cmd);
 	install_element(OPENFABRIC_NODE, &vtysh_quit_fabricd_cmd);
-	install_element(KEYCHAIN_NODE, &vtysh_exit_ripd_cmd);
-	install_element(KEYCHAIN_NODE, &vtysh_quit_ripd_cmd);
-	install_element(KEYCHAIN_KEY_NODE, &vtysh_exit_ripd_cmd);
-	install_element(KEYCHAIN_KEY_NODE, &vtysh_quit_ripd_cmd);
+	install_element(KEYCHAIN_NODE, &vtysh_exit_keys_cmd);
+	install_element(KEYCHAIN_NODE, &vtysh_quit_keys_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &vtysh_exit_keys_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &vtysh_quit_keys_cmd);
 	install_element(RMAP_NODE, &vtysh_exit_rmap_cmd);
 	install_element(RMAP_NODE, &vtysh_quit_rmap_cmd);
 	install_element(PBRMAP_NODE, &vtysh_exit_pbr_map_cmd);
@@ -3897,16 +3939,20 @@ void vtysh_init_vty(void)
 	/* Enter node. */
 	install_element(CONFIG_NODE, &bfd_enter_cmd);
 	install_element(BFD_NODE, &bfd_peer_enter_cmd);
+	install_element(BFD_NODE, &bfd_profile_enter_cmd);
 
 	/* Exit/quit node. */
 	install_element(BFD_NODE, &vtysh_exit_bfdd_cmd);
 	install_element(BFD_NODE, &vtysh_quit_bfdd_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_exit_bfdd_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_quit_bfdd_cmd);
+	install_element(BFD_PROFILE_NODE, &vtysh_exit_bfdd_cmd);
+	install_element(BFD_PROFILE_NODE, &vtysh_quit_bfdd_cmd);
 
 	/* End/exit all. */
 	install_element(BFD_NODE, &vtysh_end_all_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_end_all_cmd);
+	install_element(BFD_PROFILE_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BFDD */
 	install_element(VTY_NODE, &vtysh_exit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_quit_line_vty_cmd);
@@ -4101,9 +4147,9 @@ void vtysh_init_vty(void)
 #endif
 
 	/* debugging */
-	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
 	install_element(VIEW_NODE, &vtysh_show_error_code_cmd);
-	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
+	install_element(ENABLE_NODE, &vtysh_show_debugging_cmd);
+	install_element(ENABLE_NODE, &vtysh_show_debugging_hashtable_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_all_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);

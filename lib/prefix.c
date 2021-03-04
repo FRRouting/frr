@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include "prefix.h"
+#include "ipaddr.h"
 #include "vty.h"
 #include "sockunion.h"
 #include "memory.h"
@@ -75,10 +76,10 @@ bool is_mcast_mac(const struct ethaddr *mac)
 	return false;
 }
 
-unsigned int prefix_bit(const uint8_t *prefix, const uint16_t prefixlen)
+unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index)
 {
-	unsigned int offset = prefixlen / 8;
-	unsigned int shift = 7 - (prefixlen % 8);
+	unsigned int offset = bit_index / 8;
+	unsigned int shift = 7 - (bit_index % 8);
 
 	return (prefix[offset] >> shift) & 1;
 }
@@ -187,6 +188,10 @@ int prefix_match(const struct prefix *n, const struct prefix *p)
 
 	if (n->family == AF_FLOWSPEC) {
 		/* prefixlen is unused. look at fs prefix len */
+		if (n->u.prefix_flowspec.family !=
+		    p->u.prefix_flowspec.family)
+			return 0;
+
 		if (n->u.prefix_flowspec.prefixlen >
 		    p->u.prefix_flowspec.prefixlen)
 			return 0;
@@ -324,6 +329,8 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		len = src->u.prefix_flowspec.prefixlen;
 		dest->u.prefix_flowspec.prefixlen =
 			src->u.prefix_flowspec.prefixlen;
+		dest->u.prefix_flowspec.family =
+			src->u.prefix_flowspec.family;
 		dest->family = src->family;
 		temp = XCALLOC(MTYPE_PREFIX_FLOWSPEC, len);
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
@@ -373,6 +380,9 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    sizeof(struct evpn_addr)))
 				return 1;
 		if (p1->family == AF_FLOWSPEC) {
+			if (p1->u.prefix_flowspec.family !=
+			    p2->u.prefix_flowspec.family)
+				return 0;
 			if (p1->u.prefix_flowspec.prefixlen !=
 			    p2->u.prefix_flowspec.prefixlen)
 				return 0;
@@ -413,6 +423,10 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 	if (p1->family == AF_FLOWSPEC) {
 		pp1 = (const uint8_t *)p1->u.prefix_flowspec.ptr;
 		pp2 = (const uint8_t *)p2->u.prefix_flowspec.ptr;
+
+		if (p1->u.prefix_flowspec.family !=
+		    p2->u.prefix_flowspec.family)
+			return 1;
 
 		if (p1->u.prefix_flowspec.prefixlen !=
 		    p2->u.prefix_flowspec.prefixlen)
@@ -966,7 +980,7 @@ static const char *prefixevpn_prefix2str(const struct prefix_evpn *p, char *str,
 	family = is_evpn_prefix_ipaddr_v4(p)
 			 ? AF_INET
 			 : AF_INET6;
-	snprintf(str, size, "[%d]:[%u][%s/%d]/%d",
+	snprintf(str, size, "[%d]:[%u]:[%s/%d]/%d",
 		 p->prefix.route_type,
 		 p->prefix.prefix_addr.eth_tag,
 		 inet_ntop(family,
@@ -1314,6 +1328,26 @@ char *esi_to_str(const esi_t *esi, char *buf, int size)
 		 esi->val[6], esi->val[7], esi->val[8],
 		 esi->val[9]);
 	return ptr;
+}
+
+printfrr_ext_autoreg_p("EA", printfrr_ea)
+static ssize_t printfrr_ea(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct ethaddr *mac = ptr;
+
+	prefix_mac2str(mac, buf, bsz);
+	return 2;
+}
+
+printfrr_ext_autoreg_p("IA", printfrr_ia)
+static ssize_t printfrr_ia(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct ipaddr *ipa = ptr;
+
+	ipaddr2str(ipa, buf, bsz);
+	return 2;
 }
 
 printfrr_ext_autoreg_p("I4", printfrr_i4)

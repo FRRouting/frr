@@ -6,7 +6,6 @@
           "active": true,
           "directlyConnected": true,
           "fib": true,
-          "interfaceIndex": 3,
           "interfaceName": "r4-eth1"
         }
       ],
@@ -22,7 +21,6 @@
       "nexthops": [
         {
           "afi": "ipv4",
-          "interfaceIndex": 2,
           "interfaceName": "r4-eth0",
           "ip": "10.0.21.2"
         }
@@ -36,7 +34,6 @@
           "active": true,
           "directlyConnected": true,
           "fib": true,
-          "interfaceIndex": 2,
           "interfaceName": "r4-eth0"
         }
       ],
@@ -54,7 +51,6 @@
           "active": true,
           "afi": "ipv4",
           "fib": true,
-          "interfaceIndex": 2,
           "interfaceName": "r4-eth0",
           "ip": "10.0.21.2"
         }
@@ -71,7 +67,6 @@
           "active": true,
           "directlyConnected": true,
           "fib": true,
-          "interfaceIndex": 1,
           "interfaceName": "lo"
         }
       ],

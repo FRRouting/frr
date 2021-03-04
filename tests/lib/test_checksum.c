@@ -489,8 +489,7 @@ int main(int argc, char **argv)
 		in_csum_res = in_cksum_optimized(buffer, exercise);
 		in_csum_rfc = in_cksum_rfc(buffer, exercise);
 		if (in_csum_res != in_csum || in_csum != in_csum_rfc)
-			printf("verify: in_chksum failed in_csum:%x, in_csum_res:%x,"
-			       "in_csum_rfc %x, len:%d\n",
+			printf("verify: in_chksum failed in_csum:%x, in_csum_res:%x,in_csum_rfc %x, len:%d\n",
 			       in_csum, in_csum_res, in_csum_rfc, exercise);
 
 		ospfd = ospfd_checksum(buffer, exercise + sizeof(uint16_t),

@@ -42,10 +42,11 @@ extern "C" {
  * client
  *    the client datastructure
  *
- * msg
- *    the message
+ * fifo
+ *    a batch of messages
  */
-extern void zserv_handle_commands(struct zserv *client, struct stream *msg);
+extern void zserv_handle_commands(struct zserv *client,
+				  struct stream_fifo *fifo);
 
 extern int zsend_vrf_add(struct zserv *zclient, struct zebra_vrf *zvrf);
 extern int zsend_vrf_delete(struct zserv *zclient, struct zebra_vrf *zvrf);
@@ -67,8 +68,8 @@ extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
 				    const struct prefix *src_p,
 				    const struct route_entry *re);
 
-extern int zsend_router_id_update(struct zserv *zclient, struct prefix *p,
-				  vrf_id_t vrf_id);
+extern int zsend_router_id_update(struct zserv *zclient, afi_t afi,
+				  struct prefix *p, vrf_id_t vrf_id);
 extern int zsend_interface_vrf_update(struct zserv *zclient,
 				      struct interface *ifp, vrf_id_t vrf_id);
 extern int zsend_interface_link_params(struct zserv *zclient,
@@ -80,7 +81,7 @@ extern int zsend_route_notify_owner(struct route_entry *re,
 extern int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 					enum zapi_route_notify_owner note);
 
-extern void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
+extern void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 				    enum zapi_rule_notify_owner note);
 extern void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
 				     enum zapi_ipset_notify_owner note);
@@ -99,7 +100,9 @@ extern int zsend_assign_label_chunk_response(struct zserv *client,
 extern int zsend_label_manager_connect_response(struct zserv *client,
 						vrf_id_t vrf_id,
 						unsigned short result);
-
+extern int zsend_sr_policy_notify_status(uint32_t color,
+					 struct ipaddr *endpoint, char *name,
+					 int status);
 
 #ifdef __cplusplus
 }

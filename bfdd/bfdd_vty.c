@@ -111,6 +111,12 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 
 	vty_out(vty, "\t\tID: %u\n", bs->discrs.my_discr);
 	vty_out(vty, "\t\tRemote ID: %u\n", bs->discrs.remote_discr);
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE))
+		vty_out(vty, "\t\tPassive mode\n");
+	else
+		vty_out(vty, "\t\tActive mode\n");
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+		vty_out(vty, "\t\tMinimum TTL: %d\n", bs->mh_ttl);
 
 	vty_out(vty, "\t\tStatus: ");
 	switch (bs->ses_state) {
@@ -146,23 +152,23 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
 
 	vty_out(vty, "\t\tLocal timers:\n");
-	vty_out(vty, "\t\t\tDetect-multiplier: %" PRIu32 "\n",
+	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
 		bs->detect_mult);
-	vty_out(vty, "\t\t\tReceive interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tReceive interval: %ums\n",
 		bs->timers.required_min_rx / 1000);
-	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tTransmission interval: %ums\n",
 		bs->timers.desired_min_tx / 1000);
-	vty_out(vty, "\t\t\tEcho transmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tEcho transmission interval: %ums\n",
 		bs->timers.required_min_echo / 1000);
 
 	vty_out(vty, "\t\tRemote timers:\n");
-	vty_out(vty, "\t\t\tDetect-multiplier: %" PRIu32 "\n",
+	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
 		bs->remote_detect_mult);
-	vty_out(vty, "\t\t\tReceive interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tReceive interval: %ums\n",
 		bs->remote_timers.required_min_rx / 1000);
-	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tTransmission interval: %ums\n",
 		bs->remote_timers.desired_min_tx / 1000);
-	vty_out(vty, "\t\t\tEcho transmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tEcho transmission interval: %ums\n",
 		bs->remote_timers.required_min_echo / 1000);
 
 	vty_out(vty, "\n");
@@ -203,6 +209,10 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
+	json_object_boolean_add(jo, "passive-mode",
+				CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE));
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+		json_object_int_add(jo, "minimum-ttl", bs->mh_ttl);
 
 	switch (bs->ses_state) {
 	case PTM_BFD_ADM_DOWN:
@@ -437,7 +447,7 @@ static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json
 
 	jo = json_object_new_array();
 	bvt.jo = jo;
-	bfd_id_iterate(_display_peer_counter_json_iter, jo);
+	bfd_id_iterate(_display_peer_counter_json_iter, &bvt);
 
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
 	json_object_free(jo);

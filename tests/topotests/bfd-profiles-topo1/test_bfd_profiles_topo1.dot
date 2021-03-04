@@ -1,0 +1,97 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph template {
+  label="bfd-profiles-topo1";
+
+  # Routers
+  r1 [
+    shape=doubleoctagon,
+    label="r1",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+  r2 [
+    shape=doubleoctagon
+    label="r2",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+  r3 [
+    shape=doubleoctagon
+    label="r3",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+  r4 [
+    shape=doubleoctagon
+    label="r4",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+  r5 [
+    shape=doubleoctagon
+    label="r5",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+
+  # Switches
+  sw1 [
+    shape=oval,
+    label="sw1\n172.16.0.0/24",
+    fillcolor="#d0e0d0",
+    style=filled,
+  ];
+  sw2 [
+    shape=oval,
+    label="sw2\n172.16.1.0/24\n2001:db8:1::/64",
+    fillcolor="#d0e0d0",
+    style=filled,
+  ];
+  sw3 [
+    shape=oval,
+    label="sw3\n2001:db8:2::/64",
+    fillcolor="#d0e0d0",
+    style=filled,
+  ];
+  sw4 [
+    shape=oval,
+    label="sw4\n2001:db8:3::/64",
+    fillcolor="#d0e0d0",
+    style=filled,
+  ];
+  sw5 [
+    shape=oval,
+    label="sw5\n172.16.100.0/24",
+    fillcolor="#d0e0d0",
+    style=filled,
+  ];
+
+  # Connections
+  r1 -- sw1 [label="eth0"];
+  r2 -- sw1 [label="eth0"];
+
+  r2 -- sw2 [label="eth1"];
+  r3 -- sw2 [label="eth0"];
+
+  r3 -- sw3 [label="eth1"];
+  r4 -- sw3 [label="eth0"];
+
+  r4 -- sw4 [label="eth1"];
+  r5 -- sw4 [label="eth0"];
+
+  r1 -- sw5 [label="eth1"];
+  r6 -- sw5 [label="eth0"];
+}

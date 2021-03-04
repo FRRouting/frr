@@ -205,14 +205,14 @@ static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	struct ospf_neighbor *nbr = NULL;
 	struct route_node *node;
 	struct route_node *n_node;
-	struct prefix p;
+	struct prefix p, src_p;
 	int status;
 	int old_status;
 	struct bfd_info *bfd_info;
 	struct timeval tv;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &p, NULL, &status,
-				NULL, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &p, &src_p, &status, NULL,
+				vrf_id);
 
 	if ((ifp == NULL) || (p.family != AF_INET))
 		return 0;
@@ -381,7 +381,7 @@ static void ospf_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
 	params = IF_DEF_PARAMS(ifp);
 
 	bfd_set_param((struct bfd_info **)&(params->bfd_info), min_rx, min_tx,
-		      detect_mult, defaults, &command);
+		      detect_mult, NULL, defaults, &command);
 	if (command)
 		ospf_bfd_reg_dereg_all_nbr(ifp, command);
 }

@@ -28,6 +28,7 @@
 #include "pim_iface.h"
 
 extern void pim_mlag_init(void);
+extern void pim_mlag_terminate(void);
 extern void pim_instance_mlag_init(struct pim_instance *pim);
 extern void pim_instance_mlag_terminate(struct pim_instance *pim);
 extern void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp);

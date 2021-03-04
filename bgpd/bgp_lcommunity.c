@@ -348,16 +348,12 @@ void lcommunity_finish(void)
 	lcomhash = NULL;
 }
 
-/* Large Communities token enum. */
-enum lcommunity_token {
-	lcommunity_token_unknown = 0,
-	lcommunity_token_val,
-};
-
-/* Get next Large Communities token from the string. */
+/* Get next Large Communities token from the string.
+ * Assumes str is space-delimeted and describes 0 or more
+ * valid large communities
+ */
 static const char *lcommunity_gettoken(const char *str,
-				       struct lcommunity_val *lval,
-				       enum lcommunity_token *token)
+				       struct lcommunity_val *lval)
 {
 	const char *p = str;
 
@@ -372,60 +368,55 @@ static const char *lcommunity_gettoken(const char *str,
 		return NULL;
 
 	/* Community value. */
-	if (isdigit((unsigned char)*p)) {
-		int separator = 0;
-		int digit = 0;
-		uint32_t globaladmin = 0;
-		uint32_t localdata1 = 0;
-		uint32_t localdata2 = 0;
+	int separator = 0;
+	int digit = 0;
+	uint32_t globaladmin = 0;
+	uint32_t localdata1 = 0;
+	uint32_t localdata2 = 0;
 
-		while (isdigit((unsigned char)*p) || *p == ':') {
-			if (*p == ':') {
-				if (separator == 2) {
-					*token = lcommunity_token_unknown;
-					return NULL;
-				} else {
-					separator++;
-					digit = 0;
-					if (separator == 1) {
-						globaladmin = localdata2;
-					} else {
-						localdata1 = localdata2;
-					}
-					localdata2 = 0;
-				}
+	while (*p && *p != ' ') {
+		/* large community valid chars */
+		assert(isdigit((unsigned char)*p) || *p == ':');
+
+		if (*p == ':') {
+			separator++;
+			digit = 0;
+			if (separator == 1) {
+				globaladmin = localdata2;
 			} else {
-				digit = 1;
-				localdata2 *= 10;
-				localdata2 += (*p - '0');
+				localdata1 = localdata2;
 			}
-			p++;
+			localdata2 = 0;
+		} else {
+			digit = 1;
+			/* left shift the accumulated value and add current
+			 * digit
+			 */
+			localdata2 *= 10;
+			localdata2 += (*p - '0');
 		}
-		if (!digit) {
-			*token = lcommunity_token_unknown;
-			return NULL;
-		}
-
-		/*
-		 * Copy the large comm.
-		 */
-		lval->val[0] = (globaladmin >> 24) & 0xff;
-		lval->val[1] = (globaladmin >> 16) & 0xff;
-		lval->val[2] = (globaladmin >> 8) & 0xff;
-		lval->val[3] = globaladmin & 0xff;
-		lval->val[4] = (localdata1 >> 24) & 0xff;
-		lval->val[5] = (localdata1 >> 16) & 0xff;
-		lval->val[6] = (localdata1 >> 8) & 0xff;
-		lval->val[7] = localdata1 & 0xff;
-		lval->val[8] = (localdata2 >> 24) & 0xff;
-		lval->val[9] = (localdata2 >> 16) & 0xff;
-		lval->val[10] = (localdata2 >> 8) & 0xff;
-		lval->val[11] = localdata2 & 0xff;
-
-		*token = lcommunity_token_val;
-		return p;
+		p++;
 	}
-	*token = lcommunity_token_unknown;
+
+	/* Assert str was a valid large community */
+	assert(separator == 2 && digit == 1);
+
+	/*
+	 * Copy the large comm.
+	 */
+	lval->val[0] = (globaladmin >> 24) & 0xff;
+	lval->val[1] = (globaladmin >> 16) & 0xff;
+	lval->val[2] = (globaladmin >> 8) & 0xff;
+	lval->val[3] = globaladmin & 0xff;
+	lval->val[4] = (localdata1 >> 24) & 0xff;
+	lval->val[5] = (localdata1 >> 16) & 0xff;
+	lval->val[6] = (localdata1 >> 8) & 0xff;
+	lval->val[7] = localdata1 & 0xff;
+	lval->val[8] = (localdata2 >> 24) & 0xff;
+	lval->val[9] = (localdata2 >> 16) & 0xff;
+	lval->val[10] = (localdata2 >> 8) & 0xff;
+	lval->val[11] = localdata2 & 0xff;
+
 	return p;
 }
 
@@ -439,23 +430,16 @@ static const char *lcommunity_gettoken(const char *str,
 struct lcommunity *lcommunity_str2com(const char *str)
 {
 	struct lcommunity *lcom = NULL;
-	enum lcommunity_token token = lcommunity_token_unknown;
 	struct lcommunity_val lval;
 
+	if (!lcommunity_list_valid(str, LARGE_COMMUNITY_LIST_STANDARD))
+		return NULL;
+
 	do {
-		str = lcommunity_gettoken(str, &lval, &token);
-		switch (token) {
-		case lcommunity_token_val:
-			if (lcom == NULL)
-				lcom = lcommunity_new();
-			lcommunity_add_val(lcom, &lval);
-			break;
-		case lcommunity_token_unknown:
-		default:
-			if (lcom)
-				lcommunity_free(&lcom);
-			return NULL;
-		}
+		str = lcommunity_gettoken(str, &lval);
+		if (lcom == NULL)
+			lcom = lcommunity_new();
+		lcommunity_add_val(lcom, &lval);
 	} while (str);
 
 	return lcom;

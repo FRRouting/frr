@@ -121,6 +121,9 @@ def setup_module(module):
             # Only test LDPd if it's installed and Kernel >= 4.5
             net['r%s' % i].loadConf('ldpd', '%s/r%s/ldpd.conf' % (thisDir, i))
         net['r%s' % i].loadConf('sharpd')
+        net['r%s' % i].loadConf('nhrpd', '%s/r%s/nhrpd.conf' % (thisDir, i))
+        net['r%s' % i].loadConf('babeld', '%s/r%s/babeld.conf' % (thisDir, i))
+        net['r%s' % i].loadConf('pbrd', '%s/r%s/pbrd.conf' % (thisDir, i))
         net['r%s' % i].startRouter()
 
     # For debugging after starting Quagga/FRR daemons, uncomment the next line
@@ -260,6 +263,22 @@ def test_error_messages_daemons():
             if log:
                 error_logs += "r%s LDPd StdErr Output:\n" % i
                 error_logs += log
+
+        log = net['r1'].getStdErr('nhrpd')
+        if log:
+            error_logs += "r%s NHRPd StdErr Output:\n" % i
+            error_logs += log
+
+        log = net['r1'].getStdErr('babeld')
+        if log:
+            error_logs += "r%s BABELd StdErr Output:\n" % i
+            error_logs += log
+
+        log = net['r1'].getStdErr('pbrd')
+        if log:
+            error_logs += "r%s PBRd StdErr Output:\n" % i
+            error_logs += log
+
         log = net['r%s' % i].getStdErr('zebra')
         if log:
             error_logs += "r%s Zebra StdErr Output:\n"
@@ -596,6 +615,7 @@ def test_ospfv2_interfaces():
 
             # Drop time in next due 
             actual = re.sub(r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual)
+            actual = re.sub(r"Hello due in [0-9\.]+ usecs", "Hello due in XX.XXXs", actual)
             # Fix 'MTU mismatch detection: enabled' vs 'MTU mismatch detection:enabled' - accept both
             actual = re.sub(r"MTU mismatch detection:([a-z]+.*)", r"MTU mismatch detection: \1", actual)
             # Fix newlines (make them all the same)
@@ -658,7 +678,8 @@ def test_isis_interfaces():
             # Mask out SNPA mac address portion. They are random...
             actual = re.sub(r"SNPA: [0-9a-f\.]+", "SNPA: XXXX.XXXX.XXXX", actual)
             # Mask out Circuit ID number
-            actual = re.sub(r"Circuit Id: 0x[0-9]+", "Circuit Id: 0xXX", actual)
+            actual = re.sub(r"Circuit Id: 0x[0-9a-f]+", "Circuit Id: 0xXX",
+                            actual)
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
@@ -1178,6 +1199,19 @@ def test_shutdown_check_stderr():
     log = net['r1'].getStdErr('bgpd')
     if log:
         print("\nBGPd StdErr Log:\n" + log)
+
+    log = net['r1'].getStdErr('nhrpd')
+    if log:
+        print("\nNHRPd StdErr Log:\n" + log)
+
+    log = net['r1'].getStdErr('pbrd')
+    if log:
+        print("\nPBRd StdErr Log:\n" + log)
+
+    log = net['r1'].getStdErr('babeld')
+    if log:
+        print("\nBABELd StdErr Log:\n" + log)
+
     if (net['r1'].daemon_available('ldpd')):
         log = net['r1'].getStdErr('ldpd')
         if log:

@@ -20,7 +20,32 @@ module frr-routing {
 
   description
     "This YANG module defines essential components for the management
-     of a routing subsystem.";
+     of a routing subsystem.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2019-08-15 {
     description
@@ -46,6 +71,105 @@ module frr-routing {
     description
       "This identity represents an IPv6 address family.";
   }
+
+  identity afi-safi-type {
+    description
+      "Base identity type (AFI,SAFI) tuples for RIB";
+  }
+
+  identity ipv4-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 unicast address family.";
+  }
+
+  identity ipv6-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 unicast address family.";
+  }
+
+  identity ipv4-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 multicast address family.";
+  }
+
+  identity ipv6-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 multicast address family.";
+  }
+
+  identity ipv4-labeled-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 labeled unicast address family.";
+  }
+
+
+  identity ipv6-labeled-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 labeled unicast address family.";
+  }
+
+
+  identity l3vpn-ipv4-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv4 unicast address family.";
+  }
+
+
+  identity l3vpn-ipv6-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv6 unicast address family.";
+  }
+
+
+  identity l3vpn-ipv4-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv4 multicast address family.";
+  }
+
+
+  identity l3vpn-ipv6-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv6 multicast address family.";
+  }
+
+
+  identity l2vpn-vpls {
+    base afi-safi-type;
+    description
+      "This identity represents the L2vpn VPLS  address family.";
+  }
+
+
+  identity l2vpn-evpn {
+    base afi-safi-type;
+    description
+      "This identity represents the L2vpn EVPN address family.";
+  }
+
+
+  identity ipv4-flowspec {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 flowspec address family.";
+  }
+
+
+  identity ipv6-flowspec {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 flowspec address family.";
+  }
+
 
   identity control-plane-protocol {
     description
@@ -125,7 +249,7 @@ module frr-routing {
              instance.";
         }
         leaf vrf {
-          type frr-vrf:vrf-ref;
+          type string;
           description
             "vrf for control-plane protocol";
         }

@@ -48,7 +48,7 @@ struct ospf6_neighbor {
 	struct timeval last_changed;
 
 	/* Neighbor Router ID */
-	uint32_t router_id;
+	in_addr_t router_id;
 
 	/* Neighbor Interface ID */
 	ifindex_t ifindex;
@@ -56,10 +56,10 @@ struct ospf6_neighbor {
 	/* Router Priority of this neighbor */
 	uint8_t priority;
 
-	uint32_t drouter;
-	uint32_t bdrouter;
-	uint32_t prev_drouter;
-	uint32_t prev_bdrouter;
+	in_addr_t drouter;
+	in_addr_t bdrouter;
+	in_addr_t prev_drouter;
+	in_addr_t prev_bdrouter;
 
 	/* Options field (Capability) */
 	char options[3];

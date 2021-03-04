@@ -33,10 +33,10 @@ extern "C" {
 #endif
 
 /* MPLS (Segment Routing) global block */
-typedef struct mpls_srgb_t_ {
+struct mpls_srgb {
 	uint32_t start_label;
 	uint32_t end_label;
-} mpls_srgb_t;
+};
 
 struct zebra_rmap {
 	char *name;
@@ -92,6 +92,11 @@ struct zebra_vrf {
 	struct list *rid_all_sorted_list;
 	struct list *rid_lo_sorted_list;
 	struct prefix rid_user_assigned;
+	struct list _rid6_all_sorted_list;
+	struct list _rid6_lo_sorted_list;
+	struct list *rid6_all_sorted_list;
+	struct list *rid6_lo_sorted_list;
+	struct prefix rid6_user_assigned;
 
 	/*
 	 * Back pointer to the owning namespace.
@@ -111,7 +116,7 @@ struct zebra_vrf {
 	struct route_table *fec_table[AFI_MAX];
 
 	/* MPLS Segment Routing Global block */
-	mpls_srgb_t mpls_srgb;
+	struct mpls_srgb mpls_srgb;
 
 	/* Pseudowires. */
 	struct zebra_pw_head pseudowires;
@@ -125,9 +130,9 @@ struct zebra_vrf {
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 
 	/*
-	 * VNI hash table (for EVPN). Only in the EVPN instance.
+	 * EVPN hash table. Only in the EVPN instance.
 	 */
-	struct hash *vni_table;
+	struct hash *evpn_table;
 
 	/*
 	 * Whether EVPN is enabled or not. Only in the EVPN instance.

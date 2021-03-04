@@ -356,17 +356,16 @@ static struct peer *peer_lookup_addr_ipv4(struct in_addr *src)
 	struct bgp *bgp;
 	struct peer *peer;
 	struct listnode *node;
+	struct listnode *bgpnode;
 
-	bgp = bgp_get_default();
-	if (!bgp)
-		return NULL;
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (sockunion_family(&peer->su) != AF_INET)
+				continue;
 
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (sockunion_family(&peer->su) != AF_INET)
-			continue;
-
-		if (sockunion2ip(&peer->su) == src->s_addr)
-			return peer;
+			if (sockunion2ip(&peer->su) == src->s_addr)
+				return peer;
+		}
 	}
 
 	return NULL;
@@ -378,21 +377,20 @@ static struct peer *bgp_peer_lookup_next(struct in_addr *src)
 	struct peer *peer;
 	struct peer *next_peer = NULL;
 	struct listnode *node;
+	struct listnode *bgpnode;
 
-	bgp = bgp_get_default();
-	if (!bgp)
-		return NULL;
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (sockunion_family(&peer->su) != AF_INET)
+				continue;
+			if (ntohl(sockunion2ip(&peer->su)) <= ntohl(src->s_addr))
+				continue;
 
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (sockunion_family(&peer->su) != AF_INET)
-			continue;
-		if (ntohl(sockunion2ip(&peer->su)) <= ntohl(src->s_addr))
-			continue;
-
-		if (!next_peer
-		    || ntohl(sockunion2ip(&next_peer->su))
-			       > ntohl(sockunion2ip(&peer->su))) {
-			next_peer = peer;
+			if (!next_peer
+			    || ntohl(sockunion2ip(&next_peer->su))
+				       > ntohl(sockunion2ip(&peer->su))) {
+				next_peer = peer;
+			}
 		}
 	}
 
@@ -660,7 +658,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 	int offsetlen;
 	struct bgp_path_info *path;
 	struct bgp_path_info *min;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	union sockunion su;
 	unsigned int len;
 	struct in_addr paddr;
@@ -687,12 +685,12 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		oid2in_addr(offset, IN_ADDR_SIZE, &su.sin.sin_addr);
 
 		/* Lookup node. */
-		rn = bgp_node_lookup(bgp->rib[AFI_IP][SAFI_UNICAST],
-				     (struct prefix *)addr);
-		if (rn) {
-			bgp_unlock_node(rn);
+		dest = bgp_node_lookup(bgp->rib[AFI_IP][SAFI_UNICAST],
+				       (struct prefix *)addr);
+		if (dest) {
+			bgp_dest_unlock_node(dest);
 
-			for (path = bgp_node_get_bgp_path_info(rn); path;
+			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next)
 				if (sockunion_same(&path->peer->su, &su))
 					return path;
@@ -703,7 +701,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		len = offsetlen;
 
 		if (offsetlen == 0)
-			rn = bgp_table_top(bgp->rib[AFI_IP][SAFI_UNICAST]);
+			dest = bgp_table_top(bgp->rib[AFI_IP][SAFI_UNICAST]);
 		else {
 			if (len > IN_ADDR_SIZE)
 				len = IN_ADDR_SIZE;
@@ -718,8 +716,8 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 			else
 				addr->prefixlen = len * 8;
 
-			rn = bgp_node_get(bgp->rib[AFI_IP][SAFI_UNICAST],
-					  (struct prefix *)addr);
+			dest = bgp_node_get(bgp->rib[AFI_IP][SAFI_UNICAST],
+					    (struct prefix *)addr);
 
 			offset++;
 			offsetlen--;
@@ -734,13 +732,13 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		} else
 			paddr.s_addr = INADDR_ANY;
 
-		if (!rn)
+		if (!dest)
 			return NULL;
 
 		do {
 			min = NULL;
 
-			for (path = bgp_node_get_bgp_path_info(rn); path;
+			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next) {
 				if (path->peer->su.sin.sin_family == AF_INET
 				    && ntohl(paddr.s_addr)
@@ -762,7 +760,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 
 			if (min) {
 				const struct prefix *rn_p =
-					bgp_node_get_prefix(rn);
+					bgp_dest_get_prefix(dest);
 
 				*length =
 					v->namelen + BGP_PATHATTR_ENTRY_OFFSET;
@@ -779,13 +777,13 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 				addr->prefix = rn_p->u.prefix4;
 				addr->prefixlen = rn_p->prefixlen;
 
-				bgp_unlock_node(rn);
+				bgp_dest_unlock_node(dest);
 
 				return min;
 			}
 
 			paddr.s_addr = INADDR_ANY;
-		} while ((rn = bgp_route_next(rn)) != NULL);
+		} while ((dest = bgp_route_next(dest)) != NULL);
 	}
 	return NULL;
 }

@@ -1,71 +1,157 @@
-{
-  "8100":{
-    "inLabel":8100,
+[
+  {
+    "inLabel":16100,
     "installed":true,
     "nexthops":[
       {
         "type":"SR (OSPF)",
-        "outLabel":20100,
+        "outLabel":0,
+        "outLabelStack":[
+          0
+        ],
         "distance":150,
         "installed":true,
         "nexthop":"10.0.1.1"
+      },
+      {
+        "type":"SR (OSPF)",
+        "outLabel":0,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.1"
       }
     ]
   },
-  "8300":{
-    "inLabel":8300,
+  {
+    "inLabel":16300,
     "installed":true,
     "nexthops":[
       {
         "type":"SR (OSPF)",
         "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
         "distance":150,
         "installed":true,
         "nexthop":"10.0.3.1"
       }
     ]
   },
-  "8400":{
-    "inLabel":8400,
+  {
+    "inLabel":16400,
     "installed":true,
     "nexthops":[
       {
         "type":"SR (OSPF)",
         "outLabel":10400,
+        "outLabelStack":[
+          10400
+        ],
         "distance":150,
         "installed":true,
         "nexthop":"10.0.4.1"
       }
     ]
   },
-  "50000":{
-    "inLabel":50000,
+  {
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
         "type":"SR (OSPF)",
         "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
         "distance":150,
         "installed":true,
         "nexthop":"10.0.4.1"
       }
     ]
   },
-  "50001":{
-    "inLabel":50001,
+  {
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
         "type":"SR (OSPF)",
         "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
         "distance":150,
         "installed":true,
         "nexthop":"10.0.4.1"
       }
     ]
   },
-  "50002":{
-    "inLabel":50002,
+  {
+    "inLabel":"*",
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.1"
+      }
+    ]
+  },
+  {
+    "inLabel":"*",
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.1"
+      }
+    ]
+  },
+  {
+    "inLabel":"*",
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.1.1"
+      }
+    ]
+  },
+  {
+    "inLabel":"*",
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.1.1"
+      }
+    ]
+  },
+  {
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -77,8 +163,8 @@
       }
     ]
   },
-  "50003":{
-    "inLabel":50003,
+  {
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -87,33 +173,7 @@
         "distance":150,
         "installed":true,
         "nexthop":"10.0.3.1"
-      }
-    ]
-  },
-  "50004":{
-    "inLabel":50004,
-    "installed":true,
-    "nexthops":[
-      {
-        "type":"SR (OSPF)",
-        "outLabel":3,
-        "distance":150,
-        "installed":true,
-        "nexthop":"10.0.1.1"
-      }
-    ]
-  },
-  "50005":{
-    "inLabel":50005,
-    "installed":true,
-    "nexthops":[
-      {
-        "type":"SR (OSPF)",
-        "outLabel":3,
-        "distance":150,
-        "installed":true,
-        "nexthop":"10.0.1.1"
       }
     ]
   }
-}
+]

@@ -32,7 +32,7 @@ from __future__ import print_function, unicode_literals
 import argparse
 import copy
 import logging
-import os
+import os, os.path
 import random
 import re
 import string
@@ -59,9 +59,110 @@ else:
 log = logging.getLogger(__name__)
 
 
-class VtyshMarkException(Exception):
+class VtyshException(Exception):
     pass
 
+class Vtysh(object):
+    def __init__(self, bindir=None, confdir=None, sockdir=None, pathspace=None):
+        self.bindir = bindir
+        self.confdir = confdir
+        self.pathspace = pathspace
+        self.common_args = [os.path.join(bindir or '', 'vtysh')]
+        if confdir:
+            self.common_args.extend(['--config_dir', confdir])
+        if sockdir:
+            self.common_args.extend(['--vty_socket', sockdir])
+        if pathspace:
+            self.common_args.extend(['-N', pathspace])
+
+    def _call(self, args, stdin=None, stdout=None, stderr=None):
+        kwargs = {}
+        if stdin is not None:
+            kwargs['stdin'] = stdin
+        if stdout is not None:
+            kwargs['stdout'] = stdout
+        if stderr is not None:
+            kwargs['stderr'] = stderr
+        return subprocess.Popen(self.common_args + args, **kwargs)
+
+    def _call_cmd(self, command, stdin=None, stdout=None, stderr=None):
+        if isinstance(command, list):
+            args = [item for sub in command for item in ['-c', sub]]
+        else:
+            args = ['-c', command]
+        return self._call(args, stdin, stdout, stderr)
+
+    def __call__(self, command):
+        """
+        Call a CLI command (e.g. "show running-config")
+
+        Output text is automatically redirected, decoded and returned.
+        Multiple commands may be passed as list.
+        """
+        proc = self._call_cmd(command, stdout=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+        if proc.wait() != 0:
+            raise VtyshException('vtysh returned status %d for command "%s"'
+                    % (proc.returncode, command))
+        return stdout.decode('UTF-8')
+
+    def is_config_available(self):
+        """
+        Return False if no frr daemon is running or some other vtysh session is
+        in 'configuration terminal' mode which will prevent us from making any
+        configuration changes.
+        """
+
+        output = self('configure')
+
+        if 'VTY configuration is locked by other VTY' in output:
+            log.error("vtysh 'configure' returned\n%s\n" % (output))
+            return False
+
+        return True
+
+    def exec_file(self, filename):
+        child = self._call(['-f', filename])
+        if child.wait() != 0:
+            raise VtyshException('vtysh (exec file) exited with status %d'
+                    % (child.returncode))
+
+    def mark_file(self, filename, stdin=None):
+        child = self._call(['-m', '-f', filename],
+                stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            stdout, stderr = child.communicate()
+        except subprocess.TimeoutExpired:
+            child.kill()
+            stdout, stderr = child.communicate()
+            raise VtyshException('vtysh call timed out!')
+
+        if child.wait() != 0:
+            raise VtyshException('vtysh (mark file) exited with status %d:\n%s'
+                    % (child.returncode, stderr))
+
+        return stdout.decode('UTF-8')
+
+    def mark_show_run(self, daemon = None):
+        cmd = 'show running-config'
+        if daemon:
+            cmd += ' %s' % daemon
+        cmd += ' no-header'
+        show_run = self._call_cmd(cmd, stdout=subprocess.PIPE)
+        mark = self._call(['-m', '-f', '-'], stdin=show_run.stdout, stdout=subprocess.PIPE)
+
+        show_run.wait()
+        stdout, stderr = mark.communicate()
+        mark.wait()
+
+        if show_run.returncode != 0:
+            raise VtyshException('vtysh (show running-config) exited with status %d:'
+                    % (show_run.returncode))
+        if mark.returncode != 0:
+            raise VtyshException('vtysh (mark running-config) exited with status %d'
+                    % (mark.returncode))
+
+        return stdout.decode('UTF-8')
 
 class Context(object):
 
@@ -101,6 +202,26 @@ ip forwarding
         for ligne in lines:
             self.dlines[ligne] = True
 
+def get_normalized_es_id(line):
+    """
+    The es-id or es-sys-mac need to be converted to lower case
+    """
+    sub_strs = ["evpn mh es-id", "evpn mh es-sys-mac"]
+    for sub_str in sub_strs:
+        obj = re.match(sub_str + " (?P<esi>\S*)", line)
+        if obj:
+            line = "%s %s" % (sub_str, obj.group("esi").lower())
+            break
+    return line
+
+def get_normalized_mac_ip_line(line):
+    if line.startswith("evpn mh es"):
+        return get_normalized_es_id(line)
+
+    if not "ipv6 add" in line:
+        return get_normalized_ipv6_line(line)
+
+    return line
 
 class Config(object):
 
@@ -110,11 +231,12 @@ class Config(object):
     ('router ospf' for example) are our dictionary key.
     """
 
-    def __init__(self):
+    def __init__(self, vtysh):
         self.lines = []
         self.contexts = OrderedDict()
+        self.vtysh = vtysh
 
-    def load_from_file(self, filename, bindir, confdir):
+    def load_from_file(self, filename):
         """
         Read configuration from specified file and slurp it into internal memory
         The internal representation has been marked appropriately by passing it
@@ -122,29 +244,22 @@ class Config(object):
         """
         log.info('Loading Config object from file %s', filename)
 
-        try:
-            file_output = subprocess.check_output([str(bindir + '/vtysh'), '-m', '-f', filename, '--config_dir', confdir],
-                                                  stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            ve = VtyshMarkException(e)
-            ve.output = e.output
-            raise ve
+        file_output = self.vtysh.mark_file(filename)
 
-        for line in file_output.decode('utf-8').split('\n'):
+        for line in file_output.split('\n'):
             line = line.strip()
 
             # Compress duplicate whitespaces
             line = ' '.join(line.split())
 
             if ":" in line:
-                qv6_line = get_normalized_ipv6_line(line)
-                self.lines.append(qv6_line)
-            else:
-                self.lines.append(line)
+                line = get_normalized_mac_ip_line(line)
+
+            self.lines.append(line)
 
         self.load_contexts()
 
-    def load_from_show_running(self, bindir, confdir, daemon):
+    def load_from_show_running(self, daemon):
         """
         Read running configuration and slurp it into internal memory
         The internal representation has been marked appropriately by passing it
@@ -152,16 +267,9 @@ class Config(object):
         """
         log.info('Loading Config object from vtysh show running')
 
-        try:
-            config_text = subprocess.check_output(
-                bindir + "/vtysh --config_dir " + confdir + " -c 'show run " + daemon + "' | /usr/bin/tail -n +4 | " + bindir + "/vtysh --config_dir " + confdir + " -m -f -",
-                shell=True, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            ve = VtyshMarkException(e)
-            ve.output = e.output
-            raise ve
+        config_text = self.vtysh.mark_show_run(daemon)
 
-        for line in config_text.decode('utf-8').split('\n'):
+        for line in config_text.split('\n'):
             line = line.strip()
 
             if (line == 'Building configuration...' or
@@ -414,7 +522,8 @@ end
                                 "table ",
                                 "username ",
                                 "zebra ",
-                                "vrrp autoconfigure")
+                                "vrrp autoconfigure",
+                                "evpn mh")
 
         for line in self.lines:
 
@@ -423,6 +532,18 @@ end
 
             if line.startswith('!') or line.startswith('#'):
                 continue
+
+            if (len(ctx_keys) == 2
+                and ctx_keys[0].startswith('bfd')
+                and ctx_keys[1].startswith('profile ')
+                and line == 'end'):
+                log.debug('LINE %-50s: popping from sub context, %-50s', line, ctx_keys)
+
+                if main_ctx_key:
+                    self.save_contexts(ctx_keys, current_context_lines)
+                    ctx_keys = copy.deepcopy(main_ctx_key)
+                    current_context_lines = []
+                    continue
 
             # one line contexts
             # there is one exception though: ldpd accepts a 'router-id' clause
@@ -445,6 +566,16 @@ end
             elif line == "end":
                 self.save_contexts(ctx_keys, current_context_lines)
                 log.debug('LINE %-50s: exiting old context, %-50s', line, ctx_keys)
+
+                # Start a new context
+                new_ctx = True
+                main_ctx_key = []
+                ctx_keys = []
+                current_context_lines = []
+
+            elif line == "exit" and ctx_keys[0].startswith("rpki"):
+                self.save_contexts(ctx_keys, current_context_lines)
+                log.debug("LINE %-50s: exiting old context, %-50s", line, ctx_keys)
 
                 # Start a new context
                 new_ctx = True
@@ -496,6 +627,8 @@ end
                   line.startswith("vnc defaults") or
                   line.startswith("vnc l2-group") or
                   line.startswith("vnc nve-group") or
+                  line.startswith("peer") or
+                  line.startswith("key ") or
                   line.startswith("member pseudowire")):
                 main_ctx_key = []
 
@@ -538,6 +671,22 @@ end
                 log.debug('LINE %-50s: entering sub-sub-context, append to ctx_keys', line)
                 ctx_keys.append(line)
 
+            elif (
+                line.startswith('profile ')
+                and len(ctx_keys) == 1
+                and ctx_keys[0].startswith('bfd')
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug(
+                    "LINE %-50s: entering BFD profile sub-context, append to ctx_keys",
+                    line
+                )
+                ctx_keys.append(line)
+
             else:
                 # Continuing in an existing context, add non-commented lines to it
                 current_context_lines.append(line)
@@ -547,60 +696,7 @@ end
         self.save_contexts(ctx_keys, current_context_lines)
 
 
-def line_to_vtysh_conft(ctx_keys, line, delete, bindir, confdir):
-    """
-    Return the vtysh command for the specified context line
-    """
-
-    cmd = []
-    cmd.append(str(bindir + '/vtysh'))
-    cmd.append('--config_dir')
-    cmd.append(confdir)
-    cmd.append('-c')
-    cmd.append('conf t')
-
-    if line:
-        for ctx_key in ctx_keys:
-            cmd.append('-c')
-            cmd.append(ctx_key)
-
-        line = line.lstrip()
-
-        if delete:
-            cmd.append('-c')
-
-            if line.startswith('no '):
-                cmd.append('%s' % line[3:])
-            else:
-                cmd.append('no %s' % line)
-
-        else:
-            cmd.append('-c')
-            cmd.append(line)
-
-    # If line is None then we are typically deleting an entire
-    # context ('no router ospf' for example)
-    else:
-
-        if delete:
-
-            # Only put the 'no' on the last sub-context
-            for ctx_key in ctx_keys:
-                cmd.append('-c')
-
-                if ctx_key == ctx_keys[-1]:
-                    cmd.append('no %s' % ctx_key)
-                else:
-                    cmd.append('%s' % ctx_key)
-        else:
-            for ctx_key in ctx_keys:
-                cmd.append('-c')
-                cmd.append(ctx_key)
-
-    return cmd
-
-
-def line_for_vtysh_file(ctx_keys, line, delete):
+def lines_to_config(ctx_keys, line, delete):
     """
     Return the command as it would appear in frr.conf
     """
@@ -613,6 +709,10 @@ def line_for_vtysh_file(ctx_keys, line, delete):
         line = line.lstrip()
         indent = len(ctx_keys) * ' '
 
+        # There are some commands that are on by default so their "no" form will be
+        # displayed in the config.  "no bgp default ipv4-unicast" is one of these.
+        # If we need to remove this line we do so by adding "bgp default ipv4-unicast",
+        # not by doing a "no no bgp default ipv4-unicast"
         if delete:
             if line.startswith('no '):
                 cmd.append('%s%s' % (indent, line[3:]))
@@ -625,26 +725,17 @@ def line_for_vtysh_file(ctx_keys, line, delete):
     # If line is None then we are typically deleting an entire
     # context ('no router ospf' for example)
     else:
+        for i, ctx_key in enumerate(ctx_keys[:-1]):
+            cmd.append('%s%s' % (' ' * i, ctx_key))
+
+        # Only put the 'no' on the last sub-context
         if delete:
-
-            # Only put the 'no' on the last sub-context
-            for ctx_key in ctx_keys:
-
-                if ctx_key == ctx_keys[-1]:
-                    cmd.append('no %s' % ctx_key)
-                else:
-                    cmd.append('%s' % ctx_key)
+            if ctx_keys[-1].startswith('no '):
+                cmd.append('%s%s' % (' ' * (len(ctx_keys) - 1), ctx_keys[-1][3:]))
+            else:
+                cmd.append('%sno %s' % (' ' * (len(ctx_keys) - 1), ctx_keys[-1]))
         else:
-            for ctx_key in ctx_keys:
-                cmd.append(ctx_key)
-
-    cmd = '\n' + '\n'.join(cmd)
-
-    # There are some commands that are on by default so their "no" form will be
-    # displayed in the config.  "no bgp default ipv4-unicast" is one of these.
-    # If we need to remove this line we do so by adding "bgp default ipv4-unicast",
-    # not by doing a "no no bgp default ipv4-unicast"
-    cmd = cmd.replace('no no ', '')
+            cmd.append('%s%s' % (' ' * (len(ctx_keys) - 1), ctx_keys[-1]))
 
     return cmd
 
@@ -694,6 +785,36 @@ def line_exist(lines, target_ctx_keys, target_line, exact_match=True):
                     return True
     return False
 
+def check_for_exit_vrf(lines_to_add, lines_to_del):
+
+    # exit-vrf is a bit tricky.  If the new config is missing it but we
+    # have configs under a vrf, we need to add it at the end to do the
+    # right context changes.  If exit-vrf exists in both the running and
+    # new config, we cannot delete it or it will break context changes.
+    add_exit_vrf = False
+    index = 0
+
+    for (ctx_keys, line) in lines_to_add:
+        if add_exit_vrf == True:
+            if ctx_keys[0] != prior_ctx_key:
+                insert_key=(prior_ctx_key),
+                lines_to_add.insert(index, ((insert_key, "exit-vrf")))
+                add_exit_vrf = False
+
+        if ctx_keys[0].startswith('vrf') and line:
+            if line is not "exit-vrf":
+                add_exit_vrf = True
+                prior_ctx_key = (ctx_keys[0])
+            else:
+                add_exit_vrf = False
+        index+=1
+
+    for (ctx_keys, line) in lines_to_del:
+        if line == "exit-vrf":
+            if (line_exist(lines_to_add, ctx_keys, line)):
+                lines_to_del.remove((ctx_keys, line))
+
+    return (lines_to_add, lines_to_del)
 
 def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
@@ -779,13 +900,14 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     bfd_search_string =  bfd_nbr + r' bfd (\S+) (\S+) (\S+)'
 
                     for (ctx_keys, add_line) in lines_to_add:
-                        re_add_nbr_bfd_timers = re.search(bfd_search_string, add_line)
+                        if ctx_keys[0].startswith('router bgp'):
+                            re_add_nbr_bfd_timers = re.search(bfd_search_string, add_line)
 
-                        if re_add_nbr_bfd_timers:
-                            found_add_bfd_nbr = line_exist(lines_to_add, ctx_keys, bfd_nbr, False)
+                            if re_add_nbr_bfd_timers:
+                                found_add_bfd_nbr = line_exist(lines_to_add, ctx_keys, bfd_nbr, False)
 
-                            if found_add_bfd_nbr:
-                                lines_to_del_to_del.append((ctx_keys, line))
+                                if found_add_bfd_nbr:
+                                    lines_to_del_to_del.append((ctx_keys, line))
 
                 '''
                 We changed how we display the neighbor interface command. Older
@@ -998,6 +1120,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
 
         if (ctx_keys[0].startswith('frr version') or
             ctx_keys[0].startswith('frr defaults') or
+            ctx_keys[0].startswith('username') or
             ctx_keys[0].startswith('password') or
             ctx_keys[0].startswith('line vty') or
 
@@ -1006,7 +1129,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
             # by removing this.
             ctx_keys[0].startswith('service integrated-vtysh-config')):
 
-            log.info("(%s, %s) cannot be removed" % (pformat(ctx_keys), line))
+            log.info('"%s" cannot be removed' % (ctx_keys[-1],))
             lines_to_del_to_del.append((ctx_keys, line))
 
     for (ctx_keys, line) in lines_to_del_to_del:
@@ -1084,6 +1207,12 @@ def compare_context_objects(newconf, running):
                   (running_ctx_keys[:2], None) in lines_to_del):
                 continue
 
+            # same thing for a pseudowire sub-context inside an l2vpn context
+            elif (len(running_ctx_keys) > 1 and running_ctx_keys[0].startswith('l2vpn') and
+                  running_ctx_keys[1].startswith('member pseudowire') and
+                  (running_ctx_keys[:1], None) in lines_to_del):
+                continue
+
             # Non-global context
             elif running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
                 lines_to_del.append((running_ctx_keys, None))
@@ -1119,36 +1248,11 @@ def compare_context_objects(newconf, running):
             for line in newconf_ctx.lines:
                 lines_to_add.append((newconf_ctx_keys, line))
 
+    (lines_to_add, lines_to_del) = check_for_exit_vrf(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = ignore_unconfigurable_lines(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del)
-
-
-
-def vtysh_config_available(bindir, confdir):
-    """
-    Return False if no frr daemon is running or some other vtysh session is
-    in 'configuration terminal' mode which will prevent us from making any
-    configuration changes.
-    """
-
-    try:
-        cmd = [str(bindir + '/vtysh'), '--config_dir', confdir, '-c', 'conf t']
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).strip()
-
-        if 'VTY configuration is locked by other VTY' in output.decode('utf-8'):
-            print(output)
-            log.error("'%s' returned\n%s\n" % (' '.join(cmd), output))
-            return False
-
-    except subprocess.CalledProcessError as e:
-        msg = "vtysh could not connect with any frr daemons"
-        print(msg)
-        log.error(msg)
-        return False
-
-    return True
 
 
 if __name__ == '__main__':
@@ -1158,13 +1262,19 @@ if __name__ == '__main__':
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--reload', action='store_true', help='Apply the deltas', default=False)
     group.add_argument('--test', action='store_true', help='Show the deltas', default=False)
-    parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
+    level_group = parser.add_mutually_exclusive_group()
+    level_group.add_argument('--debug', action='store_true',
+                             help='Enable debugs (synonym for --log-level=debug)', default=False)
+    level_group.add_argument('--log-level', help='Log level', default="info",
+                             choices=("critical", "error", "warning", "info", "debug"))
     parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
+    parser.add_argument('--pathspace', '-N', metavar='NAME', help='Reload specified path/namespace', default=None)
     parser.add_argument('filename', help='Location of new frr config file')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite frr.conf with running config output', default=False)
     parser.add_argument('--bindir', help='path to the vtysh executable', default='/usr/bin')
     parser.add_argument('--confdir', help='path to the daemon config files', default='/etc/frr')
     parser.add_argument('--rundir', help='path for the temp config file', default='/var/run/frr')
+    parser.add_argument('--vty_socket', help='socket to be used by vtysh to connect to the daemons', default=None)
     parser.add_argument('--daemon', help='daemon for which want to replace the config', default='')
 
     args = parser.parse_args()
@@ -1173,8 +1283,7 @@ if __name__ == '__main__':
     # For --test log to stdout
     # For --reload log to /var/log/frr/frr-reload.log
     if args.test or args.stdout:
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s %(levelname)5s: %(message)s')
+        logging.basicConfig(format='%(asctime)s %(levelname)5s: %(message)s')
 
         # Color the errors and warnings in red
         logging.addLevelName(logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR))
@@ -1185,7 +1294,6 @@ if __name__ == '__main__':
             os.makedirs('/var/log/frr/')
 
         logging.basicConfig(filename='/var/log/frr/frr-reload.log',
-                            level=logging.INFO,
                             format='%(asctime)s %(levelname)5s: %(message)s')
 
     # argparse should prevent this from happening but just to be safe...
@@ -1193,42 +1301,58 @@ if __name__ == '__main__':
         raise Exception('Must specify --reload or --test')
     log = logging.getLogger(__name__)
 
+    if args.debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(args.log_level.upper())
+
+    if args.reload and not args.stdout:
+        # Additionally send errors and above to STDOUT, with no metadata,
+        # when we are logging to a file. This specifically does not follow
+        # args.log_level, and is analagous to behaviour in earlier versions
+        # which additionally logged most errors using print().
+
+        stdout_hdlr = logging.StreamHandler(sys.stdout)
+        stdout_hdlr.setLevel(logging.ERROR)
+        stdout_hdlr.setFormatter(logging.Formatter())
+        log.addHandler(stdout_hdlr)
+
     # Verify the new config file is valid
     if not os.path.isfile(args.filename):
-        msg = "Filename %s does not exist" % args.filename
-        print(msg)
-        log.error(msg)
+        log.error("Filename %s does not exist" % args.filename)
         sys.exit(1)
 
     if not os.path.getsize(args.filename):
-        msg = "Filename %s is an empty file" % args.filename
-        print(msg)
-        log.error(msg)
+        log.error("Filename %s is an empty file" % args.filename)
         sys.exit(1)
 
     # Verify that confdir is correct
     if not os.path.isdir(args.confdir):
-        msg = "Confdir %s is not a valid path" % args.confdir
-        print(msg)
-        log.error(msg)
+        log.error("Confdir %s is not a valid path" % args.confdir)
         sys.exit(1)
 
     # Verify that bindir is correct
     if not os.path.isdir(args.bindir) or not os.path.isfile(args.bindir + '/vtysh'):
-        msg = "Bindir %s is not a valid path to vtysh" % args.bindir
-        print(msg)
-        log.error(msg)
+        log.error("Bindir %s is not a valid path to vtysh" % args.bindir)
+        sys.exit(1)
+
+    # verify that the vty_socket, if specified, is valid
+    if args.vty_socket and not os.path.isdir(args.vty_socket):
+        log.error('vty_socket %s is not a valid path' % args.vty_socket)
         sys.exit(1)
 
     # verify that the daemon, if specified, is valid
     if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd']:
-        msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
-        print(msg)
-        log.error(msg)
+        log.error("Daemon %s is not a valid option for 'show running-config'" % args.daemon)
         sys.exit(1)
 
+    vtysh = Vtysh(args.bindir, args.confdir, args.vty_socket, args.pathspace)
+
     # Verify that 'service integrated-vtysh-config' is configured
-    vtysh_filename = args.confdir + '/vtysh.conf'
+    if args.pathspace:
+        vtysh_filename = args.confdir + '/' + args.pathspace + '/vtysh.conf'
+    else:
+        vtysh_filename = args.confdir + '/vtysh.conf'
     service_integrated_vtysh_config = True
 
     if os.path.isfile(vtysh_filename):
@@ -1241,30 +1365,29 @@ if __name__ == '__main__':
                     break
 
     if not service_integrated_vtysh_config and not args.daemon:
-        msg = "'service integrated-vtysh-config' is not configured, this is required for 'service frr reload'"
-        print(msg)
-        log.error(msg)
+        log.error("'service integrated-vtysh-config' is not configured, this is required for 'service frr reload'")
         sys.exit(1)
-
-    if args.debug:
-        log.setLevel(logging.DEBUG)
 
     log.info('Called via "%s"', str(args))
 
     # Create a Config object from the config generated by newconf
-    newconf = Config()
-    newconf.load_from_file(args.filename, args.bindir, args.confdir)
-    reload_ok = True
+    newconf = Config(vtysh)
+    try:
+        newconf.load_from_file(args.filename)
+        reload_ok = True
+    except VtyshException as ve:
+        log.error("vtysh failed to process new configuration: {}".format(ve))
+        reload_ok = False
 
     if args.test:
 
         # Create a Config object from the running config
-        running = Config()
+        running = Config(vtysh)
 
         if args.input:
-            running.load_from_file(args.input, args.bindir, args.confdir)
+            running.load_from_file(args.input)
         else:
-            running.load_from_show_running(args.bindir, args.confdir, args.daemon)
+            running.load_from_show_running(args.daemon)
 
         (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
         lines_to_configure = []
@@ -1278,7 +1401,7 @@ if __name__ == '__main__':
                 if line == '!':
                     continue
 
-                cmd = line_for_vtysh_file(ctx_keys, line, True)
+                cmd = '\n'.join(lines_to_config(ctx_keys, line, True))
                 lines_to_configure.append(cmd)
                 print(cmd)
 
@@ -1291,14 +1414,14 @@ if __name__ == '__main__':
                 if line == '!':
                     continue
 
-                cmd = line_for_vtysh_file(ctx_keys, line, False)
+                cmd = '\n'.join(lines_to_config(ctx_keys, line, False))
                 lines_to_configure.append(cmd)
                 print(cmd)
 
     elif args.reload:
 
         # We will not be able to do anything, go ahead and exit(1)
-        if not vtysh_config_available(args.bindir, args.confdir):
+        if not vtysh.is_config_available():
             sys.exit(1)
 
         log.debug('New Frr Config\n%s', newconf.get_lines())
@@ -1341,8 +1464,8 @@ if __name__ == '__main__':
         lines_to_add_first_pass = []
 
         for x in range(2):
-            running = Config()
-            running.load_from_show_running(args.bindir, args.confdir, args.daemon)
+            running = Config(vtysh)
+            running.load_from_show_running(args.daemon)
             log.debug('Running Frr Config (Pass #%d)\n%s', x, running.get_lines())
 
             (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
@@ -1374,7 +1497,7 @@ if __name__ == '__main__':
                     # 'no' commands are tricky, we can't just put them in a file and
                     # vtysh -f that file. See the next comment for an explanation
                     # of their quirks
-                    cmd = line_to_vtysh_conft(ctx_keys, line, True, args.bindir, args.confdir)
+                    cmd = lines_to_config(ctx_keys, line, True)
                     original_cmd = cmd
 
                     # Some commands in frr are picky about taking a "no" of the entire line.
@@ -1393,9 +1516,9 @@ if __name__ == '__main__':
 
                     while True:
                         try:
-                            _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+                            vtysh(['configure'] + cmd)
 
-                        except subprocess.CalledProcessError:
+                        except VtyshException:
 
                             # - Pull the last entry from cmd (this would be
                             #   'no ip ospf authentication message-digest 1.1.1.1' in
@@ -1405,7 +1528,7 @@ if __name__ == '__main__':
                             last_arg = cmd[-1].split(' ')
 
                             if len(last_arg) <= 2:
-                                log.error('"%s" we failed to remove this command', original_cmd)
+                                log.error('"%s" we failed to remove this command', ' -- '.join(original_cmd))
                                 break
 
                             new_last_arg = last_arg[0:-1]
@@ -1427,7 +1550,7 @@ if __name__ == '__main__':
                     if x == 1 and ctx_keys[0].startswith('no '):
                         continue
 
-                    cmd = line_for_vtysh_file(ctx_keys, line, False)
+                    cmd = '\n'.join(lines_to_config(ctx_keys, line, False)) + '\n'
                     lines_to_configure.append(cmd)
 
                 if lines_to_configure:
@@ -1443,16 +1566,16 @@ if __name__ == '__main__':
                             fh.write(line + '\n')
 
                     try:
-                        subprocess.check_output([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '-f', filename], stderr=subprocess.STDOUT)
-                    except subprocess.CalledProcessError as e:
-                        log.warning("frr-reload.py failed due to\n%s" % e.output)
+                        vtysh.exec_file(filename)
+                    except VtyshException as e:
+                        log.warning("frr-reload.py failed due to\n%s" % e.args)
                         reload_ok = False
                     os.unlink(filename)
 
         # Make these changes persistent
         target = str(args.confdir + '/frr.conf')
         if args.overwrite or (not args.daemon and args.filename != target):
-            subprocess.call([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '-c', 'write'])
+            vtysh('write')
 
     if not reload_ok:
         sys.exit(1)

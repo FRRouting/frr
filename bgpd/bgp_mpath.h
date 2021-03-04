@@ -64,7 +64,7 @@ extern void bgp_mp_list_init(struct list *);
 extern void bgp_mp_list_clear(struct list *);
 extern void bgp_mp_list_add(struct list *mp_list, struct bgp_path_info *mpinfo);
 extern void bgp_mp_dmed_deselect(struct bgp_path_info *dmed_best);
-extern void bgp_path_info_mpath_update(struct bgp_node *rn,
+extern void bgp_path_info_mpath_update(struct bgp_dest *dest,
 				       struct bgp_path_info *new_best,
 				       struct bgp_path_info *old_best,
 				       struct list *mp_list,

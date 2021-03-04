@@ -55,6 +55,12 @@ static const bool fabricd = false;
 extern void isis_cli_init(void);
 #endif
 
+#define ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)             \
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {                          \
+		vrf_name = argv[idx_vrf + 1]->arg;                             \
+		all_vrf = strmatch(vrf_name, "all");                           \
+	}
+
 extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
@@ -62,8 +68,18 @@ extern struct zebra_privs_t isisd_privs;
 
 struct fabricd;
 
+struct isis_master {
+	/* ISIS instance. */
+	struct list *isis;
+	/* ISIS thread master. */
+	struct thread_master *master;
+	uint8_t options;
+};
+#define F_ISIS_UNIT_TEST 0x01
+
 struct isis {
 	vrf_id_t vrf_id;
+	char *name;
 	unsigned long process_id;
 	int sysid_set;
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
@@ -72,18 +88,14 @@ struct isis {
 	struct list *init_circ_list;
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
-	uint32_t debugs;		  /* bitmap for debug */
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
-
-	QOBJ_FIELDS
 };
 
-extern struct isis *isis;
-DECLARE_QOBJ_TYPE(isis_area)
+extern struct isis_master *im;
 
 enum spf_tree_id {
 	SPFTREE_IPV4 = 0,
@@ -111,6 +123,7 @@ struct isis_area {
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
 	struct list *circuit_list; /* IS-IS circuits */
+	struct list *adjacency_list; /* IS-IS adjacencies */
 	struct flags flags;
 	struct thread *t_tick; /* LSP walker */
 	struct thread *t_lsp_refresh[ISIS_LEVELS];
@@ -127,6 +140,9 @@ struct isis_area {
 	 * be delayed until the next regular refresh.
 	 */
 	int lsp_regenerate_pending[ISIS_LEVELS];
+
+	bool bfd_signalled_down;
+	bool bfd_force_spf_refresh;
 
 	struct fabricd *fabricd;
 
@@ -191,14 +207,29 @@ struct isis_area {
 };
 DECLARE_QOBJ_TYPE(isis_area)
 
+void isis_terminate(void);
+void isis_finish(struct isis *isis);
+void isis_master_init(struct thread_master *master);
+void isis_vrf_link(struct isis *isis, struct vrf *vrf);
+void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
+void isis_global_instance_create(const char *vrf_name);
+struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
+struct isis *isis_lookup_by_vrfname(const char *vrfname);
+struct isis *isis_lookup_by_sysid(const uint8_t *sysid);
+
 void isis_init(void);
-void isis_new(unsigned long process_id, vrf_id_t vrf_id);
-struct isis_area *isis_area_create(const char *);
-struct isis_area *isis_area_lookup(const char *);
+void isis_vrf_init(void);
+
+struct isis *isis_new(const char *vrf_name);
+struct isis_area *isis_area_create(const char *, const char *);
+struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
+struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
+					  const char *vrf_name);
 int isis_area_get(struct vty *vty, const char *area_tag);
-int isis_area_destroy(const char *area_tag);
+void isis_area_destroy(struct isis_area *area);
 void print_debug(struct vty *, int, int);
-struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv);
+struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
+			     struct isis *isis);
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);
@@ -220,6 +251,9 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
+void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
+			      int level, struct lspdb_head *lspdb,
+			      const char *argv, int ui_level);
 
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
@@ -227,6 +261,20 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 
 /* Master of threads. */
 extern struct thread_master *master;
+
+extern unsigned long debug_adj_pkt;
+extern unsigned long debug_snp_pkt;
+extern unsigned long debug_update_pkt;
+extern unsigned long debug_spf_events;
+extern unsigned long debug_rte_events;
+extern unsigned long debug_events;
+extern unsigned long debug_pkt_dump;
+extern unsigned long debug_lsp_gen;
+extern unsigned long debug_lsp_sched;
+extern unsigned long debug_flooding;
+extern unsigned long debug_bfd;
+extern unsigned long debug_tx_queue;
+extern unsigned long debug_sr;
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
 #define DEBUG_SNP_PACKETS                (1<<1)
@@ -242,26 +290,39 @@ extern struct thread_master *master;
 #define DEBUG_TX_QUEUE                   (1<<11)
 #define DEBUG_SR                         (1<<12)
 
+/* Debug related macro. */
+#define IS_DEBUG_ADJ_PACKETS (debug_adj_pkt & DEBUG_ADJ_PACKETS)
+#define IS_DEBUG_SNP_PACKETS (debug_snp_pkt & DEBUG_SNP_PACKETS)
+#define IS_DEBUG_UPDATE_PACKETS (debug_update_pkt & DEBUG_UPDATE_PACKETS)
+#define IS_DEBUG_SPF_EVENTS (debug_spf_events & DEBUG_SPF_EVENTS)
+#define IS_DEBUG_RTE_EVENTS (debug_rte_events & DEBUG_RTE_EVENTS)
+#define IS_DEBUG_EVENTS (debug_events & DEBUG_EVENTS)
+#define IS_DEBUG_PACKET_DUMP (debug_pkt_dump & DEBUG_PACKET_DUMP)
+#define IS_DEBUG_LSP_GEN (debug_lsp_gen & DEBUG_LSP_GEN)
+#define IS_DEBUG_LSP_SCHED (debug_lsp_sched & DEBUG_LSP_SCHED)
+#define IS_DEBUG_FLOODING (debug_flooding & DEBUG_FLOODING)
+#define IS_DEBUG_BFD (debug_bfd & DEBUG_BFD)
+#define IS_DEBUG_TX_QUEUE (debug_tx_queue & DEBUG_TX_QUEUE)
+#define IS_DEBUG_SR (debug_sr & DEBUG_SR)
+
 #define lsp_debug(...)                                                         \
 	do {                                                                   \
-		if (isis->debugs & DEBUG_LSP_GEN)                              \
+		if (IS_DEBUG_LSP_GEN)                                          \
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
 #define sched_debug(...)                                                       \
 	do {                                                                   \
-		if (isis->debugs & DEBUG_LSP_SCHED)                            \
+		if (IS_DEBUG_LSP_SCHED)                                        \
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
 #define sr_debug(...)                                                          \
 	do {                                                                   \
-		if (IS_DEBUG_ISIS(DEBUG_SR))                                   \
+		if (IS_DEBUG_SR)                                               \
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
 #define DEBUG_TE                         DEBUG_LSP_GEN
-
-#define IS_DEBUG_ISIS(x)                 (isis->debugs & x)
 
 #endif /* ISISD_H */

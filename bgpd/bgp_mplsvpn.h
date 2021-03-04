@@ -233,7 +233,7 @@ static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
 {
 	struct bgp_path_info *parent_pi;
 	struct bgp_table *table;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
 	    !pi->extra ||
@@ -241,10 +241,10 @@ static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
 		return true;
 
 	parent_pi = (struct bgp_path_info *)pi->extra->parent;
-	rn = parent_pi->net;
-	if (!rn)
+	dest = parent_pi->net;
+	if (!dest)
 		return true;
-	table = bgp_node_table(rn);
+	table = bgp_dest_table(dest);
 	if (table &&
 	    (table->afi == AFI_IP || table->afi == AFI_IP6) &&
 	    table->safi == SAFI_MPLS_VPN)
@@ -266,7 +266,7 @@ extern vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey);
 extern void vpn_leak_postchange_all(void);
 extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 					bool is_config);
-extern int bgp_vpn_leak_unimport(struct bgp *from_bgp, struct vty *vty);
+extern int bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

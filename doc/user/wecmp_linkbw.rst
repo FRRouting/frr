@@ -14,7 +14,7 @@ across these next hops. In practice, flow-based hashing is used so that
 all traffic associated with a particular flow uses the same next hop,
 and by extension, the same path across the network.
 
-Weigted ECMP using BGP link bandwidth introduces support for network-wide
+Weighted ECMP using BGP link bandwidth introduces support for network-wide
 unequal cost multipathing (UCMP) to an IP destination. The unequal cost
 load balancing is implemented by the forwarding plane based on the weights
 associated with the next hops of the IP prefix. These weights are computed
@@ -250,8 +250,8 @@ attribute from two peers is shown below:
        (fe80::202:ff:fe00:1b) (used)
          Origin IGP, metric 0, valid, external, multipath, bestpath-from-AS 65002
          Extended Community: LB:65002:125000000 (1000.000 Mbps)
-         Last update: Thu Feb 20 18:34:16 2020  
-   
+         Last update: Thu Feb 20 18:34:16 2020
+
      65001
        fe80::202:ff:fe00:15 from l1(swp1) (110.0.0.1)
        (fe80::202:ff:fe00:15) (used)

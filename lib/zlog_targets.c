@@ -225,10 +225,11 @@ static bool zlog_file_cycle(struct zlog_cfg_file *zcf)
 		zlt->zt.logfn_sigsafe = zlog_fd_sigsafe;
 	} while (0);
 
-	old = zlog_target_replace(&zcf->active->zt, &zlt->zt);
+	old = zlog_target_replace(zcf->active ? &zcf->active->zt : NULL,
+				  zlt ? &zlt->zt : NULL);
 	zcf->active = zlt;
 
-	zlog_file_target_free(container_of(old, struct zlt_fd, zt));
+	zlog_file_target_free(container_of_null(old, struct zlt_fd, zt));
 
 	return rv;
 }

@@ -889,8 +889,7 @@ int ospf_apiserver_register_opaque_type(struct ospf_apiserver *apiserv,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"API: Add LSA-type(%d)/Opaque-type(%d) into"
-			" apiserv(%p), total#(%d)",
+			"API: Add LSA-type(%d)/Opaque-type(%d) into apiserv(%p), total#(%d)",
 			lsa_type, opaque_type, (void *)apiserv,
 			listcount(apiserv->opaque_types));
 
@@ -920,8 +919,7 @@ int ospf_apiserver_unregister_opaque_type(struct ospf_apiserver *apiserv,
 
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"API: Del LSA-type(%d)/Opaque-type(%d)"
-					" from apiserv(%p), total#(%d)",
+					"API: Del LSA-type(%d)/Opaque-type(%d) from apiserv(%p), total#(%d)",
 					lsa_type, opaque_type, (void *)apiserv,
 					listcount(apiserv->opaque_types));
 

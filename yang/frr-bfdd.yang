@@ -21,7 +21,32 @@ module frr-bfdd {
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines a model for managing FRR bfdd daemon.";
+    "This module defines a model for managing FRR bfdd daemon.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2019-05-09 {
     description "Initial revision.";
@@ -29,7 +54,7 @@ module frr-bfdd {
       "RFC 5880: Bidirectional Forwarding Detection (BFD).
        RFC 5881: Bidirectional Forwarding Detection (BFD)
                  for IPv4 and IPv6 (Single Hop).
-       RFC 5882: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
+       RFC 5883: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
   }
 
 
@@ -114,6 +139,21 @@ module frr-bfdd {
     }
   }
 
+  typedef profile-name {
+    type string {
+      length "1..64";
+    }
+    description "Profile name format";
+  }
+
+  typedef profile-ref {
+    type leafref {
+      path "/frr-bfdd:bfdd/frr-bfdd:bfd/frr-bfdd:profile/frr-bfdd:name";
+      require-instance false;
+    }
+    description "Reference to a BFD profile";
+  }
+
   /*
    * Shared BFD items.
    */
@@ -145,6 +185,13 @@ module frr-bfdd {
       default true;
       description "Disables or enables the session administratively";
     }
+
+    leaf passive-mode {
+      type boolean;
+      default false;
+      description
+        "Don't attempt to start session establishment.";
+    }
   }
 
   grouping session-echo {
@@ -161,6 +208,18 @@ module frr-bfdd {
       units microseconds;
       default 50000;
       description "Minimum desired control packet transmission interval";
+    }
+  }
+
+  grouping session-multi-hop {
+    description "BFD session multi hop settings.";
+
+    leaf minimum-ttl {
+      type uint8 {
+        range 1..254;
+      }
+      description
+        "Minimum expected TTL on received packets.";
     }
   }
 
@@ -312,6 +371,20 @@ module frr-bfdd {
     container bfd {
       presence "Present if the BFD protocol is enabled";
 
+      list profile {
+        key "name";
+        description "BFD pre configuration profiles";
+
+        leaf name {
+          type profile-name;
+          description "Profile name";
+        }
+
+        uses session-common;
+        uses session-echo;
+        uses session-multi-hop;
+      }
+
       container sessions {
         list single-hop {
           key "dest-addr interface vrf";
@@ -337,6 +410,11 @@ module frr-bfdd {
           leaf source-addr {
             type inet:ip-address;
             description "Local IP address";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
           }
 
           uses session-common;
@@ -374,7 +452,13 @@ module frr-bfdd {
             description "Virtual Routing Domain name";
           }
 
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
+          }
+
           uses session-common;
+          uses session-multi-hop;
 
           container stats {
             uses session-states;

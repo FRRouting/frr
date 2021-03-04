@@ -66,7 +66,7 @@
 #define FABRICD_VTY_PORT     2618
 
 /* isisd privileges */
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 
 struct zebra_privs_t isisd_privs = {
 #if defined(FRR_USER)
@@ -101,6 +101,7 @@ void sigusr1(void);
 
 static __attribute__((__noreturn__)) void terminate(int i)
 {
+	isis_terminate();
 	isis_sr_term();
 	isis_zebra_stop();
 	exit(i);
@@ -166,6 +167,7 @@ struct quagga_signal_t isisd_signals[] = {
 
 
 static const struct frr_yang_module_info *const isisd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 #ifndef FABRICD
 	&frr_isisd_info,
@@ -184,8 +186,7 @@ FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 		.proghelp = "Implementation of the IS-IS routing protocol.",
 #endif
 		.copyright =
-			"Copyright (c) 2001-2002 Sampo Saaristo,"
-			" Ofer Wald and Hannes Gredler",
+			"Copyright (c) 2001-2002 Sampo Saaristo, Ofer Wald and Hannes Gredler",
 
 		.signals = isisd_signals,
 		.n_signals = array_size(isisd_signals),
@@ -233,14 +234,14 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	/* thread master */
-	master = frr_init();
-
+	isis_master_init(frr_init());
+	master = im->master;
 	/*
 	 *  initializations
 	 */
 	isis_error_init();
 	access_list_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	isis_vrf_init();
 	prefix_list_init();
 	isis_init();
 	isis_circuit_init();
@@ -250,7 +251,7 @@ int main(int argc, char **argv, char **envp)
 #ifndef FABRICD
 	isis_cli_init();
 #endif /* ifdef FABRICD */
-	isis_spf_cmds_init();
+	isis_spf_init();
 	isis_redist_init();
 	isis_route_map_init();
 	isis_mpls_te_init();
@@ -259,7 +260,7 @@ int main(int argc, char **argv, char **envp)
 	mt_init();
 
 	/* create the global 'isis' instance */
-	isis_new(1, VRF_DEFAULT);
+	isis_global_instance_create(VRF_DEFAULT_NAME);
 
 	isis_zebra_init(master, instance);
 	isis_bfd_init();

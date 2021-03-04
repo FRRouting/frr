@@ -292,12 +292,10 @@ ldp_config_write(struct vty *vty)
 
 		if (nbrp->flags & F_NBRP_GTSM) {
 			if (nbrp->gtsm_enabled)
-				vty_out (vty, " neighbor %s ttl-security hops "
-				    "%u\n",  inet_ntoa(nbrp->lsr_id),
+				vty_out (vty, " neighbor %s ttl-security hops %u\n",  inet_ntoa(nbrp->lsr_id),
 				    nbrp->gtsm_hops);
 			else
-				vty_out (vty, " neighbor %s ttl-security "
-				    "disable\n",inet_ntoa(nbrp->lsr_id));
+				vty_out (vty, " neighbor %s ttl-security disable\n",inet_ntoa(nbrp->lsr_id));
 		}
 
 		if (nbrp->auth.method == AUTH_MD5SIG)
@@ -1079,8 +1077,7 @@ ldp_vty_neighbor_password(struct vty *vty, const char *negate, struct in_addr ls
 		password_len = strlcpy(nbrp->auth.md5key, password_str,
 		    sizeof(nbrp->auth.md5key));
 		if (password_len >= sizeof(nbrp->auth.md5key))
-			vty_out(vty, "%% password has been truncated to %zu "
-			    "characters.", sizeof(nbrp->auth.md5key) - 1);
+			vty_out(vty, "%% password has been truncated to %zu characters.", sizeof(nbrp->auth.md5key) - 1);
 		nbrp->auth.md5key_len = strlen(nbrp->auth.md5key);
 		nbrp->auth.method = AUTH_MD5SIG;
 	}

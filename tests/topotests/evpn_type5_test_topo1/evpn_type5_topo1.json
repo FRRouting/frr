@@ -1,0 +1,887 @@
+{
+    "address_types": ["ipv4","ipv6"],
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 30,
+    "ipv6base": "fd00::",
+    "ipv6mask": 64,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 30,
+        "ipv6": "fd00::",
+        "v6mask": 64
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32,
+        "ipv6": "2001:db8:f::",
+        "v6mask": 128
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "e1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "1",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [
+                                    {"redist_type": "static"}
+                                ],
+                                "neighbor": {
+                                    "e1": {
+                                        "dest_link": {
+                                            "r1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [
+                                    {"redist_type": "static"}
+                                ],
+                                "neighbor": {
+                                    "e1": {
+                                        "dest_link": {
+                                            "r1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "static_routes":[
+                {
+                    "network":"10.1.1.1/32",
+                    "next_hop":"Null0",
+                    "vrf": "RED"
+                },
+                {
+                    "network":"10::1/128",
+                    "next_hop":"Null0",
+                    "vrf": "RED"
+                }
+            ]
+        },
+        "r2": {
+            "links": {
+                "e1-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"},
+                "e1-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "GREEN"}
+            },
+            "vrfs":[
+                {
+                    "name": "BLUE",
+                    "id": "1"
+                },
+                {
+                    "name": "GREEN",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "2",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [
+                                    {"redist_type": "static"}
+                                ],
+                                "neighbor": {
+                                    "e1": {
+                                        "dest_link": {
+                                            "r2-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [
+                                    {"redist_type": "static"}
+                                ],
+                                "neighbor": {
+                                    "e1": {
+                                        "dest_link": {
+                                            "r2-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "2",
+                    "vrf": "GREEN",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [
+                                    {"redist_type": "static"}
+                                ],
+                                "neighbor": {
+                                    "e1": {
+                                        "dest_link": {
+                                            "r2-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "redistribute": [
+                                    {"redist_type": "static"}
+                                ],
+                                "neighbor": {
+                                    "e1": {
+                                        "dest_link": {
+                                            "r2-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "static_routes":[
+                {
+                   "network":"20.1.1.1/32",
+                   "next_hop":"Null0",
+                   "vrf": "BLUE"
+                },
+                {
+                   "network":"20::1/128",
+                   "next_hop":"Null0",
+                   "vrf": "BLUE"
+                },
+                {
+                    "network":"30.1.1.1/32",
+                    "next_hop":"Null0",
+                    "vrf": "GREEN"
+                 },
+                 {
+                    "network":"30::1/128",
+                    "next_hop":"Null0",
+                    "vrf": "GREEN"
+                 }
+             ]
+        },
+        "e1": {
+            "links": {
+                "r1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"},
+                "r2-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"},
+                "r2-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "GREEN"},
+                "d1-link1": {"ipv4": "auto", "ipv6": "auto"},
+                "d2-link1": {"ipv4": "auto", "ipv6": "auto"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1",
+                    "vni": 75100
+                },
+                {
+                    "name": "BLUE",
+                    "id": "2",
+                    "vni": 75200
+                },
+                {
+                    "name": "GREEN",
+                    "id": "3",
+                    "vni": 75300
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "100",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "e1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "e1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "e1-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "e1-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "GREEN",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "e1-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "e1-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "d1": {
+                                        "dest_link": {
+                                            "e1-link1": {
+                                                "deactivate": "ipv4"
+                                            }
+                                        }
+                                    },
+                                    "d2": {
+                                        "dest_link": {
+                                            "e1-link1": {
+                                                "deactivate": "ipv4"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "neighbor": {
+                                    "d1": {
+                                        "ipv4":{
+                                            "e1-link1": "activate"
+                                        }
+                                    },
+                                    "d2": {
+                                        "ipv4":{
+                                            "e1-link1": "activate"
+                                        }
+                                    }
+                                },
+                                "advertise-all-vni": true
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "d1": {
+            "links": {
+                "e1-link1": {"ipv4": "auto", "ipv6": "auto"},
+                "r3": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"},
+                "r4-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"},
+                "r4-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "GREEN"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1",
+                    "vni": 75100
+                },
+                {
+                    "name": "BLUE",
+                    "id": "2",
+                    "vni": 75200
+                },
+                {
+                    "name": "GREEN",
+                    "id": "3",
+                    "vni": 75300
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "100",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "e1": {
+                                        "dest_link": {
+                                            "d1-link1": {
+                                                "deactivate": "ipv4"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "neighbor": {
+                                    "e1": {
+                                        "ipv4":{
+                                            "d1-link1": "activate"
+                                        }
+                                    }
+                                },
+                                "advertise-all-vni": true
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "d1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "d1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "d1-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "d1-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "GREEN",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "d1-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "d1-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "d2": {
+            "links": {
+                "e1-link1": {"ipv4": "auto", "ipv6": "auto"},
+                "r3": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"},
+                "r4-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"},
+                "r4-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "GREEN"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1",
+                    "vni": 75100
+                },
+                {
+                    "name": "BLUE",
+                    "id": "2",
+                    "vni": 75200
+                },
+                {
+                    "name": "GREEN",
+                    "id": "3",
+                    "vni": 75300
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "200",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "e1": {
+                                        "dest_link": {
+                                            "d2-link1": {
+                                                "deactivate": "ipv4"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "neighbor": {
+                                    "e1": {
+                                        "ipv4":{
+                                            "d2-link1": "activate"
+                                        }
+                                    }
+                                },
+                                "advertise-all-vni": true
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "d2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "d2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "d2-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "d2-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "vrf": "GREEN",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "d2-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {
+                                            "d2-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "l2vpn": {
+                            "evpn": {
+                                "advertise": {
+                                    "ipv4": {
+                                        "unicast": {}
+                                    },
+                                    "ipv6": {
+                                        "unicast": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "r3": {
+            "links": {
+                "d1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"},
+                "d2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED",
+                    "id": "1"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "3",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "d1": {
+                                        "dest_link": {
+                                            "r3": {}
+                                        }
+                                    },
+                                    "d2": {
+                                        "dest_link": {
+                                            "r3": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "d1": {
+                                        "dest_link": {
+                                            "r3": {}
+                                        }
+                                    },
+                                    "d2": {
+                                        "dest_link": {
+                                            "r3": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "r4": {
+            "links": {
+                "d1-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"},
+                "d1-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "GREEN"},
+                "d2-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE"},
+                "d2-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "GREEN"}
+            },
+            "vrfs":[
+                {
+                    "name": "BLUE",
+                    "id": "1"
+                },
+                {
+                    "name": "GREEN",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "4",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "d1": {
+                                        "dest_link": {
+                                            "r4-link1": {}
+                                        }
+                                    },
+                                    "d2": {
+                                        "dest_link": {
+                                            "r4-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "d1": {
+                                        "dest_link": {
+                                            "r4-link1": {}
+                                        }
+                                    },
+                                    "d2": {
+                                        "dest_link": {
+                                            "r4-link1": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "4",
+                    "vrf": "GREEN",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "d1": {
+                                        "dest_link": {
+                                            "r4-link2": {}
+                                        }
+                                    },
+                                    "d2": {
+                                        "dest_link": {
+                                            "r4-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "d1": {
+                                        "dest_link": {
+                                            "r4-link2": {}
+                                        }
+                                    },
+                                    "d2": {
+                                        "dest_link": {
+                                            "r4-link2": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

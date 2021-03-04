@@ -24,6 +24,7 @@
 #include "mpls.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
+#include "srte.h"
 
 /* Simple bit mapping. */
 #define BITMAP_NBBY 8
@@ -177,6 +178,9 @@ struct attr {
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
 
+	/* Extended Communities attribute. */
+	struct ecommunity *ipv6_ecommunity;
+
 	/* Large Communities attribute. */
 	struct lcommunity *lcommunity;
 
@@ -215,6 +219,30 @@ struct attr {
 	/* NA router flag (R-bit) support in EVPN */
 	uint8_t router_flag;
 
+	/* ES info */
+	uint8_t es_flags;
+	/* Path is not "locally-active" on the advertising VTEP. This is
+	 * translated into an ARP-ND ECOM.
+	 */
+#define ATTR_ES_PROXY_ADVERT (1 << 0)
+	/* Destination ES is present locally. This flag is set on local
+	 * paths and sync paths
+	 */
+#define ATTR_ES_IS_LOCAL (1 << 1)
+	/* There are one or more non-best paths from ES peers. Note that
+	 * this flag is only set on the local MAC-IP paths in the VNI
+	 * route table (not set in the global routing table). And only
+	 * non-proxy advertisements from an ES peer can result in this
+	 * flag being set.
+	 */
+#define ATTR_ES_PEER_ACTIVE (1 << 2)
+	/* There are one or more non-best proxy paths from ES peers */
+#define ATTR_ES_PEER_PROXY (1 << 3)
+	/* An ES peer has router bit set - only applicable if
+	 * ATTR_ES_PEER_ACTIVE is set
+	 */
+#define ATTR_ES_PEER_ROUTER (1 << 4)
+
 	/* route tag */
 	route_tag_t tag;
 
@@ -241,6 +269,13 @@ struct attr {
 
 	/* EVPN MAC Mobility sequence number, if any. */
 	uint32_t mm_seqnum;
+	/* highest MM sequence number rxed in a MAC-IP route from an
+	 * ES peer (this includes both proxy and non-proxy MAC-IP
+	 * advertisements from ES peers).
+	 * This is only applicable to local paths in the VNI routing
+	 * table and derived from other imported/non-best paths.
+	 */
+	uint32_t mm_sync_seqnum;
 
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
@@ -253,6 +288,12 @@ struct attr {
 
 	/* Link bandwidth value, if any. */
 	uint32_t link_bw;
+
+	/* EVPN ES */
+	esi_t esi;
+
+	/* SR-TE Color */
+	uint32_t srte_color;
 };
 
 /* rmap_change_flags definition */

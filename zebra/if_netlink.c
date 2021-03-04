@@ -70,6 +70,7 @@
 #include "zebra/if_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_evpn_mh.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -242,6 +243,26 @@ static enum zebra_link_type netlink_to_zebra_link_type(unsigned int hwt)
 
 	default:
 		return ZEBRA_LLT_UNKNOWN;
+	}
+}
+
+static inline void zebra_if_set_ziftype(struct interface *ifp,
+					zebra_iftype_t zif_type,
+					zebra_slave_iftype_t zif_slave_type)
+{
+	struct zebra_if *zif;
+
+	zif = (struct zebra_if *)ifp->info;
+	zif->zif_slave_type = zif_slave_type;
+
+	if (zif->zif_type != zif_type) {
+		zif->zif_type = zif_type;
+		/* If the if_type has been set to bond initialize ES info
+		 * against it. XXX - note that we don't handle the case where
+		 * a zif changes from bond to non-bond; it is really
+		 * an unexpected/error condition.
+		 */
+		zebra_evpn_if_init(zif);
 	}
 }
 
@@ -482,6 +503,7 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	struct rtattr *attr[IFLA_VXLAN_MAX + 1];
 	vni_t vni_in_msg;
 	struct in_addr vtep_ip_in_msg;
+	ifindex_t ifindex_link;
 
 	memset(vxl_info, 0, sizeof(*vxl_info));
 	memset(attr, 0, sizeof(attr));
@@ -510,6 +532,14 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 			*(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_GROUP]);
 	}
 
+	if (!attr[IFLA_VXLAN_LINK]) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("IFLA_VXLAN_LINK missing from VXLAN IF message");
+	} else {
+		ifindex_link =
+			*(ifindex_t *)RTA_DATA(attr[IFLA_VXLAN_LINK]);
+		vxl_info->ifindex_link = ifindex_link;
+	}
 	return 0;
 }
 
@@ -519,7 +549,8 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
  * its members. Likewise, for VxLAN interface.
  */
 static void netlink_interface_update_l2info(struct interface *ifp,
-					    struct rtattr *link_data, int add)
+					    struct rtattr *link_data, int add,
+					    ns_id_t link_nsid)
 {
 	if (!link_data)
 		return;
@@ -538,8 +569,81 @@ static void netlink_interface_update_l2info(struct interface *ifp,
 		struct zebra_l2info_vxlan vxlan_info;
 
 		netlink_extract_vxlan_info(link_data, &vxlan_info);
+		vxlan_info.link_nsid = link_nsid;
 		zebra_l2_vxlanif_add_update(ifp, &vxlan_info, add);
+		if (link_nsid != NS_UNKNOWN &&
+		    vxlan_info.ifindex_link)
+			zebra_if_update_link(ifp, vxlan_info.ifindex_link,
+					     link_nsid);
 	}
+}
+
+static int netlink_bridge_vxlan_update(struct interface *ifp,
+		struct rtattr *af_spec)
+{
+	struct rtattr *aftb[IFLA_BRIDGE_MAX + 1];
+	struct bridge_vlan_info *vinfo;
+	vlanid_t access_vlan;
+
+	/* There is a 1-to-1 mapping of VLAN to VxLAN - hence
+	 * only 1 access VLAN is accepted.
+	 */
+	memset(aftb, 0, sizeof(aftb));
+	parse_rtattr_nested(aftb, IFLA_BRIDGE_MAX, af_spec);
+	if (!aftb[IFLA_BRIDGE_VLAN_INFO])
+		return 0;
+
+	vinfo = RTA_DATA(aftb[IFLA_BRIDGE_VLAN_INFO]);
+	if (!(vinfo->flags & BRIDGE_VLAN_INFO_PVID))
+		return 0;
+
+	access_vlan = (vlanid_t)vinfo->vid;
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Access VLAN %u for VxLAN IF %s(%u)", access_vlan,
+				ifp->name, ifp->ifindex);
+	zebra_l2_vxlanif_update_access_vlan(ifp, access_vlan);
+	return 0;
+}
+
+static void netlink_bridge_vlan_update(struct interface *ifp,
+		struct rtattr *af_spec)
+{
+	struct rtattr *i;
+	int rem;
+	uint16_t vid_range_start = 0;
+	struct zebra_if *zif;
+	bitfield_t old_vlan_bitmap;
+	struct bridge_vlan_info *vinfo;
+
+	zif = (struct zebra_if *)ifp->info;
+
+	/* cache the old bitmap addrs */
+	old_vlan_bitmap = zif->vlan_bitmap;
+	/* create a new bitmap space for re-eval */
+	bf_init(zif->vlan_bitmap, IF_VLAN_BITMAP_MAX);
+
+	for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec);
+			RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+
+		if (i->rta_type != IFLA_BRIDGE_VLAN_INFO)
+			continue;
+
+		vinfo = RTA_DATA(i);
+
+		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
+			vid_range_start = vinfo->vid;
+			continue;
+		}
+
+		if (!(vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END))
+			vid_range_start = vinfo->vid;
+
+		zebra_vlan_bitmap_compute(ifp, vid_range_start, vinfo->vid);
+	}
+
+	zebra_vlan_mbr_re_eval(ifp, old_vlan_bitmap);
+
+	bf_free(old_vlan_bitmap);
 }
 
 static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
@@ -549,12 +653,8 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 	struct ifinfomsg *ifi;
 	struct rtattr *tb[IFLA_MAX + 1];
 	struct interface *ifp;
-	struct rtattr *aftb[IFLA_BRIDGE_MAX + 1];
-	struct {
-		uint16_t flags;
-		uint16_t vid;
-	} * vinfo;
-	vlanid_t access_vlan;
+	struct zebra_if *zif;
+	struct rtattr *af_spec;
 
 	/* Fetch name and ifindex */
 	ifi = NLMSG_DATA(h);
@@ -572,30 +672,22 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 			   ifi->ifi_index);
 		return 0;
 	}
-	if (!IS_ZEBRA_IF_VXLAN(ifp))
-		return 0;
 
 	/* We are only interested in the access VLAN i.e., AF_SPEC */
-	if (!tb[IFLA_AF_SPEC])
-		return 0;
+	af_spec = tb[IFLA_AF_SPEC];
+	if (!af_spec)
+ 		return 0;
 
-	/* There is a 1-to-1 mapping of VLAN to VxLAN - hence
-	 * only 1 access VLAN is accepted.
+	if (IS_ZEBRA_IF_VXLAN(ifp))
+		return netlink_bridge_vxlan_update(ifp, af_spec);
+
+	/* build vlan bitmap associated with this interface if that
+	 * device type is interested in the vlans
 	 */
-	memset(aftb, 0, sizeof(aftb));
-	parse_rtattr_nested(aftb, IFLA_BRIDGE_MAX, tb[IFLA_AF_SPEC]);
-	if (!aftb[IFLA_BRIDGE_VLAN_INFO])
-		return 0;
+	zif = (struct zebra_if *)ifp->info;
+	if (bf_is_inited(zif->vlan_bitmap))
+		netlink_bridge_vlan_update(ifp, af_spec);
 
-	vinfo = RTA_DATA(aftb[IFLA_BRIDGE_VLAN_INFO]);
-	if (!(vinfo->flags & BRIDGE_VLAN_INFO_PVID))
-		return 0;
-
-	access_vlan = (vlanid_t)vinfo->vid;
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Access VLAN %u for VxLAN IF %s(%u)", access_vlan,
-			   name, ifi->ifi_index);
-	zebra_l2_vxlanif_update_access_vlan(ifp, access_vlan);
 	return 0;
 }
 
@@ -622,6 +714,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	struct zebra_if *zif;
+	ns_id_t link_nsid = ns_id;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -705,6 +798,11 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
+	if (tb[IFLA_LINK_NETNSID]) {
+		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+	}
+
 	/* Add interface.
 	 * We add by index first because in some cases such as the master
 	 * interface, we have the index before we have the name. Fixing
@@ -749,9 +847,10 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* Extract and save L2 interface information, take additional actions.
 	 */
-	netlink_interface_update_l2info(ifp, linkinfo[IFLA_INFO_DATA], 1);
+	netlink_interface_update_l2info(ifp, linkinfo[IFLA_INFO_DATA],
+					1, link_nsid);
 	if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
-		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex);
+		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex, ns_id);
 	else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 		zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 
@@ -777,7 +876,7 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 
 	/* Include filter, if specified. */
 	if (filter_mask)
-		addattr32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
+		nl_attr_put32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
 
 	return netlink_request(netlink_cmd, &req);
 }
@@ -882,15 +981,16 @@ int kernel_interface_set_master(struct interface *master,
 
 	req.ifa.ifi_index = slave->ifindex;
 
-	addattr_l(&req.n, sizeof(req), IFLA_MASTER, &master->ifindex, 4);
-	addattr_l(&req.n, sizeof(req), IFLA_LINK, &slave->ifindex, 4);
+	nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master->ifindex);
+	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, slave->ifindex);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
 }
 
 /* Interface address modification. */
-static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
+static ssize_t netlink_address_msg_encoder(struct zebra_dplane_ctx *ctx,
+					   void *buf, size_t buflen)
 {
 	int bytelen;
 	const struct prefix *p;
@@ -900,64 +1000,72 @@ static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
 	struct {
 		struct nlmsghdr n;
 		struct ifaddrmsg ifa;
-		char buf[NL_PKT_BUF_SIZE];
-	} req;
+		char buf[0];
+	} *req = buf;
+
+	if (buflen < sizeof(*req))
+		return 0;
 
 	p = dplane_ctx_get_intf_addr(ctx);
-	memset(&req, 0, sizeof(req) - NL_PKT_BUF_SIZE);
+	memset(req, 0, sizeof(*req));
 
 	bytelen = (p->family == AF_INET ? 4 : 16);
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
 
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ADDR_INSTALL)
 		cmd = RTM_NEWADDR;
 	else
 		cmd = RTM_DELADDR;
 
-	req.n.nlmsg_type = cmd;
-	req.ifa.ifa_family = p->family;
+	req->n.nlmsg_type = cmd;
+	req->ifa.ifa_family = p->family;
 
-	req.ifa.ifa_index = dplane_ctx_get_ifindex(ctx);
+	req->ifa.ifa_index = dplane_ctx_get_ifindex(ctx);
 
-	addattr_l(&req.n, sizeof(req), IFA_LOCAL, &p->u.prefix, bytelen);
+	if (!nl_attr_put(&req->n, buflen, IFA_LOCAL, &p->u.prefix, bytelen))
+		return 0;
 
 	if (p->family == AF_INET) {
 		if (dplane_ctx_intf_is_connected(ctx)) {
 			p = dplane_ctx_get_intf_dest(ctx);
-			addattr_l(&req.n, sizeof(req), IFA_ADDRESS,
-				  &p->u.prefix, bytelen);
+			if (!nl_attr_put(&req->n, buflen, IFA_ADDRESS,
+					 &p->u.prefix, bytelen))
+				return 0;
 		} else if (cmd == RTM_NEWADDR) {
 			struct in_addr broad = {
 				.s_addr = ipv4_broadcast_addr(p->u.prefix4.s_addr,
 							p->prefixlen)
 			};
-			addattr_l(&req.n, sizeof(req), IFA_BROADCAST,
-				  &broad, bytelen);
+			if (!nl_attr_put(&req->n, buflen, IFA_BROADCAST, &broad,
+					 bytelen))
+				return 0;
 		}
 	}
 
 	/* p is now either address or destination/bcast addr */
-	req.ifa.ifa_prefixlen = p->prefixlen;
+	req->ifa.ifa_prefixlen = p->prefixlen;
 
 	if (dplane_ctx_intf_is_secondary(ctx))
-		SET_FLAG(req.ifa.ifa_flags, IFA_F_SECONDARY);
+		SET_FLAG(req->ifa.ifa_flags, IFA_F_SECONDARY);
 
 	if (dplane_ctx_intf_has_label(ctx)) {
 		label = dplane_ctx_get_intf_label(ctx);
-		addattr_l(&req.n, sizeof(req), IFA_LABEL, label,
-			  strlen(label) + 1);
+		if (!nl_attr_put(&req->n, buflen, IFA_LABEL, label,
+				 strlen(label) + 1))
+			return 0;
 	}
 
-	return netlink_talk_info(netlink_talk_filter, &req.n,
-				 dplane_ctx_get_ns(ctx), 0);
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
-enum zebra_dplane_result kernel_address_update_ctx(struct zebra_dplane_ctx *ctx)
+enum netlink_msg_status
+netlink_put_address_update_msg(struct nl_batch *bth,
+			       struct zebra_dplane_ctx *ctx)
 {
-	return (netlink_address_ctx(ctx) == 0 ?
-		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
+	return netlink_batch_add_msg(bth, ctx, netlink_address_msg_encoder,
+				     false);
 }
 
 int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
@@ -1100,16 +1208,23 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				nl_msg_type_to_str(h->nlmsg_type));
 			return -1;
 		}
+
 		if (h->nlmsg_type == RTM_NEWADDR)
 			connected_add_ipv4(ifp, flags, (struct in_addr *)addr,
 					   ifa->ifa_prefixlen,
 					   (struct in_addr *)broad, label,
 					   metric);
-		else
+		else if (CHECK_FLAG(flags, ZEBRA_IFA_PEER)) {
+			/* Delete with a peer address */
+			connected_delete_ipv4(
+				ifp, flags, (struct in_addr *)addr,
+				ifa->ifa_prefixlen, broad);
+		} else
 			connected_delete_ipv4(
 				ifp, flags, (struct in_addr *)addr,
 				ifa->ifa_prefixlen, NULL);
 	}
+
 	if (ifa->ifa_family == AF_INET6) {
 		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
 			zlog_err(
@@ -1168,6 +1283,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 	struct zebra_if *zif;
+	ns_id_t link_nsid = ns_id;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -1235,6 +1351,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
+	if (tb[IFLA_LINK_NETNSID]) {
+		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+	}
 	if (tb[IFLA_IFALIAS]) {
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 	}
@@ -1274,8 +1394,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Add interface notification from kernel */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d "
-					"sl_type %d master %u flags 0x%x",
+					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d sl_type %d master %u flags 0x%x",
 					name, ifi->ifi_index, vrf_id, zif_type,
 					zif_slave_type, bridge_ifindex,
 					ifi->ifi_flags);
@@ -1319,18 +1438,19 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Extract and save L2 interface information, take
 			 * additional actions. */
 			netlink_interface_update_l2info(
-				ifp, linkinfo[IFLA_INFO_DATA], 1);
+				ifp, linkinfo[IFLA_INFO_DATA],
+				1, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex);
+							       bridge_ifindex,
+							       ns_id);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		} else if (ifp->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"RTM_NEWLINK vrf-change for %s(%u) "
-					"vrf_id %u -> %u flags 0x%x",
+					"RTM_NEWLINK vrf-change for %s(%u) vrf_id %u -> %u flags 0x%x",
 					name, ifp->ifindex, ifp->vrf_id, vrf_id,
 					ifi->ifi_flags);
 
@@ -1341,8 +1461,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Interface update. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"RTM_NEWLINK update for %s(%u) "
-					"sl_type %d master %u flags 0x%x",
+					"RTM_NEWLINK update for %s(%u) sl_type %d master %u flags 0x%x",
 					name, ifp->ifindex, zif_slave_type,
 					bridge_ifindex, ifi->ifi_flags);
 
@@ -1421,10 +1540,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Extract and save L2 interface information, take
 			 * additional actions. */
 			netlink_interface_update_l2info(
-				ifp, linkinfo[IFLA_INFO_DATA], 0);
+				ifp, linkinfo[IFLA_INFO_DATA],
+				0, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
 				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex);
+							       bridge_ifindex,
+							       ns_id);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		}
@@ -1483,8 +1604,8 @@ int netlink_protodown(struct interface *ifp, bool down)
 
 	req.ifa.ifi_index = ifp->ifindex;
 
-	addattr_l(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
-	addattr_l(&req.n, sizeof(req), IFLA_LINK, &ifp->ifindex, 4);
+	nl_attr_put(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
+	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, ifp->ifindex);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);

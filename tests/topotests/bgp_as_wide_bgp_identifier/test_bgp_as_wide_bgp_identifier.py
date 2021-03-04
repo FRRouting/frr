@@ -102,12 +102,12 @@ def test_bgp_as_wide_bgp_identifier():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge, tgen.gears["r1"])
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=260, wait=0.5)
 
     assert result is None, 'Failed to converge: "{}"'.format(tgen.gears["r1"])
 
     test_func = functools.partial(_bgp_failed, tgen.gears["r3"])
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=260, wait=0.5)
 
     assert result is None, 'Bad BGP Identifier notification not sent: "{}"'.format(
         tgen.gears["r3"]

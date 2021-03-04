@@ -133,7 +133,7 @@ static void zebra_gr_client_info_delte(struct zserv *client,
 	       zebra_route_string(client->proto));
 
 	/* Delete all the stale routes. */
-	info->delete = true;
+	info->do_delete = true;
 	zebra_gr_delete_stale_routes(info);
 
 	XFREE(MTYPE_TMP, info);
@@ -456,7 +456,7 @@ static int32_t zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
 
 	/* Set the flag to indicate all stale route deletion */
 	if (thread->u.val == 1)
-		info->delete = true;
+		info->do_delete = true;
 
 	cnt = zebra_gr_delete_stale_routes(info);
 
@@ -581,7 +581,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 					 * Store the current prefix and afi
 					 */
 					if ((n >= ZEBRA_MAX_STALE_ROUTE_COUNT)
-					    && (info->delete == false)) {
+					    && (info->do_delete == false)) {
 						info->current_afi = afi;
 						info->current_prefix = XCALLOC(
 							MTYPE_TMP,

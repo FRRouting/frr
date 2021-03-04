@@ -1723,8 +1723,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 			if (hops < seg->length) {
 				if (BGP_DEBUG(as4, AS4))
 					zlog_debug(
-						"[AS4] AS4PATHmangle: AS_CONFED_SEQUENCE falls"
-						" across 2/4 ASN boundary somewhere, broken..");
+						"[AS4] AS4PATHmangle: AS_CONFED_SEQUENCE falls across 2/4 ASN boundary somewhere, broken..");
 				hops = seg->length;
 			}
 		/* fallthru */

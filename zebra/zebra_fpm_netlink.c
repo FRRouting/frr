@@ -143,13 +143,13 @@ struct fpm_nh_encap_info_t {
 };
 
 /*
- * netlink_nh_info_t
+ * netlink_nh_info
  *
  * Holds information about a single nexthop for netlink. These info
  * structures are transient and may contain pointers into rib
  * data structures for convenience.
  */
-typedef struct netlink_nh_info_t_ {
+struct netlink_nh_info {
 	uint32_t if_index;
 	union g_addr *gateway;
 
@@ -160,14 +160,14 @@ typedef struct netlink_nh_info_t_ {
 	int recursive;
 	enum nexthop_types_t type;
 	struct fpm_nh_encap_info_t encap_info;
-} netlink_nh_info_t;
+};
 
 /*
- * netlink_route_info_t
+ * netlink_route_info
  *
  * A structure for holding information for a netlink route message.
  */
-typedef struct netlink_route_info_t_ {
+struct netlink_route_info {
 	uint16_t nlmsg_type;
 	uint8_t rtm_type;
 	uint32_t rtm_table;
@@ -180,9 +180,9 @@ typedef struct netlink_route_info_t_ {
 	/*
 	 * Nexthop structures
 	 */
-	netlink_nh_info_t nhs[MULTIPATH_NUM];
+	struct netlink_nh_info nhs[MULTIPATH_NUM];
 	union g_addr *pref_src;
-} netlink_route_info_t;
+};
 
 /*
  * netlink_route_info_add_nh
@@ -192,11 +192,11 @@ typedef struct netlink_route_info_t_ {
  *
  * Returns true if a nexthop was added, false otherwise.
  */
-static int netlink_route_info_add_nh(netlink_route_info_t *ri,
+static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 				     struct nexthop *nexthop,
 				     struct route_entry *re)
 {
-	netlink_nh_info_t nhi;
+	struct netlink_nh_info nhi;
 	union g_addr *src;
 	zebra_l3vni_t *zl3vni = NULL;
 
@@ -275,11 +275,10 @@ static uint8_t netlink_proto_from_route_type(int type)
  *
  * Returns true on success and false on failure.
  */
-static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
+static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
-	struct zebra_vrf *zvrf;
 
 	memset(ri, 0, sizeof(*ri));
 
@@ -287,9 +286,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->af = rib_dest_af(dest);
 
 	ri->nlmsg_type = cmd;
-	zvrf = rib_dest_vrf(dest);
-	if (zvrf)
-		ri->rtm_table = zvrf->table_id;
+	ri->rtm_table = rib_table_info(rib_dest_table(dest))->table_id;
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
@@ -338,10 +335,18 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 		}
 	}
 
-	/* If there is no useful nexthop then return. */
 	if (ri->num_nhs == 0) {
-		zfpm_debug("netlink_encode_route(): No useful nexthop.");
-		return 0;
+		switch (ri->rtm_type) {
+		case RTN_PROHIBIT:
+		case RTN_UNREACHABLE:
+		case RTN_BLACKHOLE:
+			break;
+		default:
+			/* If there is no useful nexthop then return. */
+			zfpm_debug(
+				"netlink_encode_route(): No useful nexthop.");
+			return 0;
+		}
 	}
 
 	return 1;
@@ -353,17 +358,18 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
  * Returns the number of bytes written to the buffer. 0 or a negative
  * value indicates an error.
  */
-static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
-				     size_t in_buf_len)
+static int netlink_route_info_encode(struct netlink_route_info *ri,
+				     char *in_buf, size_t in_buf_len)
 {
 	size_t bytelen;
 	unsigned int nexthop_num = 0;
 	size_t buf_offset;
-	netlink_nh_info_t *nhi;
+	struct netlink_nh_info *nhi;
 	enum fpm_nh_encap_type_t encap;
-	struct rtattr *nest;
+	struct rtattr *nest, *inner_nest;
+	struct rtnexthop *rtnh;
 	struct vxlan_encap_info_t *vxlan;
-	int nest_len;
+	struct in6_addr ipv6;
 
 	struct {
 		struct nlmsghdr n;
@@ -400,20 +406,21 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 		req->r.rtm_table = ri->rtm_table;
 	else {
 		req->r.rtm_table = RT_TABLE_UNSPEC;
-		addattr32(&req->n, in_buf_len, RTA_TABLE, ri->rtm_table);
+		nl_attr_put32(&req->n, in_buf_len, RTA_TABLE, ri->rtm_table);
 	}
 
 	req->r.rtm_dst_len = ri->prefix->prefixlen;
 	req->r.rtm_protocol = ri->rtm_protocol;
 	req->r.rtm_scope = RT_SCOPE_UNIVERSE;
 
-	addattr_l(&req->n, in_buf_len, RTA_DST, &ri->prefix->u.prefix, bytelen);
+	nl_attr_put(&req->n, in_buf_len, RTA_DST, &ri->prefix->u.prefix,
+		    bytelen);
 
 	req->r.rtm_type = ri->rtm_type;
 
 	/* Metric. */
 	if (ri->metric)
-		addattr32(&req->n, in_buf_len, RTA_PRIORITY, *ri->metric);
+		nl_attr_put32(&req->n, in_buf_len, RTA_PRIORITY, *ri->metric);
 
 	if (ri->num_nhs == 0)
 		goto done;
@@ -422,12 +429,20 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 		nhi = &ri->nhs[0];
 
 		if (nhi->gateway) {
-			addattr_l(&req->n, in_buf_len, RTA_GATEWAY,
-				  nhi->gateway, bytelen);
+			if (nhi->type == NEXTHOP_TYPE_IPV4_IFINDEX
+			    && ri->af == AF_INET6) {
+				ipv4_to_ipv4_mapped_ipv6(&ipv6,
+							 nhi->gateway->ipv4);
+				nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
+					    &ipv6, bytelen);
+			} else
+				nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
+					    nhi->gateway, bytelen);
 		}
 
 		if (nhi->if_index) {
-			addattr32(&req->n, in_buf_len, RTA_OIF, nhi->if_index);
+			nl_attr_put32(&req->n, in_buf_len, RTA_OIF,
+				      nhi->if_index);
 		}
 
 		encap = nhi->encap_info.encap_type;
@@ -436,12 +451,13 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 		case FPM_NH_ENCAP_MAX:
 			break;
 		case FPM_NH_ENCAP_VXLAN:
-			addattr_l(&req->n, in_buf_len, RTA_ENCAP_TYPE, &encap,
-				  sizeof(uint16_t));
+			nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE,
+				      encap);
 			vxlan = &nhi->encap_info.vxlan_encap;
-			nest = addattr_nest(&req->n, in_buf_len, RTA_ENCAP);
-			addattr32(&req->n, in_buf_len, VXLAN_VNI, vxlan->vni);
-			addattr_nest_end(&req->n, nest);
+			nest = nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
+			nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI,
+				      vxlan->vni);
+			nl_attr_nest_end(&req->n, nest);
 			break;
 		}
 
@@ -451,28 +467,15 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 	/*
 	 * Multipath case.
 	 */
-	char buf[NL_PKT_BUF_SIZE];
-	struct rtattr *rta = (void *)buf;
-	struct rtnexthop *rtnh;
-
-	rta->rta_type = RTA_MULTIPATH;
-	rta->rta_len = RTA_LENGTH(0);
-	rtnh = RTA_DATA(rta);
+	nest = nl_attr_nest(&req->n, in_buf_len, RTA_MULTIPATH);
 
 	for (nexthop_num = 0; nexthop_num < ri->num_nhs; nexthop_num++) {
+		rtnh = nl_attr_rtnh(&req->n, in_buf_len);
 		nhi = &ri->nhs[nexthop_num];
 
-		rtnh->rtnh_len = sizeof(*rtnh);
-		rtnh->rtnh_flags = 0;
-		rtnh->rtnh_hops = 0;
-		rtnh->rtnh_ifindex = 0;
-		rta->rta_len += rtnh->rtnh_len;
-
-		if (nhi->gateway) {
-			rta_addattr_l(rta, sizeof(buf), RTA_GATEWAY,
-				      nhi->gateway, bytelen);
-			rtnh->rtnh_len += sizeof(struct rtattr) + bytelen;
-		}
+		if (nhi->gateway)
+			nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
+				    nhi->gateway, bytelen);
 
 		if (nhi->if_index) {
 			rtnh->rtnh_ifindex = nhi->if_index;
@@ -484,31 +487,28 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 		case FPM_NH_ENCAP_MAX:
 			break;
 		case FPM_NH_ENCAP_VXLAN:
-			rta_addattr_l(rta, sizeof(buf), RTA_ENCAP_TYPE,
-				      &encap, sizeof(uint16_t));
-			rtnh->rtnh_len += sizeof(struct rtattr) +
-					  sizeof(uint16_t);
+			nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE,
+				      encap);
 			vxlan = &nhi->encap_info.vxlan_encap;
-			nest = rta_nest(rta, sizeof(buf), RTA_ENCAP);
-			rta_addattr_l(rta, sizeof(buf), VXLAN_VNI, &vxlan->vni,
-				      sizeof(uint32_t));
-			nest_len = rta_nest_end(rta, nest);
-			rtnh->rtnh_len += nest_len;
+			inner_nest =
+				nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
+			nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI,
+				      vxlan->vni);
+			nl_attr_nest_end(&req->n, inner_nest);
 			break;
 		}
 
-		rtnh = RTNH_NEXT(rtnh);
+		nl_attr_rtnh_end(&req->n, rtnh);
 	}
 
-	assert(rta->rta_len > RTA_LENGTH(0));
-	addattr_l(&req->n, in_buf_len, RTA_MULTIPATH, RTA_DATA(rta),
-		  RTA_PAYLOAD(rta));
+	nl_attr_nest_end(&req->n, nest);
+	assert(nest->rta_len > RTA_LENGTH(0));
 
 done:
 
 	if (ri->pref_src) {
-		addattr_l(&req->n, in_buf_len, RTA_PREFSRC, &ri->pref_src,
-			  bytelen);
+		nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, &ri->pref_src,
+			    bytelen);
 	}
 
 	assert(req->n.nlmsg_len < in_buf_len);
@@ -520,9 +520,10 @@ done:
  *
  * Helper function to log the information in a route_info structure.
  */
-static void zfpm_log_route_info(netlink_route_info_t *ri, const char *label)
+static void zfpm_log_route_info(struct netlink_route_info *ri,
+				const char *label)
 {
-	netlink_nh_info_t *nhi;
+	struct netlink_nh_info *nhi;
 	unsigned int i;
 
 	zfpm_debug("%s : %s %s/%d, Proto: %s, Metric: %u", label,
@@ -554,7 +555,7 @@ static void zfpm_log_route_info(netlink_route_info_t *ri, const char *label)
 int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 			      char *in_buf, size_t in_buf_len)
 {
-	netlink_route_info_t ri_space, *ri;
+	struct netlink_route_info ri_space, *ri;
 
 	ri = &ri_space;
 
@@ -613,10 +614,10 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 		req->ndm.ndm_flags |= NTF_EXT_LEARNED;
 
 	/* Add attributes */
-	addattr_l(&req->hdr, in_buf_len, NDA_LLADDR, &mac->macaddr, 6);
-	addattr_l(&req->hdr, in_buf_len, NDA_DST, &mac->r_vtep_ip, 4);
-	addattr32(&req->hdr, in_buf_len, NDA_MASTER, mac->svi_if);
-	addattr32(&req->hdr, in_buf_len, NDA_VNI, mac->vni);
+	nl_attr_put(&req->hdr, in_buf_len, NDA_LLADDR, &mac->macaddr, 6);
+	nl_attr_put(&req->hdr, in_buf_len, NDA_DST, &mac->r_vtep_ip, 4);
+	nl_attr_put32(&req->hdr, in_buf_len, NDA_MASTER, mac->svi_if);
+	nl_attr_put32(&req->hdr, in_buf_len, NDA_VNI, mac->vni);
 
 	assert(req->hdr.nlmsg_len < in_buf_len);
 

@@ -118,8 +118,7 @@ void rip_interface_multicast_set(int sock, struct connected *connected)
 	if (setsockopt_ipv4_multicast_if(sock, addr, connected->ifp->ifindex)
 	    < 0) {
 		zlog_warn(
-			"Can't setsockopt IP_MULTICAST_IF on fd %d to "
-			"ifindex %d for interface %s",
+			"Can't setsockopt IP_MULTICAST_IF on fd %d to ifindex %d for interface %s",
 			sock, connected->ifp->ifindex, connected->ifp->name);
 	}
 
@@ -428,10 +427,11 @@ static int rip_ifp_destroy(struct interface *ifp)
 		rip_if_down(ifp);
 	}
 
-	zlog_info(
-		"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-		ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+	if (IS_RIP_DEBUG_ZEBRA)
+		zlog_debug(
+			"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
+			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	return 0;
 }

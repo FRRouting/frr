@@ -27,7 +27,9 @@ test_ospf_sr_topo1.py: Test the FRR OSPF routing daemon with Segment Routing.
 """
 
 import os
+import re
 import sys
+import json
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -62,20 +64,23 @@ class OspfSrTopo(Topo):
         for routern in range(1, 5):
             tgen.add_router("r{}".format(routern))
 
-        # Interconect router 1 and 2
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+        # Interconect router 1 and 2 with 2 links
+        switch = tgen.add_switch('s1')
+        switch.add_link(tgen.gears['r1'])
+        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch('s2')
+        switch.add_link(tgen.gears['r1'])
+        switch.add_link(tgen.gears['r2'])
 
         # Interconect router 3 and 2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r2"])
+        switch = tgen.add_switch('s3')
+        switch.add_link(tgen.gears['r3'])
+        switch.add_link(tgen.gears['r2'])
 
         # Interconect router 4 and 2
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r4"])
-        switch.add_link(tgen.gears["r2"])
+        switch = tgen.add_switch('s4')
+        switch.add_link(tgen.gears['r4'])
+        switch.add_link(tgen.gears['r2'])
 
 
 def setup_module(mod):
@@ -99,19 +104,6 @@ def setup_module(mod):
     # Initialize all routers.
     tgen.start_router()
 
-    # Verify that version, MPLS and Segment Routing are OK
-    for router in router_list.values():
-        # Check for Version
-        if router.has_version("<", "4"):
-            tgen.set_error("Unsupported FRR version")
-            break
-        # Check that Segment Routing is available
-        output = tgen.gears[router.name].vtysh_cmd(
-            "show ip ospf database segment-routing json"
-        )
-        if output.find("Unknown") != -1:
-            tgen.set_error("Segment Routing is not available")
-
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -120,31 +112,6 @@ def teardown_module(mod):
     tgen.stop_topology()
 
     logger.info("\n\n---- OSPF Segment Routing tests End ----\n")
-
-
-# Shared test function to validate expected output.
-def compare_ospf_srdb(rname, expected):
-    """
-    Calls 'show ip ospf database segment-routing json' for router `rname`
-    and compare the obtained result with the expected output.
-    """
-    tgen = get_topogen()
-    current = tgen.gears[rname].vtysh_cmd("show ip ospf database segment-routing json")
-    return topotest.difflines(
-        current, expected, title1="Current output", title2="Expected output"
-    )
-
-
-def compare_mpls_table(rname, expected):
-    """
-    Calls 'show mpls table json' for router `rname` and compare the obtained
-    result with the expected output.
-    """
-    tgen = get_topogen()
-    current = tgen.gears[rname].vtysh_cmd("show mpls table json")
-    return topotest.difflines(
-        current, expected, title1="Current output", title2="Expected output"
-    )
 
 
 def test_ospf_sr():
@@ -162,12 +129,15 @@ def test_ospf_sr():
 
         # Load expected results from the command
         reffile = os.path.join(CWD, "{}/ospf_srdb.json".format(router))
-        expected = open(reffile).read()
+        expected = json.loads(open(reffile).read())
 
         # Run test function until we get an result. Wait at most 60 seconds.
-        test_func = partial(compare_ospf_srdb, router, expected)
-        result, diff = topotest.run_and_expect(test_func, "", count=25, wait=3)
-        assert result, ("OSPF did not start Segment Routing on {}:\n{}").format(
+        rt = tgen.gears[router]
+        test_func = partial(
+            topotest.router_json_cmp, rt, 'show ip ospf database segment-routing json', expected
+        )
+        rv, diff = topotest.run_and_expect(test_func, None, count=25, wait=3)
+        assert rv, "OSPF did not start Segment Routing on {}:\n{}".format(
             router, diff
         )
 
@@ -180,6 +150,33 @@ def test_ospf_kernel_route():
 
     logger.info("--- test OSPF Segment Routing MPLS tables ---")
 
+    def show_mpls_table_json_cmp(rt, expected):
+        """
+        Reformat MPLS table output to use a list of labels instead of dict.
+
+        Original:
+        {
+         "X": {
+            inLabel: "X",
+            # ...
+          }
+        }
+
+        List format:
+        [
+          {
+            inLabel: "X",
+          }
+        ]
+        """
+        out = rt.vtysh_cmd('show mpls table json', isjson=True)
+
+        outlist = []
+        for key in out.keys():
+            outlist.append(out[key])
+
+        return topotest.json_cmp(outlist, expected)
+
     for rnum in range(1, 5):
         router = "r{}".format(rnum)
 
@@ -187,12 +184,13 @@ def test_ospf_kernel_route():
 
         # Load expected results from the command
         reffile = os.path.join(CWD, "{}/zebra_mpls.json".format(router))
-        expected = open(reffile).read()
+        expected = json.loads(open(reffile).read())
 
         # Run test function until we get an result. Wait at most 60 seconds.
-        test_func = partial(compare_mpls_table, router, expected)
-        result, diff = topotest.run_and_expect(test_func, "", count=25, wait=3)
-        assert result, ("OSPF did not properly instal MPLS table on {}:\n{}").format(
+        rt = tgen.gears[router]
+        test_func = partial(show_mpls_table_json_cmp, rt, expected)
+        rv, diff = topotest.run_and_expect(test_func, None, count=25, wait=3)
+        assert rv, "OSPF did not properly instal MPLS table on {}:\n{}".format(
             router, diff
         )
 

@@ -1047,8 +1047,7 @@ void ripng_redistribute_delete(struct ripng *ripng, int type, int sub_type,
 
 				if (IS_RIPNG_DEBUG_EVENT)
 					zlog_debug(
-						"Poisone %s/%d on the interface %s with an "
-						"infinity metric [delete]",
+						"Poisone %s/%d on the interface %s with an infinity metric [delete]",
 						inet6_ntoa(p->prefix),
 						p->prefixlen,
 						ifindex2ifname(
@@ -2534,6 +2533,8 @@ static void ripng_distribute_update_all_wrapper(struct access_list *notused)
 /* delete all the added ripng routes. */
 void ripng_clean(struct ripng *ripng)
 {
+	ripng_interface_clean(ripng);
+
 	if (ripng->enabled)
 		ripng_instance_disable(ripng);
 
@@ -2555,7 +2556,6 @@ void ripng_clean(struct ripng *ripng)
 	agg_table_finish(ripng->enable_network);
 	vector_free(ripng->passive_interface);
 	list_delete(&ripng->offset_list_master);
-	ripng_interface_clean(ripng);
 
 	RB_REMOVE(ripng_instance_head, &ripng_instances, ripng);
 	XFREE(MTYPE_RIPNG_VRF_NAME, ripng->vrf_name);
@@ -2792,13 +2792,20 @@ static int ripng_vrf_enable(struct vrf *vrf)
 		 */
 		if (yang_module_find("frr-ripngd") && old_vrf_name) {
 			struct lyd_node *ripng_dnode;
+			char oldpath[XPATH_MAXLEN];
+			char newpath[XPATH_MAXLEN];
 
 			ripng_dnode = yang_dnode_get(
 				running_config->dnode,
 				"/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
 				old_vrf_name);
 			if (ripng_dnode) {
+				yang_dnode_get_path(ripng_dnode->parent, oldpath,
+						    sizeof(oldpath));
 				yang_dnode_change_leaf(ripng_dnode, vrf->name);
+				yang_dnode_get_path(ripng_dnode->parent, newpath,
+						    sizeof(newpath));
+				nb_running_move_tree(oldpath, newpath);
 				running_config->version++;
 			}
 		}

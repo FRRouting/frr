@@ -8,7 +8,6 @@
           "active": true,
           "afi": "ipv6",
           "fib": true,
-          "interfaceIndex": 3,
           "interfaceName": "r4-eth1"
         }
       ],
@@ -24,7 +23,6 @@
           "active": true,
           "directlyConnected": true,
           "fib": true,
-          "interfaceIndex": 2,
           "interfaceName": "r4-eth0"
         }
       ],
@@ -42,7 +40,6 @@
           "active": true,
           "afi": "ipv6",
           "fib": true,
-          "interfaceIndex": 3,
           "interfaceName": "r4-eth1"
         }
       ],
@@ -58,7 +55,6 @@
           "active": true,
           "directlyConnected": true,
           "fib": true,
-          "interfaceIndex": 3,
           "interfaceName": "r4-eth1"
         }
       ],
@@ -76,7 +72,6 @@
           "active": true,
           "afi": "ipv6",
           "fib": true,
-          "interfaceIndex": 2,
           "interfaceName": "r4-eth0"
         }
       ],
@@ -94,7 +89,6 @@
           "active": true,
           "afi": "ipv6",
           "fib": true,
-          "interfaceIndex": 3,
           "interfaceName": "r4-eth1"
         }
       ],
@@ -110,7 +104,6 @@
           "active": true,
           "directlyConnected": true,
           "fib": true,
-          "interfaceIndex": 1,
           "interfaceName": "lo"
         }
       ],
@@ -128,7 +121,6 @@
           "active": true,
           "afi": "ipv6",
           "fib": true,
-          "interfaceIndex": 3,
           "interfaceName": "r4-eth1"
         }
       ],

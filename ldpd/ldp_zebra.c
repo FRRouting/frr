@@ -508,8 +508,9 @@ ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS)
 
 	zebra_read_pw_status_update(cmd, zclient, length, vrf_id, &zpw);
 
-	debug_zebra_in("pseudowire %s status %s", zpw.ifname,
-	    (zpw.status == PW_STATUS_UP) ? "up" : "down");
+	debug_zebra_in("pseudowire %s status %s 0x%x", zpw.ifname,
+	    (zpw.status == PW_FORWARDING) ? "up" : "down",
+	    zpw.status);
 
 	main_imsg_compose_lde(IMSG_PW_UPDATE, 0, &zpw, sizeof(zpw));
 

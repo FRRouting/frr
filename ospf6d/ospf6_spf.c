@@ -278,7 +278,7 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 		return;
 	}
 
-	oi = ospf6_interface_lookup_by_ifindex(ifindex);
+	oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 	if (oi == NULL) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug("Can't find interface in SPF: ifindex %d",
@@ -658,8 +658,7 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 			   (long long)runtime.tv_usec);
 
 	zlog_info(
-		"SPF processing: # Areas: %d, SPF runtime: %lld sec %lld usec, "
-		"Reason: %s\n",
+		"SPF processing: # Areas: %d, SPF runtime: %lld sec %lld usec, Reason: %s\n",
 		areas_processed, (long long)runtime.tv_sec,
 		(long long)runtime.tv_usec, rbuf);
 

@@ -37,7 +37,7 @@
 /*
  * XPath: /frr-eigrpd:eigrpd/instance
  */
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
 	router_eigrp,
 	router_eigrp_cmd,
 	"router eigrp (1-65535)$as [vrf NAME]",
@@ -61,7 +61,7 @@ DEFPY_NOSH(
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_router_eigrp,
 	no_router_eigrp_cmd,
 	"no router eigrp (1-65535)$as [vrf NAME]",
@@ -101,7 +101,7 @@ void eigrp_cli_show_end_header(struct vty *vty, struct lyd_node *dnode)
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/router-id
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_router_id,
 	eigrp_router_id_cmd,
 	"eigrp router-id A.B.C.D$addr",
@@ -113,7 +113,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_router_id,
 	no_eigrp_router_id_cmd,
 	"no eigrp router-id [A.B.C.D]",
@@ -137,7 +137,7 @@ void eigrp_cli_show_router_id(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/passive-interface
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_passive_interface,
 	eigrp_passive_interface_cmd,
 	"[no] passive-interface IFNAME",
@@ -166,7 +166,7 @@ void eigrp_cli_show_passive_interface(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/active-time
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_timers_active,
 	eigrp_timers_active_cmd,
 	"timers active-time <(1-65535)$timer|disabled$disabled>",
@@ -184,7 +184,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_timers_active,
 	no_eigrp_timers_active_cmd,
 	"no timers active-time [<(1-65535)|disabled>]",
@@ -209,7 +209,7 @@ void eigrp_cli_show_active_time(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/variance
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_variance,
 	eigrp_variance_cmd,
 	"variance (1-128)$variance",
@@ -220,7 +220,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_variance,
 	no_eigrp_variance_cmd,
 	"no variance [(1-128)]",
@@ -243,7 +243,7 @@ void eigrp_cli_show_variance(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/maximum-paths
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_maximum_paths,
 	eigrp_maximum_paths_cmd,
 	"maximum-paths (1-32)$maximum_paths",
@@ -255,7 +255,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_maximum_paths,
 	no_eigrp_maximum_paths_cmd,
 	"no maximum-paths [(1-32)]",
@@ -283,7 +283,7 @@ void eigrp_cli_show_maximum_paths(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-eigrpd:eigrpd/instance/metric-weights/K5
  * XPath: /frr-eigrpd:eigrpd/instance/metric-weights/K6
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_metric_weights,
 	eigrp_metric_weights_cmd,
 	"metric weights (0-255)$k1 (0-255)$k2 (0-255)$k3 (0-255)$k4 (0-255)$k5 [(0-255)$k6]",
@@ -308,7 +308,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_metric_weights,
 	no_eigrp_metric_weights_cmd,
 	"no metric weights [(0-255) (0-255) (0-255) (0-255) (0-255) (0-255)]",
@@ -359,7 +359,7 @@ void eigrp_cli_show_metrics(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/network
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_network,
 	eigrp_network_cmd,
 	"[no] network A.B.C.D/M$prefix",
@@ -388,7 +388,7 @@ void eigrp_cli_show_network(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/neighbor
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_neighbor,
 	eigrp_neighbor_cmd,
 	"[no] neighbor A.B.C.D$addr",
@@ -423,7 +423,7 @@ void eigrp_cli_show_neighbor(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-eigrpd:eigrpd/instance/redistribute/metrics/load
  * XPath: /frr-eigrpd:eigrpd/instance/redistribute/metrics/mtu
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_redistribute_source_metric,
 	eigrp_redistribute_source_metric_cmd,
 	"[no] redistribute " FRR_REDIST_STR_EIGRPD
@@ -493,7 +493,7 @@ void eigrp_cli_show_redistribute(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/delay
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_if_delay,
 	eigrp_if_delay_cmd,
 	"delay (1-16777215)$delay",
@@ -505,7 +505,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_if_delay,
 	no_eigrp_if_delay_cmd,
 	"no delay [(1-16777215)]",
@@ -529,7 +529,7 @@ void eigrp_cli_show_delay(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/bandwidth
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_if_bandwidth,
 	eigrp_if_bandwidth_cmd,
 	"eigrp bandwidth (1-10000000)$bw",
@@ -542,7 +542,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_if_bandwidth,
 	no_eigrp_if_bandwidth_cmd,
 	"no eigrp bandwidth [(1-10000000)]",
@@ -567,7 +567,7 @@ void eigrp_cli_show_bandwidth(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/hello-interval
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_if_ip_hellointerval,
 	eigrp_if_ip_hellointerval_cmd,
 	"ip hello-interval eigrp (1-65535)$hello",
@@ -581,7 +581,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_if_ip_hellointerval,
 	no_eigrp_if_ip_hellointerval_cmd,
 	"no ip hello-interval eigrp [(1-65535)]",
@@ -608,7 +608,7 @@ void eigrp_cli_show_hello_interval(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/hold-time
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_if_ip_holdinterval,
 	eigrp_if_ip_holdinterval_cmd,
 	"ip hold-time eigrp (1-65535)$hold",
@@ -622,7 +622,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_if_ip_holdinterval,
 	no_eigrp_if_ip_holdinterval_cmd,
 	"no ip hold-time eigrp [(1-65535)]",
@@ -654,7 +654,7 @@ void eigrp_cli_show_hold_time(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance/summarize-addresses
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_ip_summary_address,
 	eigrp_ip_summary_address_cmd,
 	"ip summary-address eigrp (1-65535)$as A.B.C.D/M$prefix",
@@ -676,7 +676,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_ip_summary_address,
 	no_eigrp_ip_summary_address_cmd,
 	"no ip summary-address eigrp (1-65535)$as A.B.C.D/M$prefix",
@@ -714,7 +714,7 @@ void eigrp_cli_show_summarize_address(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance/authentication
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_authentication_mode,
 	eigrp_authentication_mode_cmd,
 	"ip authentication mode eigrp (1-65535)$as <md5|hmac-sha-256>$crypt",
@@ -738,7 +738,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_authentication_mode,
 	no_eigrp_authentication_mode_cmd,
 	"no ip authentication mode eigrp (1-65535)$as [<md5|hmac-sha-256>]",
@@ -778,7 +778,7 @@ void eigrp_cli_show_authentication(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance/keychain
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_authentication_keychain,
 	eigrp_authentication_keychain_cmd,
 	"ip authentication key-chain eigrp (1-65535)$as WORD$name",
@@ -801,7 +801,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_authentication_keychain,
 	no_eigrp_authentication_keychain_cmd,
 	"no ip authentication key-chain eigrp (1-65535)$as [WORD]",

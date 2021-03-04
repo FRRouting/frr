@@ -1,0 +1,27 @@
+{
+ "routerId": "192.168.200.1",
+ "localAS": 65200,
+ "routes": { 
+ "192.168.2.0/24": [
+  {
+    "valid":true,
+    "bestpath":true,
+    "pathFrom":"external",
+    "prefix":"192.168.2.0",
+    "prefixLen":24,
+    "network":"192.168.2.0\/24",
+    "metric":2022,
+    "weight":0,
+    "peerId":"192.168.201.1",
+    "path":"65000",
+    "origin":"IGP",
+    "nexthops":[
+      {
+        "ip":"192.168.201.1",
+        "hostname":"r2",
+        "afi":"ipv4",
+        "used":true
+      }
+    ]
+  }
+] }  } 
