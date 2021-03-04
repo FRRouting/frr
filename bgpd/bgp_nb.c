@@ -586,6 +586,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/neighbor-remote-as/remote-as-type",
 			.cbs = {
 				.modify = bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify,
+				.destroy = bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_destroy,
 			}
 		},
 		{
