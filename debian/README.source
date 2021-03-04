@@ -1,0 +1,45 @@
+This module uses gbp and upstream git repository
+
+To update this package, first import the changes from upstream:
+- git fetch --all
+
+Find the latest version:
+VERSION=$(git describe --tags $(git rev-list '--tags=frr-*' --max-count=1) | sed 's/^frr-//')
+echo $VERSION
+
+Update debian/sid branch
+- git checkout debian/master
+- git merge frr-$VERSION
+
+Update the debian/copyright file:
+- cme update dpkg-copyright
+See also https://github.com/dod38fr/config-model/wiki/Updating-debian-copyright-file-with-cme
+
+Check patches (and cleanup if necessary):
+- gbp pq rebase --commit --drop
+
+Download upstream tarball:
+- uscan --download --verbose --download-version $VERSION
+
+Add pristine-tar:
+- pristine-tar commit ../frr_$VERSION.orig.tar.gz v$VERSION
+
+Generate a temporary changelog:
+- gbp dch --new-version=$VERSION-1 --snapshot --auto --commit debian/
+
+Test the first build::
+- gbp buildpackage --git-ignore-new --git-pristine-tar --git-no-purge
+
+Update the changelog:
+- gbp dch -R -a -c
+
+Once everything is fine, build a source package and tag:
+- gbp buildpackage -S --git-tag
+
+Push on salsa:
+- gbp push
+
+For more details, see
+https://honk.sigxcpu.org/projects/git-buildpackage/manual-html/gbp.import.upstream-git.html#gbp.import.upstream.git.notarball
+
+ -- Ondřej Surý <Ondřej Surý <ondrej@debian.org>>, Thu,  4 Mar 2021 08:17:16 +0100
