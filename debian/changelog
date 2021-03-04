@@ -1,3 +1,16 @@
+frr (7.5.1-1) unstable; urgency=medium
+
+  * Update the d/gbp.conf for 7.5.1 release
+  * Update changelog for 7.5.1-1~1.gbpc1aea0 release
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 04 Mar 2021 08:21:37 +0100
+
+frr (7.5-1) unstable; urgency=medium
+
+  * New upstream version 7.5
+
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 14 Feb 2021 21:38:50 +0100
+
 frr (7.4-2) unstable; urgency=medium
 
   * Bump libyang dependency to >= 1.0.184-1~
@@ -5,6 +18,13 @@ frr (7.4-2) unstable; urgency=medium
   * Adjust the ax_python.m4 to hardcode python3.9
 
  -- Ondřej Surý <ondrej@debian.org>  Sun, 07 Feb 2021 13:15:07 +0100
+
+frr (7.4-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Backport upstream fix for FTBFS with Python 3.9. (Closes: #972767)
+
+ -- Adrian Bunk <bunk@debian.org>  Thu, 21 Jan 2021 16:06:12 +0200
 
 frr (7.4-1) unstable; urgency=medium
 
