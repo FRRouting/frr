@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "lib/bfd.h"
 #include "monotime.h"
 #include "linklist.h"
 #include "thread.h"
@@ -60,6 +61,7 @@ unsigned long conf_debug_ospf_ti_lfa = 0;
 unsigned long conf_debug_ospf_defaultinfo = 0;
 unsigned long conf_debug_ospf_ldp_sync = 0;
 unsigned long conf_debug_ospf_gr = 0;
+unsigned long conf_debug_ospf_bfd = 0;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -76,6 +78,7 @@ unsigned long term_debug_ospf_ti_lfa = 0;
 unsigned long term_debug_ospf_defaultinfo;
 unsigned long term_debug_ospf_ldp_sync;
 unsigned long term_debug_ospf_gr = 0;
+unsigned long term_debug_ospf_bfd = 0;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -1563,6 +1566,31 @@ DEFPY (debug_ospf_gr,
 	return CMD_SUCCESS;
 }
 
+DEFPY(debug_ospf_bfd, debug_ospf_bfd_cmd,
+      "[no] debug ospf bfd",
+      NO_STR
+      DEBUG_STR
+      OSPF_STR
+      "Bidirection Forwarding Detection\n")
+{
+	if (vty->node == CONFIG_NODE) {
+		if (no) {
+			bfd_protocol_integration_set_debug(false);
+			CONF_DEBUG_OFF(bfd, BFD_LIB);
+		} else {
+			bfd_protocol_integration_set_debug(true);
+			CONF_DEBUG_ON(bfd, BFD_LIB);
+		}
+	}
+
+	if (no)
+		TERM_DEBUG_OFF(bfd, BFD_LIB);
+	else
+		TERM_DEBUG_ON(bfd, BFD_LIB);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1594,6 +1622,10 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(defaultinfo, DEFAULTINFO);
 		DEBUG_OFF(ldp_sync, LDP_SYNC);
 
+		/* BFD debugging is two parts: OSPF and library. */
+		DEBUG_OFF(bfd, BFD_LIB);
+		bfd_protocol_integration_set_debug(false);
+
 		for (i = 0; i < 5; i++)
 			DEBUG_PACKET_OFF(i, flag);
 	}
@@ -1621,6 +1653,7 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
 	TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
 	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
+	TERM_DEBUG_OFF(bfd, BFD_LIB);
 
 	return CMD_SUCCESS;
 }
@@ -1729,6 +1762,10 @@ static int show_debugging_ospf_common(struct vty *vty)
 	/* Show debug status for GR helper. */
 	if (IS_DEBUG_OSPF(gr, GR_HELPER) == OSPF_DEBUG_GR_HELPER)
 		vty_out(vty, "  OSPF Graceful Restart Helper debugging is on\n");
+
+	if (IS_DEBUG_OSPF(bfd, BFD_LIB) == OSPF_DEBUG_BFD_LIB)
+		vty_out(vty,
+			"  OSPF BFD integration library debugging is on\n");
 
 	vty_out(vty, "\n");
 
@@ -1917,6 +1954,11 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	if (IS_CONF_DEBUG_OSPF(bfd, BFD_LIB) == OSPF_DEBUG_BFD_LIB) {
+		vty_out(vty, "debug ospf%s bfd\n", str);
+		write = 1;
+	}
+
 	return write;
 }
 
@@ -1949,6 +1991,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_bfd_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_instance_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_packet_cmd);
@@ -1992,6 +2035,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_bfd_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_instance_lsa_cmd);
