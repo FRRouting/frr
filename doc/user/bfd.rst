@@ -313,6 +313,11 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
+.. clicmd:: ip ospf bfd profile BFDPROF
+
+   Same as command ``ip ospf bfd``, but applies the BFD profile to the sessions
+   it creates or that already exist.
+
 
 .. _bfd-ospf6-peer-config:
 
