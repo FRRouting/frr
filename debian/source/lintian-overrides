@@ -1,2 +1,0 @@
-# Debian Jessie and Ubuntu 16.04 need dh-systemd
-frr source: ored-build-depends-on-obsolete-package
