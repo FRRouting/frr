@@ -4,7 +4,93 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
     remove and replace when creating releases!
     (tools/tarsource.sh will handle this)
 
- -- FRRouting-Dev <dev@lists.frrouting.org>  Wed, 3 Nov 2020 23:10:00 +0200
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 4 Mar 2021 00:10:00 +0100
+
+frr (7.5.1-0) RELEASED; urgency=medium
+  BABEL
+    Fix connected route leak on change
+  BFD
+    Session lookup was sometimes wrong
+    Memory leak and handling cleanups
+    In some situations handle vrf appropriately when receiving packets
+  BGP
+    Peer Group Inheritance Fixes
+    Dissallow attempt to peer peers reachable via blackholes
+    Send BMP down message when reachability fails
+    Cleanup handling of aggregator data when the AGG AS is 0
+    Handle `neighbor <peer-group allowas-in` config changes properly
+    Properly parse community and lcommunity values in some circumstances
+    Allow peer-groups to configure `ttl-security hops`
+    Prevent v6 routes with v4 nexthops from being installed
+    Allow `default-originate` to be cleared from a peer group
+    Fix evpn route-map vni filter at origin
+    local routes were using non-default distance
+    Properly track if the nexthop was updated in some circumstances
+    Cleanup `show running` when running bgp with `-e X` values
+    Various Memory leaks in show commands
+    Properly withdraw exported routes when deleting a VRF
+    Avoid resetting ebgp-multihop if peer setting is the same as peer-group
+    Properly encode flowspec rules to zebra in some rare circumstances
+    Generate statistics for routes in bgp when we have exactly 1 route
+    Properly apply route-map for the default-originate command
+  EIGRP
+    Properly set MTU for eigrp packets sent
+    Various memory leaks and using uninited data fixes
+  ISIS
+    When last area address is removed, resign if we were the DR
+    Various memory leaks and using uninited data fixes
+  LDP
+    Various memory leaks and using uninited data fixes
+  NHRP
+    Use onlink routes when prefix == nh
+    Shortcut routes are installed with proper nexthop
+  OSPF
+    Prevent duplicate packet read in multiple vrf situation
+    Fix area removal at interface level
+    Restore Point to MultiPoint interface types
+    Correctly handle MTU change on startup
+    Multi Instance initialization sometimes was not successful
+    NSSA translate-always was not working properly
+  OSPFv3
+    Don't send hellos on loopback interfaces
+    Handle ECMP better when a sub-path is removed
+    Memory leak and handling fixes
+    Fix Link LSA not updating when router priority is modified
+    Some output from show commands was wrong
+    Intra area remote connected prefixes sometimes not installed
+  PBR
+    Various memory leaks and using uninited data fixes
+  PIM
+    SGRpt prune received during prune didn't override holdtime
+    Various memory leaks and using uninited data fixes
+  STATIC
+    Fix VRF and usage on startup in some instances
+    Tableid was being mishandled in some cases
+  VTYSH
+    Disable bracketed paste in readline.
+  WATCHFRR
+    Various memory leaks and using uninited data fixes
+  ZEBRA
+    Always install blackhole routes using kernel routes instead of nexthops
+    Various memory leaks and using uninited data fixes
+    Dissallow resolution to duplicate nexthops that created infinite nexthops
+    Apply the route-map delay-timer globally
+    Some routes were stuck in Queued state when using the FPM
+    Better handle vrf creation when using namespaces
+    Set NUD_NOARP on sticky mac entries in addtion to NTF_STICKY
+    Allow `set src X` to work on startup
+  FRR Library
+    Fix a variety of memory leaks
+    Fix VRF Creation in some instances
+    RPKI context editing was not properly handled in reload situations
+    routemap code was not properly handling modification of CLI in some instances
+  SNAPCRAFT
+    Update to using rtrlib 0.7.0
+    Fix passthrough path for Libyang 1.x
+  ALPINE
+    Remove old docker deps
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Wed, 3 Mar 2021 23:56:00 +0100
 
 frr (7.5-0) RELEASED; urgency=medium
   BFD
