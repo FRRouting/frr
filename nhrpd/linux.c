@@ -32,6 +32,11 @@
 #include "os.h"
 #include "netlink.h"
 
+#ifndef HAVE_STRLCPY
+size_t strlcpy(char *__restrict dest,
+               const char *__restrict src, size_t destsize);
+#endif
+
 static int nhrp_socket_fd = -1;
 
 int os_socket(void)
@@ -112,7 +117,7 @@ static int linux_configure_arp(const char *iface, int on)
 {
 	struct ifreq ifr;
 
-	strncpy(ifr.ifr_name, iface, IFNAMSIZ - 1);
+	strlcpy(ifr.ifr_name, iface, IFNAMSIZ);
 	if (ioctl(nhrp_socket_fd, SIOCGIFFLAGS, &ifr))
 		return -1;
 
