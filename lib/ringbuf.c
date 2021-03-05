@@ -131,3 +131,38 @@ void ringbuf_wipe(struct ringbuf *buf)
 	memset(buf->data, 0x00, buf->size);
 	ringbuf_reset(buf);
 }
+
+ssize_t ringbuf_read(struct ringbuf *buf, int sock)
+{
+	size_t to_read = ringbuf_space(buf);
+	size_t bytes_to_end = buf->size - buf->end;
+	ssize_t bytes_read;
+	struct iovec iov[2] = {};
+
+	/* Calculate amount of read blocks. */
+	if (to_read > bytes_to_end) {
+		iov[0].iov_base = buf->data + buf->end;
+		iov[0].iov_len = bytes_to_end;
+		iov[1].iov_base = buf->data;
+		iov[1].iov_len = to_read - bytes_to_end;
+	} else {
+		iov[0].iov_base = buf->data + buf->end;
+		iov[0].iov_len = to_read;
+	}
+
+	/* Do the system call. */
+	bytes_read = readv(sock, iov, 2);
+	if (bytes_read <= 0)
+		return bytes_read;
+
+	/* Calculate the new end. */
+	if ((size_t)bytes_read > bytes_to_end)
+		buf->end = bytes_read - bytes_to_end;
+	else
+		buf->end += bytes_read;
+
+	/* Set emptiness state. */
+	buf->empty = (buf->start == buf->end) && (buf->empty && !bytes_read);
+
+	return bytes_read;
+}
