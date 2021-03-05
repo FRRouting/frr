@@ -6057,7 +6057,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"       R - SGRpt Pruned, F - Register flag, T - SPT-bit set\n");
 		vty_out(vty,
-			"\nSource          Group           Flags   Proto  Input            Output           TTL  Uptime\n");
+			"\nSource          Group           Flags    Proto  Input            Output           TTL  Uptime\n");
 	}
 
 	now = pim_time_monotonic_sec();
@@ -6247,7 +6247,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 				}
 
 				vty_out(vty,
-					"%-15s %-15s %-15s %-6s %-16s %-16s %-3d  %8s\n",
+					"%-15s %-15s %-8s %-6s %-16s %-16s %-3d  %8s\n",
 					src_str, grp_str, state_str, proto,
 					in_ifname, out_ifname, ttl,
 					mroute_uptime);

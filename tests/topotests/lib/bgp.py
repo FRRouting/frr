@@ -3880,6 +3880,7 @@ def verify_attributes_for_evpn_routes(
                             return errormsg
 
                     if rt == "auto":
+                        vni_dict = {}
                         logger.info(
                             "[DUT: %s]: Verifying auto-rt value for " "evpn route %s:",
                             dut,
@@ -3887,8 +3888,6 @@ def verify_attributes_for_evpn_routes(
                         )
 
                         if rt_peer:
-                            vni_dict = {}
-
                             rnode = tgen.routers()[rt_peer]
                             show_bgp_json = run_frr_cmd(
                                 rnode, "show bgp vrf all summary json", isjson=True
