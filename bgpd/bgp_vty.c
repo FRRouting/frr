@@ -12971,6 +12971,28 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							"received");
 				}
 
+				/* Extended Message Support */
+				if (CHECK_FLAG(p->cap,
+					       PEER_CAP_EXTENDED_MESSAGE_ADV)
+				    && CHECK_FLAG(
+					       p->cap,
+					       PEER_CAP_EXTENDED_MESSAGE_RCV))
+					json_object_string_add(
+						json_cap, "extendedMessage",
+						"advertisedAndReceived");
+				else if (CHECK_FLAG(
+						 p->cap,
+						 PEER_CAP_EXTENDED_MESSAGE_ADV))
+					json_object_string_add(
+						json_cap, "extendedMessage",
+						"advertised");
+				else if (CHECK_FLAG(
+						 p->cap,
+						 PEER_CAP_EXTENDED_MESSAGE_RCV))
+					json_object_string_add(
+						json_cap, "extendedMessage",
+						"received");
+
 				/* AddPath */
 				if (CHECK_FLAG(p->cap, PEER_CAP_ADDPATH_RCV)
 				    || CHECK_FLAG(p->cap,
@@ -13444,6 +13466,29 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							CHECK_FLAG(
 								p->cap,
 								PEER_CAP_AS4_ADV)
+								? "and "
+								: "");
+					vty_out(vty, "\n");
+				}
+
+				/* Extended Message Support */
+				if (CHECK_FLAG(p->cap,
+					       PEER_CAP_EXTENDED_MESSAGE_RCV)
+				    || CHECK_FLAG(
+					       p->cap,
+					       PEER_CAP_EXTENDED_MESSAGE_ADV)) {
+					vty_out(vty, "    Extended Message:");
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_EXTENDED_MESSAGE_ADV))
+						vty_out(vty, " advertised");
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_EXTENDED_MESSAGE_RCV))
+						vty_out(vty, " %sreceived",
+							CHECK_FLAG(
+								p->cap,
+								PEER_CAP_EXTENDED_MESSAGE_ADV)
 								? "and "
 								: "");
 					vty_out(vty, "\n");

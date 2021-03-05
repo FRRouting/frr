@@ -859,6 +859,7 @@ typedef enum {
 #define BGP_MARKER_SIZE		                16
 #define BGP_HEADER_SIZE		                19
 #define BGP_MAX_PACKET_SIZE                   4096
+#define BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE 65535
 #define BGP_MAX_PACKET_SIZE_OVERFLOW          1024
 
 /*
@@ -1122,6 +1123,8 @@ struct peer {
 #define PEER_CAP_HOSTNAME_RCV               (1U << 16) /* hostname received */
 #define PEER_CAP_ENHANCED_RR_ADV (1U << 17) /* enhanced rr advertised */
 #define PEER_CAP_ENHANCED_RR_RCV (1U << 18) /* enhanced rr received */
+#define PEER_CAP_EXTENDED_MESSAGE_ADV (1U << 19)
+#define PEER_CAP_EXTENDED_MESSAGE_RCV (1U << 20)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1563,6 +1566,9 @@ struct peer {
 
 	/* Sender side AS path loop detection. */
 	bool as_path_loop_detection;
+
+	/* Extended Message Support */
+	uint16_t max_packet_size;
 
 	/* Conditional advertisement */
 	bool advmap_config_change[AFI_MAX][SAFI_MAX];
