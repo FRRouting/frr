@@ -92,7 +92,7 @@ class Vtysh(object):
             args = ['-c', command]
         return self._call(args, stdin, stdout, stderr)
 
-    def __call__(self, command):
+    def __call__(self, command, stdouts=None):
         """
         Call a CLI command (e.g. "show running-config")
 
@@ -102,6 +102,8 @@ class Vtysh(object):
         proc = self._call_cmd(command, stdout=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         if proc.wait() != 0:
+            if stdouts is not None:
+                stdouts.append(stdout.decode('UTF-8'))
             raise VtyshException('vtysh returned status %d for command "%s"'
                     % (proc.returncode, command))
         return stdout.decode('UTF-8')
@@ -1560,9 +1562,10 @@ if __name__ == '__main__':
                     # frr(config-if)# no ip ospf authentication
                     # frr(config-if)#
 
+                    stdouts = []
                     while True:
                         try:
-                            vtysh(['configure'] + cmd)
+                            vtysh(['configure'] + cmd, stdouts)
 
                         except VtyshException:
 
@@ -1575,6 +1578,9 @@ if __name__ == '__main__':
 
                             if len(last_arg) <= 2:
                                 log.error('"%s" we failed to remove this command', ' -- '.join(original_cmd))
+                                # Log first error msg for original_cmd
+                                if stdouts:
+                                    log.error(stdouts[0])
                                 reload_ok = False
                                 break
 
