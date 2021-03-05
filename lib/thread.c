@@ -916,6 +916,27 @@ struct thread *_thread_add_read_write(const struct xref_threadsched *xref,
 	return thread;
 }
 
+/*
+ * Round deadline up to a baseline granularity
+ */
+static void round_time_up(struct timeval *tv)
+{
+
+#define TIMER_GRANULARITY_MASK  0x1fff /* 16 msecs +/- */
+
+	/* Nothing to do if the deadline is already at seconds resolution. */
+	if (tv->tv_usec) {
+		tv->tv_usec += TIMER_GRANULARITY_MASK;
+		tv->tv_usec &= ~TIMER_GRANULARITY_MASK;
+
+		/* If we've overrun the usecs, bump the seconds field. */
+		if (tv->tv_usec > TIMER_SECOND_MICRO) {
+			tv->tv_sec++;
+			tv->tv_usec -= TIMER_SECOND_MICRO;
+		}
+	}
+}
+
 static struct thread *
 _thread_add_timer_timeval(const struct xref_threadsched *xref,
 			  struct thread_master *m, int (*func)(struct thread *),
@@ -933,9 +954,12 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 		 xref->funcname, xref->xref.file, xref->xref.line,
 		 t_ptr, 0, 0, arg, (long)time_relative->tv_sec);
 
-	/* Compute expiration/deadline time. */
+	/* Compute expiration/deadline time, then round it up to some reasonable
+	 * granularity.
+	 */
 	monotime(&t);
 	timeradd(&t, time_relative, &t);
+	round_time_up(&t);
 
 	frr_with_mutex(&m->mtx) {
 		if (t_ptr && *t_ptr)
