@@ -57,6 +57,12 @@ bfd_cli_is_single_hop(struct vty *vty)
 	return strstr(VTY_CURR_XPATH, "/single-hop") != NULL;
 }
 
+static bool
+bfd_cli_is_profile(struct vty *vty)
+{
+	return strstr(VTY_CURR_XPATH, "/bfd/profile") != NULL;
+}
+
 /*
  * Functions.
  */
@@ -117,10 +123,14 @@ DEFPY_YANG_NOSH(
 	char source_str[INET6_ADDRSTRLEN + 32];
 	char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
 
-	if (multihop)
+	if (multihop) {
+		if (!local_address_str) {
+			vty_out(vty, "%% local-address is required when using multihop\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		snprintf(source_str, sizeof(source_str), "[source-addr='%s']",
 			 local_address_str);
-	else
+	} else
 		source_str[0] = 0;
 
 	slen = snprintf(xpath, sizeof(xpath),
@@ -418,7 +428,7 @@ DEFPY_YANG(
 	NO_STR
 	"Configure echo mode\n")
 {
-	if (!bfd_cli_is_single_hop(vty)) {
+	if (!bfd_cli_is_profile(vty) && !bfd_cli_is_single_hop(vty)) {
 		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -446,7 +456,7 @@ DEFPY_YANG(
 {
 	char value[32];
 
-	if (!bfd_cli_is_single_hop(vty)) {
+	if (!bfd_cli_is_profile(vty) && !bfd_cli_is_single_hop(vty)) {
 		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
