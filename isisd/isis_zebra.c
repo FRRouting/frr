@@ -509,7 +509,7 @@ static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		isis_redist_add(isis, api.type, &api.prefix, &api.src_prefix,
-				api.distance, api.metric);
+				api.distance, api.metric, api.tag);
 	else
 		isis_redist_delete(isis, api.type, &api.prefix,
 				   &api.src_prefix);
