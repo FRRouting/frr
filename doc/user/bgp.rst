@@ -2916,6 +2916,12 @@ Debugging
    Display Listen sockets and the vrf that created them.  Useful for debugging of when
    listen is not working and this is considered a developer debug statement.
 
+.. clicmd:: debug bgp bfd
+
+   Enable or disable debugging for BFD events. This will show BFD integration
+   library messages and BGP BFD integration messages that are mostly state
+   transitions and validation problems.
+
 .. clicmd:: debug bgp neighbor-events
 
    Enable or disable debugging for neighbor events. This provides general
