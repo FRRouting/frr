@@ -97,6 +97,11 @@ DEFINE_HOOK(bgp_snmp_update_stats,
 	    (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
 	    (rn, pi, added))
 
+DEFINE_HOOK(bgp_rpki_prefix_status,
+	    (struct peer *peer, struct attr *attr,
+	     const struct prefix *prefix),
+	    (peer, attr, prefix))
+
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
@@ -7554,6 +7559,21 @@ static const char *bgp_origin2str(uint8_t origin)
 	return "n/a";
 }
 
+static const char *bgp_rpki_validation2str(int v_state)
+{
+	switch (v_state) {
+	case 1:
+		return "valid";
+	case 2:
+		return "not found";
+	case 3:
+		return "invalid";
+	default:
+		break;
+	}
+	return "ERROR";
+}
+
 int bgp_aggregate_unset(struct bgp *bgp, struct prefix *prefix, afi_t afi,
 			safi_t safi, char *errmsg, size_t errmsg_len)
 {
@@ -9568,6 +9588,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	int i;
 	char *nexthop_hostname =
 		bgp_nexthop_hostname(path->peer, path->nexthop);
+	int rpki_validation_state = 0;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -10164,6 +10185,20 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " (%s)",
 				bgp_path_selection_reason2str(bn->reason));
 		}
+	}
+
+	const struct prefix *p = bgp_dest_get_prefix(bn);
+	if (p->family == AF_INET || p->family == AF_INET6)
+		rpki_validation_state = hook_call(bgp_rpki_prefix_status,
+						  path->peer, path->attr, p);
+	if (rpki_validation_state) {
+		if (json_paths)
+			json_object_string_add(
+				json_path, "rpkiValidationState",
+				bgp_rpki_validation2str(rpki_validation_state));
+		else
+			vty_out(vty, ", validation-state: %s",
+				bgp_rpki_validation2str(rpki_validation_state));
 	}
 
 	if (json_bestpath)

@@ -562,6 +562,7 @@ static int bgp_rpki_module_init(void)
 {
 	lrtr_set_alloc_functions(malloc_wrapper, realloc_wrapper, free_wrapper);
 
+	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, &bgp_rpki_fini);
 

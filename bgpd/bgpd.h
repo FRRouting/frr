@@ -2371,6 +2371,11 @@ DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp))
 DECLARE_HOOK(bgp_snmp_update_stats,
 	     (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
 	     (rn, pi, added))
+DECLARE_HOOK(bgp_rpki_prefix_status,
+	     (struct peer * peer, struct attr *attr,
+	      const struct prefix *prefix),
+	     (peer, attr, prefix))
+
 void peer_nsf_stop(struct peer *peer);
 
 #endif /* _QUAGGA_BGPD_H */
