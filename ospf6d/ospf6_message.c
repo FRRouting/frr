@@ -1893,6 +1893,13 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 	   so that ospf6_send_dbdesc () can send those LSAs */
 	size = sizeof(struct ospf6_lsa_header) + sizeof(struct ospf6_dbdesc);
 	for (ALL_LSDB(on->summary_list, lsa, lsanext)) {
+		/* if stub area then don't advertise AS-External LSAs */
+		if (IS_AREA_STUB(on->ospf6_if->area)
+		    && ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL) {
+			ospf6_lsdb_remove(lsa, on->summary_list);
+			continue;
+		}
+
 		if (size + sizeof(struct ospf6_lsa_header)
 		    > ospf6_packet_max(on->ospf6_if)) {
 			ospf6_lsdb_lsa_unlock(lsa);

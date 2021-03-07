@@ -1099,6 +1099,27 @@ void ospf6_asbr_send_externals_to_area(struct ospf6_area *oa)
 	}
 }
 
+/* When an area is stubified, remove all the external LSAs in the area */
+void ospf6_asbr_remove_externals_from_area(struct ospf6_area *oa)
+{
+	struct ospf6_lsa *lsa, *lsanext;
+	struct listnode *node, *nnode;
+	struct ospf6_area *area;
+	struct ospf6 *ospf6 = oa->ospf6;
+
+
+	/* skip if router is in other non-stub areas */
+	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area))
+		if (!IS_AREA_STUB(area))
+			return;
+
+	/* if router is only in a stub area then purge AS-External LSAs */
+	for (ALL_LSDB(oa->ospf6->lsdb, lsa, lsanext)) {
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL)
+			ospf6_lsdb_remove(lsa, ospf6->lsdb);
+	}
+}
+
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 				 struct prefix *prefix,
 				 unsigned int nexthop_num,
