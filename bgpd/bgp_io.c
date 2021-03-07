@@ -451,13 +451,10 @@ done : {
  */
 static uint16_t bgp_read(struct peer *peer)
 {
-	size_t readsize; // how many bytes we want to read
 	ssize_t nbytes;  // how many bytes we actually read
 	uint16_t status = 0;
-	uint8_t ibw[peer->max_packet_size * BGP_READ_PACKET_MAX];
 
-	readsize = MIN(ringbuf_space(peer->ibuf_work), sizeof(ibw));
-	nbytes = read(peer->fd, ibw, readsize);
+	nbytes = ringbuf_read(peer->ibuf_work, peer->fd);
 
 	/* EAGAIN or EWOULDBLOCK; come back later */
 	if (nbytes < 0 && ERRNO_IO_RETRY(errno)) {
@@ -500,9 +497,6 @@ static uint16_t bgp_read(struct peer *peer)
 
 		BGP_EVENT_ADD(peer, TCP_connection_closed);
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
-	} else {
-		assert(ringbuf_put(peer->ibuf_work, ibw, nbytes)
-		       == (size_t)nbytes);
 	}
 
 	return status;
