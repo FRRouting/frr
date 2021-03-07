@@ -2391,14 +2391,7 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
                     logger.error(errormsg)
                     return False
 
-                try:
-                    community_type = int(community_type)
-                    cmd = "{} {} {} {}".format(cmd, community_type, action, value)
-                except ValueError:
-
-                    cmd = "{} {} {} {} {}".format(
-                        cmd, community_type, name, action, value
-                    )
+                cmd = "{} {} {} {} {}".format(cmd, community_type, name, action, value)
 
                 if del_action:
                     cmd = "no {}".format(cmd)
