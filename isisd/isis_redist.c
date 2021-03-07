@@ -219,7 +219,7 @@ static void isis_redist_ensure_default(struct isis *isis, int family)
 /* Handle notification about route being added */
 void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, uint8_t distance,
-		     uint32_t metric)
+		     uint32_t metric, const route_tag_t tag)
 {
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
@@ -250,6 +250,7 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	info->origin = type;
 	info->distance = distance;
 	info->metric = metric;
+	info->tag = tag;
 
 	if (is_default_prefix(p)
 	    && (!src_p || !src_p->prefixlen)) {
@@ -288,7 +289,7 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 		 * "always" setting will ignore routes with origin
 		 * DEFAULT_ROUTE. */
 		isis_redist_add(isis, DEFAULT_ROUTE, p, NULL, 254,
-				MAX_WIDE_PATH_METRIC);
+				MAX_WIDE_PATH_METRIC, 0);
 		return;
 	}
 

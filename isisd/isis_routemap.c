@@ -112,6 +112,35 @@ static const struct route_map_rule_cmd
 
 /* ------------------------------------------------------------*/
 
+/* `match tag TAG' */
+/* Match function return 1 if match is success else return zero. */
+static enum route_map_cmd_result_t
+route_match_tag(void *rule, const struct prefix *p, void *object)
+{
+	route_tag_t *tag;
+	struct isis_ext_info *info;
+	route_tag_t info_tag;
+
+	tag = rule;
+	info = object;
+
+	info_tag = info->tag;
+	if (info_tag == *tag)
+		return RMAP_MATCH;
+	else
+		return RMAP_NOMATCH;
+}
+
+/* Route map commands for tag matching. */
+static const struct route_map_rule_cmd route_match_tag_cmd = {
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
+	route_map_rule_tag_free,
+};
+
+/* ------------------------------------------------------------*/
+
 static enum route_map_cmd_result_t
 route_match_ipv6_address(void *rule, const struct prefix *prefix, void *object)
 {
@@ -234,6 +263,9 @@ void isis_route_map_init(void)
 	route_map_match_ipv6_address_prefix_list_hook(generic_match_add);
 	route_map_no_match_ipv6_address_prefix_list_hook(generic_match_delete);
 
+	route_map_match_tag_hook(generic_match_add);
+	route_map_no_match_tag_hook(generic_match_delete);
+
 	route_map_set_metric_hook(generic_set_add);
 	route_map_no_set_metric_hook(generic_set_delete);
 
@@ -241,5 +273,6 @@ void isis_route_map_init(void)
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
+	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_set(&route_set_metric_cmd);
 }
