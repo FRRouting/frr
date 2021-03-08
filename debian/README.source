@@ -9,7 +9,12 @@ echo $VERSION
 
 Update debian/sid branch
 - git checkout debian/master
-- git merge frr-$VERSION
+
+Download upstream tarball:
+- uscan --download --verbose --download-version $VERSION
+
+Import the upstream tarball and link the upstream history
+- gbp import-orig --upstream-vcs-tag=frr-$VERSION ../frr_$VERSION.orig.tar.gz
 
 Update the debian/copyright file:
 - cme update dpkg-copyright
@@ -17,12 +22,6 @@ See also https://github.com/dod38fr/config-model/wiki/Updating-debian-copyright-
 
 Check patches (and cleanup if necessary):
 - gbp pq rebase --commit --drop
-
-Download upstream tarball:
-- uscan --download --verbose --download-version $VERSION
-
-Add pristine-tar:
-- pristine-tar commit ../frr_$VERSION.orig.tar.gz v$VERSION
 
 Generate a temporary changelog:
 - gbp dch --new-version=$VERSION-1 --snapshot --auto --commit debian/
@@ -42,4 +41,4 @@ Push on salsa:
 For more details, see
 https://honk.sigxcpu.org/projects/git-buildpackage/manual-html/gbp.import.upstream-git.html#gbp.import.upstream.git.notarball
 
- -- Ondřej Surý <Ondřej Surý <ondrej@debian.org>>, Thu,  4 Mar 2021 08:17:16 +0100
+ -- Ondřej Surý <Ondřej Surý <ondrej@debian.org>>, Mon,  8 Mar 2021 09:40:07 +0100
