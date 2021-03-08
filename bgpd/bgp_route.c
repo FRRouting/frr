@@ -10203,7 +10203,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				json_path, "rpkiValidationState",
 				bgp_rpki_validation2str(rpki_validation_state));
 		else
-			vty_out(vty, ", validation-state: %s",
+			vty_out(vty, ", rpki validation-state: %s",
 				bgp_rpki_validation2str(rpki_validation_state));
 	}
 
