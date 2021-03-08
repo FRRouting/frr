@@ -32,7 +32,7 @@
 #include "static_memory.h"
 #include "static_zebra.h"
 
-DEFINE_MTYPE_STATIC(STATIC, STATIC_ROUTE, "Static Route Info");
+DEFINE_MTYPE(STATIC, STATIC_ROUTE, "Static Route Info");
 DEFINE_MTYPE(STATIC, STATIC_PATH, "Static Path");
 
 /* Install static path into rib. */
@@ -135,20 +135,26 @@ void static_del_route(struct route_node *rn, safi_t safi,
 		vrf_reset_user_cfged(svrf->vrf);
 }
 
-bool static_add_nexthop_validate(struct static_vrf *svrf, static_types type,
+bool static_add_nexthop_validate(const char *nh_vrf_name, static_types type,
 				 struct ipaddr *ipaddr)
 {
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_name(nh_vrf_name);
+	if (!vrf)
+		return true;
+
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
 		if (if_lookup_exact_address(&ipaddr->ipaddr_v4, AF_INET,
-					    svrf->vrf->vrf_id))
+					    vrf->vrf_id))
 			return false;
 		break;
 	case STATIC_IPV6_GATEWAY:
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		if (if_lookup_exact_address(&ipaddr->ipaddr_v6, AF_INET6,
-					    svrf->vrf->vrf_id))
+					    vrf->vrf_id))
 			return false;
 		break;
 	default:
@@ -158,7 +164,8 @@ bool static_add_nexthop_validate(struct static_vrf *svrf, static_types type,
 	return true;
 }
 
-struct static_path *static_add_path(struct route_node *rn, uint8_t distance)
+struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
+				    uint8_t distance)
 {
 	struct static_path *pn;
 	struct static_route_info *si;
@@ -169,6 +176,7 @@ struct static_path *static_add_path(struct route_node *rn, uint8_t distance)
 	pn = XCALLOC(MTYPE_STATIC_PATH, sizeof(struct static_path));
 
 	pn->distance = distance;
+	pn->table_id = table_id;
 	static_nexthop_list_init(&(pn->nexthop_list));
 
 	si = rn->info;
@@ -209,10 +217,7 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 
 	route_lock_node(rn);
 
-	nh_svrf = static_vty_get_unknown_vrf(nh_vrf);
-
-	if (!nh_svrf)
-		return NULL;
+	nh_svrf = static_vrf_lookup_by_name(nh_vrf);
 
 	/* Make new static route structure. */
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
@@ -220,8 +225,8 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 	nh->type = type;
 	nh->color = color;
 
-	nh->nh_vrf_id = nh_svrf->vrf->vrf_id;
-	strlcpy(nh->nh_vrfname, nh_svrf->vrf->name, sizeof(nh->nh_vrfname));
+	nh->nh_vrf_id = nh_svrf ? nh_svrf->vrf->vrf_id : VRF_UNKNOWN;
+	strlcpy(nh->nh_vrfname, nh_vrf, sizeof(nh->nh_vrfname));
 
 	if (ifname)
 		strlcpy(nh->ifname, ifname, sizeof(nh->ifname));
@@ -256,7 +261,7 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 	}
 	static_nexthop_list_add_after(&(pn->nexthop_list), cp, nh);
 
-	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN)
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
 		return nh;
 
 	/* check whether interface exists in system & install if it does */
@@ -266,7 +271,7 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
-		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
+		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
 			nh->ifindex = ifp->ifindex;
 		else
@@ -279,7 +284,7 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 		nh->bh_type = STATIC_BLACKHOLE_NULL;
 		break;
 	case STATIC_IFNAME:
-		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
+		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
 			nh->ifindex = ifp->ifindex;
 		} else
@@ -297,15 +302,9 @@ void static_install_nexthop(struct route_node *rn, struct static_path *pn,
 			    struct static_vrf *svrf, const char *ifname,
 			    static_types type, const char *nh_vrf)
 {
-	struct static_vrf *nh_svrf;
 	struct interface *ifp;
 
-	nh_svrf = static_vty_get_unknown_vrf(nh_vrf);
-
-	if (!nh_svrf)
-		return;
-
-	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN)
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
 		return;
 
 	/* check whether interface exists in system & install if it does */
@@ -324,7 +323,7 @@ void static_install_nexthop(struct route_node *rn, struct static_path *pn,
 		static_install_path(rn, pn, safi, svrf);
 		break;
 	case STATIC_IFNAME:
-		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
+		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
 			static_install_path(rn, pn, safi, svrf);
 
@@ -336,13 +335,9 @@ int static_delete_nexthop(struct route_node *rn, struct static_path *pn,
 			  safi_t safi, struct static_vrf *svrf,
 			  struct static_nexthop *nh)
 {
-	struct static_vrf *nh_svrf;
-
-	nh_svrf = static_vrf_lookup_by_name(nh->nh_vrfname);
-
 	static_nexthop_list_del(&(pn->nexthop_list), nh);
 
-	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN)
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
 		goto EXIT;
 
 	static_zebra_nht_register(rn, nh, false);
@@ -500,6 +495,8 @@ static void static_enable_vrf(struct static_vrf *svrf,
 					else
 						continue;
 				}
+				if (nh->nh_vrf_id == VRF_UNKNOWN)
+					continue;
 				static_install_path(rn, pn, safi, svrf);
 			}
 		}

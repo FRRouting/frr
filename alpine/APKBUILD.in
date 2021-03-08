@@ -6,7 +6,7 @@ pkgrel=0
 pkgdesc="FRRouting is a fork of quagga"
 url="https://frrouting.org/"
 license="GPL-2.0"
-depends="json-c c-ares ipsec-tools iproute2 python3 py-ipaddr bash"
+depends="json-c c-ares iproute2 python3 bash"
 makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     acct autoconf automake bash binutils bison bsd-compat-headers build-base
     c-ares c-ares-dev ca-certificates cryptsetup-libs curl device-mapper-libs

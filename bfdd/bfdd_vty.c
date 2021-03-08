@@ -447,7 +447,7 @@ static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json
 
 	jo = json_object_new_array();
 	bvt.jo = jo;
-	bfd_id_iterate(_display_peer_counter_json_iter, jo);
+	bfd_id_iterate(_display_peer_counter_json_iter, &bvt);
 
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
 	json_object_free(jo);

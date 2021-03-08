@@ -440,7 +440,11 @@ void isis_area_destroy(struct isis_area *area)
 
 	spftree_area_del(area);
 
+	if (area->spf_timer[0])
+		isis_spf_timer_free(THREAD_ARG(area->spf_timer[0]));
 	THREAD_TIMER_OFF(area->spf_timer[0]);
+	if (area->spf_timer[1])
+		isis_spf_timer_free(THREAD_ARG(area->spf_timer[1]));
 	THREAD_TIMER_OFF(area->spf_timer[1]);
 
 	spf_backoff_free(area->spf_delay_ietf[0]);
@@ -581,6 +585,7 @@ void isis_finish(struct isis *isis)
 			isis_vrf_unlink(isis, vrf);
 	}
 
+	isis_redist_free(isis);
 	list_delete(&isis->area_list);
 	list_delete(&isis->init_circ_list);
 	XFREE(MTYPE_ISIS, isis);
@@ -2310,6 +2315,9 @@ static void area_resign_level(struct isis_area *area, int level)
 			area->spftree[tree][level - 1] = NULL;
 		}
 	}
+
+	if (area->spf_timer[level - 1])
+		isis_spf_timer_free(THREAD_ARG(area->spf_timer[level - 1]));
 
 	THREAD_TIMER_OFF(area->spf_timer[level - 1]);
 

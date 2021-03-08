@@ -808,8 +808,10 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					break;
 				}
 			}
-			if (ret == RMAP_PERMITMATCH)
+			if (ret == RMAP_PERMITMATCH) {
+				bgp_dest_unlock_node(dest);
 				break;
+			}
 		}
 		bgp->peer_self->rmap_type = 0;
 

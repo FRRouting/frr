@@ -71,6 +71,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
+
+	pim->vrf = NULL;
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pim);
 }
 
@@ -153,10 +155,16 @@ static int pim_vrf_delete(struct vrf *vrf)
 {
 	struct pim_instance *pim = vrf->info;
 
+	if (!pim)
+		return 0;
+
 	zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
 	pim_ssmpingd_destroy(pim);
 	pim_instance_terminate(pim);
+
+	vrf->info = NULL;
+
 	return 0;
 }
 

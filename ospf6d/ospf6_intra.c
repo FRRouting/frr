@@ -76,7 +76,8 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 				  *)(start
 				     + pos * (sizeof(struct
 						     ospf6_router_lsdesc)));
-		if ((char *)lsdesc < end) {
+		if ((char *)lsdesc + sizeof(struct ospf6_router_lsdesc)
+		    <= end) {
 			if (buf && (buflen > INET_ADDRSTRLEN * 2)) {
 				inet_ntop(AF_INET,
 					  &lsdesc->neighbor_interface_id, buf1,
@@ -84,12 +85,13 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 				inet_ntop(AF_INET, &lsdesc->neighbor_router_id,
 					  buf2, sizeof(buf2));
 				sprintf(buf, "%s/%s", buf2, buf1);
+
+				return buf;
 			}
-		} else
-			return NULL;
+		}
 	}
 
-	return buf;
+	return NULL;
 }
 
 static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
@@ -411,14 +413,15 @@ static char *ospf6_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
 
 		if ((current + sizeof(struct ospf6_network_lsdesc)) <= end) {
 			lsdesc = (struct ospf6_network_lsdesc *)current;
-			if (buf)
+			if (buf) {
 				inet_ntop(AF_INET, &lsdesc->router_id, buf,
 					  buflen);
-		} else
-			return NULL;
+				return buf;
+			}
+		}
 	}
 
-	return (buf);
+	return NULL;
 }
 
 static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
@@ -602,16 +605,15 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 		end = (char *)lsa->header + ntohs(lsa->header->length);
 		current = start;
 
-		do {
+		while (current + sizeof(struct ospf6_prefix) <= end) {
 			prefix = (struct ospf6_prefix *)current;
 			if (prefix->prefix_length == 0
 			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
 				return NULL;
 			}
 
-			if (cnt < pos) {
-				current =
-					start + pos * OSPF6_PREFIX_SIZE(prefix);
+			if (cnt < (pos - 1)) {
+				current += OSPF6_PREFIX_SIZE(prefix);
 				cnt++;
 			} else {
 				memset(&in6, 0, sizeof(in6));
@@ -621,7 +623,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 				inet_ntop(AF_INET6, &in6, buf, buflen);
 				return (buf);
 			}
-		} while (current <= end);
+		}
 	}
 	return NULL;
 }
@@ -796,7 +798,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 				    + sizeof(struct ospf6_lsa_header));
 
 		prefixnum = ntohs(intra_prefix_lsa->prefix_num);
-		if (pos > prefixnum)
+		if ((pos + 1) > prefixnum)
 			return NULL;
 
 		start = (char *)intra_prefix_lsa
@@ -804,7 +806,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 		end = (char *)lsa->header + ntohs(lsa->header->length);
 		current = start;
 
-		do {
+		while (current + sizeof(struct ospf6_prefix) <= end) {
 			prefix = (struct ospf6_prefix *)current;
 			if (prefix->prefix_length == 0
 			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
@@ -812,8 +814,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 			}
 
 			if (cnt < pos) {
-				current =
-					start + pos * OSPF6_PREFIX_SIZE(prefix);
+				current += OSPF6_PREFIX_SIZE(prefix);
 				cnt++;
 			} else {
 				memset(&in6, 0, sizeof(in6));
@@ -825,9 +826,9 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 					prefix->prefix_length);
 				return (buf);
 			}
-		} while (current <= end);
+		}
 	}
-	return (buf);
+	return NULL;
 }
 
 static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
@@ -1346,6 +1347,8 @@ static void ospf6_intra_prefix_update_route_origin(struct ospf6_route *oa_route)
 			g_route->path.origin.id = h_path->origin.id;
 			g_route->path.origin.adv_router =
 				h_path->origin.adv_router;
+			if (nroute)
+				ospf6_route_unlock(nroute);
 			break;
 		}
 	}
@@ -1368,7 +1371,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 	struct ospf6_nexthop *nh, *rnh;
 	char buf[PREFIX2STR_BUFFER];
 	bool route_found = false;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct ospf6_lsa *lsa;
 	struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
 
@@ -1571,12 +1574,20 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 					ifp = if_lookup_prefix(
 						&old_route->prefix,
 						oa->ospf6->vrf_id);
-					if (ifp)
-						ospf6_route_add_nexthop(
-								old_route,
+				}
+
+				if (ifp) {
+					/* Nexthop interface found */
+					ospf6_route_add_nexthop(old_route,
 								ifp->ifindex,
 								NULL);
 				} else {
+					/* The connected interfaces between
+					 * routers can be in different networks.
+					 * In this case the matching interface
+					 * is not found. Copy nexthops from the
+					 * link state entry
+					 */
 					ospf6_route_merge_nexthops(old_route,
 								   ls_entry);
 				}
@@ -1626,7 +1637,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 	struct ospf6_prefix *op;
 	char *start, *current, *end;
 	char buf[PREFIX2STR_BUFFER];
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	int direct_connect = 0;
 	struct ospf6_path *path;
 
@@ -1716,10 +1727,17 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		if (direct_connect) {
 			ifp = if_lookup_prefix(&route->prefix,
 					       oa->ospf6->vrf_id);
-			if (ifp)
-				ospf6_route_add_nexthop(route, ifp->ifindex,
-							NULL);
+		}
+
+		if (ifp) {
+			/* Nexthop interface found */
+			ospf6_route_add_nexthop(route, ifp->ifindex, NULL);
 		} else {
+			/* The connected interfaces between routers can be in
+			 * different networks. In this case the matching
+			 * interface is not found. Copy nexthops from the
+			 * link state entry
+			 */
 			ospf6_route_copy_nexthops(route, ls_entry);
 		}
 

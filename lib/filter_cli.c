@@ -162,8 +162,34 @@ DEFPY_YANG(
 	"Wildcard bits\n")
 {
 	int64_t sseq;
+	struct acl_dup_args ada = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		ada.ada_type = "ipv4";
+		ada.ada_name = name;
+		if (host_str && mask_str == NULL) {
+			ada.ada_xpath[0] = "./host";
+			ada.ada_value[0] = host_str;
+		} else if (host_str && mask_str) {
+			ada.ada_xpath[0] = "./network/address";
+			ada.ada_value[0] = host_str;
+			ada.ada_xpath[1] = "./network/mask";
+			ada.ada_value[1] = mask_str;
+		} else {
+			ada.ada_xpath[0] = "./source-any";
+			ada.ada_value[0] = "true";
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (acl_is_dup(vty->candidate_config->dnode, &ada))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -233,7 +259,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -242,7 +268,7 @@ DEFPY_YANG(
 				 mask_str ? mask_str : CISCO_HOST_WILDCARD_MASK,
 				 NULL, NULL);
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -270,9 +296,57 @@ DEFPY_YANG(
 	"Destination address to match\n"
 	"Any destination host\n")
 {
+	int idx = 0;
 	int64_t sseq;
+	struct acl_dup_args ada = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		ada.ada_type = "ipv4";
+		ada.ada_name = name;
+		if (src_str && src_mask_str == NULL) {
+			ada.ada_xpath[idx] = "./host";
+			ada.ada_value[idx] = src_str;
+			idx++;
+		} else if (src_str && src_mask_str) {
+			ada.ada_xpath[idx] = "./network/address";
+			ada.ada_value[idx] = src_str;
+			idx++;
+			ada.ada_xpath[idx] = "./network/mask";
+			ada.ada_value[idx] = src_mask_str;
+			idx++;
+		} else {
+			ada.ada_xpath[idx] = "./source-any";
+			ada.ada_value[idx] = "true";
+			idx++;
+		}
+
+		if (dst_str && dst_mask_str == NULL) {
+			ada.ada_xpath[idx] = "./destination-host";
+			ada.ada_value[idx] = dst_str;
+			idx++;
+		} else if (dst_str && dst_mask_str) {
+			ada.ada_xpath[idx] = "./destination-network/address";
+			ada.ada_value[idx] = dst_str;
+			idx++;
+			ada.ada_xpath[idx] = "./destination-network/mask";
+			ada.ada_value[idx] = dst_mask_str;
+			idx++;
+		} else {
+			ada.ada_xpath[idx] = "./destination-any";
+			ada.ada_value[idx] = "true";
+			idx++;
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (acl_is_dup(vty->candidate_config->dnode, &ada))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -362,7 +436,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -395,7 +469,7 @@ DEFPY_YANG(
 				"0.0.0.0", CISCO_ANY_WILDCARD_MASK);
 	}
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -419,8 +493,34 @@ DEFPY_YANG(
 	"Match any IPv4\n")
 {
 	int64_t sseq;
+	struct acl_dup_args ada = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		ada.ada_type = "ipv4";
+		ada.ada_name = name;
+
+		if (prefix_str) {
+			ada.ada_xpath[0] = "./ipv4-prefix";
+			ada.ada_value[0] = prefix_str;
+			if (exact) {
+				ada.ada_xpath[1] = "./ipv4-exact-match";
+				ada.ada_value[1] = "true";
+			}
+		} else {
+			ada.ada_xpath[0] = "./any";
+			ada.ada_value[0] = "true";
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (acl_is_dup(vty->candidate_config->dnode, &ada))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -488,7 +588,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -501,7 +601,7 @@ DEFPY_YANG(
 		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
 					 exact);
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -590,8 +690,34 @@ DEFPY_YANG(
 	"Match any IPv6\n")
 {
 	int64_t sseq;
+	struct acl_dup_args ada = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		ada.ada_type = "ipv6";
+		ada.ada_name = name;
+
+		if (prefix_str) {
+			ada.ada_xpath[0] = "./ipv6-prefix";
+			ada.ada_value[0] = prefix_str;
+			if (exact) {
+				ada.ada_xpath[1] = "./ipv6-exact-match";
+				ada.ada_value[1] = "true";
+			}
+		} else {
+			ada.ada_xpath[0] = "./any";
+			ada.ada_value[0] = "true";
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (acl_is_dup(vty->candidate_config->dnode, &ada))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -660,7 +786,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -673,7 +799,7 @@ DEFPY_YANG(
 		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
 					 exact);
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -765,8 +891,30 @@ DEFPY_YANG(
 	"Match any MAC address\n")
 {
 	int64_t sseq;
+	struct acl_dup_args ada = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		ada.ada_type = "mac";
+		ada.ada_name = name;
+
+		if (mac_str) {
+			ada.ada_xpath[0] = "./mac";
+			ada.ada_value[0] = mac_str;
+		} else {
+			ada.ada_xpath[0] = "./any";
+			ada.ada_value[0] = "true";
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (acl_is_dup(vty->candidate_config->dnode, &ada))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -831,7 +979,7 @@ DEFPY_YANG(
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
@@ -844,7 +992,7 @@ DEFPY_YANG(
 		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
 					 false);
 	if (sseq == -1)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
@@ -1129,7 +1277,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Use access-list data structure to fetch sequence. */
 	assert(action != NULL);
@@ -1142,7 +1290,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	pl = nb_running_get_entry(dnode, NULL, true);
 	pentry = prefix_list_entry_lookup(pl, p, plt, -1, le, ge);
 	if (pentry == NULL)
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintfrr(xpath_entry, sizeof(xpath_entry),
 		   "%s/entry[sequence='%" PRId64 "']", xpath, pentry->seq);
@@ -1171,8 +1319,43 @@ DEFPY_YANG(
 	"Maximum prefix length\n")
 {
 	int64_t sseq;
+	int arg_idx = 0;
+	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		pda.pda_type = "ipv4";
+		pda.pda_name = name;
+		if (prefix_str) {
+			pda.pda_xpath[arg_idx] = "./ipv4-prefix";
+			pda.pda_value[arg_idx] = prefix_str;
+			arg_idx++;
+			if (ge_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv4-prefix-length-greater-or-equal";
+				pda.pda_value[arg_idx] = ge_str;
+				arg_idx++;
+			}
+			if (le_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv4-prefix-length-lesser-or-equal";
+				pda.pda_value[arg_idx] = le_str;
+				arg_idx++;
+			}
+		} else {
+			pda.pda_xpath[0] = "./any";
+			pda.pda_value[0] = "";
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (plist_is_dup(vty->candidate_config->dnode, &pda))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
@@ -1331,8 +1514,43 @@ DEFPY_YANG(
 	"Minimum prefix length\n")
 {
 	int64_t sseq;
+	int arg_idx = 0;
+	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		pda.pda_type = "ipv6";
+		pda.pda_name = name;
+		if (prefix_str) {
+			pda.pda_xpath[arg_idx] = "./ipv6-prefix";
+			pda.pda_value[arg_idx] = prefix_str;
+			arg_idx++;
+			if (ge_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv6-prefix-length-greater-or-equal";
+				pda.pda_value[arg_idx] = ge_str;
+				arg_idx++;
+			}
+			if (le_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv6-prefix-length-lesser-or-equal";
+				pda.pda_value[arg_idx] = le_str;
+				arg_idx++;
+			}
+		} else {
+			pda.pda_xpath[0] = "./any";
+			pda.pda_value[0] = "";
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (plist_is_dup(vty->candidate_config->dnode, &pda))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if

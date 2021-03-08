@@ -187,6 +187,7 @@ babel_interface_address_delete (ZAPI_CALLBACK_ARGS)
     send_request(ifc->ifp, NULL, 0);
     send_update(ifc->ifp, 0, NULL, 0);
 
+    connected_free(&ifc);
     return 0;
 }
 

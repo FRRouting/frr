@@ -248,6 +248,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_send_lsupdate);
 	THREAD_OFF(oi->thread_send_lsack);
 	THREAD_OFF(oi->thread_sso);
+	THREAD_OFF(oi->thread_wait_timer);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
@@ -302,6 +303,7 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_link_lsa);
 	THREAD_OFF(oi->thread_intra_prefix_lsa);
 	THREAD_OFF(oi->thread_as_extern_lsa);
+	THREAD_OFF(oi->thread_wait_timer);
 }
 
 static struct in6_addr *
@@ -505,6 +507,7 @@ static void ospf6_interface_state_change(uint8_t next_state,
 			  IPV6_JOIN_GROUP);
 
 	OSPF6_ROUTER_LSA_SCHEDULE(oi->area);
+	OSPF6_LINK_LSA_SCHEDULE(oi);
 	if (next_state == OSPF6_INTERFACE_DOWN) {
 		OSPF6_NETWORK_LSA_EXECUTE(oi);
 		OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi);
@@ -784,7 +787,7 @@ int interface_up(struct thread *thread)
 	else {
 		ospf6_interface_state_change(OSPF6_INTERFACE_WAITING, oi);
 		thread_add_timer(master, wait_timer, oi, oi->dead_interval,
-				 NULL);
+				 &oi->thread_wait_timer);
 	}
 
 	return 0;
@@ -1678,8 +1681,11 @@ DEFUN (no_ipv6_ospf6_passive,
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_sso);
-	thread_add_event(master, ospf6_hello_send, oi, 0,
-			 &oi->thread_send_hello);
+
+	/* don't send hellos over loopback interface */
+	if (!if_is_loopback(oi->interface))
+		thread_add_event(master, ospf6_hello_send, oi, 0,
+				 &oi->thread_send_hello);
 
 	return CMD_SUCCESS;
 }

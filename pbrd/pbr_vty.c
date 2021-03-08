@@ -910,16 +910,22 @@ DEFPY (show_pbr_interface,
 			if (j)
 				this_iface = json_object_new_object();
 
-			if (!ifp->info)
+			if (!ifp->info) {
+				json_object_free(this_iface);
 				continue;
+			}
 
-			if (name && strcmp(ifp->name, name) != 0)
+			if (name && strcmp(ifp->name, name) != 0) {
+				json_object_free(this_iface);
 				continue;
+			}
 
 			pbr_ifp = ifp->info;
 
-			if (strcmp(pbr_ifp->mapname, "") == 0)
+			if (strcmp(pbr_ifp->mapname, "") == 0) {
+				json_object_free(this_iface);
 				continue;
+			}
 
 			pbrm = pbrm_find(pbr_ifp->mapname);
 

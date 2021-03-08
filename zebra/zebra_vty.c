@@ -1275,7 +1275,7 @@ DEFUN (ip_nht_default_route,
 
 	zvrf->zebra_rnh_ip_default_route = 1;
 
-	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1571,7 +1571,7 @@ DEFUN (no_ip_nht_default_route,
 		return CMD_SUCCESS;
 
 	zvrf->zebra_rnh_ip_default_route = 0;
-	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1591,7 +1591,7 @@ DEFUN (ipv6_nht_default_route,
 		return CMD_SUCCESS;
 
 	zvrf->zebra_rnh_ipv6_default_route = 1;
-	zebra_evaluate_rnh(zvrf, AFI_IP6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1613,7 +1613,7 @@ DEFUN (no_ipv6_nht_default_route,
 		return CMD_SUCCESS;
 
 	zvrf->zebra_rnh_ipv6_default_route = 0;
-	zebra_evaluate_rnh(zvrf, AFI_IP6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1909,9 +1909,6 @@ DEFPY (show_route_summary,
 	struct route_table *table;
 	bool uj = use_json(argc, argv);
 
-	if (table_id == 0)
-		table_id = RT_TABLE_MAIN;
-
 	if (vrf_all) {
 		struct vrf *vrf;
 		struct zebra_vrf *zvrf;
@@ -1920,8 +1917,13 @@ DEFPY (show_route_summary,
 			if ((zvrf = vrf->info) == NULL)
 				continue;
 
-			table = zebra_vrf_lookup_table_with_table_id(
-				afi, SAFI_UNICAST, zvrf->vrf->vrf_id, table_id);
+			if (table_id == 0)
+				table = zebra_vrf_table(afi, SAFI_UNICAST,
+							zvrf->vrf->vrf_id);
+			else
+				table = zebra_vrf_lookup_table_with_table_id(
+					afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
+					table_id);
 
 			if (!table)
 				continue;
@@ -1938,8 +1940,11 @@ DEFPY (show_route_summary,
 		if (vrf_name)
 			VRF_GET_ID(vrf_id, vrf_name, false);
 
-		table = zebra_vrf_lookup_table_with_table_id(afi, SAFI_UNICAST,
-							     vrf_id, table_id);
+		if (table_id == 0)
+			table = zebra_vrf_table(afi, SAFI_UNICAST, vrf_id);
+		else
+			table = zebra_vrf_lookup_table_with_table_id(
+				afi, SAFI_UNICAST, vrf_id, table_id);
 		if (!table)
 			return CMD_SUCCESS;
 

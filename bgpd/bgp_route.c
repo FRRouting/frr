@@ -2633,7 +2633,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	 */
 	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("SELECT_DEFER falg set for route %p", dest);
+			zlog_debug("SELECT_DEFER flag set for route %p", dest);
 		return;
 	}
 
@@ -10606,8 +10606,13 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 					   vty,
 					   use_json,
 					   json_paths);
-		if (use_json && display)
-			json_object_object_add(json, "paths", json_paths);
+		if (use_json) {
+			if (display)
+				json_object_object_add(json, "paths",
+						       json_paths);
+			else
+				json_object_free(json_paths);
+		}
 	} else {
 		if ((dest = bgp_node_match(rib, &match)) != NULL) {
 			const struct prefix *dest_p = bgp_dest_get_prefix(dest);
@@ -10672,6 +10677,7 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 	int i;
 	char *str;
 	int first = 0;
+	int ret;
 
 	b = buffer_new(1024);
 	for (i = 0; i < argc; i++) {
@@ -10696,10 +10702,13 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi,
+	ret = bgp_show(vty, bgp, afi, safi,
 			(exact ? bgp_show_type_lcommunity_exact
 			       : bgp_show_type_lcommunity),
 			lcom, uj, false);
+
+	lcommunity_free(&lcom);
+	return ret;
 }
 
 static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
@@ -11467,9 +11476,6 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 	struct bgp_path_info *pi;
 	const struct prefix *rn_p;
 
-	if (dest == top)
-		return;
-
 	if (!bgp_dest_has_bgp_path_info_data(dest))
 		return;
 
@@ -11950,6 +11956,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 				"No such neighbor or address family");
 			vty_out(vty, "%s\n", json_object_to_json_string(json));
 			json_object_free(json);
+			json_object_free(json_loop);
 		} else
 			vty_out(vty, "%% No such neighbor or address family\n");
 
@@ -12958,9 +12965,13 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 		if (bgp->distance_ebgp[afi][safi])
 			return bgp->distance_ebgp[afi][safi];
 		return ZEBRA_EBGP_DISTANCE_DEFAULT;
-	} else {
+	} else if (peer->sort == BGP_PEER_IBGP) {
 		if (bgp->distance_ibgp[afi][safi])
 			return bgp->distance_ibgp[afi][safi];
+		return ZEBRA_IBGP_DISTANCE_DEFAULT;
+	} else {
+		if (bgp->distance_local[afi][safi])
+			return bgp->distance_local[afi][safi];
 		return ZEBRA_IBGP_DISTANCE_DEFAULT;
 	}
 }

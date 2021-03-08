@@ -988,7 +988,7 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 		/* If permit and default already advertise then return. */
 		if (lsa && !IS_LSA_MAXAGE(lsa)) {
 			if (IS_DEBUG_OSPF_DEFAULT_INFO)
-				zlog_debug("Defult lsa already originated");
+				zlog_debug("Default lsa already originated");
 			return true;
 		}
 

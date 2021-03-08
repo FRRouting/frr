@@ -1,0 +1,397 @@
+name: frr
+version: 7.5.1
+summary: FRRouting BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
+description: BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
+ FRRouting (FRR) is free software which manages TCP/IP based routing 
+ protocols. It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, 
+ RIPng, PIM, LDP, Babel, EIGRP, PBR (Policy-based routing), BFD and OpenFabric
+ as well as the IPv6 versions of these.
+ FRRouting (frr) is a fork of Quagga.
+confinement: strict
+grade: devel
+
+apps:
+    vtysh:
+        command: bin/vtysh --vty_socket $SNAP_DATA --config_dir $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+        aliases: [vtysh]
+    version:
+        command: bin/show_version
+    readme:
+        command: bin/cat $SNAP/doc/README.usage.md
+    zebra:
+        command: bin/zebra-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    bgpd:
+        command: bin/bgpd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ospfd:
+        command: bin/ospfd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ospf6d:
+        command: bin/ospf6d-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    isisd:
+        command: bin/isisd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ripd:
+        command: bin/ripd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ripngd:
+        command: bin/ripngd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    pimd:
+        command: bin/pimd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ldpd:
+        command: bin/ldpd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    nhrpd:
+        command: bin/nhrpd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    babeld:
+        command: bin/babeld-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    eigrpd:
+        command: bin/eigrpd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    pbrd:
+        command: bin/pbrd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    staticd:
+        command: bin/staticd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    bfdd:
+        command: bin/bfdd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    fabricd:
+        command: bin/fabricd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    vrrpd:
+        command: bin/vrrpd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    set:
+        command: bin/set-options
+    zebra-debug:
+        command: sbin/zebra -f $SNAP_DATA/zebra.conf --pid_file $SNAP_DATA/zebra.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    bgpd-debug:
+        command: sbin/bgpd -f $SNAP_DATA/bgpd.conf --pid_file $SNAP_DATA/bgpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --moduledir $SNAP/lib/frr/modules
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ospfd-debug:
+        command: sbin/ospfd -f $SNAP_DATA/ospfd.conf --pid_file $SNAP_DATA/ospfd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ospf6d-debug:
+        command: sbin/ospf6d -f $SNAP_DATA/ospf6d.conf --pid_file $SNAP_DATA/ospf6d.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    isisd-debug:
+        command: sbin/isisd -f $SNAP_DATA/isisd.conf --pid_file $SNAP_DATA/isisd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ripd-debug:
+        command: sbin/ripd -f $SNAP_DATA/ripd.conf --pid_file $SNAP_DATA/ripd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ripngd-debug:
+        command: sbin/ripngd -f $SNAP_DATA/ripngd.conf --pid_file $SNAP_DATA/ripngd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    pimd-debug:
+        command: sbin/pimd -f $SNAP_DATA/pimd.conf --pid_file $SNAP_DATA/pimd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    ldpd-debug:
+        command: sbin/ldpd -f $SNAP_DATA/ldpd.conf --pid_file $SNAP_DATA/ldpd.pid --socket $SNAP_DATA/zsock --ctl_socket $SNAP_DATA --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    nhrpd-debug:
+        command: sbin/nhrpd -f $SNAP_DATA/nhrpd.conf --pid_file $SNAP_DATA/nhrpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    babeld-debug:
+        command: sbin/babeld -f $SNAP_DATA/babeld.conf --pid_file $SNAP_DATA/babeld.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    eigrpd-debug:
+        command: sbin/eigrpd -f $SNAP_DATA/eigrpd.conf --pid_file $SNAP_DATA/eigrpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    pbrd-debug:
+        command: sbin/pbrd -f $SNAP_DATA/pbrd.conf --pid_file $SNAP_DATA/pbrd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    staticd-debug:
+        command: sbin/staticd -f $SNAP_DATA/staticd.conf --pid_file $SNAP_DATA/staticd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    bfdd-debug:
+        command: sbin/bfdd -f $SNAP_DATA/bfdd.conf --pid_file $SNAP_DATA/bfdd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --bfdctl $SNAP_DATA/bfdd.sock
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    fabricd-debug:
+        command: sbin/fabricd -f $SNAP_DATA/fabricd.conf --pid_file $SNAP_DATA/fabricd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    vrrpd-debug:
+        command: sbin/vrrpd -f $SNAP_DATA/vrrpd.conf --pid_file $SNAP_DATA/vrrpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+parts:
+    rtrlib:
+        build-packages:
+           - cmake
+           - make
+           - gcc
+           - libssh-dev
+        stage-packages:
+           - libssh-4
+        prime:
+           - lib/librtr.so*
+           - usr/lib/x86_64-linux-gnu/libssh.so*
+        source: https://github.com/rtrlib/rtrlib.git
+        source-type: git
+        source-tag: v0.7.0
+        plugin: cmake
+        configflags:
+           - -DCMAKE_BUILD_TYPE=Release
+    libyang:
+        build-packages:
+           - cmake
+           - make
+           - gcc
+           - libpcre3-dev
+        stage-packages:
+           - libpcre3
+        source: https://github.com/CESNET/libyang.git
+        source-type: git
+        source-tag: v1.0.184
+        plugin: cmake
+        configflags:
+           - -DCMAKE_INSTALL_PREFIX:PATH=/usr
+           - -DENABLE_LYD_PRIV=ON
+           - -DENABLE_CACHE=ON
+           - -DCMAKE_BUILD_TYPE:String="Release"
+    frr: 
+        after: [rtrlib,libyang]
+        build-packages:
+           - gcc
+           - autoconf
+           - automake
+           - libtool
+           - make
+           - gawk
+           - libreadline-dev
+           - texinfo
+           - libncurses5-dev
+           - texlive-latex-base
+           - texlive-generic-recommended
+           - libcap-dev
+           - imagemagick
+           - ghostscript
+           - groff
+           - hardening-wrapper
+           - libpcre3-dev
+           - chrpath
+           - pkg-config
+           - libjson-c-dev
+           - libc-ares-dev
+           - bison
+           - flex
+           - python3-dev
+           - protobuf-c-compiler
+           - python3-sphinx
+        stage-packages:
+           - coreutils
+           - iproute2
+           - logrotate
+           - libcap2
+           - libtinfo5
+           - libreadline6
+           - libjson-c2
+           - libc-ares2
+           - libatm1
+           - libprotobuf-c1
+           - libdb5.3
+        plugin: autotools
+        source: ../frr-7.5.1.tar.gz
+        configflags:
+            - --enable-vtysh
+            - --enable-isisd
+            - --enable-watchfrr
+            - --enable-ospfclient=yes
+            - --enable-ospfapi=yes
+            - --enable-multipath=64
+            - --enable-rtadv
+            - --enable-irdp
+            - --enable-user=root
+            - --enable-group=root
+            - --enable-pimd
+            - --enable-ldpd
+            - --enable-fpm
+            - --enable-protobuf
+            - --enable-rpki
+            - --enable-vrrpd
+            - --enable-configfile-mask=0640
+            - --enable-logfile-mask=0640 
+            - --localstatedir=/var/run
+            - --sbindir=/sbin
+            - --bindir=/bin
+            - --sysconfdir=/etc/frr
+            - --with-pkg-extra-version=
+    frr-defaults:
+        plugin: dump
+        source: defaults
+        organize:
+            zebra.conf.default: etc/frr/zebra.conf.default
+            bgpd.conf.default: etc/frr/bgpd.conf.default
+            isisd.conf.default: etc/frr/isisd.conf.default
+            ospf6d.conf.default: etc/frr/ospf6d.conf.default
+            ospfd.conf.default: etc/frr/ospfd.conf.default
+            pimd.conf.default: etc/frr/pimd.conf.default
+            ripd.conf.default: etc/frr/ripd.conf.default
+            ripngd.conf.default: etc/frr/ripngd.conf.default
+            ldpd.conf.default: etc/frr/ldpd.conf.default
+            nhrpd.conf.default: etc/frr/nhrpd.conf.default
+            babeld.conf.default: etc/frr/babeld.conf.default
+            eigrpd.conf.default: etc/frr/eigrpd.conf.default
+            pbrd.conf.default: etc/frr/pbrd.conf.default
+            bfdd.conf.default: etc/frr/bfdd.conf.default
+            fabricd.conf.default: etc/frr/fabricd.conf.default
+            vrrpd.conf.default: etc/frr/vrrpd.conf.default
+            vtysh.conf.default: etc/frr/vtysh.conf.default
+            staticd.conf.default: etc/frr/staticd.conf.default
+    frr-scripts:
+        plugin: make
+        source: scripts
+    helpers:
+        stage-packages:
+           - telnet
+           - traceroute
+        plugin: make
+        source: helpers
+        prime:
+           - bin/telnet
+           - bin/traceroute
+           - bin/traceroute6
+    docs:
+        plugin: dump
+        source: .
+        organize:
+            README.usage.md: doc/README.usage.md
+            README.snap_build.md: doc/README.snap_build.md
+            extra_version_info.txt: doc/extra_version_info.txt
+
+passthrough:
+    layout:
+         /usr/lib/x86_64-linux-gnu/libyang1:
+             bind: $SNAP/usr/lib/x86_64-linux-gnu/libyang1
+

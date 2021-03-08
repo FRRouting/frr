@@ -104,7 +104,10 @@ void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
 		if (((*bfd_info)->required_min_rx != min_rx)
 		    || ((*bfd_info)->desired_min_tx != min_tx)
 		    || ((*bfd_info)->detect_mult != detect_mult)
-		    || (profile && strcmp((*bfd_info)->profile, profile)))
+		    || ((*bfd_info)->profile[0] == 0 && profile)
+		    || ((*bfd_info)->profile[0] && profile == NULL)
+		    || (profile && (*bfd_info)->profile[0]
+			&& strcmp((*bfd_info)->profile, profile)))
 			*command = ZEBRA_BFD_DEST_UPDATE;
 	}
 
@@ -221,6 +224,17 @@ struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	int plen;
 	int local_remote_cbit;
 
+	/*
+	 * If the ifindex lookup fails the
+	 * rest of the data in the stream is
+	 * not read.  All examples of this function
+	 * call immediately use the dp->family which
+	 * is not good.  Ensure we are not using
+	 * random data
+	 */
+	memset(dp, 0, sizeof(*dp));
+	memset(sp, 0, sizeof(*sp));
+
 	/* Get interface index. */
 	ifindex = stream_getl(s);
 
@@ -246,13 +260,12 @@ struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	/* Get BFD status. */
 	*status = stream_getl(s);
 
-	if (sp) {
-		sp->family = stream_getc(s);
+	sp->family = stream_getc(s);
 
-		plen = prefix_blen(sp);
-		stream_get(&sp->u.prefix, s, plen);
-		sp->prefixlen = stream_getc(s);
-	}
+	plen = prefix_blen(sp);
+	stream_get(&sp->u.prefix, s, plen);
+	sp->prefixlen = stream_getc(s);
+
 	local_remote_cbit = stream_getc(s);
 	if (remote_cbit)
 		*remote_cbit = local_remote_cbit;

@@ -911,6 +911,7 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 			/* Workaround for Cisco's nexthop bug.  */
 			if (IN6_IS_ADDR_UNSPECIFIED(
 				    &path->attr->mp_nexthop_global)
+			    && path->peer->su_remote
 			    && path->peer->su_remote->sa.sa_family
 				       == AF_INET6) {
 				nexthop =
@@ -1196,7 +1197,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	int nh_othervrf = 0;
 	char buf_prefix[PREFIX_STRLEN];	/* filled in if we are debugging */
 	bool is_evpn;
-	int nh_updated;
+	bool nh_updated = false;
 	bool do_wt_ecmp;
 	uint64_t cum_bw = 0;
 
@@ -1386,11 +1387,21 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			}
 			nexthop = bgp_path_info_to_ipv6_nexthop(mpinfo_cp,
 								&ifindex);
-			nh_updated = update_ipv6nh_for_route_install(
-					nh_othervrf, nh_othervrf ?
-					info->extra->bgp_orig : bgp,
-					nexthop, ifindex,
-					mpinfo, info, is_evpn, api_nh);
+
+			if (!nexthop)
+				nh_updated = update_ipv4nh_for_route_install(
+					nh_othervrf,
+					nh_othervrf ? info->extra->bgp_orig
+						    : bgp,
+					&mpinfo_cp->attr->nexthop,
+					mpinfo_cp->attr, is_evpn, api_nh);
+			else
+				nh_updated = update_ipv6nh_for_route_install(
+					nh_othervrf,
+					nh_othervrf ? info->extra->bgp_orig
+						    : bgp,
+					nexthop, ifindex, mpinfo, info, is_evpn,
+					api_nh);
 		}
 
 		/* Did we get proper nexthop info to update zebra? */
@@ -2366,6 +2377,7 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 {
 	struct prefix pfx;
 	uint8_t fam = AF_INET;
+	char ifname[INTERFACE_NAMSIZ];
 
 	if (pbra->nh.type == NEXTHOP_TYPE_IPV6)
 		fam = AF_INET6;
@@ -2407,7 +2419,7 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	stream_put(s, &pfx.u.prefix, prefix_blen(&pfx));
 
 	stream_putw(s, 0);  /* dst port */
-
+	stream_putc(s, 0);  /* dsfield */
 	/* if pbr present, fwmark is not used */
 	if (pbr)
 		stream_putl(s, 0);
@@ -2416,7 +2428,8 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 
 	stream_putl(s, pbra->table_id);
 
-	stream_putl(s, 0); /* ifindex unused */
+	memset(ifname, 0, sizeof(ifname));
+	stream_put(s, ifname, INTERFACE_NAMSIZ); /* ifname unused */
 }
 
 static void bgp_encode_pbr_ipset_match(struct stream *s,
@@ -2719,6 +2732,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		stream_get(&esi, s, sizeof(esi_t));
 	} else {
 		state = stream_getl(s);
+		memset(&esi, 0, sizeof(esi_t));
 	}
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);

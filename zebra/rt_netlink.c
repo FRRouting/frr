@@ -268,8 +268,8 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 		proto = ZEBRA_ROUTE_BGP;
 		break;
 	case RTPROT_OSPF:
-		proto = (family == AFI_IP) ? ZEBRA_ROUTE_OSPF
-					   : ZEBRA_ROUTE_OSPF6;
+		proto = (family == AF_INET) ? ZEBRA_ROUTE_OSPF
+					    : ZEBRA_ROUTE_OSPF6;
 		break;
 	case RTPROT_ISIS:
 		proto = ZEBRA_ROUTE_ISIS;
@@ -1743,6 +1743,33 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 		nl_attr_nest_end(&req->n, nest);
 	}
 
+	/*
+	 * Always install blackhole routes without using nexthops, because of
+	 * the following kernel problems:
+	 * 1. Kernel nexthops don't suport unreachable/prohibit route types.
+	 * 2. Blackhole kernel nexthops are deleted when loopback is down.
+	 */
+	nexthop = dplane_ctx_get_ng(ctx)->nexthop;
+	if (nexthop) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			nexthop = nexthop->resolved;
+
+		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_ADMINPROHIB:
+				req->r.rtm_type = RTN_PROHIBIT;
+				break;
+			case BLACKHOLE_REJECT:
+				req->r.rtm_type = RTN_UNREACHABLE;
+				break;
+			default:
+				req->r.rtm_type = RTN_BLACKHOLE;
+				break;
+			}
+			return NLMSG_ALIGN(req->n.nlmsg_len);
+		}
+	}
+
 	if ((!fpm && kernel_nexthops_supported()) || (fpm && force_nhg)) {
 		/* Kernel supports nexthop objects */
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1793,27 +1820,6 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	if (nexthop_num == 1) {
 		nexthop_num = 0;
 		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
-			/*
-			 * So we want to cover 2 types of blackhole
-			 * routes here:
-			 * 1) A normal blackhole route( ala from a static
-			 *    install.
-			 * 2) A recursively resolved blackhole route
-			 */
-			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-				switch (nexthop->bh_type) {
-				case BLACKHOLE_ADMINPROHIB:
-					req->r.rtm_type = RTN_PROHIBIT;
-					break;
-				case BLACKHOLE_REJECT:
-					req->r.rtm_type = RTN_UNREACHABLE;
-					break;
-				default:
-					req->r.rtm_type = RTN_BLACKHOLE;
-					break;
-				}
-				return NLMSG_ALIGN(req->n.nlmsg_len);
-			}
 			if (CHECK_FLAG(nexthop->flags,
 				       NEXTHOP_FLAG_RECURSIVE)) {
 
@@ -3136,10 +3142,14 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	update_flags = dplane_ctx_mac_get_update_flags(ctx);
 	if (update_flags & DPLANE_MAC_REMOTE) {
 		flags |= NTF_SELF;
-		if (dplane_ctx_mac_is_sticky(ctx))
+		if (dplane_ctx_mac_is_sticky(ctx)) {
+			/* NUD_NOARP prevents the entry from expiring */
+			state |= NUD_NOARP;
+			/* sticky the entry from moving */
 			flags |= NTF_STICKY;
-		else
+		} else {
 			flags |= NTF_EXT_LEARNED;
+		}
 		/* if it was static-local previously we need to clear the
 		 * notify flags on replace with remote
 		 */

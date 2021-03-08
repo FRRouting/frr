@@ -74,7 +74,6 @@ DEFINE_MTYPE_STATIC(LIB, SKIP_LIST_NODE, "Skip Node")
 
 static int randomsLeft;
 static int randomBits;
-static struct skiplist *skiplist_last_created; /* debugging hack */
 
 #if 1
 #define CHECKLAST(sl)                                                          \
@@ -149,8 +148,6 @@ struct skiplist *skiplist_new(int flags,
 
 	if (del)
 		new->del = del;
-
-	skiplist_last_created = new; /* debug */
 
 	return new;
 }
@@ -586,7 +583,8 @@ void skiplist_debug(struct vty *vty, struct skiplist *l)
 	int i;
 
 	if (!l)
-		l = skiplist_last_created;
+		return;
+
 	vty_out(vty, "Skiplist %p has max level %d\n", l, l->level);
 	for (i = l->level; i >= 0; --i)
 		vty_out(vty, "  @%d: %ld\n", i,

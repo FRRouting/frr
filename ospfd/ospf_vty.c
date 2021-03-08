@@ -6601,8 +6601,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 					continue;
 				ospf_output = true;
 				ret = show_ip_ospf_database_type_adv_router_common(
-					vty, ospf, idx ? 1 : 0, argc, argv,
-					use_vrf);
+					vty, ospf, 2, argc, argv, use_vrf);
 			}
 			if (!ospf_output)
 				vty_out(vty, "%% OSPF instance not found\n");
@@ -6614,7 +6613,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 			}
 
 			ret = show_ip_ospf_database_type_adv_router_common(
-				vty, ospf, idx ? 1 : 0, argc, argv, use_vrf);
+				vty, ospf, 2, argc, argv, use_vrf);
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
@@ -8149,6 +8148,7 @@ DEFUN (no_ip_ospf_area,
 	struct ospf_if_params *params;
 	unsigned short instance = 0;
 	struct in_addr addr;
+	struct in_addr area_id;
 
 	if (argv_find(argv, argc, "(1-65535)", &idx))
 		instance = strtol(argv[idx]->arg, NULL, 10);
@@ -8176,6 +8176,7 @@ DEFUN (no_ip_ospf_area,
 	} else
 		params = IF_DEF_PARAMS(ifp);
 
+	area_id = params->if_area;
 	if (!OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 		vty_out(vty,
 			"Can't find specified interface area configuration.\n");
@@ -8191,6 +8192,7 @@ DEFUN (no_ip_ospf_area,
 	if (ospf) {
 		ospf_interface_area_unset(ospf, ifp);
 		ospf->if_ospf_cli_count--;
+		ospf_area_check_free(ospf, area_id);
 	}
 
 	return CMD_SUCCESS;

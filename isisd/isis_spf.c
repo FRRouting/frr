@@ -1437,6 +1437,11 @@ static struct isis_spf_run *isis_run_spf_arg(struct isis_area *area, int level)
 	return run;
 }
 
+void isis_spf_timer_free(void *run)
+{
+	XFREE(MTYPE_ISIS_SPF_RUN, run);
+}
+
 int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line)
 {
@@ -1516,7 +1521,8 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 		"Vertex               Type         Metric Next-Hop             Interface Parent\n");
 
 	for (ALL_QUEUE_ELEMENTS_RO(queue, node, vertex)) {
-		if (memcmp(vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {
+		if (VTYPE_IS(vertex->type)
+		    && memcmp(vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {
 			vty_out(vty, "%-20s %-12s %-6s",
 				print_sys_hostname(root_sysid), "", "");
 			vty_out(vty, "%-30s\n", "");

@@ -1,9 +1,0 @@
- Inbound Label  Type  Nexthop   Outbound Label  
- -----------------------------------------------
- XX             LDP   10.0.2.2  XX              
- XX             LDP   10.0.2.2  implicit-null   
- XX             LDP   10.0.2.2  implicit-null   
- XX             LDP   10.0.2.2  implicit-null   
- XX             LDP   10.0.2.3  implicit-null   
- XX             LDP   10.0.2.3  implicit-null   
-

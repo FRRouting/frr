@@ -639,8 +639,8 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 	}
 
 	if (vty) {
-		snprintf(xpath_list, sizeof(xpath_list),
-			 "/frr-vrf:lib/vrf[name='%s']", vrfname);
+		snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH,
+			 vrfname);
 
 		nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
 		ret = nb_cli_apply_changes(vty, xpath_list);
@@ -774,8 +774,7 @@ DEFUN_YANG (no_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	snprintf(xpath_list, sizeof(xpath_list), "/frr-vrf:lib/vrf[name='%s']",
-		 vrfname);
+	snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH, vrfname);
 
 	nb_cli_enqueue_change(vty, xpath_list, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, xpath_list);
@@ -1064,6 +1063,7 @@ static int lib_vrf_create(struct nb_cb_create_args *args)
 
 	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
 
+	vrf_set_user_cfged(vrfp);
 	nb_running_set_entry(args->dnode, vrfp);
 
 	return NB_OK;
@@ -1089,7 +1089,7 @@ static int lib_vrf_destroy(struct nb_cb_destroy_args *args)
 		vrfp = nb_running_unset_entry(args->dnode);
 
 		/* Clear configured flag and invoke delete. */
-		UNSET_FLAG(vrfp->status, VRF_CONFIGURED);
+		vrf_reset_user_cfged(vrfp);
 		vrf_delete(vrfp);
 		break;
 	}

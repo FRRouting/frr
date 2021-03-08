@@ -1,4 +1,0 @@
-#!/bin/sh
-
-/etc/init.d/frr stop
-exit 0

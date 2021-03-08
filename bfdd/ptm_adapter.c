@@ -647,17 +647,24 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 	struct bfd_session *bs;
 	struct vrf *vrf;
 
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (!vrf)
+		return;
+
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
-		/* Interface name mismatch. */
-		if (strcmp(ifp->name, bs->key.ifname))
-			continue;
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
-		if (!vrf)
-			continue;
+		/* check vrf name */
 		if (bs->key.vrfname[0] &&
 		    strcmp(vrf->name, bs->key.vrfname))
 			continue;
+
+		/* If Interface matches vrfname, then bypass iface check */
+		if (vrf_is_backend_netns() || strcmp(ifp->name, vrf->name)) {
+			/* Interface name mismatch. */
+			if (strcmp(ifp->name, bs->key.ifname))
+				continue;
+		}
+
 		/* Skip enabled sessions. */
 		if (bs->sock != -1)
 			continue;
@@ -674,11 +681,15 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
-		if (strcmp(ifp->name, bs->key.ifname))
+
+		if (bs->ifp != ifp)
 			continue;
+
 		/* Skip disabled sessions. */
-		if (bs->sock == -1)
+		if (bs->sock == -1) {
+			bs->ifp = NULL;
 			continue;
+		}
 
 		bfd_session_disable(bs);
 
@@ -795,7 +806,10 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 							      : "delete",
 			   prefix2str(ifc->address, buf, sizeof(buf)));
 
-	bfdd_sessions_enable_address(ifc);
+	if (cmd == ZEBRA_INTERFACE_ADDRESS_ADD)
+		bfdd_sessions_enable_address(ifc);
+	else
+		connected_free(&ifc);
 
 	return 0;
 }

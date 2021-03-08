@@ -415,10 +415,14 @@ Require policy on EBGP
 .. clicmd:: [no] bgp ebgp-requires-policy
 
    This command requires incoming and outgoing filters to be applied
-   for eBGP sessions. Without the incoming filter, no routes will be
-   accepted. Without the outgoing filter, no routes will be announced.
+   for eBGP sessions as part of RFC-8212 compliance. Without the incoming
+   filter, no routes will be accepted. Without the outgoing filter, no
+   routes will be announced.
 
-   This is enabled by default.
+   This is enabled by default for the traditional configuration and
+   turned off by default for datacenter configuration.
+
+   When you enable/disable this option you MUST clear the session.
 
    When the incoming or outgoing filter is missing you will see
    "(Policy)" sign under ``show bgp summary``:
@@ -436,6 +440,22 @@ Require policy on EBGP
       Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt
       192.168.0.2     4      65002         8        10        0    0    0 00:03:09            5 (Policy)
       fe80:1::2222    4      65002         9        11        0    0    0 00:03:09     (Policy) (Policy)
+
+   Additionally a `show bgp neighbor` command would indicate in the `For address family:`
+   block that:
+
+   .. code-block:: frr
+
+      exit1# show bgp neighbor
+      ...
+      For address family: IPv4 Unicast
+       Update group 1, subgroup 1
+       Packet Queue length 0
+       Inbound soft reconfiguration allowed
+       Community attribute sent to this neighbor(all)
+       Inbound updates discarded due to missing policy
+       Outbound updates discarded due to missing policy
+       0 accepted prefixes
 
 Reject routes with AS_SET or AS_CONFED_SET types
 ------------------------------------------------
@@ -954,6 +974,56 @@ Networks
    before frr defaults for datacenter were the network must exist,
    traditional did not check for existence.  For versions 7.4 and beyond
    both traditional and datacenter the network must exist.
+
+.. _bgp-ipv6-support:
+
+IPv6 Support
+------------
+
+.. index:: [no] neighbor A.B.C.D activate
+.. clicmd:: [no] neighbor A.B.C.D activate
+
+   This configuration modifies whether to enable an address family for a
+   specific neighbor. By default only the IPv4 unicast address family is
+   enabled.
+
+   .. code-block:: frr
+
+      router bgp 1
+       address-family ipv6 unicast
+        neighbor 2001:0DB8::1 activate
+        network 2001:0DB8:5009::/64
+       exit-address-family
+
+   This configuration example says that network 2001:0DB8:5009::/64 will be
+   announced and enables the neighbor 2001:0DB8::1 to receive this announcement.
+
+.. index:: [no] bgp default ipv4-unicast
+.. clicmd:: [no] bgp default ipv4-unicast
+
+   By default, only the IPv4 unicast address family is announced to all
+   neighbors. Using the 'no bgp default ipv4-unicast' configuration overrides
+   this default so that all address families need to be enabled explicitly.
+
+   .. code-block:: frr
+
+      router bgp 1
+       no bgp default ipv4-unicast
+       neighbor 10.10.10.1 remote-as 2
+       neighbor 2001:0DB8::1 remote-as 3
+       address-family ipv4 unicast
+        neighbor 10.10.10.1 activate
+        network 192.168.1.0/24
+       exit-address-family
+       address-family ipv6 unicast
+        neighbor 2001:0DB8::1 activate
+        network 2001:0DB8:5009::/64
+       exit-address-family
+
+   This configuration demonstrates how the 'no bgp default ipv4-unicast' might
+   be used in a setup with two upstreams where each of the upstreams should only
+   receive either IPv4 or IPv6 annocuments.
+
 
 .. _bgp-route-aggregation:
 

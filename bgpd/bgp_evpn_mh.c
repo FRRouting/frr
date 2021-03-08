@@ -744,6 +744,9 @@ static int bgp_evpn_type4_remote_routes_import(struct bgp *bgp,
 							prefix2str(evp, buf,
 								sizeof(buf)),
 							es->esi_str);
+
+					bgp_dest_unlock_node(rd_rn);
+					bgp_dest_unlock_node(rn);
 					return ret;
 				}
 			}
