@@ -1,0 +1,339 @@
+test# echo this is a  test message
+this is a test message
+test# echo  foo bla  
+% There is no matched command.
+test# echo  foo bla    baz
+foo bla baz
+test# echo
+% Command incomplete.
+test# 
+test# arg ipv4 1.2.3.4
+cmd0 with 3 args.
+[00] arg@(null): arg
+[01] ipv4@(null): ipv4
+[02] A.B.C.D@ipv4: 1.2.3.4
+test# arg ipv4 1.2.
+  A.B.C.D  02
+test# arg ipv4 1.2.3.4
+cmd0 with 3 args.
+[00] arg@(null): arg
+[01] ipv4@(null): ipv4
+[02] A.B.C.D@ipv4: 1.2.3.4
+test# arg ipv4 1.2.3
+% [NONE] Unknown command: arg ipv4 1.2.3
+test# arg ipv4 1.2.3.4.5
+% [NONE] Unknown command: arg ipv4 1.2.3.4.5
+test# arg ipv4 1.a.3.4
+% [NONE] Unknown command: arg ipv4 1.a.3.4
+test# arg ipv4 blah
+% [NONE] Unknown command: arg ipv4 blah
+test# 
+test# arg ipv4m 1.2.3.0/24
+cmd1 with 3 args.
+[00] arg@(null): arg
+[01] ipv4m@(null): ipv4m
+[02] A.B.C.D/M@ipv4m: 1.2.3.0/24
+test# arg ipv4m 1.2.
+  A.B.C.D/M  02
+test# arg ipv4m 1.2.3.0/24
+cmd1 with 3 args.
+[00] arg@(null): arg
+[01] ipv4m@(null): ipv4m
+[02] A.B.C.D/M@ipv4m: 1.2.3.0/24
+test# arg ipv4m 1.2.3/9
+% [NONE] Unknown command: arg ipv4m 1.2.3/9
+test# arg ipv4m 1.2.3.4.5/6
+% [NONE] Unknown command: arg ipv4m 1.2.3.4.5/6
+test# arg ipv4m 1.a.3.4
+% [NONE] Unknown command: arg ipv4m 1.a.3.4
+test# arg ipv4m blah
+% [NONE] Unknown command: arg ipv4m blah
+test# arg ipv4m 1.2.3.0/999
+% [NONE] Unknown command: arg ipv4m 1.2.3.0/999
+test# arg ipv4m 1.2.3.0/a9
+% [NONE] Unknown command: arg ipv4m 1.2.3.0/a9
+test# arg ipv4m 1.2.3.0/9a
+% [NONE] Unknown command: arg ipv4m 1.2.3.0/9a
+test# 
+test# arg ipv6 de4d:b33f::cafe
+cmd2 with 3 args.
+[00] arg@(null): arg
+[01] ipv6@(null): ipv6
+[02] X:X::X:X@foo: de4d:b33f::cafe
+test# arg ipv6 de4d:b3
+  X:X::X:X  02
+test# arg ipv6 de4d:b33f::caf
+  X:X::X:X  02
+test# arg ipv6 de4d:b33f::cafe
+cmd2 with 3 args.
+[00] arg@(null): arg
+[01] ipv6@(null): ipv6
+[02] X:X::X:X@foo: de4d:b33f::cafe
+test# arg ipv6 de4d:b3
+test# arg ipv6 de4d:b33f::caf
+  X:X::X:X  02
+test# arg ipv6 de4d:b33f::cafe
+cmd2 with 3 args.
+[00] arg@(null): arg
+[01] ipv6@(null): ipv6
+[02] X:X::X:X@foo: de4d:b33f::cafe
+test# arg ipv6 de4d:b33f:z::cafe
+% [NONE] Unknown command: arg ipv6 de4d:b33f:z::cafe
+test# arg ipv6 de4d:b33f:cafe:
+% [NONE] Unknown command: arg ipv6 de4d:b33f:cafe:
+test# arg ipv6 ::
+cmd2 with 3 args.
+[00] arg@(null): arg
+[01] ipv6@(null): ipv6
+[02] X:X::X:X@foo: ::
+test# arg ipv6 ::/
+% [NONE] Unknown command: arg ipv6 ::/
+test# arg ipv6 1:2:3:4:5:6:7:8:9:0:1:2:3:4:5:6:7:8:9:0:1:2:3:4:5:6:7:8:9:0
+% [NONE] Unknown command: arg ipv6 1:2:3:4:5:6:7:8:9:0:1:2:3:4:5:6:7:8:9:0:1:2:3:4:5:6:7:8:9:0
+test# arg ipv6 12::34::56
+% [NONE] Unknown command: arg ipv6 12::34::56
+test# arg ipv6m dead:beef:cafe::/64
+cmd3 with 3 args.
+[00] arg@(null): arg
+[01] ipv6m@(null): ipv6m
+[02] X:X::X:X/M@ipv6m: dead:beef:cafe::/64
+test# arg ipv6m dead:be
+  X:X::X:X/M  02
+test# arg ipv6m dead:beef:cafe:
+  X:X::X:X/M  02
+test# arg ipv6m dead:beef:cafe::/64
+cmd3 with 3 args.
+[00] arg@(null): arg
+[01] ipv6m@(null): ipv6m
+[02] X:X::X:X/M@ipv6m: dead:beef:cafe::/64
+test# 
+test# arg range 4
+% [NONE] Unknown command: arg range 4
+test# arg range 5
+cmd4 with 3 args.
+[00] arg@(null): arg
+[01] range@(null): range
+[02] (5-15)@range: 5
+test# arg range 9
+  (5-15)  02
+test# arg range 9
+cmd4 with 3 args.
+[00] arg@(null): arg
+[01] range@(null): range
+[02] (5-15)@range: 9
+test# arg range 15
+cmd4 with 3 args.
+[00] arg@(null): arg
+[01] range@(null): range
+[02] (5-15)@range: 15
+test# arg range 16
+% [NONE] Unknown command: arg range 16
+test# arg range -1
+% [NONE] Unknown command: arg range -1
+test# arg range 99999999999999999999999999999999999999999
+% [NONE] Unknown command: arg range 99999999999999999999999999999999999999999
+test# 
+test# arg 
+  ipv4   01
+  ipv4m  01
+  ipv6   01
+  ipv6m  01
+  range  01
+test# arg 
+% Command incomplete.
+test# 
+test# pa
+test# papat 
+% Command incomplete.
+test# pat 
+a          b          c          d          e          f          
+g          
+test# pat 
+% Command incomplete.
+test# 
+test# pat a
+% Command incomplete.
+test# pat a a
+cmd5 with 3 args.
+[00] pat@(null): pat
+[01] a@(null): a
+[02] a@(null): a
+test# pat a 
+  a  02
+  b  03
+test# pat a b
+cmd5 with 3 args.
+[00] pat@(null): pat
+[01] a@(null): a
+[02] b@(null): b
+test# pat a c
+% There is no matched command.
+test# pat a c
+% [NONE] Unknown command: pat a c
+test# pat a a x
+% [NONE] Unknown command: pat a a x
+test# 
+test# pat c a
+% Command incomplete.
+test# pat c a 1.2.3.4
+cmd7 with 4 args.
+[00] pat@(null): pat
+[01] c@(null): c
+[02] a@(null): a
+[03] A.B.C.D@(null): 1.2.3.4
+test# pat c b 2.3.4
+% [NONE] Unknown command: pat c b 2.3.4
+test# pat c c 
+  A.B.C.D  05
+test# pat c c x
+% [NONE] Unknown command: pat c c x
+test# 
+test# pat d
+% Command incomplete.
+test# pat d 
+bar        baz        foo        
+test# pat d 
+% Command incomplete.
+test# pat d foo 1.2.3.4
+cmd8 with 4 args.
+[00] pat@(null): pat
+[01] d@(null): d
+[02] foo@(null): foo
+[03] A.B.C.D@foo: 1.2.3.4
+test# pat d foo
+% Command incomplete.
+test# pat d noooo
+% [NONE] Unknown command: pat d noooo
+test# pat d bar 1::2
+cmd8 with 4 args.
+[00] pat@(null): pat
+[01] d@(null): d
+[02] bar@(null): bar
+[03] X:X::X:X@bar: 1::2
+test# pat d bar 1::2 foo 3.4.5.6
+cmd8 with 6 args.
+[00] pat@(null): pat
+[01] d@(null): d
+[02] bar@(null): bar
+[03] X:X::X:X@bar: 1::2
+[04] foo@(null): foo
+[05] A.B.C.D@foo: 3.4.5.6
+test# pat d ba
+  bar  04
+  baz  06
+test# pat d baz
+cmd8 with 3 args.
+[00] pat@(null): pat
+[01] d@(null): d
+[02] baz@(null): baz
+test# pat d foo 3.4.5.6 baz
+cmd8 with 5 args.
+[00] pat@(null): pat
+[01] d@(null): d
+[02] foo@(null): foo
+[03] A.B.C.D@foo: 3.4.5.6
+[04] baz@(null): baz
+test# 
+test# pat e
+cmd9 with 2 args.
+[00] pat@(null): pat
+[01] e@(null): e
+test# pat e f
+cmd9 with 3 args.
+[00] pat@(null): pat
+[01] e@(null): e
+[02] WORD@e: f
+test# pat e f g
+% [NONE] Unknown command: pat e f g
+test# pat e 1.2.3.4
+cmd9 with 3 args.
+[00] pat@(null): pat
+[01] e@(null): e
+[02] WORD@e: 1.2.3.4
+test# 
+test# pat f
+cmd10 with 2 args.
+[00] pat@(null): pat
+[01] f@(null): f
+test# pat f foo
+% [NONE] Unknown command: pat f foo
+test# pat f key
+cmd10 with 3 args.
+[00] pat@(null): pat
+[01] f@(null): f
+[02] key@(null): key
+test# 
+test# alt a 
+test# alt a a
+  WORD      02
+  X:X::X:X  02
+test# alt a ab
+cmd11 with 3 args.
+[00] alt@(null): alt
+[01] a@(null): a
+[02] WORD@a: ab
+test# alt a 1
+test# alt a 1.2
+  A.B.C.D  02
+  WORD     02
+test# alt a 1.2.3.4
+cmd12 with 3 args.
+[00] alt@(null): alt
+[01] a@(null): a
+[02] A.B.C.D@a: 1.2.3.4
+test# alt a 1
+test# alt a 1:2
+  WORD      02
+  X:X::X:X  02
+test# alt a 1:2
+test# alt a 1:2::
+  WORD      02
+  X:X::X:X  02
+test# alt a 1:2::3
+cmd13 with 3 args.
+[00] alt@(null): alt
+[01] a@(null): a
+[02] X:X::X:X@a: 1:2::3
+test# 
+test# conf t
+test(config)# do pat d baz
+cmd8 with 3 args.
+[00] pat@(null): pat
+[01] d@(null): d
+[02] baz@(null): baz
+test(config)# exit
+test# 
+test# show run
+
+Current configuration:
+!
+frr version 7.5.1
+frr defaults traditional
+!
+hostname test
+domainname test.domain
+!
+!
+!
+line vty
+!
+end
+test# conf t
+test(config)# hostname foohost
+foohost(config)# do show run
+
+Current configuration:
+!
+frr version 7.5.1
+frr defaults traditional
+!
+hostname foohost
+domainname test.domain
+!
+!
+!
+line vty
+!
+end
+foohost(config)# 
+end.

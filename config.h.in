@@ -1,0 +1,705 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define if building universal (internal helper macro) */
+#undef AC_APPLE_UNIVERSAL_BUILD
+
+/* bfdd control socket */
+#undef BFDD_CONTROL_SOCKET
+
+/* bfdd */
+#undef BFD_BSD
+
+/* bfdd */
+#undef BFD_LINUX
+
+/* BSD v6 sysctl to turn on and off forwarding */
+#undef BSD_V6_SYSCTL
+
+/* Mask for config files */
+#undef CONFIGFILE_MASK
+
+/* Consumed Time Check */
+#undef CONSUMED_TIME_CHECK
+
+/* Compile with internal cryptographic implementation */
+#undef CRYPTO_INTERNAL
+
+/* Compile with openssl support */
+#undef CRYPTO_OPENSSL
+
+/* daemon database directory */
+#undef DAEMON_DB_DIR
+
+/* daemon vty directory */
+#undef DAEMON_VTY_DIR
+
+/* Build for development */
+#undef DEV_BUILD
+
+/* Name of the configuration default set */
+#undef DFLT_NAME
+
+/* Disable BGP installation to zebra */
+#undef DISABLE_BGP_ANNOUNCE
+
+/* Enable BGP VNC support */
+#undef ENABLE_BGP_VNC
+
+/* Report build configs in show version */
+#undef ENABLE_VERSION_BUILD_CONFIG
+
+/* Exclude getrusage data gathering */
+#undef EXCLUDE_CPU_TIME
+
+/* found_ssh */
+#undef FOUND_SSH
+
+/* did autoconf checks for atomic funcs */
+#undef FRR_AUTOCONF_ATOMIC
+
+/* frr Group */
+#undef FRR_GROUP
+
+/* frr User */
+#undef FRR_USER
+
+/* include git version info */
+#undef GIT_VERSION
+
+/* GNU Linux */
+#undef GNU_LINUX
+
+/* Have history.h append_history */
+#undef HAVE_APPEND_HISTORY
+
+/* Define to 1 if you have the <asm/types.h> header file. */
+#undef HAVE_ASM_TYPES_H
+
+/* bfdd */
+#undef HAVE_BFDD
+
+/* BSD ifi_link_state available */
+#undef HAVE_BSD_IFI_LINK_STATE
+
+/* BSD link-detect */
+#undef HAVE_BSD_LINK_DETECT
+
+/* Can pass ifindex in struct ip_mreq */
+#undef HAVE_BSD_STRUCT_IP_MREQ_HACK
+
+/* capabilities */
+#undef HAVE_CAPABILITIES
+
+/* Have monotonic clock */
+#undef HAVE_CLOCK_MONOTONIC
+
+/* Have clock_nanosleep() */
+#undef HAVE_CLOCK_NANOSLEEP
+
+/* Enable confd integration */
+#undef HAVE_CONFD
+
+/* Enable configuration rollbacks */
+#undef HAVE_CONFIG_ROLLBACKS
+
+/* Compile Special Cumulus Code in */
+#undef HAVE_CUMULUS
+
+/* Compile extensions for a DataCenter */
+#undef HAVE_DATACENTER
+
+/* Define to 1 if you have the declaration of `be32dec', and to 0 if you
+   don't. */
+#undef HAVE_DECL_BE32DEC
+
+/* Define to 1 if you have the declaration of `be32enc', and to 0 if you
+   don't. */
+#undef HAVE_DECL_BE32ENC
+
+/* Define to 1 if you have the declaration of `PROTOBUF_C_LABEL_NONE', and to
+   0 if you don't. */
+#undef HAVE_DECL_PROTOBUF_C_LABEL_NONE
+
+/* Define to 1 if you have the declaration of `TCP_MD5SIG', and to 0 if you
+   don't. */
+#undef HAVE_DECL_TCP_MD5SIG
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Have dlinfo RTLD_DI_LINKMAP */
+#undef HAVE_DLINFO_LINKMAP
+
+/* Have dlinfo RTLD_DI_ORIGIN */
+#undef HAVE_DLINFO_ORIGIN
+
+/* Define to 1 if you have the `getgrouplist' function. */
+#undef HAVE_GETGROUPLIST
+
+/* Glibc backtrace */
+#undef HAVE_GLIBC_BACKTRACE
+
+/* Enable the gRPC northbound plugin */
+#undef HAVE_GRPC
+
+/* Define to 1 if you have the <inet/nd.h> header file. */
+#undef HAVE_INET_ND_H
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Have IP_FREEBIND */
+#undef HAVE_IP_FREEBIND
+
+/* Have IP_PKTINFO */
+#undef HAVE_IP_PKTINFO
+
+/* Have IP_RECVDSTADDR */
+#undef HAVE_IP_RECVDSTADDR
+
+/* Have IP_RECVIF */
+#undef HAVE_IP_RECVIF
+
+/* Define to 1 if you have the <json-c/json.h> header file. */
+#undef HAVE_JSON_C_JSON_H
+
+/* Define to 1 if you have the <lauxlib.h> header file. */
+#undef HAVE_LAUXLIB_H
+
+/* Capabilities */
+#undef HAVE_LCAPS
+
+/* ldpd */
+#undef HAVE_LDPD
+
+/* Define to 1 if you have the `crypt' library (-lcrypt). */
+#undef HAVE_LIBCRYPT
+
+/* Define to 1 if you have the `crypto' library (-lcrypto). */
+#undef HAVE_LIBCRYPTO
+
+/* Define to 1 if you have the `nsl' library (-lnsl). */
+#undef HAVE_LIBNSL
+
+/* Define to 1 if you have the `pcreposix' library (-lpcreposix). */
+#undef HAVE_LIBPCREPOSIX
+
+/* Define to 1 if you have the `resolv' library (-lresolv). */
+#undef HAVE_LIBRESOLV
+
+/* Define to 1 if you have the `socket' library (-lsocket). */
+#undef HAVE_LIBSOCKET
+
+/* Define to 1 if you have the `umem' library (-lumem). */
+#undef HAVE_LIBUMEM
+
+/* libunwind */
+#undef HAVE_LIBUNWIND
+
+/* Define to 1 if you have the <link.h> header file. */
+#undef HAVE_LINK_H
+
+/* Define to 1 if you have the <linux/mroute.h> header file. */
+#undef HAVE_LINUX_MROUTE_H
+
+/* Define to 1 if you have the <linux/version.h> header file. */
+#undef HAVE_LINUX_VERSION_H
+
+/* Have support for Lua interpreter */
+#undef HAVE_LUA
+
+/* Define to 1 if you have the <luaconf.h> header file. */
+#undef HAVE_LUACONF_H
+
+/* Define to 1 if you have the <lualib.h> header file. */
+#undef HAVE_LUALIB_H
+
+/* Define to 1 if you have the <lua.h> header file. */
+#undef HAVE_LUA_H
+
+/* mallinfo */
+#undef HAVE_MALLINFO
+
+/* Define to 1 if you have the <malloc.h> header file. */
+#undef HAVE_MALLOC_H
+
+/* Define to 1 if you have the <malloc/malloc.h> header file. */
+#undef HAVE_MALLOC_MALLOC_H
+
+/* Define to 1 if you have the <malloc_np.h> header file. */
+#undef HAVE_MALLOC_NP_H
+
+/* malloc_size */
+#undef HAVE_MALLOC_SIZE
+
+/* malloc_usable_size */
+#undef HAVE_MALLOC_USABLE_SIZE
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <netinet6/in6.h> header file. */
+#undef HAVE_NETINET6_IN6_H
+
+/* Define to 1 if you have the <netinet6/in6_var.h> header file. */
+#undef HAVE_NETINET6_IN6_VAR_H
+
+/* Define to 1 if you have the <netinet6/nd6.h> header file. */
+#undef HAVE_NETINET6_ND6_H
+
+/* Define to 1 if you have the <netinet/in6_var.h> header file. */
+#undef HAVE_NETINET_IN6_VAR_H
+
+/* Define to 1 if you have the <netinet/in_var.h> header file. */
+#undef HAVE_NETINET_IN_VAR_H
+
+/* Define to 1 if you have the <netinet/ip_icmp.h> header file. */
+#undef HAVE_NETINET_IP_ICMP_H
+
+/* Define to 1 if you have the <netinet/ip_mroute.h> header file. */
+#undef HAVE_NETINET_IP_MROUTE_H
+
+/* netlink */
+#undef HAVE_NETLINK
+
+/* Have netns */
+#undef HAVE_NETNS
+
+/* Define to 1 if you have the <net/if_dl.h> header file. */
+#undef HAVE_NET_IF_DL_H
+
+/* Define to 1 if you have the <net/if_var.h> header file. */
+#undef HAVE_NET_IF_VAR_H
+
+/* Define to 1 if you have the <net/netopt.h> header file. */
+#undef HAVE_NET_NETOPT_H
+
+/* NET_RT_IFLIST */
+#undef HAVE_NET_RT_IFLIST
+
+/* Define to 1 if you have the `openat' function. */
+#undef HAVE_OPENAT
+
+/* Have openpam.h */
+#undef HAVE_OPENPAM_H
+
+/* Have pam_misc.h */
+#undef HAVE_PAM_MISC_H
+
+/* have NetBSD pollts() */
+#undef HAVE_POLLTS
+
+/* Define to 1 if you have the `posix_fallocate' function. */
+#undef HAVE_POSIX_FALLOCATE
+
+/* have Linux/BSD ppoll() */
+#undef HAVE_PPOLL
+
+/* Define to 1 if you have the <priv.h> header file. */
+#undef HAVE_PRIV_H
+
+/* protobuf */
+#undef HAVE_PROTOBUF
+
+/* Have Protobuf version 3 */
+#undef HAVE_PROTOBUF_VERSION_3
+
+/* prctl */
+#undef HAVE_PR_SET_KEEPCAPS
+
+/* Have pthread.h pthread_condattr_setclock */
+#undef HAVE_PTHREAD_CONDATTR_SETCLOCK
+
+/* Define to 1 if you have the `pthread_getthreadid_np' function. */
+#undef HAVE_PTHREAD_GETTHREADID_NP
+
+/* Define to 1 if you have the <pthread_np.h> header file. */
+#undef HAVE_PTHREAD_NP_H
+
+/* Have PTHREAD_PRIO_INHERIT. */
+#undef HAVE_PTHREAD_PRIO_INHERIT
+
+/* Define to 1 if you have the `pthread_setname_np' function. */
+#undef HAVE_PTHREAD_SETNAME_NP
+
+/* Define to 1 if you have the `pthread_set_name_np' function. */
+#undef HAVE_PTHREAD_SET_NAME_NP
+
+/* Have RFC3678 protocol-independed API */
+#undef HAVE_RFC3678
+
+/* Enable IPv6 Routing Advertisement support */
+#undef HAVE_RTADV
+
+/* Define to 1 if you have the `setns' function. */
+#undef HAVE_SETNS
+
+/* Allow user to use ssh/telnet/bash, be aware this is considered insecure */
+#undef HAVE_SHELL_ACCESS
+
+/* getpflags */
+#undef HAVE_SOLARIS_CAPABILITIES
+
+/* Have SO_BINDANY */
+#undef HAVE_SO_BINDANY
+
+/* Enable sqlite3 database */
+#undef HAVE_SQLITE3
+
+/* found stdatomic.h */
+#undef HAVE_STDATOMIC_H
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strlcat' function. */
+#undef HAVE_STRLCAT
+
+/* Define to 1 if you have the `strlcpy' function. */
+#undef HAVE_STRLCPY
+
+/* Define to 1 if you have the <stropts.h> header file. */
+#undef HAVE_STROPTS_H
+
+/* Define to 1 if the system has the type `struct icmphdr'. */
+#undef HAVE_STRUCT_ICMPHDR
+
+/* Define to 1 if the system has the type `struct if6_aliasreq'. */
+#undef HAVE_STRUCT_IF6_ALIASREQ
+
+/* Define to 1 if `ifra_lifetime' is a member of `struct if6_aliasreq'. */
+#undef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
+
+/* Define to 1 if the system has the type `struct ifaliasreq'. */
+#undef HAVE_STRUCT_IFALIASREQ
+
+/* Define to 1 if `ifm_status' is a member of `struct ifmediareq'. */
+#undef HAVE_STRUCT_IFMEDIAREQ_IFM_STATUS
+
+/* Define to 1 if `ifi_link_state' is a member of `struct if_data'. */
+#undef HAVE_STRUCT_IF_DATA_IFI_LINK_STATE
+
+/* Define to 1 if the system has the type `struct igmpmsg'. */
+#undef HAVE_STRUCT_IGMPMSG
+
+/* Define to 1 if the system has the type `struct in6_aliasreq'. */
+#undef HAVE_STRUCT_IN6_ALIASREQ
+
+/* Define to 1 if the system has the type `struct in_pktinfo'. */
+#undef HAVE_STRUCT_IN_PKTINFO
+
+/* Define to 1 if `imr_ifindex' is a member of `struct ip_mreqn'. */
+#undef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
+
+/* Define to 1 if the system has the type `struct mfcctl'. */
+#undef HAVE_STRUCT_MFCCTL
+
+/* Define to 1 if the system has the type `struct nd_opt_adv_interval'. */
+#undef HAVE_STRUCT_ND_OPT_ADV_INTERVAL
+
+/* Define to 1 if `nd_opt_ai_type' is a member of `struct
+   nd_opt_adv_interval'. */
+#undef HAVE_STRUCT_ND_OPT_ADV_INTERVAL_ND_OPT_AI_TYPE
+
+/* Define to 1 if the system has the type `struct nd_opt_dnssl'. */
+#undef HAVE_STRUCT_ND_OPT_DNSSL
+
+/* Define to 1 if the system has the type `struct nd_opt_homeagent_info'. */
+#undef HAVE_STRUCT_ND_OPT_HOMEAGENT_INFO
+
+/* Define to 1 if the system has the type `struct nd_opt_rdnss'. */
+#undef HAVE_STRUCT_ND_OPT_RDNSS
+
+/* Define to 1 if the system has the type `struct sioc_sg_req'. */
+#undef HAVE_STRUCT_SIOC_SG_REQ
+
+/* Define to 1 if the system has the type `struct sioc_vif_req'. */
+#undef HAVE_STRUCT_SIOC_VIF_REQ
+
+/* Define to 1 if the system has the type `struct sockaddr_dl'. */
+#undef HAVE_STRUCT_SOCKADDR_DL
+
+/* Define to 1 if `sdl_len' is a member of `struct sockaddr_dl'. */
+#undef HAVE_STRUCT_SOCKADDR_DL_SDL_LEN
+
+/* Define to 1 if `sin_len' is a member of `struct sockaddr_in'. */
+#undef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+
+/* Define to 1 if `sa_len' is a member of `struct sockaddr'. */
+#undef HAVE_STRUCT_SOCKADDR_SA_LEN
+
+/* Define to 1 if `sun_len' is a member of `struct sockaddr_un'. */
+#undef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+
+/* Define to 1 if `domainname' is a member of `struct utsname'. */
+#undef HAVE_STRUCT_UTSNAME_DOMAINNAME
+
+/* Define to 1 if the system has the type `struct vifctl'. */
+#undef HAVE_STRUCT_VIFCTL
+
+/* Have Linux futex support */
+#undef HAVE_SYNC_LINUX_FUTEX
+
+/* Have OpenBSD futex support */
+#undef HAVE_SYNC_OPENBSD_FUTEX
+
+/* Have FreeBSD _umtx_op() support */
+#undef HAVE_SYNC_UMTX_OP
+
+/* Enable sysrepo integration */
+#undef HAVE_SYSREPO
+
+/* Compile systemd support in */
+#undef HAVE_SYSTEMD
+
+/* Define to 1 if you have the <sys/capability.h> header file. */
+#undef HAVE_SYS_CAPABILITY_H
+
+/* Define to 1 if you have the <sys/conf.h> header file. */
+#undef HAVE_SYS_CONF_H
+
+/* Define to 1 if you have the <sys/ksym.h> header file. */
+#undef HAVE_SYS_KSYM_H
+
+/* Define to 1 if you have the <sys/sockio.h> header file. */
+#undef HAVE_SYS_SOCKIO_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/sysctl.h> header file. */
+#undef HAVE_SYS_SYSCTL_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <ucontext.h> header file. */
+#undef HAVE_UCONTEXT_H
+
+/* Define to 1 if `uc_mcontext.gregs' is a member of `ucontext_t'. */
+#undef HAVE_UCONTEXT_T_UC_MCONTEXT_GREGS
+
+/* Define to 1 if `uc_mcontext.regs' is a member of `ucontext_t'. */
+#undef HAVE_UCONTEXT_T_UC_MCONTEXT_REGS
+
+/* Define to 1 if `uc_mcontext.regs.nip' is a member of `ucontext_t'. */
+#undef HAVE_UCONTEXT_T_UC_MCONTEXT_REGS_NIP
+
+/* Define to 1 if `uc_mcontext.uc_regs' is a member of `ucontext_t'. */
+#undef HAVE_UCONTEXT_T_UC_MCONTEXT_UC_REGS
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `unlinkat' function. */
+#undef HAVE_UNLINKAT
+
+/* Compile in v6 Route Replacement Semantics */
+#undef HAVE_V6_RR_SEMANTICS
+
+/* Define to 1 if the system has the type `vifi_t'. */
+#undef HAVE_VIFI_T
+
+/* Enable ZeroMQ support */
+#undef HAVE_ZEROMQ
+
+/* found __atomic builtins */
+#undef HAVE___ATOMIC
+
+/* found __sync builtins */
+#undef HAVE___SYNC
+
+/* found __sync_swap builtin */
+#undef HAVE___SYNC_SWAP
+
+/* .interp value */
+#undef INTERP
+
+/* Linux ipv6 Min Hop Count */
+#undef IPV6_MINHOPCOUNT
+
+/* selected method for isis, == one of the constants */
+#undef ISIS_METHOD
+
+/* constant value for isis method bpf */
+#undef ISIS_METHOD_BPF
+
+/* constant value for isis method dlpi */
+#undef ISIS_METHOD_DLPI
+
+/* constant value for isis method pfpacket */
+#undef ISIS_METHOD_PFPACKET
+
+/* KAME IPv6 */
+#undef KAME
+
+/* Define for compiling with old vpn commands */
+#undef KEEP_OLD_VPN_COMMANDS
+
+/* ldpd control socket */
+#undef LDPD_SOCKET
+
+/* Linux IPv6 stack */
+#undef LINUX_IPV6
+
+/* Mask for log files */
+#undef LOGFILE_MASK
+
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
+#undef LT_OBJDIR
+
+/* path to modules */
+#undef MODULE_PATH
+
+/* Maximum number of paths for a route */
+#undef MULTIPATH_NUM
+
+/* OpenBSD */
+#undef OPEN_BSD
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Have openpam_ttyconv */
+#undef PAM_CONV_FUNC
+
+/* Define to necessary symbol if this constant uses a non-standard name on
+   your system. */
+#undef PTHREAD_CREATE_JOINABLE
+
+/* Use SNMP AgentX to interface with snmpd */
+#undef SNMP_AGENTX
+
+/* Solaris IPv6 */
+#undef SOLARIS_IPV6
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* SunOS 5 */
+#undef SUNOS_5
+
+/* OSPFAPI */
+#undef SUPPORT_OSPF_API
+
+/* Realms support */
+#undef SUPPORT_REALMS
+
+/* Use PAM for authentication */
+#undef USE_PAM
+
+/* Enable extensions on AIX 3, Interix.  */
+#ifndef _ALL_SOURCE
+# undef _ALL_SOURCE
+#endif
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# undef _GNU_SOURCE
+#endif
+/* Enable threading extensions on Solaris.  */
+#ifndef _POSIX_PTHREAD_SEMANTICS
+# undef _POSIX_PTHREAD_SEMANTICS
+#endif
+/* Enable extensions on HP NonStop.  */
+#ifndef _TANDEM_SOURCE
+# undef _TANDEM_SOURCE
+#endif
+/* Enable general extensions on Solaris.  */
+#ifndef __EXTENSIONS__
+# undef __EXTENSIONS__
+#endif
+
+
+/* Version number of package */
+#undef VERSION
+
+/* VTY shell */
+#undef VTYSH
+
+/* path to vtysh binary */
+#undef VTYSH_BIN_PATH
+
+/* What pager to use */
+#undef VTYSH_PAGER
+
+/* VTY Sockets Group */
+#undef VTY_GROUP
+
+/* path to watchfrr.sh */
+#undef WATCHFRR_SH_PATH
+
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+#  undef WORDS_BIGENDIAN
+# endif
+#endif
+
+/* path to YANG data models */
+#undef YANG_MODELS_PATH
+
+/* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
+   `char[]'. */
+#undef YYTEXT_POINTER
+
+/* zebra api socket */
+#undef ZEBRA_SERV_PATH
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+#undef _FILE_OFFSET_BITS
+
+/* Define for large files, on AIX-style hosts. */
+#undef _LARGE_FILES
+
+/* Define to 1 if on MINIX. */
+#undef _MINIX
+
+/* Define to 2 if the system does not provide POSIX.1 features except with
+   this defined. */
+#undef _POSIX_1_SOURCE
+
+/* enable POSIX.1-2008 and XPG7/SUSv4 */
+#undef _POSIX_C_SOURCE
+
+/* Define to 1 if you need to in order for `stat' and other things to work. */
+#undef _POSIX_SOURCE
+
+/* Old readline */
+#undef rl_completion_matches

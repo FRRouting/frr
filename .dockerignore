@@ -1,9 +1,0 @@
-.git
-**/*.a
-**/*.o
-**/*.la
-**/*.lo
-**/*.so
-**/.libs
-docker/alpine/pkgs
-docker/centos/pkgs

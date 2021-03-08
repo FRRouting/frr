@@ -1,6 +1,0 @@
-#!/bin/sh
-
-getent passwd frr > /dev/null && deluser frr
-getent group frrvty > /dev/null && delgroup frrvty
-getent group frr > /dev/null && delgroup frr
-exit 0
