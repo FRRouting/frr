@@ -9552,9 +9552,9 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 	}
 }
 
-void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
-		struct bgp_dest *bn, struct bgp_path_info *path,
-		afi_t afi, safi_t safi, json_object *json_paths)
+void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
+			  struct bgp_path_info *path, afi_t afi, safi_t safi,
+			  enum rpki_states curr_state, json_object *json_paths)
 {
 	char buf[INET6_ADDRSTRLEN];
 	char buf1[BUFSIZ];
@@ -9585,7 +9585,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	int i;
 	char *nexthop_hostname =
 		bgp_nexthop_hostname(path->peer, path->nexthop);
-	enum rpki_states rpki_validation_state = RPKI_NOT_BEING_USED;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -10192,19 +10191,14 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
-	const struct prefix *p = bgp_dest_get_prefix(bn);
-
-	if (p->family == AF_INET || p->family == AF_INET6)
-		rpki_validation_state = hook_call(bgp_rpki_prefix_status,
-						  path->peer, path->attr, p);
-	if (rpki_validation_state != RPKI_NOT_BEING_USED) {
+	if (curr_state != RPKI_NOT_BEING_USED) {
 		if (json_paths)
 			json_object_string_add(
 				json_path, "rpkiValidationState",
-				bgp_rpki_validation2str(rpki_validation_state));
+				bgp_rpki_validation2str(curr_state));
 		else
 			vty_out(vty, ", rpki validation-state: %s",
-				bgp_rpki_validation2str(rpki_validation_state));
+				bgp_rpki_validation2str(curr_state));
 	}
 
 	if (json_bestpath)
@@ -11201,15 +11195,25 @@ static void bgp_show_path_info(struct prefix_rd *pfx_rd,
 			       struct bgp_dest *bgp_node, struct vty *vty,
 			       struct bgp *bgp, afi_t afi, safi_t safi,
 			       json_object *json, enum bgp_path_type pathtype,
-			       int *display)
+			       int *display, enum rpki_states target_state)
 {
 	struct bgp_path_info *pi;
 	int header = 1;
 	char rdbuf[RD_ADDRSTRLEN];
 	json_object *json_header = NULL;
 	json_object *json_paths = NULL;
+	const struct prefix *p = bgp_dest_get_prefix(bgp_node);
 
 	for (pi = bgp_dest_get_bgp_path_info(bgp_node); pi; pi = pi->next) {
+		enum rpki_states curr_state = RPKI_NOT_BEING_USED;
+
+		if (p->family == AF_INET || p->family == AF_INET6)
+			curr_state = hook_call(bgp_rpki_prefix_status, pi->peer,
+					       pi->attr, p);
+
+		if (target_state != RPKI_NOT_BEING_USED
+		    && curr_state != target_state)
+			continue;
 
 		if (json && !json_paths) {
 			/* Instantiate json_paths only if path is valid */
@@ -11235,9 +11239,8 @@ static void bgp_show_path_info(struct prefix_rd *pfx_rd,
 		    || (pathtype == BGP_PATH_SHOW_MULTIPATH
 			&& (CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH)
 			    || CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))))
-			route_vty_out_detail(vty, bgp, bgp_node,
-					     pi, AFI_IP, safi,
-					     json_paths);
+			route_vty_out_detail(vty, bgp, bgp_node, pi, AFI_IP,
+					     safi, curr_state, json_paths);
 	}
 
 	if (json && json_paths) {
@@ -11299,7 +11302,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 
 			bgp_show_path_info((struct prefix_rd *)dest_p, rm, vty,
 					   bgp, afi, safi, json, pathtype,
-					   &display);
+					   &display, RPKI_NOT_BEING_USED);
 
 			bgp_dest_unlock_node(rm);
 		}
@@ -11358,7 +11361,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 
 			bgp_show_path_info((struct prefix_rd *)dest_p, rm, vty,
 					   bgp, afi, safi, json, pathtype,
-					   &display);
+					   &display, RPKI_NOT_BEING_USED);
 
 			bgp_dest_unlock_node(rm);
 		}
@@ -11385,7 +11388,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 			    || dest_p->prefixlen == match.prefixlen) {
 				bgp_show_path_info(NULL, dest, vty, bgp, afi,
 						   safi, json, pathtype,
-						   &display);
+						   &display,
+						   RPKI_NOT_BEING_USED);
 			}
 
 			bgp_dest_unlock_node(dest);
