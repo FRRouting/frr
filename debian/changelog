@@ -1,9 +1,11 @@
 frr (7.5.1-1) unstable; urgency=medium
 
   * Update the d/gbp.conf for 7.5.1 release
-  * Update changelog for 7.5.1-1~1.gbpc1aea0 release
+  * Use wrap-and-sort -a to unify debian/ wrapping and sorting
+  * Work around the sphinx-build error that doesn't copy images to texinfo
+  * Change the upstream-tag in d/gbp.conf to track the upstream tarballs
 
- -- Ondřej Surý <ondrej@debian.org>  Thu, 04 Mar 2021 08:21:37 +0100
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 08 Mar 2021 09:40:19 +0100
 
 frr (7.5-1) unstable; urgency=medium
 
