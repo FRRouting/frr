@@ -2996,7 +2996,7 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 							 zvrf_id(zvrf));
 		break;
 	default:
-		zlog_err("%s: unknown SRv6 Mamanger command", __func__);
+		zlog_err("%s: unknown SRv6 Manager command", __func__);
 		break;
 	}
 }
