@@ -2214,14 +2214,16 @@ def test_restart_bgpd_daemon_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "Routes are still present in VRF RED_A and RED_B \n Error: {}".format(
             tc_name, result
-        )
+        ))
 
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
-        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+        assert result is not True, ("Testcase {} : Failed \n "
+            "Routes are still present in VRF BLUE_A and BLUE_B \n Error: {}".format(
             tc_name, result
-        )
+        ))
 
     step("Bring up BGPd daemon on R1.")
     start_router_daemons(tgen, "r1", ["bgpd"])

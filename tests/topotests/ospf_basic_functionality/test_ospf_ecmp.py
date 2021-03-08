@@ -259,17 +259,19 @@ def test_ospf_ecmp_tc16_p0(request):
         shutdown_bringup_interface(tgen, dut, intf, False)
 
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     protocol = "ospf"
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh, expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     for intfr in range(1, 7):
         intf = topo["routers"]["r1"]["links"]["r0-link{}".format(intfr)]["interface"]
@@ -324,9 +326,10 @@ def test_ospf_ecmp_tc16_p0(request):
     result = verify_ospf_rib(
         tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     protocol = "ospf"
     result = verify_rib(
@@ -339,9 +342,10 @@ def test_ospf_ecmp_tc16_p0(request):
         attempts=5,
         expected=False,
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     step("Re configure the static route in R0.")
     dut = "r0"
@@ -428,9 +432,10 @@ def test_ospf_ecmp_tc17_p0(request):
     result = verify_ospf_rib(
         tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     protocol = "ospf"
     result = verify_rib(
@@ -443,9 +448,10 @@ def test_ospf_ecmp_tc17_p0(request):
         attempts=5,
         expected=False,
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert result is not True, ("Testcase {} : Failed \n "
+        "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    )
+    ))
 
     step("Reconfigure the static route in R0.Change ECMP value to 2.")
     dut = "r0"
