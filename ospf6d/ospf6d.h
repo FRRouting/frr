@@ -88,11 +88,17 @@ extern struct thread_master *master;
 #define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
-#define OSPF6_CMD_CHECK_RUNNING(ospf6)                                         \
-	if (ospf6 == NULL) {                                                   \
+#define OSPF6_CMD_CHECK_RUNNING()                                         \
+	if (om6->ospf6 == NULL) {                                                   \
 		vty_out(vty, "OSPFv3 is not running\n");                       \
 		return CMD_SUCCESS;                                            \
 	}
+
+#define OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)            \
+  if (argv_find(argv, argc, "vrf", &idx_vrf)) {                          \
+    vrf_name = argv[idx_vrf + 1]->arg;                             \
+    all_vrf = strmatch(vrf_name, "all");                           \
+  }
 
 extern struct zebra_privs_t ospf6d_privs;
 

@@ -71,4 +71,5 @@ extern int config_write_ospf6_debug_zebra(struct vty *vty);
 extern void install_element_ospf6_debug_zebra(void);
 extern void ospf6_zebra_vrf_register(struct ospf6 *ospf6);
 extern void ospf6_zebra_vrf_deregister(struct ospf6 *ospf6);
+extern void ospf_set_redist_vrf_bitmaps(struct ospf6 *ospf6);
 #endif /*OSPF6_ZEBRA_H*/

@@ -156,5 +156,7 @@ void ospf6_vrf_unlink(struct ospf6 *ospf6, struct vrf *vrf);
 struct ospf6 *ospf6_lookup_by_vrf_id(vrf_id_t vrf_id);
 struct ospf6 *ospf6_lookup_by_vrf_name(const char *name);
 const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id);
+void ospf6_vrf_init(void);
+void ospf6_set_redist_vrf_bitmaps(struct ospf6 *ospf6);
 
 #endif /* OSPF6_TOP_H */
