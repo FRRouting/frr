@@ -176,6 +176,7 @@ noinst_HEADERS += \
 	bgpd/bgp_pbr.h \
 	bgpd/bgp_rd.h \
 	bgpd/bgp_regex.h \
+	bgpd/bgp_rpki.h \
 	bgpd/bgp_route.h \
 	bgpd/bgp_script.h \
 	bgpd/bgp_table.h \

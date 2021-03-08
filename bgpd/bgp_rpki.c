@@ -47,6 +47,8 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_rpki.h"
+
 #include "lib/network.h"
 #include "lib/thread.h"
 #ifndef VTYSH_EXTRACT_PL
@@ -62,10 +64,6 @@
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
-
-#define RPKI_VALID      1
-#define RPKI_NOTFOUND   2
-#define RPKI_INVALID    3
 
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200

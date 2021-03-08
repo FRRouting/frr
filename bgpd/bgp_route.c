@@ -71,6 +71,7 @@
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_rpki.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -7551,18 +7552,20 @@ static const char *bgp_origin2str(uint8_t origin)
 	return "n/a";
 }
 
-static const char *bgp_rpki_validation2str(int v_state)
+static const char *bgp_rpki_validation2str(enum rpki_states v_state)
 {
 	switch (v_state) {
-	case 1:
+	case RPKI_NOT_BEING_USED:
+		return "not used";
+	case RPKI_VALID:
 		return "valid";
-	case 2:
+	case RPKI_NOTFOUND:
 		return "not found";
-	case 3:
+	case RPKI_INVALID:
 		return "invalid";
-	default:
-		break;
 	}
+
+	assert(!"We should never get here this is a dev escape");
 	return "ERROR";
 }
 
@@ -9582,7 +9585,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	int i;
 	char *nexthop_hostname =
 		bgp_nexthop_hostname(path->peer, path->nexthop);
-	int rpki_validation_state = 0;
+	enum rpki_states rpki_validation_state = RPKI_NOT_BEING_USED;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -10190,10 +10193,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	}
 
 	const struct prefix *p = bgp_dest_get_prefix(bn);
+
 	if (p->family == AF_INET || p->family == AF_INET6)
 		rpki_validation_state = hook_call(bgp_rpki_prefix_status,
 						  path->peer, path->attr, p);
-	if (rpki_validation_state) {
+	if (rpki_validation_state != RPKI_NOT_BEING_USED) {
 		if (json_paths)
 			json_object_string_add(
 				json_path, "rpkiValidationState",
