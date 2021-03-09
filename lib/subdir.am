@@ -410,7 +410,7 @@ lib_grammar_sandbox_LDADD = \
 
 lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
-lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS)
+lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS) -lelf
 lib_clippy_LDFLAGS = -export-dynamic
 lib_clippy_SOURCES = \
 	lib/jhash.c \
@@ -420,9 +420,11 @@ lib_clippy_SOURCES = \
 	lib/command_parse.y \
 	lib/command_py.c \
 	lib/defun_lex.l \
+	lib/elf_py.c \
 	lib/graph.c \
 	lib/libfrr_trace.c \
 	lib/memory.c \
+	lib/typesafe.c \
 	lib/vector.c \
 	# end
 
@@ -438,6 +440,32 @@ CLIPPY_DEPS = $(CLIPPY) $(top_srcdir)/python/clidef.py
 SUFFIXES += _clippy.c
 .c_clippy.c:
 	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
+
+# xrelfo, the ELF xref extractor
+
+AM_V_XRELFO = $(am__v_XRELFO_$(V))
+am__v_XRELFO_ = $(am__v_XRELFO_$(AM_DEFAULT_VERBOSITY))
+am__v_XRELFO_0 = @echo "  XRELFO  " $@;
+am__v_XRELFO_1 =
+
+if DEV_BUILD
+XRELFO_FLAGS = -Wlog-format -Wlog-args
+else
+XRELFO_FLAGS =
+endif
+
+SUFFIXES += .xref
+%.xref: % $(CLIPPY)
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(XRELFO_FLAGS) -o $@ $<
+
+# dependencies added in python/makefile.py
+frr.xref:
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
+all-am: frr.xref
+
+clean-xref:
+	-rm -rf $(xrefs) frr.xref
+clean-local: clean-xref
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:

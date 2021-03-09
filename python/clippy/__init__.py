@@ -21,6 +21,8 @@ import _clippy
 from _clippy import parse, Graph, GraphNode
 
 
+frr_top_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 def graph_iterate(graph):
     """iterator yielding all nodes of a graph
 

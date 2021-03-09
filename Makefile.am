@@ -187,8 +187,16 @@ EXTRA_DIST += \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \
+	python/clippy/elf.py \
+	python/clippy/uidhash.py \
 	python/makevars.py \
 	python/makefile.py \
+	python/tiabwarfo.py \
+	python/xrelfo.py \
+	python/test_xrelfo.py \
+	python/runtests.py \
+	\
+	python/xrefstructs.json \
 	\
 	redhat/frr.logrotate \
 	redhat/frr.pam \

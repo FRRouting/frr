@@ -345,5 +345,7 @@ PyMODINIT_FUNC command_py_init(void)
 	PyModule_AddObject(pymod, "GraphNode", (PyObject *)&typeobj_graph_node);
 	Py_INCREF(&typeobj_graph);
 	PyModule_AddObject(pymod, "Graph", (PyObject *)&typeobj_graph);
+	if (!elf_py_init(pymod))
+		initret(NULL);
 	initret(pymod);
 }
