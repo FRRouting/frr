@@ -849,7 +849,8 @@ DEFUN (no_area_export_list,
 	return CMD_SUCCESS;
 }
 
-static int show_ipv6_ospf6_spf_tree_common(struct vty *vty, struct ospf6 *ospf6, bool uj)
+static int show_ipv6_ospf6_spf_tree_common(struct vty *vty, 
+																struct ospf6 *ospf6, bool uj)
 {
 	struct listnode *node;
 	struct ospf6_area *oa;
@@ -918,7 +919,6 @@ DEFUN (show_ipv6_ospf6_spf_tree,
 	struct listnode *node;
 	struct ospf6 *ospf6;
 	bool uj = use_json(argc, argv);
-
 	char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
@@ -930,7 +930,6 @@ DEFUN (show_ipv6_ospf6_spf_tree,
 			((ospf6->name == NULL && vrf_name == NULL)
 			|| (ospf6->name && vrf_name && strcmp(ospf6->name, vrf_name) == 0))) {
 			show_ipv6_ospf6_spf_tree_common(vty, ospf6, uj);
-
 			if (!all_vrf)
 				break;
 		}
@@ -1002,10 +1001,11 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
 }
 
 static int
-show_ospf6_simulate_spf_tree_common(struct vty *vty, struct cmd_token **argv,
-            struct ospf6 *ospf6, uint32_t router_id,
-            uint32_t area_id, struct prefix prefix,
-            int idx_ipv4_2)
+show_ospf6_simulate_spf_tree_common(struct vty *vty, 
+						struct cmd_token **argv,
+						struct ospf6 *ospf6, uint32_t router_id,
+						uint32_t area_id, struct prefix prefix,
+						int idx_ipv4_2)
 {
 	struct ospf6_area *oa;
 	struct ospf6_vertex *root;
