@@ -1202,16 +1202,22 @@ static void update_ext_prefix_sid(struct sr_node *srn, struct sr_prefix *srp)
 		  found ? "Update" : "Add", GET_OPAQUE_ID(srp->instance),
 		  &srn->adv_router);
 
+	/* Complete SR-Prefix */
+	srp->srn = srn;
+	IPV4_ADDR_COPY(&srp->adv_router, &srn->adv_router);
+
 	/* if not found, add new Segment Prefix and install NHLFE */
 	if (!found) {
-		/* Complete SR-Prefix and add it to SR-Node list */
-		srp->srn = srn;
-		IPV4_ADDR_COPY(&srp->adv_router, &srn->adv_router);
+		/* Add it to SR-Node list ... */
 		listnode_add(srn->ext_prefix, srp);
-		/* Try to set MPLS table */
+		/* ... and try to set MPLS table */
 		if (compute_prefix_nhlfe(srp) == 1)
 			ospf_zebra_update_prefix_sid(srp);
 	} else {
+		/*
+		 * An old SR prefix exist. Check if something changes or if it
+		 * is just a refresh.
+		 */
 		if (sr_prefix_cmp(pref, srp)) {
 			if (compute_prefix_nhlfe(srp) == 1) {
 				ospf_zebra_delete_prefix_sid(pref);
@@ -2462,10 +2468,18 @@ DEFUN (sr_prefix_sid,
 		new->type = LOCAL_SID;
 	}
 
+	/* First, remove old NHLFE if installed */
+	if (srp == new && CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
+	    && !CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
+		ospf_zebra_delete_prefix_sid(srp);
+	/* Then, reset Flag & labels to handle flag update */
+	new->flags = 0;
+	new->label_in = 0;
+	new->nhlfe.label_out = 0;
+
 	/* Set NO PHP flag if present and compute NHLFE */
 	if (argv_find(argv, argc, "no-php-flag", &idx)) {
 		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
-		UNSET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG);
 		new->label_in = index2label(new->sid, OspfSR.self->srgb);
 		new->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 	}
@@ -2505,7 +2519,7 @@ DEFUN (sr_prefix_sid,
 	if (srp != new)
 		listnode_add(OspfSR.self->ext_prefix, new);
 
-	/* Install Prefix SID if SR is UP and a valid input label set */
+	/* Update Prefix SID if SR is UP */
 	if (OspfSR.status == SR_UP) {
 		if (CHECK_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
 		    && !CHECK_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
