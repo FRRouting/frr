@@ -13916,13 +13916,14 @@ struct bgp_distance {
 
 DEFUN (show_bgp_afi_vpn_rd_route,
        show_bgp_afi_vpn_rd_route_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN <A.B.C.D/M|X:X::X:X/M> [json]",
+       "show bgp "BGP_AFI_CMD_STR" vpn rd <ASN:NN_OR_IP-ADDRESS:NN|all> <A.B.C.D/M|X:X::X:X/M> [json]",
        SHOW_STR
        BGP_STR
        BGP_AFI_HELP_STR
        "Address Family modifier\n"
        "Display information for a route distinguisher\n"
        "Route Distinguisher\n"
+       "All Route Distinguishers\n"
        "Network in the BGP routing table to display\n"
        "Network in the BGP routing table to display\n"
        JSON_STR)
@@ -13936,6 +13937,12 @@ DEFUN (show_bgp_afi_vpn_rd_route,
 		vty_out(vty, "%% Malformed Address Family\n");
 		return CMD_WARNING;
 	}
+
+	if (!strcmp(argv[5]->arg, "all"))
+		return bgp_show_route(vty, NULL, argv[6]->arg, afi,
+				      SAFI_MPLS_VPN, NULL, 0, BGP_PATH_SHOW_ALL,
+				      RPKI_NOT_BEING_USED,
+				      use_json(argc, argv));
 
 	ret = str2prefix_rd(argv[5]->arg, &prd);
 	if (!ret) {
