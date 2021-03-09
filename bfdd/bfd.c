@@ -1252,12 +1252,12 @@ void bs_final_handler(struct bfd_session *bs)
 	 * TODO: support sending/counting more packets inside detection
 	 * timeout.
 	 */
-	if (bs->remote_timers.required_min_rx > bs->timers.desired_min_tx)
+	if (bs->timers.required_min_rx > bs->remote_timers.desired_min_tx)
 		bs->detect_TO = bs->remote_detect_mult
-				* bs->remote_timers.required_min_rx;
+				* bs->timers.required_min_rx;
 	else
 		bs->detect_TO = bs->remote_detect_mult
-				* bs->timers.desired_min_tx;
+				* bs->remote_timers.desired_min_tx;
 
 	/* Apply new receive timer immediately. */
 	bfd_recvtimer_update(bs);
