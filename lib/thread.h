@@ -185,7 +185,7 @@ struct cpu_thread_history {
 #define thread_add_timer(m,f,a,v,t)      _xref_t_a(timer,      TIMER, m,f,a,v,t)
 #define thread_add_timer_msec(m,f,a,v,t) _xref_t_a(timer_msec, TIMER, m,f,a,v,t)
 #define thread_add_timer_tv(m,f,a,v,t)   _xref_t_a(timer_tv,   TIMER, m,f,a,v,t)
-#define thread_add_event(m,f,a,v,t)      _xref_t_a(event,      TIMER, m,f,a,v,t)
+#define thread_add_event(m,f,a,v,t)      _xref_t_a(event,      EVENT, m,f,a,v,t)
 
 #define thread_execute(m,f,a,v)                                                \
 	({                                                                     \
