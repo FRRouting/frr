@@ -38,11 +38,6 @@ Babel configuration
 
    Enable or disable Babel routing.
 
-.. clicmd:: babel resend-delay (20-655340)
-
-   Specifies the time after which important messages are resent when
-   avoiding a black-hole. The default is 2000 ms.
-
 .. clicmd:: babel diversity
 
    Enable or disable routing using radio frequency diversity.  This is
