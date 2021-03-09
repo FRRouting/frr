@@ -189,11 +189,14 @@ nhrpd can be configured to forward multicast packets, allowing routing
 protocols that use multicast (such as OSPF) to be supported in the DMVPN
 network.
 
-This support requires an NFLOG redirection rule to work:
+This support requires an iptables NFLOG rule to allow nhrpd to intercept
+multicast packets. A second iptables rule is also usually used to drop the
+original multicast packet.
 
  .. code-block:: shell
 
-   iptables -I OUTPUT -d 224.0.0.0/24 -o gre1 -j NFLOG --nflog-group 2
+   iptables -A OUTPUT -d 224.0.0.0/24 -o gre1 -j NFLOG --nflog-group 2
+   iptables -A OUTPUT -d 224.0.0.0/24 -o gre1 -j DROP
 
 .. index::  nhrp multicast-nflog-group (1-65535)
 .. clicmd:: nhrp multicast-nflog-group (1-65535)
