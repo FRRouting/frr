@@ -433,6 +433,10 @@ DEFPY_YANG(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (!no && !bglobal.bg_use_dplane) {
+		vty_out(vty, "%% Current implementation of echo mode works only when the peer is also FRR.\n");
+	}
+
 	nb_cli_enqueue_change(vty, "./echo-mode", NB_OP_MODIFY,
 			      no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
