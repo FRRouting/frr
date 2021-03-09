@@ -301,6 +301,8 @@ static void set_ext_prefix(struct ext_itf *exti, uint8_t route_type,
 	exti->prefix.af = 0;
 	exti->prefix.pref_length = p.prefixlen;
 	exti->prefix.address = p.prefix;
+
+	SET_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE);
 }
 
 /* Extended Link TLV - RFC7684 section 3.1 */
@@ -766,7 +768,6 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 		if (OspfEXT.enabled) {
 			osr_debug("EXT (%s): Set Prefix SID to interface %s ",
 				  __func__, oi->ifp->name);
-			exti->flags = EXT_LPFLG_LSA_ACTIVE;
 			ospf_sr_update_local_prefix(oi->ifp, oi->address);
 		}
 	} else {

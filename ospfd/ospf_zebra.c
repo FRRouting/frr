@@ -622,7 +622,7 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 			znh->labels[0] = path->srni.label_out;
 
 			osr_debug("  |- labels %u/%u", srp->label_in,
-				  srp->nhlfe.label_out);
+				  path->srni.label_out);
 
 			/* Set TI-LFA backup nexthop info if present */
 			if (path->srni.backup_label_stack) {
