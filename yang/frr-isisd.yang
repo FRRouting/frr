@@ -60,6 +60,11 @@ module frr-isisd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2021-02-15 {
+    description
+      "Group SRGB and SRLB in a container so that they can be displayed
+       and configured together";
+  }
   revision 2020-04-06 {
     description
       "Group LSP timers in a container so that they can be displayed and
@@ -1491,38 +1496,42 @@ module frr-isisd {
           description
             "Enables segment-routing protocol extensions.";
         }
-        container srgb {
+        container label-blocks {
           description
-            "Global blocks to be advertised.";
-          must "./upper-bound > ./lower-bound";
-          leaf lower-bound {
-              type uint32;
-              default "16000";
-              description
-                "Lower value in the label range.";
+            "Local and global label blocks.";
+          container srgb {
+            description
+              "Global blocks to be advertised.";
+            must "./upper-bound > ./lower-bound";
+            leaf lower-bound {
+                type uint32;
+                default "16000";
+                description
+                  "Lower value in the label range.";
+            }
+            leaf upper-bound {
+                type uint32;
+                default "23999";
+                description
+                  "Upper value in the label range.";
+            }
           }
-          leaf upper-bound {
-              type uint32;
-              default "23999";
-              description
-                "Upper value in the label range.";
-          }
-        }
-        container srlb {
-          description
-            "Local blocks to be advertised.";
-          must "./upper-bound > ./lower-bound";
-          leaf lower-bound {
-              type uint32;
-              default "15000";
-              description
-                "Lower value in the label range.";
-          }
-          leaf upper-bound {
-              type uint32;
-              default "15999";
-              description
-                "Upper value in the label range.";
+          container srlb {
+            description
+              "Local blocks to be advertised.";
+            must "./upper-bound > ./lower-bound";
+            leaf lower-bound {
+                type uint32;
+                default "15000";
+                description
+                  "Lower value in the label range.";
+            }
+            leaf upper-bound {
+                type uint32;
+                default "15999";
+                description
+                  "Upper value in the label range.";
+            }
           }
         }
         container msd {
