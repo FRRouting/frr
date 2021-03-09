@@ -48,7 +48,7 @@ static void nhrp_multicast_send(struct nhrp_peer *p, struct zbuf *zb)
 	addrlen = sockunion_get_addrlen(&p->vc->remote.nbma);
 	ret = os_sendmsg(zb->head, zbuf_used(zb), p->ifp->ifindex,
 			 sockunion_get_addr(&p->vc->remote.nbma), addrlen,
-			 addrlen == 4 ? 0x0800 : 0x86DD);
+			 addrlen == 4 ? ETH_P_IP : ETH_P_IPV6);
 
 	debugf(NHRP_DEBUG_COMMON,
 	       "Multicast Packet: %s -> %s, ret = %d, size = %zu, addrlen = %zu",
