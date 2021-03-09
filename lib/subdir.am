@@ -461,7 +461,7 @@ SUFFIXES += .xref
 # dependencies added in python/makefile.py
 frr.xref:
 	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
-all-am: frr.xref
+all-xref: frr.xref
 
 clean-xref:
 	-rm -rf $(xrefs) frr.xref
