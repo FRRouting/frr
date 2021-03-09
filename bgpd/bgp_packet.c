@@ -2699,3 +2699,37 @@ void bgp_send_delayed_eor(struct bgp *bgp)
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 		bgp_write_proceed_actions(peer);
 }
+
+/*
+ * Task callback to handle socket error encountered in the io pthread. We avoid
+ * having the io pthread try to enqueue fsm events or mess with the peer
+ * struct.
+ */
+int bgp_packet_process_error(struct thread *thread)
+{
+	struct peer *peer;
+	int code;
+
+	peer = THREAD_ARG(thread);
+	code = THREAD_VAL(thread);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s [Event] BGP error %d on fd %d",
+			   peer->host, peer->fd, code);
+
+	/* Closed connection or error on the socket */
+	if (peer->status == Established) {
+		if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+		     || CHECK_FLAG(peer->flags,
+				   PEER_FLAG_GRACEFUL_RESTART_HELPER))
+		    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+			peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+		} else
+			peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+	}
+
+	bgp_event_update(peer, code);
+
+	return 0;
+}
