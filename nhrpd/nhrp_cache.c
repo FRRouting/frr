@@ -220,7 +220,6 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 {
 	struct prefix pfx;
 	struct nhrp_peer *p = c->cur.peer;
-	char buf[3][SU_ADDRSTRLEN];
 	struct nhrp_interface *nifp;
 
 	if (!sockunion2hostprefix(&c->remote_addr, &pfx))
@@ -233,26 +232,18 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			 * nbma.
 			 */
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache (remote_nbma_natoa set): Update binding for %s dev %s from (deleted) peer.vc.nbma %s to %s",
-			       sockunion2str(&c->remote_addr, buf[0],
-					     sizeof(buf[0])),
-			       p->ifp->name,
-			       sockunion2str(&p->vc->remote.nbma, buf[1],
-					     sizeof(buf[1])),
-			       sockunion2str(&c->cur.remote_nbma_natoa, buf[2],
-					     sizeof(buf[2])));
+			       "cache (remote_nbma_natoa set): Update binding for %pSU dev %s from (deleted) peer.vc.nbma %pSU to %pSU",
+			       &c->remote_addr, p->ifp->name,
+			       &p->vc->remote.nbma, &c->cur.remote_nbma_natoa);
 
 			netlink_update_binding(p->ifp, &c->remote_addr,
 					       &c->cur.remote_nbma_natoa);
 		} else {
 			/* update binding to peer->vc->remote->nbma */
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache (remote_nbma_natoa unspec): Update binding for %s dev %s from (deleted) to peer.vc.nbma %s",
-			       sockunion2str(&c->remote_addr, buf[0],
-					     sizeof(buf[0])),
-			       p->ifp->name,
-			       sockunion2str(&p->vc->remote.nbma, buf[1],
-					     sizeof(buf[1])));
+			       "cache (remote_nbma_natoa unspec): Update binding for %pSU dev %s from (deleted) to peer.vc.nbma %pSU",
+			       &c->remote_addr, p->ifp->name,
+			       &p->vc->remote.nbma);
 
 			netlink_update_binding(p->ifp, &c->remote_addr,
 					       &p->vc->remote.nbma);
@@ -353,9 +344,8 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 	struct nhrp_cache *c = container_of(r, struct nhrp_cache, eventid);
 	char buf[3][SU_ADDRSTRLEN];
 
-	debugf(NHRP_DEBUG_COMMON, "cache: %s %s: %s", c->ifp->name,
-	       sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
-	       (const char *)arg);
+	debugf(NHRP_DEBUG_COMMON, "cache: %s %pSU: %s", c->ifp->name,
+	       &c->remote_addr, (const char *)arg);
 
 	nhrp_reqid_free(&nhrp_event_reqid, r);
 
@@ -377,16 +367,13 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 
 		if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache: update binding for %s dev %s from (deleted) peer.vc.nbma %s to %s",
-			       sockunion2str(&c->remote_addr, buf[0],
-					     sizeof(buf[0])),
-			       c->ifp->name,
+			       "cache: update binding for %pSU dev %s from (deleted) peer.vc.nbma %s to %pSU",
+			       &c->remote_addr, c->ifp->name,
 			       (c->cur.peer ? sockunion2str(
 					&c->cur.peer->vc->remote.nbma, buf[1],
 					sizeof(buf[1]))
 					    : "(no peer)"),
-			       sockunion2str(&c->cur.remote_nbma_natoa, buf[2],
-					     sizeof(buf[2])));
+			       &c->cur.remote_nbma_natoa);
 
 			if (c->cur.peer)
 				netlink_update_binding(

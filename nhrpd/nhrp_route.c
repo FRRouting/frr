@@ -200,7 +200,6 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	struct zapi_nexthop *api_nh;
 	struct interface *ifp = NULL;
 	union sockunion nexthop_addr;
-	char buf[PREFIX_STRLEN];
 	int added;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
@@ -233,9 +232,8 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	}
 
 	added = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
-	debugf(NHRP_DEBUG_ROUTE, "if-route-%s: %pFX via %s dev %s",
-	       added ? "add" : "del", &api.prefix,
-	       sockunion2str(&nexthop_addr, buf, sizeof(buf)),
+	debugf(NHRP_DEBUG_ROUTE, "if-route-%s: %pFX via %pSU dev %s",
+	       added ? "add" : "del", &api.prefix, &nexthop_addr,
 	       ifp ? ifp->name : "(none)");
 
 	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, added ? ifp : NULL);

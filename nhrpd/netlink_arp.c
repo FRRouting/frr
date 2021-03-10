@@ -67,7 +67,6 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 	struct zbuf payload;
 	union sockunion addr, lladdr;
 	size_t len;
-	char buf[4][SU_ADDRSTRLEN];
 	int state;
 
 	memset(&lladdr, 0, sizeof(lladdr));
@@ -99,27 +98,20 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 		return;
 
 	debugf(NHRP_DEBUG_KERNEL,
-	       "Netlink: %s %s dev %s lladdr %s nud 0x%x cache used %u type %u",
+	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
 	       (msg->nlmsg_type == RTM_GETNEIGH)
 		       ? "who-has"
 		       : (msg->nlmsg_type == RTM_NEWNEIGH) ? "new-neigh"
 							   : "del-neigh",
-	       sockunion2str(&addr, buf[0], sizeof(buf[0])), ifp->name,
-	       sockunion2str(&lladdr, buf[1], sizeof(buf[1])), ndm->ndm_state,
-	       c->used, c->cur.type);
+	       &addr, ifp->name, &lladdr, ndm->ndm_state, c->used, c->cur.type);
 
 	if (msg->nlmsg_type == RTM_GETNEIGH) {
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
 			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink: update binding for %s dev %s from c %s peer.vc.nbma %s to lladdr %s",
-			       sockunion2str(&addr, buf[0], sizeof(buf[0])),
-			       ifp->name,
-			       sockunion2str(&c->cur.remote_nbma_natoa, buf[1],
-					     sizeof(buf[1])),
-			       sockunion2str(&c->cur.peer->vc->remote.nbma,
-					     buf[2], sizeof(buf[2])),
-			       sockunion2str(&lladdr, buf[3], sizeof(buf[3])));
+			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
+			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
+			       &c->cur.peer->vc->remote.nbma, &lladdr);
 			/* In case of shortcuts, nbma is given by lladdr, not
 			 * vc->remote.nbma.
 			 */
