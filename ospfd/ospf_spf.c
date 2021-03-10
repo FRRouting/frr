@@ -251,15 +251,11 @@ static void ospf_vertex_dump(const char *msg, struct vertex *v,
 		struct vertex_parent *vp;
 
 		for (ALL_LIST_ELEMENTS_RO(v->parents, node, vp)) {
-			char buf1[BUFSIZ];
-
 			if (vp) {
 				zlog_debug(
-					"parent %pI4 backlink %d nexthop %s  lsa pos %d",
-					&vp->parent->lsa->id,
-					vp->backlink,
-					inet_ntop(AF_INET, &vp->nexthop->router,
-						  buf1, BUFSIZ),
+					"parent %pI4 backlink %d nexthop %pI4 lsa pos %d",
+					&vp->parent->lsa->id, vp->backlink,
+					&vp->nexthop->router,
 					vp->nexthop->lsa_pos);
 			}
 		}
@@ -707,14 +703,9 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 	else
 		w->distance = distance;
 
-	if (IS_DEBUG_OSPF_EVENT) {
-		char buf[2][INET_ADDRSTRLEN];
-		zlog_debug(
-			"%s: Adding %s as parent of %s", __func__,
-			inet_ntop(AF_INET, &v->lsa->id, buf[0], sizeof(buf[0])),
-			inet_ntop(AF_INET, &w->lsa->id, buf[1],
-				  sizeof(buf[1])));
-	}
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Adding %pI4 as parent of %pI4", __func__,
+			   &v->lsa->id, &w->lsa->id);
 
 	/*
 	 * Adding parent for a new, better path: flush existing parents from W.
@@ -805,8 +796,6 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 	struct vertex_nexthop *nh, *lnh;
 	struct vertex_parent *vp;
 	unsigned int added = 0;
-	char buf1[BUFSIZ];
-	char buf2[BUFSIZ];
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_debug("ospf_nexthop_calculation(): Start");
@@ -828,14 +817,11 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 		/* we *must* be supplied with the link data */
 		assert(l != NULL);
 
-		if (IS_DEBUG_OSPF_EVENT) {
+		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: considering link type:%d link_id:%s link_data:%s",
-				__func__, l->m[0].type,
-				inet_ntop(AF_INET, &l->link_id, buf1, BUFSIZ),
-				inet_ntop(AF_INET, &l->link_data, buf2,
-					  BUFSIZ));
-		}
+				"%s: considering link type:%d link_id:%pI4 link_data:%pI4",
+				__func__, l->m[0].type, &l->link_id,
+				&l->link_data);
 
 		if (w->type == OSPF_VERTEX_ROUTER) {
 			/*
@@ -852,15 +838,10 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 								       lsa_pos);
 					if (!oi) {
 						zlog_debug(
-							"%s: OI not found in LSA: lsa_pos: %d link_id:%s link_data:%s",
+							"%s: OI not found in LSA: lsa_pos: %d link_id:%pI4 link_data:%pI4",
 							__func__, lsa_pos,
-							inet_ntop(AF_INET,
-								  &l->link_id,
-								  buf1, BUFSIZ),
-							inet_ntop(AF_INET,
-								  &l->link_data,
-								  buf2,
-								  BUFSIZ));
+							&l->link_id,
+							&l->link_data);
 						return 0;
 					}
 				}
