@@ -572,17 +572,11 @@ int eigrp_read(struct thread *thread)
 
 	/* If incoming interface is passive one, ignore it. */
 	if (eigrp_if_is_passive(ei)) {
-		char buf[3][INET_ADDRSTRLEN];
-
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
-				"ignoring packet from router %s sent to %s, received on a passive interface, %s",
-				inet_ntop(AF_INET, &eigrph->vrid, buf[0],
-					  sizeof(buf[0])),
-				inet_ntop(AF_INET, &iph->ip_dst, buf[1],
-					  sizeof(buf[1])),
-				inet_ntop(AF_INET, &ei->address.u.prefix4,
-					  buf[2], sizeof(buf[2])));
+				"ignoring packet from router %pI4 sent to %pI4, received on a passive interface, %pI4",
+				&eigrph->vrid, &iph->ip_dst,
+				&ei->address.u.prefix4);
 
 		if (iph->ip_dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS)) {
 			eigrp_if_set_multicast(ei);

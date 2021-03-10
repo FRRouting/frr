@@ -231,9 +231,7 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 	api.nexthop_num = count;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[PREFIX_STRLEN];
-		zlog_debug("Zebra: Route add %pFX nexthop %s", p,
-			   inet_ntop(AF_INET, 0, buf, PREFIX_STRLEN));
+		zlog_debug("Zebra: Route add %pFX", p);
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
