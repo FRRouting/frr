@@ -376,5 +376,6 @@ extern bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
 extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
 				 struct bgp_evpn_es *es);
 extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
+extern void bgp_evpn_switch_ead_evi_rx(void);
 
 #endif /* _FRR_BGP_EVPN_MH_H */
