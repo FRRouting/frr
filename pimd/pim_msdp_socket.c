@@ -67,7 +67,6 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	int accept_sock;
 	int msdp_sock;
 	struct pim_msdp_peer *mp;
-	char buf[SU_ADDRSTRLEN];
 
 	sockunion_init(&su);
 
@@ -96,8 +95,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 		++pim->msdp.rejected_accepts;
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			flog_err(EC_PIM_MSDP_PACKET,
-				 "msdp peer connection refused from %s",
-				 sockunion2str(&su, buf, SU_ADDRSTRLEN));
+				 "msdp peer connection refused from %pSU", &su);
 		}
 		close(msdp_sock);
 		return -1;
@@ -113,8 +111,8 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	if (mp->fd >= 0) {
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			zlog_notice(
-				"msdp peer new connection from %s stop old connection",
-				sockunion2str(&su, buf, SU_ADDRSTRLEN));
+				"msdp peer new connection from %pSU stop old connection",
+				&su);
 		}
 		pim_msdp_peer_stop_tcp_conn(mp, true /* chg_state */);
 	}
