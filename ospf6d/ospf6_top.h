@@ -128,6 +128,7 @@ struct ospf6 {
 	struct thread *maxage_remover;
 	struct thread *t_distribute_update; /* Distirbute update timer. */
 	struct thread *t_ospf6_receive; /* OSPF6 receive timer */
+	struct thread *t_write;
 
 	uint32_t ref_bandwidth;
 
@@ -150,6 +151,7 @@ struct ospf6 {
 	/* Count of NSSA areas */
 	uint8_t anyNSSA;
 	struct thread *t_abr_task; /* ABR task timer. */
+	struct list *oi_write_q;
 
 	uint32_t redist_count;
 	QOBJ_FIELDS;

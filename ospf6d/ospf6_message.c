@@ -50,6 +50,8 @@
 #include <netinet/ip6.h>
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_MESSAGE, "OSPF6 message");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PACKET, "OSPF6 packet");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_FIFO, "OSPF6  FIFO queue");
 
 unsigned char conf_debug_ospf6_message[6] = {0x03, 0, 0, 0, 0, 0};
 static const struct message ospf6_message_type_str[] = {
@@ -250,6 +252,95 @@ void ospf6_lsack_print(struct ospf6_header *oh, int action)
 
 		assert(p == OSPF6_MESSAGE_END(oh));
 	}
+}
+
+void ospf6_packet_free(struct ospf6_packet *op)
+{
+	if (op->s)
+		stream_free(op->s);
+
+	XFREE(MTYPE_OSPF6_PACKET, op);
+}
+
+struct ospf6_fifo *ospf6_fifo_new(void)
+{
+	struct ospf6_fifo *new;
+
+	new = XCALLOC(MTYPE_OSPF6_FIFO, sizeof(struct ospf6_fifo));
+	return new;
+}
+
+/* Add new packet to fifo. */
+void ospf6_fifo_push(struct ospf6_fifo *fifo, struct ospf6_packet *op)
+{
+	if (fifo->tail)
+		fifo->tail->next = op;
+	else
+		fifo->head = op;
+
+	fifo->tail = op;
+
+	fifo->count++;
+}
+
+/* Add new packet to head of fifo. */
+void ospf6_fifo_push_head(struct ospf6_fifo *fifo, struct ospf6_packet *op)
+{
+	op->next = fifo->head;
+
+	if (fifo->tail == NULL)
+		fifo->tail = op;
+
+	fifo->head = op;
+
+	fifo->count++;
+}
+
+/* Delete first packet from fifo. */
+struct ospf6_packet *ospf6_fifo_pop(struct ospf6_fifo *fifo)
+{
+	struct ospf6_packet *op;
+
+	op = fifo->head;
+
+	if (op) {
+		fifo->head = op->next;
+
+		if (fifo->head == NULL)
+			fifo->tail = NULL;
+
+		fifo->count--;
+	}
+
+	return op;
+}
+
+/* Return first fifo entry. */
+struct ospf6_packet *ospf6_fifo_head(struct ospf6_fifo *fifo)
+{
+	return fifo->head;
+}
+
+/* Flush ospf packet fifo. */
+void ospf6_fifo_flush(struct ospf6_fifo *fifo)
+{
+	struct ospf6_packet *op;
+	struct ospf6_packet *next;
+
+	for (op = fifo->head; op; op = next) {
+		next = op->next;
+		ospf6_packet_free(op);
+	}
+	fifo->head = fifo->tail = NULL;
+	fifo->count = 0;
+}
+
+/* Free ospf packet fifo. */
+void ospf6_fifo_free(struct ospf6_fifo *fifo)
+{
+	ospf6_fifo_flush(fifo);
+
+	XFREE(MTYPE_OSPF6_FIFO, fifo);
 }
 
 static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
