@@ -1783,7 +1783,6 @@ static int vty_accept(struct thread *thread)
 	int accept_sock;
 	struct prefix p;
 	struct access_list *acl = NULL;
-	char buf[SU_ADDRSTRLEN];
 
 	accept_sock = THREAD_FD(thread);
 
@@ -1804,8 +1803,8 @@ static int vty_accept(struct thread *thread)
 
 	if (!sockunion2hostprefix(&su, &p)) {
 		close(vty_sock);
-		zlog_info("Vty unable to convert prefix from sockunion %s",
-			  sockunion2str(&su, buf, SU_ADDRSTRLEN));
+		zlog_info("Vty unable to convert prefix from sockunion %pSU",
+			  &su);
 		return -1;
 	}
 
@@ -1813,8 +1812,7 @@ static int vty_accept(struct thread *thread)
 	if (p.family == AF_INET && vty_accesslist_name) {
 		if ((acl = access_list_lookup(AFI_IP, vty_accesslist_name))
 		    && (access_list_apply(acl, &p) == FILTER_DENY)) {
-			zlog_info("Vty connection refused from %s",
-				  sockunion2str(&su, buf, SU_ADDRSTRLEN));
+			zlog_info("Vty connection refused from %pSU", &su);
 			close(vty_sock);
 
 			/* continue accepting connections */
@@ -1829,8 +1827,7 @@ static int vty_accept(struct thread *thread)
 		if ((acl = access_list_lookup(AFI_IP6,
 					      vty_ipv6_accesslist_name))
 		    && (access_list_apply(acl, &p) == FILTER_DENY)) {
-			zlog_info("Vty connection refused from %s",
-				  sockunion2str(&su, buf, SU_ADDRSTRLEN));
+			zlog_info("Vty connection refused from %pSU", &su);
 			close(vty_sock);
 
 			/* continue accepting connections */
@@ -1847,8 +1844,7 @@ static int vty_accept(struct thread *thread)
 		zlog_info("can't set sockopt to vty_sock : %s",
 			  safe_strerror(errno));
 
-	zlog_info("Vty connection from %s",
-		  sockunion2str(&su, buf, SU_ADDRSTRLEN));
+	zlog_info("Vty connection from %pSU", &su);
 
 	vty_create(vty_sock, &su);
 
@@ -2444,9 +2440,8 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 
 			confp = vty_use_backup_config(fullpath);
 			if (confp)
-				flog_warn(
-					EC_LIB_BACKUP_CONFIG,
-					"WARNING: using backup configuration file!");
+				flog_warn(EC_LIB_BACKUP_CONFIG,
+					  "using backup configuration file!");
 			else {
 				flog_err(
 					EC_LIB_VTY,
@@ -2495,9 +2490,8 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 
 			confp = vty_use_backup_config(config_default_dir);
 			if (confp) {
-				flog_warn(
-					EC_LIB_BACKUP_CONFIG,
-					"WARNING: using backup configuration file!");
+				flog_warn(EC_LIB_BACKUP_CONFIG,
+					  "using backup configuration file!");
 				fullpath = config_default_dir;
 			} else {
 				flog_err(EC_LIB_VTY,
@@ -2625,7 +2619,7 @@ int vty_config_node_exit(struct vty *vty)
 	/* Check if there's a pending confirmed commit. */
 	if (vty->t_confirmed_commit_timeout) {
 		vty_out(vty,
-			"WARNING: exiting with a pending confirmed commit. Rolling back to previous configuration.\n\n");
+			"exiting with a pending confirmed commit. Rolling back to previous configuration.\n\n");
 		nb_cli_confirmed_commit_rollback(vty);
 		nb_cli_confirmed_commit_clean(vty);
 	}
