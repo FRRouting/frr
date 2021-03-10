@@ -942,12 +942,9 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 
 	if (bgp_debug_zebra(p)) {
 		if (p->family == AF_INET) {
-			char buf[2][INET_ADDRSTRLEN];
 			zlog_debug(
-				"Zebra rmap deny: IPv4 route %pFX nexthop %s",
-				p,
-				inet_ntop(AF_INET, &path->attr->nexthop, buf[1],
-					  sizeof(buf[1])));
+				"Zebra rmap deny: IPv4 route %pFX nexthop %pI4",
+				p, &path->attr->nexthop);
 		}
 		if (p->family == AF_INET6) {
 			char buf[2][INET6_ADDRSTRLEN];
@@ -2742,14 +2739,12 @@ static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
 static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 {
 	int filter = 0;
-	char buf[ETHER_ADDR_STRLEN];
 	vni_t l3vni = 0;
 	struct ethaddr svi_rmac, vrr_rmac = {.octet = {0} };
 	struct in_addr originator_ip;
 	struct stream *s;
 	ifindex_t svi_ifindex;
 	bool is_anycast_mac = false;
-	char buf1[ETHER_ADDR_STRLEN];
 
 	memset(&svi_rmac, 0, sizeof(struct ethaddr));
 	memset(&originator_ip, 0, sizeof(struct in_addr));
@@ -2764,13 +2759,12 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 		is_anycast_mac = stream_getl(s);
 
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("Rx L3-VNI ADD VRF %s VNI %u RMAC svi-mac %s vrr-mac %s filter %s svi-if %u",
-				   vrf_id_to_name(vrf_id), l3vni,
-				   prefix_mac2str(&svi_rmac, buf, sizeof(buf)),
-				   prefix_mac2str(&vrr_rmac, buf1,
-						  sizeof(buf1)),
-				   filter ? "prefix-routes-only" : "none",
-				   svi_ifindex);
+			zlog_debug(
+				"Rx L3-VNI ADD VRF %s VNI %u RMAC svi-mac %pEA vrr-mac %pEA filter %s svi-if %u",
+				vrf_id_to_name(vrf_id), l3vni, &svi_rmac,
+				&vrr_rmac,
+				filter ? "prefix-routes-only" : "none",
+				svi_ifindex);
 
 		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &svi_rmac, &vrr_rmac,
 					 originator_ip, filter, svi_ifindex,
@@ -2830,8 +2824,6 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 	struct ethaddr mac;
 	struct ipaddr ip;
 	int ipa_len;
-	char buf[ETHER_ADDR_STRLEN];
-	char buf1[INET6_ADDRSTRLEN];
 	uint8_t flags = 0;
 	uint32_t seqnum = 0;
 	int state = 0;
@@ -2871,11 +2863,11 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%u:Recv MACIP %s f 0x%x MAC %s IP %s VNI %u seq %u state %d ESI %s",
-			   vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
-			   flags, prefix_mac2str(&mac, buf, sizeof(buf)),
-			   ipaddr2str(&ip, buf1, sizeof(buf1)), vni, seqnum,
-			   state, esi_to_str(&esi, buf2, sizeof(buf2)));
+		zlog_debug(
+			"%u:Recv MACIP %s f 0x%x MAC %pEA IP %pI4 VNI %u seq %u state %d ESI %s",
+			vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del", flags,
+			&mac, &ip, vni, seqnum, state,
+			esi_to_str(&esi, buf2, sizeof(buf2)));
 
 	if (cmd == ZEBRA_MACIP_ADD)
 		return bgp_evpn_local_macip_add(bgp, vni, &mac, &ip,

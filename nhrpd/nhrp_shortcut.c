@@ -94,8 +94,6 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 					 enum nhrp_cache_type type,
 					 struct nhrp_cache *c, int holding_time)
 {
-	char buf[2][PREFIX_STRLEN];
-
 	s->type = type;
 	if (c != s->cache) {
 		if (s->cache) {
@@ -111,13 +109,9 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 				 * change */
 				s->route_installed = 0;
 				debugf(NHRP_DEBUG_ROUTE,
-				       "Shortcut: forcing renewal of zebra announce on prefix change peer %s ht %u cur nbma %s dev %s",
-				       sockunion2str(&s->cache->remote_addr,
-						     buf[0], sizeof(buf[0])),
-				       holding_time,
-				       sockunion2str(
-					       &s->cache->cur.remote_nbma_natoa,
-					       buf[1], sizeof(buf[1])),
+				       "Shortcut: forcing renewal of zebra announce on prefix change peer %pSU ht %u cur nbma %pSU dev %s",
+				       &s->cache->remote_addr, holding_time,
+				       &s->cache->cur.remote_nbma_natoa,
 				       s->cache->ifp->name);
 				nhrp_shortcut_cache_notify(&s->cache_notifier,
 							   NOTIFY_CACHE_UP);
@@ -255,9 +249,9 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	prefix2sockunion(s->p, &cie_proto);
 	if (!sockunion_same(&cie_proto, &pp->dst_proto)) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "Shortcut: Warning dst_proto altered from %s to %s",
-		       sockunion2str(&cie_proto, buf[0], sizeof(buf[0])),
-		       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])));
+		       "Shortcut: Warning dst_proto altered from %pSU to %pSU",
+		       &cie_proto, &pp->dst_proto);
+		;
 	}
 
 	/* One or more CIEs should be given as reply, we support only one */
@@ -287,11 +281,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	}
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Shortcut: %pFX is at proto %s dst_proto %s cie-nbma %s nat-nbma %s cie-holdtime %d",
-	       &prefix, sockunion2str(proto, buf[0], sizeof(buf[0])),
-	       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])),
-	       sockunion2str(&cie_nbma, buf[2], sizeof(buf[2])),
-	       sockunion2str(&nat_nbma, buf[3], sizeof(buf[3])),
+	       "Shortcut: %pFX is at proto %pSU dst_proto %pSU cie-nbma %pSU nat-nbma %pSU cie-holdtime %d",
+	       &prefix, proto, &pp->dst_proto, &cie_nbma, &nat_nbma,
 	       htons(cie->holding_time));
 
 	/* Update cache entry for the protocol to nbma binding */

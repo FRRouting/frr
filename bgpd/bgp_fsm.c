@@ -1556,13 +1556,9 @@ static int bgp_connect_success(struct peer *peer)
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		char buf1[SU_ADDRSTRLEN];
-
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %s",
-				   peer->host,
-				   sockunion2str(peer->su_local, buf1,
-						 SU_ADDRSTRLEN));
+			zlog_debug("%s open active, local address %pSU",
+				   peer->host, peer->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}
@@ -1598,13 +1594,9 @@ static int bgp_connect_success_w_delayopen(struct peer *peer)
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		char buf1[SU_ADDRSTRLEN];
-
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %s",
-				   peer->host,
-				   sockunion2str(peer->su_local, buf1,
-						 SU_ADDRSTRLEN));
+			zlog_debug("%s open active, local address %pSU",
+				   peer->host, peer->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}

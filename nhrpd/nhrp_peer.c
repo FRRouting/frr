@@ -38,16 +38,13 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir);
 
 static void nhrp_peer_check_delete(struct nhrp_peer *p)
 {
-	char buf[2][256];
 	struct nhrp_interface *nifp = p->ifp->info;
 
 	if (p->ref || notifier_active(&p->notifier_list))
 		return;
 
-	debugf(NHRP_DEBUG_COMMON, "Deleting peer ref:%d remote:%s local:%s",
-	       p->ref,
-	       sockunion2str(&p->vc->remote.nbma, buf[0], sizeof(buf[0])),
-	       sockunion2str(&p->vc->local.nbma, buf[1], sizeof(buf[1])));
+	debugf(NHRP_DEBUG_COMMON, "Deleting peer ref:%d remote:%pSU local:%pSU",
+	       p->ref, &p->vc->remote.nbma, &p->vc->local.nbma);
 
 	THREAD_OFF(p->t_fallback);
 	hash_release(nifp->peer_hash, p);
@@ -326,16 +323,13 @@ void nhrp_peer_notify_del(struct nhrp_peer *p, struct notifier_block *n)
 
 void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb)
 {
-	char buf[2][256];
-
 	nhrp_packet_debug(zb, "Send");
 
 	if (!p->online)
 		return;
 
-	debugf(NHRP_DEBUG_KERNEL, "PACKET: Send %s -> %s",
-	       sockunion2str(&p->vc->local.nbma, buf[0], sizeof(buf[0])),
-	       sockunion2str(&p->vc->remote.nbma, buf[1], sizeof(buf[1])));
+	debugf(NHRP_DEBUG_KERNEL, "PACKET: Send %pSU -> %pSU",
+	       &p->vc->local.nbma, &p->vc->remote.nbma);
 
 	os_sendmsg(zb->head, zbuf_used(zb), p->ifp->ifindex,
 		   sockunion_get_addr(&p->vc->remote.nbma),
@@ -658,7 +652,6 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 	struct nhrp_afi_data *if_ad;
 	struct nhrp_packet_header *hdr;
 	struct nhrp_peer *p;
-	char buf[2][SU_ADDRSTRLEN];
 
 	if (!nifp->enabled)
 		return;
@@ -673,17 +666,14 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 	if_ad = &nifp->afi[family2afi(sockunion_family(&dst))];
 	if (!(if_ad->flags & NHRP_IFF_REDIRECT)) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "Send Traffic Indication to %s about packet to %s ignored",
-		       sockunion2str(&p->vc->remote.nbma, buf[0],
-				     sizeof(buf[0])),
-		       sockunion2str(&dst, buf[1], sizeof(buf[1])));
+		       "Send Traffic Indication to %pSU about packet to %pSU ignored",
+		       &p->vc->remote.nbma, &dst);
 		return;
 	}
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Send Traffic Indication to %s (online=%d) about packet to %s",
-	       sockunion2str(&p->vc->remote.nbma, buf[0], sizeof(buf[0])),
-	       p->online, sockunion2str(&dst, buf[1], sizeof(buf[1])));
+	       "Send Traffic Indication to %pSU (online=%d) about packet to %pSU",
+	       &p->vc->remote.nbma, p->online, &dst);
 
 	/* Create reply */
 	zb = zbuf_alloc(1500);
@@ -705,16 +695,14 @@ static void nhrp_handle_error_ind(struct nhrp_packet_parser *pp)
 	struct nhrp_packet_header *hdr;
 	struct nhrp_reqid *reqid;
 	union sockunion src_nbma, src_proto, dst_proto;
-	char buf[2][SU_ADDRSTRLEN];
 
 	hdr = nhrp_packet_pull(&origmsg, &src_nbma, &src_proto, &dst_proto);
 	if (!hdr)
 		return;
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Error Indication from %s about packet to %s ignored",
-	       sockunion2str(&pp->src_proto, buf[0], sizeof(buf[0])),
-	       sockunion2str(&dst_proto, buf[1], sizeof(buf[1])));
+	       "Error Indication from %pSU about packet to %pSU ignored",
+	       &pp->src_proto, &dst_proto);
 
 	reqid = nhrp_reqid_lookup(&nhrp_packet_reqid, htonl(hdr->u.request_id));
 	if (reqid)
@@ -724,16 +712,14 @@ static void nhrp_handle_error_ind(struct nhrp_packet_parser *pp)
 static void nhrp_handle_traffic_ind(struct nhrp_packet_parser *p)
 {
 	union sockunion dst;
-	char buf[2][SU_ADDRSTRLEN];
 
 	if (!parse_ether_packet(&p->payload, htons(p->hdr->protocol_type), NULL,
 				&dst))
 		return;
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Traffic Indication from %s about packet to %s: %s",
-	       sockunion2str(&p->src_proto, buf[0], sizeof(buf[0])),
-	       sockunion2str(&dst, buf[1], sizeof(buf[1])),
+	       "Traffic Indication from %pSU about packet to %pSU: %s",
+	       &p->src_proto, &dst,
 	       (p->if_ad->flags & NHRP_IFF_SHORTCUT) ? "trying shortcut"
 						     : "ignored");
 
@@ -929,7 +915,6 @@ struct nhrp_route_info {
 
 void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 {
-	char buf[2][SU_ADDRSTRLEN];
 	struct nhrp_packet_header *hdr;
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
@@ -942,9 +927,8 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	unsigned paylen, extoff, extlen, realsize;
 	afi_t nbma_afi, proto_afi;
 
-	debugf(NHRP_DEBUG_KERNEL, "PACKET: Recv %s -> %s",
-	       sockunion2str(&vc->remote.nbma, buf[0], sizeof(buf[0])),
-	       sockunion2str(&vc->local.nbma, buf[1], sizeof(buf[1])));
+	debugf(NHRP_DEBUG_KERNEL, "PACKET: Recv %pSU -> %pSU", &vc->remote.nbma,
+	       &vc->local.nbma);
 
 	if (!p->online) {
 		info = "peer not online";
@@ -975,10 +959,9 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	    || packet_types[hdr->type].type == PACKET_UNKNOWN
 	    || htons(hdr->packet_size) > realsize) {
 		zlog_info(
-			"From %s: error: packet type %d, version %d, AFI %d, proto %x, size %d (real size %d)",
-			sockunion2str(&vc->remote.nbma, buf[0], sizeof(buf[0])),
-			(int)hdr->type, (int)hdr->version, (int)nbma_afi,
-			(int)htons(hdr->protocol_type),
+			"From %pSU: error: packet type %d, version %d, AFI %d, proto %x, size %d (real size %d)",
+			&vc->remote.nbma, (int)hdr->type, (int)hdr->version,
+			(int)nbma_afi, (int)htons(hdr->protocol_type),
 			(int)htons(hdr->packet_size), (int)realsize);
 		goto drop;
 	}
@@ -1055,10 +1038,7 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 
 drop:
 	if (info) {
-		zlog_info(
-			"From %s: error: %s",
-			sockunion2str(&vc->remote.nbma, buf[0], sizeof(buf[0])),
-			info);
+		zlog_info("From %pSU: error: %s", &vc->remote.nbma, info);
 	}
 	if (peer)
 		nhrp_peer_unref(peer);

@@ -33,7 +33,6 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	struct nhrp_cache *c;
 	struct zbuf extpl;
 	union sockunion cie_nbma, cie_proto, *proto;
-	char buf[64];
 	int ok = 0, holdtime;
 	unsigned short mtu = 0;
 
@@ -52,8 +51,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 		proto = sockunion_family(&cie_proto) != AF_UNSPEC
 				? &cie_proto
 				: &p->src_proto;
-		debugf(NHRP_DEBUG_COMMON, "NHS: CIE registration: %s: %d",
-		       sockunion2str(proto, buf, sizeof(buf)), cie->code);
+		debugf(NHRP_DEBUG_COMMON, "NHS: CIE registration: %pSU: %d",
+		       proto, cie->code);
 		if (!((cie->code == NHRP_CODE_SUCCESS)
 		      || (cie->code == NHRP_CODE_ADMINISTRATIVELY_PROHIBITED
 			  && nhs->hub)))
@@ -76,10 +75,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 					     &cie_proto)) {
 				nifp->nat_nbma = cie_nbma;
 				debugf(NHRP_DEBUG_IF,
-				       "%s: NAT detected, real NBMA address: %s",
-				       ifp->name,
-				       sockunion2str(&nifp->nbma, buf,
-						     sizeof(buf)));
+				       "%s: NAT detected, real NBMA address: %pSU",
+				       ifp->name, &nifp->nbma);
 			}
 			break;
 		}
@@ -130,16 +127,14 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 {
 	struct nhrp_registration *r =
 		container_of(n, struct nhrp_registration, peer_notifier);
-	char buf[SU_ADDRSTRLEN];
 
 	switch (cmd) {
 	case NOTIFY_PEER_UP:
 	case NOTIFY_PEER_DOWN:
 	case NOTIFY_PEER_IFCONFIG_CHANGED:
 	case NOTIFY_PEER_MTU_CHANGED:
-		debugf(NHRP_DEBUG_COMMON, "NHS: Flush timer for %s",
-		       sockunion2str(&r->peer->vc->remote.nbma, buf,
-				     sizeof(buf)));
+		debugf(NHRP_DEBUG_COMMON, "NHS: Flush timer for %pSU",
+		       &r->peer->vc->remote.nbma);
 		THREAD_OFF(r->t_register);
 		thread_add_timer_msec(master, nhrp_reg_send_req, r, 10,
 				      &r->t_register);
@@ -163,9 +158,8 @@ static int nhrp_reg_send_req(struct thread *t)
 
 	r->t_register = NULL;
 	if (!nhrp_peer_check(r->peer, 2)) {
-		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %s",
-		       sockunion2str(&r->peer->vc->remote.nbma, buf1,
-				     sizeof(buf1)));
+		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %pSU",
+		       &r->peer->vc->remote.nbma);
 		thread_add_timer(master, nhrp_reg_send_req, r, 120,
 				 &r->t_register);
 		return 0;

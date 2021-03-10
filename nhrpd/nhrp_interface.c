@@ -117,7 +117,6 @@ static void nhrp_interface_interface_notifier(struct notifier_block *n,
 		container_of(n, struct nhrp_interface, nbmanifp_notifier);
 	struct interface *nbmaifp = nifp->nbmaifp;
 	struct nhrp_interface *nbmanifp = nbmaifp->info;
-	char buf[SU_ADDRSTRLEN];
 
 	switch (cmd) {
 	case NOTIFY_INTERFACE_CHANGED:
@@ -129,9 +128,8 @@ static void nhrp_interface_interface_notifier(struct notifier_block *n,
 		nhrp_interface_update(nifp->ifp);
 		notifier_call(&nifp->notifier_list,
 			      NOTIFY_INTERFACE_NBMA_CHANGED);
-		debugf(NHRP_DEBUG_IF, "%s: NBMA change: address %s",
-		       nifp->ifp->name,
-		       sockunion2str(&nifp->nbma, buf, sizeof(buf)));
+		debugf(NHRP_DEBUG_IF, "%s: NBMA change: address %pSU",
+		       nifp->ifp->name, &nifp->nbma);
 		break;
 	}
 }

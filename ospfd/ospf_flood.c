@@ -537,11 +537,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 			if (!CHECK_FLAG(onbr->options, OSPF_OPTION_O)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"%s: Skipping neighbor %s via %s -- Not Opaque-capable.",
+						"%s: Skipping neighbor %s via %pI4 -- Not Opaque-capable.",
 						__func__, IF_NAME(oi),
-						inet_ntop(AF_INET,
-							  &onbr->router_id, buf,
-							  sizeof(buf)));
+						&onbr->router_id);
 				continue;
 			}
 		}
@@ -557,11 +555,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 					   &onbr->router_id)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"%s: Skipping neighbor %s via %s -- inbr == onbr.",
+						"%s: Skipping neighbor %s via %pI4 -- inbr == onbr.",
 						__func__, IF_NAME(oi),
-						inet_ntop(AF_INET,
-							  &inbr->router_id, buf,
-							  sizeof(buf)));
+						&inbr->router_id);
 				continue;
 			}
 		} else {
@@ -573,11 +569,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 					   &onbr->router_id)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"%s: Skipping neighbor %s via %s -- lsah->adv_router == onbr.",
+						"%s: Skipping neighbor %s via %pI4 -- lsah->adv_router == onbr.",
 						__func__, IF_NAME(oi),
-						inet_ntop(AF_INET,
-							  &onbr->router_id, buf,
-							  sizeof(buf)));
+						&onbr->router_id);
 				continue;
 			}
 		}

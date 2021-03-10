@@ -316,7 +316,7 @@ static pid_t run_background(char *shell_cmd)
 		/* Use separate process group so child processes can be killed
 		 * easily. */
 		if (setpgid(0, 0) < 0)
-			zlog_warn("warning: setpgid(0,0) failed: %s",
+			zlog_warn("setpgid(0,0) failed: %s",
 				  safe_strerror(errno));
 		{
 			char shell[] = "sh";
@@ -356,7 +356,7 @@ static int restart_kill(struct thread *t_kill)
 
 	time_elapsed(&delay, &restart->time);
 	zlog_warn(
-		"Warning: %s %s child process %d still running after %ld seconds, sending signal %d",
+		"%s %s child process %d still running after %ld seconds, sending signal %d",
 		restart->what, restart->name, (int)restart->pid,
 		(long)delay.tv_sec, (restart->kills ? SIGKILL : SIGTERM));
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
@@ -423,7 +423,7 @@ static void sigchild(void)
 		what = "background";
 	}
 	if (WIFSTOPPED(status))
-		zlog_warn("warning: %s %s process %d is stopped", what, name,
+		zlog_warn("%s %s process %d is stopped", what, name,
 			  (int)child);
 	else if (WIFSIGNALED(status))
 		zlog_warn("%s %s process %d terminated due to signal %d", what,
