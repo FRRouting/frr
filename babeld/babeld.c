@@ -265,8 +265,7 @@ babel_get_myid(void)
         return;
     }
 
-    flog_err(EC_BABEL_CONFIG,
-	      "Warning: couldn't find router id -- using random value.");
+    flog_err(EC_BABEL_CONFIG, "Couldn't find router id -- using random value.");
 
     rc = read_random_bytes(myid, 8);
     if(rc < 0) {
