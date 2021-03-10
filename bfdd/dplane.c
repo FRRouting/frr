@@ -765,7 +765,8 @@ static void _bfd_dplane_session_fill(const struct bfd_session *bs,
 	msg->data.session.lid = htonl(bs->discrs.my_discr);
 	msg->data.session.min_tx = htonl(bs->timers.desired_min_tx);
 	msg->data.session.min_rx = htonl(bs->timers.required_min_rx);
-	msg->data.session.min_echo_rx = htonl(bs->timers.required_min_echo);
+	msg->data.session.min_echo_tx = htonl(bs->timers.desired_min_echo_tx);
+	msg->data.session.min_echo_rx = htonl(bs->timers.required_min_echo_rx);
 }
 
 static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,

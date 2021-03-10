@@ -210,7 +210,14 @@ module frr-bfdd {
       type uint32;
       units microseconds;
       default 50000;
-      description "Minimum desired control packet transmission interval";
+      description "Minimum desired echo packet transmission interval";
+    }
+
+    leaf required-echo-receive-interval {
+      type uint32;
+      units microseconds;
+      default 50000;
+      description "Minimum required echo packet receive interval";
     }
   }
 

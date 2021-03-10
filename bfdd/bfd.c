@@ -90,7 +90,8 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	bp->echo_mode = false;
 	bp->passive = false;
 	bp->minimum_ttl = BFD_DEF_MHOP_TTL;
-	bp->min_echo_rx = BFD_DEF_REQ_MIN_ECHO;
+	bp->min_echo_rx = BFD_DEF_REQ_MIN_ECHO_RX;
+	bp->min_echo_tx = BFD_DEF_DES_MIN_ECHO_TX;
 	bp->min_rx = BFD_DEFREQUIREDMINRX;
 	bp->min_tx = BFD_DEFDESIREDMINTX;
 }
@@ -179,12 +180,18 @@ void bfd_session_apply(struct bfd_session *bs)
 
 	/* We can only apply echo options on single hop sessions. */
 	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		/* Configure remote echo if it was default. */
-		if (bs->peer_profile.min_echo_rx == BFD_DEF_REQ_MIN_ECHO)
-			bs->timers.required_min_echo = bp->min_echo_rx;
+		/* Configure echo timers if they were default. */
+		if (bs->peer_profile.min_echo_rx == BFD_DEF_REQ_MIN_ECHO_RX)
+			bs->timers.required_min_echo_rx = bp->min_echo_rx;
 		else
-			bs->timers.required_min_echo =
+			bs->timers.required_min_echo_rx =
 				bs->peer_profile.min_echo_rx;
+
+		if (bs->peer_profile.min_echo_tx == BFD_DEF_DES_MIN_ECHO_TX)
+			bs->timers.desired_min_echo_tx = bp->min_echo_tx;
+		else
+			bs->timers.desired_min_echo_tx =
+				bs->peer_profile.min_echo_tx;
 
 		/* Toggle echo if default value. */
 		if (bs->peer_profile.echo_mode == false)
@@ -700,7 +707,8 @@ struct bfd_session *bfd_session_new(void)
 
 	bs->timers.desired_min_tx = BFD_DEFDESIREDMINTX;
 	bs->timers.required_min_rx = BFD_DEFREQUIREDMINRX;
-	bs->timers.required_min_echo = BFD_DEF_REQ_MIN_ECHO;
+	bs->timers.required_min_echo_rx = BFD_DEF_REQ_MIN_ECHO_RX;
+	bs->timers.desired_min_echo_tx = BFD_DEF_DES_MIN_ECHO_TX;
 	bs->detect_mult = BFD_DEFDETECTMULT;
 	bs->mh_ttl = BFD_DEF_MHOP_TTL;
 	bs->ses_state = PTM_BFD_DOWN;
@@ -769,9 +777,14 @@ static void _bfd_session_update(struct bfd_session *bs,
 		bs->peer_profile.detection_multiplier = bs->detect_mult;
 	}
 
-	if (bpc->bpc_has_echointerval) {
-		bs->timers.required_min_echo = bpc->bpc_echointerval * 1000;
-		bs->peer_profile.min_echo_rx = bs->timers.required_min_echo;
+	if (bpc->bpc_has_echorecvinterval) {
+		bs->timers.required_min_echo_rx = bpc->bpc_echorecvinterval * 1000;
+		bs->peer_profile.min_echo_rx = bs->timers.required_min_echo_rx;
+	}
+
+	if (bpc->bpc_has_echotxinterval) {
+		bs->timers.desired_min_echo_tx = bpc->bpc_echotxinterval * 1000;
+		bs->peer_profile.min_echo_tx = bs->timers.desired_min_echo_tx;
 	}
 
 	if (bpc->bpc_has_label)
@@ -1189,10 +1202,10 @@ void bs_echo_timer_handler(struct bfd_session *bs)
 	 * RFC 5880, Section 6.8.9.
 	 */
 	old_timer = bs->echo_xmt_TO;
-	if (bs->remote_timers.required_min_echo > bs->timers.required_min_echo)
+	if (bs->remote_timers.required_min_echo > bs->timers.desired_min_echo_tx)
 		bs->echo_xmt_TO = bs->remote_timers.required_min_echo;
 	else
-		bs->echo_xmt_TO = bs->timers.required_min_echo;
+		bs->echo_xmt_TO = bs->timers.desired_min_echo_tx;
 
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO_ACTIVE) == 0
 	    || old_timer != bs->echo_xmt_TO)

@@ -163,6 +163,11 @@ struct bfddp_session {
 	 */
 	uint32_t min_rx;
 	/**
+	 * Minimum desired echo transmission interval (in microseconds)
+	 * without jitter.
+	 */
+	uint32_t min_echo_tx;
+	/**
 	 * Required minimum echo receive interval rate (in microseconds)
 	 * without jitter.
 	 */

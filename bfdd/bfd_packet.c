@@ -267,7 +267,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 		cp.timers.required_min_rx =
 			htonl(bfd->cur_timers.required_min_rx);
 	}
-	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
+	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo_rx);
 
 	if (_ptm_bfd_send(bfd, NULL, &cp, BFD_PKT_LEN) != 0)
 		return;

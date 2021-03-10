@@ -29,7 +29,7 @@
         "receive-interval": 300,
         "remote-detect-multiplier": 3,
         "remote-diagnostic": "ok",
-        "remote-echo-interval": 50,
+        "remote-echo-receive-interval": 50,
         "remote-id": "*",
         "remote-receive-interval": 300,
         "remote-transmit-interval": 300,

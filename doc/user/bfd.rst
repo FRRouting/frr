@@ -166,10 +166,16 @@ BFD peers and profiles share the same BFD session configuration commands.
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD control packets. Defaults to 300ms.
 
-.. clicmd:: echo-interval (10-60000)
+.. clicmd:: echo receive-interval <disabled|(10-60000)>
 
-   Configures the minimal echo receive transmission interval that this
-   system is capable of handling.
+   Configures the minimum interval that this system is capable of
+   receiving echo packets. Disabled means that this system doesn't want
+   to receive echo packets. The default value is 50 milliseconds.
+
+.. clicmd:: echo transmit-interval (10-60000)
+
+   The minimum transmission interval (less jitter) that this system
+   wants to use to send BFD echo packets. Defaults to 50ms.
 
 .. clicmd:: echo-mode
 
@@ -445,12 +451,13 @@ You can inspect the current BFD peer status with the following commands:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
+                           Echo receive interval: 50ms
                            Echo transmission interval: disabled
                    Remote timers:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
-                           Echo transmission interval: 50ms
+                           Echo receive interval: 50ms
 
            peer 192.168.1.1
                    label: router3-peer
@@ -465,12 +472,13 @@ You can inspect the current BFD peer status with the following commands:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
+                           Echo receive interval: 50ms
                            Echo transmission interval: disabled
                    Remote timers:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
-                           Echo transmission interval: 50ms
+                           Echo receive interval: 50ms
 
    frr# show bfd peer 192.168.1.1
    BFD Peer:
@@ -487,15 +495,16 @@ You can inspect the current BFD peer status with the following commands:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
+                           Echo receive interval: 50ms
                            Echo transmission interval: disabled
                    Remote timers:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
-                           Echo transmission interval: 50ms
+                           Echo receive interval: 50ms
 
    frr# show bfd peer 192.168.0.1 json
-   {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-interval":50,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
+   {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-receive-interval":50,"echo-transmit-interval":0,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-receive-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
 
 
 You can inspect the current BFD peer status in brief with the following commands:
