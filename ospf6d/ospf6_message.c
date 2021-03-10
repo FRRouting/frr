@@ -271,7 +271,7 @@ struct ospf6_fifo *ospf6_fifo_new(void)
 }
 
 /* Add new packet to fifo. */
-void ospf6_fifo_push(struct ospf6_fifo *fifo, struct ospf6_packet *op)
+static void ospf6_fifo_push(struct ospf6_fifo *fifo, struct ospf6_packet *op)
 {
 	if (fifo->tail)
 		fifo->tail->next = op;
@@ -284,7 +284,8 @@ void ospf6_fifo_push(struct ospf6_fifo *fifo, struct ospf6_packet *op)
 }
 
 /* Add new packet to head of fifo. */
-void ospf6_fifo_push_head(struct ospf6_fifo *fifo, struct ospf6_packet *op)
+static void ospf6_fifo_push_head(struct ospf6_fifo *fifo,
+				 struct ospf6_packet *op)
 {
 	op->next = fifo->head;
 
@@ -297,7 +298,7 @@ void ospf6_fifo_push_head(struct ospf6_fifo *fifo, struct ospf6_packet *op)
 }
 
 /* Delete first packet from fifo. */
-struct ospf6_packet *ospf6_fifo_pop(struct ospf6_fifo *fifo)
+static struct ospf6_packet *ospf6_fifo_pop(struct ospf6_fifo *fifo)
 {
 	struct ospf6_packet *op;
 
@@ -342,6 +343,35 @@ void ospf6_fifo_free(struct ospf6_fifo *fifo)
 
 	XFREE(MTYPE_OSPF6_FIFO, fifo);
 }
+
+void ospf6_packet_add(struct ospf6_interface *oi, struct ospf6_packet *op)
+{
+	/* Add packet to end of queue. */
+	ospf6_fifo_push(oi->obuf, op);
+
+	/* Debug of packet fifo*/
+	/* ospf_fifo_debug (oi->obuf); */
+}
+
+void ospf6_packet_add_top(struct ospf6_interface *oi, struct ospf6_packet *op)
+{
+	/* Add packet to head of queue. */
+	ospf6_fifo_push_head(oi->obuf, op);
+
+	/* Debug of packet fifo*/
+	/* ospf_fifo_debug (oi->obuf); */
+}
+
+void ospf6_packet_delete(struct ospf6_interface *oi)
+{
+	struct ospf6_packet *op;
+
+	op = ospf6_fifo_pop(oi->obuf);
+
+	if (op)
+		ospf6_packet_free(op);
+}
+
 
 static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 			     struct ospf6_interface *oi,
