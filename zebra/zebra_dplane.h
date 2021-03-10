@@ -155,6 +155,16 @@ enum dplane_op_e {
 
 	/* bridge port update */
 	DPLANE_OP_BR_PORT_UPDATE,
+
+	/* Policy based routing iptable update */
+	DPLANE_OP_IPTABLE_ADD,
+	DPLANE_OP_IPTABLE_DELETE,
+
+	/* Policy based routing ipset update */
+	DPLANE_OP_IPSET_ADD,
+	DPLANE_OP_IPSET_DELETE,
+	DPLANE_OP_IPSET_ENTRY_ADD,
+	DPLANE_OP_IPSET_ENTRY_DELETE,
 };
 
 /*
@@ -475,7 +485,19 @@ const struct prefix *
 dplane_ctx_rule_get_dst_ip(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
 dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx);
-
+/* Accessors for policy based routing iptable information */
+struct zebra_pbr_iptable;
+bool
+dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
+			   struct zebra_pbr_iptable *table);
+struct zebra_pbr_ipset;
+bool
+dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
+			 struct zebra_pbr_ipset *ipset);
+struct zebra_pbr_ipset_entry;
+bool
+dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
+			       struct zebra_pbr_ipset_entry *entry);
 /* Accessors for bridge port information */
 uint32_t dplane_ctx_get_br_port_flags(const struct zebra_dplane_ctx *ctx);
 uint32_t
@@ -648,6 +670,23 @@ enum zebra_dplane_result dplane_pbr_rule_delete(struct zebra_pbr_rule *rule);
 enum zebra_dplane_result
 dplane_pbr_rule_update(struct zebra_pbr_rule *old_rule,
 		       struct zebra_pbr_rule *new_rule);
+/* iptable */
+enum zebra_dplane_result
+dplane_pbr_iptable_add(struct zebra_pbr_iptable *iptable);
+enum zebra_dplane_result
+dplane_pbr_iptable_delete(struct zebra_pbr_iptable *iptable);
+
+/* ipset */
+struct zebra_pbr_ipset;
+enum zebra_dplane_result dplane_pbr_ipset_add(struct zebra_pbr_ipset *ipset);
+enum zebra_dplane_result dplane_pbr_ipset_delete(struct zebra_pbr_ipset *ipset);
+
+/* ipset entry */
+struct zebra_pbr_ipset_entry;
+enum zebra_dplane_result
+dplane_pbr_ipset_entry_add(struct zebra_pbr_ipset_entry *ipset);
+enum zebra_dplane_result
+dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset);
 
 /* Encode route information into data plane context. */
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,

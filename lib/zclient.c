@@ -1551,15 +1551,16 @@ bool zapi_ipset_notify_decode(struct stream *s, uint32_t *unique,
 			      enum zapi_ipset_notify_owner *note)
 {
 	uint32_t uni;
+	uint16_t notew;
 
-	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GETW(s, notew);
 
 	STREAM_GETL(s, uni);
 
 	if (zclient_debug)
 		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
-
+	*note = (enum zapi_ipset_notify_owner)notew;
 	return true;
 
 stream_failure:
@@ -1571,8 +1572,9 @@ bool zapi_ipset_entry_notify_decode(struct stream *s, uint32_t *unique,
 				    enum zapi_ipset_entry_notify_owner *note)
 {
 	uint32_t uni;
+	uint16_t notew;
 
-	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GETW(s, notew);
 
 	STREAM_GETL(s, uni);
 
@@ -1581,6 +1583,7 @@ bool zapi_ipset_entry_notify_decode(struct stream *s, uint32_t *unique,
 	if (zclient_debug)
 		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
+	*note = (enum zapi_ipset_entry_notify_owner)notew;
 
 	return true;
 
@@ -1593,14 +1596,16 @@ bool zapi_iptable_notify_decode(struct stream *s,
 		enum zapi_iptable_notify_owner *note)
 {
 	uint32_t uni;
+	uint16_t notew;
 
-	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GETW(s, notew);
 
 	STREAM_GETL(s, uni);
 
 	if (zclient_debug)
 		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
+	*note = (enum zapi_iptable_notify_owner)notew;
 
 	return true;
 
