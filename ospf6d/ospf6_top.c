@@ -413,6 +413,8 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	o->max_multipath = MULTIPATH_NUM;
 
+	o->oi_write_q = list_new();
+
 	QOBJ_REG(o, ospf6);
 
 	/* Make ospf protocol socket. */
@@ -482,6 +484,7 @@ void ospf6_delete(struct ospf6 *o)
 
 	ospf6_distance_reset(o);
 	route_table_finish(o->distance_table);
+	list_delete(&o->oi_write_q);
 
 	if (o->vrf_id != VRF_UNKNOWN) {
 		vrf = vrf_lookup_by_id(o->vrf_id);

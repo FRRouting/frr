@@ -56,6 +56,9 @@ struct ospf6_interface {
 	/* I/F transmission delay */
 	uint32_t transdelay;
 
+	/* Packet send buffer. */
+	struct ospf6_fifo *obuf; /* Output queue */
+
 	/* Network Type */
 	uint8_t type;
 	bool type_cfg;
@@ -129,6 +132,8 @@ struct ospf6_interface {
 		uint32_t min_tx;
 		char *profile;
 	} bfd_config;
+
+	int on_write_q;
 
 	/* Statistics Fields */
 	uint32_t hello_in;

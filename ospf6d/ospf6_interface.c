@@ -185,6 +185,8 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 
 	oi = XCALLOC(MTYPE_OSPF6_IF, sizeof(struct ospf6_interface));
 
+	oi->obuf = ospf6_fifo_new();
+
 	oi->area = (struct ospf6_area *)NULL;
 	oi->neighbor_list = list_new();
 	oi->neighbor_list->cmp = ospf6_neighbor_cmp;
@@ -242,6 +244,8 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	struct ospf6_neighbor *on;
 
 	QOBJ_UNREG(oi);
+
+	ospf6_fifo_free(oi->obuf);
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
 		ospf6_neighbor_delete(on);
@@ -887,6 +891,15 @@ int interface_down(struct thread *thread)
 	if (oi->state > OSPF6_INTERFACE_DOWN)
 		ospf6_sso(oi->interface->ifindex, &allspfrouters6,
 			  IPV6_LEAVE_GROUP, ospf6->fd);
+
+	/* deal with write fifo */
+	ospf6_fifo_flush(oi->obuf);
+	if (oi->on_write_q) {
+		listnode_delete(ospf6->oi_write_q, oi);
+		if (list_isempty(ospf6->oi_write_q))
+			thread_cancel(&ospf6->t_write);
+		oi->on_write_q = 0;
+	}
 
 	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
 
