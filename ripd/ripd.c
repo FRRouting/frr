@@ -698,7 +698,6 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 	caddr_t lim;
 	struct rte *rte;
 	const char *command_str;
-	char pbuf[BUFSIZ], nbuf[BUFSIZ];
 	uint8_t netmask = 0;
 	uint8_t *p;
 
@@ -766,24 +765,18 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 				}
 			} else
 				zlog_debug(
-					"  %s/%d -> %s family %d tag %" ROUTE_TAG_PRI
+					"  %pI4/%d -> %pI4 family %d tag %" ROUTE_TAG_PRI
 					" metric %ld",
-					inet_ntop(AF_INET, &rte->prefix, pbuf,
-						  BUFSIZ),
-					netmask,
-					inet_ntop(AF_INET, &rte->nexthop, nbuf,
-						  BUFSIZ),
+					&rte->prefix, netmask, &rte->nexthop,
 					ntohs(rte->family),
 					(route_tag_t)ntohs(rte->tag),
 					(unsigned long)ntohl(rte->metric));
 		} else {
-			zlog_debug(
-				"  %s family %d tag %" ROUTE_TAG_PRI
-				" metric %ld",
-				inet_ntop(AF_INET, &rte->prefix, pbuf, BUFSIZ),
-				ntohs(rte->family),
-				(route_tag_t)ntohs(rte->tag),
-				(unsigned long)ntohl(rte->metric));
+			zlog_debug("  %pI4 family %d tag %" ROUTE_TAG_PRI
+				   " metric %ld",
+				   &rte->prefix, ntohs(rte->family),
+				   (route_tag_t)ntohs(rte->tag),
+				   (unsigned long)ntohl(rte->metric));
 		}
 	}
 }
