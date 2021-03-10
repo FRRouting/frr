@@ -85,7 +85,7 @@ struct bfd_profile *bfd_profile_lookup(const char *name)
 
 static void bfd_profile_set_default(struct bfd_profile *bp)
 {
-	bp->admin_shutdown = true;
+	bp->admin_shutdown = false;
 	bp->detection_multiplier = BFD_DEFDETECTMULT;
 	bp->echo_mode = false;
 	bp->passive = false;
@@ -206,7 +206,7 @@ void bfd_session_apply(struct bfd_session *bs)
 		bfd_set_passive_mode(bs, bs->peer_profile.passive);
 
 	/* Toggle 'no shutdown' if default value. */
-	if (bs->peer_profile.admin_shutdown)
+	if (bs->peer_profile.admin_shutdown == false)
 		bfd_set_shutdown(bs, bp->admin_shutdown);
 	else
 		bfd_set_shutdown(bs, bs->peer_profile.admin_shutdown);

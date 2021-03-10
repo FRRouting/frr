@@ -840,7 +840,7 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 	memset(bpc, 0, sizeof(*bpc));
 
 	/* Defaults */
-	bpc->bpc_shutdown = true;
+	bpc->bpc_shutdown = false;
 	bpc->bpc_detectmultiplier = BPC_DEF_DETECTMULTIPLIER;
 	bpc->bpc_recvinterval = BPC_DEF_RECEIVEINTERVAL;
 	bpc->bpc_txinterval = BPC_DEF_TRANSMITINTERVAL;

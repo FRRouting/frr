@@ -185,7 +185,7 @@ module frr-bfdd {
 
     leaf administrative-down {
       type boolean;
-      default true;
+      default false;
       description "Disables or enables the session administratively";
     }
 
