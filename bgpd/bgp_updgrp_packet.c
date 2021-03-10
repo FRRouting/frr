@@ -350,8 +350,6 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	struct stream *s = NULL;
 	bpacket_attr_vec *vec;
 	struct peer *peer;
-	char buf[BUFSIZ];
-	char buf2[BUFSIZ];
 	struct bgp_filter *filter;
 
 	s = stream_dup(pkt->buffer);
@@ -568,25 +566,24 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
 			    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
 				zlog_debug(
-					"u%" PRIu64 ":s%" PRIu64" %s send UPDATE w/ mp_nexthops %s, %s%s",
+					"u%" PRIu64 ":s%" PRIu64
+					" %s send UPDATE w/ mp_nexthops %pI6, %pI6%s",
 					PAF_SUBGRP(paf)->update_group->id,
 					PAF_SUBGRP(paf)->id, peer->host,
-					inet_ntop(AF_INET6, mod_v6nhg, buf,
-						  BUFSIZ),
-					inet_ntop(AF_INET6, mod_v6nhl, buf2,
-						  BUFSIZ),
+					mod_v6nhg, mod_v6nhl,
 					(nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL
 						 ? " and RD"
 						 : ""));
 			else
-				zlog_debug("u%" PRIu64 ":s%" PRIu64" %s send UPDATE w/ mp_nexthop %s%s",
-					   PAF_SUBGRP(paf)->update_group->id,
-					   PAF_SUBGRP(paf)->id, peer->host,
-					   inet_ntop(AF_INET6, mod_v6nhg, buf,
-						     BUFSIZ),
-					   (nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL
-						    ? " and RD"
-						    : ""));
+				zlog_debug(
+					"u%" PRIu64 ":s%" PRIu64
+					" %s send UPDATE w/ mp_nexthop %pI6%s",
+					PAF_SUBGRP(paf)->update_group->id,
+					PAF_SUBGRP(paf)->id, peer->host,
+					mod_v6nhg,
+					(nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL
+						 ? " and RD"
+						 : ""));
 		}
 	} else if (paf->afi == AFI_L2VPN) {
 		struct in_addr v4nh, *mod_v4nh;

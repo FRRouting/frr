@@ -5255,26 +5255,18 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		/* Check address. */
 		if (afi == AFI_IP6 && safi == SAFI_UNICAST) {
 			if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
-				char buf[BUFSIZ];
-
 				flog_err(
 					EC_BGP_UPDATE_RCV,
-					"%s: IPv6 unicast NLRI is link-local address %s, ignoring",
-					peer->host,
-					inet_ntop(AF_INET6, &p.u.prefix6, buf,
-						  BUFSIZ));
+					"%s: IPv6 unicast NLRI is link-local address %pI6, ignoring",
+					peer->host, &p.u.prefix6);
 
 				continue;
 			}
 			if (IN6_IS_ADDR_MULTICAST(&p.u.prefix6)) {
-				char buf[BUFSIZ];
-
 				flog_err(
 					EC_BGP_UPDATE_RCV,
-					"%s: IPv6 unicast NLRI is multicast address %s, ignoring",
-					peer->host,
-					inet_ntop(AF_INET6, &p.u.prefix6, buf,
-						  BUFSIZ));
+					"%s: IPv6 unicast NLRI is multicast address %pI6, ignoring",
+					peer->host, &p.u.prefix6);
 
 				continue;
 			}

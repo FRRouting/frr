@@ -592,9 +592,6 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct stream *s;
 	int ipa_len;
-	char buf1[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
-	char buf3[INET6_ADDRSTRLEN];
 	static struct in_addr zero_remote_vtep_ip;
 
 	/* Check socket. */
@@ -649,14 +646,10 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 
 	if (bgp_debug_zebra(NULL))
 		zlog_debug(
-			"Tx %s MACIP, VNI %u MAC %s IP %s flags 0x%x seq %u remote VTEP %s",
+			"Tx %s MACIP, VNI %u MAC %pEA IP %pIA flags 0x%x seq %u remote VTEP %pI4",
 			add ? "ADD" : "DEL", vpn->vni,
-			prefix_mac2str(&p->prefix.macip_addr.mac,
-				       buf1, sizeof(buf1)),
-			ipaddr2str(&p->prefix.macip_addr.ip,
-				   buf3, sizeof(buf3)), flags, seq,
-			inet_ntop(AF_INET, &remote_vtep_ip, buf2,
-				  sizeof(buf2)));
+			&p->prefix.macip_addr.mac, &p->prefix.macip_addr.ip,
+			flags, seq, &remote_vtep_ip);
 
 	return zclient_send_message(zclient);
 }
@@ -1319,16 +1312,11 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 					vrf_id_to_name(bgp_vrf->vrf_id), evp);
 	}
 
-	if (bgp_debug_zebra(NULL)) {
-		char buf[ETHER_ADDR_STRLEN];
-		char buf2[INET6_ADDRSTRLEN];
-
-		zlog_debug("VRF %s type-5 route evp %pFX RMAC %s nexthop %s",
-			   vrf_id_to_name(bgp_vrf->vrf_id), evp,
-			   prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
-			   inet_ntop(AF_INET, &attr.nexthop, buf2,
-				     INET_ADDRSTRLEN));
-	}
+	if (bgp_debug_zebra(NULL))
+		zlog_debug(
+			"VRF %s type-5 route evp %pFX RMAC %pEA nexthop %pI4",
+			vrf_id_to_name(bgp_vrf->vrf_id), evp, &attr.rmac,
+			&attr.nexthop);
 
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 
@@ -1725,16 +1713,13 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	}
 
 	if (bgp_debug_zebra(NULL)) {
-		char buf[ETHER_ADDR_STRLEN];
 		char buf3[ESI_STR_LEN];
 
 		zlog_debug(
-			"VRF %s vni %u type-2 route evp %pFX RMAC %s nexthop %pI4 esi %s",
+			"VRF %s vni %u type-2 route evp %pFX RMAC %pEA nexthop %pI4 esi %s",
 			vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id)
 				     : " ",
-			vpn->vni, p,
-			prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
-			&attr.mp_nexthop_global_in,
+			vpn->vni, p, &attr.rmac, &attr.mp_nexthop_global_in,
 			esi_to_str(esi, buf3, sizeof(buf3)));
 	}
 	/* router mac is only needed for type-2 routes here. */
@@ -2004,16 +1989,13 @@ static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 	seq = mac_mobility_seqnum(local_pi->attr);
 
 	if (bgp_debug_zebra(NULL)) {
-		char buf[ETHER_ADDR_STRLEN];
 		char buf3[ESI_STR_LEN];
 
 		zlog_debug(
-			"VRF %s vni %u evp %pFX RMAC %s nexthop %pI4 esi %s esf 0x%x from %s",
+			"VRF %s vni %u evp %pFX RMAC %pEA nexthop %pI4 esi %s esf 0x%x from %s",
 			vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id)
 				     : " ",
-			vpn->vni, evp,
-			prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
-			&attr.mp_nexthop_global_in,
+			vpn->vni, evp, &attr.rmac, &attr.mp_nexthop_global_in,
 			esi_to_str(&attr.esi, buf3, sizeof(buf3)),
 			attr.es_flags, caller);
 	}
@@ -5300,18 +5282,14 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	/* Create EVPN type-2 route and schedule for processing. */
 	build_evpn_type2_prefix(&p, mac, ip);
 	if (update_evpn_route(bgp, vpn, &p, flags, seq, esi)) {
-		char buf[ETHER_ADDR_STRLEN];
-		char buf2[INET6_ADDRSTRLEN];
-
 		flog_err(
 			EC_BGP_EVPN_ROUTE_CREATE,
-			"%u:Failed to create Type-2 route, VNI %u %s MAC %s IP %s (flags: 0x%x)",
+			"%u:Failed to create Type-2 route, VNI %u %s MAC %pEA IP %pIA (flags: 0x%x)",
 			bgp->vrf_id, vpn->vni,
 			CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY)
 				? "sticky gateway"
 				: "",
-			prefix_mac2str(mac, buf, sizeof(buf)),
-			ipaddr2str(ip, buf2, sizeof(buf2)), flags);
+			mac, ip, flags);
 		return -1;
 	}
 
@@ -5396,23 +5374,16 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 	if (is_zero_mac(&bgp_vrf->evpn_info->pip_rmac_static))
 		memcpy(&bgp_vrf->evpn_info->pip_rmac, svi_rmac, ETH_ALEN);
 
-	if (bgp_debug_zebra(NULL)) {
-		char buf[ETHER_ADDR_STRLEN];
-		char buf1[ETHER_ADDR_STRLEN];
-		char buf2[ETHER_ADDR_STRLEN];
+	if (bgp_debug_zebra(NULL))
+		zlog_debug(
+			"VRF %s vni %u pip %s RMAC %pEA sys RMAC %pEA static RMAC %pEA is_anycast_mac %s",
+			vrf_id_to_name(bgp_vrf->vrf_id), bgp_vrf->l3vni,
+			bgp_vrf->evpn_info->advertise_pip ? "enable"
+							  : "disable",
+			&bgp_vrf->rmac, &bgp_vrf->evpn_info->pip_rmac,
+			&bgp_vrf->evpn_info->pip_rmac_static,
+			is_anycast_mac ? "Enable" : "Disable");
 
-		zlog_debug("VRF %s vni %u pip %s RMAC %s sys RMAC %s static RMAC %s is_anycast_mac %s",
-			   vrf_id_to_name(bgp_vrf->vrf_id),
-			   bgp_vrf->l3vni,
-			   bgp_vrf->evpn_info->advertise_pip ? "enable"
-			   : "disable",
-			   prefix_mac2str(&bgp_vrf->rmac, buf, sizeof(buf)),
-			   prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
-					  buf1, sizeof(buf1)),
-			   prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac_static,
-					  buf2, sizeof(buf2)),
-			   is_anycast_mac ? "Enable" : "Disable");
-	}
 	/* set the right filter - are we using l3vni only for prefix routes? */
 	if (filter) {
 		SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);

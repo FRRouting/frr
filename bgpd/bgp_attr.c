@@ -2133,19 +2133,11 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		}
 		stream_get(&attr->mp_nexthop_local, s, IPV6_MAX_BYTELEN);
 		if (!IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local)) {
-			char buf1[INET6_ADDRSTRLEN];
-			char buf2[INET6_ADDRSTRLEN];
-
 			if (bgp_debug_update(peer, NULL, NULL, 1))
 				zlog_debug(
-					"%s sent next-hops %s and %s. Ignoring non-LL value",
-					peer->host,
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global,
-						  buf1, INET6_ADDRSTRLEN),
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_local, buf2,
-						  INET6_ADDRSTRLEN));
+					"%s sent next-hops %pI6 and %pI6. Ignoring non-LL value",
+					peer->host, &attr->mp_nexthop_global,
+					&attr->mp_nexthop_local);
 
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
@@ -2344,16 +2336,10 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 
 	/* Extract the Rmac, if any */
 	if (bgp_attr_rmac(attr, &attr->rmac)) {
-		if (bgp_debug_update(peer, NULL, NULL, 1) &&
-		    bgp_mac_exist(&attr->rmac)) {
-			char buf1[ETHER_ADDR_STRLEN];
-
-			zlog_debug("%s: router mac %s is self mac",
-				   __func__,
-				   prefix_mac2str(&attr->rmac, buf1,
-						  sizeof(buf1)));
-		}
-
+		if (bgp_debug_update(peer, NULL, NULL, 1)
+		    && bgp_mac_exist(&attr->rmac))
+			zlog_debug("%s: router mac %pEA is self mac", __func__,
+				   &attr->rmac);
 	}
 
 	/* Get the tunnel type from encap extended community */
