@@ -7,23 +7,9 @@
  * (at your option) any later version.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <asm/types.h>
-#include <arpa/inet.h>
+#include "zebra.h"
 #include <linux/if_packet.h>
-#include <linux/if_arp.h>
-#include <linux/limits.h>
 
 #include "nhrp_protocol.h"
 #include "os.h"
