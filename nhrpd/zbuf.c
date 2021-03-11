@@ -230,3 +230,15 @@ void zbuf_copy(struct zbuf *zdst, struct zbuf *zsrc, size_t len)
 		return;
 	memcpy(dst, src, len);
 }
+
+void zbuf_copy_peek(struct zbuf *zdst, struct zbuf *zsrc, size_t len)
+{
+	const void *src;
+	void *dst;
+
+	dst = zbuf_pushn(zdst, len);
+	src = zbuf_pulln(zsrc, 0);
+	if (!dst || !src)
+		return;
+	memcpy(dst, src, len);
+}
