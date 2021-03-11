@@ -29,6 +29,7 @@
 #include "vrf.h"
 #include "zclient.h"
 #include "nexthop_group.h"
+#include "link_state.h"
 
 #include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"
@@ -700,6 +701,142 @@ DEFPY (neigh_discover,
 	return CMD_SUCCESS;
 }
 
+DEFPY (import_te,
+       import_te_cmd,
+       "sharp import-te",
+       SHARP_STR
+       "Import Traffic Engineering\n")
+{
+	sg.ted = ls_ted_new(1, "Sharp", 0);
+	sharp_zebra_register_te();
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_sharp_ted,
+       show_sharp_ted_cmd,
+       "show sharp ted [<vertex [A.B.C.D]|edge [A.B.C.D]|subnet [A.B.C.D/M]>] [verbose|json]",
+       SHOW_STR
+       SHARP_STR
+       "Traffic Engineering Database\n"
+       "MPLS-TE Vertex\n"
+       "MPLS-TE router ID (as an IP address)\n"
+       "MPLS-TE Edge\n"
+       "MPLS-TE Edge ID (as an IP address)\n"
+       "MPLS-TE Subnet\n"
+       "MPLS-TE Subnet ID (as an IP prefix)\n"
+       "Verbose output\n"
+       JSON_STR)
+{
+	int idx = 0;
+	struct in_addr ip_addr;
+	struct prefix pref;
+	struct ls_vertex *vertex;
+	struct ls_edge *edge;
+	struct ls_subnet *subnet;
+	uint64_t key;
+	bool verbose = false;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (sg.ted == NULL) {
+		vty_out(vty, "MPLS-TE import is not enabled\n");
+		return CMD_WARNING;
+	}
+
+	if (uj)
+		json = json_object_new_object();
+
+	if (argv[argc - 1]->arg && strmatch(argv[argc - 1]->text, "verbose"))
+		verbose = true;
+
+	if (argv_find(argv, argc, "vertex", &idx)) {
+		/* Show Vertex */
+		if (argv_find(argv, argc, "A.B.C.D", &idx)) {
+			if (!inet_aton(argv[idx + 1]->arg, &ip_addr)) {
+				vty_out(vty,
+					"Specified Router ID %s is invalid\n",
+					argv[idx + 1]->arg);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			/* Get the Vertex from the Link State Database */
+			key = ((uint64_t)ip_addr.s_addr) & 0xffffffff;
+			vertex = ls_find_vertex_by_key(sg.ted, key);
+			if (!vertex) {
+				vty_out(vty, "No vertex found for ID %pI4\n",
+					&ip_addr);
+				return CMD_WARNING;
+			}
+		} else
+			vertex = NULL;
+
+		if (vertex)
+			ls_show_vertex(vertex, vty, json, verbose);
+		else
+			ls_show_vertices(sg.ted, vty, json, verbose);
+
+	} else if (argv_find(argv, argc, "edge", &idx)) {
+		/* Show Edge */
+		if (argv_find(argv, argc, "A.B.C.D", &idx)) {
+			if (!inet_aton(argv[idx]->arg, &ip_addr)) {
+				vty_out(vty,
+					"Specified Edge ID %s is invalid\n",
+					argv[idx]->arg);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			/* Get the Edge from the Link State Database */
+			key = ((uint64_t)ip_addr.s_addr) & 0xffffffff;
+			edge = ls_find_edge_by_key(sg.ted, key);
+			if (!edge) {
+				vty_out(vty, "No edge found for ID %pI4\n",
+					&ip_addr);
+				return CMD_WARNING;
+			}
+		} else
+			edge = NULL;
+
+		if (edge)
+			ls_show_edge(edge, vty, json, verbose);
+		else
+			ls_show_edges(sg.ted, vty, json, verbose);
+
+	} else if (argv_find(argv, argc, "subnet", &idx)) {
+		/* Show Subnet */
+		if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
+			if (!str2prefix(argv[idx]->arg, &pref)) {
+				vty_out(vty, "Invalid prefix format %s\n",
+					argv[idx]->arg);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			/* Get the Subnet from the Link State Database */
+			subnet = ls_find_subnet(sg.ted, pref);
+			if (!subnet) {
+				vty_out(vty, "No subnet found for ID %pFX\n",
+					&pref);
+				return CMD_WARNING;
+			}
+		} else
+			subnet = NULL;
+
+		if (subnet)
+			ls_show_subnet(subnet, vty, json, verbose);
+		else
+			ls_show_subnets(sg.ted, vty, json, verbose);
+
+	} else {
+		/* Show the complete TED */
+		ls_show_ted(sg.ted, vty, json, verbose);
+	}
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -718,8 +855,10 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
 	install_element(ENABLE_NODE, &neigh_discover_cmd);
+	install_element(ENABLE_NODE, &import_te_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_sharpd_cmd);
+	install_element(ENABLE_NODE, &show_sharp_ted_cmd);
 
 	return;
 }

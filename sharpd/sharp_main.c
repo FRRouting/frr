@@ -43,6 +43,7 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "nexthop_group.h"
+#include "link_state.h"
 
 #include "sharp_zebra.h"
 #include "sharp_vty.h"
@@ -138,6 +139,7 @@ static void sharp_global_init(void)
 {
 	memset(&sg, 0, sizeof(sg));
 	sg.nhs = list_new();
+	sg.ted = NULL;
 }
 
 static void sharp_start_configuration(void)
