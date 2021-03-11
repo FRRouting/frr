@@ -3435,22 +3435,40 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 	vrf_id_t link_vrf_id;
 	struct interface *ifp;
 	struct interface *ifp_link;
-	ns_id_t ns_id;
 	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+	struct zebra_if *zif, *gre_zif;
+	struct zebra_l2info_gre *gre_info;
 
 	s = msg;
 	STREAM_GETL(s, idx);
 	ifp  = if_lookup_by_index(idx, vrf_id);
 	STREAM_GETL(s, link_idx);
 	STREAM_GETL(s, link_vrf_id);
+
 	ifp_link  = if_lookup_by_index(link_idx, link_vrf_id);
 	if (!ifp_link || !ifp) {
 		zlog_warn("GRE (index %u, VRF %u) or GRE link interface (index %u, VRF %u) not found, when setting GRE params",
 			  idx, vrf_id, link_idx, link_vrf_id);
 		return;
 	}
-	ns_id = zvrf->zns->ns_id;
-	kernel_configure_if_link(ifp, ifp_link, ns_id);
+
+	if (!IS_ZEBRA_IF_GRE(ifp))
+		return;
+
+	gre_zif = (struct zebra_if *)ifp->info;
+	zif = (struct zebra_if *)ifp_link->info;
+	if (!zif || !gre_zif)
+		return;
+
+	gre_info = &zif->l2info.gre;
+	if (!gre_info)
+		return;
+
+	/* if gre link already set */
+	if (gre_zif->link && gre_zif->link == ifp_link)
+		return;
+
+	dplane_gre_set(ifp, ifp_link);
 
  stream_failure:
 	return;

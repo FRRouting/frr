@@ -271,6 +271,9 @@ struct dplane_rule_info {
 	struct dplane_ctx_rule old;
 };
 
+struct dplane_gre_ctx {
+	uint32_t link_ifindex;
+};
 /*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
@@ -327,6 +330,7 @@ struct zebra_dplane_ctx {
 			struct zebra_pbr_ipset_info info;
 		} ipset_entry;
 		struct dplane_neigh_table neightable;
+		struct dplane_gre_ctx gre;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -468,6 +472,9 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_neightable_in;
 	_Atomic uint32_t dg_neightable_errors;
+
+	_Atomic uint32_t dg_gre_set_in;
+	_Atomic uint32_t dg_gre_set_errors;
 
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
@@ -713,6 +720,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			}
 			list_delete(&ctx->u.iptable.interface_name_list);
 		}
+		break;
+	case DPLANE_OP_GRE_SET:
+		break;
 	}
 }
 
@@ -978,6 +988,10 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 		ret = "NEIGH_TABLE_UPDATE";
+		break;
+
+	case DPLANE_OP_GRE_SET:
+		ret = "GRE_SET";
 		break;
 	}
 
@@ -1770,6 +1784,15 @@ uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.neigh.update_flags;
+}
+
+/* Accessor for GRE set */
+uint32_t
+dplane_ctx_gre_get_link_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.gre.link_ifindex;
 }
 
 /* Accessors for PBR rule information */
@@ -4126,6 +4149,67 @@ dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset)
 }
 
 /*
+ * Common helper api for GRE set
+ */
+enum zebra_dplane_result
+dplane_gre_set(struct interface *ifp, struct interface *ifp_link)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	enum dplane_op_e op = DPLANE_OP_GRE_SET;
+	int ret;
+	struct zebra_ns *zns;
+
+	ctx = dplane_ctx_alloc();
+
+	if (!ifp)
+		return result;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("init dplane ctx %s: if %s link %s%s",
+			   dplane_op2str(op), ifp->name,
+			   ifp_link ? "set" : "unset", ifp_link ?
+			   ifp_link->name : "");
+	}
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	zns = zebra_ns_lookup(ifp->vrf_id);
+	if (!zns)
+		return result;
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	dplane_ctx_set_ifname(ctx, ifp->name);
+	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_ifindex = ifp->ifindex;
+	if (ifp_link)
+		ctx->u.gre.link_ifindex = ifp_link->ifindex;
+	else
+		ctx->u.gre.link_ifindex = 0;
+
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	/* Enqueue context for processing */
+	ret = dplane_update_enqueue(ctx);
+
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_gre_set_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(
+			&zdplane_info.dg_gre_set_errors, 1,
+			memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+		result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+	return result;
+}
+
+/*
  * Handler for 'show dplane'
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
@@ -4234,6 +4318,13 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 				    memory_order_relaxed);
 	vty_out(vty, "Neighbor Table updates:       %"PRIu64"\n", incoming);
 	vty_out(vty, "Neighbor Table errors:        %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_gre_set_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_gre_set_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "GRE set updates:       %"PRIu64"\n", incoming);
+	vty_out(vty, "GRE set errors:        %"PRIu64"\n", errs);
 	return CMD_SUCCESS;
 }
 
@@ -4680,6 +4771,12 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_ifname(ctx),
 			   family2str(dplane_ctx_neightable_get_family(ctx)));
 		break;
+	case DPLANE_OP_GRE_SET:
+		zlog_debug("Dplane gre set op %s, ifp %s, link %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifname(ctx),
+			   ctx->u.gre.link_ifindex);
+		break;
 	}
 }
 
@@ -4808,6 +4905,12 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 				memory_order_relaxed);
 		break;
 
+	case DPLANE_OP_GRE_SET:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(
+				&zdplane_info.dg_gre_set_errors, 1,
+				memory_order_relaxed);
+		break;
 	/* Ignore 'notifications' - no-op */
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:
