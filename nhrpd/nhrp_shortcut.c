@@ -282,9 +282,12 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 				union sockunion cie_nat_proto, cie_nat_nbma;
 				sockunion_family(&cie_nat_proto) = AF_UNSPEC;
 				sockunion_family(&cie_nat_nbma) = AF_UNSPEC;
-				cie_nat = nhrp_cie_pull(&extpl, pp->hdr, &cie_nat_nbma, &cie_nat_proto);
+				cie_nat = nhrp_cie_pull(&extpl, pp->hdr,
+							&cie_nat_nbma,
+							&cie_nat_proto);
 				/* We are interested only in peer CIE */
-				if (cie_nat && sockunion_same(&cie_nat_proto, proto)) {
+				if (cie_nat
+				    && sockunion_same(&cie_nat_proto, proto)) {
 					nat_nbma = cie_nat_nbma;
 				}
 			} while (cie_nat);
@@ -296,15 +299,25 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 
 	/* Update cache entry for the protocol to nbma binding */
 	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
-		debugf(NHRP_DEBUG_COMMON,"Remote Device is NATTED, NHRP NAT Extension present");
-		debugf(NHRP_DEBUG_COMMON,"Client NBMA Address %s", sockunion2str(&nat_nbma, buf[1], sizeof(buf[1])));
+		debugf(NHRP_DEBUG_COMMON,
+		       "Remote Device is NATTED, NHRP NAT Extension present");
+		debugf(NHRP_DEBUG_COMMON,
+		       "Client NBMA Address %s",
+		       sockunion2str(&nat_nbma, buf[1], sizeof(buf[1])));
 		nbma = &nat_nbma;
-    }
-	/* For NHRP resolution reply the cie_nbma in mandatory part is the address of the actual address of the sender */
-    else if (!sockunion_same(&cie_nbma, &pp->peer->vc->remote.nbma) && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp)) {
-		debugf(NHRP_DEBUG_COMMON,"Remote Device is NATTED, NHRP NAT Extension not present for proto %s", sockunion2str(proto, buf[0], sizeof(buf[0])));
-		debugf(NHRP_DEBUG_COMMON,"cie_nbma %s", sockunion2str(&cie_nbma, buf[1], sizeof(buf[1])));
-		debugf(NHRP_DEBUG_COMMON,"remote.nbma %s", sockunion2str(&pp->peer->vc->remote.nbma, buf[1], sizeof(buf[1])));
+	}
+	/* For NHRP resolution reply the cie_nbma in mandatory part is the
+	 * address of the actual address of the sender */
+	else if (!sockunion_same(&cie_nbma, &pp->peer->vc->remote.nbma)
+		 && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp)) {
+		debugf(NHRP_DEBUG_COMMON,
+		       "Remote Device is NATTED, NHRP NAT Extension not present for proto %s",
+		       sockunion2str(proto, buf[0], sizeof(buf[0])));
+		debugf(NHRP_DEBUG_COMMON, "cie_nbma %s",
+		       sockunion2str(&cie_nbma, buf[1], sizeof(buf[1])));
+		debugf(NHRP_DEBUG_COMMON, "remote.nbma %s",
+		       sockunion2str(&pp->peer->vc->remote.nbma, buf[1], 
+				sizeof(buf[1])));
 		nbma = &pp->peer->vc->remote.nbma;
 		nat_nbma = *nbma;
 	} else {
@@ -427,10 +440,9 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	/* Cisco NAT detection extension */
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_NAT);
 	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
-	if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC)
-	{
-		cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
-						    &nifp->nat_nbma, &if_ad->addr);
+	if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC) {
+		cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nat_nbma,
+				    &if_ad->addr);
 		cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
 		cie->mtu = htons(if_ad->mtu);
 		nhrp_ext_complete(zb, ext);

@@ -212,7 +212,8 @@ static int nhrp_cache_do_timeout(struct thread *t)
 
 	c->t_timeout = NULL;
 	if (c->cur.type != NHRP_CACHE_INVALID)
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL, NULL);
+		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+					  NULL);
 	return 0;
 }
 
@@ -301,7 +302,8 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 	case NOTIFY_PEER_DOWN:
 	case NOTIFY_PEER_IFCONFIG_CHANGED:
 		notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL, NULL);
+		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+					  NULL);
 		break;
 	case NOTIFY_PEER_NBMA_CHANGING:
 		if (c->cur.type == NHRP_CACHE_DYNAMIC)
@@ -422,7 +424,8 @@ static void nhrp_cache_newpeer_notifier(struct notifier_block *n,
 
 int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 			      int holding_time, struct nhrp_peer *p,
-			      uint32_t mtu, union sockunion *nbma_oa, union sockunion *nbma_claimed)
+			      uint32_t mtu, union sockunion *nbma_oa,
+			      union sockunion *nbma_claimed)
 {
 	char buf[2][SU_ADDRSTRLEN];
 

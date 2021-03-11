@@ -32,7 +32,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c;
 	struct zbuf extpl;
-	union sockunion cie_nbma, cie_nbma_nhs, cie_proto, cie_proto_nhs, *proto;
+	union sockunion cie_nbma, cie_nbma_nhs, cie_proto, cie_proto_nhs,
+		*proto;
 	char buf[64];
 	int ok = 0, holdtime;
 	unsigned short mtu = 0;
@@ -85,7 +86,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 			break;
 		case NHRP_EXTENSION_RESPONDER_ADDRESS:
 			/* NHS adds its own record as responder address */
-			nhrp_cie_pull(&extpl, p->hdr, &cie_nbma_nhs, &cie_proto_nhs);
+			nhrp_cie_pull(&extpl, p->hdr, &cie_nbma_nhs,
+				      &cie_proto_nhs);
 			break;
 		}
 	}
@@ -104,7 +106,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
 	if (c)
 		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, holdtime,
-					  nhrp_peer_ref(r->peer), mtu, NULL, &cie_nbma_nhs);
+					  nhrp_peer_ref(r->peer), mtu, NULL,
+					  &cie_nbma_nhs);
 }
 
 static int nhrp_reg_timeout(struct thread *t)
@@ -215,7 +218,9 @@ static int nhrp_reg_send_req(struct thread *t)
 	/* FIXME: push CIE for each local protocol address */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, NULL, NULL);
 	/* RFC2332 5.2.1 if unique is set then prefix length must be 0xff */
-	cie->prefix_length = (if_ad->flags & NHRP_IFF_REG_NO_UNIQUE) ? 8 * sockunion_get_addrlen(dst_proto) : 0xff;
+	cie->prefix_length = (if_ad->flags & NHRP_IFF_REG_NO_UNIQUE)
+				     ? 8 * sockunion_get_addrlen(dst_proto)
+				     : 0xff;
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 
@@ -237,7 +242,8 @@ static int nhrp_reg_send_req(struct thread *t)
 	hdr->flags |= htons(NHRP_FLAG_REGISTRATION_NAT);
 	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
 	/* push NHS details */
-	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &r->peer->vc->remote.nbma, &nhs_proto);
+	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &r->peer->vc->remote.nbma,
+			    &nhs_proto);
 	cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
 	cie->mtu = htons(if_ad->mtu);
 	nhrp_ext_complete(zb, ext);
@@ -465,19 +471,23 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 	}
 }
 
-int nhrp_nhs_match_ip(union sockunion *in_ip, struct nhrp_interface *nifp) {
+int nhrp_nhs_match_ip(union sockunion *in_ip, struct nhrp_interface *nifp)
+{
 	int i;
 	struct nhrp_nhs *nhs;
 	struct nhrp_registration *reg;
-	for (i=0; i < AFI_MAX; i++)
-	{
-		list_for_each_entry(nhs, &nifp->afi[i].nhslist_head, nhslist_entry)
+	for (i = 0; i < AFI_MAX; i++) {
+		list_for_each_entry(nhs, &nifp->afi[i].nhslist_head,
+				    nhslist_entry)
 		{
 			if (!list_empty(&nhs->reglist_head)) {
 				list_for_each_entry(reg, &nhs->reglist_head,
 						    reglist_entry)
 				{
-					if (!sockunion_cmp(in_ip, &reg->peer->vc->remote.nbma))
+					if (!sockunion_cmp(
+						    in_ip,
+						    &reg->peer->vc->remote
+							     .nbma))
 						return 1;
 				}
 			}
