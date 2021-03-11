@@ -525,6 +525,7 @@ void vici_terminate(void)
 void vici_terminate_vc_by_profile_name(char *profile_name)
 {
 	struct vici_conn *vici = &vici_connection;
+
 	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike",
 		    strlen(profile_name), profile_name, VICI_END);
 }
@@ -532,7 +533,8 @@ void vici_terminate_vc_by_profile_name(char *profile_name)
 void vici_terminate_vc_by_ike_id(unsigned int ike_id)
 {
 	struct vici_conn *vici = &vici_connection;
-	char ike_id_str[10]={0};
+	char ike_id_str[10];
+
 	snprintf(ike_id_str, sizeof(ike_id_str), "%d", ike_id);
 	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
 		    strlen(ike_id_str), ike_id_str, VICI_END);

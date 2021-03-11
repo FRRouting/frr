@@ -116,12 +116,15 @@ static int nhrp_reg_timeout(struct thread *t)
 	}
 
 	r->timeout <<= 1;
-	if (r->timeout > 64)
-	{
-		//Remove the ipsec connection if it is there, it can get re-established later
-		if(r->peer && r->peer->vc && r->peer->vc->ike_uniqueid)
-		{
-			debugf(NHRP_DEBUG_COMMON, "Terminating IPSec Connection for %d\n", r->peer->vc->ike_uniqueid);
+	if (r->timeout > 64) {
+		/* If registration fails repeatedly, this may be because the
+		 * IPSec connection is not working. Close the connection so it
+		 * can be re-established correctly
+		 */
+		if (r->peer && r->peer->vc && r->peer->vc->ike_uniqueid) {
+			debugf(NHRP_DEBUG_COMMON,
+			       "Terminating IPSec Connection for %d\n",
+			       r->peer->vc->ike_uniqueid);
 			vici_terminate_vc_by_ike_id(r->peer->vc->ike_uniqueid);
 			r->peer->vc->ike_uniqueid = 0;
 		}
