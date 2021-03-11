@@ -531,6 +531,8 @@ dplane_ctx_neightable_get_ucast_probes(const struct zebra_dplane_ctx *ctx);
 /* Accessor for GRE set */
 uint32_t
 dplane_ctx_gre_get_link_ifindex(const struct zebra_dplane_ctx *ctx);
+unsigned int
+dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx);
 
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
@@ -704,7 +706,8 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
  * Enqueue a GRE set
  */
 enum zebra_dplane_result
-dplane_gre_set(struct interface *ifp, struct interface *ifp_link);
+dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
+	       unsigned int mtu);
 
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;

@@ -3438,12 +3438,14 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
 	struct zebra_if *zif, *gre_zif;
 	struct zebra_l2info_gre *gre_info;
+	unsigned int mtu;
 
 	s = msg;
 	STREAM_GETL(s, idx);
 	ifp  = if_lookup_by_index(idx, vrf_id);
 	STREAM_GETL(s, link_idx);
 	STREAM_GETL(s, link_vrf_id);
+	STREAM_GETL(s, mtu);
 
 	ifp_link  = if_lookup_by_index(link_idx, link_vrf_id);
 	if (!ifp_link || !ifp) {
@@ -3464,11 +3466,14 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 	if (!gre_info)
 		return;
 
-	/* if gre link already set */
-	if (gre_zif->link && gre_zif->link == ifp_link)
+	if (!mtu)
+		mtu = ifp->mtu;
+
+	/* if gre link already set or mtu did not change, do not set it */
+	if (gre_zif->link && gre_zif->link == ifp_link && mtu == ifp->mtu)
 		return;
 
-	dplane_gre_set(ifp, ifp_link);
+	dplane_gre_set(ifp, ifp_link, mtu);
 
  stream_failure:
 	return;

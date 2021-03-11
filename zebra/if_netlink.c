@@ -473,6 +473,7 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 		char buf[];
 	} *req = buf;
 	uint32_t link_idx;
+	unsigned int mtu;
 	struct rtattr *rta_info, *rta_data;
 
 	if (buflen < sizeof(*req))
@@ -486,6 +487,10 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
 	req->ifi.ifi_change = 0xFFFFFFFF;
 	link_idx = dplane_ctx_gre_get_link_ifindex(ctx);
+	mtu = dplane_ctx_gre_get_mtu(ctx);
+
+	if (mtu && !nl_attr_put32(&req->n, buflen, IFLA_MTU, mtu))
+		return 0;
 
 	rta_info = nl_attr_nest(&req->n, buflen, IFLA_LINKINFO);
 	if (!rta_info)
