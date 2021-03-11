@@ -200,6 +200,7 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 						nhrp_vc_ipsec_updown(
 							sactx->child_uniqueid,
 							vc);
+					vc->ike_uniqueid = sactx->ike_uniqueid;
 				}
 			} else {
 				nhrp_vc_ipsec_updown(sactx->child_uniqueid, 0);
@@ -519,6 +520,18 @@ void vici_init(void)
 
 void vici_terminate(void)
 {
+}
+
+void vici_terminate_vc(unsigned int ike_id)
+{
+	struct vici_conn *vici = &vici_connection;
+	char ike_id_str[10]={0};
+	snprintf(ike_id_str, sizeof(ike_id_str), "%d", ike_id);
+	debugf(NHRP_DEBUG_VICI,"ike_id_str = %s", ike_id_str);
+
+
+	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
+		    strlen(ike_id_str), ike_id_str, VICI_END);
 }
 
 void vici_request_vc(const char *profile, union sockunion *src,

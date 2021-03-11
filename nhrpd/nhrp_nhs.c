@@ -117,7 +117,15 @@ static int nhrp_reg_timeout(struct thread *t)
 
 	r->timeout <<= 1;
 	if (r->timeout > 64)
+	{
+		//Remove the ipsec connection if it is there, it can get re-established later
+		if(r->peer && r->peer->vc && r->peer->vc->ike_uniqueid)
+		{
+			debugf(NHRP_DEBUG_COMMON, "Terminating IPSec Connection for %d\n", r->peer->vc->ike_uniqueid);
+			vici_terminate_vc(r->peer->vc->ike_uniqueid);
+		}
 		r->timeout = 2;
+	}
 	thread_add_timer_msec(master, nhrp_reg_send_req, r, 10, &r->t_register);
 
 	return 0;
