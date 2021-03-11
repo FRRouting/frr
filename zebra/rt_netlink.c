@@ -3890,14 +3890,6 @@ netlink_put_neigh_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 				     false);
 }
 
-int kernel_configure_if_link(struct interface *ifp,
-			     struct interface *link_ifp,
-			     ns_id_t ns_id)
-{
-	/* TODO */
-	return 0;
-}
-
 /*
  * MPLS label forwarding table change via netlink interface, using dataplane
  * context information.

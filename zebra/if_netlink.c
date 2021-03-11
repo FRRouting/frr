@@ -463,6 +463,46 @@ uint32_t kernel_get_speed(struct interface *ifp, int *error)
 	return get_iflink_speed(ifp, error);
 }
 
+static ssize_t
+netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+			    size_t buflen)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[];
+	} *req = buf;
+	uint32_t link_idx;
+	struct rtattr *rta_info, *rta_data;
+
+	if (buflen < sizeof(*req))
+		return 0;
+	memset(req, 0, sizeof(*req));
+
+	req->n.nlmsg_type =  RTM_NEWLINK;
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+
+	req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+	req->ifi.ifi_change = 0xFFFFFFFF;
+	link_idx = dplane_ctx_gre_get_link_ifindex(ctx);
+
+	rta_info = nl_attr_nest(&req->n, buflen, IFLA_LINKINFO);
+	if (!rta_info)
+		return 0;
+	if (!nl_attr_put(&req->n, buflen, IFLA_INFO_KIND, "gre", 3))
+		return 0;
+	rta_data = nl_attr_nest(&req->n, buflen, IFLA_INFO_DATA);
+	if (!rta_info)
+		return 0;
+	if (!nl_attr_put32(&req->n, buflen, IFLA_GRE_LINK, link_idx))
+		return 0;
+	nl_attr_nest_end(&req->n, rta_data);
+	nl_attr_nest_end(&req->n, rta_info);
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
+}
+
 static int netlink_extract_bridge_info(struct rtattr *link_data,
 				       struct zebra_l2info_bridge *bridge_info)
 {
@@ -524,9 +564,13 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 	if (!attr[IFLA_GRE_LINK]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_GRE_LINK missing from GRE IF message");
-	} else
+	} else {
 		gre_info->ifindex_link =
 			*(ifindex_t *)RTA_DATA(attr[IFLA_GRE_LINK]);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("IFLA_GRE_LINK obtained is %u",
+				   gre_info->ifindex_link);
+	}
 	if (attr[IFLA_GRE_IKEY])
 		gre_info->ikey = *(uint32_t *)RTA_DATA(attr[IFLA_GRE_IKEY]);
 	if (attr[IFLA_GRE_OKEY])
@@ -984,6 +1028,20 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 		nl_attr_put32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
 
 	return netlink_request(netlink_cmd, &req);
+}
+
+enum netlink_msg_status
+netlink_put_gre_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op;
+	enum netlink_msg_status ret;
+
+	op = dplane_ctx_get_op(ctx);
+	assert(op == DPLANE_OP_GRE_SET);
+
+	ret = netlink_batch_add_msg(bth, ctx, netlink_gre_set_msg_encoder, false);
+
+	return ret;
 }
 
 /* Interface lookup by netlink socket. */
