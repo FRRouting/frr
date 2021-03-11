@@ -377,6 +377,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	struct nhrp_afi_data *if_ad;
 	struct nhrp_peer *peer;
 	struct nhrp_cie_header *cie;
+	struct nhrp_extension_header *ext;
 
 	if (nhrp_route_address(NULL, &s->addr, NULL, &peer)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
@@ -420,7 +421,13 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 
 	/* Cisco NAT detection extension */
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_NAT);
-	nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
+	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
+	if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC)
+	{
+		nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
+						    &nifp->nat_nbma, &nifp->afi[family2afi(sockunion_family(&s->addr))].addr);
+		nhrp_ext_complete(zb, ext);
+	}
 
 	nhrp_packet_complete(zb, hdr);
 
