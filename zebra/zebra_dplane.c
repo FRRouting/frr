@@ -273,6 +273,7 @@ struct dplane_rule_info {
 
 struct dplane_gre_ctx {
 	uint32_t link_ifindex;
+	unsigned int mtu;
 };
 /*
  * The context block used to exchange info about route updates across
@@ -1793,6 +1794,14 @@ dplane_ctx_gre_get_link_ifindex(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.gre.link_ifindex;
+}
+
+unsigned int
+dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.gre.mtu;
 }
 
 /* Accessors for PBR rule information */
@@ -4152,7 +4161,7 @@ dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset)
  * Common helper api for GRE set
  */
 enum zebra_dplane_result
-dplane_gre_set(struct interface *ifp, struct interface *ifp_link)
+dplane_gre_set(struct interface *ifp, struct interface *ifp_link, unsigned int mtu)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	struct zebra_dplane_ctx *ctx;
@@ -4186,6 +4195,8 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link)
 		ctx->u.gre.link_ifindex = ifp_link->ifindex;
 	else
 		ctx->u.gre.link_ifindex = 0;
+
+	ctx->u.gre.mtu = mtu;
 
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 

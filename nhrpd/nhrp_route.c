@@ -435,6 +435,7 @@ void nhrp_send_zebra_gre_source_set(struct interface *ifp,
 	stream_putl(s, ifp->ifindex);
 	stream_putl(s, link_idx);
 	stream_putl(s, link_vrf_id);
+	stream_putl(s, 0); /* mtu provisioning */
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }
