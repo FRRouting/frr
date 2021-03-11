@@ -474,6 +474,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 		c->new.type = type;
 		c->new.peer = p;
 		c->new.mtu = mtu;
+		c->new.holding_time = holding_time;
 		if (nbma_oa)
 			c->new.remote_nbma_natoa = *nbma_oa;
 

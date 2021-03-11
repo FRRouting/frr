@@ -442,3 +442,24 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 			cb(nhs, 0, ctx);
 	}
 }
+
+int nhrp_nhs_match_ip(union sockunion *in_ip, struct nhrp_interface *nifp) {
+	int i;
+	struct nhrp_nhs *nhs;
+	struct nhrp_registration *reg;
+	for (i=0; i < AFI_MAX; i++)
+	{
+		list_for_each_entry(nhs, &nifp->afi[i].nhslist_head, nhslist_entry)
+		{
+			if (!list_empty(&nhs->reglist_head)) {
+				list_for_each_entry(reg, &nhs->reglist_head,
+						    reglist_entry)
+				{
+					if (!sockunion_cmp(in_ip, &reg->peer->vc->remote.nbma))
+						return 1;
+				}
+			}
+		}
+	}
+	return 0;
+}

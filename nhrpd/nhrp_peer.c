@@ -47,6 +47,7 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	       p->ref, &p->vc->remote.nbma, &p->vc->local.nbma);
 
 	THREAD_OFF(p->t_fallback);
+	THREAD_OFF(p->t_timer);
 	hash_release(nifp->peer_hash, p);
 	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
 	nhrp_vc_notify_del(p->vc, &p->vc_notifier);
@@ -283,11 +284,34 @@ static int nhrp_peer_request_timeout(struct thread *t)
 	return 0;
 }
 
+static int nhrp_peer_defer_vici_request(struct thread *t)
+{
+	struct nhrp_peer *p = THREAD_ARG(t);
+	struct nhrp_vc *vc = p->vc;
+	struct interface *ifp = p->ifp;
+	struct nhrp_interface *nifp = ifp->info;
+	char buf[256];
+	THREAD_OFF(p->t_timer);
+
+	if(p->online) {
+		debugf(NHRP_DEBUG_COMMON, "IPsec connection to %s already established\n", sockunion2str(&vc->remote.nbma, buf, sizeof(buf)) ? buf : "NULL");
+	}
+	else {
+		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma, &vc->remote.nbma,
+				p->prio);
+		thread_add_timer(master, nhrp_peer_request_timeout, p,
+				 (nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
+				 &p->t_fallback);
+	}
+	return 0;
+}
+
 int nhrp_peer_check(struct nhrp_peer *p, int establish)
 {
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
+	char buf[256];
 
 	if (p->online)
 		return 1;
@@ -304,11 +328,22 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 
 	p->prio = establish > 1;
 	p->requested = 1;
-	vici_request_vc(nifp->ipsec_profile, &vc->local.nbma, &vc->remote.nbma,
-			p->prio);
-	thread_add_timer(master, nhrp_peer_request_timeout, p,
-			 (nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
-			 &p->t_fallback);
+
+	//All NHRP registration requests are prioritized
+	if(p->prio)
+	{
+		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma, &vc->remote.nbma,
+				p->prio);
+		thread_add_timer(master, nhrp_peer_request_timeout, p,
+				 (nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
+				 &p->t_fallback);
+	}
+	else
+	{
+		int r_time_ms = rand() % 1000; //Maximum timeout is 1 seconds
+		debugf(NHRP_DEBUG_COMMON, "Initiating IPsec connection request to %s after %d ms:\n", sockunion2str(&vc->remote.nbma, buf, sizeof(buf)) ? buf : "NULL", r_time_ms);
+		thread_add_timer_msec(master, nhrp_peer_defer_vici_request, p, r_time_ms, &p->t_timer);
+	}
 
 	return 0;
 }
@@ -341,6 +376,49 @@ void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb)
 	zbuf_reset(zb);
 }
 
+static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp, union sockunion *proto, union sockunion *cie_nbma)
+{
+	char buf[2][256];
+	union sockunion cie_proto;
+	struct zbuf payload;
+	struct nhrp_extension_header *ext;
+	struct zbuf *extensions;
+
+
+	if(!proto || !cie_nbma || sockunion_family(proto) == AF_UNSPEC)
+		return;
+
+	sockunion_family(cie_nbma) = AF_UNSPEC;
+
+	/* Handle extensions */
+	extensions = zbuf_alloc(zbuf_used(&pp->extensions));
+	if(extensions)
+	{
+		zbuf_copy_peek(extensions, &pp->extensions, zbuf_used(&pp->extensions));
+		while ((ext = nhrp_ext_pull(extensions, &payload)) != NULL) {
+			switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
+			case NHRP_EXTENSION_NAT_ADDRESS:
+				/* Process the NBMA and proto address in NAT extension and update the cache
+				 * without which the neighbor table in the kernel contains the source NBMA address
+				 * which is not reachable since it is behind a NAT device */
+				debugf(NHRP_DEBUG_COMMON,"Processing NAT Extension for %s", sockunion2str(proto, buf[0], sizeof(buf[0])) ? buf[0] : "NULL");
+				while (nhrp_cie_pull(&payload, pp->hdr, cie_nbma, &cie_proto))
+				{
+					if(sockunion_family(&cie_proto) == AF_UNSPEC)
+						continue;
+
+					if(!sockunion_cmp(proto, &cie_proto))
+					{
+						debugf(NHRP_DEBUG_COMMON,"cie_nbma for proto %s is %s", buf[0] ? buf[0] : "NULL", sockunion2str(cie_nbma, buf[1], sizeof(buf[1])) ? buf[1] : "NULL");
+						break;
+					}
+				}
+			}
+		}
+		zbuf_free(extensions);
+	}
+}
+
 static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 {
 	struct interface *ifp = pp->ifp;
@@ -349,7 +427,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	struct nhrp_cie_header *cie;
 	struct nhrp_extension_header *ext;
 	struct nhrp_cache *c;
-	union sockunion cie_nbma, cie_proto, *proto_addr, *nbma_addr;
+	union sockunion cie_nbma, cie_nbma_nat, cie_proto, *proto_addr, *nbma_addr;
 	int holdtime, prefix_len, hostprefix_len;
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_peer *peer;
@@ -403,12 +481,34 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			continue;
 		}
 
+
 		proto_addr = (sockunion_family(&cie_proto) == AF_UNSPEC)
 				     ? &pp->src_proto
 				     : &cie_proto;
-		nbma_addr = (sockunion_family(&cie_nbma) == AF_UNSPEC)
-				    ? &pp->src_nbma
-				    : &cie_nbma;
+
+		/* Check if there is an entry for this proto_addr in NHRP_NAT_EXTENSION */
+		nhrp_process_nat_extension(pp, proto_addr, &cie_nbma_nat);
+
+		if(sockunion_family(&cie_nbma_nat) == AF_UNSPEC)
+		{
+			/* It may be possible that this resolution reply is coming directly from NATTED Spoke
+			 * and there is not NAT Extension present */
+			debugf(NHRP_DEBUG_COMMON,"No NAT Extension for %s", sockunion2str(proto_addr, buf, sizeof(buf)) ? buf : "NULL");
+
+			if (!sockunion_same(&pp->src_nbma, &pp->peer->vc->remote.nbma) && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp))
+			{
+				debugf(NHRP_DEBUG_COMMON,"Remote Device is NATTED");
+				cie_nbma_nat = pp->peer->vc->remote.nbma;
+				debugf(NHRP_DEBUG_COMMON,"Device is natted using %s as cie_nbma", sockunion2str(&cie_nbma_nat, buf, sizeof(buf)) ? buf : "NULL");
+			}
+		}
+
+		if(sockunion_family(&cie_nbma_nat) != AF_UNSPEC)
+			nbma_addr = &cie_nbma_nat;
+		else if(sockunion_family(&cie_nbma) != AF_UNSPEC)
+			nbma_addr = &cie_nbma;
+		else
+			nbma_addr = &pp->src_nbma;
 
 		holdtime = htons(cie->holding_time);
 		debugf(NHRP_DEBUG_COMMON,
@@ -427,11 +527,12 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 		if (nbma_addr)
 			sockunion2str(nbma_addr, buf, sizeof(buf));
 
+
 		debugf(NHRP_DEBUG_COMMON,
 		       "shortcut res_rep: updating binding for nmba addr %s",
 		       nbma_addr ? buf : "(NULL)");
 		if (!nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC, holdtime,
-					       nhrp_peer_ref(pp->peer),
+						   nhrp_peer_get(pp->ifp, nbma_addr),
 					       htons(cie->mtu), nbma_addr)) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
 			continue;
@@ -468,8 +569,10 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	while ((ext = nhrp_ext_pull(&pp->extensions, &payload)) != NULL) {
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS:
+
 			if (sockunion_family(&nifp->nat_nbma) == AF_UNSPEC)
 				break;
+
 			ext = nhrp_ext_push(zb, hdr,
 					    NHRP_EXTENSION_NAT_ADDRESS);
 			if (!ext)
@@ -486,7 +589,6 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			break;
 		}
 	}
-
 	nhrp_packet_complete(zb, hdr);
 	nhrp_peer_send(peer, zb);
 err:
@@ -559,7 +661,9 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 				    : &cie_nbma;
 		nbma_natoa = NULL;
 		if (natted) {
-			nbma_natoa = nbma_addr;
+            nbma_natoa = (sockunion_family(&p->peer->vc->remote.nbma) == AF_UNSPEC)
+                         ? nbma_addr
+                         : &p->peer->vc->remote.nbma;
 		}
 
 		holdtime = htons(cie->holding_time);
