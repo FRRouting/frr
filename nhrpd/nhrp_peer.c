@@ -898,20 +898,24 @@ static struct {
 static void nhrp_peer_forward(struct nhrp_peer *p,
 			      struct nhrp_packet_parser *pp)
 {
-	struct zbuf *zb, extpl;
+	struct zbuf *zb, *zb_copy, extpl;
 	struct nhrp_packet_header *hdr;
 	struct nhrp_extension_header *ext, *dst;
 	struct nhrp_cie_header *cie;
 	struct nhrp_interface *nifp = pp->ifp->info;
 	struct nhrp_afi_data *if_ad = pp->if_ad;
-	union sockunion cie_nbma, cie_protocol;
+	union sockunion cie_nbma, cie_protocol, cie_protocol_mandatory, *proto = NULL;
 	uint16_t type, len;
+	struct nhrp_cache *c;
+	char buf[SU_ADDRSTRLEN];
 
 	if (pp->hdr->hop_count == 0)
 		return;
 
 	/* Create forward packet - copy header */
 	zb = zbuf_alloc(1500);
+	zb_copy = zbuf_alloc(1500);
+
 	hdr = nhrp_packet_push(zb, pp->hdr->type, &pp->src_nbma, &pp->src_proto,
 			       &pp->dst_proto);
 	hdr->flags = pp->hdr->flags;
@@ -919,7 +923,12 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 	hdr->u.request_id = pp->hdr->u.request_id;
 
 	/* Copy payload */
+	zbuf_copy_peek(zb_copy, &pp->payload, zbuf_used(&pp->payload));
 	zbuf_copy(zb, &pp->payload, zbuf_used(&pp->payload));
+
+	/* Get CIE Extension from Mandatory part */
+	sockunion_family(&cie_protocol_mandatory) = AF_UNSPEC;
+	nhrp_cie_pull(zb_copy, pp->hdr, &cie_nbma, &cie_protocol_mandatory);
 
 	/* Copy extensions */
 	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
@@ -955,6 +964,35 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 				cie->holding_time = htons(if_ad->holdtime);
 			}
 			break;
+		case NHRP_EXTENSION_NAT_ADDRESS:
+			if(packet_types[hdr->type].type == PACKET_REQUEST) {
+				debugf(NHRP_DEBUG_COMMON,"Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the request packet");
+				proto = &pp->src_proto;
+			} else if(packet_types[hdr->type].type == PACKET_REPLY) {
+				debugf(NHRP_DEBUG_COMMON,"Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the reply packet");
+				/* For reply packet use protocol specified in CIE of mandatory part for cache lookup */
+				if(sockunion_family(&cie_protocol_mandatory) != AF_UNSPEC)
+					proto = &cie_protocol_mandatory;
+			}
+
+			if(proto) {
+				debugf(NHRP_DEBUG_COMMON,"Proto is %s", sockunion2str(proto, buf, sizeof(buf)));
+				c = nhrp_cache_get(nifp->ifp, proto, 0);
+				if(c) {
+					debugf(NHRP_DEBUG_COMMON,"c->cur.remote_nbma_natoa is %s", sockunion2str(&c->cur.remote_nbma_natoa, buf, sizeof(buf)) ? buf : "NULL");
+					if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
+						cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,&c->cur.remote_nbma_natoa, proto);
+						if (!cie)
+							goto err;
+					}
+				} else {
+					debugf(NHRP_DEBUG_COMMON,"No cache entry for Proto is %s", sockunion2str(proto, buf, sizeof(buf)));
+					zbuf_put(zb, extpl.head, len);
+				}
+			} else {
+				zbuf_put(zb, extpl.head, len);
+			}
+			break;
 		default:
 			if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY)
 				/* FIXME: RFC says to just copy, but not
@@ -974,6 +1012,7 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 	nhrp_packet_complete(zb, hdr);
 	nhrp_peer_send(p, zb);
 	zbuf_free(zb);
+	zbuf_free(zb_copy);
 	return;
 err:
 	nhrp_packet_debug(pp->pkt, "FWD-FAIL");
