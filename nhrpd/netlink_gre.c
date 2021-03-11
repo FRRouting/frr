@@ -125,7 +125,8 @@ static int netlink_gre_get_mtu(struct zbuf *zb, int ifindex, unsigned int *mtu)
 
 	*mtu = *pmtu;
 
-	debugf(NHRP_DEBUG_KERNEL, "netlink_gre_get_mtu: %d (ifindex=%u)", *mtu, ifindex);
+	debugf(NHRP_DEBUG_KERNEL, "netlink_gre_get_mtu: %d (ifindex=%u)", *mtu,
+	       ifindex);
 
 	return 0;
 }
@@ -177,7 +178,8 @@ void netlink_gre_set_link(unsigned int ifindex, unsigned int link_index)
 
 	ret = netlink_gre_get_mtu(zb, ifindex, &mtu);
 	if (ret < 0) {
-		debugf(NHRP_DEBUG_KERNEL, "netlink_gre_get_mtu failed (%d)", ret);
+		debugf(NHRP_DEBUG_KERNEL, "netlink_gre_get_mtu failed (%d)",
+		       ret);
 	}
 
 	n = znl_nlmsg_push(zb, RTM_NEWLINK, NLM_F_REQUEST);
