@@ -122,7 +122,8 @@ static int nhrp_reg_timeout(struct thread *t)
 		if(r->peer && r->peer->vc && r->peer->vc->ike_uniqueid)
 		{
 			debugf(NHRP_DEBUG_COMMON, "Terminating IPSec Connection for %d\n", r->peer->vc->ike_uniqueid);
-			vici_terminate_vc(r->peer->vc->ike_uniqueid);
+			vici_terminate_vc_by_ike_id(r->peer->vc->ike_uniqueid);
+			r->peer->vc->ike_uniqueid = 0;
 		}
 		r->timeout = 2;
 	}

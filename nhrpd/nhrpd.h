@@ -400,7 +400,8 @@ void nhrp_vc_reset(void);
 
 void vici_init(void);
 void vici_terminate(void);
-void vici_terminate_vc(unsigned int ike_id);
+void vici_terminate_vc_by_profile_name(char *profile_name);
+void vici_terminate_vc_by_ike_id(unsigned int ike_id);
 void vici_request_vc(const char *profile, union sockunion *src,
 		     union sockunion *dst, int prio);
 

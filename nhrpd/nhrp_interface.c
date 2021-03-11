@@ -465,11 +465,17 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 	struct nhrp_interface *nifp = ifp->info;
 
 	if (nifp->ipsec_profile)
+	{
+		vici_terminate_vc_by_profile_name(nifp->ipsec_profile);
 		free(nifp->ipsec_profile);
+	}
 	nifp->ipsec_profile = profile ? strdup(profile) : NULL;
 
 	if (nifp->ipsec_fallback_profile)
+	{
+		vici_terminate_vc_by_profile_name(nifp->ipsec_fallback_profile);
 		free(nifp->ipsec_fallback_profile);
+	}
 	nifp->ipsec_fallback_profile =
 		fallback_profile ? strdup(fallback_profile) : NULL;
 
