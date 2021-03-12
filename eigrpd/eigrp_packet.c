@@ -574,8 +574,8 @@ int eigrp_read(struct thread *thread)
 	if (eigrp_if_is_passive(ei)) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
-				"ignoring packet from router %pI4 sent to %pI4, received on a passive interface, %pI4",
-				&eigrph->vrid, &iph->ip_dst,
+				"ignoring packet from router %u sent to %pI4, received on a passive interface, %pI4",
+				ntohs(eigrph->vrid), &iph->ip_dst,
 				&ei->address.u.prefix4);
 
 		if (iph->ip_dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS)) {

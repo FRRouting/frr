@@ -116,7 +116,7 @@ void ospf6_hello_print(struct ospf6_header *oh)
 	for (p = (char *)((caddr_t)hello + sizeof(struct ospf6_hello));
 	     p + sizeof(uint32_t) <= OSPF6_MESSAGE_END(oh);
 	     p += sizeof(uint32_t))
-		zlog_debug("    Neighbor: %pI4", p);
+		zlog_debug("    Neighbor: %pI4", (in_addr_t *)p);
 
 	assert(p == OSPF6_MESSAGE_END(oh));
 }
@@ -1578,8 +1578,8 @@ int ospf6_receive(struct thread *thread)
 		zlog_debug("%s received on %s",
 			   lookup_msg(ospf6_message_type_str, oh->type, NULL),
 			   oi->interface->name);
-		zlog_debug("    src: %pI4", &src);
-		zlog_debug("    dst: %pI4", &dst);
+		zlog_debug("    src: %pI6", &src);
+		zlog_debug("    dst: %pI6", &dst);
 
 		switch (oh->type) {
 		case OSPF6_MESSAGE_TYPE_HELLO:
@@ -1663,7 +1663,7 @@ static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
 			   lookup_msg(ospf6_message_type_str, oh->type, NULL),
 			   oi->interface->name);
 		zlog_debug("    src: %s", srcname);
-		zlog_debug("    dst: %pI4", dst);
+		zlog_debug("    dst: %pI6", dst);
 
 		switch (oh->type) {
 		case OSPF6_MESSAGE_TYPE_HELLO:

@@ -82,7 +82,7 @@ static bool mtrace_fwd_info_weak(struct pim_instance *pim,
 
 	if (PIM_DEBUG_MTRACE)
 		zlog_debug("mtrace next_hop=%pI4",
-			   &nexthop.mrib_nexthop_addr.u.prefix);
+			   &nexthop.mrib_nexthop_addr.u.prefix4);
 
 	if (nexthop.mrib_nexthop_addr.family == AF_INET)
 		nh_addr = nexthop.mrib_nexthop_addr.u.prefix4;
