@@ -128,6 +128,7 @@ struct ospf6 {
 	struct thread *maxage_remover;
 	struct thread *t_distribute_update; /* Distirbute update timer. */
 	struct thread *t_ospf6_receive; /* OSPF6 receive timer */
+#define OSPF6_WRITE_INTERFACE_COUNT_DEFAULT 20
 	struct thread *t_write;
 
 	uint32_t ref_bandwidth;
