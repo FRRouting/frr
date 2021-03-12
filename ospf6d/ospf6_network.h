@@ -36,7 +36,7 @@ extern int ospf6_recvmsg(struct in6_addr *src, struct in6_addr *dst,
 			 ifindex_t *ifindex, struct iovec *message,
 			 int ospf6_sock);
 
-#define OSPF6_MESSAGE_WRITE_ON(O)                                              \
+#define OSPF6_MESSAGE_WRITE_ON(oi)                                             \
 	do {                                                                   \
 		bool list_was_empty =                                          \
 			list_isempty(oi->area->ospf6->oi_write_q);             \

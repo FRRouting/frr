@@ -157,16 +157,9 @@ extern void ospf6_lsreq_print(struct ospf6_header *, int action);
 extern void ospf6_lsupdate_print(struct ospf6_header *, int action);
 extern void ospf6_lsack_print(struct ospf6_header *, int action);
 
-extern void ospf6_packet_free(struct ospf6_packet *op);
 extern struct ospf6_fifo *ospf6_fifo_new(void);
 extern void ospf6_fifo_flush(struct ospf6_fifo *fifo);
 extern void ospf6_fifo_free(struct ospf6_fifo *fifo);
-struct ospf6_packet *ospf6_fifo_head(struct ospf6_fifo *fifo);
-
-/* temporary inclusinon of ospf6_interface.h for compile will be removed */
-#include "ospf6_interface.h"
-extern void ospf6_packet_add(struct ospf6_interface *oi,
-			     struct ospf6_packet *op);
 
 extern int ospf6_iobuf_size(unsigned int size);
 extern void ospf6_message_terminate(void);
