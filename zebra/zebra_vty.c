@@ -844,7 +844,6 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	const rib_dest_t *dest = rib_dest_from_rnode(rn);
 	const struct nexthop_group *nhg;
 	char up_str[MONOTIME_STRLEN];
-	bool first_p = true;
 	bool nhg_from_backup = false;
 
 	uptime = monotime(NULL);
@@ -997,9 +996,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 	/* Nexthop information. */
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-		if (first_p) {
-			first_p = false;
-		} else if (nhg_from_backup) {
+		if (nhg_from_backup) {
 			vty_out(vty, "  b%c%*c",
 				re_status_output_char(re, nexthop, is_fib),
 				len - 3 + (2 * nexthop_level(nexthop)), ' ');
