@@ -2864,7 +2864,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug(
-			"%u:Recv MACIP %s f 0x%x MAC %pEA IP %pI4 VNI %u seq %u state %d ESI %s",
+			"%u:Recv MACIP %s f 0x%x MAC %pEA IP %pIA VNI %u seq %u state %d ESI %s",
 			vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del", flags,
 			&mac, &ip, vni, seqnum, state,
 			esi_to_str(&esi, buf2, sizeof(buf2)));
