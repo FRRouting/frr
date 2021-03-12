@@ -671,7 +671,7 @@ DEFPY_YANG(
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-address", xpath);
+	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-addresses", xpath);
 	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_CREATE, prefix_str);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -694,7 +694,7 @@ DEFPY_YANG(
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-address", xpath);
+	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-addresses", xpath);
 	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_DESTROY, prefix_str);
 
 	return nb_cli_apply_changes(vty, NULL);
