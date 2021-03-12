@@ -3473,7 +3473,7 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 	if (gre_zif->link && gre_zif->link == ifp_link && mtu == ifp->mtu)
 		return;
 
-	dplane_gre_set(ifp, ifp_link, mtu);
+	dplane_gre_set(ifp, ifp_link, mtu, gre_info);
 
  stream_failure:
 	return;

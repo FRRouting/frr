@@ -533,6 +533,8 @@ uint32_t
 dplane_ctx_gre_get_link_ifindex(const struct zebra_dplane_ctx *ctx);
 unsigned int
 dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx);
+const struct zebra_l2info_gre *
+dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx);
 
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
@@ -707,7 +709,7 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
  */
 enum zebra_dplane_result
 dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
-	       unsigned int mtu);
+	       unsigned int mtu, const struct zebra_l2info_gre *gre_info);
 
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;
