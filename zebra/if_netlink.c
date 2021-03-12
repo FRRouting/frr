@@ -73,6 +73,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_l2.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -475,6 +476,7 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	uint32_t link_idx;
 	unsigned int mtu;
 	struct rtattr *rta_info, *rta_data;
+	const struct zebra_l2info_gre *gre_info;
 
 	if (buflen < sizeof(*req))
 		return 0;
@@ -485,6 +487,11 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	req->n.nlmsg_flags = NLM_F_REQUEST;
 
 	req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+
+	gre_info = dplane_ctx_gre_get_info(ctx);
+	if (!gre_info)
+		return 0;
+
 	req->ifi.ifi_change = 0xFFFFFFFF;
 	link_idx = dplane_ctx_gre_get_link_ifindex(ctx);
 	mtu = dplane_ctx_gre_get_mtu(ctx);
@@ -495,13 +502,36 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	rta_info = nl_attr_nest(&req->n, buflen, IFLA_LINKINFO);
 	if (!rta_info)
 		return 0;
+
 	if (!nl_attr_put(&req->n, buflen, IFLA_INFO_KIND, "gre", 3))
 		return 0;
+
 	rta_data = nl_attr_nest(&req->n, buflen, IFLA_INFO_DATA);
-	if (!rta_info)
+	if (!rta_data)
 		return 0;
+
 	if (!nl_attr_put32(&req->n, buflen, IFLA_GRE_LINK, link_idx))
 		return 0;
+
+	if (gre_info->vtep_ip.s_addr &&
+	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_LOCAL,
+			   gre_info->vtep_ip.s_addr))
+		return 0;
+
+	if (gre_info->vtep_ip_remote.s_addr &&
+	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_REMOTE,
+			   gre_info->vtep_ip_remote.s_addr))
+		return 0;
+
+	if (gre_info->ikey &&
+	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_IKEY,
+			   gre_info->ikey))
+		return 0;
+	if (gre_info->okey &&
+	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_IKEY,
+			   gre_info->okey))
+		return 0;
+
 	nl_attr_nest_end(&req->n, rta_data);
 	nl_attr_nest_end(&req->n, rta_info);
 
