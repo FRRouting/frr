@@ -1943,9 +1943,9 @@ int isis_instance_segment_routing_enabled_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/segment-routing/srgb
+ * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks
  */
-int isis_instance_segment_routing_srgb_pre_validate(
+int isis_instance_segment_routing_label_blocks_pre_validate(
 	struct nb_cb_pre_validate_args *args)
 {
 	uint32_t srgb_lbound;
@@ -1953,10 +1953,10 @@ int isis_instance_segment_routing_srgb_pre_validate(
 	uint32_t srlb_lbound;
 	uint32_t srlb_ubound;
 
-	srgb_lbound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
-	srgb_ubound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
-	srlb_lbound = yang_dnode_get_uint32(args->dnode, "../srlb/lower-bound");
-	srlb_ubound = yang_dnode_get_uint32(args->dnode, "../srlb/upper-bound");
+	srgb_lbound = yang_dnode_get_uint32(args->dnode, "./srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(args->dnode, "./srgb/upper-bound");
+	srlb_lbound = yang_dnode_get_uint32(args->dnode, "./srlb/lower-bound");
+	srlb_ubound = yang_dnode_get_uint32(args->dnode, "./srlb/upper-bound");
 
 	/* Check that the block size does not exceed 65535 */
 	if ((srgb_ubound - srgb_lbound + 1) > 65535) {
@@ -1966,18 +1966,28 @@ int isis_instance_segment_routing_srgb_pre_validate(
 			srgb_lbound, srgb_ubound);
 		return NB_ERR_VALIDATION;
 	}
+	if ((srlb_ubound - srlb_lbound + 1) > 65535) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "New SR Local Block (%u/%u) exceed the limit of 65535",
+			 srlb_lbound, srlb_ubound);
+		return NB_ERR_VALIDATION;
+	}
 
 	/* Validate SRGB against SRLB */
 	if (!((srgb_ubound < srlb_lbound) || (srgb_lbound > srlb_ubound))) {
 		snprintf(
 			args->errmsg, args->errmsg_len,
-			"New SR Global Block (%u/%u) conflict with Local Block (%u/%u)",
+			"SR Global Block (%u/%u) conflicts with Local Block (%u/%u)",
 			srgb_lbound, srgb_ubound, srlb_lbound, srlb_ubound);
 		return NB_ERR_VALIDATION;
 	}
 
 	return NB_OK;
 }
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srgb
+ */
 
 void isis_instance_segment_routing_srgb_apply_finish(
 	struct nb_cb_apply_finish_args *args)
@@ -1993,7 +2003,7 @@ void isis_instance_segment_routing_srgb_apply_finish(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/segment-routing/srgb/lower-bound
+ * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srgb/lower-bound
  */
 int isis_instance_segment_routing_srgb_lower_bound_modify(
 	struct nb_cb_modify_args *args)
@@ -2018,7 +2028,7 @@ int isis_instance_segment_routing_srgb_lower_bound_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/segment-routing/srgb/upper-bound
+ * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srgb/upper-bound
  */
 int isis_instance_segment_routing_srgb_upper_bound_modify(
 	struct nb_cb_modify_args *args)
@@ -2043,41 +2053,8 @@ int isis_instance_segment_routing_srgb_upper_bound_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/segment-routing/srlb
+ * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srlb
  */
-int isis_instance_segment_routing_srlb_pre_validate(
-	struct nb_cb_pre_validate_args *args)
-{
-	uint32_t srgb_lbound;
-	uint32_t srgb_ubound;
-	uint32_t srlb_lbound;
-	uint32_t srlb_ubound;
-
-	srgb_lbound = yang_dnode_get_uint32(args->dnode, "../srgb/lower-bound");
-	srgb_ubound = yang_dnode_get_uint32(args->dnode, "../srgb/upper-bound");
-	srlb_lbound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
-	srlb_ubound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
-
-	/* Check that the block size does not exceed 65535 */
-	if ((srlb_ubound - srlb_lbound + 1) > 65535) {
-		snprintf(args->errmsg, args->errmsg_len,
-			 "New SR Local Block (%u/%u) exceed the limit of 65535",
-			 srlb_lbound, srlb_ubound);
-		return NB_ERR_VALIDATION;
-	}
-
-	/* Validate SRLB against SRGB */
-	if (!((srlb_ubound < srgb_lbound) || (srlb_lbound > srgb_ubound))) {
-		snprintf(
-			args->errmsg, args->errmsg_len,
-			"New SR Local Block (%u/%u) conflict with Global Block (%u/%u)",
-			srlb_lbound, srlb_ubound, srgb_lbound, srgb_ubound);
-		return NB_ERR_VALIDATION;
-	}
-
-	return NB_OK;
-}
-
 void isis_instance_segment_routing_srlb_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
@@ -2092,7 +2069,7 @@ void isis_instance_segment_routing_srlb_apply_finish(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/segment-routing/srlb/lower-bound
+ * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srlb/lower-bound
  */
 int isis_instance_segment_routing_srlb_lower_bound_modify(
 	struct nb_cb_modify_args *args)
@@ -2117,7 +2094,7 @@ int isis_instance_segment_routing_srlb_lower_bound_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/segment-routing/srlb/upper-bound
+ * XPath: /frr-isisd:isis/instance/segment-routing/label-blocks/srlb/upper-bound
  */
 int isis_instance_segment_routing_srlb_upper_bound_modify(
 	struct nb_cb_modify_args *args)
@@ -2231,10 +2208,10 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	struct isis_prefix_sid psid = {};
 
 	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
-	srgb_lbound = yang_dnode_get_uint32(args->dnode,
-					    "../../srgb/lower-bound");
-	srgb_ubound = yang_dnode_get_uint32(args->dnode,
-					    "../../srgb/upper-bound");
+	srgb_lbound = yang_dnode_get_uint32(
+		args->dnode, "../../label-blocks/srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(
+		args->dnode, "../../label-blocks/srgb/upper-bound");
 	sid = yang_dnode_get_uint32(args->dnode, "./sid-value");
 	sid_type = yang_dnode_get_enum(args->dnode, "./sid-value-type");
 

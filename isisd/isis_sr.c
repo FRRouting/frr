@@ -1213,14 +1213,14 @@ void isis_sr_area_init(struct isis_area *area)
 	/* Pull defaults from the YANG module. */
 #ifndef FABRICD
 	srdb->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SR);
-	srdb->config.srgb_lower_bound =
-		yang_get_default_uint32("%s/srgb/lower-bound", ISIS_SR);
-	srdb->config.srgb_upper_bound =
-		yang_get_default_uint32("%s/srgb/upper-bound", ISIS_SR);
-	srdb->config.srlb_lower_bound =
-		yang_get_default_uint32("%s/srlb/lower-bound", ISIS_SR);
-	srdb->config.srlb_upper_bound =
-		yang_get_default_uint32("%s/srlb/upper-bound", ISIS_SR);
+	srdb->config.srgb_lower_bound = yang_get_default_uint32(
+		"%s/label-blocks/srgb/lower-bound", ISIS_SR);
+	srdb->config.srgb_upper_bound = yang_get_default_uint32(
+		"%s/label-blocks/srgb/upper-bound", ISIS_SR);
+	srdb->config.srlb_lower_bound = yang_get_default_uint32(
+		"%s/label-blocks/srlb/lower-bound", ISIS_SR);
+	srdb->config.srlb_upper_bound = yang_get_default_uint32(
+		"%s/label-blocks/srlb/upper-bound", ISIS_SR);
 #else
 	srdb->config.enabled = false;
 	srdb->config.srgb_lower_bound = SRGB_LOWER_BOUND;

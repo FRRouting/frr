@@ -387,9 +387,7 @@ lib_interface_state_isis_event_counters_authentication_fails_get_elem(
 /* Optional 'pre_validate' callbacks. */
 int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	struct nb_cb_pre_validate_args *args);
-int isis_instance_segment_routing_srgb_pre_validate(
-	struct nb_cb_pre_validate_args *args);
-int isis_instance_segment_routing_srlb_pre_validate(
+int isis_instance_segment_routing_label_blocks_pre_validate(
 	struct nb_cb_pre_validate_args *args);
 
 /* Optional 'apply_finish' callbacks. */
@@ -476,10 +474,8 @@ void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 				  bool show_defaults);
 void cli_show_isis_sr_enabled(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults);
-void cli_show_isis_srgb(struct vty *vty, struct lyd_node *dnode,
-			bool show_defaults);
-void cli_show_isis_srlb(struct vty *vty, struct lyd_node *dnode,
-			bool show_defaults);
+void cli_show_isis_label_blocks(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults);
 void cli_show_isis_node_msd(struct vty *vty, struct lyd_node *dnode,
 			    bool show_defaults);
 void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
