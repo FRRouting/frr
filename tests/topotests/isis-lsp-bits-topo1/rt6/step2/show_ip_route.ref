@@ -91,7 +91,6 @@
         {
           "ip":"10.0.8.5",
           "afi":"ipv4",
-          "interfaceIndex":3,
           "interfaceName":"eth-rt5"
         }
       ]
