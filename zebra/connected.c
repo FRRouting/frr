@@ -321,11 +321,11 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 			if (IPV4_ADDR_SAME(addr, dest))
 				flog_warn(
 					EC_ZEBRA_IFACE_SAME_LOCAL_AS_PEER,
-					"warning: interface %s has same local and peer address %pI4, routing protocols may malfunction",
+					"interface %s has same local and peer address %pI4, routing protocols may malfunction",
 					ifp->name, addr);
 		} else {
 			zlog_debug(
-				"warning: %s called for interface %s with peer flag set, but no peer address supplied",
+				"%s called for interface %s with peer flag set, but no peer address supplied",
 				__func__, ifp->name);
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 		}
@@ -335,7 +335,7 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 	if (!dest && (prefixlen == IPV4_MAX_PREFIXLEN)
 		&& if_is_pointopoint(ifp))
 		zlog_debug(
-			"warning: PtP interface %s with addr %pI4/%d needs a peer address",
+			"PtP interface %s with addr %pI4/%d needs a peer address",
 			ifp->name, addr, prefixlen);
 
 	/* Label of this address. */
@@ -503,7 +503,7 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	} else {
 		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
 			zlog_debug(
-				"warning: %s called for interface %s with peer flag set, but no peer address supplied",
+				"%s called for interface %s with peer flag set, but no peer address supplied",
 				__func__, ifp->name);
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 		}

@@ -2321,7 +2321,7 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 			nl = strchr(ve->error_buf, '\n');
 			if (nl)
 				*nl = '\0';
-			flog_err(EC_LIB_VTY, "ERROR: %s on config line %u: %s",
+			flog_err(EC_LIB_VTY, "%s on config line %u: %s",
 				 message, ve->line_num, ve->error_buf);
 		}
 	}

@@ -542,7 +542,7 @@ void zebra_interface_address_add_update(struct interface *ifp,
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		flog_warn(
 			EC_ZEBRA_ADVERTISING_UNUSABLE_ADDR,
-			"WARNING: advertising address to clients that is not yet usable.");
+			"advertising address to clients that is not yet usable.");
 
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 1);
 
