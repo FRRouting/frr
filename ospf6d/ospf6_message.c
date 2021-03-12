@@ -264,7 +264,7 @@ static struct ospf6_packet *ospf6_packet_new(size_t size)
 	return new;
 }
 
-void ospf6_packet_free(struct ospf6_packet *op)
+static void ospf6_packet_free(struct ospf6_packet *op)
 {
 	if (op->s)
 		stream_free(op->s);
@@ -327,7 +327,7 @@ static struct ospf6_packet *ospf6_fifo_pop(struct ospf6_fifo *fifo)
 }
 
 /* Return first fifo entry. */
-struct ospf6_packet *ospf6_fifo_head(struct ospf6_fifo *fifo)
+static struct ospf6_packet *ospf6_fifo_head(struct ospf6_fifo *fifo)
 {
 	return fifo->head;
 }
@@ -354,7 +354,8 @@ void ospf6_fifo_free(struct ospf6_fifo *fifo)
 	XFREE(MTYPE_OSPF6_FIFO, fifo);
 }
 
-void ospf6_packet_add(struct ospf6_interface *oi, struct ospf6_packet *op)
+static void ospf6_packet_add(struct ospf6_interface *oi,
+			     struct ospf6_packet *op)
 {
 	/* Add packet to end of queue. */
 	ospf6_fifo_push(oi->obuf, op);
@@ -2077,25 +2078,66 @@ int ospf6_hello_send(struct thread *thread)
 	thread_add_timer(master, ospf6_hello_send, oi, oi->hello_interval,
 			 &oi->thread_send_hello);
 
-	OSPF6_MESSAGE_WRITE_ON(oi->area->ospf6);
+	OSPF6_MESSAGE_WRITE_ON(oi);
 
 	return 0;
+}
+
+static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
+{
+	uint16_t length = OSPF6_DB_DESC_MIN_SIZE;
+	struct ospf6_lsa *lsa, *lsanext;
+
+	/* if this is initial one, initialize sequence number for DbDesc */
+	if (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
+	    && (on->dbdesc_seqnum == 0)) {
+		on->dbdesc_seqnum = monotime(NULL);
+	}
+
+	/* reserved */
+	stream_putc(s, 0); /* reserved 1 */
+	stream_putc(s, on->ospf6_if->area->options[0]);
+	stream_putc(s, on->ospf6_if->area->options[1]);
+	stream_putc(s, on->ospf6_if->area->options[2]);
+	stream_putw(s, on->ospf6_if->ifmtu);
+	stream_putc(s, 0); /* reserved 2 */
+	stream_putc(s, on->dbdesc_bits);
+	stream_putl(s, on->dbdesc_seqnum);
+
+	/* if this is not initial one, set LSA headers in dbdesc */
+	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)) {
+		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext)) {
+			ospf6_lsa_age_update_to_send(lsa,
+						     on->ospf6_if->transdelay);
+
+			/* MTU check */
+			if ((length + sizeof(struct ospf6_lsa_header)
+			     + OSPF6_HEADER_SIZE)
+			    > ospf6_packet_max(on->ospf6_if)) {
+				ospf6_lsa_unlock(lsa);
+				if (lsanext)
+					ospf6_lsa_unlock(lsanext);
+				break;
+			}
+			stream_put(s, lsa->header,
+				   sizeof(struct ospf6_lsa_header));
+			length += sizeof(struct ospf6_lsa_header);
+		}
+	}
+	return length;
 }
 
 int ospf6_dbdesc_send(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
-	struct ospf6_header *oh;
-	struct ospf6_dbdesc *dbdesc;
-	uint8_t *p;
-	struct ospf6_lsa *lsa, *lsanext;
-	struct in6_addr *dst;
+	uint16_t length = OSPF6_HEADER_SIZE;
+	struct ospf6_packet *op;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
 	on->thread_send_dbdesc = (struct thread *)NULL;
 
 	if (on->state < OSPF6_NEIGHBOR_EXSTART) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_DBDESC, SEND_HDR))
+		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_DBDESC, SEND))
 			zlog_debug(
 				"Quit to send DbDesc to neighbor %s state %s",
 				on->name, ospf6_neighbor_state_str[on->state]);
@@ -2108,56 +2150,23 @@ int ospf6_dbdesc_send(struct thread *thread)
 				 on->ospf6_if->rxmt_interval,
 				 &on->thread_send_dbdesc);
 
-	memset(sendbuf, 0, iobuflen);
-	oh = (struct ospf6_header *)sendbuf;
-	dbdesc = (struct ospf6_dbdesc *)((caddr_t)oh
-					 + sizeof(struct ospf6_header));
+	op = ospf6_packet_new(on->ospf6_if->ifmtu);
+	ospf6_make_header(OSPF6_MESSAGE_TYPE_DBDESC, on->ospf6_if, op->s);
 
-	/* if this is initial one, initialize sequence number for DbDesc */
-	if (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
-	    && (on->dbdesc_seqnum == 0)) {
-		on->dbdesc_seqnum = monotime(NULL);
-	}
+	length += ospf6_make_dbdesc(on, op->s);
+	ospf6_fill_header(on->ospf6_if, op->s, length);
 
-	dbdesc->options[0] = on->ospf6_if->area->options[0];
-	dbdesc->options[1] = on->ospf6_if->area->options[1];
-	dbdesc->options[2] = on->ospf6_if->area->options[2];
-	dbdesc->ifmtu = htons(on->ospf6_if->ifmtu);
-	dbdesc->bits = on->dbdesc_bits;
-	dbdesc->seqnum = htonl(on->dbdesc_seqnum);
-
-	/* if this is not initial one, set LSA headers in dbdesc */
-	p = (uint8_t *)((caddr_t)dbdesc + sizeof(struct ospf6_dbdesc));
-	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)) {
-		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext)) {
-			ospf6_lsa_age_update_to_send(lsa,
-						     on->ospf6_if->transdelay);
-
-			/* MTU check */
-			if (p - sendbuf + sizeof(struct ospf6_lsa_header)
-			    > ospf6_packet_max(on->ospf6_if)) {
-				ospf6_lsa_unlock(lsa);
-				if (lsanext)
-					ospf6_lsa_unlock(lsanext);
-				break;
-			}
-			memcpy(p, lsa->header, sizeof(struct ospf6_lsa_header));
-			p += sizeof(struct ospf6_lsa_header);
-		}
-	}
-
-	oh->type = OSPF6_MESSAGE_TYPE_DBDESC;
-	oh->length = htons(p - sendbuf);
-
+	/* Set packet length. */
+	op->length = length;
 
 	if (on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT)
-		dst = &allspfrouters6;
+		op->dst = allspfrouters6;
 	else
-		dst = &on->linklocal_addr;
+		op->dst = on->linklocal_addr;
 
-	on->ospf6_if->db_desc_out++;
+	ospf6_packet_add(on->ospf6_if, op);
 
-	ospf6_send(on->ospf6_if->linklocal_addr, dst, on->ospf6_if, oh);
+	OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
 
 	return 0;
 }
