@@ -254,6 +254,16 @@ void ospf6_lsack_print(struct ospf6_header *oh, int action)
 	}
 }
 
+static struct ospf6_packet *ospf6_packet_new(size_t size)
+{
+	struct ospf6_packet *new;
+
+	new = XCALLOC(MTYPE_OSPF6_PACKET, sizeof(struct ospf6_packet));
+	new->s = stream_new(size);
+
+	return new;
+}
+
 void ospf6_packet_free(struct ospf6_packet *op)
 {
 	if (op->s)
@@ -353,7 +363,8 @@ void ospf6_packet_add(struct ospf6_interface *oi, struct ospf6_packet *op)
 	/* ospf_fifo_debug (oi->obuf); */
 }
 
-void ospf6_packet_add_top(struct ospf6_interface *oi, struct ospf6_packet *op)
+static void ospf6_packet_add_top(struct ospf6_interface *oi,
+				 struct ospf6_packet *op)
 {
 	/* Add packet to head of queue. */
 	ospf6_fifo_push_head(oi->obuf, op);
@@ -362,7 +373,7 @@ void ospf6_packet_add_top(struct ospf6_interface *oi, struct ospf6_packet *op)
 	/* ospf_fifo_debug (oi->obuf); */
 }
 
-void ospf6_packet_delete(struct ospf6_interface *oi)
+static void ospf6_packet_delete(struct ospf6_interface *oi)
 {
 	struct ospf6_packet *op;
 
@@ -1822,7 +1833,7 @@ int ospf6_receive(struct thread *thread)
 	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 			&ospf6->t_ospf6_receive);
 
-	while (count < 20) {
+	while (count < OSPF6_WRITE_INTERFACE_COUNT_DEFAULT) {
 		count++;
 		switch (ospf6_read_helper(sockfd, ospf6)) {
 		case OSPF6_READ_ERROR:
@@ -1831,6 +1842,184 @@ int ospf6_receive(struct thread *thread)
 			break;
 		}
 	}
+
+	return 0;
+}
+
+static void ospf6_make_header(uint8_t type, struct ospf6_interface *oi,
+			      struct stream *s)
+{
+	struct ospf6_header *oh;
+
+	oh = (struct ospf6_header *)STREAM_DATA(s);
+
+	oh->version = (uint8_t)OSPFV3_VERSION;
+	oh->type = type;
+
+	oh->router_id = oi->area->ospf6->router_id;
+	oh->area_id = oi->area->area_id;
+	oh->instance_id = oi->instance_id;
+	oh->reserved = 0;
+	stream_forward_endp(s, OSPF6_HEADER_SIZE);
+}
+
+static void ospf6_fill_header(struct ospf6_interface *oi, struct stream *s,
+			      uint16_t length)
+{
+	struct ospf6_header *oh;
+
+	oh = (struct ospf6_header *)STREAM_DATA(s);
+
+	oh->length = htons(length);
+}
+
+static uint32_t ospf6_packet_max(struct ospf6_interface *oi)
+{
+	assert(oi->ifmtu > sizeof(struct ip6_hdr));
+	return oi->ifmtu - (sizeof(struct ip6_hdr));
+}
+
+static uint16_t ospf6_make_hello(struct ospf6_interface *oi, struct stream *s)
+{
+	struct listnode *node, *nnode;
+	struct ospf6_neighbor *on;
+	uint16_t length = OSPF6_HELLO_MIN_SIZE;
+
+	stream_putl(s, oi->interface->ifindex);
+	stream_putc(s, oi->priority);
+	stream_putc(s, oi->area->options[0]);
+	stream_putc(s, oi->area->options[1]);
+	stream_putc(s, oi->area->options[2]);
+	stream_putw(s, oi->hello_interval);
+	stream_putw(s, oi->dead_interval);
+	stream_put_ipv4(s, oi->drouter);
+	stream_put_ipv4(s, oi->bdrouter);
+
+	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
+		if (on->state < OSPF6_NEIGHBOR_INIT)
+			continue;
+
+		if ((length + sizeof(uint32_t) + OSPF6_HEADER_SIZE)
+		    > ospf6_packet_max(oi)) {
+			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO,
+						   SEND))
+				zlog_debug(
+					"sending Hello message: exceeds I/F MTU");
+			break;
+		}
+
+		stream_put_ipv4(s, on->router_id);
+		length += sizeof(uint32_t);
+	}
+
+	return length;
+}
+
+static int ospf6_write(struct thread *thread)
+{
+	struct ospf6 *ospf6 = THREAD_ARG(thread);
+	struct ospf6_interface *oi;
+	struct ospf6_interface *last_serviced_oi = NULL;
+	struct ospf6_header *oh;
+	struct ospf6_packet *op;
+	struct listnode *node;
+	char srcname[64], dstname[64];
+	struct iovec iovector[2];
+	int pkt_count = 0;
+	int len;
+
+	if (ospf6->fd < 0) {
+		zlog_warn("ospf6_write failed to send, fd %d", ospf6->fd);
+		return -1;
+	}
+
+	node = listhead(ospf6->oi_write_q);
+	assert(node);
+	oi = listgetdata(node);
+
+	while ((pkt_count < OSPF6_WRITE_INTERFACE_COUNT_DEFAULT) && oi
+	       && (last_serviced_oi != oi)) {
+
+		op = ospf6_fifo_head(oi->obuf);
+		assert(op);
+		assert(op->length >= OSPF6_HEADER_SIZE);
+
+		iovector[0].iov_base = (caddr_t)stream_pnt(op->s);
+		iovector[0].iov_len = op->length;
+		iovector[1].iov_base = NULL;
+		iovector[1].iov_len = 0;
+
+		oh = (struct ospf6_header *)STREAM_DATA(op->s);
+
+		len = ospf6_sendmsg(oi->linklocal_addr, &op->dst,
+				    oi->interface->ifindex, iovector,
+				    ospf6->fd);
+		if (len != op->length)
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "Could not send entire message");
+
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND)) {
+			inet_ntop(AF_INET6, &op->dst, dstname, sizeof(dstname));
+			inet_ntop(AF_INET6, oi->linklocal_addr, srcname,
+				  sizeof(srcname));
+			zlog_debug("%s send on %s",
+				   lookup_msg(ospf6_message_type_str, oh->type,
+					      NULL),
+				   oi->interface->name);
+			zlog_debug("    src: %s", srcname);
+			zlog_debug("    dst: %s", dstname);
+		}
+		switch (oh->type) {
+		case OSPF6_MESSAGE_TYPE_HELLO:
+			oi->hello_out++;
+			ospf6_hello_print(oh, OSPF6_ACTION_SEND);
+			break;
+		case OSPF6_MESSAGE_TYPE_DBDESC:
+			oi->db_desc_out++;
+			ospf6_dbdesc_print(oh, OSPF6_ACTION_SEND);
+			break;
+		case OSPF6_MESSAGE_TYPE_LSREQ:
+			oi->ls_req_out++;
+			ospf6_lsreq_print(oh, OSPF6_ACTION_SEND);
+			break;
+		case OSPF6_MESSAGE_TYPE_LSUPDATE:
+			oi->ls_upd_out++;
+			ospf6_lsupdate_print(oh, OSPF6_ACTION_SEND);
+			break;
+		case OSPF6_MESSAGE_TYPE_LSACK:
+			oi->ls_ack_out++;
+			ospf6_lsack_print(oh, OSPF6_ACTION_SEND);
+			break;
+		default:
+			zlog_debug("Unknown message");
+			assert(0);
+			break;
+		}
+		/* Now delete packet from queue. */
+		ospf6_packet_delete(oi);
+
+		/* Move this interface to the tail of write_q to
+		       serve everyone in a round robin fashion */
+		list_delete_node(ospf6->oi_write_q, node);
+		if (ospf6_fifo_head(oi->obuf) == NULL) {
+			oi->on_write_q = 0;
+			last_serviced_oi = NULL;
+			oi = NULL;
+		} else {
+			listnode_add(ospf6->oi_write_q, oi);
+		}
+
+		/* Setup to service from the head of the queue again */
+		if (!list_isempty(ospf6->oi_write_q)) {
+			node = listhead(ospf6->oi_write_q);
+			oi = listgetdata(node);
+		}
+	}
+
+	/* If packets still remain in queue, call write thread. */
+	if (!list_isempty(ospf6->oi_write_q))
+		thread_add_write(master, ospf6_write, ospf6, ospf6->fd,
+				 &ospf6->t_write);
 
 	return 0;
 }
@@ -1903,20 +2092,11 @@ static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
 	}
 }
 
-static uint32_t ospf6_packet_max(struct ospf6_interface *oi)
-{
-	assert(oi->ifmtu > sizeof(struct ip6_hdr));
-	return oi->ifmtu - (sizeof(struct ip6_hdr));
-}
-
 int ospf6_hello_send(struct thread *thread)
 {
 	struct ospf6_interface *oi;
-	struct ospf6_header *oh;
-	struct ospf6_hello *hello;
-	uint8_t *p;
-	struct listnode *node, *nnode;
-	struct ospf6_neighbor *on;
+	struct ospf6_packet *op;
+	uint16_t length = OSPF6_HEADER_SIZE;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	oi->thread_send_hello = (struct thread *)NULL;
@@ -1928,55 +2108,37 @@ int ospf6_hello_send(struct thread *thread)
 		return 0;
 	}
 
-	if (iobuflen == 0) {
-		zlog_debug("Unable to send Hello on interface %s iobuflen is 0",
-			   oi->interface->name);
+	op = ospf6_packet_new(oi->ifmtu);
+
+	ospf6_make_header(OSPF6_MESSAGE_TYPE_HELLO, oi, op->s);
+
+	/* Prepare OSPF Hello body */
+	length += ospf6_make_hello(oi, op->s);
+	if (length == OSPF6_HEADER_SIZE) {
+		/* Hello overshooting MTU */
+		ospf6_packet_free(op);
 		return 0;
 	}
+
+	/* Fill OSPF header. */
+	ospf6_fill_header(oi, op->s, length);
+
+	/* Set packet length. */
+	op->length = length;
+
+	op->dst = allspfrouters6;
+
+	/* Add packet to the top of the interface output queue, so that they
+	 * can't get delayed by things like long queues of LS Update packets
+	 */
+	ospf6_packet_add_top(oi, op);
 
 	/* set next thread */
 	thread_add_timer(master, ospf6_hello_send, oi, oi->hello_interval,
 			 &oi->thread_send_hello);
 
-	memset(sendbuf, 0, iobuflen);
-	oh = (struct ospf6_header *)sendbuf;
-	hello = (struct ospf6_hello *)((caddr_t)oh
-				       + sizeof(struct ospf6_header));
+	OSPF6_MESSAGE_WRITE_ON(oi->area->ospf6);
 
-	hello->interface_id = htonl(oi->interface->ifindex);
-	hello->priority = oi->priority;
-	hello->options[0] = oi->area->options[0];
-	hello->options[1] = oi->area->options[1];
-	hello->options[2] = oi->area->options[2];
-	hello->hello_interval = htons(oi->hello_interval);
-	hello->dead_interval = htons(oi->dead_interval);
-	hello->drouter = oi->drouter;
-	hello->bdrouter = oi->bdrouter;
-
-	p = (uint8_t *)((caddr_t)hello + sizeof(struct ospf6_hello));
-
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		if (on->state < OSPF6_NEIGHBOR_INIT)
-			continue;
-
-		if (p - sendbuf + sizeof(uint32_t) > ospf6_packet_max(oi)) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO,
-						   SEND_HDR))
-				zlog_debug(
-					"sending Hello message: exceeds I/F MTU");
-			break;
-		}
-
-		memcpy(p, &on->router_id, sizeof(uint32_t));
-		p += sizeof(uint32_t);
-	}
-
-	oh->type = OSPF6_MESSAGE_TYPE_HELLO;
-	oh->length = htons(p - sendbuf);
-
-	oi->hello_out++;
-
-	ospf6_send(oi->linklocal_addr, &allspfrouters6, oi, oh);
 	return 0;
 }
 
@@ -2643,7 +2805,6 @@ int ospf6_lsack_send_interface(struct thread *thread)
 
 	return 0;
 }
-
 
 /* Commands */
 DEFUN(debug_ospf6_message, debug_ospf6_message_cmd,

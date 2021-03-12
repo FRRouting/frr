@@ -167,9 +167,6 @@ struct ospf6_packet *ospf6_fifo_head(struct ospf6_fifo *fifo);
 #include "ospf6_interface.h"
 extern void ospf6_packet_add(struct ospf6_interface *oi,
 			     struct ospf6_packet *op);
-extern void ospf6_packet_add_top(struct ospf6_interface *oi,
-				 struct ospf6_packet *op);
-extern void ospf6_packet_delete(struct ospf6_interface *oi);
 
 extern int ospf6_iobuf_size(unsigned int size);
 extern void ospf6_message_terminate(void);
