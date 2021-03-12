@@ -2839,7 +2839,6 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	vlanid_t vid = 0;
 	struct in_addr vtep_ip;
 	int vid_present = 0, dst_present = 0;
-	char buf[ETHER_ADDR_STRLEN];
 	char vid_buf[20];
 	char dst_buf[30];
 	bool sticky;
@@ -2918,11 +2917,10 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Rx %s AF_BRIDGE IF %u%s st 0x%x fl 0x%x MAC %s%s nhg %d",
+		zlog_debug("Rx %s AF_BRIDGE IF %u%s st 0x%x fl 0x%x MAC %pEA%s nhg %d",
 			   nl_msg_type_to_str(h->nlmsg_type),
 			   ndm->ndm_ifindex, vid_present ? vid_buf : "",
-			   ndm->ndm_state, ndm->ndm_flags,
-			   prefix_mac2str(&mac, buf, sizeof(buf)),
+			   ndm->ndm_state, ndm->ndm_flags, &mac,
 			   dst_present ? dst_buf : "", nhg_id);
 
 	/* The interface should exist. */
@@ -3123,7 +3121,6 @@ static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
 		char buf[256];
 	} req;
 	struct zebra_if *br_zif;
-	char buf[ETHER_ADDR_STRLEN];
 
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
@@ -3142,11 +3139,10 @@ static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"%s: Tx family %s IF %s(%u) vrf %s(%u) MAC %s vid %u",
+			"%s: Tx family %s IF %s(%u) vrf %s(%u) MAC %pEA vid %u",
 			__func__, nl_family_to_str(req.ndm.ndm_family),
 			br_if->name, br_if->ifindex,
-			vrf_id_to_name(br_if->vrf_id), br_if->vrf_id,
-			prefix_mac2str(mac, buf, sizeof(buf)), vid);
+			vrf_id_to_name(br_if->vrf_id), br_if->vrf_id, mac, vid);
 
 	return netlink_request(&zns->netlink_cmd, &req);
 }
@@ -3231,8 +3227,6 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	SET_IPADDR_V4(&vtep_ip);
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
-		char ipbuf[PREFIX_STRLEN];
-		char buf[ETHER_ADDR_STRLEN];
 		char vid_buf[20];
 		const struct ethaddr *mac = dplane_ctx_mac_get_addr(ctx);
 
@@ -3243,12 +3237,11 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 			vid_buf[0] = '\0';
 
 		zlog_debug(
-			"Tx %s family %s IF %s(%u)%s %sMAC %s dst %s nhg %u%s%s%s%s%s",
+			"Tx %s family %s IF %s(%u)%s %sMAC %pEA dst %pIA nhg %u%s%s%s%s%s",
 			nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
 			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
 			vid_buf, dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
-			prefix_mac2str(mac, buf, sizeof(buf)),
-			ipaddr2str(&vtep_ip, ipbuf, sizeof(ipbuf)), nhg_id,
+			mac, &vtep_ip, nhg_id,
 			(update_flags & DPLANE_MAC_REMOTE) ? " rem" : "",
 			(update_flags & DPLANE_MAC_WAS_STATIC) ? " clr_sync"
 							       : "",
@@ -3309,7 +3302,6 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	struct ipaddr ip;
 	struct vrf *vrf;
 	char buf[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 	int mac_present = 0;
 	bool is_ext;
 	bool is_router;
@@ -3415,11 +3407,11 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"Rx %s family %s IF %s(%u) vrf %s(%u) IP %s MAC %s state 0x%x flags 0x%x ext_flags 0x%x",
+				"Rx %s family %s IF %s(%u) vrf %s(%u) IP %pIA MAC %s state 0x%x flags 0x%x ext_flags 0x%x",
 				nl_msg_type_to_str(h->nlmsg_type),
 				nl_family_to_str(ndm->ndm_family), ifp->name,
 				ndm->ndm_ifindex, VRF_LOGNAME(vrf), ifp->vrf_id,
-				ipaddr2str(&ip, buf2, sizeof(buf2)),
+				&ip,
 				mac_present
 					? prefix_mac2str(&mac, buf, sizeof(buf))
 					: "",
@@ -3451,11 +3443,11 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Rx %s family %s IF %s(%u) vrf %s(%u) IP %s",
+		zlog_debug("Rx %s family %s IF %s(%u) vrf %s(%u) IP %pIA",
 			   nl_msg_type_to_str(h->nlmsg_type),
 			   nl_family_to_str(ndm->ndm_family), ifp->name,
 			   ndm->ndm_ifindex, VRF_LOGNAME(vrf), ifp->vrf_id,
-			   ipaddr2str(&ip, buf2, sizeof(buf2)));
+			   &ip);
 
 	/* Process the delete - it may result in re-adding the neighbor if it is
 	 * a valid "remote" neighbor.
@@ -3582,14 +3574,11 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 
 	nl_attr_put(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
 
-	if (IS_ZEBRA_DEBUG_KERNEL) {
-		char buf[INET6_ADDRSTRLEN];
-
-		zlog_debug("%s: Tx %s family %s IF %u IP %s flags 0x%x",
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: Tx %s family %s IF %u IP %pIA flags 0x%x",
 			   __func__, nl_msg_type_to_str(type),
-			   nl_family_to_str(req.ndm.ndm_family), ifindex,
-			   ipaddr2str(ip, buf, sizeof(buf)), req.n.nlmsg_flags);
-	}
+			   nl_family_to_str(req.ndm.ndm_family), ifindex, ip,
+			   req.n.nlmsg_flags);
 
 	return netlink_request(&zns->netlink_cmd, &req);
 }
@@ -3600,7 +3589,6 @@ int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 	int ret = 0;
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vlan_if->vrf_id);
-	char buf[INET6_ADDRSTRLEN];
 	struct zebra_dplane_info dp_info;
 
 	zns = zvrf->zns;
@@ -3608,9 +3596,8 @@ int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: neigh request IF %s(%u) IP %s vrf %s(%u)",
-			   __func__, vlan_if->name, vlan_if->ifindex,
-			   ipaddr2str(ip, buf, sizeof(buf)),
+		zlog_debug("%s: neigh request IF %s(%u) IP %pIA vrf %s(%u)",
+			   __func__, vlan_if->name, vlan_if->ifindex, ip,
 			   vrf_id_to_name(vlan_if->vrf_id), vlan_if->vrf_id);
 
 	ret = netlink_request_specific_neigh_in_vlan(zns, RTM_GETNEIGH, ip,
@@ -3702,18 +3689,12 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 		if (update_flags & DPLANE_NEIGH_SET_STATIC)
 			ext_flags |= NTF_E_MH_PEER_SYNC;
 	}
-	if (IS_ZEBRA_DEBUG_KERNEL) {
-		char buf[INET6_ADDRSTRLEN];
-		char buf2[ETHER_ADDR_STRLEN];
-
+	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"Tx %s family %s IF %s(%u) Neigh %s MAC %s flags 0x%x state 0x%x %sext_flags 0x%x",
+			"Tx %s family %s IF %s(%u) Neigh %pIA MAC %pEA flags 0x%x state 0x%x %sext_flags 0x%x",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
-			ipaddr2str(ip, buf, sizeof(buf)),
-			mac ? prefix_mac2str(mac, buf2, sizeof(buf2)) : "null",
-			flags, state, ext ? "ext " : "", ext_flags);
-	}
+			ip, mac, flags, state, ext ? "ext " : "", ext_flags);
 
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, mac, ip, true, family, RTN_UNICAST, flags, state,
