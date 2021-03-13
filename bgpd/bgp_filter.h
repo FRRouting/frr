@@ -21,6 +21,8 @@
 #ifndef _QUAGGA_BGP_FILTER_H
 #define _QUAGGA_BGP_FILTER_H
 
+#define ASPATH_SEQ_NUMBER_AUTO -1
+
 enum as_filter_type { AS_FILTER_DENY, AS_FILTER_PERMIT };
 
 extern void bgp_filter_init(void);
