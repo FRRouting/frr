@@ -841,7 +841,6 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 	struct interface *ifp;
 	struct prefix prefix;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	// addr_family = yang_dnode_get_enum(dnode, "./address-family");
 	yang_dnode_get_prefix(&prefix, args->dnode, "./ip-prefix");
 	apply_mask(&prefix);
@@ -864,6 +863,7 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		if (prefix.family == AF_INET)
 			if_ip_address_install(ifp, &prefix, NULL, NULL);
 		else if (prefix.family == AF_INET6)
@@ -881,12 +881,15 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 	struct prefix prefix;
 	struct connected *ifc;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	yang_dnode_get_prefix(&prefix, args->dnode, "./ip-prefix");
 	apply_mask(&prefix);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!ifp)
+			return NB_OK;
+
 		if (prefix.family == AF_INET) {
 			/* Check current interface address. */
 			ifc = connected_check_ptp(ifp, &prefix, NULL);
@@ -927,6 +930,7 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		if_ip_address_uinstall(ifp, &prefix);
 		break;
 	}
@@ -1068,6 +1072,9 @@ int lib_interface_zebra_link_detect_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args)
 {
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
 	struct interface *ifp;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
@@ -1079,6 +1086,9 @@ int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args)
 
 int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args)
 {
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
 	struct interface *ifp;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);

@@ -302,7 +302,6 @@ int pathd_srte_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 	struct srte_policy *policy;
 	mpls_label_t binding_sid;
 
-	policy = nb_running_get_entry(args->dnode, NULL, true);
 	binding_sid = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
@@ -315,6 +314,7 @@ int pathd_srte_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		policy = nb_running_get_entry(args->dnode, NULL, true);
 		srte_policy_update_binding_sid(policy, binding_sid);
 		SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 		break;
@@ -668,11 +668,11 @@ int pathd_srte_policy_candidate_path_segment_list_name_modify(
 	struct srte_candidate *candidate;
 	const char *segment_list_name;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
-	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
-
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
 
 	candidate->segment_list = srte_segment_list_find(segment_list_name);
 	candidate->lsp->segment_list = candidate->segment_list;
