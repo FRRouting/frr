@@ -1324,16 +1324,19 @@ DEFUN_YANG_NOSH(router_bgp,
 	as_t as;
 	struct bgp *bgp;
 	const char *name = NULL;
-	char as_str[12] = {'\0'};
 	enum bgp_instance_type inst_type;
 	char base_xpath[XPATH_MAXLEN];
+	const struct lyd_node *bgp_glb_dnode;
 
 	// "router bgp" without an ASN
 	if (argc == 2) {
 		// Pending: Make VRF option available for ASN less config
-		bgp = bgp_get_default();
+		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
+			 "frr-bgp:bgp", "bgp", VRF_DEFAULT_NAME);
 
-		if (bgp == NULL) {
+		bgp_glb_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					       base_xpath);
+		if (!bgp_glb_dnode) {
 			vty_out(vty, "%% No BGP process is configured\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -1343,31 +1346,19 @@ DEFUN_YANG_NOSH(router_bgp,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
-			 "frr-bgp:bgp", "bgp", VRF_DEFAULT_NAME);
+		as = yang_dnode_get_uint32(bgp_glb_dnode, "./global/local-as");
 
-		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-		snprintf(as_str, 12, "%d", bgp->as);
-		nb_cli_enqueue_change(vty, "./global/local-as", NB_OP_MODIFY,
-				      as_str);
-		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
-			nb_cli_enqueue_change(vty,
-					      "./global/instance-type-view",
-					      NB_OP_MODIFY, "true");
-		}
+		VTY_PUSH_XPATH(BGP_NODE, base_xpath);
 
-		nb_cli_pending_commit_check(vty);
-		ret = nb_cli_apply_changes(vty, base_xpath);
-		if (ret == CMD_SUCCESS) {
-			VTY_PUSH_XPATH(BGP_NODE, base_xpath);
-
-			/*
-			 * For backward compatibility with old commands we still
-			 * need to use the qobj infrastructure.
-			 */
+		/*
+		 * For backward compatibility with old commands we still
+		 * need to use the qobj infrastructure.
+		 */
+		bgp = bgp_lookup(as, NULL);
+		if (bgp)
 			VTY_PUSH_CONTEXT(BGP_NODE, bgp);
-		}
-		return ret;
+
+		return CMD_SUCCESS;
 	}
 
 	// "router bgp X"
