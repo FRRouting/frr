@@ -158,8 +158,26 @@ int bgp_router_destroy(struct nb_cb_destroy_args *args)
 			struct bgp *tmp_bgp;
 
 			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, tmp_bgp)) {
-				if (tmp_bgp->inst_type
-				    == BGP_INSTANCE_TYPE_VRF) {
+				if (tmp_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+					continue;
+				if (CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
+					       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
+					       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
+				    (bgp == bgp_get_evpn() &&
+				    (CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+						BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST) ||
+				     CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+						BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST))) ||
+				    (tmp_bgp->vnihash && hashcount(tmp_bgp->vnihash))) {
 					snprintf(
 						args->errmsg, args->errmsg_len,
 						"Cannot delete default BGP instance. Dependent VRF instances exist\n");
