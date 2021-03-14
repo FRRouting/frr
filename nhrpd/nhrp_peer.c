@@ -289,7 +289,7 @@ static int nhrp_peer_defer_vici_request(struct thread *t)
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
-	char buf[256];
+	char buf[SU_ADDRSTRLEN];
 	THREAD_OFF(p->t_timer);
 
 	if (p->online) {
@@ -314,7 +314,7 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
-	char buf[256];
+	char buf[SU_ADDRSTRLEN];
 
 	if (p->online)
 		return 1;
@@ -387,7 +387,7 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 				       union sockunion *proto,
 				       union sockunion *cie_nbma)
 {
-	char buf[2][256];
+	char buf1[SU_ADDRSTRLEN], buf2[SU_ADDRSTRLEN];
 	union sockunion cie_proto;
 	struct zbuf payload;
 	struct nhrp_extension_header *ext;
@@ -413,12 +413,10 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 				 * the neighbor table in the kernel contains the
 				 * source NBMA address which is not reachable
 				 * since it is behind a NAT device */
+				if (!sockunion2str(proto, buf1, sizeof(buf1)))
+					strlcpy(buf1, "NULL", sizeof(buf1));
 				debugf(NHRP_DEBUG_COMMON,
-				       "Processing NAT Extension for %s",
-				       sockunion2str(proto, buf[0],
-						     sizeof(buf[0]))
-					       ? buf[0]
-					       : "NULL");
+				       "Processing NAT Extension for %s", buf1);
 				while (nhrp_cie_pull(&payload, pp->hdr,
 						     cie_nbma, &cie_proto)) {
 					if (sockunion_family(&cie_proto)
@@ -426,14 +424,14 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 						continue;
 
 					if (!sockunion_cmp(proto, &cie_proto)) {
+						if (!sockunion2str(cie_nbma,
+								  buf2,
+								  sizeof(buf2)))
+							strlcpy(buf2, "NULL",
+								sizeof(buf2));
 						debugf(NHRP_DEBUG_COMMON,
 						       "cie_nbma for proto %s is %s",
-						       buf[0] ? buf[0] : "NULL",
-						       sockunion2str(
-							       cie_nbma, buf[1],
-							       sizeof(buf[1]))
-							       ? buf[1]
-							       : "NULL");
+						       buf1, buf2);
 						break;
 					}
 				}
