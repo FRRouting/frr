@@ -1829,7 +1829,9 @@ int ospf6_dbdesc_send(struct thread *thread)
 			/* MTU check */
 			if (p - sendbuf + sizeof(struct ospf6_lsa_header)
 			    > ospf6_packet_max(on->ospf6_if)) {
-				ospf6_lsdb_lsa_unlock(lsa);
+				ospf6_lsa_unlock(lsa);
+				if (lsanext)
+					ospf6_lsa_unlock(lsanext);
 				break;
 			}
 			memcpy(p, lsa->header, sizeof(struct ospf6_lsa_header));
@@ -1876,7 +1878,9 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 
 		if (size + sizeof(struct ospf6_lsa_header)
 		    > ospf6_packet_max(on->ospf6_if)) {
-			ospf6_lsdb_lsa_unlock(lsa);
+			ospf6_lsa_unlock(lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(lsanext);
 			break;
 		}
 
@@ -1935,7 +1939,9 @@ int ospf6_lsreq_send(struct thread *thread)
 		/* MTU check */
 		if (p - sendbuf + sizeof(struct ospf6_lsreq_entry)
 		    > ospf6_packet_max(on->ospf6_if)) {
-			ospf6_lsdb_lsa_unlock(lsa);
+			ospf6_lsa_unlock(lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(lsanext);
 			break;
 		}
 
@@ -2396,7 +2402,9 @@ int ospf6_lsack_send_interface(struct thread *thread)
 			thread_add_event(master, ospf6_lsack_send_interface, oi,
 					 0, &oi->thread_send_lsack);
 
-			ospf6_lsdb_lsa_unlock(lsa);
+			ospf6_lsa_unlock(lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(lsanext);
 			break;
 		}
 
