@@ -104,15 +104,6 @@ def setup_module(mod):
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
 
-    has_version_20 = False
-    for router in tgen.routers().values():
-        if router.has_version("<", "3"):
-            has_version_20 = True
-
-    if has_version_20:
-        logger.info("Skipping ISIS tests for FRR 2.0")
-        tgen.set_error("ISIS has convergence problems with IPv6")
-
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -164,18 +155,6 @@ def test_isis_route_installation():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = router.vtysh_cmd("show ip route json", isjson=True)
-
-        # Older FRR versions don't list interfaces in some ISIS routes
-        if router.has_version("<", "3.1"):
-            for network, routes in expected.items():
-                for route in routes:
-                    if route["protocol"] != "isis":
-                        continue
-
-                    for nexthop in route["nexthops"]:
-                        nexthop.pop("interfaceIndex", None)
-                        nexthop.pop("interfaceName", None)
-
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
@@ -194,13 +173,6 @@ def test_isis_linux_route_installation():
         filename = "{0}/{1}/{1}_route_linux.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = topotest.ip4_route(router)
-
-        # Older FRR versions install routes using different proto
-        if router.has_version("<", "3.1"):
-            for network, netoptions in expected.items():
-                if "proto" in netoptions and netoptions["proto"] == "187":
-                    netoptions["proto"] = "zebra"
-
         assertmsg = "Router '{}' OS routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
@@ -219,21 +191,6 @@ def test_isis_route6_installation():
         filename = "{0}/{1}/{1}_route6.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = router.vtysh_cmd("show ipv6 route json", isjson=True)
-
-        # Older FRR versions don't list interfaces in some ISIS routes
-        if router.has_version("<", "3.1"):
-            for network, routes in expected.items():
-                for route in routes:
-                    # Older versions display different metrics for IPv6 routes
-                    route.pop("metric", None)
-
-                    if route["protocol"] != "isis":
-                        continue
-
-                    for nexthop in route["nexthops"]:
-                        nexthop.pop("interfaceIndex", None)
-                        nexthop.pop("interfaceName", None)
-
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
@@ -252,13 +209,6 @@ def test_isis_linux_route6_installation():
         filename = "{0}/{1}/{1}_route6_linux.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = topotest.ip6_route(router)
-
-        # Older FRR versions install routes using different proto
-        if router.has_version("<", "3.1"):
-            for network, netoptions in expected.items():
-                if "proto" in netoptions and netoptions["proto"] == "187":
-                    netoptions["proto"] = "zebra"
-
         assertmsg = "Router '{}' OS routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 

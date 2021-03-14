@@ -49,7 +49,6 @@
         {
           "ip":"10.0.4.3",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"eth-rt3"
         }
       ]
@@ -65,7 +64,6 @@
         {
           "ip":"10.0.6.4",
           "afi":"ipv4",
-          "interfaceIndex":3,
           "interfaceName":"eth-rt4"
         }
       ]
