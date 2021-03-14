@@ -1140,61 +1140,6 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib
- */
-int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args)
-{
-	struct vrf *vrf;
-	afi_t afi;
-	safi_t safi;
-	struct zebra_vrf *zvrf;
-	struct zebra_router_table *zrt;
-	uint32_t table_id;
-	const char *afi_safi_name;
-
-	vrf = nb_running_get_entry(args->dnode, NULL, false);
-	zvrf = vrf_info_lookup(vrf->vrf_id);
-	table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
-	if (!table_id)
-		table_id = zvrf->table_id;
-
-	afi_safi_name = yang_dnode_get_string(args->dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(afi_safi_name, &afi, &safi);
-
-	zrt = zebra_router_find_zrt(zvrf, table_id, afi, safi);
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (!zrt) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "vrf %s table is not found.", vrf->name);
-			return NB_ERR_VALIDATION;
-		}
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-
-		nb_running_set_entry(args->dnode, zrt);
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-int lib_vrf_zebra_ribs_rib_destroy(struct nb_cb_destroy_args *args)
-{
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	nb_running_unset_entry(args->dnode);
-
-	return NB_OK;
-}
-
-/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id
  */
 int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)

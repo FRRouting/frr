@@ -214,6 +214,29 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 }
 
 /*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/afi-safi-name
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_afi_safi_name_get_elem(struct nb_cb_get_elem_args *args)
+{
+	const struct zebra_router_table *zrt = args->list_entry;
+
+	return yang_data_new_string(args->xpath,
+		yang_afi_safi_value2identity(zrt->afi, zrt->safi));
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/table-id
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_table_id_get_elem(struct nb_cb_get_elem_args *args)
+{
+	const struct zebra_router_table *zrt = args->list_entry;
+
+	return yang_data_new_uint32(args->xpath, zrt->tableid);
+}
+
+/*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route
  */
 const void *
