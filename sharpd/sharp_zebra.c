@@ -685,7 +685,8 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 	}
 
-	zlog_debug("Received update for %pFX", &nhr.prefix);
+	zlog_debug("Received update for %pFX metric: %u", &nhr.prefix,
+		   nhr.metric);
 
 	nht = sharp_nh_tracker_get(&nhr.prefix);
 	nht->nhop_num = nhr.nexthop_num;
