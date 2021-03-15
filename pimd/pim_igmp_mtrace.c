@@ -192,11 +192,14 @@ static void mtrace_rsp_init(struct igmp_mtrace_rsp *mtrace_rspp)
 static void mtrace_rsp_debug(uint32_t qry_id, int rsp,
 			     struct igmp_mtrace_rsp *mrspp)
 {
+	struct in_addr incoming = mrspp->incoming;
+	struct in_addr outgoing = mrspp->outgoing;
+	struct in_addr prev_hop = mrspp->prev_hop;
+
 	zlog_debug(
 		"Rx mt(%d) qid=%ud arr=%x in=%pI4 out=%pI4 prev=%pI4 proto=%d fwd=%d",
-		rsp, ntohl(qry_id), mrspp->arrival, &mrspp->incoming,
-		&mrspp->outgoing, &mrspp->prev_hop, mrspp->rtg_proto,
-		mrspp->fwd_code);
+		rsp, ntohl(qry_id), mrspp->arrival, &incoming, &outgoing,
+		&prev_hop, mrspp->rtg_proto, mrspp->fwd_code);
 }
 
 static void mtrace_debug(struct pim_interface *pim_ifp,
@@ -269,10 +272,11 @@ static int mtrace_send_packet(struct interface *ifp,
 
 	if (PIM_DEBUG_MTRACE) {
 		struct in_addr if_addr;
+		struct in_addr rsp_addr = mtracep->rsp_addr;
 
 		if_addr = mtrace_primary_address(ifp);
-		zlog_debug("Sending mtrace packet to %pI4 on %pI4",
-			   &mtracep->rsp_addr, &if_addr);
+		zlog_debug("Sending mtrace packet to %pI4 on %pI4", &rsp_addr,
+			   &if_addr);
 	}
 
 	fd = pim_socket_raw(IPPROTO_IGMP);
@@ -487,9 +491,11 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 
 	if (c_oil == NULL) {
 		if (PIM_DEBUG_MTRACE) {
+			struct in_addr rsp_addr = mtracep->rsp_addr;
+
 			zlog_debug(
 				"Dropping mtrace multicast response packet len=%u to %pI4",
-				(unsigned int)mtrace_len, &mtracep->rsp_addr);
+				(unsigned int)mtrace_len, &rsp_addr);
 		}
 		return -1;
 	}
@@ -532,9 +538,11 @@ static int mtrace_send_response(struct pim_instance *pim,
 		p_rpf = pim_rp_g(pim, mtracep->rsp_addr);
 
 		if (p_rpf == NULL) {
-			if (PIM_DEBUG_MTRACE)
-				zlog_debug("mtrace no RP for %pI4",
-					   &mtracep->rsp_addr);
+			if (PIM_DEBUG_MTRACE) {
+				struct in_addr rsp_addr = mtracep->rsp_addr;
+
+				zlog_debug("mtrace no RP for %pI4", &rsp_addr);
+			}
 			return -1;
 		}
 		nexthop = p_rpf->source_nexthop;
