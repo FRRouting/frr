@@ -83,4 +83,8 @@ extern int bgp_generate_updgrp_packets(struct thread *);
 extern int bgp_process_packet(struct thread *);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
+
+/* Task callback to handle socket error encountered in the io pthread */
+int bgp_packet_process_error(struct thread *thread);
+
 #endif /* _QUAGGA_BGP_PACKET_H */
