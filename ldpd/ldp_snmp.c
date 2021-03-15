@@ -374,6 +374,76 @@ static uint8_t *ldpEntityTable(struct variable *v, oid name[], size_t *length,
 	return NULL;
 }
 
+static uint8_t *ldpEntityStatsTable(struct variable *v, oid name[],
+				    size_t *length, int exact, size_t *var_len,
+				    WriteMethod **write_method)
+{
+	struct in_addr entityLdpId = {.s_addr = 0};
+	int len;
+
+	*write_method = NULL;
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method)
+	    == MATCH_FAILED)
+		return NULL;
+
+	if (exact) {
+		if (*length != LDP_ENTITY_TOTAL_LEN)
+			return NULL;
+	} else {
+		len = *length - v->namelen - LDP_ENTITY_MAX_IDX_LEN;
+		if (len > 0)
+			return NULL;
+
+		entityLdpId.s_addr = ldp_rtr_id_get(leconf);
+
+		/* Copy the name out */
+		memcpy(name, v->name, v->namelen * sizeof(oid));
+
+		/* Append index */
+		*length = LDP_ENTITY_TOTAL_LEN;
+		oid_copy_addr(name + v->namelen, &entityLdpId,
+			      IN_ADDR_SIZE);
+		name[v->namelen + 4] = 0;
+		name[v->namelen + 5] = 0;
+		name[v->namelen + 6] = LDP_DEFAULT_ENTITY_INDEX;
+	}
+
+	/* Return the current value of the variable */
+	switch (v->magic) {
+	case MPLSLDPENTITYSTATSSESSIONATTEMPTS:
+		return SNMP_INTEGER(leconf->stats.session_attempts);
+	case MPLSLDPENTITYSTATSSESSIONREJHELLO:
+		return SNMP_INTEGER(leconf->stats.session_rejects_hello);
+	case MPLSLDPENTITYSTATSSESSIONREJAD:
+		return SNMP_INTEGER(leconf->stats.session_rejects_ad);
+	case MPLSLDPENTITYSTATSSESSIONREJMAXPDU:
+		return SNMP_INTEGER(leconf->stats.session_rejects_max_pdu);
+	case MPLSLDPENTITYSTATSSESSIONREJLR:
+		return SNMP_INTEGER(leconf->stats.session_rejects_lr);
+	case MPLSLDPENTITYSTATSBADLDPID:
+		return SNMP_INTEGER(leconf->stats.bad_ldp_id);
+	case MPLSLDPENTITYSTATSBADPDULENGTH:
+		return SNMP_INTEGER(leconf->stats.bad_pdu_len);
+	case MPLSLDPENTITYSTATSBADMSGLENGTH:
+		return SNMP_INTEGER(leconf->stats.bad_msg_len);
+	case MPLSLDPENTITYSTATSBADTLVLENGTH:
+		return SNMP_INTEGER(leconf->stats.bad_tlv_len);
+	case MPLSLDPENTITYSTATSMALFORMEDTLV:
+		return SNMP_INTEGER(leconf->stats.malformed_tlv);
+	case MPLSLDPENTITYSTATSKEEPALIVEEXP:
+		return SNMP_INTEGER(leconf->stats.keepalive_timer_exp);
+	case MPLSLDPENTITYSTATSSHUTDOWNRCVNOTIFY:
+		return SNMP_INTEGER(leconf->stats.shutdown_rcv_notify);
+	case MPLSLDPENTITYSTATSSHUTDOWNSENTNOTIFY:
+		return SNMP_INTEGER(leconf->stats.shutdown_send_notify);
+	default:
+		return NULL;
+	}
+
+	return NULL;
+}
+
 #define LDP_ADJACENCY_ENTRY_MAX_IDX_LEN	14
 
 static void ldpHelloAdjacencyTable_oid_to_index(
@@ -863,6 +933,59 @@ static uint8_t *ldpSessionTable(struct variable *v, oid name[], size_t *length,
 	return NULL;
 }
 
+static uint8_t *ldpSessionStatsTable(struct variable *v, oid name[],
+				size_t *length,
+				int exact, size_t *var_len,
+				WriteMethod **write_method)
+{
+	struct in_addr entityLdpId = {.s_addr = 0};
+	uint32_t entityIndex = 0;
+	struct in_addr peerLdpId = {.s_addr = 0};
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method)
+	    == MATCH_FAILED)
+		return NULL;
+
+	struct ctl_nbr *ctl_nbr = ldpPeerTable_lookup(v, name, length, exact,
+		&entityLdpId, &entityIndex, &peerLdpId);
+
+	if (!ctl_nbr)
+		return NULL;
+
+	if (!exact) {
+		entityLdpId.s_addr = ldp_rtr_id_get(leconf);
+		entityIndex = LDP_DEFAULT_ENTITY_INDEX;
+		peerLdpId = ctl_nbr->id;
+
+		/* Copy the name out */
+		memcpy(name, v->name, v->namelen * sizeof(oid));
+
+		/* Append index */
+		oid_copy_addr(name + v->namelen, &entityLdpId,
+			sizeof(struct in_addr));
+		name[v->namelen + 4] = 0;
+		name[v->namelen + 5] = 0;
+		name[v->namelen + 6] = entityIndex;
+		oid_copy_addr(name + v->namelen + 7, &peerLdpId,
+			sizeof(struct in_addr));
+		name[v->namelen + 11] = 0;
+		name[v->namelen + 12] = 0;
+
+                *length = v->namelen + LDP_PEER_ENTRY_MAX_IDX_LEN;
+	}
+
+	switch (v->magic) {
+	case MPLSLDPSESSIONSTATSUNKNOWNMESTYPEERRORS:
+		return SNMP_INTEGER(ctl_nbr->stats.unknown_msg);
+	case MPLSLDPSESSIONSTATSUNKNOWNTLVERRORS:
+		return SNMP_INTEGER(ctl_nbr->stats.unknown_tlv);
+	default:
+		return NULL;
+	}
+
+	return NULL;
+}
+
 static struct variable ldpe_variables[] = {
 	{MPLS_LDP_LSR_ID, STRING, RONLY, ldpLsrId, 3, {1, 1, 1}},
 	{MPLS_LDP_LSR_LOOP_DETECTION_CAPABLE, INTEGER, RONLY,
@@ -920,6 +1043,34 @@ static struct variable ldpe_variables[] = {
 	{MPLSLDPENTITYROWSTATUS, INTEGER, RONLY, ldpEntityTable,
 	 5, {1, 2, 3, 1, 23}},
 
+	/* MPLS LDP mplsLdpEntityStatsTable. */
+	{ MPLSLDPENTITYSTATSSESSIONATTEMPTS, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 1}},
+	{ MPLSLDPENTITYSTATSSESSIONREJHELLO, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 2}},
+	{ MPLSLDPENTITYSTATSSESSIONREJAD, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 3}},
+	{ MPLSLDPENTITYSTATSSESSIONREJMAXPDU, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 4}},
+	{ MPLSLDPENTITYSTATSSESSIONREJLR, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 5}},
+	{ MPLSLDPENTITYSTATSBADLDPID, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 6}},
+	{ MPLSLDPENTITYSTATSBADPDULENGTH, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 7}},
+	{ MPLSLDPENTITYSTATSBADMSGLENGTH, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 8}},
+	{ MPLSLDPENTITYSTATSBADTLVLENGTH, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 9}},
+	{ MPLSLDPENTITYSTATSMALFORMEDTLV, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 10}},
+	{ MPLSLDPENTITYSTATSKEEPALIVEEXP, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 11}},
+	{ MPLSLDPENTITYSTATSSHUTDOWNRCVNOTIFY, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 12}},
+	{ MPLSLDPENTITYSTATSSHUTDOWNSENTNOTIFY, COUNTER32, RONLY,
+	  ldpEntityStatsTable, 5, {1, 2, 4, 1, 13}},
+
 	/* MPLS LDP mplsLdpPeerTable */
 	{MPLSLDPPEERLDPID, STRING, RONLY, ldpPeerTable, 5, {1, 3, 2, 1, 1}},
 	{MPLSLDPPEERLABELDISTMETHOD, INTEGER, RONLY, ldpPeerTable,
@@ -948,6 +1099,12 @@ static struct variable ldpe_variables[] = {
 	 5, {1, 3, 3, 1, 7}},
 	{MPLSLDPSESSIONDISCONTINUITYTIME, TIMESTAMP, RONLY, ldpSessionTable,
 	 5, {1, 3, 3, 1, 8}},
+
+	/* MPLS LDP mplsLdpSessionStatsTable */
+	{MPLSLDPSESSIONSTATSUNKNOWNMESTYPEERRORS, COUNTER32, RONLY,
+	 ldpSessionStatsTable, 5, {1, 3, 4, 1, 1}},
+	{MPLSLDPSESSIONSTATSUNKNOWNTLVERRORS, COUNTER32, RONLY,
+	 ldpSessionStatsTable, 5, {1, 3, 4, 1, 2}},
 
 	/* MPLS LDP mplsLdpHelloAdjacencyTable. */
 	{MPLSLDPHELLOADJACENCYINDEX, UNSIGNED32, RONLY,
