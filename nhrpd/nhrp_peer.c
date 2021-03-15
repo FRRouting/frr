@@ -393,11 +393,13 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 	struct nhrp_extension_header *ext;
 	struct zbuf *extensions;
 
-
-	if (!proto || !cie_nbma || sockunion_family(proto) == AF_UNSPEC)
+	if (!cie_nbma)
 		return;
 
 	sockunion_family(cie_nbma) = AF_UNSPEC;
+
+	if (!proto || sockunion_family(proto) == AF_UNSPEC)
+		return;
 
 	/* Handle extensions */
 	extensions = zbuf_alloc(zbuf_used(&pp->extensions));
