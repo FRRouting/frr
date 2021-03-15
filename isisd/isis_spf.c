@@ -1821,6 +1821,7 @@ static int isis_run_spf_cb(struct thread *thread)
 	struct isis_spf_run *run = THREAD_ARG(thread);
 	struct isis_area *area = run->area;
 	int level = run->level;
+	int have_run = 0;
 
 	XFREE(MTYPE_ISIS_SPF_RUN, run);
 	area->spf_timer[level - 1] = NULL;
@@ -1839,15 +1840,24 @@ static int isis_run_spf_cb(struct thread *thread)
 		zlog_debug("ISIS-SPF (%s) L%d SPF needed, periodic SPF",
 			   area->area_tag, level);
 
-	if (area->ip_circuits)
+	if (area->ip_circuits) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_IPV4][level - 1]);
-	if (area->ipv6_circuits)
+		have_run = 1;
+	}
+	if (area->ipv6_circuits) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_IPV6][level - 1]);
-	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area))
+		have_run = 1;
+	}
+	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area)) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_DSTSRC][level - 1]);
+		have_run = 1;
+	}
+
+	if (have_run)
+		area->spf_run_count[level]++;
 
 	isis_area_verify_routes(area);
 

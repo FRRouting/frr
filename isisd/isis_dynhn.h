@@ -38,4 +38,7 @@ struct isis_dynhn *dynhn_find_by_id(const uint8_t *id);
 struct isis_dynhn *dynhn_find_by_name(const char *hostname);
 void dynhn_print_all(struct vty *vty, struct isis *isis);
 
+/* Snmp support */
+struct isis_dynhn *dynhn_snmp_next(const uint8_t *id, int level);
+
 #endif /* _ZEBRA_ISIS_DYNHN_H */

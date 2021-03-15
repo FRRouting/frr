@@ -79,6 +79,7 @@ struct isis_circuit_arg {
 struct isis_circuit {
 	int state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
+	time_t last_uptime;
 	struct isis *isis;
 	struct isis_area *area;      /* back pointer to the area */
 	struct interface *interface; /* interface info from z */
@@ -115,6 +116,8 @@ struct isis_circuit {
 	int pad_hellos;     /* add padding to Hello PDUs ? */
 	char ext_domain;    /* externalDomain   (boolean) */
 	int lsp_regenerate_pending[ISIS_LEVELS];
+	uint64_t lsp_error_counter;
+
 	/*
 	 * Configurables
 	 */
@@ -164,6 +167,12 @@ struct isis_circuit {
 	uint32_t max_area_addr_mismatches; /* max-area-addresses-mismatch */
 	uint32_t auth_type_failures; /*authentication-type-fails */
 	uint32_t auth_failures; /* authentication-fails */
+
+	uint32_t snmp_id; /* Circuit id in snmp */
+
+	uint32_t snmp_adj_idx_gen; /* Create unique id for adjacency on creation
+				    */
+	struct list *snmp_adj_list; /* List in id order */
 
 	QOBJ_FIELDS
 };

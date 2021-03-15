@@ -324,8 +324,8 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 	/* check for overflow */
 	if (newseq < lsp->hdr.seqno) {
 		/* send northbound notification */
-		isis_notif_lsp_exceed_max(lsp->area,
-					  rawlspid_print(lsp->hdr.lsp_id));
+		lsp->area->lsp_exceeded_max_counter++;
+		isis_notif_lsp_exceed_max(lsp->area, lsp->hdr.lsp_id);
 	}
 #endif /* ifndef FABRICD */
 
@@ -1357,8 +1357,8 @@ int lsp_generate(struct isis_area *area, int level)
 
 #ifndef FABRICD
 	/* send northbound notification */
-	isis_notif_lsp_gen(area, rawlspid_print(newlsp->hdr.lsp_id),
-			   newlsp->hdr.seqno, newlsp->last_generated);
+	isis_notif_lsp_gen(area, newlsp->hdr.lsp_id, newlsp->hdr.seqno,
+			   newlsp->last_generated);
 #endif /* ifndef FABRICD */
 
 	return ISIS_OK;

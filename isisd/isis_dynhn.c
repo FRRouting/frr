@@ -166,3 +166,38 @@ void dynhn_print_all(struct vty *vty, struct isis *isis)
 		cmd_hostname_get());
 	return;
 }
+
+struct isis_dynhn *dynhn_snmp_next(const uint8_t *id, int level)
+{
+	struct listnode *node = NULL;
+	struct isis_dynhn *dyn = NULL;
+	struct isis_dynhn *found_dyn = NULL;
+	int res;
+
+	for (ALL_LIST_ELEMENTS_RO(dyn_cache, node, dyn)) {
+		res = memcmp(dyn->id, id, ISIS_SYS_ID_LEN);
+
+		if (res < 0)
+			continue;
+
+		if (res == 0 && dyn->level <= level)
+			continue;
+
+		if (res == 0) {
+			/*
+			 * This is the best match, we can stop
+			 * searching
+			 */
+
+			found_dyn = dyn;
+			break;
+		}
+
+		if (found_dyn == NULL
+		    || memcmp(dyn->id, found_dyn->id, ISIS_SYS_ID_LEN) < 0) {
+			found_dyn = dyn;
+		}
+	}
+
+	return found_dyn;
+}

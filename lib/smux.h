@@ -103,6 +103,8 @@ struct index_oid {
 
 #define SNMP_IP6ADDRESS(V) (*var_len = sizeof(struct in6_addr), (uint8_t *)&V)
 
+extern int smux_enabled(void);
+
 extern void smux_init(struct thread_master *tm);
 extern void smux_agentx_enable(void);
 extern void smux_register_mib(const char *, struct variable *, size_t, int,
@@ -143,6 +145,8 @@ extern int smux_trap_multi_index(struct variable *vp, size_t vp_len,
 				 struct index_oid *iname, size_t index_len,
 				 const struct trap_object *trapobj,
 				 size_t trapobjlen, uint8_t sptrap);
+
+extern void smux_events_update(void);
 extern int oid_compare(const oid *, int, const oid *, int);
 extern void oid2in_addr(oid[], int, struct in_addr *);
 extern void oid2in6_addr(oid oid[], struct in6_addr *addr);

@@ -63,6 +63,8 @@ extern void isis_cli_init(void);
 		all_vrf = strmatch(vrf_name, "all");                           \
 	}
 
+#define SNMP_CIRCUITS_MAX (512)
+
 extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
@@ -93,6 +95,9 @@ struct isis {
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
+	struct isis_circuit *snmp_circuits[SNMP_CIRCUITS_MAX];
+	uint32_t snmp_circuit_id_last;
+	int snmp_notifications;
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
 	struct ldp_sync_info_cmd ldp_sync_cmd; 	/* MPLS LDP-IGP Sync */
@@ -168,6 +173,7 @@ struct isis_area {
 	char is_type; /* level-1 level-1-2 or level-2-only */
 	/* are we overloaded? */
 	char overload_bit;
+	uint32_t overload_counter;
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;
@@ -180,6 +186,9 @@ struct isis_area {
 	int lsp_frag_threshold;
 	uint64_t lsp_gen_count[ISIS_LEVELS];
 	uint64_t lsp_purge_count[ISIS_LEVELS];
+	uint32_t lsp_exceeded_max_counter;
+	uint32_t lsp_seqno_skipped_counter;
+	uint64_t spf_run_count[ISIS_LEVELS];
 	int ip_circuits;
 	/* logging adjacency changes? */
 	uint8_t log_adj_changes;
@@ -220,9 +229,18 @@ struct isis_area {
 	pdu_counter_t pdu_rx_counters;
 	uint64_t lsp_rxmt_count;
 
+	/* Area counters */
+	uint64_t rej_adjacencies[2];
+	uint64_t auth_type_failures[2];
+	uint64_t auth_failures[2];
+	uint64_t id_len_mismatches[2];
+	uint64_t lsp_error_counter[2];
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(isis_area)
+
+DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area))
 
 void isis_terminate(void);
 void isis_finish(struct isis *isis);

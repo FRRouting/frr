@@ -89,6 +89,10 @@ static struct isis_master isis_master;
 /* ISIS process wide configuration pointer to export. */
 struct isis_master *im;
 
+#ifndef FABRICD
+DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
+#endif /* ifndef FABRICD */
+
 /*
  * Prototypes.
  */
@@ -214,6 +218,7 @@ struct isis *isis_new(const char *vrf_name)
 	isis->area_list = list_new();
 	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
+	isis->snmp_notifications = 1;
 	dyn_cache_init(isis);
 
 	return isis;
@@ -2563,6 +2568,14 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 
 	if (new_overload_bit != area->overload_bit) {
 		area->overload_bit = new_overload_bit;
+
+		if (new_overload_bit)
+			area->overload_counter++;
+
+#ifndef FABRICD
+		hook_call(isis_hook_db_overload, area);
+#endif /* ifndef FABRICD */
+
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 	}
 #ifndef FABRICD
