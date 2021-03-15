@@ -632,7 +632,6 @@ rte_table_test = {
         "C0 A8 C8 0A",
         '""',
     ],
-    "mplsL3VpnVrfRteInetCidrIfIndex": ["5", "6", "4", "5", "0", "6", "0"],
     "mplsL3VpnVrfRteInetCidrType": [
         "local(3)",
         "local(3)",
@@ -730,8 +729,24 @@ def test_r1_mplsvpn_rte_table():
             )
         if passed:
             break
+    # generate ifindex row grabbing ifindices from vtysh
+    if passed:
+        ifindex_row = [
+            router_interface_get_ifindex(r1r, "eth3"),
+            router_interface_get_ifindex(r1r, "eth4"),
+            router_interface_get_ifindex(r1r, "eth2"),
+            router_interface_get_ifindex(r1r, "eth3"),
+            "0",
+            router_interface_get_ifindex(r1r, "eth4"),
+            "0",
+        ]
+        if not r1_snmp.test_oid_walk(
+            "mplsL3VpnVrfRteInetCidrIfIndex", ifindex_row, oid_list
+        ):
+            passed = False
+
     print("passed {}".format(passed))
-    # assert passed, assertmsg
+    assert passed, assertmsg
 
 
 def test_memory_leak():
