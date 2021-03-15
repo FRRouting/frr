@@ -2219,13 +2219,43 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 	return 0;
 }
 
+static uint16_t ospf6_make_lsreq(struct ospf6_neighbor *on, struct stream *s)
+{
+	uint16_t length = 0;
+	struct ospf6_lsa *lsa, *lsanext, *last_req = NULL;
+
+	for (ALL_LSDB(on->request_list, lsa, lsanext)) {
+		if ((length + OSPF6_HEADER_SIZE)
+		    > ospf6_packet_max(on->ospf6_if)) {
+			ospf6_lsa_unlock(lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(lsanext);
+			break;
+		}
+		stream_putw(s, 0); /* reserved */
+		stream_putw(s, ntohs(lsa->header->type));
+		stream_putl(s, ntohl(lsa->header->id));
+		stream_putl(s, ntohl(lsa->header->adv_router));
+		length += sizeof(struct ospf6_lsreq_entry);
+		last_req = lsa;
+	}
+
+	if (last_req != NULL) {
+		if (on->last_ls_req != NULL)
+			on->last_ls_req = ospf6_lsa_unlock(on->last_ls_req);
+
+		ospf6_lsa_lock(last_req);
+		on->last_ls_req = last_req;
+	}
+
+	return length;
+}
+
 int ospf6_lsreq_send(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
-	struct ospf6_header *oh;
-	struct ospf6_lsreq_entry *e;
-	uint8_t *p;
-	struct ospf6_lsa *lsa, *lsanext, *last_req;
+	struct ospf6_packet *op;
+	uint16_t length = OSPF6_HEADER_SIZE;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
 	on->thread_send_lsreq = (struct thread *)NULL;
@@ -2246,49 +2276,31 @@ int ospf6_lsreq_send(struct thread *thread)
 		return 0;
 	}
 
-	memset(sendbuf, 0, iobuflen);
-	oh = (struct ospf6_header *)sendbuf;
-	last_req = NULL;
+	op = ospf6_packet_new(on->ospf6_if->ifmtu);
+	ospf6_make_header(OSPF6_MESSAGE_TYPE_LSREQ, on->ospf6_if, op->s);
 
-	/* set Request entries in lsreq */
-	p = (uint8_t *)((caddr_t)oh + sizeof(struct ospf6_header));
-	for (ALL_LSDB(on->request_list, lsa, lsanext)) {
-		/* MTU check */
-		if (p - sendbuf + sizeof(struct ospf6_lsreq_entry)
-		    > ospf6_packet_max(on->ospf6_if)) {
-			ospf6_lsa_unlock(lsa);
-			if (lsanext)
-				ospf6_lsa_unlock(lsanext);
-			break;
-		}
+	length += ospf6_make_lsreq(on, op->s);
 
-		e = (struct ospf6_lsreq_entry *)p;
-		e->type = lsa->header->type;
-		e->id = lsa->header->id;
-		e->adv_router = lsa->header->adv_router;
-		p += sizeof(struct ospf6_lsreq_entry);
-		last_req = lsa;
+	if (length == OSPF6_HEADER_SIZE) {
+		/* Hello overshooting MTU */
+		ospf6_packet_free(op);
+		return 0;
 	}
 
-	if (last_req != NULL) {
-		if (on->last_ls_req != NULL)
-			on->last_ls_req = ospf6_lsa_unlock(on->last_ls_req);
+	/* Fill OSPF header. */
+	ospf6_fill_header(on->ospf6_if, op->s, length);
 
-		ospf6_lsa_lock(last_req);
-		on->last_ls_req = last_req;
-	}
-
-	oh->type = OSPF6_MESSAGE_TYPE_LSREQ;
-	oh->length = htons(p - sendbuf);
-
-	on->ospf6_if->ls_req_out++;
+	/* Set packet length. */
+	op->length = length;
 
 	if (on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT)
-		ospf6_send(on->ospf6_if->linklocal_addr, &allspfrouters6,
-			   on->ospf6_if, oh);
+		op->dst = allspfrouters6;
 	else
-		ospf6_send(on->ospf6_if->linklocal_addr, &on->linklocal_addr,
-			   on->ospf6_if, oh);
+		op->dst = on->linklocal_addr;
+
+	ospf6_packet_add(on->ospf6_if, op);
+
+	OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
 
 	/* set next thread */
 	if (on->request_list->count != 0) {
