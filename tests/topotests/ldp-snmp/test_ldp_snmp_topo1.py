@@ -301,6 +301,41 @@ def test_r1_ldp_entity_table():
         'mplsLdpEntityRowStatus', ['createAndGo(4)'])
 
 
+def test_r1_ldp_entity_stats_table():
+    "Test mplsLdpEntityStatsTable"
+    tgen = get_topogen()
+
+    r1 = tgen.net.get("r1")
+    r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
+
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsSessionAttempts', ['0'])
+    assert r1_snmp.test_oid_walk(
+       'mplsLdpEntityStatsSessionRejectedNoHelloErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsSessionRejectedAdErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsSessionRejectedMaxPduErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsSessionRejectedLRErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsBadLdpIdentifierErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsBadPduLengthErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsBadMessageLengthErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsBadTlvLengthErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsMalformedTlvValueErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsKeepAliveTimerExpErrors', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsShutdownReceivedNotifications', ['0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpEntityStatsShutdownSentNotifications', ['0'])
+
+
 def test_r1_ldp_peer_table():
     "Test mplsLdpPeerTable"
     tgen = get_topogen()
@@ -340,6 +375,19 @@ def test_r1_ldp_session_table():
         ['4096 octets', '4096 octets'])
     assert r1_snmp.test_oid_walk('mplsLdpSessionDiscontinuityTime',
         ['(0) 0:00:00.00', '(0) 0:00:00.00'])
+
+
+def test_r1_ldp_session_stats_table():
+    "Test mplsLdpSessionStatsTable"
+    tgen = get_topogen()
+
+    r1 = tgen.net.get("r1")
+    r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
+
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpSessionStatsUnknownMesTypeErrors', ['0', '0'])
+    assert r1_snmp.test_oid_walk(
+        'mplsLdpSessionStatsUnknownTlvErrors', ['0', '0'])
 
 
 def test_r1_ldp_hello_adjacency_table():
