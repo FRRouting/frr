@@ -995,7 +995,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (newm < existm) {
 		if (debug)
 			zlog_debug(
-				"%s: %s wins over %s due to IGP metric %d < %d",
+				"%s: %s wins over %s due to IGP metric %u < %u",
 				pfx_buf, new_buf, exist_buf, newm, existm);
 		ret = 1;
 	}
@@ -1003,7 +1003,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (newm > existm) {
 		if (debug)
 			zlog_debug(
-				"%s: %s loses to %s due to IGP metric %d > %d",
+				"%s: %s loses to %s due to IGP metric %u > %u",
 				pfx_buf, new_buf, exist_buf, newm, existm);
 		ret = 0;
 	}
@@ -1025,7 +1025,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			if (newm < existm) {
 				if (debug)
 					zlog_debug(
-						"%s: %s wins over %s due to CLUSTER_LIST length %d < %d",
+						"%s: %s wins over %s due to CLUSTER_LIST length %u < %u",
 						pfx_buf, new_buf, exist_buf,
 						newm, existm);
 				ret = 1;
@@ -1034,7 +1034,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			if (newm > existm) {
 				if (debug)
 					zlog_debug(
-						"%s: %s loses to %s due to CLUSTER_LIST length %d > %d",
+						"%s: %s loses to %s due to CLUSTER_LIST length %u > %u",
 						pfx_buf, new_buf, exist_buf,
 						newm, existm);
 				ret = 0;
