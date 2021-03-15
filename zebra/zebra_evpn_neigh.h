@@ -167,18 +167,12 @@ static inline bool zebra_evpn_neigh_is_ready_for_bgp(zebra_neigh_t *n)
 
 static inline void zebra_evpn_neigh_stop_hold_timer(zebra_neigh_t *n)
 {
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
-
 	if (!n->hold_timer)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
-		zlog_debug("sync-neigh vni %u ip %s mac %s 0x%x hold stop",
-			   n->zevpn->vni,
-			   ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-			   prefix_mac2str(&n->emac, macbuf, sizeof(macbuf)),
-			   n->flags);
+		zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x hold stop",
+			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
 	THREAD_OFF(n->hold_timer);
 }
 
@@ -188,19 +182,13 @@ void zebra_evpn_sync_neigh_static_chg(zebra_neigh_t *n, bool old_n_static,
 
 static inline bool zebra_evpn_neigh_clear_sync_info(zebra_neigh_t *n)
 {
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 	bool old_n_static = false;
 	bool new_n_static = false;
 
 	if (n->flags & ZEBRA_NEIGH_ALL_PEER_FLAGS) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
-			zlog_debug("sync-neigh vni %u ip %s mac %s 0x%x clear",
-				   n->zevpn->vni,
-				   ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-				   prefix_mac2str(&n->emac, macbuf,
-						  sizeof(macbuf)),
-				   n->flags);
+			zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x clear",
+				   n->zevpn->vni, &n->ip, &n->emac, n->flags);
 
 		old_n_static = zebra_evpn_neigh_is_static(n);
 		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ALL_PEER_FLAGS);

@@ -2830,8 +2830,10 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
 	struct nexthop_group *nhg;
 
+	prefix2str(pp, straddr, sizeof(straddr));
+
 	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %s(%u)", func,
-		   (const void *)re, prefix2str(pp, straddr, sizeof(straddr)),
+		   (const void *)re, straddr,
 		   is_srcdst ? " from " : "",
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",

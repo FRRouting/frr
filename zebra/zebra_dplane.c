@@ -3539,15 +3539,9 @@ mac_update_common(enum dplane_op_e op,
 	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
-
-		zlog_debug("init mac ctx %s: mac %s, ifp %s, vtep %s",
-			   dplane_op2str(op),
-			   prefix_mac2str(mac, buf1, sizeof(buf1)),
-			   ifp->name,
-			   inet_ntop(AF_INET, &vtep_ip, buf2, sizeof(buf2)));
-	}
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("init mac ctx %s: mac %pEA, ifp %s, vtep %pI4",
+			   dplane_op2str(op), mac, ifp->name, &vtep_ip);
 
 	ctx = dplane_ctx_alloc();
 	ctx->zd_op = op;
@@ -3725,14 +3719,9 @@ neigh_update_internal(enum dplane_op_e op,
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct zebra_ns *zns;
 
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
-
-		zlog_debug("init neigh ctx %s: ifp %s, mac %s, ip %s",
-			   dplane_op2str(op), ifp->name,
-			   prefix_mac2str(mac, buf1, sizeof(buf1)),
-			   ipaddr2str(ip, buf2, sizeof(buf2)));
-	}
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("init neigh ctx %s: ifp %s, mac %pEA, ip %pIA",
+			   dplane_op2str(op), ifp->name, mac, ip);
 
 	ctx = dplane_ctx_alloc();
 

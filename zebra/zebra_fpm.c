@@ -1555,7 +1555,6 @@ static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac)
 static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 					bool delete, const char *reason)
 {
-	char buf[ETHER_ADDR_STRLEN];
 	struct fpm_mac_info_t *fpm_mac, key;
 	struct interface *vxlan_if, *svi_if;
 	bool mac_found = false;
@@ -1568,9 +1567,8 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 		return 0;
 
 	if (reason) {
-		zfpm_debug("triggering update to FPM - Reason: %s - %s",
-			reason,
-			prefix_mac2str(&rmac->macaddr, buf, sizeof(buf)));
+		zfpm_debug("triggering update to FPM - Reason: %s - %pEA",
+			   reason, &rmac->macaddr);
 	}
 
 	vxlan_if = zl3vni_map_to_vxlan_if(zl3vni);

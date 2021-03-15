@@ -2340,7 +2340,7 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 				 * "peer" */
 				flog_err(
 					EC_LIB_ZAPI_ENCODE,
-					"warning: interface %s address %pFX with peer flag set, but no peer address!",
+					"interface %s address %pFX with peer flag set, but no peer address!",
 					ifp->name, ifc->address);
 				UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			}

@@ -209,8 +209,6 @@ static void zebra_evpn_local_neigh_ref_mac(zebra_neigh_t *n,
 					   zebra_mac_t *mac,
 					   bool send_mac_update)
 {
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 	bool old_static;
 	bool new_static;
 
@@ -228,11 +226,8 @@ static void zebra_evpn_local_neigh_ref_mac(zebra_neigh_t *n,
 		new_static = zebra_evpn_mac_is_static(mac);
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 			zlog_debug(
-				"sync-neigh ref mac vni %u ip %s mac %s ref %d",
-				n->zevpn->vni,
-				ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-				prefix_mac2str(&n->emac, macbuf,
-					       sizeof(macbuf)),
+				"sync-neigh ref mac vni %u ip %pIA mac %pEA ref %d",
+				n->zevpn->vni, &n->ip, &n->emac,
 				mac->sync_neigh_cnt);
 		if ((old_static != new_static) && send_mac_update)
 			/* program the local mac in the kernel */
@@ -248,8 +243,6 @@ static void zebra_evpn_sync_neigh_dp_install(zebra_neigh_t *n,
 					     bool force_clear_static,
 					     const char *caller)
 {
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 	struct zebra_ns *zns;
 	struct interface *ifp;
 	bool set_static;
@@ -260,11 +253,8 @@ static void zebra_evpn_sync_neigh_dp_install(zebra_neigh_t *n,
 	if (!ifp) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 			zlog_debug(
-				"%s: dp-install sync-neigh vni %u ip %s mac %s if %d f 0x%x skipped",
-				caller, n->zevpn->vni,
-				ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-				prefix_mac2str(&n->emac, macbuf,
-					       sizeof(macbuf)),
+				"%s: dp-install sync-neigh vni %u ip %pIA mac %pEA if %d f 0x%x skipped",
+				caller, n->zevpn->vni, &n->ip, &n->emac,
 				n->ifindex, n->flags);
 		return;
 	}
@@ -282,10 +272,8 @@ static void zebra_evpn_sync_neigh_dp_install(zebra_neigh_t *n,
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug(
-			"%s: dp-install sync-neigh vni %u ip %s mac %s if %s(%d) f 0x%x%s%s%s",
-			caller, n->zevpn->vni,
-			ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-			prefix_mac2str(&n->emac, macbuf, sizeof(macbuf)),
+			"%s: dp-install sync-neigh vni %u ip %pIA mac %pEA if %s(%d) f 0x%x%s%s%s",
+			caller, n->zevpn->vni, &n->ip, &n->emac,
 			ifp->name, n->ifindex, n->flags,
 			set_router ? " router" : "",
 			set_static ? " static" : "",
@@ -375,8 +363,6 @@ void zebra_evpn_sync_neigh_static_chg(zebra_neigh_t *n, bool old_n_static,
 	zebra_mac_t *mac = n->mac;
 	bool old_mac_static;
 	bool new_mac_static;
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 
 	if (old_n_static == new_n_static)
 		return;
@@ -411,10 +397,9 @@ void zebra_evpn_sync_neigh_static_chg(zebra_neigh_t *n, bool old_n_static,
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug(
-			"sync-neigh ref-chg vni %u ip %s mac %s f 0x%x %d%s%s%s%s by %s",
-			n->zevpn->vni, ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-			prefix_mac2str(&n->emac, macbuf, sizeof(macbuf)),
-			n->flags, mac->sync_neigh_cnt,
+			"sync-neigh ref-chg vni %u ip %pIA mac %pEA f 0x%x %d%s%s%s%s by %s",
+			n->zevpn->vni, &n->ip, &n->emac, n->flags,
+			mac->sync_neigh_cnt,
 			old_n_static ? " old_n_static" : "",
 			new_n_static ? " new_n_static" : "",
 			old_mac_static ? " old_mac_static" : "",
@@ -434,8 +419,6 @@ static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 	bool new_bgp_ready;
 	bool old_n_static;
 	bool new_n_static;
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 
 	n = THREAD_ARG(t);
 	/* the purpose of the hold timer is to age out the peer-active
@@ -451,11 +434,8 @@ static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 	new_n_static = zebra_evpn_neigh_is_static(n);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
-		zlog_debug("sync-neigh vni %u ip %s mac %s 0x%x hold expired",
-			   n->zevpn->vni,
-			   ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-			   prefix_mac2str(&n->emac, macbuf, sizeof(macbuf)),
-			   n->flags);
+		zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x hold expired",
+			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
 
 	/* re-program the local neigh in the dataplane if the neigh is no
 	 * longer static
@@ -475,18 +455,12 @@ static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 
 static inline void zebra_evpn_neigh_start_hold_timer(zebra_neigh_t *n)
 {
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
-
 	if (n->hold_timer)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
-		zlog_debug("sync-neigh vni %u ip %s mac %s 0x%x hold start",
-			   n->zevpn->vni,
-			   ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-			   prefix_mac2str(&n->emac, macbuf, sizeof(macbuf)),
-			   n->flags);
+		zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x hold start",
+			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
 	thread_add_timer(zrouter.master, zebra_evpn_neigh_hold_exp_cb, n,
 			 zmh_info->neigh_hold_time, &n->hold_timer);
 }
@@ -496,8 +470,6 @@ static void zebra_evpn_local_neigh_deref_mac(zebra_neigh_t *n,
 {
 	zebra_mac_t *mac = n->mac;
 	zebra_evpn_t *zevpn = n->zevpn;
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 	bool old_static;
 	bool new_static;
 
@@ -511,11 +483,8 @@ static void zebra_evpn_local_neigh_deref_mac(zebra_neigh_t *n,
 		new_static = zebra_evpn_mac_is_static(mac);
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 			zlog_debug(
-				"sync-neigh deref mac vni %u ip %s mac %s ref %d",
-				n->zevpn->vni,
-				ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-				prefix_mac2str(&n->emac, macbuf,
-					       sizeof(macbuf)),
+				"sync-neigh deref mac vni %u ip %pIA mac %pEA ref %d",
+				n->zevpn->vni, &n->ip, &n->emac,
 				mac->sync_neigh_cnt);
 		if ((old_static != new_static) && send_mac_update)
 			/* program the local mac in the kernel */
@@ -532,8 +501,6 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 				    struct ethaddr *macaddr, uint32_t seq,
 				    bool sync)
 {
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 	uint32_t tmp_seq;
 	const char *n_type;
 
@@ -555,24 +522,18 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH
 			    || IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"%s-macip accept vni %u %s mac %s IP %s lower seq %u f 0x%x",
+					"%s-macip accept vni %u %s mac %pEA IP %pIA lower seq %u f 0x%x",
 					sync ? "sync" : "remote", zevpn->vni,
-					n_type,
-					prefix_mac2str(macaddr, macbuf,
-						       sizeof(macbuf)),
-					ipaddr2str(&n->ip, ipbuf,
-						   sizeof(ipbuf)),
+					n_type, macaddr, &n->ip,
 					tmp_seq, n->flags);
 			return true;
 		}
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH || IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s-macip ignore vni %u %s mac %s IP %s as existing has higher seq %u f 0x%x",
+				"%s-macip ignore vni %u %s mac %pEA IP %pIA as existing has higher seq %u f 0x%x",
 				sync ? "sync" : "remote", zevpn->vni, n_type,
-				prefix_mac2str(macaddr, macbuf, sizeof(macbuf)),
-				ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-				tmp_seq, n->flags);
+				macaddr, &n->ip, tmp_seq, n->flags);
 		return false;
 	}
 
@@ -636,15 +597,10 @@ void zebra_evpn_sync_neigh_del(zebra_neigh_t *n)
 {
 	bool old_n_static;
 	bool new_n_static;
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
-		zlog_debug("sync-neigh del vni %u ip %s mac %s f 0x%x",
-			   n->zevpn->vni,
-			   ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-			   prefix_mac2str(&n->emac, macbuf, sizeof(macbuf)),
-			   n->flags);
+		zlog_debug("sync-neigh del vni %u ip %pIA mac %pEA f 0x%x",
+			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
 
 	old_n_static = zebra_evpn_neigh_is_static(n);
 	UNSET_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_PROXY);
@@ -676,8 +632,6 @@ zebra_evpn_proc_sync_neigh_update(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 	bool old_mac_static;
 	bool new_mac_static;
 	bool set_dp_inactive = false;
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
 	bool created;
 	ifindex_t ifindex = 0;
 
@@ -778,11 +732,8 @@ zebra_evpn_proc_sync_neigh_update(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH && (old_flags != n->flags))
 			zlog_debug(
-				"sync-neigh vni %u ip %s mac %s old_f 0x%x new_f 0x%x",
-				n->zevpn->vni,
-				ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-				prefix_mac2str(&n->emac, macbuf,
-					       sizeof(macbuf)),
+				"sync-neigh vni %u ip %pIA mac %pEA old_f 0x%x new_f 0x%x",
+				n->zevpn->vni, &n->ip, &n->emac,
 				old_flags, n->flags);
 
 		new_n_static = zebra_evpn_neigh_is_static(n);
@@ -844,10 +795,9 @@ zebra_evpn_proc_sync_neigh_update(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug(
-			"sync-neigh %s vni %u ip %s mac %s if %s(%d) seq %d f 0x%x%s%s",
+			"sync-neigh %s vni %u ip %pIA mac %pEA if %s(%d) seq %d f 0x%x%s%s",
 			created ? "created" : "updated", n->zevpn->vni,
-			ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-			prefix_mac2str(&n->emac, macbuf, sizeof(macbuf)),
+			&n->ip, &n->emac,
 			ifp ? ifp->name : "", ifindex, n->loc_seq, n->flags,
 			inform_bgp ? " inform_bgp" : "",
 			inform_dataplane ? " inform_dp" : "");
@@ -970,14 +920,13 @@ void zebra_evpn_process_neigh_on_local_mac_change(zebra_evpn_t *zevpn,
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
 	struct zebra_vrf *zvrf = NULL;
-	char buf[ETHER_ADDR_STRLEN];
 
 	zvrf = vrf_info_lookup(zevpn->vxlan_if->vrf_id);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Processing neighbors on local MAC %s %s, VNI %u",
-			   prefix_mac2str(&zmac->macaddr, buf, sizeof(buf)),
-			   seq_change ? "CHANGE" : "ADD", zevpn->vni);
+		zlog_debug("Processing neighbors on local MAC %pEA %s, VNI %u",
+			   &zmac->macaddr, seq_change ? "CHANGE" : "ADD",
+			   zevpn->vni);
 
 	/* Walk all neighbors and mark any inactive local neighbors as
 	 * active and/or update sequence number upon a move, and inform BGP.
@@ -1012,12 +961,10 @@ void zebra_evpn_process_neigh_on_local_mac_del(zebra_evpn_t *zevpn,
 {
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
-	char buf[ETHER_ADDR_STRLEN];
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Processing neighbors on local MAC %s DEL, VNI %u",
-			   prefix_mac2str(&zmac->macaddr, buf, sizeof(buf)),
-			   zevpn->vni);
+		zlog_debug("Processing neighbors on local MAC %pEA DEL, VNI %u",
+			   &zmac->macaddr, zevpn->vni);
 
 	/* Walk all local neighbors and mark as inactive and inform
 	 * BGP, if needed.
@@ -1047,12 +994,10 @@ void zebra_evpn_process_neigh_on_remote_mac_add(zebra_evpn_t *zevpn,
 {
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
-	char buf[ETHER_ADDR_STRLEN];
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Processing neighbors on remote MAC %s ADD, VNI %u",
-			   prefix_mac2str(&zmac->macaddr, buf, sizeof(buf)),
-			   zevpn->vni);
+		zlog_debug("Processing neighbors on remote MAC %pEA ADD, VNI %u",
+			   &zmac->macaddr, zevpn->vni);
 
 	/* Walk all local neighbors and mark as inactive and inform
 	 * BGP, if needed.
@@ -1085,15 +1030,11 @@ static inline void zebra_evpn_local_neigh_update_log(
 	bool old_bgp_ready, bool new_bgp_ready, bool inform_dataplane,
 	bool inform_bgp, const char *sfx)
 {
-	char macbuf[ETHER_ADDR_STRLEN];
-	char ipbuf[INET6_ADDRSTRLEN];
-
 	if (!IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		return;
 
-	zlog_debug("%s neigh vni %u ip %s mac %s f 0x%x%s%s%s%s%s%s %s", pfx,
-		   n->zevpn->vni, ipaddr2str(&n->ip, ipbuf, sizeof(ipbuf)),
-		   prefix_mac2str(&n->emac, macbuf, sizeof(macbuf)), n->flags,
+	zlog_debug("%s neigh vni %u ip %pIA mac %pEA f 0x%x%s%s%s%s%s%s %s", pfx,
+		   n->zevpn->vni, &n->ip, &n->emac, n->flags,
 		   is_router ? " router" : "",
 		   local_inactive ? " local-inactive" : "",
 		   old_bgp_ready ? " old_bgp_ready" : "",
@@ -1154,8 +1095,6 @@ static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 	struct zebra_vrf *zvrf = NULL;
 	zebra_neigh_t *nbr = NULL;
 	zebra_evpn_t *zevpn = NULL;
-	char buf1[INET6_ADDRSTRLEN];
-	char buf2[ETHER_ADDR_STRLEN];
 
 	nbr = THREAD_ARG(t);
 
@@ -1174,10 +1113,8 @@ static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"%s: duplicate addr MAC %s IP %s flags 0x%x learn count %u vni %u auto recovery expired",
-			__func__,
-			prefix_mac2str(&nbr->emac, buf2, sizeof(buf2)),
-			ipaddr2str(&nbr->ip, buf1, sizeof(buf1)), nbr->flags,
+			"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x learn count %u vni %u auto recovery expired",
+			__func__, &nbr->emac, &nbr->ip, nbr->flags,
 			nbr->dad_count, zevpn->vni);
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
@@ -1207,8 +1144,6 @@ zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, zebra_neigh_t *nbr,
 {
 
 	struct timeval elapsed = {0, 0};
-	char buf[ETHER_ADDR_STRLEN];
-	char buf1[INET6_ADDRSTRLEN];
 	bool reset_params = false;
 
 	if (!zebra_evpn_do_dup_addr_detect(zvrf))
@@ -1221,10 +1156,8 @@ zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, zebra_neigh_t *nbr,
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s: duplicate addr MAC %s IP %s flags 0x%x skip installing, learn count %u recover time %u",
-				__func__,
-				prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
-				ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
+				"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x skip installing, learn count %u recover time %u",
+				__func__, &nbr->emac, &nbr->ip,
 				nbr->flags, nbr->dad_count,
 				zvrf->dad_freeze_time);
 
@@ -1261,10 +1194,8 @@ zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, zebra_neigh_t *nbr,
 	if (reset_params) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s: duplicate addr MAC %s IP %s flags 0x%x detection time passed, reset learn count %u",
-				__func__,
-				prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
-				ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
+				"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x detection time passed, reset learn count %u",
+				__func__, &nbr->emac, &nbr->ip,
 				nbr->flags, nbr->dad_count);
 		/* Reset learn count but do not start detection
 		 * during REMOTE learn event.
@@ -1294,10 +1225,8 @@ zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, zebra_neigh_t *nbr,
 	if (nbr->dad_count >= zvrf->dad_max_moves) {
 		flog_warn(
 			EC_ZEBRA_DUP_IP_DETECTED,
-			"VNI %u: MAC %s IP %s detected as duplicate during %s VTEP %pI4",
-			nbr->zevpn->vni,
-			prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
-			ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
+			"VNI %u: MAC %pEA IP %pIA detected as duplicate during %s VTEP %pI4",
+			nbr->zevpn->vni, &nbr->emac, &nbr->ip,
 			is_local ? "local update, last" : "remote update, from",
 			&vtep_ip);
 
@@ -1311,12 +1240,8 @@ zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, zebra_neigh_t *nbr,
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"%s: duplicate addr MAC %s IP %s flags 0x%x auto recovery time %u start",
-					__func__,
-					prefix_mac2str(&nbr->emac, buf,
-						       sizeof(buf)),
-					ipaddr2str(&nbr->ip, buf1,
-						   sizeof(buf1)),
+					"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x auto recovery time %u start",
+					__func__, &nbr->emac, &nbr->ip,
 					nbr->flags, zvrf->dad_freeze_time);
 
 			thread_add_timer(zrouter.master,
@@ -1334,8 +1259,6 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 				  bool is_router, bool local_inactive,
 				  bool dp_static)
 {
-	char buf[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 	struct zebra_vrf *zvrf;
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *zmac = NULL, *old_zmac = NULL;
@@ -1357,15 +1280,12 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 	if (!zmac) {
 		/* create a dummy MAC if the MAC is not already present */
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("AUTO MAC %s created for neigh %s on VNI %u",
-				   prefix_mac2str(macaddr, buf, sizeof(buf)),
-				   ipaddr2str(ip, buf2, sizeof(buf2)),
-				   zevpn->vni);
+			zlog_debug("AUTO MAC %pEA created for neigh %pIA on VNI %u",
+				   macaddr, ip, zevpn->vni);
 
 		zmac = zebra_evpn_mac_add(zevpn, macaddr);
 		if (!zmac) {
-			zlog_debug("Failed to add MAC %s VNI %u",
-				   prefix_mac2str(macaddr, buf, sizeof(buf)),
+			zlog_debug("Failed to add MAC %pEA VNI %u", macaddr,
 				   zevpn->vni);
 			return -1;
 		}
@@ -1402,10 +1322,9 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 		if (!n) {
 			flog_err(
 				EC_ZEBRA_MAC_ADD_FAILED,
-				"Failed to add neighbor %s MAC %s intf %s(%u) -> VNI %u",
-				ipaddr2str(ip, buf2, sizeof(buf2)),
-				prefix_mac2str(macaddr, buf, sizeof(buf)),
-				ifp->name, ifp->ifindex, zevpn->vni);
+				"Failed to add neighbor %pIA MAC %pEA intf %s(%u) -> VNI %u",
+				ip, macaddr, ifp->name, ifp->ifindex,
+				zevpn->vni);
 			return -1;
 		}
 		/* Set "local" forwarding info. */
@@ -1606,9 +1525,8 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 	if (zebra_evpn_ip_inherit_dad_from_mac(zvrf, old_zmac, zmac, n)) {
 		flog_warn(
 			EC_ZEBRA_DUP_IP_INHERIT_DETECTED,
-			"VNI %u: MAC %s IP %s detected as duplicate during local update, inherit duplicate from MAC",
-			zevpn->vni, prefix_mac2str(macaddr, buf, sizeof(buf)),
-			ipaddr2str(&n->ip, buf2, sizeof(buf2)));
+			"VNI %u: MAC %pEA IP %pIA detected as duplicate during local update, inherit duplicate from MAC",
+			zevpn->vni, macaddr, &n->ip);
 	}
 
 	/* For IP Duplicate Address Detection (DAD) is trigger,
@@ -1651,9 +1569,9 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 	if (upd_mac_seq && zmac->loc_seq != mac_new_seq) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"Seq changed for MAC %s VNI %u - old %u new %u",
-				prefix_mac2str(macaddr, buf, sizeof(buf)),
-				zevpn->vni, zmac->loc_seq, mac_new_seq);
+				"Seq changed for MAC %pEA VNI %u - old %u new %u",
+				macaddr, zevpn->vni,
+				zmac->loc_seq, mac_new_seq);
 		zmac->loc_seq = mac_new_seq;
 		if (zebra_evpn_mac_send_add_to_client(zevpn->vni, macaddr,
 						      zmac->flags,
@@ -1682,8 +1600,6 @@ int zebra_evpn_remote_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 				   struct ipaddr *ip, struct ethaddr *macaddr,
 				   uint16_t state)
 {
-	char buf[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *zmac = NULL;
 
@@ -1708,10 +1624,8 @@ int zebra_evpn_remote_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 		zmac = zebra_evpn_mac_lookup(zevpn, macaddr);
 		if (!zmac || !CHECK_FLAG(zmac->flags, ZEBRA_MAC_REMOTE)) {
 			zlog_debug(
-				"Ignore remote neigh %s (MAC %s) on L2-VNI %u - MAC unknown or local",
-				ipaddr2str(&n->ip, buf2, sizeof(buf2)),
-				prefix_mac2str(macaddr, buf, sizeof(buf)),
-				zevpn->vni);
+				"Ignore remote neigh %pIA (MAC %pEA) on L2-VNI %u - MAC unknown or local",
+				&n->ip, macaddr, zevpn->vni);
 			return -1;
 		}
 
@@ -2140,8 +2054,6 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 {
 	zebra_neigh_t *n;
 	int update_neigh = 0;
-	char buf[ETHER_ADDR_STRLEN];
-	char buf1[INET6_ADDRSTRLEN];
 	zebra_mac_t *old_mac = NULL;
 	bool old_static = false;
 	bool do_dad = false;
@@ -2167,11 +2079,9 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 						 mac, 0);
 			if (!n) {
 				zlog_warn(
-					"Failed to add Neigh %s MAC %s VNI %u Remote VTEP %pI4",
-					ipaddr2str(ipaddr, buf1, sizeof(buf1)),
-					prefix_mac2str(&mac->macaddr, buf,
-						       sizeof(buf)),
-					zevpn->vni, &vtep_ip);
+					"Failed to add Neigh %pIA MAC %pEA VNI %u Remote VTEP %pI4",
+					ipaddr, &mac->macaddr, zevpn->vni,
+					&vtep_ip);
 				return;
 			}
 
@@ -2192,12 +2102,8 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 				old_static = zebra_evpn_neigh_is_static(n);
 				if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 					zlog_debug(
-						"sync->remote neigh vni %u ip %s mac %s seq %d f0x%x",
-						n->zevpn->vni,
-						ipaddr2str(&n->ip, buf1,
-							   sizeof(buf1)),
-						prefix_mac2str(&n->emac, buf,
-							       sizeof(buf)),
+						"sync->remote neigh vni %u ip %pIA mac %pEA seq %d f0x%x",
+						n->zevpn->vni, &n->ip, &n->emac,
 						seq, n->flags);
 				zebra_evpn_neigh_clear_sync_info(n);
 				if (IS_ZEBRA_NEIGH_ACTIVE(n))
@@ -2258,10 +2164,8 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 		if (zebra_evpn_ip_inherit_dad_from_mac(zvrf, old_mac, mac, n)) {
 			flog_warn(
 				EC_ZEBRA_DUP_IP_INHERIT_DETECTED,
-				"VNI %u: MAC %s IP %s detected as duplicate during remote update, inherit duplicate from MAC",
-				zevpn->vni,
-				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
-				ipaddr2str(&n->ip, buf1, sizeof(buf1)));
+				"VNI %u: MAC %pEA IP %pIA detected as duplicate during remote update, inherit duplicate from MAC",
+				zevpn->vni, &mac->macaddr, &n->ip);
 		}
 
 		/* Check duplicate address detection for IP */
@@ -2280,8 +2184,6 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 				  struct ipaddr *ip, zebra_mac_t *mac)
 {
 	zebra_neigh_t *n;
-	char buf[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 
 	assert(mac);
 
@@ -2291,9 +2193,8 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 		if (!n) {
 			flog_err(
 				EC_ZEBRA_MAC_ADD_FAILED,
-				"Failed to add neighbor %s MAC %s intf %s(%u) -> VNI %u",
-				ipaddr2str(ip, buf2, sizeof(buf2)),
-				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+				"Failed to add neighbor %pIA MAC %pEA intf %s(%u) -> VNI %u",
+				ip, &mac->macaddr,
 				ifp->name, ifp->ifindex, zevpn->vni);
 			return -1;
 		}
@@ -2316,10 +2217,9 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"SVI %s(%u) L2-VNI %u, sending GW MAC %s IP %s add to BGP with flags 0x%x",
+				"SVI %s(%u) L2-VNI %u, sending GW MAC %pEA IP %pIA add to BGP with flags 0x%x",
 				ifp->name, ifp->ifindex, zevpn->vni,
-				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
-				ipaddr2str(ip, buf2, sizeof(buf2)), n->flags);
+				&mac->macaddr, ip, n->flags);
 
 		zebra_evpn_neigh_send_add_to_client(
 			zevpn->vni, ip, &n->emac, n->mac, n->flags, n->loc_seq);
@@ -2328,10 +2228,9 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 		SET_FLAG(n->flags, ZEBRA_NEIGH_SVI_IP);
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"SVI %s(%u) L2-VNI %u, sending SVI MAC %s IP %s add to BGP with flags 0x%x",
+				"SVI %s(%u) L2-VNI %u, sending SVI MAC %pEA IP %pIA add to BGP with flags 0x%x",
 				ifp->name, ifp->ifindex, zevpn->vni,
-				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
-				ipaddr2str(ip, buf2, sizeof(buf2)), n->flags);
+				&mac->macaddr, ip, n->flags);
 
 		zebra_evpn_neigh_send_add_to_client(
 			zevpn->vni, ip, &n->emac, n->mac, n->flags, n->loc_seq);
@@ -2344,8 +2243,6 @@ void zebra_evpn_neigh_remote_uninstall(zebra_evpn_t *zevpn,
 				       struct zebra_vrf *zvrf, zebra_neigh_t *n,
 				       zebra_mac_t *mac, struct ipaddr *ipaddr)
 {
-	char buf1[INET6_ADDRSTRLEN];
-
 	if (zvrf->dad_freeze && CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)
 	    && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
 	    && (memcmp(n->emac.octet, mac->macaddr.octet, ETH_ALEN) == 0)) {
@@ -2354,10 +2251,9 @@ void zebra_evpn_neigh_remote_uninstall(zebra_evpn_t *zevpn,
 		vlan_if = zevpn_map_to_svi(zevpn);
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
-				__func__,
-				ipaddr2str(ipaddr, buf1, sizeof(buf1)),
-				n->flags, vlan_if ? vlan_if->name : "Unknown");
+				"%s: IP %pIA (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
+				__func__, ipaddr, n->flags,
+				vlan_if ? vlan_if->name : "Unknown");
 		if (vlan_if)
 			neigh_read_specific_ip(ipaddr, vlan_if);
 	}
@@ -2384,8 +2280,6 @@ int zebra_evpn_neigh_del_ip(zebra_evpn_t *zevpn, struct ipaddr *ip)
 	zebra_mac_t *zmac;
 	bool old_bgp_ready;
 	bool new_bgp_ready;
-	char buf[INET6_ADDRSTRLEN];
-	char buf2[ETHER_ADDR_STRLEN];
 	struct zebra_vrf *zvrf;
 
 	/* If entry doesn't exist, nothing to do. */
@@ -2397,9 +2291,8 @@ int zebra_evpn_neigh_del_ip(zebra_evpn_t *zevpn, struct ipaddr *ip)
 	if (!zmac) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"Trying to del a neigh %s without a mac %s on VNI %u",
-				ipaddr2str(ip, buf, sizeof(buf)),
-				prefix_mac2str(&n->emac, buf2, sizeof(buf2)),
+				"Trying to del a neigh %pIA without a mac %pEA on VNI %u",
+				ip, &n->emac,
 				zevpn->vni);
 
 		return 0;
@@ -2419,10 +2312,8 @@ int zebra_evpn_neigh_del_ip(zebra_evpn_t *zevpn, struct ipaddr *ip)
 	old_bgp_ready = zebra_evpn_neigh_is_ready_for_bgp(n);
 	if (zebra_evpn_neigh_is_static(n)) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
-			zlog_debug("re-add sync neigh vni %u ip %s mac %s 0x%x",
-				   n->zevpn->vni,
-				   ipaddr2str(&n->ip, buf, sizeof(buf)),
-				   prefix_mac2str(&n->emac, buf2, sizeof(buf2)),
+			zlog_debug("re-add sync neigh vni %u ip %pIA mac %pEA 0x%x",
+				   n->zevpn->vni, &n->ip, &n->emac,
 				   n->flags);
 
 		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL_INACTIVE))
