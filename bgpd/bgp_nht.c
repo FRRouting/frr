@@ -454,17 +454,21 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 		bnc->last_update = bgp_clock();
 		bnc->change_flags = 0;
 
+		/*
+		 * For interface based routes ( ala the v6 LL routes
+		 * that this was written for ) the metric received
+		 * for the connected route is 0 not 1.
+		 */
+		bnc->metric = 0;
 		if (up) {
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 			SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
-			bnc->metric = 1;
 			bnc->nexthop_num = 1;
 		} else {
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 			SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
 			bnc->nexthop_num = 0;
-			bnc->metric = 0;
 		}
 
 		evaluate_paths(bnc);
