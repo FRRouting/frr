@@ -516,6 +516,44 @@ def normalize_text(text):
     return text
 
 
+def is_linux():
+    """
+    Parses unix name output to check if running on GNU/Linux.
+
+    Returns True if running on Linux, returns False otherwise.
+    """
+
+    if os.uname()[0] == "Linux":
+        return True
+    return False
+
+
+def iproute2_is_vrf_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling VRFs by interpreting the output of the 'ip' utility found in PATH.
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["ip", "route", "show", "vrf"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                encoding="utf-8"
+            )
+            iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if iproute2_err != "Error:":
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def module_present_linux(module, load):
     """
     Returns whether `module` is present.
