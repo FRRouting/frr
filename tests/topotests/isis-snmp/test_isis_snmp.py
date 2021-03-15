@@ -236,7 +236,6 @@ def test_r1_scalar_snmp():
 
 
 circtable_test = {
-    "isisCircIfIndex": ["2", "3", "1"],
     "isisCircAdminState": ["on(1)", "on(1)", "on(1)"],
     "isisCircExistState": ["active(1)", "active(1)", "active(1)"],
     "isisCircType": ["broadcast(1)", "ptToPt(2)", "staticIn(3)"],
@@ -272,7 +271,6 @@ circleveltable_test = {
     "isisCircLevelMetric": ["10", "10", "10", "10"],
     "isisCircLevelWideMetric": ["10", "10", "0", "0"],
     "isisCircLevelISPriority": ["64", "64", "64", "64"],
-    "isisCircLevelIDOctet": ["2", "0", "0", "0"],
     "isisCircLevelHelloMultiplier": ["10", "10", "10", "10"],
     "isisCircLevelHelloTimer": ["3000 milliseconds", "3000 milliseconds", "3000 milliseconds", "3000 milliseconds"],
     "isisCircLevelMinLSPRetransInt": ["1 seconds", "1 seconds", "0 seconds", "0 seconds"],
@@ -305,7 +303,6 @@ adjtable_test = {
     "isisISAdj3WayState": ["down(2)", "up(0)"],
     "isisISAdjNeighSysType": ["l1IntermediateSystem(1)", "l1IntermediateSystem(1)"],
     "isisISAdjNeighSysID": ["00 00 00 00 00 04", "00 00 00 00 00 03"],
-    "isisISAdjNbrExtendedCircID": ["0", "0"],
     "isisISAdjUsage": ["0", "level1(1)"],
     "isisISAdjNeighPriority": ["64", "0"],
 }
@@ -315,7 +312,6 @@ adjtable_down_test = {
     "isisISAdj3WayState": ["down(2)"],
     "isisISAdjNeighSysType": ["l1IntermediateSystem(1)"],
     "isisISAdjNeighSysID": ["00 00 00 00 00 04"],
-    "isisISAdjNbrExtendedCircID": ["0"],
     "isisISAdjUsage": ["0"],
     "isisISAdjNeighPriority": ["64"],
 }
