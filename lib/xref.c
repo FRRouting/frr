@@ -93,8 +93,6 @@ static void xref_add_one(const struct xref *xref)
 		q = memrchr(filename, '/', p - filename);
 		if (q)
 			filename = q + 1;
-		else
-			filename = p + 1;
 	}
 
 	SHA256_Init(&sha);
