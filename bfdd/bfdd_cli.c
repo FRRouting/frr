@@ -274,7 +274,7 @@ void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	if (show_defaults)
-		vty_out(vty, "  shutdown\n");
+		vty_out(vty, "  no shutdown\n");
 	else
 		vty_out(vty, "  %sshutdown\n",
 			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
