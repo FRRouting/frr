@@ -476,6 +476,7 @@ int nhrp_nhs_match_ip(union sockunion *in_ip, struct nhrp_interface *nifp)
 	int i;
 	struct nhrp_nhs *nhs;
 	struct nhrp_registration *reg;
+
 	for (i = 0; i < AFI_MAX; i++) {
 		list_for_each_entry(nhs, &nifp->afi[i].nhslist_head,
 				    nhslist_entry)

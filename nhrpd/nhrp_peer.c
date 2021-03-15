@@ -290,6 +290,7 @@ static int nhrp_peer_defer_vici_request(struct thread *t)
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 	char buf[SU_ADDRSTRLEN];
+
 	THREAD_OFF(p->t_timer);
 
 	if (p->online) {
@@ -341,7 +342,9 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
 			&p->t_fallback);
 	} else {
-		int r_time_ms = rand() % 1000; // Maximum timeout is 1 seconds
+		/* Maximum timeout is 1 second */
+		int r_time_ms = rand() % 1000;
+
 		debugf(NHRP_DEBUG_COMMON,
 		       "Initiating IPsec connection request to %s after %d ms:\n",
 		       sockunion2str(&vc->remote.nbma, buf, sizeof(buf))
@@ -414,7 +417,8 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 				 * extension and update the cache without which
 				 * the neighbor table in the kernel contains the
 				 * source NBMA address which is not reachable
-				 * since it is behind a NAT device */
+				 * since it is behind a NAT device
+				 */
 				if (!sockunion2str(proto, buf1, sizeof(buf1)))
 					strlcpy(buf1, "NULL", sizeof(buf1));
 				debugf(NHRP_DEBUG_COMMON,
@@ -506,19 +510,18 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			continue;
 		}
 
-
 		proto_addr = (sockunion_family(&cie_proto) == AF_UNSPEC)
 				     ? &pp->src_proto
 				     : &cie_proto;
 
-		/* Check if there is an entry for this proto_addr in
-		 * NHRP_NAT_EXTENSION */
+		/* Check for this proto_addr in NHRP_NAT_EXTENSION */
 		nhrp_process_nat_extension(pp, proto_addr, &cie_nbma_nat);
 
 		if (sockunion_family(&cie_nbma_nat) == AF_UNSPEC) {
 			/* It may be possible that this resolution reply is
 			 * coming directly from NATTED Spoke and there is not
-			 * NAT Extension present */
+			 * NAT Extension present
+			 */
 			debugf(NHRP_DEBUG_COMMON, "No NAT Extension for %s",
 			       sockunion2str(proto_addr, buf, sizeof(buf))
 				       ? buf
@@ -568,7 +571,6 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 		}
 		if (nbma_addr)
 			sockunion2str(nbma_addr, buf, sizeof(buf));
-
 
 		debugf(NHRP_DEBUG_COMMON,
 		       "shortcut res_rep: updating binding for nmba addr %s",
@@ -961,7 +963,7 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 	union sockunion cie_nbma, cie_protocol, cie_protocol_mandatory,
 		*proto = NULL;
 	uint16_t type, len;
-	struct nhrp_cache *c;
+	struct nhrp_cache *c = NULL;
 	char buf[SU_ADDRSTRLEN];
 
 	if (pp->hdr->hop_count == 0)
@@ -1037,7 +1039,8 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 					       "Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the reply packet");
 					/* For reply packet use protocol
 					 * specified in CIE of mandatory part
-					 * for cache lookup */
+					 * for cache lookup
+					 */
 					if (sockunion_family(
 						    &cie_protocol_mandatory)
 					    != AF_UNSPEC)
@@ -1049,34 +1052,32 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 					       sockunion2str(proto, buf,
 							     sizeof(buf)));
 					c = nhrp_cache_get(nifp->ifp, proto, 0);
-					if (c) {
-						debugf(NHRP_DEBUG_COMMON,
-						       "c->cur.remote_nbma_natoa is %s",
-						       sockunion2str(
-							       &c->cur.remote_nbma_natoa,
-							       buf, sizeof(buf))
-							       ? buf
-							       : "NULL");
-						if (sockunion_family(
-							    &c->cur.remote_nbma_natoa)
-						    != AF_UNSPEC) {
-							cie = nhrp_cie_push(
-								zb,
-								NHRP_CODE_SUCCESS,
-								&c->cur.remote_nbma_natoa,
-								proto);
-							if (!cie)
-								goto err;
-						}
-					} else {
-						debugf(NHRP_DEBUG_COMMON,
-						       "No cache entry for Proto is %s",
-						       sockunion2str(
-							       proto, buf,
-							       sizeof(buf)));
-						zbuf_put(zb, extpl.head, len);
+				}
+
+				if (c) {
+					debugf(NHRP_DEBUG_COMMON,
+					       "c->cur.remote_nbma_natoa is %s",
+					       sockunion2str(
+						      &c->cur.remote_nbma_natoa,
+						      buf, sizeof(buf))
+						      ? buf
+						      : "NULL");
+					if (sockunion_family(
+						    &c->cur.remote_nbma_natoa)
+					    != AF_UNSPEC) {
+						cie = nhrp_cie_push(
+							zb,
+							NHRP_CODE_SUCCESS,
+							&c->cur.remote_nbma_natoa,
+							proto);
+						if (!cie)
+							goto err;
 					}
 				} else {
+					if (proto)
+						debugf(NHRP_DEBUG_COMMON,
+						       "No cache entry for proto %s",
+						       buf);
 					zbuf_put(zb, extpl.head, len);
 				}
 			}
@@ -1084,13 +1085,15 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 		default:
 			if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY)
 				/* FIXME: RFC says to just copy, but not
-				 * append our selves to the transit NHS list */
+				 * append our selves to the transit NHS list
+				 */
 				goto err;
 		/* fallthru */
 		case NHRP_EXTENSION_RESPONDER_ADDRESS:
 			/* Supported compulsory extensions, and any
 			 * non-compulsory that is not explicitly handled,
-			 * should be just copied. */
+			 * should be just copied.
+			 */
 			zbuf_copy(zb, &extpl, len);
 			break;
 		}

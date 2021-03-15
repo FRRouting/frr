@@ -211,7 +211,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c = NULL;
-	struct nhrp_cache *c_dst_proto = NULL;
+	struct nhrp_cache *c_dst = NULL;
 	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
@@ -278,8 +278,10 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS: {
 			struct nhrp_cie_header *cie_nat;
+
 			do {
 				union sockunion cie_nat_proto, cie_nat_nbma;
+
 				sockunion_family(&cie_nat_proto) = AF_UNSPEC;
 				sockunion_family(&cie_nat_nbma) = AF_UNSPEC;
 				cie_nat = nhrp_cie_pull(&extpl, pp->hdr,
@@ -307,7 +309,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 		nbma = &nat_nbma;
 	}
 	/* For NHRP resolution reply the cie_nbma in mandatory part is the
-	 * address of the actual address of the sender */
+	 * address of the actual address of the sender
+	 */
 	else if (!sockunion_same(&cie_nbma, &pp->peer->vc->remote.nbma)
 		 && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp)) {
 		debugf(NHRP_DEBUG_COMMON,
@@ -316,7 +319,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 		debugf(NHRP_DEBUG_COMMON, "cie_nbma %s",
 		       sockunion2str(&cie_nbma, buf[1], sizeof(buf[1])));
 		debugf(NHRP_DEBUG_COMMON, "remote.nbma %s",
-		       sockunion2str(&pp->peer->vc->remote.nbma, buf[1], 
+		       sockunion2str(&pp->peer->vc->remote.nbma, buf[1],
 				sizeof(buf[1])));
 		nbma = &pp->peer->vc->remote.nbma;
 		nat_nbma = *nbma;
@@ -338,7 +341,9 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma, &cie_nbma);
+						  htons(cie->mtu),
+						  nbma,
+						  &cie_nbma);
 		} else {
 			debugf(NHRP_DEBUG_COMMON,
 			       "Shortcut: no cache for nbma %s", buf[2]);
@@ -346,17 +351,21 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 
 		/* Update cache binding for dst_proto as well */
 		if (sockunion_cmp(proto, &pp->dst_proto)) {
-			c_dst_proto = nhrp_cache_get(pp->ifp, &pp->dst_proto, 1);
-			if (c_dst_proto) {
+			c_dst = nhrp_cache_get(pp->ifp, &pp->dst_proto, 1);
+			if (c_dst) {
 				debugf(NHRP_DEBUG_COMMON,
-			       "Shortcut: cache found, update binding");
-				nhrp_cache_update_binding(c_dst_proto, NHRP_CACHE_DYNAMIC,
+				       "Shortcut: cache found, update binding");
+				nhrp_cache_update_binding(c_dst,
+						  NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma, &cie_nbma);
+						  htons(cie->mtu),
+						  nbma,
+						  &cie_nbma);
 			} else {
 				debugf(NHRP_DEBUG_COMMON,
-			       "Shortcut: no cache for nbma %s", buf[2]);
+				       "Shortcut: no cache for nbma %s",
+				       buf[2]);
 			}
 		}
 	}
