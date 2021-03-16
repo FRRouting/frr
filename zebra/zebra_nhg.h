@@ -180,8 +180,9 @@ struct nhg_ctx {
 
 	vrf_id_t vrf_id;
 	afi_t afi;
+
 	/*
-	 * This should only every be ZEBRA_ROUTE_NHG unless we get a a kernel
+	 * This should only ever be ZEBRA_ROUTE_NHG unless we get a a kernel
 	 * created nexthop not made by us.
 	 */
 	int type;

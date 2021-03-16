@@ -371,8 +371,8 @@ void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
 	 */
 	if (nh && (nh->next == NULL)) {
 		switch (nh->type) {
-		case (NEXTHOP_TYPE_IFINDEX):
-		case (NEXTHOP_TYPE_BLACKHOLE):
+		case NEXTHOP_TYPE_IFINDEX:
+		case NEXTHOP_TYPE_BLACKHOLE:
 			/*
 			 * This switch case handles setting the afi different
 			 * for ipv4/v6 routes. Ifindex/blackhole nexthop
@@ -383,12 +383,12 @@ void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
 			 */
 			nhe->afi = afi;
 			break;
-		case (NEXTHOP_TYPE_IPV4_IFINDEX):
-		case (NEXTHOP_TYPE_IPV4):
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+		case NEXTHOP_TYPE_IPV4:
 			nhe->afi = AFI_IP;
 			break;
-		case (NEXTHOP_TYPE_IPV6_IFINDEX):
-		case (NEXTHOP_TYPE_IPV6):
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+		case NEXTHOP_TYPE_IPV6:
 			nhe->afi = AFI_IP6;
 			break;
 		}
@@ -1789,8 +1789,9 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
  * if at all possible.  Set the nexthop->ifindex and resolved_id
  * as appropriate
  */
-static int nexthop_active(afi_t afi, struct route_entry *re,
-			  struct nexthop *nexthop, struct route_node *top)
+static int nexthop_active(afi_t afi, struct nexthop *nexthop,
+			  const struct prefix *top, int type, uint32_t flags,
+			  uint32_t *pmtu)
 {
 	struct prefix p;
 	struct route_table *table;
@@ -1805,32 +1806,57 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	struct in_addr local_ipv4;
 	struct in_addr *ipv4;
 
+	/* Reset some nexthop attributes that we'll recompute if necessary */
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
-	    || nexthop->type == NEXTHOP_TYPE_IPV6)
+	    || (nexthop->type == NEXTHOP_TYPE_IPV6))
 		nexthop->ifindex = 0;
-
 
 	UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 	nexthops_free(nexthop->resolved);
 	nexthop->resolved = NULL;
-	re->nexthop_mtu = 0;
-
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: re %p, nexthop %pNHv",
-			   __func__, re, nexthop);
 
 	/*
-	 * If the kernel has sent us a NEW route, then
-	 * by golly gee whiz it's a good route.
-	 *
-	 * If its an already INSTALLED route we have already handled, then the
-	 * kernel route's nexthop might have became unreachable
-	 * and we have to handle that.
+	 * Some nexthop types get special handling, possibly skipping
+	 * the normal processing.
 	 */
-	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
-	    && (re->type == ZEBRA_ROUTE_KERNEL
-		|| re->type == ZEBRA_ROUTE_SYSTEM))
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
+		/*
+		 * If the interface exists and its operative or its a kernel
+		 * route and interface is up, its active. We trust kernel routes
+		 * to be good.
+		 */
+		if (ifp
+		    && (if_is_operative(ifp)
+			|| (if_is_up(ifp)
+			    && (type == ZEBRA_ROUTE_KERNEL
+				|| type == ZEBRA_ROUTE_SYSTEM))))
+			return 1;
+		else
+			return 0;
+		break;
+
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6)) {
+			ifp = if_lookup_by_index(nexthop->ifindex,
+						 nexthop->vrf_id);
+			if (ifp && if_is_operative(ifp))
+				return 1;
+			else
+				return 0;
+		}
+		break;
+
+	case NEXTHOP_TYPE_BLACKHOLE:
 		return 1;
+
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6:
+	default:
+		break;
+	}
 
 	/*
 	 * If the nexthop has been marked as 'onlink' we just need to make
@@ -1853,10 +1879,11 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		return 1;
 	}
 
-	if ((top->p.family == AF_INET && top->p.prefixlen == 32
-	     && nexthop->gate.ipv4.s_addr == top->p.u.prefix4.s_addr)
-	    || (top->p.family == AF_INET6 && top->p.prefixlen == 128
-		&& memcmp(&nexthop->gate.ipv6, &top->p.u.prefix6, 16) == 0)) {
+	if (top &&
+	    ((top->family == AF_INET && top->prefixlen == 32
+	      && nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr)
+	     || (top->family == AF_INET6 && top->prefixlen == 128
+		 && memcmp(&nexthop->gate.ipv6, &top->u.prefix6, 16) == 0))) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"        :%s: Attempting to install a max prefixlength route through itself",
@@ -1873,6 +1900,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		ipv4 = &nexthop->gate.ipv4;
 	}
 
+	/* Processing for nexthops with SR 'color' attribute, using
+	 * the corresponding SR policy object.
+	 */
 	if (nexthop->srte_color) {
 		struct ipaddr endpoint = {0};
 		struct zebra_sr_policy *policy;
@@ -1950,7 +1980,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		 * resolved by a route NH1. The exception is if the route is a
 		 * host route.
 		 */
-		if (rn == top)
+		if (prefix_same(&rn->p, top))
 			if (((afi == AFI_IP) && (rn->p.prefixlen != 32))
 			    || ((afi == AFI_IP6) && (rn->p.prefixlen != 128))) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
@@ -2020,7 +2050,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					   match->nhe->id, newhop);
 
 			return 1;
-		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
+		} else if (CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
 			struct nexthop_group *nhg;
 
 			resolved = 0;
@@ -2079,10 +2109,14 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 						     NULL);
 				resolved = 1;
 			}
+
 done_with_match:
-			if (resolved)
-				re->nexthop_mtu = match->mtu;
-			else if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			/* Capture resolving mtu */
+			if (resolved) {
+				if (pmtu)
+					*pmtu = match->mtu;
+
+			} else if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"        %s: Recursion failed to find",
 					__func__);
@@ -2092,9 +2126,9 @@ done_with_match:
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				zlog_debug(
 					"        %s: Route Type %s has not turned on recursion",
-					__func__, zebra_route_string(re->type));
-				if (re->type == ZEBRA_ROUTE_BGP
-				    && !CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP))
+					__func__, zebra_route_string(type));
+				if (type == ZEBRA_ROUTE_BGP
+				    && !CHECK_FLAG(flags, ZEBRA_FLAG_IBGP))
 					zlog_debug(
 						"        EBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
 			}
@@ -2113,20 +2147,17 @@ done_with_match:
  * appropriately as well.  An existing route map can turn an
  * otherwise active nexthop into inactive, but not vice versa.
  *
- * If it finds a nexthop recursively, set the resolved_id
- * to match that nexthop's nhg_hash_entry ID;
- *
  * The return value is the final value of 'ACTIVE' flag.
  */
 static unsigned nexthop_active_check(struct route_node *rn,
 				     struct route_entry *re,
 				     struct nexthop *nexthop)
 {
-	struct interface *ifp;
 	route_map_result_t ret = RMAP_PERMITMATCH;
 	afi_t family;
 	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf;
+	uint32_t mtu = 0;
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
@@ -2137,19 +2168,28 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	else
 		family = 0;
 
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re %p, nexthop %pNHv", __func__, re, nexthop);
+
+	/*
+	 * If the kernel has sent us a NEW route, then
+	 * by golly gee whiz it's a good route.
+	 *
+	 * If its an already INSTALLED route we have already handled, then the
+	 * kernel route's nexthop might have became unreachable
+	 * and we have to handle that.
+	 */
+	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) &&
+	    (re->type == ZEBRA_ROUTE_KERNEL ||
+	     re->type == ZEBRA_ROUTE_SYSTEM)) {
+		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		goto skip_check;
+	}
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
-		/*
-		 * If the interface exists and its operative or its a kernel
-		 * route and interface is up, its active. We trust kernel routes
-		 * to be good.
-		 */
-		if (ifp
-		    && (if_is_operative(ifp)
-			|| (if_is_up(ifp)
-			    && (re->type == ZEBRA_ROUTE_KERNEL
-				|| re->type == ZEBRA_ROUTE_SYSTEM))))
+		if (nexthop_active(AFI_IP, nexthop, &rn->p, re->type,
+				   re->flags, &mtu))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2157,14 +2197,16 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (nexthop_active(AFI_IP, re, nexthop, rn))
+		if (nexthop_active(AFI_IP, nexthop, &rn->p, re->type,
+				   re->flags, &mtu))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		family = AFI_IP6;
-		if (nexthop_active(AFI_IP6, re, nexthop, rn))
+		if (nexthop_active(AFI_IP6, nexthop, &rn->p, re->type,
+				   re->flags, &mtu))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2173,19 +2215,12 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		/* RFC 5549, v4 prefix with v6 NH */
 		if (rn->p.family != AF_INET)
 			family = AFI_IP6;
-		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6)) {
-			ifp = if_lookup_by_index(nexthop->ifindex,
-						 nexthop->vrf_id);
-			if (ifp && if_is_operative(ifp))
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-			else
-				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		} else {
-			if (nexthop_active(AFI_IP6, re, nexthop, rn))
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-			else
-				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		}
+
+		if (nexthop_active(AFI_IP6, nexthop, &rn->p, re->type,
+				   re->flags, &mtu))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		else
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2194,11 +2229,25 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		break;
 	}
 
+skip_check:
+
 	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("        %s: Unable to find active nexthop",
 				   __func__);
 		return 0;
+	}
+
+	/* Capture recursive nexthop mtu.
+	 * TODO -- the code used to just reset the re's value to zero
+	 * for each nexthop, and then jam any resolving route's mtu value in,
+	 * whether or not that was zero, or lt/gt any existing value? The
+	 * way this is used appears to be as a floor value, so let's try
+	 * using it that way here.
+	 */
+	if (mtu > 0) {
+		if (re->nexthop_mtu == 0 || re->nexthop_mtu > mtu)
+			re->nexthop_mtu = mtu;
 	}
 
 	/* XXX: What exactly do those checks do? Do we support
@@ -2214,7 +2263,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	 * Possibly it may be better to use only the rib_table_info
 	 * in every case.
 	 */
-	if (!family) {
+	if (family == 0) {
 		struct rib_table_info *info;
 
 		info = srcdest_rnode_table_info(rn);
@@ -2291,6 +2340,9 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 	struct nexthop *nexthop;
 
 	nexthop = nhg->nexthop;
+
+	/* Init recursive nh mtu */
+	re->nexthop_mtu = 0;
 
 	/* Process nexthops one-by-one */
 	for ( ; nexthop; nexthop = nexthop->next) {
