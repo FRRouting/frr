@@ -3847,3 +3847,39 @@ void bgp_evpn_mh_finish(void)
 
 	XFREE(MTYPE_BGP_EVPN_MH_INFO, bgp_mh_info);
 }
+
+/* This function is called when disable-ead-evi-rx knob flaps */
+void bgp_evpn_switch_ead_evi_rx(void)
+{
+	struct bgp *bgp;
+	struct bgp_evpn_es *es;
+	struct bgp_evpn_es_evi *es_evi;
+	struct listnode *evi_node = NULL;
+	struct listnode *evi_next = NULL;
+	struct bgp_evpn_es_evi_vtep *vtep;
+	struct listnode *vtep_node = NULL;
+	struct listnode *vtep_next = NULL;
+
+	bgp = bgp_get_evpn();
+	if (!bgp)
+		return;
+
+	/*
+	 * Process all the remote es_evi_vteps and reevaluate if the es_evi_vtep
+	 * is active.
+	 */
+	RB_FOREACH(es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree) {
+		if (!CHECK_FLAG(es->flags, BGP_EVPNES_REMOTE))
+			continue;
+
+		for (ALL_LIST_ELEMENTS(es->es_evi_list, evi_node, evi_next,
+				       es_evi)) {
+			if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_REMOTE))
+				continue;
+
+			for (ALL_LIST_ELEMENTS(es_evi->es_evi_vtep_list,
+					       vtep_node, vtep_next, vtep))
+				bgp_evpn_es_evi_vtep_re_eval_active(bgp, vtep);
+		}
+	}
+}

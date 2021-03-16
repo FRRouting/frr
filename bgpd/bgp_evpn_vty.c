@@ -3767,7 +3767,12 @@ DEFPY (bgp_evpn_ead_evi_rx_disable,
        NO_STR
        "Activate PE on EAD-ES even if EAD-EVI is not received\n")
 {
-	bgp_mh_info->ead_evi_rx = no? true :false;
+	bool ead_evi_rx = no? true :false;
+
+	if (ead_evi_rx != bgp_mh_info->ead_evi_rx) {
+		bgp_mh_info->ead_evi_rx = ead_evi_rx;
+		bgp_evpn_switch_ead_evi_rx();
+	}
 	return CMD_SUCCESS;
 }
 
