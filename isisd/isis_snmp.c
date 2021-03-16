@@ -255,7 +255,7 @@
 #define ISIS_TRAP_LSP_ERROR 18
 
 /* Change this definition if number of traps changes */
-#define ISIS_TRAP_LAST_TRAP ISIS_TRAP_LSP_ERROR
+#define ISIS_TRAP_LAST_TRAP ISIS_TRAP_LSP_ERROR + 1
 
 #define ISIS_SNMP_TRAP_VAR 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0
 
@@ -944,7 +944,7 @@ static int isis_snmp_circuit_lookup_next(oid *oid_idx, size_t oid_idx_len,
 
 	start = 0;
 
-	if (oid_idx != NULL || oid_idx_len != 0) {
+	if (oid_idx != NULL && oid_idx_len != 0) {
 		if (oid_idx[0] > SNMP_CIRCUITS_MAX)
 			return 0;
 
@@ -1018,7 +1018,7 @@ static int isis_snmp_circuit_level_lookup_next(
 
 	start = 0;
 
-	if (oid_idx != NULL || oid_idx_len != 0) {
+	if (oid_idx != NULL && oid_idx_len != 0) {
 		if (oid_idx[0] > SNMP_CIRCUITS_MAX)
 			return 0;
 
@@ -2012,8 +2012,8 @@ static uint8_t *isis_snmp_find_circ(struct variable *v, oid *name,
 	oid *oid_idx;
 	size_t oid_idx_len;
 	struct isis_circuit *circuit;
-	uint64_t up_ticks;
-	uint64_t delta_ticks;
+	uint32_t up_ticks;
+	uint32_t delta_ticks;
 	uint32_t now_time;
 	int res;
 
@@ -2121,7 +2121,7 @@ static uint8_t *isis_snmp_find_circ(struct variable *v, oid *name,
 		if (circuit->last_uptime == 0)
 			return SNMP_INTEGER(0);
 
-		up_ticks = netsnmp_get_agent_uptime();
+		up_ticks = (uint32_t)netsnmp_get_agent_uptime();
 		now_time = isis_snmp_time();
 
 		if (circuit->last_uptime >= now_time)
@@ -2132,7 +2132,7 @@ static uint8_t *isis_snmp_find_circ(struct variable *v, oid *name,
 		if (up_ticks < delta_ticks)
 			return SNMP_INTEGER(up_ticks);
 
-		return SNMP_INTEGER((uint32_t)(up_ticks - delta_ticks));
+		return SNMP_INTEGER(up_ticks - delta_ticks);
 
 	case ISIS_CIRC_3WAYENABLED:
 		/* Not supported */
@@ -2434,8 +2434,8 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 	int res;
 	uint32_t val;
 	struct isis_adjacency *adj;
-	uint64_t up_ticks;
-	uint64_t delta_ticks;
+	uint32_t up_ticks;
+	uint32_t delta_ticks;
 	uint32_t now_time;
 
 	*write_method = NULL;
@@ -2561,7 +2561,7 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 		if (adj->flaps == 0)
 			return SNMP_INTEGER(0);
 
-		up_ticks = netsnmp_get_agent_uptime();
+		up_ticks = (uint32_t)netsnmp_get_agent_uptime();
 
 		now_time = isis_snmp_time();
 
@@ -2573,7 +2573,7 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 		if (up_ticks < delta_ticks)
 			return SNMP_INTEGER(up_ticks);
 
-		return SNMP_INTEGER((uint32_t)(up_ticks - delta_ticks));
+		return SNMP_INTEGER(up_ticks - delta_ticks);
 
 	default:
 		break;
