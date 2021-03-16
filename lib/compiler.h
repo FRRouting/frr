@@ -373,6 +373,10 @@ CPP_NOTICE("time to remove this CONFDATE block")
 #else /* !_FRR_ATTRIBUTE_PRINTFRR */
 #define PRINTFRR(a, b) __attribute__((format(printf, a, b)))
 
+/* frr-format plugin is C-only for now, so no point in doing these shenanigans
+ * for C++...  (also they can break some C++ stuff...)
+ */
+#ifndef __cplusplus
 /* these should be typedefs, but might also be #define */
 #ifdef uint64_t
 #undef uint64_t
@@ -400,6 +404,8 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #define PRIu64 "llu"
 #define PRId64 "lld"
 #define PRIx64 "llx"
+
+#endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
 
 #ifdef __cplusplus
