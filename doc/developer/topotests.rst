@@ -388,11 +388,19 @@ This is the recommended test writing routine:
 - Format the new code using `black <https://github.com/psf/black>`_
 - Create a Pull Request
 
-.. Note::
+Some things to keep in mind:
 
-   BGP tests MUST use generous convergence timeouts - you must ensure
-   that any test involving BGP uses a convergence timeout of at least
-   130 seconds.
+- BGP tests MUST use generous convergence timeouts - you must ensure
+  that any test involving BGP uses a convergence timeout of at least
+  130 seconds.
+- Topotests are run on a range of Linux versions: if your test
+  requires some OS-specific capability (like mpls support, or vrf
+  support), there are test functions available in the libraries that
+  will help you determine whether your test should run or be skipped.
+- Avoid including unstable data in your test: don't rely on link-local
+  addresses or ifindex values, for example, because these can change
+  from run to run.
+
 
 Topotest File Hierarchy
 """""""""""""""""""""""
@@ -795,7 +803,7 @@ Requirements:
 - Use `black <https://github.com/psf/black>`_ code formatter before creating
   a pull request. This ensures we have a unified code style.
 - Mark test modules with pytest markers depending on the daemons used during the
-  tests (s. Markers)
+  tests (see :ref:`topotests-markers`)
 
 Tips:
 
