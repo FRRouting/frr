@@ -40,6 +40,8 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.topotest import iproute2_is_vrf_capable
+from lib.common_config import required_linux_kernel_version
 
 from mininet.topo import Topo
 
@@ -193,17 +195,20 @@ def test_isis_route_installation():
 
 
 def test_isis_linux_route_installation():
-
-    dist = platform.dist()
-
-    if dist[1] == "16.04":
-        pytest.skip("Kernel not supported for vrf")
-
     "Check whether all expected routes are present and installed in the OS"
     tgen = get_topogen()
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("4.15")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
+    # iproute2 needs to support VRFs for this suite to run.
+    if not iproute2_is_vrf_capable():
+        pytest.skip("Installed iproute2 version does not support VRFs")
 
     logger.info("Checking routers for installed ISIS vrf routes in OS")
     # Check for routes in `ip route show vrf {}-cust1`
@@ -236,17 +241,20 @@ def test_isis_route6_installation():
 
 
 def test_isis_linux_route6_installation():
-
-    dist = platform.dist()
-
-    if dist[1] == "16.04":
-        pytest.skip("Kernel not supported for vrf")
-
     "Check whether all expected routes are present and installed in the OS"
     tgen = get_topogen()
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("4.15")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
+    # iproute2 needs to support VRFs for this suite to run.
+    if not iproute2_is_vrf_capable():
+        pytest.skip("Installed iproute2 version does not support VRFs")
 
     logger.info("Checking routers for installed ISIS vrf IPv6 routes in OS")
     # Check for routes in `ip -6 route show vrf {}-cust1`
