@@ -236,7 +236,6 @@ def test_r1_scalar_snmp():
 
 
 circtable_test = {
-    "isisCircIfIndex": ["2", "3", "1"],
     "isisCircAdminState": ["on(1)", "on(1)", "on(1)"],
     "isisCircExistState": ["active(1)", "active(1)", "active(1)"],
     "isisCircType": ["broadcast(1)", "ptToPt(2)", "staticIn(3)"],
