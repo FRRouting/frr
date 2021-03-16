@@ -101,26 +101,23 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 {
 	struct nfgenmsg *nf;
 	struct rtattr *rta;
-	struct zbuf rtapl, pktpl;
-	struct interface *ifp;
+	struct zbuf rtapl;
 	uint32_t *out_ndx = NULL;
 	afi_t afi;
 	struct mcast_ctx ctx;
-
-	debugf(NHRP_DEBUG_COMMON, "Inside %s\n", __func__);
 
 	nf = znl_pull(zb, sizeof(*nf));
 	if (!nf)
 		return;
 
-	memset(&pktpl, 0, sizeof(pktpl));
+	ctx.pkt = NULL;
 	while ((rta = znl_rta_pull(zb, &rtapl)) != NULL) {
 		switch (rta->rta_type) {
 		case NFULA_IFINDEX_OUTDEV:
 			out_ndx = znl_pull(&rtapl, sizeof(*out_ndx));
 			break;
 		case NFULA_PAYLOAD:
-			pktpl = rtapl;
+			ctx.pkt = &rtapl;
 			break;
 			/* NFULA_HWHDR exists and is supposed to contain source
 			 * hardware address. However, for ip_gre it seems to be
@@ -130,21 +127,18 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 		}
 	}
 
-	if (!out_ndx || !zbuf_used(&pktpl))
+	if (!out_ndx || !ctx.pkt)
 		return;
 
-	ifp = if_lookup_by_index(htonl(*out_ndx), VRF_DEFAULT);
-	if (!ifp)
+	ctx.ifp = if_lookup_by_index(htonl(*out_ndx), VRF_DEFAULT);
+	if (!ctx.ifp)
 		return;
 
-	debugf(NHRP_DEBUG_COMMON, "Outgoing interface = %s\n", ifp->name);
-
-	ctx = (struct mcast_ctx){
-		.ifp = ifp, .pkt = &pktpl,
-	};
+	debugf(NHRP_DEBUG_COMMON, "Received multicast packet on %s len %zu\n",
+		   ctx.ifp->name, zbuf_used(ctx.pkt));
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
-		nhrp_multicast_foreach(ifp, afi, nhrp_multicast_forward,
+		nhrp_multicast_foreach(ctx.ifp, afi, nhrp_multicast_forward,
 				       (void *)&ctx);
 	}
 }
