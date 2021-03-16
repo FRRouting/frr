@@ -698,6 +698,7 @@ fi
 %endif
 %if %{with_pathd}
     %{_sbindir}/pathd
+    %{_libdir}/frr/modules/pathd_pcep.so
 %endif
 %{_libdir}/libfrr.so*
 %{_libdir}/libfrrcares*

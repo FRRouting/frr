@@ -29,6 +29,7 @@
 /libtool
 /libtool.orig
 /changelog-auto
+/test-driver
 
 /Makefile
 /Makefile.in

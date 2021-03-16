@@ -1723,11 +1723,9 @@ fi
 
 AS_IF([test "$enable_pathd" != "no"], [
   AC_DEFINE([HAVE_PATHD], [1], [pathd])
-])
-
-AS_IF([test "$enable_pcep" != "no"], [
   AC_DEFINE([HAVE_PATHD_PCEP], [1], [pathd-pcep])
 ])
+
 
 if test "$ac_cv_lib_json_c_json_object_get" = "no" -a "$BFDD" = "bfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
@@ -2550,15 +2548,14 @@ AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 
 dnl PCEP plugin
-AM_CONDITIONAL([HAVE_PATHD_PCEP], [test "$enable_pcep" = "yes"])
-AS_IF([test "$enable_pcep" = "yes"], [
-  AC_CHECK_LIB([pcep_pcc], [initialize_pcc], [
-    PATHD_PCEP_LIBS="-lpcep_pcc"
-  ],[
-    AC_MSG_ERROR([PCEP library libpcep_pcc not found])
-  ])
-  AC_SUBST([PATHD_PCEP_LIBS])
-])
+AS_IF([test "$enable_pathd" != "no"], [
+       AC_SUBST([PATHD_PCEP_LIBS], ["pceplib/libpcep_pcc.la"])
+       AC_SUBST([PATHD_PCEP_INCL], ["-I./pceplib "])
+       ])
+AC_CHECK_LIB([cunit], [CU_initialize_registry], [pcep_cunit=yes],[pcep_cunit=no])
+AM_CONDITIONAL([PATHD_PCEP_TEST], [test "x${pcep_cunit}" = xyes])
+AC_CHECK_PROG(VALGRIND_CHECK, valgrind, yes)
+AM_CONDITIONAL([HAVE_VALGRIND_PCEP], [test "$VALGRIND_CHECK" = "yes"])
 
 dnl daemons
 AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
@@ -2583,6 +2580,7 @@ AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
 AM_CONDITIONAL([FABRICD], [test "$enable_fabricd" != "no"])
 AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
+AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"

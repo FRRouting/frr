@@ -55,7 +55,9 @@ enum pcep_ctrl_event_type {
 	EV_SYNC_PATH,
 	EV_SYNC_DONE,
 	EV_PCEPLIB_EVENT,
-	EV_RESET_PCC_SESSION
+	EV_RESET_PCC_SESSION,
+	EV_SEND_REPORT,
+	EV_PATH_REFINED
 };
 
 struct pcep_ctrl_event_data {
@@ -73,18 +75,20 @@ struct pcep_main_event_data {
 	void *payload;
 };
 
+struct pcep_refine_path_event_data {
+	struct ctrl_state *ctrl_state;
+	int pcc_id;
+	pcep_refine_callback_t continue_lsp_update_handler;
+	struct path *path;
+	void *payload;
+};
+
 /* Synchronous call arguments */
 
 struct get_counters_args {
 	struct ctrl_state *ctrl_state;
 	int pcc_id;
 	struct counters_group *counters;
-};
-
-struct send_report_args {
-	struct ctrl_state *ctrl_state;
-	int pcc_id;
-	struct path *path;
 };
 
 struct get_pcep_session_args {
@@ -95,13 +99,10 @@ struct get_pcep_session_args {
 
 /* Internal Functions Called From Main Thread */
 static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
+static int pcep_refine_path_event_cb(struct thread *thread);
 
 /* Internal Functions Called From Controller Thread */
 static int pcep_thread_finish_event_handler(struct thread *thread);
-static int pcep_thread_get_counters_callback(struct thread *t);
-static int pcep_thread_send_report_callback(struct thread *t);
-static int pcep_thread_get_pcep_session_callback(struct thread *t);
-static int pcep_thread_get_pcc_info_callback(struct thread *t);
 
 /* Controller Thread Timer Handler */
 static int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
@@ -148,6 +149,9 @@ static int pcep_thread_event_sync_done(struct ctrl_state *ctrl_state,
 static int pcep_thread_event_pathd_event(struct ctrl_state *ctrl_state,
 					 enum pcep_pathd_event_type type,
 					 struct path *path);
+static void
+pcep_thread_path_refined_event(struct ctrl_state *ctrl_state,
+			       struct pcep_refine_path_event_data *data);
 
 /* Main Thread Event Handler */
 static int send_to_main(struct ctrl_state *ctrl_state, int pcc_id,
@@ -280,47 +284,49 @@ struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 					      int pcc_id)
 {
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	struct get_counters_args args = {
-		.ctrl_state = ctrl_state, .pcc_id = pcc_id, .counters = NULL};
-	thread_execute(ctrl_state->self, pcep_thread_get_counters_callback,
-		       &args, 0);
-	return args.counters;
+	struct counters_group *counters = NULL;
+	struct pcc_state *pcc_state;
+	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
+	if (pcc_state) {
+		counters = pcep_lib_copy_counters(pcc_state->sess);
+	}
+	return counters;
 }
 
 pcep_session *pcep_ctrl_get_pcep_session(struct frr_pthread *fpt, int pcc_id)
 {
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	struct get_pcep_session_args args = {.ctrl_state = ctrl_state,
-					     .pcc_id = pcc_id,
-					     .pcep_session = NULL};
-	thread_execute(ctrl_state->self, pcep_thread_get_pcep_session_callback,
-		       &args, 0);
-	return args.pcep_session;
+	struct pcc_state *pcc_state;
+	pcep_session *session = NULL;
+
+	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
+	if (pcc_state) {
+		session = pcep_lib_copy_pcep_session(pcc_state->sess);
+	}
+	return session;
 }
 
 struct pcep_pcc_info *pcep_ctrl_get_pcc_info(struct frr_pthread *fpt,
 					     const char *pce_name)
 {
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	struct pcep_pcc_info *args = XCALLOC(MTYPE_PCEP, sizeof(*args));
-	args->ctrl_state = ctrl_state;
-	strncpy(args->pce_name, pce_name, sizeof(args->pce_name));
-	thread_execute(ctrl_state->self, pcep_thread_get_pcc_info_callback,
-		       args, 0);
+	struct pcep_pcc_info *pcc_info = XCALLOC(MTYPE_PCEP, sizeof(*pcc_info));
+	if( pcc_info && ctrl_state){
+		strlcpy(pcc_info->pce_name, pce_name, sizeof(pcc_info->pce_name));
+		pcep_pcc_copy_pcc_info(ctrl_state->pcc, pcc_info);
+	}
 
-	return args;
+	return pcc_info;
 }
 
-void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
-			   struct path *path)
+int pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
+			  struct path *path, bool is_stable)
 {
-	/* Sends a report stynchronously */
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	struct send_report_args args = {
-		.ctrl_state = ctrl_state, .pcc_id = pcc_id, .path = path};
-	thread_execute(ctrl_state->self, pcep_thread_send_report_callback,
-		       &args, 0);
+	return send_to_thread(ctrl_state, pcc_id, EV_SEND_REPORT, is_stable,
+			      path);
 }
+
 
 /* ------------ Internal Functions Called from Main Thread ------------ */
 
@@ -331,6 +337,20 @@ int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res)
 	pthread_join(fpt->thread, res);
 
 	return 0;
+}
+
+int pcep_refine_path_event_cb(struct thread *thread)
+{
+	struct pcep_refine_path_event_data *data = THREAD_ARG(thread);
+	assert(data != NULL);
+	struct ctrl_state *ctrl_state = data->ctrl_state;
+	struct path *path = data->path;
+	assert(path != NULL);
+	int pcc_id = data->pcc_id;
+
+
+	path_pcep_refine_path(path);
+	return send_to_thread(ctrl_state, pcc_id, EV_PATH_REFINED, 0, data);
 }
 
 
@@ -442,6 +462,41 @@ int pcep_thread_pcc_count(struct ctrl_state *ctrl_state)
 	return ctrl_state->pcc_count;
 }
 
+int pcep_thread_refine_path(struct ctrl_state *ctrl_state, int pcc_id,
+			    pcep_refine_callback_t cb, struct path *path,
+			    void *payload)
+{
+	struct pcep_refine_path_event_data *data;
+
+	data = XCALLOC(MTYPE_PCEP, sizeof(*data));
+	data->ctrl_state = ctrl_state;
+	data->path = path;
+	data->pcc_id = pcc_id;
+	data->continue_lsp_update_handler = cb;
+	data->payload = payload;
+
+	thread_add_event(ctrl_state->main, pcep_refine_path_event_cb,
+			 (void *)data, 0, NULL);
+	return 0;
+}
+
+void pcep_thread_path_refined_event(struct ctrl_state *ctrl_state,
+				    struct pcep_refine_path_event_data *data)
+{
+	assert(data != NULL);
+	int pcc_id = data->pcc_id;
+	pcep_refine_callback_t continue_lsp_update_handler = data->continue_lsp_update_handler;
+	assert(continue_lsp_update_handler != NULL);
+	struct path *path = data->path;
+	void *payload = data->payload;
+	struct pcc_state *pcc_state = NULL;
+	XFREE(MTYPE_PCEP, data);
+
+	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
+	continue_lsp_update_handler(ctrl_state, pcc_state, path, payload);
+}
+
+
 /* ------------ Internal Functions Called From Controller Thread ------------ */
 
 int pcep_thread_finish_event_handler(struct thread *thread)
@@ -464,78 +519,6 @@ int pcep_thread_finish_event_handler(struct thread *thread)
 	fpt->data = NULL;
 
 	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
-	return 0;
-}
-
-int pcep_thread_get_counters_callback(struct thread *t)
-{
-	struct get_counters_args *args = THREAD_ARG(t);
-	assert(args != NULL);
-	struct ctrl_state *ctrl_state = args->ctrl_state;
-	assert(ctrl_state != NULL);
-	struct pcc_state *pcc_state;
-
-	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, args->pcc_id);
-	if (pcc_state) {
-		args->counters = pcep_lib_copy_counters(pcc_state->sess);
-	} else {
-		args->counters = NULL;
-	}
-
-	return 0;
-}
-
-int pcep_thread_send_report_callback(struct thread *t)
-{
-	struct send_report_args *args = THREAD_ARG(t);
-	assert(args != NULL);
-	struct ctrl_state *ctrl_state = args->ctrl_state;
-	assert(ctrl_state != NULL);
-	struct pcc_state *pcc_state;
-
-	if (args->pcc_id == 0) {
-		for (int i = 0; i < MAX_PCC; i++) {
-			if (ctrl_state->pcc[i]) {
-				pcep_pcc_send_report(ctrl_state,
-						     ctrl_state->pcc[i],
-						     args->path);
-			}
-		}
-	} else {
-		pcc_state =
-			pcep_pcc_get_pcc_by_id(ctrl_state->pcc, args->pcc_id);
-		pcep_pcc_send_report(ctrl_state, pcc_state, args->path);
-	}
-
-	return 0;
-}
-
-int pcep_thread_get_pcep_session_callback(struct thread *t)
-{
-	struct get_pcep_session_args *args = THREAD_ARG(t);
-	assert(args != NULL);
-	struct ctrl_state *ctrl_state = args->ctrl_state;
-	assert(ctrl_state != NULL);
-	struct pcc_state *pcc_state;
-
-	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, args->pcc_id);
-	if (pcc_state) {
-		args->pcep_session =
-			pcep_lib_copy_pcep_session(pcc_state->sess);
-	}
-
-	return 0;
-}
-
-int pcep_thread_get_pcc_info_callback(struct thread *t)
-{
-	struct pcep_pcc_info *args = THREAD_ARG(t);
-	assert(args != NULL);
-	struct ctrl_state *ctrl_state = args->ctrl_state;
-	assert(ctrl_state != NULL);
-
-	pcep_pcc_copy_pcc_info(ctrl_state->pcc, args);
-
 	return 0;
 }
 
@@ -752,11 +735,14 @@ int pcep_thread_event_handler(struct thread *thread)
 	/* Possible sub-type values */
 	enum pcep_pathd_event_type path_event_type = PCEP_PATH_UNDEFINED;
 
-	/* Possible payload values */
+	/* Possible payload values, maybe an union would be better... */
 	struct path *path = NULL;
 	struct pcc_opts *pcc_opts = NULL;
 	struct pce_opts *pce_opts = NULL;
 	struct pcc_state *pcc_state = NULL;
+	struct pcep_refine_path_event_data *refine_data = NULL;
+
+	struct path *path_copy = NULL;
 
 	switch (type) {
 	case EV_UPDATE_PCC_OPTS:
@@ -807,6 +793,30 @@ int pcep_thread_event_handler(struct thread *thread)
 				  "Cannot reset state for PCE: %s",
 				  (const char *)payload);
 		}
+		break;
+	case EV_SEND_REPORT:
+		assert(payload != NULL);
+		path = (struct path *)payload;
+		if (pcc_id == 0) {
+			for (int i = 0; i < MAX_PCC; i++) {
+				if (ctrl_state->pcc[i]) {
+					path_copy = pcep_copy_path(path);
+					pcep_pcc_send_report(
+						ctrl_state, ctrl_state->pcc[i],
+						path_copy, (bool)sub_type);
+				}
+			}
+		} else {
+			pcc_state =
+				pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
+			pcep_pcc_send_report(ctrl_state, pcc_state, path,
+					     (bool)sub_type);
+		}
+		break;
+	case EV_PATH_REFINED:
+		assert(payload != NULL);
+		refine_data = (struct pcep_refine_path_event_data *)payload;
+		pcep_thread_path_refined_event(ctrl_state, refine_data);
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
@@ -984,6 +994,7 @@ int pcep_main_event_handler(struct thread *thread)
 
 
 /* ------------ Helper functions ------------ */
+
 void set_ctrl_state(struct frr_pthread *fpt, struct ctrl_state *ctrl_state)
 {
 	assert(fpt != NULL);

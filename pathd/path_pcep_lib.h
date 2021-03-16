@@ -20,7 +20,7 @@
 #define _PATH_PCEP_LIB_H_
 
 #include <stdbool.h>
-#include <pcep_pcc_api.h>
+#include "pceplib/pcep_pcc_api.h"
 #include "frr_pthread.h"
 #include "pathd/path_pcep.h"
 

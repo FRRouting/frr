@@ -21,16 +21,21 @@
 
 #include "pathd/path_pcep.h"
 
+struct ctrl_state;
+struct pcc_state;
 
 enum pcep_main_event_type {
 	PCEP_MAIN_EVENT_UNDEFINED = 0,
 	PCEP_MAIN_EVENT_START_SYNC,
 	PCEP_MAIN_EVENT_UPDATE_CANDIDATE,
-	PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP
+	PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP,
 };
 
 typedef int (*pcep_main_event_handler_t)(enum pcep_main_event_type type,
 					 int pcc_id, void *payload);
+typedef void (*pcep_refine_callback_t)(struct ctrl_state *ctrl_state,
+				       struct pcc_state *pcc_state,
+				       struct path *path, void *payload);
 
 enum pcep_pathd_event_type {
 	PCEP_PATH_UNDEFINED = 0,
@@ -124,10 +129,13 @@ pcep_session *pcep_ctrl_get_pcep_session(struct frr_pthread *fpt, int pcc_id);
 struct pcep_pcc_info *pcep_ctrl_get_pcc_info(struct frr_pthread *fpt,
 					     const char *pce_name);
 
-/* Synchronously send a report, the caller is responsible to free the path,
- * If `pcc_id` is `0` the report is sent by all PCCs */
-void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
-			   struct path *path);
+/* Asynchronously send a report. The caller is giving away the path structure,
+ * it shouldn't be allocated on the stack. If `pcc_id` is `0` the report is
+ * sent by all PCCs.  The parameter is_stable is used to hint wether the status
+ * will soon change, this is used to ensure all report updates are sent even
+ * when missing status update events */
+int pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
+			  struct path *path, bool is_stable);
 
 /* Functions called from the controller thread */
 void pcep_thread_start_sync(struct ctrl_state *ctrl_state, int pcc_id);
@@ -162,5 +170,9 @@ int pcep_thread_send_ctrl_event(void *fpt, void *payload,
 				pcep_ctrl_thread_callback cb);
 int pcep_thread_pcep_event(struct thread *thread);
 int pcep_thread_pcc_count(struct ctrl_state *ctrl_state);
+/* Called by the PCC to refine a path in the main thread */
+int pcep_thread_refine_path(struct ctrl_state *ctrl_state, int pcc_id,
+			    pcep_refine_callback_t cb, struct path *path,
+			    void *payload);
 
 #endif // _PATH_PCEP_CONTROLLER_H_

@@ -113,13 +113,18 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 				  struct path *path);
 void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state,
-			      enum pcep_ctrl_timer_type type, void *param);
+			      enum pcep_ctrl_timeout_type type, void *param);
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state, struct path *path);
 void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state);
+/* Send a report explicitly. When doing so the PCC may send multiple reports
+ * due to expectations from vendors for the first report to be with a DOWN
+ * status. The parameter is_stable is used for that purpose as a hint wheter
+ * to expect an update for the report */
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
-			  struct pcc_state *pcc_state, struct path *path);
+			  struct pcc_state *pcc_state, struct path *path,
+			  bool is_stable);
 int pcep_pcc_multi_pce_sync_path(struct ctrl_state *ctrl_state, int pcc_id,
 				 struct pcc_state **pcc_state_list);
 int pcep_pcc_multi_pce_remove_pcc(struct ctrl_state *ctrl_state,

@@ -18,8 +18,8 @@
  */
 
 #include <zebra.h>
-#include <pcep_utils_counters.h>
-#include <pcep_session_logic.h>
+#include "pceplib/pcep_utils_counters.h"
+#include "pceplib/pcep_session_logic.h"
 
 #include "log.h"
 #include "command.h"
@@ -321,8 +321,9 @@ pcep_cli_merge_pcep_pce_config_options(struct pce_opts_cli *pce_opts_cli)
 				default_pcep_config_group_opts_g.tcp_md5_auth;
 		}
 	}
-	strncpy(pce_opts_cli->pce_opts.config_opts.tcp_md5_auth,
-		tcp_md5_auth_str, TCP_MD5SIG_MAXKEYLEN);
+	strlcpy(pce_opts_cli->pce_opts.config_opts.tcp_md5_auth,
+		tcp_md5_auth_str,
+		sizeof(pce_opts_cli->pce_opts.config_opts.tcp_md5_auth));
 
 	struct ipaddr *source_ip =
 		&pce_opts_cli->pce_config_group_opts.source_ip;
@@ -525,8 +526,9 @@ static int path_pcep_cli_show_srte_pcep_counters(struct vty *vty)
 	tm_info = localtime(&group->start_time);
 	strftime(tm_buffer, sizeof(tm_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
 
-	vty_out(vty, "PCEP counters since %s (%luh %lum %lus):\n", tm_buffer,
-		diff_time / 3600, (diff_time / 60) % 60, diff_time % 60);
+	vty_out(vty, "PCEP counters since %s (%uh %um %us):\n", tm_buffer,
+		(uint32_t)(diff_time / 3600), (uint32_t)((diff_time / 60) % 60),
+		(uint32_t)(diff_time % 60));
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
@@ -815,7 +817,8 @@ static int path_pcep_cli_peer_tcp_md5_auth(struct vty *vty,
 		return CMD_ERR_NO_MATCH;
 	}
 
-	strncpy(pce_config->tcp_md5_auth, tcp_md5_auth, TCP_MD5SIG_MAXKEYLEN);
+	strlcpy(pce_config->tcp_md5_auth, tcp_md5_auth,
+		sizeof(pce_config->tcp_md5_auth));
 
 	return CMD_SUCCESS;
 }
@@ -1220,8 +1223,9 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 			localtime_r(&current_time, &lt);
 			gmtime_r(&session->time_connected, &lt);
 			vty_out(vty,
-				" Connected for %ld seconds, since %d-%02d-%02d %02d:%02d:%02d UTC\n",
-				(current_time - session->time_connected),
+				" Connected for %u seconds, since %d-%02d-%02d %02d:%02d:%02d UTC\n",
+				(uint32_t)(current_time
+					   - session->time_connected),
 				lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday,
 				lt.tm_hour, lt.tm_min, lt.tm_sec);
 		}
