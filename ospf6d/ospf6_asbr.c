@@ -1106,7 +1106,7 @@ void ospf6_asbr_remove_externals_from_area(struct ospf6_area *oa)
 	struct listnode *node, *nnode;
 	struct ospf6_area *area;
 	struct ospf6 *ospf6 = oa->ospf6;
-
+	const struct route_node *iterend;
 
 	/* skip if router is in other non-stub areas */
 	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area))
@@ -1114,9 +1114,12 @@ void ospf6_asbr_remove_externals_from_area(struct ospf6_area *oa)
 			return;
 
 	/* if router is only in a stub area then purge AS-External LSAs */
-	for (ALL_LSDB(oa->ospf6->lsdb, lsa, lsanext)) {
+	iterend = ospf6_lsdb_head(ospf6->lsdb, 0, 0, 0, &lsa);
+	while (lsa != NULL) {
+		lsanext = ospf6_lsdb_next(iterend, lsa);
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL)
 			ospf6_lsdb_remove(lsa, ospf6->lsdb);
+		lsa = lsanext;
 	}
 }
 
