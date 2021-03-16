@@ -311,17 +311,6 @@ void zlog_thread_info(int log_level)
 		zlog(log_level, "Current thread not known/applicable");
 }
 
-void _zlog_assert_failed(const char *assertion, const char *file,
-			 unsigned int line, const char *function)
-{
-	zlog(LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
-	     assertion, file, line, (function ? function : "?"));
-	zlog_backtrace(LOG_CRIT);
-	zlog_thread_info(LOG_CRIT);
-	log_memstats(stderr, "log");
-	abort();
-}
-
 void memory_oom(size_t size, const char *name)
 {
 	zlog(LOG_CRIT,

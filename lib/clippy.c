@@ -115,15 +115,6 @@ void vzlogx(const struct xref_logmsg *xref, int prio,
 	fputs("\n", stderr);
 }
 
-void _zlog_assert_failed(const char *assertion, const char *file,
-			 unsigned int line, const char *function)
-{
-	fprintf(stderr,
-		"Assertion `%s' failed in file %s, line %u, function %s",
-		assertion, file, line, (function ? function : "?"));
-	abort();
-}
-
 void memory_oom(size_t size, const char *name)
 {
 	abort();
