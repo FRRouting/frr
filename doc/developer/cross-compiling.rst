@@ -189,7 +189,7 @@ later on to FRR. One may get burned when compiling gRPC if the ``protoc``
 version on the build machine differs from the version of ``protoc`` being linked
 to during a gRPC build. The error messages from this defect look like:
 
-.. code-block:: terminal
+.. code-block:: shell
 
    gens/src/proto/grpc/channelz/channelz.pb.h: In member function ‘void grpc::channelz::v1::ServerRef::set_name(const char*, size_t)’:
    gens/src/proto/grpc/channelz/channelz.pb.h:9127:64: error: ‘EmptyDefault’ is not a member of ‘google::protobuf::internal::ArenaStringPtr’
