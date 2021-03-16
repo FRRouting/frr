@@ -724,7 +724,7 @@ def verify_ospf6_neighbor(tgen, topo):
                     nh_state = neighbor["state"]
                     break
             else:
-                return "[DUT: {}] OSPF6 peer {} missing".format(router, data_rid)
+                return "[DUT: {}] OSPF6 peer {} missing".format(router, ospf_nbr_rid)
 
             if nh_state == "Full":
                 no_of_peer += 1
