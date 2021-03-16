@@ -22,8 +22,6 @@
 #ifndef _ZEBRA_LOG_H
 #define _ZEBRA_LOG_H
 
-#include "zassert.h"
-
 #include <syslog.h>
 #include <stdint.h>
 #include <stdbool.h>

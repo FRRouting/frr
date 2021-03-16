@@ -206,7 +206,7 @@
 #define __attribute__(x)
 #endif /* !__GNUC__ || VTYSH_EXTRACT_PL */
 
-#include "zassert.h"
+#include <assert.h>
 
 /*
  * Add explicit static cast only when using a C++ compiler.
