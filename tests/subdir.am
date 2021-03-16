@@ -66,6 +66,7 @@ clippy_scan += \
 
 check_PROGRAMS = \
 	tests/lib/cxxcompat \
+	tests/lib/test_assert \
 	tests/lib/test_atomlist \
 	tests/lib/test_buffer \
 	tests/lib/test_checksum \
@@ -249,6 +250,10 @@ tests_lib_northbound_test_oper_data_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_northbound_test_oper_data_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_northbound_test_oper_data_SOURCES = tests/lib/northbound/test_oper_data.c
 nodist_tests_lib_northbound_test_oper_data_SOURCES = yang/frr-test-module.yang.c
+tests_lib_test_assert_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_assert_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_assert_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_assert_SOURCES = tests/lib/test_assert.c
 tests_lib_test_atomlist_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_atomlist_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_atomlist_LDADD = $(ALL_TESTS_LDADD)
@@ -404,6 +409,7 @@ EXTRA_DIST += \
 	tests/lib/northbound/test_oper_data.in \
 	tests/lib/northbound/test_oper_data.py \
 	tests/lib/northbound/test_oper_data.refout \
+	tests/lib/test_assert.py \
 	tests/lib/test_atomlist.py \
 	tests/lib/test_nexthop_iter.py \
 	tests/lib/test_ntop.py \

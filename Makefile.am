@@ -11,10 +11,18 @@ AM_CFLAGS = \
 	$(SAN_FLAGS) \
 	$(WERROR) \
 	# end
-AM_CPPFLAGS = \
+
+# CPPFLAGS_BASE does not contain the include path for overriding assert.h,
+# therefore should be used in tools that do *not* link libfrr or do not want
+# assert() overridden
+CPPFLAGS_BASE = \
 	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
 	-I$(top_builddir) \
 	$(LUA_INCLUDE) \
+	# end
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/lib/assert \
+	$(CPPFLAGS_BASE) \
 	# end
 AM_LDFLAGS = \
 	-export-dynamic \
