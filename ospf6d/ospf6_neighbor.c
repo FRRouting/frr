@@ -145,6 +145,8 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 
 	THREAD_OFF(on->inactivity_timer);
 
+	THREAD_OFF(on->last_dbdesc_release_timer);
+
 	THREAD_OFF(on->thread_send_dbdesc);
 	THREAD_OFF(on->thread_send_lsreq);
 	THREAD_OFF(on->thread_send_lsupdate);
@@ -350,6 +352,16 @@ int negotiation_done(struct thread *thread)
 	return 0;
 }
 
+static int ospf6_neighbor_last_dbdesc_release(struct thread *thread)
+{
+	struct ospf6_neighbor *on = THREAD_ARG(thread);
+
+	assert(on);
+	memset(&on->dbdesc_last, 0, sizeof(struct ospf6_dbdesc));
+
+	return 0;
+}
+
 int exchange_done(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
@@ -366,10 +378,13 @@ int exchange_done(struct thread *thread)
 	THREAD_OFF(on->thread_send_dbdesc);
 	ospf6_lsdb_remove_all(on->dbdesc_list);
 
-	/* XXX
-	  thread_add_timer (master, ospf6_neighbor_last_dbdesc_release, on,
-			    on->ospf6_if->dead_interval);
-	*/
+	/* RFC 2328 (10.8): Release the last dbdesc after dead_interval */
+	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT)) {
+		THREAD_OFF(on->last_dbdesc_release_timer);
+		thread_add_timer(master, ospf6_neighbor_last_dbdesc_release, on,
+				 on->ospf6_if->dead_interval,
+				 &on->last_dbdesc_release_timer);
+	}
 
 	if (on->request_list->count == 0)
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_FULL, on,

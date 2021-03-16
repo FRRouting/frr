@@ -89,6 +89,9 @@ struct ospf6_neighbor {
 	/* Inactivity timer */
 	struct thread *inactivity_timer;
 
+	/* Timer to release the last dbdesc packet */
+	struct thread *last_dbdesc_release_timer;
+
 	/* Thread for sending message */
 	struct thread *thread_send_dbdesc;
 	struct thread *thread_send_lsreq;
