@@ -50,7 +50,6 @@
 #include "lib/thread.h"           /* for thread (ptr only), THREAD_ARG, ... */
 #include "lib/vrf.h"              /* for vrf_info_lookup, VRF_DEFAULT */
 #include "lib/vty.h"              /* for vty_out, vty (ptr only) */
-#include "lib/zassert.h"          /* for assert */
 #include "lib/zclient.h"          /* for zmsghdr, ZEBRA_HEADER_SIZE, ZEBRA... */
 #include "lib/frr_pthread.h"      /* for frr_pthread_new, frr_pthread_stop... */
 #include "lib/frratomic.h"        /* for atomic_load_explicit, atomic_stor... */

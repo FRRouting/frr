@@ -106,12 +106,7 @@ int main(int argc, char **argv)
 /* and now for the ugly part... provide simplified logging functions so we
  * don't need to link libzebra (which would be a circular build dep) */
 
-#ifdef __ASSERT_FUNCTION
-#undef __ASSERT_FUNCTION
-#endif
-
 #include "log.h"
-#include "zassert.h"
 
 void vzlogx(const struct xref_logmsg *xref, int prio,
 	    const char *format, va_list args)

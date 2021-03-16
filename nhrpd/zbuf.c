@@ -14,7 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include "zassert.h"
+#include <assert.h>
 #include "zbuf.h"
 #include "memory.h"
 #include "nhrpd.h"

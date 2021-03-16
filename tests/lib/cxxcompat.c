@@ -104,7 +104,6 @@
 #include "lib/yang.h"
 #include "lib/yang_translator.h"
 #include "lib/yang_wrappers.h"
-#include "lib/zassert.h"
 #include "lib/zclient.h"
 
 PREDECL_RBTREE_UNIQ(footree);

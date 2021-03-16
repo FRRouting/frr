@@ -278,7 +278,6 @@ pkginclude_HEADERS += \
 	lib/yang.h \
 	lib/yang_translator.h \
 	lib/yang_wrappers.h \
-	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/zlog.h \
