@@ -830,7 +830,6 @@ DEFUN (no_ospf6_interface_area,
 		UNSET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
 		ospf6_abr_disable_area(oa);
 	}
-	ospf6_interface_delete(oi);
 
 	return CMD_SUCCESS;
 }
