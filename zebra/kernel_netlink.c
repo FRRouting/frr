@@ -383,7 +383,7 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		 * it to be sent up to us
 		 */
 		flog_err(EC_ZEBRA_UNKNOWN_NLMSG,
-			 "Unknown netlink nlmsg_type %s(%d) vrf %u\n",
+			 "Unknown netlink nlmsg_type %s(%d) vrf %u",
 			 nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_type,
 			 ns_id);
 		break;
@@ -485,7 +485,7 @@ static void netlink_install_filter(int sock, __u32 pid, __u32 dplane_pid)
 
 	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog))
 	    < 0)
-		flog_err_sys(EC_LIB_SOCKET, "Can't install socket filter: %s\n",
+		flog_err_sys(EC_LIB_SOCKET, "Can't install socket filter: %s",
 			     safe_strerror(errno));
 }
 
@@ -1115,9 +1115,11 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 		 * associated with any dplane context object.
 		 */
 		if (ctx == NULL) {
-			zlog_debug(
-				"%s: skipping unassociated response, seq number %d NS %u",
-				__func__, h->nlmsg_seq, bth->zns->ns_id);
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s: skipping unassociated response, seq number %d NS %u",
+					__func__, h->nlmsg_seq,
+					bth->zns->ns_id);
 			continue;
 		}
 
@@ -1128,8 +1130,9 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 				dplane_ctx_set_status(
 					ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 
-			zlog_debug("%s: netlink error message seq=%d ",
-				   __func__, h->nlmsg_seq);
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: netlink error message seq=%d",
+					   __func__, h->nlmsg_seq);
 			continue;
 		}
 
@@ -1138,9 +1141,11 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 		 * the error and instead received some other message in an
 		 * unexpected way.
 		 */
-		zlog_debug("%s: ignoring message type 0x%04x(%s) NS %u",
-			   __func__, h->nlmsg_type,
-			   nl_msg_type_to_str(h->nlmsg_type), bth->zns->ns_id);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: ignoring message type 0x%04x(%s) NS %u",
+				   __func__, h->nlmsg_type,
+				   nl_msg_type_to_str(h->nlmsg_type),
+				   bth->zns->ns_id);
 	}
 
 	return 0;
@@ -1501,7 +1506,7 @@ void kernel_init(struct zebra_ns *zns)
 
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
-	THREAD_READ_OFF(zns->t_netlink);
+	THREAD_OFF(zns->t_netlink);
 
 	if (zns->netlink.sock >= 0) {
 		close(zns->netlink.sock);
