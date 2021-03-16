@@ -435,7 +435,25 @@ struct ldp_stats {
 	uint32_t		 labelrel_rcvd;
 	uint32_t		 labelabreq_sent;
 	uint32_t		 labelabreq_rcvd;
+	uint32_t		 unknown_tlv;
+	uint32_t		 unknown_msg;
 
+};
+
+struct ldp_entity_stats {
+	uint32_t		 session_attempts;
+	uint32_t		 session_rejects_hello;
+	uint32_t		 session_rejects_ad;
+	uint32_t		 session_rejects_max_pdu;
+	uint32_t		 session_rejects_lr;
+	uint32_t		 bad_ldp_id;
+	uint32_t		 bad_pdu_len;
+	uint32_t		 bad_msg_len;
+	uint32_t		 bad_tlv_len;
+	uint32_t		 malformed_tlv;
+	uint32_t		 keepalive_timer_exp;
+	uint32_t		 shutdown_rcv_notify;
+	uint32_t		 shutdown_send_notify;
 };
 
 struct l2vpn_if {
@@ -565,6 +583,7 @@ struct ldpd_conf {
 	uint16_t		 wait_for_sync_interval;
 	int			 flags;
 	time_t			 config_change_time;
+	struct ldp_entity_stats  stats;
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(ldpd_conf)
