@@ -343,8 +343,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
-	thread_add_timer_msec(bm->master, bgp_process_packet, peer, 0,
-			      &peer->t_process_packet);
+	thread_add_event(bm->master, bgp_process_packet, peer, 0,
+			 &peer->t_process_packet);
 
 	return (peer);
 }
