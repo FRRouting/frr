@@ -1667,6 +1667,74 @@ and will share updates.
    should not be reflected back to the peer.  This command only is only
    meaningful when there is a single peer defined in the peer-group.
 
+.. clicmd:: show [ip] bgp peer-group [json]
+
+   This command displays configured BGP peer-groups.
+
+      .. code-block:: frr
+
+         exit1-debian-9# show bgp peer-group
+
+         BGP peer-group test1, remote AS 65001
+         Peer-group type is external
+         Configured address-families: IPv4 Unicast; IPv6 Unicast;
+         1 IPv4 listen range(s)
+            192.168.100.0/24
+         2 IPv6 listen range(s)
+            2001:db8:1::/64
+            2001:db8:2::/64
+         Peer-group members:
+            192.168.200.1  Active
+            2001:db8::1  Active
+
+         BGP peer-group test2
+         Peer-group type is external
+         Configured address-families: IPv4 Unicast;
+
+   Optional ``json`` parameter is used to display JSON output.
+
+      .. code-block:: frr
+
+         {
+           "test1":{
+             "remoteAs":65001,
+             "type":"external",
+             "addressFamiliesConfigured":[
+               "IPv4 Unicast",
+               "IPv6 Unicast"
+             ],
+             "dynamicRanges":{
+               "IPv4":{
+                 "count":1,
+                 "ranges":[
+                   "192.168.100.0\/24"
+                 ]
+               },
+               "IPv6":{
+                 "count":2,
+                 "ranges":[
+                   "2001:db8:1::\/64",
+                   "2001:db8:2::\/64"
+                 ]
+               }
+             },
+             "members":{
+               "192.168.200.1":{
+                 "status":"Active"
+               },
+               "2001:db8::1":{
+                 "status":"Active"
+               }
+             }
+           },
+           "test2":{
+              "type":"external",
+              "addressFamiliesConfigured":[
+                "IPv4 Unicast"
+              ]
+           }
+         }
+
 Capability Negotiation
 ^^^^^^^^^^^^^^^^^^^^^^
 
