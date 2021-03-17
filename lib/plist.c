@@ -684,6 +684,7 @@ void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 	if (pl->head || pl->tail || pl->desc)
 		pl->master->recent = pl;
 
+	ple->next_best = NULL;
 	ple->installed = false;
 }
 
