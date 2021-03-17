@@ -28,6 +28,12 @@ Test the effects of the "bgp bestpath peer-type multipath-relax" command
 - enabling the command allows eBGP, iBGP, and confed routes to be multipath
 - the choice of best path is not affected
 - disabling the command removes iBGP/confed routes from multipath
+- enabling the command does not forgive eBGP routes of the requirement
+  (when enabled) that next hops resolve over connected routes
+- a mixed-type multipath next hop, when published to zebra, does not
+  require resolving next hops over connected routes
+- with the command enabled, an all-eBGP multipath next hop still requires
+  resolving next hops over connected routes when published to zebra
 
 Topology used by the test:
 
@@ -241,6 +247,128 @@ def test_bgp_peer_type_multipath_relax():
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Reenabling peer-type multipath-relax did not take effect"
+    assert res is None, assertMsg
+
+    logger.info("Check recursive resolution of eBGP next hops is not affected")
+    # eBGP next hop resolution rejects recursively resolved next hops by
+    # default, even with peer-type multipath-relax
+    exabgp_cmd(
+        "peer4", "announce route {} next-hop {}\n".format(prefix3, ebgp_resolved_nh)
+    )
+    reffile = os.path.join(CWD, "r1/prefix3-no-recursive.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip bgp {} json".format(prefix3),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix3)
+    assert res is None, assertMsg
+
+    exabgp_cmd(
+        "peer4", "announce route {} next-hop {}\n".format(prefix1, ebgp_resolved_nh)
+    )
+    reffile = os.path.join(CWD, "r1/prefix1-no-recursive.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip bgp {} json".format(prefix1),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix1)
+    assert res is None, assertMsg
+
+    # When other config allows recursively resolved eBGP next hops,
+    # such next hops in all-eBGP multipaths should be valid
+    router.vtysh_cmd("conf\n router bgp 64510\n neighbor 10.0.4.2 ebgp-multihop\n")
+    reffile = os.path.join(CWD, "r1/prefix3-recursive.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip bgp {} json".format(prefix3),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix3)
+    assert res is None, assertMsg
+
+    reffile = os.path.join(CWD, "r1/prefix1-recursive.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip bgp {} json".format(prefix1),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix1)
+    assert res is None, assertMsg
+
+    logger.info("Check mixed-type multipath next hop recursive resolution in FIB")
+    # There are now two eBGP-learned routes with a recursively resolved next;
+    # hop; one is all-eBGP multipath, and the other is iBGP/eBGP/
+    # confed-external. The peer-type multipath-relax feature only enables
+    # recursive resolution in FIB if any next hop is iBGP/confed-learned. The
+    # all-eBGP multipath will have only one valid next hop in the FIB.
+    reffile = os.path.join(CWD, "r1/prefix3-ip-route.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip route {} json".format(prefix3),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertMsg = "FIB next hops mismatch for all-eBGP multipath"
+    assert res is None, assertMsg
+
+    # check confed-external enables recursively resolved next hops by itself
+    exabgp_cmd(
+        "peer1",
+        "withdraw route {} next-hop {} as-path [ 64499 ]\n".format(
+            prefix1, resolved_nh1
+        ),
+    )
+    reffile = os.path.join(CWD, "r1/prefix1-eBGP-confed.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip route {} json".format(prefix1),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertMsg = "FIB next hops mismatch for eBGP+confed-external multipath"
+    assert res is None, assertMsg
+
+    # check iBGP by itself
+    exabgp_cmd(
+        "peer1",
+        "announce route {} next-hop {} as-path [ 64499 ]\n".format(
+            prefix1, resolved_nh1
+        ),
+    )
+    exabgp_cmd(
+        "peer2",
+        "withdraw route {} next-hop {} as-path [ 64499 ]\n".format(
+            prefix1, resolved_nh2
+        ),
+    )
+    reffile = os.path.join(CWD, "r1/prefix1-eBGP-iBGP.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip route {} json".format(prefix1),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertMsg = "FIB next hops mismatch for eBGP+iBGP multipath"
     assert res is None, assertMsg
 
 
