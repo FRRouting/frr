@@ -394,6 +394,13 @@ Route Selection
    other measures were taken to avoid these. The exact behaviour will be
    sensitive to the iBGP and reflection topology.
 
+.. clicmd:: bgp bestpath peer-type multipath-relax
+
+   This command specifies that BGP decision process should consider paths
+   from all peers for multipath computation. If this option is enabled,
+   paths learned from any of eBGP, iBGP, or confederation neighbors will
+   be multipath if they are otherwise considered equal cost.
+
 .. _bgp-distance:
 
 Administrative Distance Metrics
