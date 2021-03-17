@@ -4065,6 +4065,12 @@ static void cleanup_vni_on_disable(struct hash_bucket *bucket, struct bgp *bgp)
 	/* Remove EVPN routes and schedule for processing. */
 	delete_routes_for_vni(bgp, vpn);
 
+	/*
+	 * Above function deletes remote type-1 routes imported into VNI.
+	 * Now cleanup remote ES states created because of these routes.
+	 */
+	bgp_evpn_evi_es_remote_cleanup(bgp, vpn);
+
 	/* Clear "live" flag and see if hash needs to be freed. */
 	UNSET_FLAG(vpn->flags, VNI_FLAG_LIVE);
 	if (!is_vni_configured(vpn))
@@ -5547,6 +5553,12 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 	 * withdraw from peers).
 	 */
 	delete_routes_for_vni(bgp, vpn);
+
+	/*
+	 * Above function deletes remote type-1 routes imported into VNI.
+	 * Now cleanup remote ES states created because of these routes.
+	 */
+	bgp_evpn_evi_es_remote_cleanup(bgp, vpn);
 
 	/*
 	 * tunnel is no longer active, del tunnel ip address from tip_hash

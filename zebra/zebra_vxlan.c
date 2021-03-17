@@ -5727,6 +5727,13 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 		hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all,
 			     zvrf);
 
+		/*
+		 * BGP performs cleanup of remote ES info when advertise-all-vni
+		 * is disabled.
+		 * Perform this cleanup in zebra as well.
+		 */
+		zebra_evpn_es_cleanup(true);
+
 		/* Delete all ESs in BGP */
 		zebra_evpn_es_send_all_to_client(false /* add */);
 
@@ -5767,7 +5774,7 @@ void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf)
 	zebra_vxlan_cleanup_sg_table(zvrf);
 
 	if (zvrf == evpn_zvrf)
-		zebra_evpn_es_cleanup();
+		zebra_evpn_es_cleanup(false);
 }
 
 /* Close all EVPN handling */

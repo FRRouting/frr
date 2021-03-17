@@ -2631,14 +2631,15 @@ static int zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi)
 	return rv;
 }
 
-void zebra_evpn_es_cleanup(void)
+void zebra_evpn_es_cleanup(bool remote_only)
 {
 	struct zebra_evpn_es *es;
 	struct zebra_evpn_es *es_next;
 
 	RB_FOREACH_SAFE(es, zebra_es_rb_head,
 			&zmh_info->es_rb_tree, es_next) {
-		zebra_evpn_local_es_del(&es);
+		if (!remote_only)
+			zebra_evpn_local_es_del(&es);
 		if (es)
 			zebra_evpn_remote_es_flush(&es);
 	}

@@ -1175,6 +1175,12 @@ static int bgp_zebra_send_remote_es_vtep(struct bgp *bgp,
 	struct stream *s;
 	uint32_t flags = 0;
 
+	/*
+	 * Zebra does not process this message if advertise-all-vni is disabled
+	 */
+	if (!is_evpn_enabled())
+		return 0;
+
 	/* Check socket. */
 	if (!zclient || zclient->sock < 0)
 		return 0;
@@ -3282,6 +3288,31 @@ int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 			ead_es);
 	bgp_evpn_es_evi_remote_info_re_eval(es_evi);
 	return 0;
+}
+
+/* Cleanup remote ES info for a VNI for no advertise-all-vni trigger */
+void bgp_evpn_evi_es_remote_cleanup(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct bgp_evpn_es_evi *es_evi, *evi_next;
+	struct bgp_evpn_es_evi_vtep *vtep;
+	struct listnode *vtep_node, *vtep_next;
+
+	RB_FOREACH_SAFE(es_evi, bgp_es_evi_rb_head, &vpn->es_evi_rb_tree,
+			evi_next) {
+		for (ALL_LIST_ELEMENTS(es_evi->es_evi_vtep_list, vtep_node,
+				       vtep_next, vtep)) {
+			if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+				zlog_debug("cleanup es %s evi %u vtep %pI4",
+					    es_evi->es->esi_str, vpn->vni,
+					    &vtep->vtep_ip);
+			UNSET_FLAG(vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES);
+			UNSET_FLAG(vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_EVI);
+
+			bgp_evpn_es_evi_vtep_re_eval_active(bgp, vtep);
+			bgp_evpn_es_evi_vtep_free(vtep);
+		}
+		bgp_evpn_es_evi_remote_info_re_eval(es_evi);
+	}
 }
 
 /* Initialize the ES tables maintained per-L2_VNI */
