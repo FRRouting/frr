@@ -10518,7 +10518,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			  struct bgp_table *table, enum bgp_show_type type,
 			  void *output_arg, char *rd, int is_last,
 			  unsigned long *output_cum, unsigned long *total_cum,
-			  unsigned long *json_header_depth, uint8_t show_flags)
+			  unsigned long *json_header_depth, uint8_t show_flags,
+			  enum rpki_states target_state)
 {
 	struct bgp_path_info *pi;
 	struct bgp_dest *dest;
@@ -10567,6 +10568,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	/* Start processing of routes. */
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+		enum rpki_states curr_state = RPKI_NOT_BEING_USED;
 
 		pi = bgp_dest_get_bgp_path_info(dest);
 		if (pi == NULL)
@@ -10580,6 +10582,18 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 
 		for (; pi; pi = pi->next) {
 			total_count++;
+
+			if (type == bgp_show_type_rpki) {
+				if (dest_p->family == AF_INET
+				    || dest_p->family == AF_INET6)
+					curr_state = hook_call(
+						bgp_rpki_prefix_status,
+						pi->peer, pi->attr, dest_p);
+				if (target_state != RPKI_NOT_BEING_USED
+				    && curr_state != target_state)
+					continue;
+			}
+
 			if (type == bgp_show_type_flap_statistics
 			    || type == bgp_show_type_flap_neighbor
 			    || type == bgp_show_type_dampend_paths
@@ -10889,7 +10903,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			bgp_show_table(vty, bgp, safi, itable, type, output_arg,
 				       rd, next == NULL, &output_cum,
 				       &total_cum, &json_header_depth,
-				       show_flags);
+				       show_flags, RPKI_NOT_BEING_USED);
 			if (next == NULL)
 				show_msg = false;
 		}
@@ -10907,7 +10921,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 }
 static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		    enum bgp_show_type type, void *output_arg,
-		    uint8_t show_flags)
+		    uint8_t show_flags, enum rpki_states target_state)
 {
 	struct bgp_table *table;
 	unsigned long json_header_depth = 0;
@@ -10942,7 +10956,8 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		safi = SAFI_UNICAST;
 
 	return bgp_show_table(vty, bgp, safi, table, type, output_arg, NULL, 1,
-			      NULL, NULL, &json_header_depth, show_flags);
+			      NULL, NULL, &json_header_depth, show_flags,
+			      target_state);
 }
 
 static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
@@ -10976,7 +10991,7 @@ static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
 					: bgp->name);
 		}
 		bgp_show(vty, bgp, afi, safi, bgp_show_type_normal, NULL,
-			 show_flags);
+			 show_flags, RPKI_NOT_BEING_USED);
 	}
 
 	if (use_json)
@@ -11476,9 +11491,9 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 	}
 
 	ret = bgp_show(vty, bgp, afi, safi,
-			(exact ? bgp_show_type_lcommunity_exact
-			       : bgp_show_type_lcommunity),
-			lcom, show_flags);
+		       (exact ? bgp_show_type_lcommunity_exact
+			      : bgp_show_type_lcommunity),
+		       lcom, show_flags, RPKI_NOT_BEING_USED);
 
 	lcommunity_free(&lcom);
 	return ret;
@@ -11506,7 +11521,7 @@ static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
 	return bgp_show(vty, bgp, afi, safi,
 			(exact ? bgp_show_type_lcommunity_list_exact
 			       : bgp_show_type_lcommunity_list),
-			list, show_flags);
+			list, show_flags, RPKI_NOT_BEING_USED);
 }
 
 DEFUN (show_ip_bgp_large_community_list,
@@ -11588,7 +11603,8 @@ DEFUN (show_ip_bgp_large_community,
 					exact_match, afi, safi, uj);
 	} else
 		return bgp_show(vty, bgp, afi, safi,
-				bgp_show_type_lcommunity_all, NULL, show_flags);
+				bgp_show_type_lcommunity_all, NULL, show_flags,
+				RPKI_NOT_BEING_USED);
 }
 
 static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -11836,6 +11852,7 @@ DEFPY (show_ip_bgp_json,
                      |accept-own|accept-own-nexthop|route-filter-v6\
                      |route-filter-v4|route-filter-translated-v6\
                      |route-filter-translated-v4] [exact-match]\
+          |rpki <invalid|valid|notfound>\
           ] [json$uj | wide$wide]",
        SHOW_STR
        IP_STR
@@ -11865,6 +11882,10 @@ DEFPY (show_ip_bgp_json,
        "RT translated VPNv6 route filtering (well-known community)\n"
        "RT translated VPNv4 route filtering (well-known community)\n"
        "Exact match of the communities\n"
+       "RPKI route types\n"
+       "A valid path as determined by rpki\n"
+       "A invalid path as determined by rpki\n"
+       "A path that has no rpki data\n"
        JSON_STR
        "Increase table width for longer prefixes\n")
 {
@@ -11877,7 +11898,7 @@ DEFPY (show_ip_bgp_json,
 	char *community = NULL;
 	bool first = true;
 	uint8_t show_flags = 0;
-
+	enum rpki_states target_state = RPKI_NOT_BEING_USED;
 
 	if (uj) {
 		argc--;
@@ -11934,6 +11955,14 @@ DEFPY (show_ip_bgp_json,
 			sh_type = bgp_show_type_community_all;
 	}
 
+	if (argv_find(argv, argc, "rpki", &idx)) {
+		sh_type = bgp_show_type_rpki;
+		if (argv_find(argv, argc, "valid", &idx))
+			target_state = RPKI_VALID;
+		else if (argv_find(argv, argc, "invalid", &idx))
+			target_state = RPKI_INVALID;
+	}
+
 	if (!all) {
 		/* show bgp: AFI_IP6, show ip bgp: AFI_IP */
 		if (community)
@@ -11942,7 +11971,7 @@ DEFPY (show_ip_bgp_json,
 						  show_flags);
 		else
 			return bgp_show(vty, bgp, afi, safi, sh_type, NULL,
-					show_flags);
+					show_flags, target_state);
 	} else {
 		/* show <ip> bgp ipv4 all: AFI_IP, show <ip> bgp ipv6 all:
 		 * AFI_IP6 */
@@ -11979,7 +12008,8 @@ DEFPY (show_ip_bgp_json,
 							   safi, show_flags);
 				else
 					bgp_show(vty, bgp, afi, safi, sh_type,
-						 NULL, show_flags);
+						 NULL, show_flags,
+						 target_state);
 				if (uj)
 					vty_out(vty, "}\n");
 			}
@@ -12010,7 +12040,8 @@ DEFPY (show_ip_bgp_json,
 							   safi, show_flags);
 				else
 					bgp_show(vty, bgp, afi, safi, sh_type,
-						 NULL, show_flags);
+						 NULL, show_flags,
+						 target_state);
 				if (uj)
 					vty_out(vty, "}\n");
 			}
@@ -12191,7 +12222,8 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 		return CMD_WARNING;
 	}
 
-	rc = bgp_show(vty, bgp, afi, safi, type, regex, show_flags);
+	rc = bgp_show(vty, bgp, afi, safi, type, regex, show_flags,
+		      RPKI_NOT_BEING_USED);
 	bgp_regex_free(regex);
 	return rc;
 }
@@ -12210,7 +12242,8 @@ static int bgp_show_prefix_list(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi, type, plist, show_flags);
+	return bgp_show(vty, bgp, afi, safi, type, plist, show_flags,
+			RPKI_NOT_BEING_USED);
 }
 
 static int bgp_show_filter_list(struct vty *vty, struct bgp *bgp,
@@ -12227,7 +12260,8 @@ static int bgp_show_filter_list(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi, type, as_list, show_flags);
+	return bgp_show(vty, bgp, afi, safi, type, as_list, show_flags,
+			RPKI_NOT_BEING_USED);
 }
 
 static int bgp_show_route_map(struct vty *vty, struct bgp *bgp,
@@ -12243,7 +12277,8 @@ static int bgp_show_route_map(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi, type, rmap, show_flags);
+	return bgp_show(vty, bgp, afi, safi, type, rmap, show_flags,
+			RPKI_NOT_BEING_USED);
 }
 
 static int bgp_show_community(struct vty *vty, struct bgp *bgp,
@@ -12262,7 +12297,7 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 	ret = bgp_show(vty, bgp, afi, safi,
 		       (exact ? bgp_show_type_community_exact
 			      : bgp_show_type_community),
-		       com, show_flags);
+		       com, show_flags, RPKI_NOT_BEING_USED);
 	community_free(&com);
 
 	return ret;
@@ -12284,7 +12319,7 @@ static int bgp_show_community_list(struct vty *vty, struct bgp *bgp,
 	return bgp_show(vty, bgp, afi, safi,
 			(exact ? bgp_show_type_community_list_exact
 			       : bgp_show_type_community_list),
-			list, show_flags);
+			list, show_flags, RPKI_NOT_BEING_USED);
 }
 
 static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
@@ -12303,7 +12338,8 @@ static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	ret = bgp_show(vty, bgp, afi, safi, type, p, show_flags);
+	ret = bgp_show(vty, bgp, afi, safi, type, p, show_flags,
+		       RPKI_NOT_BEING_USED);
 	prefix_free(&p);
 	return ret;
 }
@@ -13745,7 +13781,8 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
 
-	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, show_flags);
+	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, show_flags,
+			RPKI_NOT_BEING_USED);
 }
 
 DEFUN (show_ip_bgp_flowspec_routes_detailed,
@@ -13778,7 +13815,7 @@ DEFUN (show_ip_bgp_flowspec_routes_detailed,
 		return CMD_WARNING;
 
 	return bgp_show(vty, bgp, afi, safi, bgp_show_type_detail, NULL,
-			show_flags);
+			show_flags, RPKI_NOT_BEING_USED);
 }
 
 DEFUN (show_ip_bgp_neighbor_routes,
