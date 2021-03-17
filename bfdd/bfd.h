@@ -215,6 +215,8 @@ struct bfd_profile {
 
 	/** Echo mode (only applies to single hop). */
 	bool echo_mode;
+	/** Desired echo transmission interval (in microseconds). */
+	uint32_t min_echo_tx;
 	/** Minimum required echo receive interval (in microseconds). */
 	uint32_t min_echo_rx;
 
@@ -227,6 +229,13 @@ TAILQ_HEAD(bfdproflist, bfd_profile);
 
 /* bfd_session shortcut label forwarding. */
 struct peer_label;
+
+struct bfd_config_timers {
+	uint32_t desired_min_tx;
+	uint32_t required_min_rx;
+	uint32_t desired_min_echo_tx;
+	uint32_t required_min_echo_rx;
+};
 
 /*
  * Session state information
@@ -251,7 +260,7 @@ struct bfd_session {
 	struct bfd_profile peer_profile;
 
 	/* Timers */
-	struct bfd_timers timers;
+	struct bfd_config_timers timers;
 	struct bfd_timers cur_timers;
 	uint64_t detect_TO;
 	struct thread *echo_recvtimer_ev;
@@ -332,7 +341,8 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEFDETECTMULT 3
 #define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
-#define BFD_DEF_REQ_MIN_ECHO (50 * 1000) /* microseconds. */
+#define BFD_DEF_DES_MIN_ECHO_TX (50 * 1000) /* microseconds. */
+#define BFD_DEF_REQ_MIN_ECHO_RX (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
 /** Minimum multi hop TTL. */
 #define BFD_DEF_MHOP_TTL 254

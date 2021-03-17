@@ -8,10 +8,11 @@
         "remote-diagnostic":"ok",
         "receive-interval":300,
         "transmit-interval":300,
-        "echo-interval":0,
+        "echo-receive-interval":50,
+        "echo-transmit-interval":0,
         "remote-receive-interval":300,
         "remote-transmit-interval":300,
-        "remote-echo-interval":50
+        "remote-echo-receive-interval":50
     },
     {
         "multihop":false,
@@ -21,9 +22,10 @@
         "remote-diagnostic":"ok",
         "receive-interval":300,
         "transmit-interval":300,
-        "echo-interval":0,
+        "echo-receive-interval":50,
+        "echo-transmit-interval":0,
         "remote-receive-interval":300,
         "remote-transmit-interval":300,
-        "remote-echo-interval":50
+        "remote-echo-receive-interval":50
     }
 ]

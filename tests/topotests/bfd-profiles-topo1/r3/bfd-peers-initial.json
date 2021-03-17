@@ -12,6 +12,7 @@
         "remote-id": "*",
         "remote-receive-interval": 250,
         "remote-transmit-interval": 250,
+        "remote-echo-receive-interval": 0,
         "status": "up",
         "transmit-interval": 300,
         "uptime": "*",

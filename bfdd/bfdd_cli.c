@@ -451,8 +451,31 @@ void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
 DEFPY_YANG(
 	bfd_peer_echo_interval, bfd_peer_echo_interval_cmd,
 	"echo-interval (10-60000)$interval",
-	"Configure peer echo interval\n"
-	"Configure peer echo interval value in milliseconds\n")
+	"Configure peer echo intervals\n"
+	"Configure peer echo rx/tx intervals value in milliseconds\n")
+{
+	char value[32];
+
+	if (!bfd_cli_is_profile(vty) && !bfd_cli_is_single_hop(vty)) {
+		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(value, sizeof(value), "%ld", interval * 1000);
+	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",
+			      NB_OP_MODIFY, value);
+	nb_cli_enqueue_change(vty, "./required-echo-receive-interval",
+			      NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	bfd_peer_echo_transmit_interval, bfd_peer_echo_transmit_interval_cmd,
+	"echo transmit-interval (10-60000)$interval",
+	"Configure peer echo intervals\n"
+	"Configure desired transmit interval\n"
+	"Configure interval value in milliseconds\n")
 {
 	char value[32];
 
@@ -468,17 +491,61 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
-				bool show_defaults)
+void bfd_cli_show_desired_echo_transmission_interval(struct vty *vty,
+	struct lyd_node *dnode, bool show_defaults)
 {
 	uint32_t value;
 
 	if (show_defaults)
-		vty_out(vty, "  echo-interval %d\n",
-			BFD_DEF_REQ_MIN_ECHO);
+		vty_out(vty, "  echo transmit-interval %d\n",
+			BFD_DEF_DES_MIN_ECHO_TX);
 	else {
 		value = yang_dnode_get_uint32(dnode, NULL);
-		vty_out(vty, "  echo-interval %u\n", value / 1000);
+		vty_out(vty, "  echo transmit-interval %u\n", value / 1000);
+	}
+}
+
+DEFPY_YANG(
+	bfd_peer_echo_receive_interval, bfd_peer_echo_receive_interval_cmd,
+	"echo receive-interval <disabled$disabled|(10-60000)$interval>",
+	"Configure peer echo intervals\n"
+	"Configure required receive interval\n"
+	"Disable echo packets receive\n"
+	"Configure interval value in milliseconds\n")
+{
+	char value[32];
+
+	if (!bfd_cli_is_profile(vty) && !bfd_cli_is_single_hop(vty)) {
+		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (disabled)
+		snprintf(value, sizeof(value), "0");
+	else
+		snprintf(value, sizeof(value), "%ld", interval * 1000);
+	
+	nb_cli_enqueue_change(vty, "./required-echo-receive-interval",
+			      NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_required_echo_receive_interval(struct vty *vty,
+	struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t value;
+
+	if (show_defaults)
+		vty_out(vty, "  echo receive-interval %d\n",
+			BFD_DEF_REQ_MIN_ECHO_RX);
+	else {
+		value = yang_dnode_get_uint32(dnode, NULL);
+		if (value)
+			vty_out(vty, "  echo receive-interval %u\n",
+				value / 1000);
+		else
+			vty_out(vty, "  echo receive-interval disabled\n");
 	}
 }
 
@@ -575,6 +642,21 @@ ALIAS_YANG(bfd_peer_echo_interval, bfd_profile_echo_interval_cmd,
       "Configure peer echo interval\n"
       "Configure peer echo interval value in milliseconds\n")
 
+ALIAS_YANG(
+	bfd_peer_echo_transmit_interval, bfd_profile_echo_transmit_interval_cmd,
+	"echo transmit-interval (10-60000)$interval",
+	"Configure peer echo intervals\n"
+	"Configure desired transmit interval\n"
+	"Configure interval value in milliseconds\n")
+
+ALIAS_YANG(
+	bfd_peer_echo_receive_interval, bfd_profile_echo_receive_interval_cmd,
+	"echo receive-interval <disabled$disabled|(10-60000)$interval>",
+	"Configure peer echo intervals\n"
+	"Configure required receive interval\n"
+	"Disable echo packets receive\n"
+	"Configure interval value in milliseconds\n")
+
 DEFPY_YANG(bfd_peer_profile, bfd_peer_profile_cmd,
       "[no] profile BFDPROF$pname",
       NO_STR
@@ -632,6 +714,8 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_tx_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_interval_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_echo_transmit_interval_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_echo_receive_interval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_profile_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_passive_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_minimum_ttl_cmd);
@@ -652,6 +736,8 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &bfd_profile_shutdown_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_interval_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_transmit_interval_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_receive_interval_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_passive_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_minimum_ttl_cmd);
 	install_element(BFD_PROFILE_NODE, &no_bfd_profile_minimum_ttl_cmd);
