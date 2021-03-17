@@ -501,8 +501,10 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd)
 void ptm_bfd_echo_start(struct bfd_session *bfd)
 {
 	bfd->echo_detect_TO = (bfd->remote_detect_mult * bfd->echo_xmt_TO);
-	if (bfd->echo_detect_TO > 0)
+	if (bfd->echo_detect_TO > 0) {
+		bfd_echo_recvtimer_update(bfd);
 		ptm_bfd_echo_xmt_TO(bfd);
+	}
 }
 
 void ptm_bfd_sess_up(struct bfd_session *bfd)

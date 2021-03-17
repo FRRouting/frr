@@ -180,7 +180,8 @@ BFD peers and profiles share the same BFD session configuration commands.
 .. clicmd:: echo-mode
 
    Enables or disables the echo transmission mode. This mode is disabled
-   by default.
+   by default. If you are not using distributed BFD then echo mode works
+   only when the peer is also FRR.
 
    It is recommended that the transmission interval of control packets
    to be increased after enabling echo-mode to reduce bandwidth usage.
