@@ -813,8 +813,7 @@ void handle_timer_event(pcep_session_event *event)
 
 	pcep_log(
 		LOG_INFO,
-		"%s: [%ld-%ld] pcep_session_logic handle_timer_event: session [%d] event timer_id [%d] "
-		"session timers [OKW, OKA, DT, KA] [%d, %d, %d, %d]",
+		"%s: [%ld-%ld] pcep_session_logic handle_timer_event: session [%d] event timer_id [%d] session timers [OKW, OKA, DT, KA] [%d, %d, %d, %d]",
 		__func__, time(NULL), pthread_self(), session->session_id,
 		event->expired_timer_id, session->timer_id_open_keep_wait,
 		session->timer_id_open_keep_alive, session->timer_id_dead_timer,

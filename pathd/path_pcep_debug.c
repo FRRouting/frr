@@ -1288,7 +1288,7 @@ void _format_path_hop(int ps, struct path_hop *hop)
 				     &hop->nai.remote_addr.ipaddr_v6);
 			break;
 		case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
-			PATHD_FORMAT("%*sNAI: %pI4(%u)/%pI4(%u)\n", ps, "",
+			PATHD_FORMAT("%*sNAI: %pI6(%u)/%pI6(%u)\n", ps, "",
 				     &hop->nai.local_addr.ipaddr_v6,
 				     hop->nai.local_iface,
 				     &hop->nai.remote_addr.ipaddr_v6,
