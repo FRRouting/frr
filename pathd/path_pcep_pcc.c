@@ -363,16 +363,14 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV4)) {
 		if (pcc_state->retry_count < OTHER_FAMILY_MAX_RETRIES) {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "skipping connection to PCE %pIA:%d due to "
-				  "missing PCC IPv4 address",
+				  "skipping connection to PCE %pIA:%d due to missing PCC IPv4 address",
 				  &pcc_state->pce_opts->addr,
 				  pcc_state->pce_opts->port);
 			schedule_reconnect(ctrl_state, pcc_state);
 			return 0;
 		} else {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "missing IPv4 PCC address, IPv4 candidate "
-				  "paths will be ignored");
+				  "missing IPv4 PCC address, IPv4 candidate paths will be ignored");
 		}
 	}
 
@@ -381,16 +379,14 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6)) {
 		if (pcc_state->retry_count < OTHER_FAMILY_MAX_RETRIES) {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "skipping connection to PCE %pIA:%d due to "
-				  "missing PCC IPv6 address",
+				  "skipping connection to PCE %pIA:%d due to missing PCC IPv6 address",
 				  &pcc_state->pce_opts->addr,
 				  pcc_state->pce_opts->port);
 			schedule_reconnect(ctrl_state, pcc_state);
 			return 0;
 		} else {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "missing IPv6 PCC address, IPv6 candidate "
-				  "paths will be ignored");
+				  "missing IPv6 PCC address, IPv6 candidate paths will be ignored");
 		}
 	}
 
@@ -398,8 +394,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	 * have been spent, we still need the one for the transport familly */
 	if (pcc_state->pcc_addr_tr.ipa_type == IPADDR_NONE) {
 		flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-			  "skipping connection to PCE %pIA:%d due to missing "
-			  "PCC address",
+			  "skipping connection to PCE %pIA:%d due to missing PCC address",
 			  &pcc_state->pce_opts->addr,
 			  pcc_state->pce_opts->port);
 		schedule_reconnect(ctrl_state, pcc_state);
@@ -490,8 +485,7 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			send_report(pcc_state, path);
 		} else {
 			PCEP_DEBUG(
-				"%s Skipping %s candidate path %s "
-				"synchronization",
+				"%s Skipping %s candidate path %s synchronization",
 				pcc_state->tag,
 				ipaddr_type_name(&path->nbkey.endpoint),
 				path->name);
@@ -1235,8 +1229,7 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 		 * the connection if more that a given rate.
 		 */
 		PCEP_DEBUG(
-			"%s Received computation reply for unknown request "
-			"%d",
+			"%s Received computation reply for unknown request %d",
 			pcc_state->tag, path->req_id);
 		PCEP_DEBUG_PATH("%s", format_path(path));
 		send_pcep_error(pcc_state, PCEP_ERRT_UNKNOWN_REQ_REF,

@@ -624,8 +624,7 @@ void srte_candidate_set_metric(struct srte_candidate *candidate,
 	char endpoint[46];
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	zlog_debug(
-		"SR-TE(%s, %u): candidate %s %sconfig metric %s (%u) set to %f "
-		"(is-bound: %s; is_computed: %s)",
+		"SR-TE(%s, %u): candidate %s %sconfig metric %s (%u) set to %f (is-bound: %s; is_computed: %s)",
 		endpoint, policy->color, candidate->name,
 		required ? "required " : "", srte_candidate_metric_name(type),
 		type, value, is_bound ? "true" : "false",
@@ -659,8 +658,7 @@ void srte_lsp_set_metric(struct srte_lsp *lsp,
 	char endpoint[46];
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	zlog_debug(
-		"SR-TE(%s, %u): candidate %s %slsp metric %s (%u) set to %f "
-		"(is-bound: %s; is_computed: %s)",
+		"SR-TE(%s, %u): candidate %s %slsp metric %s (%u) set to %f (is-bound: %s; is_computed: %s)",
 		endpoint, policy->color, candidate->name,
 		required ? "required " : "", srte_candidate_metric_name(type),
 		type, value, is_bound ? "true" : "false",
@@ -981,8 +979,7 @@ void srte_candidate_unset_segment_list(const char *originator, bool force)
 			if (segment_list->protocol_origin
 			    == SRTE_ORIGIN_LOCAL) {
 				zlog_warn(
-					"Cannot unset segment list %s because it "
-					"was created locally",
+					"Cannot unset segment list %s because it was created locally",
 					segment_list->name);
 				continue;
 			}
