@@ -67,7 +67,7 @@ chownfrr() {
 vtysh_b () {
 	[ "$1" = "watchfrr" ] && return 0
 	[ -r "$C_PATH/frr.conf" ] || return 0
-	if [ -n "$1" ]; then
+	if [ -n "$1" && "$1" != "all" ]; then
 		"$VTYSH" `echo $nsopt` -b -d "$1"
 	else
 		"$VTYSH" `echo $nsopt` -b
@@ -150,6 +150,7 @@ daemon_prep() {
 daemon_start() {
 	local dmninst daemon inst args instopt wrap bin
 	daemon_inst "$1"
+	all="$2"
 
 	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
 	daemon_prep "$daemon" "$inst" || return 1
@@ -165,7 +166,11 @@ daemon_start() {
 
 	if eval "$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"; then
 		log_success_msg "Started $dmninst"
-		vtysh_b "$daemon"
+		if [ $all != "all" ]; then
+			vtysh_b "$daemon"
+		else
+			debug "Skipping startup of vtysh until all have started"
+		fi
 	else
 		log_failure_msg "Failed to start $dmninst!"
 	fi
@@ -237,8 +242,9 @@ print_status() {
 all_start() {
 	daemon_list daemons
 	for dmninst in $daemons; do
-		daemon_start "$dmninst"
+		daemon_start "$dmninst" "all"
 	done
+	vtysh_b "all"
 }
 
 all_stop() {
@@ -348,11 +354,11 @@ frrcommon_main() {
 		esac
 	else
 		case "$cmd" in
-		start)	daemon_start "$@";;
+		start)	daemon_start "$@" "$@";;
 		stop)	daemon_stop "$@";;
 		restart)
 			daemon_stop "$@"
-			daemon_start "$@"
+			daemon_start "$@" "$@"
 			;;
 		*)	$cmd "$@";;
 		esac

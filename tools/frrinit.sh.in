@@ -44,7 +44,7 @@ case "$1" in
 start)
 	daemon_list daemons
 	watchfrr_options="$watchfrr_options $daemons"
-	daemon_start watchfrr
+	daemon_start watchfrr watchfrr
 	;;
 stop)
 	daemon_stop watchfrr
@@ -58,7 +58,7 @@ restart|force-reload)
 
 	daemon_list daemons
 	watchfrr_options="$watchfrr_options $daemons"
-	daemon_start watchfrr
+	daemon_start watchfrr watchfrr
 	;;
 
 status)
@@ -89,7 +89,7 @@ reload)
 	daemon_list daemons
 	watchfrr_options="$watchfrr_options $daemons"
 	daemon_stop watchfrr && \
-		daemon_start watchfrr
+		daemon_start watchfrr watchfrr
 
 	# make systemd not kill watchfrr after ExecReload completes
 	# 3 goats were sacrificed to restore sanity after coding this
