@@ -422,18 +422,9 @@ void nhrp_send_zebra_nbr(union sockunion *in,
 		return;
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s,
-			      out ? ZEBRA_NEIGH_ADD : ZEBRA_NEIGH_DEL,
-			      ifp->vrf_id);
-	stream_putc(s, sockunion_family(in));
-	stream_write(s, sockunion_get_addr(in), sockunion_get_addrlen(in));
-	if (out) {
-		stream_putc(s, sockunion_family(out));
-		stream_write(s, sockunion_get_addr(out),
-			     sockunion_get_addrlen(out));
-	}
-	stream_putl(s, ifp->ifindex);
-
+	zclient_neigh_ip_encode(s, out ? ZEBRA_NEIGH_IP_ADD :
+				ZEBRA_NEIGH_IP_DEL, in, out,
+				ifp);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }

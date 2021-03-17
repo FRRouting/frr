@@ -4196,3 +4196,59 @@ char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf, size_t len)
 
 	return buf;
 }
+
+static int zclient_neigh_ip_read_entry(struct stream *s, struct ipaddr *add)
+{
+	uint8_t family;
+
+	STREAM_GETC(s, family);
+	if (family != AF_INET && family != AF_INET6)
+		return -1;
+
+	STREAM_GET(&add->ip.addr, s, family2addrsize(family));
+	add->ipa_type = family;
+	return 0;
+ stream_failure:
+	return -1;
+}
+
+int zclient_neigh_ip_encode(struct stream *s,
+			    uint16_t cmd,
+			    union sockunion *in,
+			    union sockunion *out,
+			    struct interface *ifp)
+{
+	int ret = 0;
+
+	zclient_create_header(s, cmd, ifp->vrf_id);
+	stream_putc(s, sockunion_family(in));
+	stream_write(s, sockunion_get_addr(in), sockunion_get_addrlen(in));
+	if (out && sockunion_family(out) != AF_UNSPEC) {
+		stream_putc(s, sockunion_family(out));
+		stream_write(s, sockunion_get_addr(out),
+			     sockunion_get_addrlen(out));
+	} else
+		stream_putc(s, AF_UNSPEC);
+	stream_putl(s, ifp->ifindex);
+	if (out)
+		stream_putl(s, ZEBRA_NEIGH_STATE_REACHABLE);
+	else
+		stream_putl(s, ZEBRA_NEIGH_STATE_FAILED);
+	return ret;
+}
+
+int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api)
+{
+	int ret;
+
+	ret = zclient_neigh_ip_read_entry(s, &api->ip_in);
+	if (ret < 0)
+		return -1;
+	zclient_neigh_ip_read_entry(s, &api->ip_out);
+
+	STREAM_GETL(s, api->index);
+	STREAM_GETL(s, api->ndm_state);
+	return 0;
+ stream_failure:
+	return -1;
+}

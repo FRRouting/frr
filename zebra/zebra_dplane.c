@@ -3509,7 +3509,7 @@ enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
 						const struct interface *ifp,
 						struct ipaddr *link_ip,
 						struct ipaddr *ip,
-						bool permanent, int protocol)
+						uint32_t ndm_state, int protocol)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	uint16_t state = 0;
@@ -3523,12 +3523,9 @@ enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
 		zlog_debug("init link ctx %s: ifp %s, ip %s link %s",
 			   dplane_op2str(op), ifp->name, buf1, buf2);
 	}
-	if (op == DPLANE_OP_NEIGH_IP_INSTALL) {
-		if (!permanent)
-			state = DPLANE_NUD_REACHABLE;
-		else
-			state = DPLANE_NUD_PERMANENT;
-	} else
+	if (ndm_state == ZEBRA_NEIGH_STATE_REACHABLE)
+		state = DPLANE_NUD_REACHABLE;
+	else if (ndm_state == ZEBRA_NEIGH_STATE_FAILED)
 		state = DPLANE_NUD_FAILED;
 
 	update_flags = DPLANE_NEIGH_NO_EXTENSION;

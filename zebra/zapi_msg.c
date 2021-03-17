@@ -976,45 +976,30 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 
 void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 				struct ipaddr *ipaddr, int ndm_state,
-				void *mac, int macsize)
+				union sockunion *link_layer_ipv4)
 {
 	struct stream *s;
 	struct listnode *node, *nnode;
 	struct zserv *client;
 	afi_t afi;
+	union sockunion ip;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying Neighbor entry (%u)",
 			   __PRETTY_FUNCTION__, cmd);
 
-	if (ipaddr->ipa_type == IPADDR_V4)
-		afi = AFI_IP;
-	else if (ipaddr->ipa_type == IPADDR_V6)
-		afi = AFI_IP6;
-	else
-		return;
+	sockunion_family(&ip) = ipaddr_family(ipaddr);
+	afi = family2afi(sockunion_family(&ip));
+	memcpy((char *)sockunion_get_addr(&ip), &ipaddr->ip.addr,
+	       family2addrsize(sockunion_family(&ip)));
+
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi], ifp->vrf_id))
 			continue;
 
 		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-
-		zclient_create_header(s, cmd, ifp->vrf_id);
-		stream_putl(s, ifp->ifindex);
-		if (ipaddr->ipa_type == IPADDR_V4) {
-			stream_putw(s, AF_INET);
-			stream_put(s, &ipaddr->ip._v4_addr, IPV4_MAX_BYTELEN);
-		} else if (ipaddr->ipa_type == IPADDR_V6) {
-			stream_putw(s, AF_INET6);
-			stream_put(s, &ipaddr->ip._v6_addr, IPV6_MAX_BYTELEN);
-		} else
-			return;
-		stream_putl(s, ndm_state);
-		stream_putl(s, macsize);
-		if (mac)
-			stream_put(s, mac, macsize);
+		zclient_neigh_ip_encode(s, cmd, &ip, link_layer_ipv4, ifp);
 		stream_putw_at(s, 0, stream_get_endp(s));
-
 		zserv_send_message(client, s);
 	}
 }
@@ -3214,38 +3199,6 @@ stream_failure:
 	return;
 }
 
-static int zebra_neigh_read_ip(struct stream *s, struct ipaddr *add)
-{
-	uint8_t family;
-
-	STREAM_GETC(s, family);
-	if (family != AF_INET && family != AF_INET6)
-		return -1;
-
-	STREAM_GET(&add->ip.addr, s, family2addrsize(family));
-	add->ipa_type = family;
-	return 0;
-stream_failure:
-	return -1;
-}
-
-static int zebra_neigh_get(struct stream *s, struct zapi_nbr *api, bool add)
-{
-	int ret;
-
-	ret = zebra_neigh_read_ip(s, &api->ip_in);
-	if (ret < 0)
-		return -1;
-	if (add) {
-		ret = zebra_neigh_read_ip(s, &api->ip_out);
-		if (ret < 0)
-			return -1;
-	}
-	STREAM_GETL(s, api->index);
-	return 0;
-stream_failure:
-	return -1;
-}
 
 static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 {
@@ -3299,43 +3252,41 @@ stream_failure:
 	return;
 }
 
-static inline void zebra_neigh_add(ZAPI_HANDLER_ARGS)
+static inline void zebra_neigh_ip_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	struct zapi_nbr api;
+	struct zapi_neigh_ip api = {};
 	int ret;
 	const struct interface *ifp;
 
 	s = msg;
-	memset(&api, 0, sizeof(api));
-	ret = zebra_neigh_get(s, &api, true);
+	ret = zclient_neigh_ip_decode(s, &api);
 	if (ret < 0)
 		return;
 	ifp = if_lookup_by_index(api.index, zvrf_id(zvrf));
 	if (!ifp)
 		return;
 	dplane_neigh_ip_update(DPLANE_OP_NEIGH_IP_INSTALL, ifp, &api.ip_out,
-			       &api.ip_in, false, client->proto);
+			       &api.ip_in, api.ndm_state, client->proto);
 }
 
 
-static inline void zebra_neigh_del(ZAPI_HANDLER_ARGS)
+static inline void zebra_neigh_ip_del(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	struct zapi_nbr api;
+	struct zapi_neigh_ip api = {};
 	int ret;
 	struct interface *ifp;
 
 	s = msg;
-	memset(&api, 0, sizeof(api));
-	ret = zebra_neigh_get(s, &api, false);
+	ret = zclient_neigh_ip_decode(s, &api);
 	if (ret < 0)
 		return;
 	ifp = if_lookup_by_index(api.index, zvrf_id(zvrf));
 	if (!ifp)
 		return;
 	dplane_neigh_ip_update(DPLANE_OP_NEIGH_IP_DELETE, ifp, &api.ip_out,
-			       &api.ip_in, true, client->proto);
+			       &api.ip_in, api.ndm_state, client->proto);
 }
 
 
@@ -3524,8 +3475,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
 	[ZEBRA_EVPN_REMOTE_NH_ADD] = zebra_evpn_proc_remote_nh,
 	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,
-	[ZEBRA_NEIGH_ADD] = zebra_neigh_add,
-	[ZEBRA_NEIGH_DEL] = zebra_neigh_del,
+	[ZEBRA_NEIGH_IP_ADD] = zebra_neigh_ip_add,
+	[ZEBRA_NEIGH_IP_DEL] = zebra_neigh_ip_del,
 	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
 	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,

@@ -229,8 +229,8 @@ typedef enum {
 	ZEBRA_NHRP_NEIGH_GET,
 	ZEBRA_NHRP_NEIGH_REGISTER,
 	ZEBRA_NHRP_NEIGH_UNREGISTER,
-	ZEBRA_NEIGH_ADD,
-	ZEBRA_NEIGH_DEL,
+	ZEBRA_NEIGH_IP_ADD,
+	ZEBRA_NEIGH_IP_DEL,
 	ZEBRA_CONFIGURE_ARP,
 } zebra_message_types_t;
 
@@ -809,13 +809,23 @@ extern struct zclient_options zclient_options_default;
 /* link layer representation for GRE like interfaces
  * ip_in is the underlay IP, ip_out is the tunnel dest
  * index stands for the index of the interface
+ * ndm state stands for the NDM value in netlink
  */
-struct zapi_nbr {
+#define ZEBRA_NEIGH_STATE_REACHABLE (0x02)
+#define ZEBRA_NEIGH_STATE_FAILED    (0x20)
+struct zapi_neigh_ip {
 	int cmd;
 	struct ipaddr ip_in;
 	struct ipaddr ip_out;
 	ifindex_t index;
+	uint32_t ndm_state;
 };
+int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api);
+int zclient_neigh_ip_encode(struct stream *s,
+			    uint16_t cmd,
+			    union sockunion *in,
+			    union sockunion *out,
+			    struct interface *ifp);
 
 /*
  * We reserve the top 4 bits for l2-NHG, everything else

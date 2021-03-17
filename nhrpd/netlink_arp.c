@@ -154,31 +154,26 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 {
 	union sockunion addr = {}, lladdr = {};
 	struct interface *ifp;
-	ifindex_t idx;
-	struct ethaddr mac;
 	int state, ndm_state;
 	struct nhrp_cache *c;
-	unsigned short l2_len;
+	struct zapi_neigh_ip api = {};
 
-	STREAM_GETL(zclient->ibuf, idx);
-	ifp = if_lookup_by_index(idx, vrf_id);
-	STREAM_GETW(zclient->ibuf, addr.sa.sa_family);
-	if (addr.sa.sa_family == AF_INET) {
-		STREAM_GET(&addr.sin.sin_addr.s_addr,
-			   zclient->ibuf, IPV4_MAX_BYTELEN);
-	} else {
-		STREAM_GET(&addr.sin6.sin6_addr.s6_addr,
-			   zclient->ibuf, IPV6_MAX_BYTELEN);
-	}
-	STREAM_GETL(zclient->ibuf, ndm_state);
+	zclient_neigh_ip_decode(zclient->ibuf, &api);
+	if (api.ip_in.ipa_type == AF_UNSPEC)
+		return;
+	sockunion_family(&addr) = api.ip_in.ipa_type;
+	memcpy((uint8_t *)sockunion_get_addr(&addr), &api.ip_in.ip.addr,
+	       family2addrsize(api.ip_in.ipa_type));
 
-	STREAM_GETL(zclient->ibuf, l2_len);
-	if (l2_len) {
-		STREAM_GET(&mac, zclient->ibuf, l2_len);
-		if (l2_len == IPV4_MAX_BYTELEN)
-			sockunion_set(&lladdr, AF_INET, (const uint8_t *)&mac,
-				      l2_len);
-	}
+	sockunion_family(&lladdr) = api.ip_out.ipa_type;
+	if (api.ip_out.ipa_type != AF_UNSPEC)
+		memcpy((uint8_t *)sockunion_get_addr(&lladdr),
+		       &api.ip_out.ip.addr,
+		       family2addrsize(api.ip_out.ipa_type));
+
+	ifp = if_lookup_by_index(api.index, vrf_id);
+	ndm_state = api.ndm_state;
+
 	if (!ifp)
 		return;
 	c = nhrp_cache_get(ifp, &addr, 0);
@@ -205,12 +200,9 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 		}
 	} else {
 		state = (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? ndm_state
-			: NUD_FAILED;
-		nhrp_cache_set_used(c, state == NUD_REACHABLE);
+			: ZEBRA_NEIGH_STATE_FAILED;
+		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
-	return;
- stream_failure:
-	return;
 }
 
 void netlink_init(void)

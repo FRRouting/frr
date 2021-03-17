@@ -611,7 +611,8 @@ enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
 						const struct interface *ifp,
 						struct ipaddr *link_ip,
 						struct ipaddr *ip,
-						bool permanent, int protocol);
+						uint32_t ndm_state,
+						int protocol);
 
 /*
  * Enqueue evpn mac operations for the dataplane.
