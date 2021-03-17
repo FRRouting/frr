@@ -105,6 +105,7 @@ enum nhrp_notify_type {
 	NOTIFY_INTERFACE_ADDRESS_CHANGED,
 	NOTIFY_INTERFACE_NBMA_CHANGED,
 	NOTIFY_INTERFACE_MTU_CHANGED,
+	NOTIFY_INTERFACE_IPSEC_CHANGED,
 
 	NOTIFY_VC_IPSEC_CHANGED,
 	NOTIFY_VC_IPSEC_UPDATE_NBMA,
@@ -125,6 +126,7 @@ enum nhrp_notify_type {
 struct nhrp_vc {
 	struct notifier_list notifier_list;
 	uint32_t ipsec;
+	uint32_t ike_uniqueid;
 	uint8_t updating;
 	uint8_t abort_migration;
 
@@ -399,6 +401,8 @@ void nhrp_vc_reset(void);
 
 void vici_init(void);
 void vici_terminate(void);
+void vici_terminate_vc_by_profile_name(char *profile_name);
+void vici_terminate_vc_by_ike_id(unsigned int ike_id);
 void vici_request_vc(const char *profile, union sockunion *src,
 		     union sockunion *dst, int prio);
 
