@@ -206,6 +206,14 @@ Displaying RPKI
 
    Display all configured cache servers, whether active or not.
 
+.. clicmd:: show bgp [afi] [safi] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> rpki <valid|invalid|notfound>
+
+   Display for the specified prefix or address the bgp paths that match the given rpki state.
+
+.. clicmd:: show bgp [afi] [safi] rpki <valid|invalid|notfound>
+
+   Display all prefixes that match the given rpki state.
+
 RPKI Configuration Example
 --------------------------
 
