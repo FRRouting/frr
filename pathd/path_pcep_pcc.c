@@ -348,9 +348,6 @@ void pcep_pcc_reconnect(struct ctrl_state *ctrl_state,
 
 int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
-	char pcc_buff[40];
-	char pce_buff[40];
-
 	assert(pcc_state->status == PCEP_PCC_DISCONNECTED);
 	assert(pcc_state->sess == NULL);
 
@@ -366,10 +363,9 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV4)) {
 		if (pcc_state->retry_count < OTHER_FAMILY_MAX_RETRIES) {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "skipping connection to PCE %s:%d due to "
+				  "skipping connection to PCE %pIA:%d due to "
 				  "missing PCC IPv4 address",
-				  ipaddr2str(&pcc_state->pce_opts->addr,
-					     pce_buff, sizeof(pce_buff)),
+				  &pcc_state->pce_opts->addr,
 				  pcc_state->pce_opts->port);
 			schedule_reconnect(ctrl_state, pcc_state);
 			return 0;
@@ -385,10 +381,9 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6)) {
 		if (pcc_state->retry_count < OTHER_FAMILY_MAX_RETRIES) {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "skipping connection to PCE %s:%d due to "
+				  "skipping connection to PCE %pIA:%d due to "
 				  "missing PCC IPv6 address",
-				  ipaddr2str(&pcc_state->pce_opts->addr,
-					     pce_buff, sizeof(pce_buff)),
+				  &pcc_state->pce_opts->addr,
 				  pcc_state->pce_opts->port);
 			schedule_reconnect(ctrl_state, pcc_state);
 			return 0;
@@ -403,10 +398,9 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	 * have been spent, we still need the one for the transport familly */
 	if (pcc_state->pcc_addr_tr.ipa_type == IPADDR_NONE) {
 		flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-			  "skipping connection to PCE %s:%d due to missing "
+			  "skipping connection to PCE %pIA:%d due to missing "
 			  "PCC address",
-			  ipaddr2str(&pcc_state->pce_opts->addr, pce_buff,
-				     sizeof(pce_buff)),
+			  &pcc_state->pce_opts->addr,
 			  pcc_state->pce_opts->port);
 		schedule_reconnect(ctrl_state, pcc_state);
 		return 0;
@@ -420,12 +414,10 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 
 	if (pcc_state->sess == NULL) {
 		flog_warn(EC_PATH_PCEP_LIB_CONNECT,
-			  "failed to connect to PCE %s:%d from %s:%d",
-			  ipaddr2str(&pcc_state->pce_opts->addr, pce_buff,
-				     sizeof(pce_buff)),
+			  "failed to connect to PCE %pIA:%d from %pIA:%d",
+			  &pcc_state->pce_opts->addr,
 			  pcc_state->pce_opts->port,
-			  ipaddr2str(&pcc_state->pcc_addr_tr, pcc_buff,
-				     sizeof(pcc_buff)),
+			  &pcc_state->pcc_addr_tr,
 			  pcc_state->pcc_opts->port);
 		schedule_reconnect(ctrl_state, pcc_state);
 		return 0;
@@ -1574,7 +1566,6 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 	assert(lookup_reqid(pcc_state, req->path) == req->path->req_id);
 
 	int timeout;
-	char buff[40];
 	struct pcep_message *msg;
 
 	if (!pcc_state->is_best) {
@@ -1585,10 +1576,9 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 	specialize_outgoing_path(pcc_state, req->path);
 
 	PCEP_DEBUG(
-		"%s Sending computation request %d for path %s to %s (retry %d)",
+		"%s Sending computation request %d for path %s to %pIA (retry %d)",
 		pcc_state->tag, req->path->req_id, req->path->name,
-		ipaddr2str(&req->path->nbkey.endpoint, buff, sizeof(buff)),
-		req->retry_count);
+		&req->path->nbkey.endpoint, req->retry_count);
 	PCEP_DEBUG_PATH("%s Computation request path %s: %s", pcc_state->tag,
 			req->path->name, format_path(req->path));
 
@@ -1621,7 +1611,6 @@ void cancel_comp_requests(struct ctrl_state *ctrl_state,
 void cancel_comp_request(struct ctrl_state *ctrl_state,
 			 struct pcc_state *pcc_state, struct req_entry *req)
 {
-	char buff[40];
 	struct pcep_message *msg;
 
 	if (req->was_sent) {
@@ -1631,10 +1620,9 @@ void cancel_comp_request(struct ctrl_state *ctrl_state,
 	}
 
 	PCEP_DEBUG(
-		"%s Canceling computation request %d for path %s to %s (retry %d)",
+		"%s Canceling computation request %d for path %s to %pIA (retry %d)",
 		pcc_state->tag, req->path->req_id, req->path->name,
-		ipaddr2str(&req->path->nbkey.endpoint, buff, sizeof(buff)),
-		req->retry_count);
+		&req->path->nbkey.endpoint, req->retry_count);
 	PCEP_DEBUG_PATH("%s Canceled computation request path %s: %s",
 			pcc_state->tag, req->path->name,
 			format_path(req->path));
