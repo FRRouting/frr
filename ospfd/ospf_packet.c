@@ -799,7 +799,13 @@ static int ospf_write(struct thread *thread)
 				&iph.ip_dst, iph.ip_id, iph.ip_off,
 				iph.ip_len, oi->ifp->name, oi->ifp->mtu);
 
-		if (ret < 0)
+		/* sendmsg will return EPERM if firewall is blocking sending.
+		 * This is a normal situation when 'ip nhrp map multicast xxx'
+		 * is being used to send multicast packets to DMVPN peers. In
+		 * that case the original message is blocked with iptables rule
+		 * causing the EPERM result
+		 */
+		if (ret < 0 && errno != EPERM)
 			flog_err(
 				EC_LIB_SOCKET,
 				"*** sendmsg in ospf_write failed to %pI4, id %d, off %d, len %d, interface %s, mtu %u: %s",
