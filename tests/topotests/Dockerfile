@@ -23,6 +23,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         libreadline-dev \
         libc-ares-dev \
         libcap-dev \
+        libelf-dev \
         man \
         mininet \
         pkg-config \

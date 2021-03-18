@@ -23,7 +23,6 @@
 # SOFTWARE.
 
 FRR_HOST_DIR=/root/host-frr
-FRR_SYNC_DIR=/root/persist/frr-sync
 FRR_BUILD_DIR=/root/persist/frr-build
 
 if [ ! -L "/root/frr" ]; then
