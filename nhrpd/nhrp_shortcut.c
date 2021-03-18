@@ -215,7 +215,6 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
-	char buf[4][SU_ADDRSTRLEN];
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
@@ -302,10 +301,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	/* Update cache entry for the protocol to nbma binding */
 	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "Remote Device is NATTED, NHRP NAT Extension present");
-		debugf(NHRP_DEBUG_COMMON,
-		       "Client NBMA Address %s",
-		       sockunion2str(&nat_nbma, buf[1], sizeof(buf[1])));
+		       "Remote Device is NATed (NAT extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
+		       proto, &nat_nbma, &cie_nbma);
 		nbma = &nat_nbma;
 	}
 	/* For NHRP resolution reply the cie_nbma in mandatory part is the
@@ -314,13 +311,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	else if (!sockunion_same(&cie_nbma, &pp->peer->vc->remote.nbma)
 		 && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp)) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "Remote Device is NATTED, NHRP NAT Extension not present for proto %s",
-		       sockunion2str(proto, buf[0], sizeof(buf[0])));
-		debugf(NHRP_DEBUG_COMMON, "cie_nbma %s",
-		       sockunion2str(&cie_nbma, buf[1], sizeof(buf[1])));
-		debugf(NHRP_DEBUG_COMMON, "remote.nbma %s",
-		       sockunion2str(&pp->peer->vc->remote.nbma, buf[1],
-				sizeof(buf[1])));
+		       "Remote Device is NATed (no NAT Extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
+		       proto, &pp->peer->vc->remote.nbma, &cie_nbma);
 		nbma = &pp->peer->vc->remote.nbma;
 		nat_nbma = *nbma;
 	} else {
@@ -328,10 +320,9 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	}
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Shortcut: %pFX is at proto %pSU dst_proto %pSU cie-nbma %pSU nat-nbma %pSU cie-holdtime %d",
-	       &prefix, proto, &pp->dst_proto, &cie_nbma, &nat_nbma,
+	       "Shortcut: %pFX is at proto %pSU dst_proto %pSU NBMA %pSU cie-holdtime %d",
+	       &prefix, proto, &pp->dst_proto, nbma,
 	       htons(cie->holding_time));
-
 
 	if (sockunion_family(nbma)) {
 		c = nhrp_cache_get(pp->ifp, proto, 1);
@@ -346,7 +337,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 						  &cie_nbma);
 		} else {
 			debugf(NHRP_DEBUG_COMMON,
-			       "Shortcut: no cache for nbma %s", buf[2]);
+			       "Shortcut: no cache for proto %pSU", proto);
 		}
 
 		/* Update cache binding for dst_proto as well */
@@ -364,8 +355,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 						  &cie_nbma);
 			} else {
 				debugf(NHRP_DEBUG_COMMON,
-				       "Shortcut: no cache for nbma %s",
-				       buf[2]);
+				       "Shortcut: no cache for proto %pSU",
+				       &pp->dst_proto);
 			}
 		}
 	}
