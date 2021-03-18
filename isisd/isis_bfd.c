@@ -332,9 +332,15 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 	/* If IS-IS IPv6 is configured wait for IPv6 address to be programmed
 	 * before starting up BFD
 	 */
-	if ((circuit->ipv6_router && listcount(circuit->ipv6_link) == 0)
-	    || adj->ipv6_address_count == 0)
+	if (circuit->ipv6_router
+	    && (listcount(circuit->ipv6_link) == 0
+		|| adj->ipv6_address_count == 0)) {
+		if (IS_DEBUG_BFD)
+			zlog_debug(
+				"ISIS-BFD: skipping BFD initialization on adjacency with %s because IPv6 is enabled but not ready",
+				isis_adj_name(adj));
 		return;
+	}
 
 	/*
 	 * If IS-IS is enabled for both IPv4 and IPv6 on the circuit, prefer
