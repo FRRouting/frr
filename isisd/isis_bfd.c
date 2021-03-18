@@ -92,22 +92,42 @@ static bool bfd_session_same(const struct bfd_session *session, int family,
 static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 			  int new_status)
 {
-	if (!adj->bfd_session)
+	if (!adj->bfd_session) {
+		if (IS_DEBUG_BFD)
+			zlog_debug(
+				"ISIS-BFD: Ignoring update for adjacency with %s, could not find bfd session on the adjacency",
+				isis_adj_name(adj));
 		return;
+	}
 
-	if (adj->bfd_session->family != dst->family)
+	if (adj->bfd_session->family != dst->family) {
+		if (IS_DEBUG_BFD)
+			zlog_debug(
+				"ISIS-BFD: Ignoring update for adjacency with %s, address family does not match the family on the adjacency",
+				isis_adj_name(adj));
 		return;
+	}
 
 	switch (adj->bfd_session->family) {
 	case AF_INET:
 		if (!IPV4_ADDR_SAME(&adj->bfd_session->dst_ip.ipv4,
-				    &dst->u.prefix4))
+				    &dst->u.prefix4)) {
+			if (IS_DEBUG_BFD)
+				zlog_debug(
+					"ISIS-BFD: Ignoring update for adjacency with %s, IPv4 address does not match",
+					isis_adj_name(adj));
 			return;
+		}
 		break;
 	case AF_INET6:
 		if (!IPV6_ADDR_SAME(&adj->bfd_session->dst_ip.ipv6,
-				    &dst->u.prefix6))
+				    &dst->u.prefix6)) {
+			if (IS_DEBUG_BFD)
+				zlog_debug(
+					"ISIS-BFD: Ignoring update for adjacency with %s, IPv6 address does not match",
+					isis_adj_name(adj));
 			return;
+		}
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: unknown address-family: %u",
@@ -119,8 +139,13 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 
 	BFD_SET_CLIENT_STATUS(adj->bfd_session->status, new_status);
 
-	if (old_status == new_status)
+	if (old_status == new_status) {
+		if (IS_DEBUG_BFD)
+			zlog_debug(
+				"ISIS-BFD: Ignoring update for adjacency with %s, new status matches current known status",
+				isis_adj_name(adj));
 		return;
+	}
 
 	if (IS_DEBUG_BFD) {
 		char dst_str[INET6_ADDRSTRLEN];
@@ -166,8 +191,12 @@ static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 
 	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
 
-	if (!circuit)
+	if (!circuit) {
+		if (IS_DEBUG_BFD)
+			zlog_debug(
+				"ISIS-BFD: Ignoring update, could not find circuit");
 		return 0;
+	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
@@ -326,8 +355,13 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 	struct list *local_ips;
 	struct prefix *local_ip;
 
-	if (!circuit->bfd_info)
+	if (!circuit->bfd_info) {
+		if (IS_DEBUG_BFD)
+			zlog_debug(
+				"ISIS-BFD: skipping BFD initialization on adjacency with %s because there is no bfd_info in the circuit",
+				isis_adj_name(adj));
 		goto out;
+	}
 
 	/* If IS-IS IPv6 is configured wait for IPv6 address to be programmed
 	 * before starting up BFD
@@ -350,16 +384,24 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 		family = AF_INET6;
 		dst_ip.ipv6 = adj->ipv6_addresses[0];
 		local_ips = circuit->ipv6_link;
-		if (!local_ips || list_isempty(local_ips))
+		if (!local_ips || list_isempty(local_ips)) {
+			if (IS_DEBUG_BFD)
+				zlog_debug(
+					"ISIS-BFD: skipping BFD initialization: IPv6 enabled and no local IPv6 addresses");
 			goto out;
+		}
 		local_ip = listgetdata(listhead(local_ips));
 		src_ip.ipv6 = local_ip->u.prefix6;
 	} else if (circuit->ip_router && adj->ipv4_address_count) {
 		family = AF_INET;
 		dst_ip.ipv4 = adj->ipv4_addresses[0];
 		local_ips = fabricd_ip_addrs(adj->circuit);
-		if (!local_ips || list_isempty(local_ips))
+		if (!local_ips || list_isempty(local_ips)) {
+			if (IS_DEBUG_BFD)
+				zlog_debug(
+					"ISIS-BFD: skipping BFD initialization: IPv4 enabled and no local IPv4 addresses");
 			goto out;
+		}
 		local_ip = listgetdata(listhead(local_ips));
 		src_ip.ipv4 = local_ip->u.prefix4;
 	} else
@@ -371,8 +413,13 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 			bfd_handle_adj_down(adj);
 	}
 
-	if (!adj->bfd_session)
+	if (!adj->bfd_session) {
+		if (IS_DEBUG_BFD)
+			zlog_debug(
+				"ISIS-BFD: creating BFD session for adjacency with %s",
+				isis_adj_name(adj));
 		adj->bfd_session = bfd_session_new(family, &dst_ip, &src_ip);
+	}
 
 	bfd_debug(adj->bfd_session->family, &adj->bfd_session->dst_ip,
 		  &adj->bfd_session->src_ip, circuit->interface->name, command);
