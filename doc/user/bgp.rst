@@ -1783,7 +1783,7 @@ AS Path Access Lists
 
 AS path access list is user defined AS path.
 
-.. clicmd:: bgp as-path access-list WORD permit|deny LINE
+.. clicmd:: bgp as-path access-list WORD [seq (0-4294967295)] permit|deny LINE
 
    This command defines a new AS path access list.
 
@@ -1799,6 +1799,7 @@ Bogon ASN filter policy configuration example
    bgp as-path access-list 99 permit _0_
    bgp as-path access-list 99 permit _23456_
    bgp as-path access-list 99 permit _1310[0-6][0-9]_|_13107[0-1]_
+   bgp as-path access-list 99 seq 20 permit ^65
 
 .. _bgp-using-as-path-in-route-map:
 
@@ -3597,8 +3598,8 @@ certainly contains silly mistakes, if not serious flaws.
    ip prefix-list pl-peer2-network permit 192.168.2.0/24
    ip prefix-list pl-peer2-network permit 172.16.1/24
    !
-   bgp as-path access-list asp-own-as permit ^$
-   bgp as-path access-list asp-own-as permit _64512_
+   bgp as-path access-list seq 5 asp-own-as permit ^$
+   bgp as-path access-list seq 10 asp-own-as permit _64512_
    !
    ! #################################################################
    ! Match communities we provide actions for, on routes receives from

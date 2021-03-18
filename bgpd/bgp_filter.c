@@ -62,6 +62,9 @@ struct as_filter {
 
 	regex_t *reg;
 	char *reg_str;
+
+	/* Sequence number. */
+	int64_t seq;
 };
 
 /* AS path filter list. */
@@ -76,6 +79,38 @@ struct as_list {
 	struct as_filter *head;
 	struct as_filter *tail;
 };
+
+
+/* Calculate new sequential number. */
+static int64_t bgp_alist_new_seq_get(struct as_list *list)
+{
+	int64_t maxseq;
+	int64_t newseq;
+	struct as_filter *entry;
+
+	maxseq = 0;
+
+	for (entry = list->head; entry; entry = entry->next) {
+		if (maxseq < entry->seq)
+			maxseq = entry->seq;
+	}
+
+	newseq = ((maxseq / 5) * 5) + 5;
+
+	return (newseq > UINT_MAX) ? UINT_MAX : newseq;
+}
+
+/* Return as-list entry which has same seq number. */
+static struct as_filter *bgp_aslist_seq_check(struct as_list *list, int64_t seq)
+{
+	struct as_filter *entry;
+
+	for (entry = list->head; entry; entry = entry->next)
+		if (entry->seq == seq)
+			return entry;
+
+	return NULL;
+}
 
 /* as-path access-list 10 permit AS1. */
 
@@ -125,17 +160,69 @@ static struct as_filter *as_filter_lookup(struct as_list *aslist,
 	return NULL;
 }
 
+static void as_filter_entry_replace(struct as_list *list,
+				    struct as_filter *replace,
+				    struct as_filter *entry)
+{
+	if (replace->next) {
+		entry->next = replace->next;
+		replace->next->prev = entry;
+	} else {
+		entry->next = NULL;
+		list->tail = entry;
+	}
+
+	if (replace->prev) {
+		entry->prev = replace->prev;
+		replace->prev->next = entry;
+	} else {
+		entry->prev = NULL;
+		list->head = entry;
+	}
+
+	as_filter_free(replace);
+}
+
 static void as_list_filter_add(struct as_list *aslist,
 			       struct as_filter *asfilter)
 {
-	asfilter->next = NULL;
-	asfilter->prev = aslist->tail;
+	struct as_filter *point;
+	struct as_filter *replace;
 
-	if (aslist->tail)
-		aslist->tail->next = asfilter;
-	else
-		aslist->head = asfilter;
-	aslist->tail = asfilter;
+	if (aslist->tail && asfilter->seq > aslist->tail->seq)
+		point = NULL;
+	else {
+		replace = bgp_aslist_seq_check(aslist, asfilter->seq);
+		if (replace) {
+			as_filter_entry_replace(aslist, replace, asfilter);
+			return;
+		}
+
+		/* Check insert point. */
+		for (point = aslist->head; point; point = point->next)
+			if (point->seq >= asfilter->seq)
+				break;
+	}
+
+	asfilter->next = point;
+
+	if (point) {
+		if (point->prev)
+			point->prev->next = asfilter;
+		else
+			aslist->head = asfilter;
+
+		asfilter->prev = point->prev;
+		point->prev = asfilter;
+	} else {
+		if (aslist->tail)
+			aslist->tail->next = asfilter;
+		else
+			aslist->head = asfilter;
+
+		asfilter->prev = aslist->tail;
+		aslist->tail = asfilter;
+	}
 
 	/* Run hook function. */
 	if (as_list_master.add_hook)
@@ -391,11 +478,13 @@ bool config_bgp_aspath_validate(const char *regstr)
 }
 
 DEFUN(as_path, bgp_as_path_cmd,
-      "bgp as-path access-list WORD <deny|permit> LINE...",
+      "bgp as-path access-list WORD [seq (0-4294967295)] <deny|permit> LINE...",
       BGP_STR
       "BGP autonomous system path filter\n"
       "Specify an access list name\n"
       "Regular expression access list name\n"
+      "Sequence number of an entry\n"
+      "Sequence number\n"
       "Specify packets to reject\n"
       "Specify packets to forward\n"
       "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
@@ -406,10 +495,14 @@ DEFUN(as_path, bgp_as_path_cmd,
 	struct as_list *aslist;
 	regex_t *regex;
 	char *regstr;
+	int64_t seqnum = ASPATH_SEQ_NUMBER_AUTO;
 
 	/* Retrieve access list name */
 	argv_find(argv, argc, "WORD", &idx);
 	char *alname = argv[idx]->arg;
+
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		seqnum = (int64_t)atol(argv[idx]->arg);
 
 	/* Check the filter type. */
 	type = argv_find(argv, argc, "deny", &idx) ? AS_FILTER_DENY
@@ -439,6 +532,11 @@ DEFUN(as_path, bgp_as_path_cmd,
 	/* Install new filter to the access_list. */
 	aslist = as_list_get(alname);
 
+	if (seqnum == ASPATH_SEQ_NUMBER_AUTO)
+		seqnum = bgp_alist_new_seq_get(aslist);
+
+	asfilter->seq = seqnum;
+
 	/* Duplicate insertion check. */;
 	if (as_list_dup_check(aslist, asfilter))
 		as_filter_free(asfilter);
@@ -449,12 +547,14 @@ DEFUN(as_path, bgp_as_path_cmd,
 }
 
 DEFUN(no_as_path, no_bgp_as_path_cmd,
-      "no bgp as-path access-list WORD <deny|permit> LINE...",
+      "no bgp as-path access-list WORD [seq (0-4294967295)] <deny|permit> LINE...",
       NO_STR
       BGP_STR
       "BGP autonomous system path filter\n"
       "Specify an access list name\n"
       "Regular expression access list name\n"
+      "Sequence number of an entry\n"
+      "Sequence number\n"
       "Specify packets to reject\n"
       "Specify packets to forward\n"
       "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
@@ -643,8 +743,11 @@ static int config_write_as_list(struct vty *vty)
 	for (aslist = as_list_master.num.head; aslist; aslist = aslist->next)
 		for (asfilter = aslist->head; asfilter;
 		     asfilter = asfilter->next) {
-			vty_out(vty, "bgp as-path access-list %s %s %s\n",
-				aslist->name, filter_type_str(asfilter->type),
+			vty_out(vty,
+				"bgp as-path access-list %s seq %" PRId64
+				" %s %s\n",
+				aslist->name, asfilter->seq,
+				filter_type_str(asfilter->type),
 				asfilter->reg_str);
 			write++;
 		}
@@ -652,8 +755,11 @@ static int config_write_as_list(struct vty *vty)
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
 		for (asfilter = aslist->head; asfilter;
 		     asfilter = asfilter->next) {
-			vty_out(vty, "bgp as-path access-list %s %s %s\n",
-				aslist->name, filter_type_str(asfilter->type),
+			vty_out(vty,
+				"bgp as-path access-list %s seq %" PRId64
+				" %s %s\n",
+				aslist->name, asfilter->seq,
+				filter_type_str(asfilter->type),
 				asfilter->reg_str);
 			write++;
 		}
