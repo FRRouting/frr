@@ -301,6 +301,7 @@ if test "$enable_dev_build" = "yes"; then
    if test "$orig_cflags" = ""; then
       AC_C_FLAG([-g3])
       AC_C_FLAG([-O0])
+      AC_C_FLAG([-ggdb3])
    fi
 else
    if test "$orig_cflags" = ""; then
@@ -308,6 +309,7 @@ else
       AC_C_FLAG([-O2])
    fi
 fi
+
 AM_CONDITIONAL([DEV_BUILD], [test "$enable_dev_build" = "yes"])
 
 dnl always want these CFLAGS
