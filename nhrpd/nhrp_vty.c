@@ -645,19 +645,36 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 	ctx->count++;
 
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
-	if (c->cur.peer)
-		sockunion2str(&c->cur.peer->vc->remote.nbma,
-			      buf[1], sizeof(buf[1]));
-	else
-		snprintf(buf[1], sizeof(buf[1]), "-");
+	if (c->cur.type == NHRP_CACHE_LOCAL) {
+		struct nhrp_interface *nifp = c->ifp->info;
 
-	if (c->cur.peer
-	    && sockunion_family(&c->cur.remote_nbma_claimed) != AF_UNSPEC)
-		sockunion2str(&c->cur.remote_nbma_claimed,
-			      buf[2], sizeof(buf[2]));
+		if (sockunion_family(&nifp->nbma) != AF_UNSPEC) {
+			sockunion2str(&nifp->nbma, buf[1], sizeof(buf[1]));
+			sockunion2str(&nifp->nbma, buf[2], sizeof(buf[2]));
+		}
+		else {
+			snprintf(buf[1], sizeof(buf[1]), "-");
+			snprintf(buf[2], sizeof(buf[2]), "-");
+		}
 
-	else
-		snprintf(buf[2], sizeof(buf[2]), "-");
+		/* if we are behind NAT then update NBMA field */
+		if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC)
+			sockunion2str(&nifp->nat_nbma, buf[1], sizeof(buf[1]));
+	} else {
+		if (c->cur.peer)
+			sockunion2str(&c->cur.peer->vc->remote.nbma,
+				      buf[1], sizeof(buf[1]));
+		else
+			snprintf(buf[1], sizeof(buf[1]), "-");
+
+		if (c->cur.peer
+		    && sockunion_family(&c->cur.remote_nbma_claimed)
+		    	       != AF_UNSPEC)
+			sockunion2str(&c->cur.remote_nbma_claimed,
+				      buf[2], sizeof(buf[2]));
+		else
+			snprintf(buf[2], sizeof(buf[2]), "-");
+	}
 
 	if (ctx->json) {
 		json = json_object_new_object();
