@@ -279,6 +279,35 @@ class Config(object):
             if ":" in line:
                 line = get_normalized_mac_ip_line(line)
 
+            """
+              vrf static routes can be added in two ways. The old way is:
+
+              "ip route x.x.x.x/x y.y.y.y vrf <vrfname>"
+
+              but it's rendered in the configuration as the new way::
+
+              vrf <vrf-name>
+               ip route x.x.x.x/x y.y.y.y
+               exit-vrf
+
+              this difference causes frr-reload to not consider them a
+              match and delete vrf static routes incorrectly.
+              fix the old way to match new "show running" output so a
+              proper match is found.
+            """
+            if (
+                line.startswith("ip route ") or line.startswith("ipv6 route ")
+            ) and " vrf " in line:
+                newline = line.split(" ")
+                vrf_index = newline.index("vrf")
+                vrf_ctx = newline[vrf_index] + " " + newline[vrf_index + 1]
+                del newline[vrf_index : vrf_index + 2]
+                newline = " ".join(newline)
+                self.lines.append(vrf_ctx)
+                self.lines.append(newline)
+                self.lines.append("exit-vrf")
+                line = "end"
+
             self.lines.append(line)
 
         self.load_contexts()
@@ -459,6 +488,23 @@ class Config(object):
             and "null0" in key[0]
         ):
             key[0] = re.sub(r"\s+null0(\s*$)", " Null0", key[0])
+
+        """
+          Similar to above, but when the static is in a vrf, it turns into a
+          blackhole nexthop for both null0 and Null0.  Fix it accordingly
+        """
+        if lines and key[0].startswith("vrf "):
+            newlines = []
+            for line in lines:
+                if line.startswith("ip route ") or line.startswith("ipv6 route "):
+                    if "null0" in line:
+                        line = re.sub(r"\s+null0(\s*$)", " blackhole", line)
+                    elif "Null0" in line:
+                        line = re.sub(r"\s+Null0(\s*$)", " blackhole", line)
+                    newlines.append(line)
+                else:
+                    newlines.append(line)
+            lines = newlines
 
         if lines:
             if tuple(key) not in self.contexts:
