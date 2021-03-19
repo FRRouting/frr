@@ -185,70 +185,38 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_ospf6_converged():
-
+def test_wait_protocol_convergence():
+    "Wait for OSPFv3 to converge"
     tgen = get_topogen()
-
-    # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    # For debugging, uncomment the next line
-    # tgen.mininet_cli()
+    logger.info("waiting for protocols to converge")
 
-    # Wait for OSPF6 to converge  (All Neighbors in either Full or TwoWay State)
-    logger.info("Waiting for OSPF6 convergence")
+    def expect_neighbor_full(router, neighbor):
+        "Wait until OSPFv3 convergence."
+        logger.info("waiting OSPFv3 router '{}'".format(router))
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show ipv6 ospf6 neighbor json",
+            {"neighbors": [{"neighborId": neighbor, "state": "Full"}]},
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+        assertmsg = '"{}" convergence failure'.format(router)
+        assert result is None, assertmsg
 
-    # Set up for regex
-    pat1 = re.compile("^[0-9]")
-    pat2 = re.compile("Full")
+    expect_neighbor_full("r1", "10.0.0.2")
+    expect_neighbor_full("r1", "10.0.0.3")
 
-    timeout = 60
-    while timeout > 0:
-        logger.info("Timeout in %s: " % timeout),
-        sys.stdout.flush()
+    expect_neighbor_full("r2", "10.0.0.1")
+    expect_neighbor_full("r2", "10.0.0.3")
 
-        # Look for any node not yet converged
-        for router, rnode in tgen.routers().items():
-            resStr = rnode.vtysh_cmd("show ipv6 ospf neigh")
+    expect_neighbor_full("r3", "10.0.0.1")
+    expect_neighbor_full("r3", "10.0.0.2")
+    expect_neighbor_full("r3", "10.0.0.4")
 
-            isConverged = False
-
-            for line in resStr.splitlines():
-                res1 = pat1.match(line)
-                if res1:
-                    isConverged = True
-                    res2 = pat2.search(line)
-
-                    if res2 == None:
-                        isConverged = False
-                        break
-
-            if isConverged == False:
-                logger.info("Waiting for {}".format(router))
-                sys.stdout.flush()
-                break
-
-        if isConverged:
-            logger.info("Done")
-            break
-        else:
-            sleep(5)
-            timeout -= 5
-
-    if timeout == 0:
-        # Bail out with error if a router fails to converge
-        ospfStatus = rnode.vtysh_cmd("show ipv6 ospf neigh")
-        assert False, "OSPFv6 did not converge:\n{}".format(ospfStatus)
-
-    logger.info("OSPFv3 converged.")
-
-    # For debugging, uncomment the next line
-    # tgen.mininet_cli()
-
-    # Make sure that all daemons are still running
-    if tgen.routers_have_failure():
-        assert tgen.errors == "", tgen.errors
+    expect_neighbor_full("r4", "10.0.0.3")
 
 
 def compare_show_ipv6(rname, expected):
