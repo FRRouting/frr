@@ -212,6 +212,10 @@ bool zebra_nhg_kernel_nexthops_enabled(void);
 void zebra_nhg_set_proto_nexthops_only(bool set);
 bool zebra_nhg_proto_nexthops_only(void);
 
+/* Global control for use of activated backups for recursive resolution. */
+void zebra_nhg_set_recursive_use_backups(bool set);
+bool zebra_nhg_recursive_use_backups(void);
+
 /**
  * NHE abstracted tree functions.
  * Use these where possible instead of direct access.
