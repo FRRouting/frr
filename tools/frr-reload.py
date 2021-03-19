@@ -108,7 +108,7 @@ class Vtysh(object):
         stdout, stderr = proc.communicate()
         if proc.wait() != 0:
             if stdouts is not None:
-                stdouts.append(stdout.decode('UTF-8'))
+                stdouts.append(stdout.decode("UTF-8"))
             raise VtyshException(
                 'vtysh returned status %d for command "%s"' % (proc.returncode, command)
             )
@@ -582,11 +582,13 @@ end
             if line.startswith("!") or line.startswith("#"):
                 continue
 
-            if (len(ctx_keys) == 2
-                and ctx_keys[0].startswith('bfd')
-                and ctx_keys[1].startswith('profile ')
-                and line == 'end'):
-                log.debug('LINE %-50s: popping from sub context, %-50s', line, ctx_keys)
+            if (
+                len(ctx_keys) == 2
+                and ctx_keys[0].startswith("bfd")
+                and ctx_keys[1].startswith("profile ")
+                and line == "end"
+            ):
+                log.debug("LINE %-50s: popping from sub context, %-50s", line, ctx_keys)
 
                 if main_ctx_key:
                     self.save_contexts(ctx_keys, current_context_lines)
@@ -907,9 +909,9 @@ end
                 ctx_keys.append(line)
 
             elif (
-                line.startswith('profile ')
+                line.startswith("profile ")
                 and len(ctx_keys) == 1
-                and ctx_keys[0].startswith('bfd')
+                and ctx_keys[0].startswith("bfd")
             ):
 
                 # Save old context first
@@ -918,7 +920,7 @@ end
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
                     "LINE %-50s: entering BFD profile sub-context, append to ctx_keys",
-                    line
+                    line,
                 )
                 ctx_keys.append(line)
 
