@@ -2235,6 +2235,8 @@ int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 	int ret;
 	struct prefix_evpn p;
 
+	update_type1_routes_for_evi(bgp, vpn);
+
 	/* Update and advertise the type-3 route (only one) followed by the
 	 * locally learnt type-2 routes (MACIP) - for this VNI.
 	 *
@@ -3136,7 +3138,7 @@ static int uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 		return ret;
 
 	ret = install_uninstall_routes_for_vni(bgp, vpn, BGP_EVPN_AD_ROUTE,
-					       1);
+					       0);
 	if (ret)
 		return ret;
 
