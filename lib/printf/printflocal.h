@@ -101,6 +101,7 @@ int	_frr_find_warguments(const wchar_t *, va_list, union arg **) DSO_LOCAL;
 #endif
 
 /* returns number of bytes needed for full output, or -1 */
-ssize_t printfrr_extp(struct fbuf *, const char **, int, const void *)
+ssize_t printfrr_extp(struct fbuf *, struct printfrr_eargs *ea, const void *)
 	DSO_LOCAL;
-ssize_t printfrr_exti(struct fbuf *, const char **, int, uintmax_t) DSO_LOCAL;
+ssize_t printfrr_exti(struct fbuf *, struct printfrr_eargs *ea, uintmax_t)
+	DSO_LOCAL;

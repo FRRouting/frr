@@ -307,8 +307,8 @@ const char *srcdest_rnode2str(const struct route_node *rn, char *str, int size)
 }
 
 printfrr_ext_autoreg_p("RN", printfrr_rn)
-static ssize_t printfrr_rn(struct fbuf *buf, const char **fmt,
-			   int prec, const void *ptr)
+static ssize_t printfrr_rn(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
 {
 	const struct route_node *rn = ptr;
 	const struct prefix *dst_p, *src_p;

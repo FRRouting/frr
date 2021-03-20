@@ -456,14 +456,25 @@ reswitch:	switch (ch) {
 				ulval = SARG();
 
 			if (printfrr_ext_char(fmt[0])) {
+				struct printfrr_eargs ea = {
+					.fmt = fmt,
+					.precision = prec,
+					.width = width,
+					.alt_repr = !!(flags & ALT),
+					.leftadj = !!(flags & LADJUST),
+				};
+
 				if (cb)
 					extstart = cb->pos;
 
-				size = printfrr_exti(cb, &fmt, prec,
+				size = printfrr_exti(cb, &ea,
 						(flags & INTMAX_SIZE) ? ujval
 						: (uintmax_t)ulval);
-				if (size >= 0)
+				if (size >= 0) {
+					fmt = ea.fmt;
+					width = ea.width;
 					goto ext_printed;
+				}
 			}
 			if (flags & INTMAX_SIZE) {
 				if ((intmax_t)ujval < 0) {
@@ -539,12 +550,23 @@ reswitch:	switch (ch) {
 			 */
 			ptrval = GETARG(void *);
 			if (printfrr_ext_char(fmt[0])) {
+				struct printfrr_eargs ea = {
+					.fmt = fmt,
+					.precision = prec,
+					.width = width,
+					.alt_repr = !!(flags & ALT),
+					.leftadj = !!(flags & LADJUST),
+				};
+
 				if (cb)
 					extstart = cb->pos;
 
-				size = printfrr_extp(cb, &fmt, prec, ptrval);
-				if (size >= 0)
+				size = printfrr_extp(cb, &ea, ptrval);
+				if (size >= 0) {
+					fmt = ea.fmt;
+					width = ea.width;
 					goto ext_printed;
+				}
 			}
 			ujval = (uintmax_t)(uintptr_t)ptrval;
 			base = 16;

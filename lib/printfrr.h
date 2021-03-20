@@ -112,6 +112,8 @@ char  *asnprintfrr(struct memtype *mt, char *out, size_t sz,
  */
 #define printfrr_ext_char(ch) ((ch) >= 'A' && (ch) <= 'Z')
 
+struct printfrr_eargs;
+
 struct printfrr_ext {
 	/* embedded string to minimize cache line pollution */
 	char match[8];
@@ -127,14 +129,53 @@ struct printfrr_ext {
 	 * to consume extra input flags after %pXY, increment *fmt.  It points
 	 * at the first character after %pXY at entry.  Convention is to make
 	 * those flags lowercase letters or numbers.
-	 *
-	 * prec is the precision specifier (the 999 in "%.999p")  -1 means
-	 * none given (value in the format string cannot be negative)
 	 */
-	ssize_t (*print_ptr)(struct fbuf *buf, const char **fmt, int prec,
-			const void *);
-	ssize_t (*print_int)(struct fbuf *buf, const char **fmt, int prec,
-			uintmax_t);
+	ssize_t (*print_ptr)(struct fbuf *buf, struct printfrr_eargs *info,
+			     const void *);
+	ssize_t (*print_int)(struct fbuf *buf, struct printfrr_eargs *info,
+			     uintmax_t);
+};
+
+/* additional information passed to extended formatters */
+
+struct printfrr_eargs {
+	/* position in the format string.  Points to directly after the
+	 * extension specifier.  Increment when consuming extra "flag
+	 * characters".
+	 */
+	const char *fmt;
+
+	/* %.1234x / %.*x
+	 * not POSIX compatible when used with %p, will cause warnings from
+	 * GCC & clang.  Usable with %d.  Not used by the printfrr() itself
+	 * for extension specifiers, so essentially available as a "free"
+	 * parameter.  -1 if not specified.  Value in the format string
+	 * cannot be negative, but negative values can be passed with %.*x
+	 */
+	int precision;
+
+	/* %1234x / %*x
+	 * regular width specification.  Internally handled by printfrr(), set
+	 * to 0 if consumed by the extension in order to suppress standard
+	 * width/padding behavior.  0 if not specified.
+	 *
+	 * NB: always positive, even if a negative value is passed in with
+	 * %*x.  (The sign is used for the - flag.)
+	 */
+	int width;
+
+	/* %#x
+	 * "alternate representation" flag, not POSIX compatible when used
+	 * with %p or %d, will cause warnings from GCC & clang.  Not used by
+	 * printfrr() itself for extension specifiers.
+	 */
+	bool alt_repr;
+
+	/* %-x
+	 * left-pad flag.  Internally handled by printfrr() if width is
+	 * nonzero.  Only use if the extension sets width to 0.
+	 */
+	bool leftadj;
 };
 
 /* no locking - must be called when single threaded (e.g. at startup.)
@@ -144,7 +185,7 @@ struct printfrr_ext {
 void printfrr_ext_reg(const struct printfrr_ext *);
 
 #define printfrr_ext_autoreg_p(matchs, print_fn)                               \
-	static ssize_t print_fn(struct fbuf *, const char **, int,             \
+	static ssize_t print_fn(struct fbuf *, struct printfrr_eargs *,        \
 				const void *);                                 \
 	static const struct printfrr_ext _printext_##print_fn = {              \
 		.match = matchs,                                               \
@@ -157,7 +198,8 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 	/* end */
 
 #define printfrr_ext_autoreg_i(matchs, print_fn)                               \
-	static ssize_t print_fn(struct fbuf *, const char **, int, uintmax_t); \
+	static ssize_t print_fn(struct fbuf *, struct printfrr_eargs *,        \
+				uintmax_t);                                    \
 	static const struct printfrr_ext _printext_##print_fn = {              \
 		.match = matchs,                                               \
 		.print_int = print_fn,                                         \

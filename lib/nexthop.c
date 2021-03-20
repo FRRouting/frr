@@ -730,22 +730,22 @@ int nexthop_str2backups(const char *str, int *num_backups,
  *		nexthop2str()
  */
 printfrr_ext_autoreg_p("NH", printfrr_nh)
-static ssize_t printfrr_nh(struct fbuf *buf, const char **fmt,
-			   int prec, const void *ptr)
+static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
 {
 	const struct nexthop *nexthop = ptr;
 	bool do_ifi = false;
 	const char *v_is = "", *v_via = "", *v_viaif = "via ";
 	ssize_t ret = 0;
 
-	switch (**fmt) {
+	switch (*ea->fmt) {
 	case 'v':
-		(*fmt)++;
-		if (**fmt == 'v') {
+		ea->fmt++;
+		if (*ea->fmt == 'v') {
 			v_is = "is ";
 			v_via = "via ";
 			v_viaif = "";
-			(*fmt)++;
+			ea->fmt++;
 		}
 
 		if (!nexthop)
@@ -796,7 +796,7 @@ static ssize_t printfrr_nh(struct fbuf *buf, const char **fmt,
 
 		return ret;
 	case 's':
-		(*fmt)++;
+		ea->fmt++;
 
 		if (!nexthop)
 			return bputs(buf, "(null)");

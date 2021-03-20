@@ -664,8 +664,8 @@ void sockunion_init(union sockunion *su)
 }
 
 printfrr_ext_autoreg_p("SU", printfrr_psu)
-static ssize_t printfrr_psu(struct fbuf *buf, const char **fmt,
-			    int prec, const void *ptr)
+static ssize_t printfrr_psu(struct fbuf *buf, struct printfrr_eargs *ea,
+			    const void *ptr)
 {
 	const union sockunion *su = ptr;
 	bool include_port = false;
@@ -677,9 +677,9 @@ static ssize_t printfrr_psu(struct fbuf *buf, const char **fmt,
 		return bputs(buf, "(null)");
 
 	while (!endflags) {
-		switch (**fmt) {
+		switch (*ea->fmt) {
 		case 'p':
-			(*fmt)++;
+			ea->fmt++;
 			include_port = true;
 			break;
 		default:
