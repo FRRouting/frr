@@ -1561,18 +1561,28 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			/*
 			 * Schedule LSP refresh ASAP
 			 */
-			timeout = 0;
-
 			if (area->bfd_signalled_down) {
 				sched_debug(
 					"ISIS (%s): Scheduling immediately due to BDF 'down' message.",
 					area->area_tag);
 				area->bfd_signalled_down = false;
 				area->bfd_force_spf_refresh = true;
+				timeout = 0;
 			} else {
-				sched_debug(
-					"ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution now.",
-					area->area_tag);
+				int64_t time_since_last = monotime_since(
+					&area->last_lsp_refresh_event[lvl - 1],
+					NULL);
+				timeout = time_since_last < 100000L
+						  ? (100000L - time_since_last)/1000
+						  : 0;
+				if (timeout > 0)
+					sched_debug(
+						"ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution in %ld ms due to the instability timer.",
+						area->area_tag, timeout);
+				else
+					sched_debug(
+						"ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution now.",
+						area->area_tag);
 			}
 		}
 
