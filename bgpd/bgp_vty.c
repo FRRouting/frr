@@ -6139,10 +6139,28 @@ DEFUN_YANG (neighbor_send_community,
 	    "Send Community attribute to this neighbor\n")
 {
 	int idx_peer = 1;
+	char *peer_str = argv[idx_peer]->arg;
+	char base_xpath[XPATH_MAXLEN];
+	char af_xpath[XPATH_MAXLEN];
+	char std_xpath[XPATH_MAXLEN];
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
 
-	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-				    bgp_node_safi(vty),
-				    PEER_FLAG_SEND_COMMUNITY);
+	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
+		 yang_afi_safi_value2identity(afi, safi));
+
+	if (peer_and_group_lookup_nb(vty, peer_str, base_xpath,
+				     sizeof(base_xpath), af_xpath)
+	    < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(std_xpath, sizeof(std_xpath),
+		 "./%s/send-community/send-community",
+		 bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, std_xpath, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(neighbor_send_community, neighbor_send_community_hidden_cmd,
@@ -6159,10 +6177,28 @@ DEFUN_YANG (no_neighbor_send_community,
 	    "Send Community attribute to this neighbor\n")
 {
 	int idx_peer = 2;
+	char *peer_str = argv[idx_peer]->arg;
+	char base_xpath[XPATH_MAXLEN];
+	char af_xpath[XPATH_MAXLEN];
+	char std_xpath[XPATH_MAXLEN];
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
 
-	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
-				      bgp_node_afi(vty), bgp_node_safi(vty),
-				      PEER_FLAG_SEND_COMMUNITY);
+	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
+		 yang_afi_safi_value2identity(afi, safi));
+
+	if (peer_and_group_lookup_nb(vty, peer_str, base_xpath,
+				     sizeof(base_xpath), af_xpath)
+	    < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(std_xpath, sizeof(std_xpath),
+		 "./%s/send-community/send-community",
+		 bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, std_xpath, NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(no_neighbor_send_community, no_neighbor_send_community_hidden_cmd,
