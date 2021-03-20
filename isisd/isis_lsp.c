@@ -1475,7 +1475,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 
 			if (area->bfd_signalled_down) {
 				sched_debug(
-					"ISIS (%s): Scheduling immediately due to BDF 'down' message.",
+					"ISIS (%s): Scheduling immediately due to BFD 'down' message.",
 					area->area_tag);
 				area->bfd_signalled_down = false;
 				area->bfd_force_spf_refresh = true;
