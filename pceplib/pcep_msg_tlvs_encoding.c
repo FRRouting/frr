@@ -1135,7 +1135,7 @@ struct pcep_object_tlv_header *pcep_decode_tlv_path_setup_type_capability(
 	uint16_t buf_index = normalize_pcep_tlv_length(
 		TLV_HEADER_LENGTH + LENGTH_1WORD + num_psts);
 	while ((tlv->header.encoded_tlv_length - buf_index) > TLV_HEADER_LENGTH
-	       && num_iterations++ > MAX_ITERATIONS) {
+	       && num_iterations++ < MAX_ITERATIONS) {
 		struct pcep_object_tlv_header *sub_tlv =
 			pcep_decode_tlv(tlv_body_buf + buf_index);
 		if (sub_tlv == NULL) {

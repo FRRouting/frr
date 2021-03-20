@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "pcep_msg_encoding.h"
 #include "pcep_session_logic.h"
@@ -461,6 +462,8 @@ void send_reconciled_pcep_open(pcep_session *session,
 	struct pcep_object_open *open_obj =
 		(struct pcep_object_open *)pcep_obj_get(open_msg->obj_list,
 							PCEP_OBJ_CLASS_OPEN);
+	// open_msg can not have empty obj_list
+	assert(open_obj != NULL);
 
 	if (error_open_obj->open_deadtimer
 	    != session->pce_config.dead_timer_seconds) {

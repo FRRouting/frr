@@ -93,11 +93,11 @@ static const char *object_class_strs[] = {"NOT_IMPLEMENTED0",
 double_linked_list *pcep_msg_read(int sock_fd)
 {
 	int ret;
-	uint8_t buffer[PCEP_MAX_SIZE] = {0};
+	uint8_t buffer[PCEP_MESSAGE_LENGTH] = {0};
 	uint16_t buffer_read = 0;
 
 
-	ret = read(sock_fd, &buffer, PCEP_MAX_SIZE);
+	ret = read(sock_fd, &buffer, PCEP_MESSAGE_LENGTH);
 
 	if (ret < 0) {
 		pcep_log(
@@ -114,13 +114,13 @@ double_linked_list *pcep_msg_read(int sock_fd)
 	double_linked_list *msg_list = dll_initialize();
 	struct pcep_message *msg = NULL;
 
-	while ((ret - buffer_read) >= MESSAGE_HEADER_LENGTH) {
+	while (((uint16_t)ret - buffer_read) >= MESSAGE_HEADER_LENGTH) {
 
 		/* Get the Message header, validate it, and return the msg
 		 * length */
-		int32_t msg_hdr_length =
+		int32_t msg_length =
 			pcep_decode_validate_msg_header(buffer + buffer_read);
-		if (msg_hdr_length < 0) {
+		if (msg_length < 0 || msg_length > PCEP_MESSAGE_LENGTH) {
 			/* If the message header is invalid, we cant keep
 			 * reading since the length may be invalid */
 			pcep_log(
@@ -130,17 +130,26 @@ double_linked_list *pcep_msg_read(int sock_fd)
 			return msg_list;
 		}
 
-		/* Check if the msg_hdr_length is longer than what was read,
+		/* Check if the msg_length is longer than what was read,
 		 * in which case, we need to read the rest of the message. */
-		if ((ret - buffer_read) < msg_hdr_length) {
-			int read_len = (msg_hdr_length - (ret - buffer_read));
+		if ((ret - buffer_read) < msg_length) {
+			int read_len = (msg_length - (ret - buffer_read));
 			int read_ret = 0;
 			pcep_log(
 				LOG_INFO,
 				"%s: pcep_msg_read: Message not fully read! Trying to read %d bytes more, fd [%d]",
 				__func__, read_len, sock_fd);
 
-			read_ret = read(sock_fd, &buffer[ret], read_len);
+			if (PCEP_MESSAGE_LENGTH - ret - buffer_read >= read_len )
+				read_ret =
+					read(sock_fd, &buffer[ret], read_len);
+			else {
+				pcep_log(
+					LOG_ERR,
+					"%s: Trying to read size (%d) offset (%d) in a buff of size (%d)",
+					__func__, read_len, ret, PCEP_MESSAGE_LENGTH);
+				return msg_list;
+			}
 
 			if (read_ret != read_len) {
 				pcep_log(
@@ -152,7 +161,7 @@ double_linked_list *pcep_msg_read(int sock_fd)
 		}
 
 		msg = pcep_decode_message(buffer + buffer_read);
-		buffer_read += msg_hdr_length;
+		buffer_read += msg_length;
 
 		if (msg == NULL) {
 			return msg_list;
@@ -459,7 +468,12 @@ int pcep_msg_send(int sock_fd, struct pcep_message *msg)
 	if (msg == NULL) {
 		return 0;
 	}
+	int msg_length = ntohs(msg->encoded_message_length);
+	if (msg_length > PCEP_MESSAGE_LENGTH) {
+		pcep_log(LOG_ERR, "%s: Not sended, size(% d) exceed max(% d) ",
+			 __func__, msg_length, PCEP_MESSAGE_LENGTH);
+		return 0;
+	}
 
-	return write(sock_fd, msg->encoded_message,
-		     ntohs(msg->encoded_message_length));
+	return write(sock_fd, msg->encoded_message, msg_length);
 }

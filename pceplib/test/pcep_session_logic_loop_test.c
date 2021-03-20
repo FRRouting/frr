@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <CUnit/CUnit.h>
 
@@ -70,7 +72,6 @@ void pcep_session_logic_loop_test_setup()
 		PCEPLIB_INFRA, sizeof(pcep_session_logic_handle));
 	memset(session_logic_handle_, 0, sizeof(pcep_session_logic_handle));
 	session_logic_handle_->active = true;
-	session_logic_handle_->session_logic_condition = false;
 	session_logic_handle_->session_list =
 		ordered_list_initialize(pointer_compare_function);
 	session_logic_handle_->session_event_queue = queue_initialize();
@@ -78,6 +79,11 @@ void pcep_session_logic_loop_test_setup()
 			  NULL);
 	pthread_mutex_init(&(session_logic_handle_->session_logic_mutex), NULL);
 	pthread_mutex_init(&(session_logic_handle_->session_list_mutex), NULL);
+
+	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+	session_logic_handle_->session_logic_condition = true;
+	pthread_cond_signal(&(session_logic_handle_->session_logic_cond_var));
+	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 
 	session_logic_event_queue_ =
 		pceplib_malloc(PCEPLIB_INFRA, sizeof(pcep_event_queue));
@@ -128,7 +134,17 @@ void test_session_logic_msg_ready_handler()
 
 	/* Read from an empty file should return 0, thus
 	 * session_logic_msg_ready_handler returns -1 */
-	int fd = fileno(tmpfile());
+	mode_t oldumask;
+	oldumask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
+	/* Set umask before anything for security */
+	umask(0027);
+	char tmpfile[] = "/tmp/pceplib_XXXXXX";
+	int fd = mkstemp(tmpfile);
+	umask(oldumask);
+	if (fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	pcep_session session;
 	memset(&session, 0, sizeof(pcep_session));
 	session.session_id = 100;

@@ -1668,7 +1668,7 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 
 				ipv6 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in6_addr));
-				decode_ipv6(uint32_ptr + LENGTH_4WORDS, ipv6);
+				decode_ipv6(uint32_ptr + 4, ipv6);
 				dll_append(sr_subobj->nai_list, ipv6);
 
 				read_count += LENGTH_8WORDS;
@@ -1684,17 +1684,17 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 				struct in_addr *ipv4 =
 					pceplib_malloc(PCEPLIB_MESSAGES,
 						       sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[LENGTH_4WORDS];
+				ipv4->s_addr = uint32_ptr[4];
 				dll_append(sr_subobj->nai_list, ipv4);
 
 				ipv6 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in6_addr));
-				decode_ipv6(uint32_ptr + LENGTH_5WORDS, ipv6);
+				decode_ipv6(uint32_ptr + 5, ipv6);
 				dll_append(sr_subobj->nai_list, ipv6);
 
 				ipv4 = pceplib_malloc(PCEPLIB_MESSAGES,
 						      sizeof(struct in_addr));
-				ipv4->s_addr = uint32_ptr[LENGTH_9WORDS];
+				ipv4->s_addr = uint32_ptr[9];
 				dll_append(sr_subobj->nai_list, ipv4);
 
 				read_count += LENGTH_10WORDS;
