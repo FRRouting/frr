@@ -136,10 +136,10 @@ void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
 	vrf = yang_dnode_get_string(dnode, "./vrf");
 
 	vty_out(vty, "!\n");
-	vty_out(vty, "router isis %s ",
+	vty_out(vty, "router isis %s",
 		yang_dnode_get_string(dnode, "./area-tag"));
 	if (!strmatch(vrf, VRF_DEFAULT_NAME))
-		vty_out(vty, "vrf %s", yang_dnode_get_string(dnode, "./vrf"));
+		vty_out(vty, " vrf %s", yang_dnode_get_string(dnode, "./vrf"));
 	vty_out(vty, "\n");
 }
 
@@ -395,7 +395,7 @@ void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " ip router isis %s ",
 		yang_dnode_get_string(dnode, "../area-tag"));
 	if (!strmatch(vrf, VRF_DEFAULT_NAME))
-		vty_out(vty, "vrf %s", vrf);
+		vty_out(vty, " vrf %s", vrf);
 	vty_out(vty, "\n");
 }
 
@@ -408,10 +408,10 @@ void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
 
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
-	vty_out(vty, " ipv6 router isis %s ",
+	vty_out(vty, " ipv6 router isis %s",
 		yang_dnode_get_string(dnode, "../area-tag"));
 	if (!strmatch(vrf, VRF_DEFAULT_NAME))
-		vty_out(vty, "vrf %s", vrf);
+		vty_out(vty, " vrf %s", vrf);
 	vty_out(vty, "\n");
 }
 
