@@ -294,7 +294,7 @@ static int nhrp_peer_defer_vici_request(struct thread *t)
 
 	if (p->online) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "IPsec connection to %pSU already established\n",
+		       "IPsec connection to %pSU already established",
 		       &vc->remote.nbma);
 	} else {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
@@ -342,7 +342,7 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 		int r_time_ms = rand() % 1000;
 
 		debugf(NHRP_DEBUG_COMMON,
-		       "Initiating IPsec connection request to %pSU after %d ms:\n",
+		       "Initiating IPsec connection request to %pSU after %d ms:",
 		       &vc->remote.nbma, r_time_ms);
 		thread_add_timer_msec(master, nhrp_peer_defer_vici_request,
 				      p, r_time_ms, &p->t_timer);
