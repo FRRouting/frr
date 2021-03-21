@@ -134,7 +134,7 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	if (!ctx.ifp)
 		return;
 
-	debugf(NHRP_DEBUG_COMMON, "Received multicast packet on %s len %zu\n",
+	debugf(NHRP_DEBUG_COMMON, "Intercepted multicast packet leaving %s len %zu",
 		   ctx.ifp->name, zbuf_used(ctx.pkt));
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
