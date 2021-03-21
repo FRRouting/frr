@@ -35,6 +35,8 @@
 #include "pim_msdp.h"
 #include "pim_msdp_socket.h"
 
+#include "sockopt.h"
+
 /* increase socket send buffer size */
 static void pim_msdp_update_sock_send_buffer_size(int fd)
 {
@@ -194,6 +196,12 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 		return rc;
 	}
 
+	/* Set socket DSCP byte */
+	if (setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL)) {
+		zlog_warn("can't set sockopt IP_TOS to MSDP socket %d: %s",
+				sock, safe_strerror(errno));
+	}
+
 	/* add accept thread */
 	listener->fd = sock;
 	memcpy(&listener->su, &sin, socklen);
@@ -270,6 +278,12 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 		close(mp->fd);
 		mp->fd = -1;
 		return rc;
+	}
+
+	/* Set socket DSCP byte */
+	if (setsockopt_ipv4_tos(mp->fd, IPTOS_PREC_INTERNETCONTROL)) {
+		zlog_warn("can't set sockopt IP_TOS to MSDP socket %d: %s",
+				mp->fd, safe_strerror(errno));
 	}
 
 	/* Connect to the remote mp. */
