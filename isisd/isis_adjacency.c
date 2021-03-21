@@ -260,22 +260,26 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 
 	adj->threeway_state = next_tw_state;
 }
-void isis_log_adj_change(struct isis_adjacency *adj,
-			 enum isis_adj_state old_state,
-			 enum isis_adj_state new_state, const char *reason)
+const char *isis_adj_name(const struct isis_adjacency *adj)
 {
-	const char *adj_name;
+	if (!adj)
+		return "NONE";
+
 	struct isis_dynhn *dyn;
 
 	dyn = dynhn_find_by_id(adj->sysid);
 	if (dyn)
-		adj_name = dyn->hostname;
+		return dyn->hostname;
 	else
-		adj_name = sysid_print(adj->sysid);
-
+		return sysid_print(adj->sysid);
+}
+void isis_log_adj_change(struct isis_adjacency *adj,
+			 enum isis_adj_state old_state,
+			 enum isis_adj_state new_state, const char *reason)
+{
 	zlog_info(
 		"%%ADJCHANGE: Adjacency to %s (%s) for %s changed from %s to %s, %s",
-		adj_name, adj->circuit->interface->name,
+		isis_adj_name(adj), adj->circuit->interface->name,
 		adj_level2string(adj->level), adj_state2string(old_state),
 		adj_state2string(new_state), reason ? reason : "unspecified");
 }
@@ -462,11 +466,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 	struct isis_dynhn *dyn;
 	int level;
 
-	dyn = dynhn_find_by_id(adj->sysid);
-	if (dyn)
-		vty_out(vty, "  %-20s", dyn->hostname);
-	else
-		vty_out(vty, "  %-20s", sysid_print(adj->sysid));
+	vty_out(vty, " %-20s", isis_adj_name(adj));
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
 		if (adj->circuit)
