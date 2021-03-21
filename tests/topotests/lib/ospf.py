@@ -344,10 +344,9 @@ def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=
         for lnk in input_dict[router]["links"].keys():
             if "ospf" not in input_dict[router]["links"][lnk]:
                 logger.debug(
-                    "Router %s: ospf configs is not present in"
-                    "input_dict, passed input_dict",
-                    router,
-                    input_dict,
+                    "Router %s: ospf config is not present in"
+                    "input_dict",
+                    router
                 )
                 continue
             ospf_data = input_dict[router]["links"][lnk]["ospf"]
@@ -724,7 +723,7 @@ def verify_ospf6_neighbor(tgen, topo):
                     nh_state = neighbor["state"]
                     break
             else:
-                return "[DUT: {}] OSPF6 peer {} missing".format(router, data_rid)
+                return "[DUT: {}] OSPF6 peer {} missing".format(router, ospf_nbr_rid)
 
             if nh_state == "Full":
                 no_of_peer += 1
