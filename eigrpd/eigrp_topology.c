@@ -51,8 +51,10 @@
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_metric.h"
+
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_ROUTE_DESCRIPTOR, "EIGRP Nexthop Entry");
+DEFINE_MTYPE(EIGRPD, EIGRP_PREFIX_DESCRIPTOR,       "EIGRP Prefix");
 
 static int eigrp_route_descriptor_cmp(struct eigrp_route_descriptor *rd1,
 				      struct eigrp_route_descriptor *rd2);
