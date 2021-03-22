@@ -34,6 +34,8 @@
 #include "ospf6d.h"
 #include "bitfield.h"
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSDB, "OSPF6 LSA database");
+
 struct ospf6_lsdb *ospf6_lsdb_create(void *data)
 {
 	struct ospf6_lsdb *lsdb;

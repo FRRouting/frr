@@ -40,7 +40,6 @@ ospf6d_libospf6_a_SOURCES = \
 	ospf6d/ospf6_intra.c \
 	ospf6d/ospf6_lsa.c \
 	ospf6d/ospf6_lsdb.c \
-	ospf6d/ospf6_memory.c \
 	ospf6d/ospf6_message.c \
 	ospf6d/ospf6_neighbor.c \
 	ospf6d/ospf6_network.c \
@@ -62,7 +61,6 @@ noinst_HEADERS += \
 	ospf6d/ospf6_intra.h \
 	ospf6d/ospf6_lsa.h \
 	ospf6d/ospf6_lsdb.h \
-	ospf6d/ospf6_memory.h \
 	ospf6d/ospf6_message.h \
 	ospf6d/ospf6_neighbor.h \
 	ospf6d/ospf6_network.h \

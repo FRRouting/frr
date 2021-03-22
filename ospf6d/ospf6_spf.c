@@ -43,6 +43,8 @@
 #include "ospf6d.h"
 #include "ospf6_abr.h"
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_VERTEX, "OSPF6 vertex");
+
 unsigned char conf_debug_ospf6_spf = 0;
 
 static void ospf6_spf_copy_nexthops_to_route(struct ospf6_route *rt,

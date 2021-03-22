@@ -38,6 +38,10 @@
 #include "ospf6d.h"
 #include "ospf6_zebra.h"
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE,   "OSPF6 route");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEXTHOP, "OSPF6 nexthop");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PATH,    "OSPF6 Path");
+
 unsigned char conf_debug_ospf6_route = 0;
 
 static char *ospf6_route_table_name(struct ospf6_route_table *table)

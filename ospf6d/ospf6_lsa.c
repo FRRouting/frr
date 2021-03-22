@@ -43,6 +43,10 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_SUMMARY, "OSPF6 LSA summary");
+
 vector ospf6_lsa_handler_vector;
 
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
@@ -659,6 +663,8 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 
 struct ospf6_lsa *ospf6_lsa_alloc(size_t lsa_length)
 {
+	struct ospf6_lsa *lsa;
+
 	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
 	lsa->header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, lsa_length);
 

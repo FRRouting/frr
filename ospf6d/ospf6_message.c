@@ -49,6 +49,8 @@
 
 #include <netinet/ip6.h>
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_MESSAGE, "OSPF6 message");
+
 unsigned char conf_debug_ospf6_message[6] = {0x03, 0, 0, 0, 0, 0};
 static const struct message ospf6_message_type_str[] = {
 	{OSPF6_MESSAGE_TYPE_HELLO, "Hello"},

@@ -23,8 +23,9 @@
 
 #include "libospf.h"
 #include "thread.h"
+#include "memory.h"
 
-#include "ospf6_memory.h"
+DECLARE_MGROUP(OSPF6D);
 
 /* global variables */
 extern struct thread_master *master;

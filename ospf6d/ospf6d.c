@@ -46,6 +46,8 @@
 #include "ospf6_bfd.h"
 #include "lib/json.h"
 
+DEFINE_MGROUP(OSPF6D, "ospf6d");
+
 struct route_node *route_prev(struct route_node *node)
 {
 	struct route_node *end;
