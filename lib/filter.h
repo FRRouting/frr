@@ -234,6 +234,7 @@ bool plist_is_dup(const struct lyd_node *dnode, struct plist_dup_args *pda);
 struct lyd_node;
 struct vty;
 
+extern int access_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2);
 extern void access_list_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults);
 extern void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
