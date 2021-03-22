@@ -988,37 +988,54 @@ DEFPY (sharp_srv6_manager_release_locator_chunk,
 
 DEFPY (show_sharp_segment_routing_srv6,
        show_sharp_segment_routing_srv6_cmd,
-       "show sharp segment-routing srv6",
+       "show sharp segment-routing srv6 [json]",
        SHOW_STR
        SHARP_STR
        "Segment-Routing\n"
-       "Segment-Routing IPv6\n")
+       "Segment-Routing IPv6\n"
+       JSON_STR)
 {
 	char str[256];
 	struct listnode *loc_node;
 	struct listnode *chunk_node;
 	struct sharp_srv6_locator *loc;
 	struct prefix_ipv6 *chunk;
+	bool uj = use_json(argc, argv);
 	json_object *jo_locs = NULL;
 	json_object *jo_loc = NULL;
 	json_object *jo_chunks = NULL;
 
-	jo_locs = json_object_new_array();
-	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
-		jo_loc = json_object_new_object();
-		json_object_array_add(jo_locs, jo_loc);
-		json_object_string_add(jo_loc, "name", loc->name);
-		jo_chunks = json_object_new_array();
-		json_object_object_add(jo_loc, "chunks", jo_chunks);
-		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, chunk)) {
-			prefix2str(chunk, str, sizeof(str));
-			json_array_string_add(jo_chunks, str);
+	if (uj) {
+		jo_locs = json_object_new_array();
+		for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+			jo_loc = json_object_new_object();
+			json_object_array_add(jo_locs, jo_loc);
+			json_object_string_add(jo_loc, "name", loc->name);
+			jo_chunks = json_object_new_array();
+			json_object_object_add(jo_loc, "chunks", jo_chunks);
+			for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node,
+						  chunk)) {
+				prefix2str(chunk, str, sizeof(str));
+				json_array_string_add(jo_chunks, str);
+			}
+		}
+
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+				jo_locs, JSON_C_TO_STRING_PRETTY));
+		json_object_free(jo_locs);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+			vty_out(vty, "Locator %s has %d prefix chunks\n",
+				loc->name, listcount(loc->chunks));
+			for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node,
+						  chunk)) {
+				prefix2str(chunk, str, sizeof(str));
+				vty_out(vty, "  %s\n", str);
+			}
+			vty_out(vty, "\n");
 		}
 	}
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(
-			jo_locs, JSON_C_TO_STRING_PRETTY));
-	json_object_free(jo_locs);
 	return CMD_SUCCESS;
 }
 
