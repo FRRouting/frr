@@ -185,11 +185,11 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 	json_object_string_add(jo_root, "prefix", str);
 
 	/* set function_bits_length */
-	json_object_int_add(jo_root, "function_bits_length",
+	json_object_int_add(jo_root, "functionBitsLength",
 			    loc->function_bits_length);
 
 	/* set status_up */
-	json_object_boolean_add(jo_root, "status_up",
+	json_object_boolean_add(jo_root, "statusUp",
 				loc->status_up);
 
 	/* set chunks */
