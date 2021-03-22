@@ -473,7 +473,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	struct nexthop nh = {0};
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
-	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
+	enum seg6local_action_t seg6l_act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = {};
 	struct in6_addr seg6_segs = {};
 	int num_segs = 0;
@@ -555,7 +555,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	/* MPLS labels */
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
-	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
+	enum seg6local_action_t seg6l_act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = {};
 	struct in6_addr seg6_segs = {};
 	int num_segs = 0;
