@@ -44,7 +44,6 @@
 #include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_srte.h"

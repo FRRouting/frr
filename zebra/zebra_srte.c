@@ -24,7 +24,6 @@
 #include "lib/lib_errors.h"
 
 #include "zebra/zebra_srte.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zapi_msg.h"

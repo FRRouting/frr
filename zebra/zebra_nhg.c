@@ -36,7 +36,6 @@
 #include "zebra/zebra_nhg_private.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zserv.h"
 #include "zebra/rt.h"

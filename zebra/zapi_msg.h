@@ -111,6 +111,8 @@ extern int zsend_client_close_notify(struct zserv *client,
 int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 		     uint32_t id, enum zapi_nhg_notify_owner note);
 
+extern void zapi_opaque_free(struct opaque *opaque);
+
 #ifdef __cplusplus
 }
 #endif

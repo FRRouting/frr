@@ -34,7 +34,6 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_router.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_evpn.h"

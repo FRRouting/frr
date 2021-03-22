@@ -41,7 +41,6 @@
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
 #include "zebra/zapi_msg.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 

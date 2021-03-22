@@ -29,7 +29,6 @@
 #include "table.h"
 #include "log.h"
 #include "memory.h"
-#include "zebra_memory.h"
 
 #include "vty.h"
 #include "zebra/debug.h"

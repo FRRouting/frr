@@ -30,7 +30,6 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/rt.h"
 #include "zebra/zapi_msg.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 

@@ -1167,8 +1167,6 @@ void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp)
 
 #else /* HAVE_BFDD */
 
-#include "zebra/zebra_memory.h"
-
 /*
  * Data structures.
  */

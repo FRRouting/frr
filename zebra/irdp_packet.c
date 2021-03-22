@@ -54,7 +54,6 @@
 #include "zclient.h"
 #include "lib_errors.h"
 
-#include "zebra_memory.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
