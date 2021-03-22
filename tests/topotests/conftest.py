@@ -73,6 +73,13 @@ def pytest_addoption(parser):
         default=False,
         help="Only set up this topology, don't run tests",
     )
+    parser.addoption(
+        '--hw-router',
+        action='store',
+        dest='r_router',
+        default=None,
+        help='Topology router name to replace with HW router.'
+    )
 
     parser.addoption(
         "--valgrind-extra",
