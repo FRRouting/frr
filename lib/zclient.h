@@ -219,7 +219,6 @@ typedef enum {
 	ZEBRA_EVPN_REMOTE_NH_DEL,
 	ZEBRA_SRV6_LOCATOR_ADD,
 	ZEBRA_SRV6_LOCATOR_DELETE,
-	ZEBRA_SRV6_MANAGER_CONNECT,
 	ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
 	ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK,
 	ZEBRA_ERROR,
@@ -1070,7 +1069,6 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
-extern int srv6_manager_connect(struct zclient *zclient);
 extern int srv6_manager_get_locator_chunk(struct zclient *zclient,
 					  const char *locator_name);
 extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
