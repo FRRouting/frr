@@ -1373,13 +1373,13 @@ def generate_ips(network, no_of_ips):
             if start_ip == "0.0.0.0" and mask == 0 and no_of_ips == 1:
                 ipaddress_list.append("{}/{}".format(start_ip, mask))
                 return ipaddress_list
-            start_ip = ipaddress.IPv4Address(unicode(start_ip))
+            start_ip = ipaddress.IPv4Address(frr_unicode(start_ip))
             step = 2 ** (32 - mask)
         elif addr_type == "ipv6":
             if start_ip == "0::0" and mask == 0 and no_of_ips == 1:
                 ipaddress_list.append("{}/{}".format(start_ip, mask))
                 return ipaddress_list
-            start_ip = ipaddress.IPv6Address(unicode(start_ip))
+            start_ip = ipaddress.IPv6Address(frr_unicode(start_ip))
             step = 2 ** (128 - mask)
         else:
             return []
@@ -1480,10 +1480,6 @@ def interface_status(tgen, topo, input_dict):
             load_config_to_router(tgen, router)
 
     except Exception as e:
-        # handle any exception
-        logger.error("Error %s occured. Arguments %s.", e.message, e.args)
-
-        # Traceback
         errormsg = traceback.format_exc()
         logger.error(errormsg)
         return errormsg
@@ -2440,51 +2436,6 @@ def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
         logger.info("Shutting down interface {} : {}".format(dut, intf_name))
 
     interface_set_status(router_list[dut], intf_name, ifaceaction)
-
-
-def stop_router(tgen, router):
-    """
-    Router's current config would be saved to /tmp/topotest/<suite>/<router>
-    for each daemon and router and its daemons would be stopped.
-
-    * `tgen`  : topogen object
-    * `router`: Device under test
-    """
-
-    router_list = tgen.routers()
-
-    # Saving router config to /etc/frr, which will be loaded to router
-    # when it starts
-    router_list[router].vtysh_cmd("write memory")
-
-    # Stop router
-    router_list[router].stop()
-
-
-def start_router(tgen, router):
-    """
-    Router will be started and config would be loaded from
-    /tmp/topotest/<suite>/<router> for each daemon
-
-    * `tgen`  : topogen object
-    * `router`: Device under test
-    """
-
-    logger.debug("Entering lib API: start_router")
-
-    try:
-        router_list = tgen.routers()
-
-        # Router and its daemons would be started and config would
-        #  be loaded to router for each daemon from /etc/frr
-        router_list[router].start()
-
-    except Exception as e:
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
-
-    logger.debug("Exiting lib API: start_router()")
 
 
 def addKernelRoute(
@@ -3752,6 +3703,43 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+def get_ipv6_linklocal_address(topo, node, intf):
+    """
+    API to get the link local ipv6 address of a perticular interface
+
+    Parameters
+    ----------
+    * `node`: node on which link local ip to be fetched.
+    * `intf` : interface for which link local ip needs to be returned.
+    * `topo` : base topo
+
+    Usage
+    -----
+    result = get_ipv6_linklocal_address(topo, 'r1', 'r2')
+
+    Returns link local ip of interface between r1 and r2.
+
+    Returns
+    -------
+    1) link local ipv6 address from the interface
+    2) errormsg - when link local ip not found
+    """
+    tgen = get_topogen()
+    ext_nh = tgen.net[node].get_ipv6_linklocal()
+    req_nh = topo[node]['links'][intf]['interface']
+    llip = None
+    for llips in ext_nh:
+        if llips[0] == req_nh:
+            llip = llips[1]
+            logger.info("Link local ip found = %s", llip)
+            return llip
+
+    errormsg = "Failed: Link local ip not found on router {}, "\
+        "interface {}".format(node, intf)
+
+    return errormsg
 
 
 def verify_create_community_list(tgen, input_dict):
