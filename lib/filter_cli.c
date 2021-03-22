@@ -1701,6 +1701,14 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
+int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+{
+	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
+	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
+
+	return seq1 - seq2;
+}
+
 void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
 		      bool show_defaults)
 {

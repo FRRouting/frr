@@ -239,6 +239,7 @@ extern void access_list_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults);
 extern void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
+extern int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2);
 extern void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults);
 extern void prefix_list_remark_show(struct vty *vty, struct lyd_node *dnode,
