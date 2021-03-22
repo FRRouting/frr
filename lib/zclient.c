@@ -833,9 +833,16 @@ static int zapi_nexthop_labels_cmp(const struct zapi_nexthop *next1,
 	return memcmp(next1->labels, next2->labels, next1->label_num);
 }
 
-static int zapi_nexthop_seg6local_cmp(const struct zapi_nexthop *next1,
-				      const struct zapi_nexthop *next2)
+static int zapi_nexthop_srv6_cmp(const struct zapi_nexthop *next1,
+				 const struct zapi_nexthop *next2)
 {
+	int ret = 0;
+
+	ret = memcmp(&next1->seg6_segs, &next2->seg6_segs,
+		     sizeof(struct in6_addr));
+	if (ret != 0)
+		return ret;
+
 	if (next1->seg6local_action > next2->seg6local_action)
 		return 1;
 
@@ -844,13 +851,6 @@ static int zapi_nexthop_seg6local_cmp(const struct zapi_nexthop *next1,
 
 	return memcmp(&next1->seg6local_ctx, &next2->seg6local_ctx,
 		      sizeof(struct seg6local_context));
-}
-
-static int zapi_nexthop_seg6_cmp(const struct zapi_nexthop *next1,
-				 const struct zapi_nexthop *next2)
-{
-	return memcmp(&next1->seg6_segs, &next2->seg6_segs,
-		      sizeof(struct in6_addr));
 }
 
 static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
@@ -956,11 +956,7 @@ static int zapi_nexthop_cmp(const void *item1, const void *item2)
 	if (ret != 0)
 		return ret;
 
-	ret = zapi_nexthop_seg6local_cmp(next1, next2);
-	if (ret != 0)
-		return ret;
-
-	ret = zapi_nexthop_seg6_cmp(next1, next2);
+	ret = zapi_nexthop_srv6_cmp(next1, next2);
 
 	return ret;
 }
