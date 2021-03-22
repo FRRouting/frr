@@ -3009,17 +3009,6 @@ static void bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 	zapi_srv6_locator_chunk_decode(s, &s6c);
 
-	if (zclient->redist_default != s6c.proto) {
-		zlog_err("%s: Got SRv6 Manager msg with wrong proto %u",
-			 __func__, s6c.proto);
-		return;
-	}
-	if (zclient->instance != s6c.instance) {
-		zlog_err("%s: Got SRv6 Manager msg with wrong instance %u",
-			 __func__, s6c.instance);
-		return;
-	}
-
 	if (strcmp(bgp->srv6_locator_name, s6c.locator_name) != 0) {
 		zlog_err("%s: Locator name unmatch %s:%s", __func__,
 			 bgp->srv6_locator_name, s6c.locator_name);
