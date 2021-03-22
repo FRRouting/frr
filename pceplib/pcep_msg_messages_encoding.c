@@ -129,7 +129,7 @@ void pcep_encode_message(struct pcep_message *message,
 		message_length +=
 			pcep_encode_object(node->data, versioning,
 					   message_buffer + message_length);
-		if (message_length > PCEP_MESSAGE_LENGTH) {
+		if (message_length >= PCEP_MESSAGE_LENGTH) {
 			message->encoded_message = NULL;
 			message->encoded_message_length = 0;
 			return;
@@ -295,6 +295,14 @@ struct pcep_message *pcep_decode_message(const uint8_t *msg_buf)
 
 	msg_length = pcep_decode_msg_header(msg_buf, &msg_version, &msg_flags,
 					    &msg_type);
+	if (msg_length == 0) {
+		pcep_log(LOG_INFO, "%s: Discarding empty message", __func__);
+		return NULL;
+	}
+	if (msg_length >= PCEP_MESSAGE_LENGTH) {
+		pcep_log(LOG_INFO, "%s: Discarding message too big", __func__);
+		return NULL;
+	}
 
 	struct pcep_message *msg =
 		pceplib_calloc(PCEPLIB_MESSAGES, sizeof(struct pcep_message));

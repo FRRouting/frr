@@ -273,6 +273,7 @@ void send_pce_report_message(pcep_session *session)
 		pcep_log(LOG_WARNING,
 			 "%s: send_pce_report_message SRP object was NULL",
 			 __func__);
+			dll_destroy_with_data(report_list);
 		return;
 	}
 	dll_append(report_list, obj);
@@ -313,6 +314,7 @@ void send_pce_report_message(pcep_session *session)
 		pcep_log(LOG_WARNING,
 			 "%s: send_pce_report_message LSP object was NULL",
 			 __func__);
+			dll_destroy_with_data(report_list);
 		return;
 	}
 	dll_append(report_list, obj);
@@ -349,6 +351,7 @@ void send_pce_report_message(pcep_session *session)
 		pcep_log(LOG_WARNING,
 			 "%s: send_pce_report_message ERO object was NULL",
 			 __func__);
+			dll_destroy_with_data(report_list);
 		return;
 	}
 	dll_append(report_list, obj);

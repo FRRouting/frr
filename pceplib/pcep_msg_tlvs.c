@@ -401,7 +401,7 @@ pcep_tlv_create_srpag_pol_name(const char *pol_name, uint16_t pol_name_length)
 		(normalize_pcep_tlv_length(pol_name_length) > MAX_POLICY_NAME)
 			? MAX_POLICY_NAME
 			: pol_name_length;
-	memcpy(tlv->name, pol_name, pol_name_length);
+	memcpy(tlv->name, pol_name, length);
 	tlv->name_length = length;
 
 	return tlv;
@@ -456,7 +456,7 @@ pcep_tlv_create_tlv_arbitrary(const char *data, uint16_t data_length,
 	uint16_t length = (data_length > MAX_ARBITRARY_SIZE)
 				  ? MAX_ARBITRARY_SIZE
 				  : data_length;
-	memcpy(tlv->data, data, data_length);
+	memcpy(tlv->data, data, length);
 	tlv->data_length = length;
 	tlv->arbitraty_type = tlv_id;
 

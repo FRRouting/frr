@@ -24,6 +24,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 
 #include <CUnit/CUnit.h>
 
@@ -164,7 +167,15 @@ void pcep_tools_test_teardown(void)
 int convert_hexstrs_to_binary(const char *hexbyte_strs[],
 			      uint16_t hexbyte_strs_length)
 {
-	int fd = fileno(tmpfile());
+	mode_t oldumask;
+	oldumask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
+	/* Set umask before anything for security */
+	umask(0027);
+	char tmpfile[] = "/tmp/pceplib_XXXXXX";
+	int fd = mkstemp(tmpfile);
+	umask(oldumask);
+	if (fd == -1)
+		return -1;
 
 	int i = 0;
 	for (; i < hexbyte_strs_length; i++) {
@@ -192,6 +203,10 @@ void test_pcep_msg_read_pcep_initiate()
 {
 	int fd = convert_hexstrs_to_binary(pcep_initiate_hexbyte_strs,
 					   pcep_initiate_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
@@ -287,6 +302,10 @@ void test_pcep_msg_read_pcep_initiate2()
 {
 	int fd = convert_hexstrs_to_binary(pcep_initiate2_hexbyte_strs,
 					   pcep_initiate2_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
@@ -370,6 +389,10 @@ void test_pcep_msg_read_pcep_open()
 {
 	int fd = convert_hexstrs_to_binary(pcep_open_odl_hexbyte_strs,
 					   pcep_open_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
@@ -410,6 +433,10 @@ void test_pcep_msg_read_pcep_update()
 {
 	int fd = convert_hexstrs_to_binary(pcep_update_hexbyte_strs,
 					   pcep_update_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
@@ -488,6 +515,10 @@ void test_pcep_msg_read_pcep_open_initiate()
 	int fd = convert_hexstrs_to_binary(
 		pcep_open_initiate_odl_hexbyte_strs,
 		pcep_open_initiate_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 2);
@@ -513,6 +544,10 @@ void test_pcep_msg_read_pcep_open_cisco_pce()
 	int fd = convert_hexstrs_to_binary(
 		pcep_open_cisco_pce_hexbyte_strs,
 		pcep_open_cisco_pce_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
@@ -571,6 +606,10 @@ void test_pcep_msg_read_pcep_update_cisco_pce()
 	int fd = convert_hexstrs_to_binary(
 		pcep_update_cisco_pce_hexbyte_strs,
 		pcep_update_cisco_pce_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
@@ -708,6 +747,10 @@ void test_pcep_msg_read_pcep_report_cisco_pcc()
 	int fd = convert_hexstrs_to_binary(
 		pcep_report_cisco_pcc_hexbyte_strs,
 		pcep_report_cisco_pcc_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
@@ -863,6 +906,10 @@ void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 	int fd = convert_hexstrs_to_binary(
 		pcep_initiate_cisco_pcc_hexbyte_strs,
 		pcep_initiate_cisco_pcc_hexbyte_strs_length);
+	if(fd == -1){
+		CU_ASSERT_TRUE(fd>=0);
+		return;
+	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);

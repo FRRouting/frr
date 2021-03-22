@@ -26,6 +26,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "pcep_socket_comm_internals.h"
 #include "pcep_socket_comm_loop.h"
@@ -129,6 +130,9 @@ int build_fd_sets(pcep_socket_comm_handle *socket_comm_handle)
 		comm_session = (pcep_socket_comm_session *)node->data;
 		if (comm_session->socket_fd > max_fd) {
 			max_fd = comm_session->socket_fd;
+		} else if (comm_session->socket_fd < 0) {
+			pcep_log(LOG_ERR, "%s: Negative fd", __func__);
+			assert(comm_session->socket_fd > 0);
 		}
 
 		/*pcep_log(LOG_DEBUG, ld] socket_comm::build_fdSets set
@@ -147,6 +151,9 @@ int build_fd_sets(pcep_socket_comm_handle *socket_comm_handle)
 		comm_session = (pcep_socket_comm_session *)node->data;
 		if (comm_session->socket_fd > max_fd) {
 			max_fd = comm_session->socket_fd;
+		} else if (comm_session->socket_fd < 0) {
+			pcep_log(LOG_ERR, "%s: Negative fd", __func__);
+			assert(comm_session->socket_fd > 0);
 		}
 
 		/*pcep_log(LOG_DEBUG, "%s: [%ld] socket_comm::build_fdSets set

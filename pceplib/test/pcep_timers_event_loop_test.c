@@ -130,7 +130,9 @@ void test_walk_and_process_timers_timer_expired()
 	timer->data = timer;
 	// Set the timer to expire 10 seconds ago
 	timer->expire_time = time(NULL) - 10;
+	pthread_mutex_lock(&test_timers_context->timer_list_lock);
 	timer->timer_id = TEST_EVENT_LOOP_TIMER_ID;
+	pthread_mutex_unlock(&test_timers_context->timer_list_lock);
 	ordered_list_add_node(test_timers_context->timer_list, timer);
 
 	walk_and_process_timers(test_timers_context);

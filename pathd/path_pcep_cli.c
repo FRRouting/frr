@@ -1046,7 +1046,7 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 		XMALLOC(MTYPE_PCEP, sizeof(struct pcc_opts));
 	memcpy(&pcc_opts_copy->addr,
 	       &pce_opts_cli->pce_opts.config_opts.source_ip,
-	       sizeof(struct pcc_opts));
+	       sizeof(pcc_opts_copy->addr));
 	pcc_opts_copy->msd = pcc_msd_g;
 	pcc_opts_copy->port = pce_opts_cli->pce_opts.config_opts.source_port;
 	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, pcc_opts_copy)) {

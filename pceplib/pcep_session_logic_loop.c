@@ -98,6 +98,7 @@ int session_logic_msg_ready_handler(void *data, int socket_fd)
 	} else if (msg_list->num_entries == 0) {
 		/* Invalid message received */
 		increment_unknown_message(session);
+		dll_destroy_with_data(msg_list);
 	} else {
 		/* Just logging the first of potentially several messages
 		 * received */

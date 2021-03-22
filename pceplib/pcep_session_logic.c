@@ -61,7 +61,6 @@ static bool run_session_logic_common()
 	memset(session_logic_handle_, 0, sizeof(pcep_session_logic_handle));
 
 	session_logic_handle_->active = true;
-	session_logic_handle_->session_logic_condition = false;
 	session_logic_handle_->session_list =
 		ordered_list_initialize(pointer_compare_function);
 	session_logic_handle_->session_event_queue = queue_initialize();
@@ -90,6 +89,11 @@ static bool run_session_logic_common()
 			 __func__);
 		return false;
 	}
+
+	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+	session_logic_handle_->session_logic_condition = true;
+	pthread_cond_signal(&(session_logic_handle_->session_logic_cond_var));
+	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 
 	if (pthread_mutex_init(&(session_logic_handle_->session_list_mutex),
 			       NULL)
@@ -574,24 +578,20 @@ struct pcep_message *create_pcep_open(pcep_session *session)
 		dll_append(
 			tlv_list,
 			pcep_tlv_create_stateful_pce_capability(
+				/* U flag */
 				session->pcc_config
-					.support_stateful_pce_lsp_update, /* U
-									     flag
-									   */
+					.support_stateful_pce_lsp_update,
+				/* S flag */
+				session->pcc_config.support_include_db_version,
+				/* I flag */
 				session->pcc_config
-					.support_include_db_version, /* S flag
-								      */
-				session->pcc_config
-					.support_lsp_triggered_resync, /* T flag
-									*/
-				session->pcc_config
-					.support_lsp_delta_sync, /* D flag */
-				session->pcc_config
-					.support_pce_triggered_initial_sync, /* F flag */
-				session->pcc_config
-					.support_pce_lsp_instantiation)); /* I
-									     flag
-									   */
+					.support_pce_lsp_instantiation,
+			/* T flag */
+			session->pcc_config.support_lsp_triggered_resync,
+			/* D flag */
+			session->pcc_config.support_lsp_delta_sync,
+			/* F flag */
+			session->pcc_config.support_pce_triggered_initial_sync));
 	}
 
 	if (session->pcc_config.support_include_db_version) {
