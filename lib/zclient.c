@@ -2823,9 +2823,6 @@ stream_failure:
 /**
  * Function to request a srv6-locator chunk in an Asyncronous way
  *
- * It first writes the request to zclient output buffer and then
- * immediately reads the answer from the input buffer.
- *
  * @param zclient Zclient used to connect to table manager (zebra)
  * @param locator_name Name of SRv6-locator
  * @result 0 on success, -1 otherwise
