@@ -1330,12 +1330,25 @@ static bool _netlink_route_encode_nexthop_src(const struct nexthop *nexthop,
 	return true;
 }
 
-static size_t fill_seg6ipt_encap(char *buffer, size_t buflen,
-				 const struct in6_addr *seg)
+static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
+				  const struct in6_addr *seg)
 {
 	struct seg6_iptunnel_encap *ipt;
 	struct ipv6_sr_hdr *srh;
 	const size_t srhlen = 24;
+
+	/*
+	 * Caution: Support only SINGLE-SID, not MULTI-SID
+	 * This function only supports the case where segs represents
+	 * a single SID. If you want to extend the SRv6 functionality,
+	 * you should improve the Boundary Check.
+	 * Ex. In case of set a SID-List include multiple-SIDs as an
+	 * argument of the Transit Behavior, we must support variable
+	 * boundary check for buflen.
+	 */
+	if (buflen < (sizeof(struct seg6_iptunnel_encap) +
+		      sizeof(struct ipv6_sr_hdr) + 16))
+		return -1;
 
 	memset(buffer, 0, buflen);
 
@@ -1447,7 +1460,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 	if (nexthop->nh_seg6_segs) {
 		char tun_buf[4096];
-		size_t tun_len;
+		ssize_t tun_len;
 		struct rtattr *nest;
 
 		if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
@@ -1458,6 +1471,8 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 			return false;
 		tun_len = fill_seg6ipt_encap(tun_buf, sizeof(tun_buf),
 					     nexthop->nh_seg6_segs);
+		if (tun_len < 0)
+			return false;
 		if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH, tun_buf,
 				tun_len))
 			return false;
@@ -2535,7 +2550,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 			if (nh->nh_seg6_segs) {
 				char tun_buf[4096];
-				size_t tun_len;
+				ssize_t tun_len;
 				struct rtattr *nest;
 
 				if (!nl_attr_put16(&req->n, buflen,
@@ -2549,6 +2564,8 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				tun_len = fill_seg6ipt_encap(tun_buf,
 						sizeof(tun_buf),
 						nh->nh_seg6_segs);
+				if (tun_len < 0)
+					return 0;
 				if (!nl_attr_put(&req->n, buflen,
 						 SEG6_IPTUNNEL_SRH,
 						 tun_buf, tun_len))
