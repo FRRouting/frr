@@ -29,6 +29,7 @@
 #include "frrcu.h"
 #include "memory.h"
 #include "hook.h"
+#include "printfrr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -143,6 +144,9 @@ extern const struct xref_logmsg *zlog_msg_xref(struct zlog_msg *msg);
 
 /* pass NULL as textlen if you don't need it. */
 extern const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen);
+
+extern void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen,
+			  size_t *n_argpos, const struct fmt_outpos **argpos);
 
 /* timestamp formatting control flags */
 

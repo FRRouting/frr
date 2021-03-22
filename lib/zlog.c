@@ -102,6 +102,7 @@ struct zlog_msg {
 	size_t stackbufsz;
 	char *text;
 	size_t textlen;
+	size_t hdrlen;
 
 	/* This is always ISO8601 with sub-second precision 9 here, it's
 	 * converted for callers as needed.  ts_dot points to the "."
@@ -113,6 +114,15 @@ struct zlog_msg {
 	 */
 	uint32_t ts_flags;
 	char ts_str[32], *ts_dot, ts_zonetail[8];
+
+	/* at the time of writing, 16 args was the actual maximum of arguments
+	 * to a single zlog call.  Particularly printing flag bitmasks seems
+	 * to drive this.  That said, the overhead of dynamically sizing this
+	 * probably outweighs the value.  If anything, a printfrr extension
+	 * for printing flag bitmasks might be a good idea.
+	 */
+	struct fmt_outpos argpos[24];
+	size_t n_argpos;
 };
 
 /* thread-local log message buffering
@@ -557,8 +567,12 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		if (need)
 			need += bputch(&fb, ' ');
 
-		hdrlen = need;
+		msg->hdrlen = hdrlen = need;
 		assert(hdrlen < msg->stackbufsz);
+
+		fb.outpos = msg->argpos;
+		fb.outpos_n = array_size(msg->argpos);
+		fb.outpos_i = 0;
 
 		va_copy(args, msg->args);
 		need += vbprintfrr(&fb, msg->fmt, args);
@@ -577,6 +591,7 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 			fb.buf = msg->text;
 			fb.len = need;
 			fb.pos = msg->text + hdrlen;
+			fb.outpos_i = 0;
 
 			va_copy(args, msg->args);
 			vbprintfrr(&fb, msg->fmt, args);
@@ -584,10 +599,26 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 
 			bputch(&fb, '\0');
 		}
+
+		msg->n_argpos = fb.outpos_i;
 	}
 	if (textlen)
 		*textlen = msg->textlen;
 	return msg->text;
+}
+
+void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen, size_t *n_argpos,
+		   const struct fmt_outpos **argpos)
+{
+	if (!msg->text)
+		zlog_msg_text(msg, NULL);
+
+	if (hdrlen)
+		*hdrlen = msg->hdrlen;
+	if (n_argpos)
+		*n_argpos = msg->n_argpos;
+	if (argpos)
+		*argpos = msg->argpos;
 }
 
 #define ZLOG_TS_FORMAT		(ZLOG_TS_ISO8601 | ZLOG_TS_LEGACY)
