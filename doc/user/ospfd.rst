@@ -733,23 +733,25 @@ Showing Information
    Json o/p of this command covers base route information
    i.e all LSAs except opaque lsa info.
 
-.. clicmd:: show ip ospf database [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database [json]
 
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) [json]
 
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID [json]
 
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER [json]
 
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER [json]
 
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate [json]
 
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) self-originate [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) self-originate [json]
 
-.. clicmd:: show ip ospf database max-age [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database max-age [json]
 
-.. clicmd:: show ip ospf database self-originate [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database self-originate [json]
+
+   Show the OSPF database summary.
 
 .. clicmd:: show ip ospf route [json]
 
@@ -780,17 +782,17 @@ Opaque LSA
    extensions that are used with MPLS-TE; it does not support a
    complete RSVP-TE solution.
 
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external)
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external)
 
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID
 
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID adv-router ADV-ROUTER
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID adv-router ADV-ROUTER
 
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) adv-router ADV-ROUTER
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) adv-router ADV-ROUTER
 
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID self-originate
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID self-originate
 
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) self-originate
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) self-originate
 
    Show Opaque LSA from the database.
 
