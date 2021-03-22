@@ -2785,8 +2785,7 @@ int srv6_manager_connect(struct zclient *zclient)
 		zlog_debug("SRv6 Manager connect request sent (%d bytes)", ret);
 
 	/* read response */
-	if (zclient_read_sync_response(zclient, cmd)
-	    != 0)
+	if (zclient_read_sync_response(zclient, cmd) != 0)
 		return -1;
 
 	s = zclient->ibuf;
