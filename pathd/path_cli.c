@@ -20,6 +20,7 @@
 #include <math.h>
 #include <zebra.h>
 
+#include "memory.h"
 #include "log.h"
 #include "command.h"
 #include "mpls.h"
@@ -28,7 +29,6 @@
 
 #include "pathd/pathd.h"
 #include "pathd/path_nb.h"
-#include "pathd/path_memory.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_cli_clippy.c"
 #endif

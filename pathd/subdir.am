@@ -23,7 +23,6 @@ pathd_libpath_a_SOURCES = \
 	pathd/path_debug.c \
 	pathd/path_errors.c \
 	pathd/path_main.c \
-	pathd/path_memory.c \
 	pathd/path_nb.c \
 	pathd/path_nb_config.c \
 	pathd/path_nb_state.c \
@@ -39,14 +38,12 @@ clippy_scan += \
 noinst_HEADERS += \
 	pathd/path_debug.h \
 	pathd/path_errors.h \
-	pathd/path_memory.h \
 	pathd/path_nb.h \
 	pathd/path_pcep.h \
 	pathd/path_pcep_cli.h \
 	pathd/path_pcep_controller.h \
 	pathd/path_pcep_debug.h \
 	pathd/path_pcep_lib.h \
-	pathd/path_pcep_memory.h \
 	pathd/path_pcep_config.h \
 	pathd/path_pcep_pcc.h \
 	pathd/path_zebra.h \
@@ -65,7 +62,6 @@ pathd_pathd_pcep_la_SOURCES = \
 	pathd/path_pcep_controller.c \
 	pathd/path_pcep_debug.c \
 	pathd/path_pcep_lib.c \
-	pathd/path_pcep_memory.c \
 	pathd/path_pcep_config.c \
 	pathd/path_pcep_pcc.c \
 	# end

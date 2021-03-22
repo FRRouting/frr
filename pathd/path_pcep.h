@@ -22,11 +22,13 @@
 #include <stdbool.h>
 #include <debug.h>
 #include <netinet/tcp.h>
+#include "memory.h"
 #include "pceplib/pcep_utils_logging.h"
 #include "pceplib/pcep_pcc_api.h"
 #include "mpls.h"
 #include "pathd/pathd.h"
-#include "pathd/path_pcep_memory.h"
+
+DECLARE_MTYPE(PCEP);
 
 #define PCEP_DEFAULT_PORT 4189
 #define MAX_PCC 32
