@@ -283,6 +283,9 @@ struct va_format {
 #pragma FRR printfrr_ext "%pHS" (signed char *)
 #pragma FRR printfrr_ext "%pHS" (unsigned char *)
 #pragma FRR printfrr_ext "%pHS" (void *)
+
+#pragma FRR printfrr_ext "%pSE" (char *)
+#pragma FRR printfrr_ext "%pSQ" (char *)
 #endif
 
 /* when using non-ISO-C compatible extension specifiers... */

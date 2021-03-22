@@ -218,13 +218,40 @@ int main(int argc, char **argv)
 
 	uint8_t randhex[] = { 0x12, 0x34, 0x00, 0xca, 0xfe, 0x00, 0xaa, 0x55 };
 
-	printchk("12 34 00 ca fe 00 aa 55", "%.8pHX", randhex);
-	printchk("12 34 00 ca fe 00 aa 55", "%.*pHX",
-		 (int)sizeof(randhex), randhex);
-	printchk("12 34 00 ca", "%.4pHX", randhex);
+	FMT_NSTD(printchk("12 34 00 ca fe 00 aa 55", "%.8pHX", randhex));
+	FMT_NSTD(printchk("12 34 00 ca fe 00 aa 55", "%.*pHX",
+		 (int)sizeof(randhex), randhex));
+	FMT_NSTD(printchk("12 34 00 ca", "%.4pHX", randhex));
 
-	printchk("12:34:00:ca:fe:00:aa:55", "%.8pHXc", randhex);
-	printchk("123400cafe00aa55", "%.8pHXn", randhex);
+	printchk("12 34 00 ca fe 00 aa 55", "%8pHX", randhex);
+	printchk("12 34 00 ca fe 00 aa 55", "%*pHX",
+		 (int)sizeof(randhex), randhex);
+	printchk("12 34 00 ca", "%4pHX", randhex);
+
+	printchk("", "%pHX", randhex);
+
+	printchk("12:34:00:ca:fe:00:aa:55", "%8pHXc", randhex);
+	printchk("123400cafe00aa55", "%8pHXn", randhex);
+
+	printchk("/test/pa\\ th/\\~spe\\ncial\\x01/file.name", "%pSE",
+		 "/test/pa th/~spe\ncial\x01/file.name");
+	printchk("/test/pa\\ th/\\~spe\\n", "%17pSE",
+		 "/test/pa th/~spe\ncial\x01/file.name");
+
+	char nulltest[] = { 'n', 'u', 0, 'l', 'l' };
+
+	printchk("nu\\x00ll", "%5pSE", nulltest);
+	printchk("nu\\x00ll", "%*pSE", 5, nulltest);
+
+	printchk("bl\\\"ah\\x01te[st\\nab]c", "%pSQ",
+		 "bl\"ah\x01te[st\nab]c");
+	printchk("\"bl\\\"ah\\x01te[st\\nab]c\"", "%pSQq",
+		 "bl\"ah\x01te[st\nab]c");
+	printchk("\"bl\\\"ah\\x01te[st\\x0aab\\]c\"", "%pSQqs",
+		 "bl\"ah\x01te[st\nab]c");
+	printchk("\"\"", "%pSQqn", "");
+	printchk("\"\"", "%pSQqn", (char *)NULL);
+	printchk("(null)", "%pSQq", (char *)NULL);
 
 	return !!errors;
 }
