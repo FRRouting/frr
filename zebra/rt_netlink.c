@@ -1331,7 +1331,7 @@ static bool _netlink_route_encode_nexthop_src(const struct nexthop *nexthop,
 }
 
 static size_t fill_seg6ipt_encap(char *buffer, size_t buflen,
-				 struct in6_addr *seg)
+				 const struct in6_addr *seg)
 {
 	struct seg6_iptunnel_encap *ipt;
 	struct ipv6_sr_hdr *srh;
