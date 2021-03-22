@@ -89,7 +89,7 @@ def test_srv6():
 
     def _check_sharpd_chunk(router, expected_chunk_file):
         logger.info("checking sharpd locator chunk status")
-        output = json.loads(router.vtysh_cmd("show sharp segment-routing srv6"))
+        output = json.loads(router.vtysh_cmd("show sharp segment-routing srv6 json"))
         expected = open_json_file("{}/{}".format(CWD, expected_chunk_file))
         return topotest.json_cmp(output, expected)
 
