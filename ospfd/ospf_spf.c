@@ -89,7 +89,7 @@ static int vertex_cmp(const struct vertex *v1, const struct vertex *v2)
 	}
 	return 0;
 }
-DECLARE_SKIPLIST_NONUNIQ(vertex_pqueue, struct vertex, pqi, vertex_cmp)
+DECLARE_SKIPLIST_NONUNIQ(vertex_pqueue, struct vertex, pqi, vertex_cmp);
 
 static void lsdb_clean_stat(struct ospf_lsdb *lsdb)
 {

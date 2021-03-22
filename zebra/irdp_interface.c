@@ -57,7 +57,7 @@
 
 extern int irdp_sock;
 
-DEFINE_MTYPE_STATIC(ZEBRA, IRDP_IF, "IRDP interface data")
+DEFINE_MTYPE_STATIC(ZEBRA, IRDP_IF, "IRDP interface data");
 
 #define IRDP_CONFIGED                                                                 \
 	do {                                                                          \

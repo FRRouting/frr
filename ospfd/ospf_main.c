@@ -141,7 +141,8 @@ FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 		.signals = ospf_signals, .n_signals = array_size(ospf_signals),
 
 		.privs = &ospfd_privs, .yang_modules = ospfd_yang_modules,
-		.n_yang_modules = array_size(ospfd_yang_modules), )
+		.n_yang_modules = array_size(ospfd_yang_modules),
+);
 
 /* OSPFd main routine. */
 int main(int argc, char **argv)

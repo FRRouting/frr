@@ -51,8 +51,8 @@
 
 #include "frrscript.h"
 
-DEFINE_MTYPE_STATIC(LIB, HOST, "Host config")
-DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
+DEFINE_MTYPE_STATIC(LIB, HOST, "Host config");
+DEFINE_MTYPE(LIB, COMPLETION, "Completion item");
 
 #define item(x)                                                                \
 	{                                                                      \

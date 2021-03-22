@@ -49,7 +49,7 @@
 #include "isisd/isis_errors.h"
 
 /* Local variables and functions */
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information")
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information");
 
 static void sr_local_block_delete(struct isis_area *area);
 static int sr_local_block_init(struct isis_area *area);
@@ -73,7 +73,7 @@ static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 	return prefix_cmp(&a->prefix, &b->prefix);
 }
 DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
-		    sr_prefix_sid_cfg_compare)
+		    sr_prefix_sid_cfg_compare);
 
 /**
  * Find SRGB associated to a System ID.

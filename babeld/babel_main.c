@@ -153,7 +153,7 @@ FRR_DAEMON_INFO(babeld, BABELD,
 
 		.yang_modules = babeld_yang_modules,
 		.n_yang_modules = array_size(babeld_yang_modules),
-		)
+);
 
 int
 main(int argc, char **argv)

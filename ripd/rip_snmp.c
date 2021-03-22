@@ -589,4 +589,5 @@ static int rip_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "ripd_snmp", .version = FRR_VERSION,
 		 .description = "ripd AgentX SNMP module",
-		 .init = rip_snmp_module_init, )
+		 .init = rip_snmp_module_init,
+);

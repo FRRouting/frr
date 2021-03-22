@@ -33,7 +33,7 @@
 
 /* The "root" is the node running the SPF calculation */
 
-PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue)
+PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue);
 /* A router or network in an area */
 struct vertex {
 	struct vertex_pqueue_item pqi;

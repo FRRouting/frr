@@ -128,7 +128,8 @@ FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
 		.signals = ripd_signals, .n_signals = array_size(ripd_signals),
 
 		.privs = &ripd_privs, .yang_modules = ripd_yang_modules,
-		.n_yang_modules = array_size(ripd_yang_modules), )
+		.n_yang_modules = array_size(ripd_yang_modules),
+);
 
 #define DEPRECATED_OPTIONS ""
 

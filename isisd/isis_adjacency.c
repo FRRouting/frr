@@ -146,7 +146,7 @@ struct isis_adjacency *isis_adj_find(const struct isis_area *area, int level,
 	return NULL;
 }
 
-DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
+DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));
 
 void isis_delete_adj(void *arg)
 {

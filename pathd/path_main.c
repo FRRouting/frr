@@ -114,7 +114,8 @@ FRR_DAEMON_INFO(pathd, PATH, .vty_port = PATH_VTY_PORT,
 		.signals = path_signals, .n_signals = array_size(path_signals),
 
 		.privs = &pathd_privs, .yang_modules = pathd_yang_modules,
-		.n_yang_modules = array_size(pathd_yang_modules), )
+		.n_yang_modules = array_size(pathd_yang_modules),
+);
 
 int main(int argc, char **argv, char **envp)
 {

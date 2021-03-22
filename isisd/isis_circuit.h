@@ -174,9 +174,9 @@ struct isis_circuit {
 				    */
 	struct list *snmp_adj_list; /* List in id order */
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(isis_circuit)
+DECLARE_QOBJ_TYPE(isis_circuit);
 
 void isis_circuit_init(void);
 struct isis_circuit *isis_circuit_new(struct isis *isis);
@@ -231,10 +231,10 @@ int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
 #ifdef FABRICD
 DECLARE_HOOK(isis_circuit_config_write,
 	    (struct isis_circuit *circuit, struct vty *vty),
-	    (circuit, vty))
+	    (circuit, vty));
 #endif
 
 DECLARE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
-	     (circuit))
+	     (circuit));
 
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

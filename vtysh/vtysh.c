@@ -48,7 +48,7 @@
 #include "json.h"
 #include "ferr.h"
 
-DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy");
 
 /* Struct VTY. */
 struct vty *vty;

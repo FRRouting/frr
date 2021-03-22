@@ -56,20 +56,20 @@ struct memgroup {
 /* macro usage:
  *
  *  mydaemon.h
- *    DECLARE_MGROUP(MYDAEMON)
- *    DECLARE_MTYPE(MYDAEMON_COMMON)
+ *    DECLARE_MGROUP(MYDAEMON);
+ *    DECLARE_MTYPE(MYDAEMON_COMMON);
  *
  *  mydaemon.c
- *    DEFINE_MGROUP(MYDAEMON, "my daemon memory")
+ *    DEFINE_MGROUP(MYDAEMON, "my daemon memory");
  *    DEFINE_MTYPE(MYDAEMON, MYDAEMON_COMMON,
- *                   "this mtype is used in multiple files in mydaemon")
+ *                   "this mtype is used in multiple files in mydaemon");
  *    foo = qmalloc(MTYPE_MYDAEMON_COMMON, sizeof(*foo))
  *
  *  mydaemon_io.c
  *    bar = qmalloc(MTYPE_MYDAEMON_COMMON, sizeof(*bar))
  *
  *    DEFINE_MTYPE_STATIC(MYDAEMON, MYDAEMON_IO,
- *                          "this mtype is used only in this file")
+ *                          "this mtype is used only in this file");
  *    baz = qmalloc(MTYPE_MYDAEMON_IO, sizeof(*baz))
  *
  *  Note:  Naming conventions (MGROUP_ and MTYPE_ prefixes are enforced
@@ -78,7 +78,7 @@ struct memgroup {
  *         but MGROUP_* aren't.
  */
 
-#define DECLARE_MGROUP(name) extern struct memgroup _mg_##name;
+#define DECLARE_MGROUP(name) extern struct memgroup _mg_##name
 #define _DEFINE_MGROUP(mname, desc, ...)                                       \
 	struct memgroup _mg_##mname                                            \
 		__attribute__((section(".data.mgroups"))) = {                  \
@@ -104,7 +104,7 @@ struct memgroup {
 			_mg_##mname.next->ref = _mg_##mname.ref;               \
 		*_mg_##mname.ref = _mg_##mname.next;                           \
 	}                                                                      \
-	/* end */
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DEFINE_MGROUP(mname, desc) \
 	_DEFINE_MGROUP(mname, desc, )
@@ -112,7 +112,7 @@ struct memgroup {
 	_DEFINE_MGROUP(mname, desc, .active_at_exit = true)
 
 #define DECLARE_MTYPE(name)                                                    \
-	extern struct memtype MTYPE_##name[1];                                 \
+	extern struct memtype MTYPE_##name[1]                                  \
 	/* end */
 
 #define DEFINE_MTYPE_ATTR(group, mname, attr, desc)                            \
@@ -140,7 +140,7 @@ struct memgroup {
 			MTYPE_##mname->next->ref = MTYPE_##mname->ref;         \
 		*MTYPE_##mname->ref = MTYPE_##mname->next;                     \
 	}                                                                      \
-	/* end */
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DEFINE_MTYPE(group, name, desc)                                        \
 	DEFINE_MTYPE_ATTR(group, name, , desc)                                 \
@@ -150,8 +150,8 @@ struct memgroup {
 	DEFINE_MTYPE_ATTR(group, name, static, desc)                           \
 	/* end */
 
-DECLARE_MGROUP(LIB)
-DECLARE_MTYPE(TMP)
+DECLARE_MGROUP(LIB);
+DECLARE_MTYPE(TMP);
 
 
 extern void *qmalloc(struct memtype *mt, size_t size)

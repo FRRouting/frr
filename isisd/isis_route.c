@@ -53,7 +53,7 @@
 DEFINE_HOOK(isis_route_update_hook,
 	    (struct isis_area * area, struct prefix *prefix,
 	     struct isis_route_info *route_info),
-	    (area, prefix, route_info))
+	    (area, prefix, route_info));
 
 static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
 					  union g_addr *ip, ifindex_t ifindex);

@@ -46,7 +46,7 @@ static int config_write_traffic_eng(struct vty *vty);
 static int config_write_segment_lists(struct vty *vty);
 static int config_write_sr_policies(struct vty *vty);
 
-DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client")
+DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client");
 
 /* Vty node structures. */
 static struct cmd_node segment_routing_node = {

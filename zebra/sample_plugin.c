@@ -130,4 +130,4 @@ FRR_MODULE_SETUP(
 	.version = "0.0.1",
 	.description = "Dataplane Sample Plugin",
 	.init = module_init,
-	)
+);

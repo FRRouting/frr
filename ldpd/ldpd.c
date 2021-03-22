@@ -69,13 +69,13 @@ static void		 merge_l2vpns(struct ldpd_conf *, struct ldpd_conf *);
 static void		 merge_l2vpn(struct ldpd_conf *, struct l2vpn *,
 			    struct l2vpn *);
 
-DEFINE_QOBJ_TYPE(iface)
-DEFINE_QOBJ_TYPE(tnbr)
-DEFINE_QOBJ_TYPE(nbr_params)
-DEFINE_QOBJ_TYPE(l2vpn_if)
-DEFINE_QOBJ_TYPE(l2vpn_pw)
-DEFINE_QOBJ_TYPE(l2vpn)
-DEFINE_QOBJ_TYPE(ldpd_conf)
+DEFINE_QOBJ_TYPE(iface);
+DEFINE_QOBJ_TYPE(tnbr);
+DEFINE_QOBJ_TYPE(nbr_params);
+DEFINE_QOBJ_TYPE(l2vpn_if);
+DEFINE_QOBJ_TYPE(l2vpn_pw);
+DEFINE_QOBJ_TYPE(l2vpn);
+DEFINE_QOBJ_TYPE(ldpd_conf);
 
 struct ldpd_global	 global;
 struct ldpd_init	 init;
@@ -88,7 +88,7 @@ static pid_t		 lde_pid;
 
 static struct frr_daemon_info ldpd_di;
 
-DEFINE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm))
+DEFINE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm));
 
 static void ldp_load_module(const char *name)
 {
@@ -218,7 +218,7 @@ FRR_DAEMON_INFO(ldpd, LDP,
 
 	.yang_modules = ldpd_yang_modules,
 	.n_yang_modules = array_size(ldpd_yang_modules),
-)
+);
 
 static int ldp_config_fork_apply(struct thread *t)
 {

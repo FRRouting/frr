@@ -60,8 +60,8 @@
 #include "bgpd/bgp_rpki_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server")
-DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group")
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 
 #define RPKI_VALID      1
 #define RPKI_NOTFOUND   2
@@ -1471,4 +1471,5 @@ static void install_cli_commands(void)
 
 FRR_MODULE_SETUP(.name = "bgpd_rpki", .version = "0.3.6",
 		 .description = "Enable RPKI support for FRR.",
-		 .init = bgp_rpki_module_init)
+		 .init = bgp_rpki_module_init,
+);

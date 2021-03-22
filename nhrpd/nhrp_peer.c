@@ -22,7 +22,7 @@
 #include "nhrp_protocol.h"
 #include "os.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_PEER, "NHRP peer entry")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_PEER, "NHRP peer entry");
 
 struct ipv6hdr {
 	uint8_t priority_version;

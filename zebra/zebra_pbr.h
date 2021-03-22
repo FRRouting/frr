@@ -249,11 +249,11 @@ size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
 DECLARE_HOOK(zebra_pbr_ipset_entry_get_stat,
 	     (struct zebra_pbr_ipset_entry *ipset, uint64_t *pkts,
 	      uint64_t *bytes),
-	     (ipset, pkts, bytes))
+	     (ipset, pkts, bytes));
 DECLARE_HOOK(zebra_pbr_iptable_get_stat,
 	     (struct zebra_pbr_iptable *iptable, uint64_t *pkts,
 	      uint64_t *bytes),
-	     (iptable, pkts, bytes))
+	     (iptable, pkts, bytes));
 DECLARE_HOOK(zebra_pbr_iptable_update,
 	     (int cmd, struct zebra_pbr_iptable *iptable), (cmd, iptable));
 

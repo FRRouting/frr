@@ -28,7 +28,7 @@
 #include "lib_errors.h"
 #include "lib/queue.h"
 
-DEFINE_MTYPE_STATIC(LIB, PRIVS, "Privilege information")
+DEFINE_MTYPE_STATIC(LIB, PRIVS, "Privilege information");
 
 /*
  * Different capabilities/privileges apis have different characteristics: some

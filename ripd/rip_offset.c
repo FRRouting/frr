@@ -29,7 +29,7 @@
 
 #include "ripd/ripd.h"
 
-DEFINE_MTYPE_STATIC(RIPD, RIP_OFFSET_LIST, "RIP offset list")
+DEFINE_MTYPE_STATIC(RIPD, RIP_OFFSET_LIST, "RIP offset list");
 
 #define OFFSET_LIST_IN_NAME(O)  ((O)->direct[RIP_OFFSET_LIST_IN].alist_name)
 #define OFFSET_LIST_IN_METRIC(O)  ((O)->direct[RIP_OFFSET_LIST_IN].metric)

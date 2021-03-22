@@ -46,7 +46,8 @@
 
 #include "lib/openbsd-queue.h"
 
-DEFINE_MTYPE_STATIC(BFDD, BFDD_DPLANE_CTX, "Data plane client allocated memory")
+DEFINE_MTYPE_STATIC(BFDD, BFDD_DPLANE_CTX,
+		    "Data plane client allocated memory");
 
 /** Data plane client socket buffer size. */
 #define BFD_DPLANE_CLIENT_BUF_SIZE 8192

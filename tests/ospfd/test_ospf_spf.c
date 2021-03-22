@@ -23,9 +23,9 @@
 #include "common.h"
 
 DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
-		    p_spaces_compare_func)
+		    p_spaces_compare_func);
 DECLARE_RBTREE_UNIQ(q_spaces, struct q_space, q_spaces_item,
-		    q_spaces_compare_func)
+		    q_spaces_compare_func);
 
 static struct ospf *test_init(struct ospf_test_node *root)
 {

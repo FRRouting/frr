@@ -95,12 +95,12 @@
 
 DEFINE_HOOK(bgp_snmp_update_stats,
 	    (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
-	    (rn, pi, added))
+	    (rn, pi, added));
 
 DEFINE_HOOK(bgp_rpki_prefix_status,
 	    (struct peer *peer, struct attr *attr,
 	     const struct prefix *prefix),
-	    (peer, attr, prefix))
+	    (peer, attr, prefix));
 
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
@@ -126,7 +126,7 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 DEFINE_HOOK(bgp_process,
 	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	     struct peer *peer, bool withdraw),
-	    (bgp, afi, safi, bn, peer, withdraw))
+	    (bgp, afi, safi, bn, peer, withdraw));
 
 /** Test if path is suppressed. */
 static bool bgp_path_suppressed(struct bgp_path_info *pi)

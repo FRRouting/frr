@@ -132,9 +132,9 @@ struct ospf6 {
 	 */
 	uint16_t max_multipath;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ospf6)
+DECLARE_QOBJ_TYPE(ospf6);
 
 #define OSPF6_DISABLED    0x01
 #define OSPF6_STUB_ROUTER 0x02

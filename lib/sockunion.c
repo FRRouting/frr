@@ -29,7 +29,7 @@
 #include "lib_errors.h"
 #include "printfrr.h"
 
-DEFINE_MTYPE_STATIC(LIB, SOCKUNION, "Socket union")
+DEFINE_MTYPE_STATIC(LIB, SOCKUNION, "Socket union");
 
 const char *inet_sutop(const union sockunion *su, char *str)
 {

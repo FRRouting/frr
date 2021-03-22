@@ -30,7 +30,7 @@
 #include "table.h"
 #include "printfrr.h"
 
-DEFINE_MTYPE_STATIC(LIB, ROUTE_SRC_NODE, "Route source node")
+DEFINE_MTYPE_STATIC(LIB, ROUTE_SRC_NODE, "Route source node");
 
 /* ----- functions to manage rnodes _with_ srcdest table ----- */
 struct srcdest_rnode {

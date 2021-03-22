@@ -48,8 +48,8 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
 					struct route_node *node);
 
-DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_VRF, "ZEBRA VRF")
-DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table")
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_VRF, "ZEBRA VRF");
+DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table");
 
 /* VRF information update. */
 static void zebra_vrf_add_update(struct zebra_vrf *zvrf)

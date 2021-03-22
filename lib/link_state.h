@@ -324,7 +324,7 @@ extern int ls_attributes_same(struct ls_attributes *a1,
  */
 
 /* Link State Vertex structure */
-PREDECL_RBTREE_UNIQ(vertices)
+PREDECL_RBTREE_UNIQ(vertices);
 struct ls_vertex {
 	struct vertices_item entry;	/* Entry in RB Tree */
 	uint64_t key;			/* Unique Key identifier */
@@ -335,7 +335,7 @@ struct ls_vertex {
 };
 
 /* Link State Edge structure */
-PREDECL_RBTREE_UNIQ(edges)
+PREDECL_RBTREE_UNIQ(edges);
 struct ls_edge {
 	struct edges_item entry;	/* Entry in RB tree */
 	uint64_t key;			/* Unique Key identifier */
@@ -345,7 +345,7 @@ struct ls_edge {
 };
 
 /* Link State Subnet structure */
-PREDECL_RBTREE_UNIQ(subnets)
+PREDECL_RBTREE_UNIQ(subnets);
 struct ls_subnet {
 	struct subnets_item entry;	/* Entry in RB tree */
 	struct prefix key;		/* Unique Key identifier */
@@ -359,21 +359,21 @@ macro_inline int vertex_cmp(const struct ls_vertex *node1,
 {
 	return (node1->key - node2->key);
 }
-DECLARE_RBTREE_UNIQ(vertices, struct ls_vertex, entry, vertex_cmp)
+DECLARE_RBTREE_UNIQ(vertices, struct ls_vertex, entry, vertex_cmp);
 
 macro_inline int edge_cmp(const struct ls_edge *edge1,
 			  const struct ls_edge *edge2)
 {
 	return (edge1->key - edge2->key);
 }
-DECLARE_RBTREE_UNIQ(edges, struct ls_edge, entry, edge_cmp)
+DECLARE_RBTREE_UNIQ(edges, struct ls_edge, entry, edge_cmp);
 
 macro_inline int subnet_cmp(const struct ls_subnet *a,
 			     const struct ls_subnet *b)
 {
 	return prefix_cmp(&a->key, &b->key);
 }
-DECLARE_RBTREE_UNIQ(subnets, struct ls_subnet, entry, subnet_cmp)
+DECLARE_RBTREE_UNIQ(subnets, struct ls_subnet, entry, subnet_cmp);
 
 /* Link State TED Structure */
 struct ls_ted {

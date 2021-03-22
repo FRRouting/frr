@@ -53,9 +53,9 @@
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ldp_sync.h"
 
-DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table")
-DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute")
-DEFINE_MTYPE_STATIC(OSPFD, OSPF_DIST_ARGS, "OSPF Distribute arguments")
+DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table");
+DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
+DEFINE_MTYPE_STATIC(OSPFD, OSPF_DIST_ARGS, "OSPF Distribute arguments");
 
 
 /* Zebra structure to hold current status. */

@@ -97,12 +97,12 @@ struct nexthop_group_cmd {
 
 	struct list *nhg_list;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(nhgc_entry_head, nexthp_group_cmd);
 RB_PROTOTYPE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 	     nexthop_group_cmd_compare)
-DECLARE_QOBJ_TYPE(nexthop_group_cmd)
+DECLARE_QOBJ_TYPE(nexthop_group_cmd);
 
 /*
  * Initialize nexthop_groups.  If you are interested in when

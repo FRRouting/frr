@@ -31,9 +31,9 @@
 #include "frr_pthread.h"
 #include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, HASH, "Hash")
-DEFINE_MTYPE_STATIC(LIB, HASH_BUCKET, "Hash Bucket")
-DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index")
+DEFINE_MTYPE_STATIC(LIB, HASH, "Hash");
+DEFINE_MTYPE_STATIC(LIB, HASH_BUCKET, "Hash Bucket");
+DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index");
 
 static pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *_hashes;

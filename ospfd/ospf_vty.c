@@ -60,7 +60,7 @@
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
-)
+);
 
 static const char *const ospf_network_type_str[] = {
 	"Null",	"POINTOPOINT", "BROADCAST", "NBMA", "POINTOMULTIPOINT",

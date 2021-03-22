@@ -86,7 +86,7 @@ static int ospf6_vertex_cmp(const struct ospf6_vertex *va,
 	return 0;
 }
 DECLARE_SKIPLIST_NONUNIQ(vertex_pqueue, struct ospf6_vertex, pqi,
-		ospf6_vertex_cmp)
+		ospf6_vertex_cmp);
 
 static int ospf6_vertex_id_cmp(void *a, void *b)
 {

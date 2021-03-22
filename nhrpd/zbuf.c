@@ -21,7 +21,7 @@
 
 #define ERRNO_IO_RETRY(EN) (((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
 
-DEFINE_MTYPE_STATIC(NHRPD, ZBUF_DATA, "NHRPD zbuf data")
+DEFINE_MTYPE_STATIC(NHRPD, ZBUF_DATA, "NHRPD zbuf data");
 
 struct zbuf *zbuf_alloc(size_t size)
 {

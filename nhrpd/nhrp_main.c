@@ -29,7 +29,7 @@
 #include "netlink.h"
 #include "nhrp_errors.h"
 
-DEFINE_MGROUP(NHRPD, "NHRP")
+DEFINE_MGROUP(NHRPD, "NHRP");
 
 unsigned int debug_flags = 0;
 
@@ -128,7 +128,8 @@ FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
 		.signals = sighandlers, .n_signals = array_size(sighandlers),
 
 		.privs = &nhrpd_privs, .yang_modules = nhrpd_yang_modules,
-		.n_yang_modules = array_size(nhrpd_yang_modules), )
+		.n_yang_modules = array_size(nhrpd_yang_modules),
+);
 
 int main(int argc, char **argv)
 {

@@ -46,8 +46,8 @@ THE SOFTWARE.
 #include "babel_zebra.h"
 #include "babel_errors.h"
 
-DEFINE_MGROUP(BABELD, "babeld")
-DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure")
+DEFINE_MGROUP(BABELD, "babeld");
+DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
 
 static int babel_init_routing_process(struct thread *thread);
 static void babel_get_myid(void);

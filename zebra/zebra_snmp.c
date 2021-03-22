@@ -566,4 +566,5 @@ static int zebra_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "zebra_snmp", .version = FRR_VERSION,
 		 .description = "zebra AgentX SNMP module",
-		 .init = zebra_snmp_module_init, )
+		 .init = zebra_snmp_module_init,
+);

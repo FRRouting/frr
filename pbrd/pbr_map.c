@@ -37,9 +37,9 @@
 #include "pbr_debug.h"
 #include "pbr_vrf.h"
 
-DEFINE_MTYPE_STATIC(PBRD, PBR_MAP, "PBR Map")
-DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_SEQNO, "PBR Map Sequence")
-DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_INTERFACE, "PBR Map Interface")
+DEFINE_MTYPE_STATIC(PBRD, PBR_MAP, "PBR Map");
+DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_SEQNO, "PBR Map Sequence");
+DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_INTERFACE, "PBR Map Interface");
 
 static uint32_t pbr_map_sequence_unique;
 
@@ -51,7 +51,7 @@ RB_GENERATE(pbr_map_entry_head, pbr_map, pbr_map_entry, pbr_map_compare)
 
 struct pbr_map_entry_head pbr_maps = RB_INITIALIZER(&pbr_maps);
 
-DEFINE_QOBJ_TYPE(pbr_map_sequence)
+DEFINE_QOBJ_TYPE(pbr_map_sequence);
 
 static inline int pbr_map_compare(const struct pbr_map *pbrmap1,
 				  const struct pbr_map *pbrmap2)

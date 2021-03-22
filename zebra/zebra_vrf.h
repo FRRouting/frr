@@ -238,7 +238,7 @@ zvrf_other_table_compare_func(const struct other_route_table *a,
 }
 
 DECLARE_RBTREE_UNIQ(otable, struct other_route_table, next,
-		    zvrf_other_table_compare_func)
+		    zvrf_other_table_compare_func);
 
 extern struct route_table *
 zebra_vrf_lookup_table_with_table_id(afi_t afi, safi_t safi, vrf_id_t vrf_id,

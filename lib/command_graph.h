@@ -37,7 +37,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(CMD_ARG)
+DECLARE_MTYPE(CMD_ARG);
 
 struct vty;
 

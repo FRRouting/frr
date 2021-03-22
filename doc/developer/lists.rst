@@ -140,7 +140,7 @@ The common setup pattern will look like this:
 
    #include <typesafe.h>
 
-   PREDECL_XXX(Z)
+   PREDECL_XXX(Z);
    struct item {
        int otherdata;
        struct Z_item mylistitem;
@@ -149,20 +149,20 @@ The common setup pattern will look like this:
    struct Z_head mylisthead;
 
    /* unsorted: */
-   DECLARE_XXX(Z, struct item, mylistitem)
+   DECLARE_XXX(Z, struct item, mylistitem);
 
    /* sorted, items that compare as equal cannot be added to list */
    int compare_func(const struct item *a, const struct item *b);
-   DECLARE_XXX_UNIQ(Z, struct item, mylistitem, compare_func)
+   DECLARE_XXX_UNIQ(Z, struct item, mylistitem, compare_func);
 
    /* sorted, items that compare as equal can be added to list */
    int compare_func(const struct item *a, const struct item *b);
-   DECLARE_XXX_NONUNIQ(Z, struct item, mylistitem, compare_func)
+   DECLARE_XXX_NONUNIQ(Z, struct item, mylistitem, compare_func);
 
    /* hash tables: */
    int compare_func(const struct item *a, const struct item *b);
    uint32_t hash_func(const struct item *a);
-   DECLARE_XXX(Z, struct item, mylistitem, compare_func, hash_func)
+   DECLARE_XXX(Z, struct item, mylistitem, compare_func, hash_func);
 
 ``XXX`` is replaced with the name of the data structure, e.g. ``SKIPLIST``
 or ``ATOMLIST``.  The ``DECLARE_XXX`` invocation can either occur in a `.h`

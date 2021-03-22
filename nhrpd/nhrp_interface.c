@@ -21,7 +21,7 @@
 #include "os.h"
 #include "netlink.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF, "NHRP interface")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF, "NHRP interface");
 
 static void nhrp_interface_update_cache_config(struct interface *ifp,
 					       bool available,

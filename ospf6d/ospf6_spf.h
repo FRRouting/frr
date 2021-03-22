@@ -35,7 +35,7 @@ extern unsigned char conf_debug_ospf6_spf;
 #define IS_OSPF6_DEBUG_SPF(level)                                              \
 	(conf_debug_ospf6_spf & OSPF6_DEBUG_SPF_##level)
 
-PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue)
+PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue);
 /* Transit Vertex */
 struct ospf6_vertex {
 	/* type of this vertex */

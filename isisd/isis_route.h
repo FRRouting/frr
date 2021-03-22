@@ -52,7 +52,7 @@ struct isis_route_info {
 DECLARE_HOOK(isis_route_update_hook,
 	     (struct isis_area * area, struct prefix *prefix,
 	      struct isis_route_info *route_info),
-	     (area, prefix, route_info))
+	     (area, prefix, route_info));
 
 void isis_nexthop_delete(struct isis_nexthop *nexthop);
 void adjinfo2nexthop(int family, struct list *nexthops,

@@ -26,10 +26,11 @@
 #include "if.h"
 #include "if_rmap.h"
 
-DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX, "Interface route map container")
-DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX_NAME, "Interface route map container name")
-DEFINE_MTYPE_STATIC(LIB, IF_RMAP, "Interface route map")
-DEFINE_MTYPE_STATIC(LIB, IF_RMAP_NAME, "I.f. route map name")
+DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX, "Interface route map container");
+DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX_NAME,
+		    "Interface route map container name");
+DEFINE_MTYPE_STATIC(LIB, IF_RMAP, "Interface route map");
+DEFINE_MTYPE_STATIC(LIB, IF_RMAP_NAME, "I.f. route map name");
 
 static struct list *if_rmap_ctx_list;
 

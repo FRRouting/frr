@@ -22,4 +22,4 @@
 
 #include "pathd/path_memory.h"
 
-DEFINE_MGROUP(PATHD, "pathd")
+DEFINE_MGROUP(PATHD, "pathd");

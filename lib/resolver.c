@@ -21,7 +21,7 @@
 #include "command.h"
 #include "xref.h"
 
-XREF_SETUP()
+XREF_SETUP();
 
 struct resolver_state {
 	ares_channel channel;

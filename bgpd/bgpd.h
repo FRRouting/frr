@@ -175,9 +175,9 @@ struct bgp_master {
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
 
 	bool terminating;	/* global flag that sigint terminate seen */
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(bgp_master)
+DECLARE_QOBJ_TYPE(bgp_master);
 
 /* BGP route-map structure.  */
 struct bgp_rmap {
@@ -710,14 +710,14 @@ struct bgp {
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(bgp)
+DECLARE_QOBJ_TYPE(bgp);
 
-DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp))
+DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
-		(bgp, vty))
+		(bgp, vty));
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -1574,9 +1574,9 @@ struct peer {
 	bool advmap_config_change[AFI_MAX][SAFI_MAX];
 	bool advmap_table_change;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(peer)
+DECLARE_QOBJ_TYPE(peer);
 
 /* Inherit peer attribute from peer-group. */
 #define PEER_ATTR_INHERIT(peer, group, attr)                                   \
@@ -2364,17 +2364,17 @@ extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
 
 /* Hooks */
 DECLARE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
-	     (bgp, ifp))
-DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer))
-DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp))
-DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp))
+	     (bgp, ifp));
+DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer));
+DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
+DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_snmp_update_stats,
 	     (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
-	     (rn, pi, added))
+	     (rn, pi, added));
 DECLARE_HOOK(bgp_rpki_prefix_status,
 	     (struct peer * peer, struct attr *attr,
 	      const struct prefix *prefix),
-	     (peer, attr, prefix))
+	     (peer, attr, prefix));
 
 void peer_nsf_stop(struct peer *peer);
 

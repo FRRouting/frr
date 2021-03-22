@@ -32,7 +32,7 @@
 #include "isisd/isisd.h"
 #include "isisd/fabricd.h"
 
-DEFINE_MTYPE_STATIC(ISISD, BFD_SESSION, "ISIS BFD Session")
+DEFINE_MTYPE_STATIC(ISISD, BFD_SESSION, "ISIS BFD Session");
 
 struct bfd_session {
 	int family;

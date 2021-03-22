@@ -116,7 +116,7 @@ struct rcu_action {
 };
 
 /* RCU cleanup function queue item */
-PREDECL_ATOMLIST(rcu_heads)
+PREDECL_ATOMLIST(rcu_heads);
 struct rcu_head {
 	struct rcu_heads_item head;
 	const struct rcu_action *action;

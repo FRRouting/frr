@@ -26,9 +26,9 @@
 #include "yang_translator.h"
 #include "frrstr.h"
 
-DEFINE_MTYPE_STATIC(LIB, YANG_TRANSLATOR, "YANG Translator")
-DEFINE_MTYPE_STATIC(LIB, YANG_TRANSLATOR_MODULE, "YANG Translator Module")
-DEFINE_MTYPE_STATIC(LIB, YANG_TRANSLATOR_MAPPING, "YANG Translator Mapping")
+DEFINE_MTYPE_STATIC(LIB, YANG_TRANSLATOR, "YANG Translator");
+DEFINE_MTYPE_STATIC(LIB, YANG_TRANSLATOR_MODULE, "YANG Translator Module");
+DEFINE_MTYPE_STATIC(LIB, YANG_TRANSLATOR_MAPPING, "YANG Translator Mapping");
 
 /* Generate the yang_translators tree. */
 static inline int yang_translator_compare(const struct yang_translator *a,

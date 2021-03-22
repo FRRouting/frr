@@ -32,10 +32,10 @@
 
 #include "bfd.h"
 
-DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory")
-DEFINE_MTYPE_STATIC(BFDD, BFDD_PROFILE, "long-lived profile memory")
-DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer")
-DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF")
+DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory");
+DEFINE_MTYPE_STATIC(BFDD, BFDD_PROFILE, "long-lived profile memory");
+DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
+DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF");
 
 /*
  * Prototypes

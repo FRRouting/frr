@@ -14,8 +14,8 @@
 #include "nhrpd.h"
 #include "nhrp_protocol.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_NHS, "NHRP next hop server")
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_NHS, "NHRP next hop server");
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries");
 
 static int nhrp_nhs_resolve(struct thread *t);
 static int nhrp_reg_send_req(struct thread *t);

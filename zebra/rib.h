@@ -43,7 +43,7 @@ extern "C" {
 
 enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
 
-PREDECL_LIST(rnh_list)
+PREDECL_LIST(rnh_list);
 
 /* Nexthop structure. */
 struct rnh {
@@ -82,7 +82,7 @@ struct rnh {
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
 
-PREDECL_LIST(re_list)
+PREDECL_LIST(re_list);
 
 struct opaque {
 	uint16_t length;
@@ -541,7 +541,7 @@ static inline void rib_tables_iter_cleanup(rib_tables_iter_t *iter)
 }
 
 DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
-	     (rn, reason))
+	     (rn, reason));
 
 /*
  * Access installed/fib nexthops, which may be a subset of the

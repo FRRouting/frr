@@ -44,10 +44,10 @@
 #include "ripngd/ripng_debug.h"
 #include "ripngd/ripng_nexthop.h"
 
-DEFINE_MGROUP(RIPNGD, "ripngd")
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG, "RIPng structure")
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_VRF_NAME, "RIPng VRF name")
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_ROUTE, "RIPng route info")
+DEFINE_MGROUP(RIPNGD, "ripngd");
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG, "RIPng structure");
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_VRF_NAME, "RIPng VRF name");
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_ROUTE, "RIPng route info");
 
 enum { ripng_all_route,
        ripng_changed_route,

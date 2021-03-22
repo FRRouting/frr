@@ -54,7 +54,7 @@ extern struct zebra_privs_t zserv_privs;
 #include "zebra/rtadv_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix");
 
 #ifdef OPEN_BSD
 #include <netinet/icmp6.h>
@@ -71,8 +71,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
 #define ALLNODE   "ff02::1"
 #define ALLROUTER "ff02::2"
 
-DEFINE_MTYPE_STATIC(ZEBRA, RTADV_RDNSS, "Router Advertisement RDNSS")
-DEFINE_MTYPE_STATIC(ZEBRA, RTADV_DNSSL, "Router Advertisement DNSSL")
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_RDNSS, "Router Advertisement RDNSS");
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_DNSSL, "Router Advertisement DNSSL");
 
 /* Order is intentional.  Matches RFC4191.  This array is also used for
    command matching, so only modify with care. */

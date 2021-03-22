@@ -313,7 +313,7 @@ if SNMP
 lib_LTLIBRARIES += lib/libfrrsnmp.la
 endif
 
-lib_libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
+lib_libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu11
 lib_libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
 lib_libfrrsnmp_la_LIBADD = $(SNMP_LIBS)
 lib_libfrrsnmp_la_SOURCES = \

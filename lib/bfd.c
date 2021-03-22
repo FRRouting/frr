@@ -32,7 +32,7 @@
 #include "vty.h"
 #include "bfd.h"
 
-DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info")
+DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
 
 static int bfd_debug = 0;
 static struct bfd_gbl bfd_gbl;

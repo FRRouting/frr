@@ -159,7 +159,7 @@ extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
-DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers")
+DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers");
 
 size_t nl_batch_tx_bufsize;
 char *nl_batch_tx_buf;

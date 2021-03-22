@@ -56,9 +56,9 @@
 #include "lib/vty_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(LIB, VTY, "VTY")
-DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer")
-DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history")
+DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
+DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer");
+DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history");
 
 /* Vty events */
 enum event {

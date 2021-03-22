@@ -297,4 +297,4 @@ FRR_MODULE_SETUP(
 	.version = FRR_VERSION,
 	.description = "zebra Cumulus MLAG interface",
 	.init = zebra_mlag_module_init,
-)
+);

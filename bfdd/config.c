@@ -30,7 +30,7 @@
 
 #include "bfd.h"
 
-DEFINE_MTYPE_STATIC(BFDD, BFDD_LABEL, "long-lived label memory")
+DEFINE_MTYPE_STATIC(BFDD, BFDD_LABEL, "long-lived label memory");
 
 /*
  * Definitions

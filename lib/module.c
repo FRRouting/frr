@@ -27,8 +27,8 @@
 #include "memory.h"
 #include "version.h"
 
-DEFINE_MTYPE_STATIC(LIB, MODULE_LOADNAME, "Module loading name")
-DEFINE_MTYPE_STATIC(LIB, MODULE_LOADARGS, "Module loading arguments")
+DEFINE_MTYPE_STATIC(LIB, MODULE_LOADNAME, "Module loading name");
+DEFINE_MTYPE_STATIC(LIB, MODULE_LOADARGS, "Module loading arguments");
 
 static struct frrmod_info frrmod_default_info = {
 	.name = "libfrr",
@@ -43,7 +43,7 @@ union _frrmod_runtime_u frrmod_default = {
 		},
 };
 
-XREF_SETUP()
+XREF_SETUP();
 
 // if defined(HAVE_SYS_WEAK_ALIAS_ATTRIBUTE)
 // union _frrmod_runtime_u _frrmod_this_module

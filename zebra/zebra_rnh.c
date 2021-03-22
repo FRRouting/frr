@@ -51,7 +51,7 @@
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_errors.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object")
+DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object");
 
 static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);

@@ -45,9 +45,9 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs")
-DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs")
-DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists")
+DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs");
+DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists");
 
 typedef int (*unpack_tlv_func)(enum isis_tlv_context context, uint8_t tlv_type,
 			       uint8_t tlv_len, struct stream *s,
@@ -4488,9 +4488,9 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs,
 }
 
 DEFINE_HOOK(isis_adj_ip_enabled_hook, (struct isis_adjacency *adj, int family),
-	    (adj, family))
+	    (adj, family));
 DEFINE_HOOK(isis_adj_ip_disabled_hook,
-	    (struct isis_adjacency *adj, int family), (adj, family))
+	    (struct isis_adjacency *adj, int family), (adj, family));
 
 static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 				       struct isis_adjacency *adj,

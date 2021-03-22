@@ -50,9 +50,9 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_errors.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object")
-DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object")
-DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object")
+DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object");
+DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
+DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
 
 int mpls_enabled;
 

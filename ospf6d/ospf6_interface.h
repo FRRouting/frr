@@ -134,9 +134,9 @@ struct ospf6_interface {
 	uint32_t ls_ack_out;
 	uint32_t discarded;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ospf6_interface)
+DECLARE_QOBJ_TYPE(ospf6_interface);
 
 /* interface state */
 #define OSPF6_INTERFACE_NONE             0
@@ -199,6 +199,6 @@ extern void install_element_ospf6_debug_interface(void);
 
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
-	     (oi, state, old_state))
+	     (oi, state, old_state));
 
 #endif /* OSPF6_INTERFACE_H */

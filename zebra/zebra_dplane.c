@@ -39,10 +39,10 @@
 #include "printfrr.h"
 
 /* Memory type for context blocks */
-DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
-DEFINE_MTYPE_STATIC(ZEBRA, DP_INTF, "Zebra DPlane Intf")
-DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider")
-DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object")
+DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx");
+DEFINE_MTYPE_STATIC(ZEBRA, DP_INTF, "Zebra DPlane Intf");
+DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider");
+DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object");
 
 #ifndef AOK
 #  define AOK 0

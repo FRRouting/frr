@@ -149,10 +149,10 @@ struct pbr_map_sequence {
 #define PBR_MAP_INVALID_VRF              (1 << 5)
 	uint64_t reason;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 
-DECLARE_QOBJ_TYPE(pbr_map_sequence)
+DECLARE_QOBJ_TYPE(pbr_map_sequence);
 
 extern struct pbr_map_entry_head pbr_maps;
 

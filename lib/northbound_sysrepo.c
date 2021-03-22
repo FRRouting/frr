@@ -32,7 +32,7 @@
 #include <sysrepo/values.h>
 #include <sysrepo/xpath.h>
 
-DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module")
+DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
 
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
 
@@ -768,4 +768,5 @@ static int frr_sr_module_init(void)
 
 FRR_MODULE_SETUP(.name = "frr_sysrepo", .version = FRR_VERSION,
 		 .description = "FRR sysrepo integration module",
-		 .init = frr_sr_module_init, )
+		 .init = frr_sr_module_init,
+);

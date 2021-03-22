@@ -18,7 +18,7 @@
 #include "log.h"
 #include "zclient.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry");
 
 static struct zclient *zclient;
 static struct route_table *zebra_rib[AFI_MAX];

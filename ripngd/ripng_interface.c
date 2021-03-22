@@ -49,7 +49,7 @@
 #define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
 #endif
 
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface");
 
 /* Static utility function. */
 static void ripng_enable_apply(struct interface *);

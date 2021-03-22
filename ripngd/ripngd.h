@@ -86,7 +86,7 @@
 #define RIPNG_INSTANCE	"/frr-ripngd:ripngd/instance"
 #define RIPNG_IFACE	"/frr-interface:lib/interface/frr-ripngd:ripng"
 
-DECLARE_MGROUP(RIPNGD)
+DECLARE_MGROUP(RIPNGD);
 
 /* RIPng structure. */
 struct ripng {

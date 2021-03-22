@@ -274,7 +274,8 @@ FRR_DAEMON_INFO(
 	.privs = &zserv_privs,
 
 	.yang_modules = zebra_yang_modules,
-	.n_yang_modules = array_size(zebra_yang_modules), )
+	.n_yang_modules = array_size(zebra_yang_modules),
+);
 
 /* Main startup routine. */
 int main(int argc, char **argv)

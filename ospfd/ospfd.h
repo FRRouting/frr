@@ -386,9 +386,9 @@ struct ospf {
 	bool ti_lfa_enabled;
 	enum protection_type ti_lfa_protection_type;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ospf)
+DECLARE_QOBJ_TYPE(ospf);
 
 enum ospf_ti_lfa_p_q_space_adjacency {
 	OSPF_TI_LFA_P_Q_SPACE_ADJACENT,
@@ -424,7 +424,7 @@ struct protected_resource {
 	struct in_addr router_id;
 };
 
-PREDECL_RBTREE_UNIQ(q_spaces)
+PREDECL_RBTREE_UNIQ(q_spaces);
 struct q_space {
 	struct vertex *root;
 	struct list *vertex_list;
@@ -436,7 +436,7 @@ struct q_space {
 	struct q_spaces_item q_spaces_item;
 };
 
-PREDECL_RBTREE_UNIQ(p_spaces)
+PREDECL_RBTREE_UNIQ(p_spaces);
 struct p_space {
 	struct vertex *root;
 	struct protected_resource *protected_resource;

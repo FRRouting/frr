@@ -57,7 +57,7 @@
 #define SRLB_UPPER_BOUND               15999
 
 /* Segment Routing Data Base (SRDB) RB-Tree structure */
-PREDECL_RBTREE_UNIQ(srdb_prefix_cfg)
+PREDECL_RBTREE_UNIQ(srdb_prefix_cfg);
 
 /*
  * Segment Routing Prefix-SID information.

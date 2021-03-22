@@ -41,18 +41,18 @@
 
 static struct seqlock sqlo;
 
-PREDECL_ATOMLIST(alist)
-PREDECL_ATOMSORT_UNIQ(asort)
+PREDECL_ATOMLIST(alist);
+PREDECL_ATOMSORT_UNIQ(asort);
 struct item {
 	uint64_t val1;
 	struct alist_item chain;
 	struct asort_item sortc;
 	uint64_t val2;
 };
-DECLARE_ATOMLIST(alist, struct item, chain)
+DECLARE_ATOMLIST(alist, struct item, chain);
 
 static int icmp(const struct item *a, const struct item *b);
-DECLARE_ATOMSORT_UNIQ(asort, struct item, sortc, icmp)
+DECLARE_ATOMSORT_UNIQ(asort, struct item, sortc, icmp);
 
 static int icmp(const struct item *a, const struct item *b)
 {

@@ -54,12 +54,12 @@
 #include "seqlock.h"
 #include "atomlist.h"
 
-DEFINE_MTYPE_STATIC(LIB, RCU_THREAD,    "RCU thread")
-DEFINE_MTYPE_STATIC(LIB, RCU_NEXT,      "RCU sequence barrier")
+DEFINE_MTYPE_STATIC(LIB, RCU_THREAD,    "RCU thread");
+DEFINE_MTYPE_STATIC(LIB, RCU_NEXT,      "RCU sequence barrier");
 
-DECLARE_ATOMLIST(rcu_heads, struct rcu_head, head)
+DECLARE_ATOMLIST(rcu_heads, struct rcu_head, head);
 
-PREDECL_ATOMLIST(rcu_threads)
+PREDECL_ATOMLIST(rcu_threads);
 struct rcu_thread {
 	struct rcu_threads_item head;
 
@@ -70,7 +70,7 @@ struct rcu_thread {
 	/* only accessed by thread itself, not atomic */
 	unsigned depth;
 };
-DECLARE_ATOMLIST(rcu_threads, struct rcu_thread, head)
+DECLARE_ATOMLIST(rcu_threads, struct rcu_thread, head);
 
 static const struct rcu_action rcua_next  = { .type = RCUA_NEXT };
 static const struct rcu_action rcua_end   = { .type = RCUA_END };

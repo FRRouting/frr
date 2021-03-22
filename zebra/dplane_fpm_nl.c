@@ -1517,4 +1517,4 @@ FRR_MODULE_SETUP(
 	.version = "0.0.1",
 	.description = "Data plane plugin for FPM using netlink.",
 	.init = fpm_nl_init,
-	)
+);

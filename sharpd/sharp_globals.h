@@ -22,7 +22,7 @@
 #ifndef __SHARP_GLOBAL_H__
 #define __SHARP_GLOBAL_H__
 
-DECLARE_MGROUP(SHARPD)
+DECLARE_MGROUP(SHARPD);
 
 struct sharp_routes {
 	/* The original prefix for route installation */

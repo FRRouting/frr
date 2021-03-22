@@ -26,7 +26,7 @@
 #include "command_match.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
+DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack");
 
 #ifdef TRACE_MATCHER
 #define TM 1
