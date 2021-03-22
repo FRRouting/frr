@@ -1070,8 +1070,6 @@ done:
 int zapi_srv6_locator_chunk_encode(struct stream *s,
 				   const struct srv6_locator_chunk *c)
 {
-	stream_putc(s, c->proto);
-	stream_putw(s, c->instance);
 	stream_putw(s, strlen(c->locator_name));
 	stream_put(s, c->locator_name, strlen(c->locator_name));
 	stream_putw(s, c->prefix.prefixlen);
@@ -1088,8 +1086,8 @@ int zapi_srv6_locator_chunk_decode(struct stream *s,
 {
 	uint16_t len = 0;
 
-	STREAM_GETC(s, c->proto);
-	STREAM_GETW(s, c->instance);
+	c->prefix.family = AF_INET6;
+
 	STREAM_GETW(s, len);
 	if (len > SRV6_LOCNAME_SIZE)
 		goto stream_failure;
