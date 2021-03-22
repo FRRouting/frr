@@ -2701,10 +2701,9 @@ int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 						  vrf_id_t vrf_id,
 						  struct srv6_locator *loc)
 {
-	struct srv6_locator_chunk chunk;
+	struct srv6_locator_chunk chunk = {};
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	memset(&chunk, 0, sizeof(chunk));
 	strlcpy(chunk.locator_name, loc->name, sizeof(chunk.locator_name));
 	chunk.prefix = loc->prefix;
 	chunk.block_bits_length = loc->block_bits_length;
