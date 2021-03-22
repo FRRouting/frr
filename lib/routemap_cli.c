@@ -113,6 +113,14 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+int route_map_instance_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+{
+	uint16_t seq1 = yang_dnode_get_uint16(dnode1, "./sequence");
+	uint16_t seq2 = yang_dnode_get_uint16(dnode2, "./sequence");
+
+	return seq1 - seq2;
+}
+
 void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults)
 {

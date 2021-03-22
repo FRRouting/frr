@@ -694,6 +694,8 @@ void routemap_hook_context_free(struct routemap_hook_context *rhc);
 extern const struct frr_yang_module_info frr_route_map_info;
 
 /* routemap_cli.c */
+extern int route_map_instance_cmp(struct lyd_node *dnode1,
+				  struct lyd_node *dnode2);
 extern void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
 extern void route_map_instance_show_end(struct vty *vty,

@@ -1140,6 +1140,7 @@ const struct frr_yang_module_info frr_route_map_info = {
 			.cbs = {
 				.create = lib_route_map_entry_create,
 				.destroy = lib_route_map_entry_destroy,
+				.cli_cmp = route_map_instance_cmp,
 				.cli_show = route_map_instance_show,
 				.cli_show_end = route_map_instance_show_end,
 			}
