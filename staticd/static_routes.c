@@ -31,12 +31,71 @@
 
 #include "static_vrf.h"
 #include "static_routes.h"
-#include "static_memory.h"
 #include "static_zebra.h"
 #include "static_debug.h"
 
-DEFINE_MTYPE(STATIC, STATIC_ROUTE, "Static Route Info");
-DEFINE_MTYPE(STATIC, STATIC_PATH, "Static Path");
+DEFINE_MGROUP(STATIC, "staticd");
+
+DEFINE_MTYPE_STATIC(STATIC, STATIC_ROUTE,   "Static Route Info");
+DEFINE_MTYPE_STATIC(STATIC, STATIC_PATH,    "Static Path");
+DEFINE_MTYPE_STATIC(STATIC, STATIC_NEXTHOP, "Static Nexthop");
+
+void zebra_stable_node_cleanup(struct route_table *table,
+			       struct route_node *node)
+{
+	struct static_nexthop *nh;
+	struct static_path *pn;
+	struct static_route_info *si;
+	struct route_table *src_table;
+	struct route_node *src_node;
+	struct static_path *src_pn;
+	struct static_route_info *src_si;
+
+	si = node->info;
+
+	if (si) {
+		frr_each_safe(static_path_list, &si->path_list, pn) {
+			frr_each_safe(static_nexthop_list, &pn->nexthop_list,
+				       nh) {
+				static_nexthop_list_del(&pn->nexthop_list, nh);
+				XFREE(MTYPE_STATIC_NEXTHOP, nh);
+			}
+			static_path_list_del(&si->path_list, pn);
+			XFREE(MTYPE_STATIC_PATH, pn);
+		}
+
+		/* clean up for dst table */
+		src_table = srcdest_srcnode_table(node);
+		if (src_table) {
+			/* This means the route_node is part of the top
+			 * hierarchy and refers to a destination prefix.
+			 */
+			for (src_node = route_top(src_table); src_node;
+			     src_node = route_next(src_node)) {
+				src_si = src_node->info;
+
+				frr_each_safe(static_path_list,
+					      &src_si->path_list, src_pn) {
+					frr_each_safe(static_nexthop_list,
+						      &src_pn->nexthop_list,
+						      nh) {
+						static_nexthop_list_del(
+							&src_pn->nexthop_list,
+							nh);
+						XFREE(MTYPE_STATIC_NEXTHOP, nh);
+					}
+					static_path_list_del(&src_si->path_list,
+							     src_pn);
+					XFREE(MTYPE_STATIC_PATH, src_pn);
+				}
+
+				XFREE(MTYPE_STATIC_ROUTE, src_node->info);
+			}
+		}
+
+		XFREE(MTYPE_STATIC_ROUTE, node->info);
+	}
+}
 
 /* Install static path into rib. */
 void static_install_path(struct route_node *rn, struct static_path *pn,
