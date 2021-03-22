@@ -419,7 +419,7 @@ static enum seg6local_action_t
 parse_encap_seg6local(struct rtattr *tb,
 		      struct seg6local_context *ctx)
 {
-	struct rtattr *tb_encap[256] = {0};
+	struct rtattr *tb_encap[256] = {};
 	enum seg6local_action_t act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 
 	netlink_parse_rtattr_nested(tb_encap, 256, tb);
@@ -443,7 +443,7 @@ parse_encap_seg6local(struct rtattr *tb,
 
 static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 {
-	struct rtattr *tb_encap[256] = {0};
+	struct rtattr *tb_encap[256] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
 	struct in6_addr *segments = NULL;
 
@@ -474,8 +474,8 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
-	struct seg6local_context seg6l_ctx = { {0} };
-	struct in6_addr seg6_segs = { .s6_addr = {0} };
+	struct seg6local_context seg6l_ctx = {};
+	struct in6_addr seg6_segs = {};
 	int num_segs = 0;
 
 	vrf_id_t nh_vrf_id = vrf_id;
@@ -556,8 +556,8 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
-	struct seg6local_context seg6l_ctx = { {0} };
-	struct in6_addr seg6_segs = { .s6_addr = {0} };
+	struct seg6local_context seg6l_ctx = {};
+	struct in6_addr seg6_segs = {};
 	int num_segs = 0;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
 

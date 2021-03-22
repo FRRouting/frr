@@ -441,16 +441,14 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 		enum seg6local_action_t action,
 		const struct seg6local_context *context)
 {
-	struct prefix_ipv6 p;
-	struct zapi_route api;
-	struct nexthop nh;
+	struct prefix_ipv6 p = {};
+	struct zapi_route api = {};
+	struct nexthop nh = {};
 
-	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
 	p.prefixlen = 128;
 	p.prefix = *sid;
 
-	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.instance = 0;
@@ -464,7 +462,6 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	SET_FLAG(api.flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
-	memset(&nh, 0, sizeof(nh));
 	nh.type = NEXTHOP_TYPE_IFINDEX;
 	nh.ifindex = oif;
 	nexthop_add_seg6local(&nh, action, context);

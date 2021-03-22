@@ -316,10 +316,9 @@ DEFPY (install_routes,
 			sg.r.backup_nhop_group.nexthop = bnhgc->nhg.nexthop;
 		}
 	} else if (seg6l_oif) {
-		struct seg6local_context ctx;
+		struct seg6local_context ctx = {};
 		enum seg6local_action_t action;
 
-		memset(&ctx, 0, sizeof(struct seg6local_context));
 		if (seg6l_enddx4) {
 			action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
 			ctx.nh4 = seg6l_enddx4_nh4;
