@@ -49,6 +49,9 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_ADJACENCY, "ISIS adjacency");
+DEFINE_MTYPE(ISISD, ISIS_ADJACENCY_INFO, "ISIS adjacency info");
+
 static struct isis_adjacency *adj_alloc(struct isis_circuit *circuit,
 					const uint8_t *id)
 {

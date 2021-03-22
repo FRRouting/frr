@@ -22,6 +22,9 @@
 
 #include "lib/typesafe.h"
 #include "lib/zclient.h"
+#include "lib/memory.h"
+
+DECLARE_MTYPE(ISIS_NEXTHOP_LABELS);
 
 PREDECL_RBTREE_UNIQ(lfa_tiebreaker_tree);
 PREDECL_RBTREE_UNIQ(rlfa_tree);

@@ -50,6 +50,9 @@
 #include "isis_route.h"
 #include "isis_zebra.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_NEXTHOP,    "ISIS nexthop");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_ROUTE_INFO, "ISIS route info");
+
 DEFINE_HOOK(isis_route_update_hook,
 	    (struct isis_area * area, struct prefix *prefix,
 	     struct isis_route_info *route_info),

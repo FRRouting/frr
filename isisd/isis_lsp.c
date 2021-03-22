@@ -60,6 +60,8 @@
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
+
 static int lsp_refresh(struct thread *thread);
 static int lsp_l1_refresh_pseudo(struct thread *thread);
 static int lsp_l2_refresh_pseudo(struct thread *thread);

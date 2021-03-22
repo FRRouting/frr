@@ -24,7 +24,6 @@
 #include "if.h"
 #include "linklist.h"
 #include "memory.h"
-#include "isis_memory.h"
 #include "prefix.h"
 #include "routemap.h"
 #include "stream.h"
@@ -41,6 +40,10 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
+
+DEFINE_MTYPE_STATIC(ISISD, ISIS_EXT_ROUTE, "ISIS redistributed route");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_EXT_INFO,  "ISIS redistributed route info");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_RMAP_NAME, "ISIS redistribute route-map name");
 
 static int redist_protocol(int family)
 {
@@ -327,13 +330,13 @@ static void isis_redist_routemap_set(struct isis_redist *redist,
 				     const char *routemap)
 {
 	if (redist->map_name) {
-		XFREE(MTYPE_ISIS, redist->map_name);
+		XFREE(MTYPE_ISIS_RMAP_NAME, redist->map_name);
 		route_map_counter_decrement(redist->map);
 		redist->map = NULL;
 	}
 
 	if (routemap && strlen(routemap)) {
-		redist->map_name = XSTRDUP(MTYPE_ISIS, routemap);
+		redist->map_name = XSTRDUP(MTYPE_ISIS_RMAP_NAME, routemap);
 		redist->map = route_map_lookup_by_name(routemap);
 		route_map_counter_increment(redist->map);
 	}
@@ -507,7 +510,7 @@ void isis_redist_area_finish(struct isis_area *area)
 				redist = &area->redist_settings[protocol][type]
 							       [level];
 				redist->redist = 0;
-				XFREE(MTYPE_ISIS, redist->map_name);
+				XFREE(MTYPE_ISIS_RMAP_NAME, redist->map_name);
 			}
 			route_table_finish(area->ext_reach[protocol][level]);
 		}

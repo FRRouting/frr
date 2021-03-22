@@ -22,7 +22,6 @@
 #include <zebra.h>
 #include "isisd/fabricd.h"
 #include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_adjacency.h"

@@ -27,6 +27,8 @@
 
 #include "isisd/isis_tlvs.h"
 
+DECLARE_MTYPE(ISIS_ADJACENCY_INFO);
+
 enum isis_adj_usage {
 	ISIS_ADJ_NONE,
 	ISIS_ADJ_LEVEL1,

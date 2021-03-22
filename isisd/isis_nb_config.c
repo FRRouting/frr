@@ -48,11 +48,13 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_spf_private.h"
 #include "isisd/isis_te.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_redist.h"
 #include "isisd/isis_ldp_sync.h"
 #include "isisd/isis_dr.h"
+
+DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
 
 extern struct zclient *zclient;
 

@@ -81,6 +81,14 @@ unsigned long debug_sr;
 unsigned long debug_ldp_sync;
 unsigned long debug_lfa;
 
+DEFINE_MGROUP(ISISD, "isisd");
+
+DEFINE_MTYPE_STATIC(ISISD, ISIS,      "ISIS process");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_NAME, "ISIS process name");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_AREA, "ISIS area");
+DEFINE_MTYPE(ISISD, ISIS_AREA_ADDR,   "ISIS area address");
+DEFINE_MTYPE(ISISD, ISIS_ACL_NAME,    "ISIS access-list name");
+
 DEFINE_QOBJ_TYPE(isis_area);
 
 /* ISIS process wide configuration. */
@@ -198,10 +206,10 @@ struct isis *isis_new(const char *vrf_name)
 	if (vrf) {
 		isis->vrf_id = vrf->vrf_id;
 		isis_vrf_link(isis, vrf);
-		isis->name = XSTRDUP(MTYPE_ISIS, vrf->name);
+		isis->name = XSTRDUP(MTYPE_ISIS_NAME, vrf->name);
 	} else {
 		isis->vrf_id = VRF_UNKNOWN;
-		isis->name = XSTRDUP(MTYPE_ISIS, vrf_name);
+		isis->name = XSTRDUP(MTYPE_ISIS_NAME, vrf_name);
 	}
 
 	if (IS_DEBUG_EVENTS)
@@ -565,7 +573,7 @@ static int isis_vrf_enable(struct vrf *vrf)
 	isis = isis_lookup_by_vrfname(vrf->name);
 	if (isis) {
 		if (isis->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_ISIS, isis->name);
+			XFREE(MTYPE_ISIS_NAME, isis->name);
 			isis->name = NULL;
 		}
 		old_vrf_id = isis->vrf_id;
@@ -631,7 +639,7 @@ void isis_finish(struct isis *isis)
 		vrf = vrf_lookup_by_name(isis->name);
 		if (vrf)
 			isis_vrf_unlink(isis, vrf);
-		XFREE(MTYPE_ISIS, isis->name);
+		XFREE(MTYPE_ISIS_NAME, isis->name);
 	} else {
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 		if (vrf)
