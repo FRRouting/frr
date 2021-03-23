@@ -68,6 +68,8 @@ char zlog_prefix[128];
 size_t zlog_prefixsz;
 int zlog_tmpdirfd = -1;
 
+static atomic_bool zlog_ec = true, zlog_xid = true;
+
 /* these are kept around because logging is initialized (and directories
  * & files created) before zprivs code switches to the FRR user;  therefore
  * we need to chown() things so we don't get permission errors later when
@@ -530,12 +532,54 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 {
 	if (!msg->text) {
 		va_list args;
+		bool do_xid, do_ec;
+		size_t need = 0, hdrlen;
+		struct fbuf fb = {
+			.buf = msg->stackbuf,
+			.pos = msg->stackbuf,
+			.len = msg->stackbufsz,
+		};
+
+		do_ec = atomic_load_explicit(&zlog_ec, memory_order_relaxed);
+		do_xid = atomic_load_explicit(&zlog_xid, memory_order_relaxed);
+
+		if (msg->xref && do_xid && msg->xref->xref.xrefdata->uid[0]) {
+			need += bputch(&fb, '[');
+			need += bputs(&fb, msg->xref->xref.xrefdata->uid);
+			need += bputch(&fb, ']');
+		}
+		if (msg->xref && do_ec && msg->xref->ec)
+			need += bprintfrr(&fb, "[EC %u]", msg->xref->ec);
+		if (need)
+			need += bputch(&fb, ' ');
+
+		hdrlen = need;
+		assert(hdrlen < msg->stackbufsz);
 
 		va_copy(args, msg->args);
-		msg->text = vasnprintfrr(MTYPE_LOG_MESSAGE, msg->stackbuf,
-					 msg->stackbufsz, msg->fmt, args);
-		msg->textlen = strlen(msg->text);
+		need += vbprintfrr(&fb, msg->fmt, args);
 		va_end(args);
+
+		msg->textlen = need;
+		need += bputch(&fb, '\0');
+
+		if (need <= msg->stackbufsz)
+			msg->text = msg->stackbuf;
+		else {
+			msg->text = XMALLOC(MTYPE_LOG_MESSAGE, need);
+
+			memcpy(msg->text, msg->stackbuf, hdrlen);
+
+			fb.buf = msg->text;
+			fb.len = need;
+			fb.pos = msg->text + hdrlen;
+
+			va_copy(args, msg->args);
+			vbprintfrr(&fb, msg->fmt, args);
+			va_end(args);
+
+			bputch(&fb, '\0');
+		}
 	}
 	if (textlen)
 		*textlen = msg->textlen;
@@ -617,6 +661,26 @@ size_t zlog_msg_ts(struct zlog_msg *msg, char *out, size_t outsz,
 		out[len1 + len2] = '\0';
 		return len1 + len2;
 	}
+}
+
+void zlog_set_prefix_ec(bool enable)
+{
+	atomic_store_explicit(&zlog_ec, enable, memory_order_relaxed);
+}
+
+bool zlog_get_prefix_ec(void)
+{
+	return atomic_load_explicit(&zlog_ec, memory_order_relaxed);
+}
+
+void zlog_set_prefix_xid(bool enable)
+{
+	atomic_store_explicit(&zlog_xid, enable, memory_order_relaxed);
+}
+
+bool zlog_get_prefix_xid(void)
+{
+	return atomic_load_explicit(&zlog_xid, memory_order_relaxed);
 }
 
 /* setup functions */

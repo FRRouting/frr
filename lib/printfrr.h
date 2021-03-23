@@ -160,6 +160,30 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 	}                                                                      \
 	/* end */
 
+/* fbuf helper functions */
+
+static inline ssize_t bputs(struct fbuf *buf, const char *str)
+{
+	size_t len = strlen(str);
+	size_t ncopy;
+
+	if (!buf)
+		return len;
+
+	ncopy = MIN(len, (size_t)(buf->buf + buf->len - buf->pos));
+	memcpy(buf->pos, str, ncopy);
+	buf->pos += ncopy;
+
+	return len;
+}
+
+static inline ssize_t bputch(struct fbuf *buf, char ch)
+{
+	if (buf && buf->pos < buf->buf + buf->len)
+		*buf->pos++ = ch;
+	return 1;
+}
+
 #ifdef __cplusplus
 }
 #endif
