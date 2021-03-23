@@ -553,10 +553,55 @@ void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 static void show_dnode_children_cmds(struct vty *vty, struct lyd_node *root,
 				     bool with_defaults)
 {
+	struct nb_node *nb_node, *sort_node = NULL;
+	struct listnode *listnode;
 	struct lyd_node *child;
+	struct list *sort_list;
+	void *data;
 
-	LY_TREE_FOR (root->child, child)
+	LY_TREE_FOR (root->child, child) {
+		nb_node = child->schema->priv;
+
+		/*
+		 * We finished processing current list,
+		 * it's time to print the config.
+		 */
+		if (sort_node && nb_node != sort_node) {
+			for (ALL_LIST_ELEMENTS_RO(sort_list, listnode, data))
+				nb_cli_show_dnode_cmds(vty, data,
+						       with_defaults);
+
+			list_delete(&sort_list);
+			sort_node = NULL;
+		}
+
+		/*
+		 * If the config needs to be sorted,
+		 * then add the dnode to the sorting
+		 * list for later processing.
+		 */
+		if (nb_node && nb_node->cbs.cli_cmp) {
+			if (!sort_node) {
+				sort_node = nb_node;
+				sort_list = list_new();
+				sort_list->cmp = (int (*)(void *, void *))
+						 nb_node->cbs.cli_cmp;
+			}
+
+			listnode_add_sort(sort_list, child);
+			continue;
+		}
+
 		nb_cli_show_dnode_cmds(vty, child, with_defaults);
+	}
+
+	if (sort_node) {
+		for (ALL_LIST_ELEMENTS_RO(sort_list, listnode, data))
+			nb_cli_show_dnode_cmds(vty, data, with_defaults);
+
+		list_delete(&sort_list);
+		sort_node = NULL;
+	}
 }
 
 void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
