@@ -2377,8 +2377,7 @@ def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=N
                 if rp is None:
                     rp_details = find_rp_details(tgen, topo)
                 else:
-                    rp_details = {dut: ip}
-                    rp_details[dut] = rp
+                    rp_details = {dut: rp}
 
                 if dut in rp_details:
                     pim_nh_intf_ip = topo["routers"][dut]["links"]["lo"]["ipv4"].split(
