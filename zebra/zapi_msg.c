@@ -38,7 +38,6 @@
 
 #include "zebra/zebra_router.h"
 #include "zebra/rib.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/router-id.h"
@@ -61,6 +60,8 @@
 #include "zebra/connected.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
+
+DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
@@ -2074,6 +2075,11 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			client->v6_route_upd8_cnt++;
 		break;
 	}
+}
+
+void zapi_opaque_free(struct opaque *opaque)
+{
+	XFREE(MTYPE_OPAQUE, opaque);
 }
 
 static void zread_route_del(ZAPI_HANDLER_ARGS)

@@ -36,7 +36,6 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/router-id.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_vxlan.h"
@@ -411,23 +410,6 @@ struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi, safi_t safi,
 
 done:
 	return table;
-}
-
-void zebra_rtable_node_cleanup(struct route_table *table,
-			       struct route_node *node)
-{
-	struct route_entry *re, *next;
-
-	RNODE_FOREACH_RE_SAFE (node, re, next) {
-		rib_unlink(node, re);
-	}
-
-	if (node->info) {
-		rib_dest_t *dest = node->info;
-
-		rnh_list_fini(&dest->nht);
-		XFREE(MTYPE_RIB_DEST, node->info);
-	}
 }
 
 static void zebra_rnhtable_node_cleanup(struct route_table *table,

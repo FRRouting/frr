@@ -40,6 +40,8 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_constants.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_DYNHN, "ISIS dyn hostname");
+
 extern struct host host;
 
 struct list *dyn_cache = NULL;

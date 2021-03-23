@@ -33,7 +33,6 @@
 #include "northbound_cli.h"
 
 #include "static_vrf.h"
-#include "static_memory.h"
 #include "static_vty.h"
 #include "static_routes.h"
 #include "static_debug.h"

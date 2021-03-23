@@ -46,6 +46,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_NODE, "ISIS SPF Node");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LFA_TIEBREAKER, "ISIS LFA Tiebreaker");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LFA_EXCL_IFACE, "ISIS LFA Excluded Interface");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_RLFA, "ISIS Remote LFA");
+DEFINE_MTYPE(ISISD, ISIS_NEXTHOP_LABELS, "ISIS nexthop MPLS labels");
 
 static inline int isis_spf_node_compare(const struct isis_spf_node *a,
 					const struct isis_spf_node *b)

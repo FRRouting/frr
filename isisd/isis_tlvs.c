@@ -33,7 +33,6 @@
 #include "network.h"
 
 #include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_mt.h"

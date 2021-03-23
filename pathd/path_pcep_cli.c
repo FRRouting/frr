@@ -33,7 +33,6 @@
 
 #include "pathd/pathd.h"
 #include "pathd/path_errors.h"
-#include "pathd/path_pcep_memory.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_cli.h"
 #include "pathd/path_pcep_controller.h"

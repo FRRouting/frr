@@ -49,7 +49,6 @@
 #include "zebra/rt.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_errors.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
@@ -58,6 +57,10 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
 
+DEFINE_MGROUP(ZEBRA, "zebra");
+
+DEFINE_MTYPE(ZEBRA, RE,       "Route Entry");
+DEFINE_MTYPE_STATIC(ZEBRA, RIB_DEST,       "RIB destination");
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_UPDATE_CTX, "Rib update context object");
 
 /*
@@ -798,6 +801,23 @@ int rib_gc_dest(struct route_node *rn)
 	 */
 	route_unlock_node(rn);
 	return 1;
+}
+
+void zebra_rtable_node_cleanup(struct route_table *table,
+			       struct route_node *node)
+{
+	struct route_entry *re, *next;
+
+	RNODE_FOREACH_RE_SAFE (node, re, next) {
+		rib_unlink(node, re);
+	}
+
+	if (node->info) {
+		rib_dest_t *dest = node->info;
+
+		rnh_list_fini(&dest->nht);
+		XFREE(MTYPE_RIB_DEST, node->info);
+	}
 }
 
 static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
@@ -2698,7 +2718,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	nexthops_free(re->fib_ng.nexthop);
 
-	XFREE(MTYPE_OPAQUE, re->opaque);
+	zapi_opaque_free(re->opaque);
 
 	XFREE(MTYPE_RE, re);
 }

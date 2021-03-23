@@ -23,6 +23,7 @@
 #define _ZEBRA_RIB_H
 
 #include "zebra.h"
+#include "memory.h"
 #include "hook.h"
 #include "typesafe.h"
 #include "linklist.h"
@@ -40,6 +41,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+DECLARE_MGROUP(ZEBRA);
+
+DECLARE_MTYPE(RE);
 
 enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
 

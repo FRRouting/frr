@@ -18,15 +18,18 @@
 
 #include <zebra.h>
 
+#include "memory.h"
+
 #include <debug.h>
 #include "pceplib/pcep_utils_counters.h"
 #include "pceplib/pcep_timers.h"
 #include "pathd/path_errors.h"
-#include "pathd/path_memory.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_debug.h"
-#include "pathd/path_pcep_memory.h"
+
+DEFINE_MTYPE_STATIC(PATHD, PCEPLIB_INFRA,    "PCEPlib Infrastructure");
+DEFINE_MTYPE_STATIC(PATHD, PCEPLIB_MESSAGES, "PCEPlib PCEP Messages");
 
 #define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
 #define DEFAULT_LSAP_SETUP_PRIO 4

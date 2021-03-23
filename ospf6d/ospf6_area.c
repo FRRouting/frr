@@ -46,6 +46,7 @@
 #include "ospf6d.h"
 #include "lib/json.h"
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_AREA,      "OSPF6 area");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PLISTNAME, "Prefix list name");
 
 int ospf6_area_cmp(void *va, void *vb)

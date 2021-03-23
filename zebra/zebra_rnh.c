@@ -48,7 +48,6 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/interface.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_errors.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object");

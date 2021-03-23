@@ -24,6 +24,7 @@
 #define ISISD_H
 
 #include "vty.h"
+#include "memory.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -34,9 +35,10 @@
 #include "isis_flags.h"
 #include "isis_lsp.h"
 #include "isis_lfa.h"
-#include "isis_memory.h"
 #include "qobj.h"
 #include "ldp_sync.h"
+
+DECLARE_MGROUP(ISISD);
 
 #ifdef FABRICD
 static const bool fabricd = true;
@@ -239,6 +241,9 @@ struct isis_area {
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(isis_area);
+
+DECLARE_MTYPE(ISIS_ACL_NAME);	/* isis_area->spf_prefix_prioritites */
+DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
 
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 

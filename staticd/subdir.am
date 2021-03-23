@@ -13,7 +13,6 @@ endif
 
 staticd_libstatic_a_SOURCES = \
 	staticd/static_debug.c \
-	staticd/static_memory.c \
 	staticd/static_nht.c \
 	staticd/static_routes.c \
 	staticd/static_zebra.c \
@@ -25,7 +24,6 @@ staticd_libstatic_a_SOURCES = \
 
 noinst_HEADERS += \
 	staticd/static_debug.h \
-	staticd/static_memory.h \
 	staticd/static_nht.h \
 	staticd/static_zebra.h \
 	staticd/static_routes.h \

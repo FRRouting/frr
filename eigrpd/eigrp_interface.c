@@ -52,11 +52,13 @@
 #include "eigrpd/eigrp_vty.h"
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_types.h"
 #include "eigrpd/eigrp_metric.h"
+
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF,      "EIGRP interface");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF_INFO, "EIGRP Interface Information");
 
 struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 				     struct prefix *p)

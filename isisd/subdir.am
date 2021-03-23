@@ -57,7 +57,6 @@ noinst_HEADERS += \
 	isisd/isis_ldp_sync.h \
 	isisd/isis_lfa.h \
 	isisd/isis_lsp.h \
-	isisd/isis_memory.h \
 	isisd/isis_misc.h \
 	isisd/isis_mt.h \
 	isisd/isis_nb.h \
@@ -92,7 +91,6 @@ LIBISIS_SOURCES = \
 	isisd/isis_ldp_sync.c \
 	isisd/isis_lfa.c \
 	isisd/isis_lsp.c \
-	isisd/isis_memory.c \
 	isisd/isis_misc.c \
 	isisd/isis_mt.c \
 	isisd/isis_pdu.c \

@@ -24,11 +24,12 @@
 #include "network.h"
 
 #include "pathd/pathd.h"
-#include "pathd/path_memory.h"
 #include "pathd/path_zebra.h"
 #include "pathd/path_debug.h"
 
 #define HOOK_DELAY 3
+
+DEFINE_MGROUP(PATHD, "pathd");
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List");
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy");

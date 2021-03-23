@@ -38,7 +38,6 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/interface.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"

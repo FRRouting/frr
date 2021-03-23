@@ -52,7 +52,6 @@
 #include "eigrpd/eigrp_macros.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_memory.h"
 
 /*EIGRP SIA-QUERY read function*/
 void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,

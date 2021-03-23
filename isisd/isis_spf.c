@@ -60,8 +60,10 @@
 #include "fabricd.h"
 #include "isis_spf_private.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_ADJ, "ISIS SPF Adjacency");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPFTREE,    "ISIS SPFtree");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN,    "ISIS SPF Run Info");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_ADJ,    "ISIS SPF Adjacency");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_VERTEX,     "ISIS vertex");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_VERTEX_ADJ, "ISIS SPF Vertex Adjacency");
 
 static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
@@ -246,6 +248,20 @@ static struct isis_vertex *isis_vertex_new(struct isis_spftree *spftree,
 	}
 
 	return vertex;
+}
+
+void isis_vertex_del(struct isis_vertex *vertex)
+{
+	list_delete(&vertex->Adj_N);
+	list_delete(&vertex->parents);
+	if (vertex->firsthops) {
+		hash_clean(vertex->firsthops, NULL);
+		hash_free(vertex->firsthops);
+		vertex->firsthops = NULL;
+	}
+
+	memset(vertex, 0, sizeof(struct isis_vertex));
+	XFREE(MTYPE_ISIS_VERTEX, vertex);
 }
 
 struct isis_vertex_adj *

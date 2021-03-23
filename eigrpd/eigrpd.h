@@ -32,6 +32,9 @@
 
 #include "filter.h"
 #include "log.h"
+#include "memory.h"
+
+DECLARE_MGROUP(EIGRPD);
 
 /* Set EIGRP version is "classic" - wide metrics comes next */
 #define EIGRP_MAJOR_VERSION     1

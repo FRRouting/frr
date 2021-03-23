@@ -217,6 +217,7 @@ extern void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 extern void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 			   json_object *json, bool use_json);
 
+extern struct ospf6_lsa *ospf6_lsa_alloc(size_t lsa_length);
 extern struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header);
 extern struct ospf6_lsa *
 ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header);

@@ -37,7 +37,6 @@
 #include "lib_errors.h"
 
 #include "zebra_router.h"
-#include "zebra_memory.h"
 #endif /* defined(HAVE_NETLINK) */
 
 #include "zebra_netns_notify.h"

@@ -29,7 +29,6 @@
 #include "zebra/zebra_mlag.h"
 #include "zebra/zebra_mlag_vty.h"
 #include "zebra/zebra_router.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/debug.h"
 

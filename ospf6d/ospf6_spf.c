@@ -43,6 +43,8 @@
 #include "ospf6d.h"
 #include "ospf6_abr.h"
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_VERTEX, "OSPF6 vertex");
+
 unsigned char conf_debug_ospf6_spf = 0;
 
 static void ospf6_spf_copy_nexthops_to_route(struct ospf6_route *rt,
@@ -1021,13 +1023,8 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 		return NULL;
 	}
 
-	/* Allocate memory for this LSA */
-	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, total_lsa_length);
-
-	/* LSA information structure */
-	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
-
-	lsa->header = (struct ospf6_lsa_header *)new_header;
+	lsa = ospf6_lsa_alloc(total_lsa_length);
+	new_header = (uint8_t *)lsa->header;
 
 	lsa->lsdb = area->temp_router_lsa_lsdb;
 

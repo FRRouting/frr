@@ -179,20 +179,7 @@ static void isis_vertex_queue_init(struct isis_vertex_queue *queue,
 				  isis_vertex_queue_hash_cmp, name);
 }
 
-__attribute__((__unused__))
-static void isis_vertex_del(struct isis_vertex *vertex)
-{
-	list_delete(&vertex->Adj_N);
-	list_delete(&vertex->parents);
-	if (vertex->firsthops) {
-		hash_clean(vertex->firsthops, NULL);
-		hash_free(vertex->firsthops);
-		vertex->firsthops = NULL;
-	}
-
-	memset(vertex, 0, sizeof(struct isis_vertex));
-	XFREE(MTYPE_ISIS_VERTEX, vertex);
-}
+void isis_vertex_del(struct isis_vertex *vertex);
 
 bool isis_vertex_adj_exists(const struct isis_spftree *spftree,
 			    const struct isis_vertex *vertex,

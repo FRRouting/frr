@@ -88,7 +88,6 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_evpn_neigh.c \
 	zebra/zebra_mlag.c \
 	zebra/zebra_mlag_vty.c \
-	zebra/zebra_memory.c \
 	zebra/zebra_mpls.c \
 	zebra/zebra_mpls_netlink.c \
 	zebra/zebra_mpls_openbsd.c \
@@ -158,7 +157,6 @@ noinst_HEADERS += \
 	zebra/zebra_evpn_vxlan.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
-	zebra/zebra_memory.h \
 	zebra/zebra_mlag.h \
 	zebra/zebra_mlag_vty.h \
 	zebra/zebra_mpls.h \

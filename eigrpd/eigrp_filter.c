@@ -57,7 +57,6 @@
 #include "eigrpd/eigrp_const.h"
 #include "eigrpd/eigrp_filter.h"
 #include "eigrpd/eigrp_packet.h"
-#include "eigrpd/eigrp_memory.h"
 
 /*
  * Distribute-list update functions.

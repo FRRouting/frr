@@ -19,10 +19,13 @@
 #ifndef _FRR_PATHD_H_
 #define _FRR_PATHD_H_
 
+#include "lib/memory.h"
 #include "lib/mpls.h"
 #include "lib/ipaddr.h"
 #include "lib/srte.h"
 #include "lib/hook.h"
+
+DECLARE_MGROUP(PATHD);
 
 enum srte_protocol_origin {
 	SRTE_ORIGIN_UNDEFINED = 0,

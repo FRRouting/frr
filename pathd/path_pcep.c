@@ -19,6 +19,7 @@
 #include <zebra.h>
 #include "pceplib/pcep_utils_counters.h"
 
+#include "memory.h"
 #include "log.h"
 #include "command.h"
 #include "libfrr.h"
@@ -31,13 +32,13 @@
 
 #include "pathd/pathd.h"
 #include "pathd/path_errors.h"
-#include "pathd/path_pcep_memory.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_cli.h"
 #include "pathd/path_pcep_controller.h"
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_config.h"
 
+DEFINE_MTYPE(PATHD, PCEP, "PCEP module");
 
 /*
  * Globals.

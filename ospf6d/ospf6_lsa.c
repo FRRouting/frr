@@ -43,6 +43,10 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_SUMMARY, "OSPF6 LSA summary");
+
 vector ospf6_lsa_handler_vector;
 
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
@@ -657,27 +661,29 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 		vty_out(vty, "\n");
 }
 
+struct ospf6_lsa *ospf6_lsa_alloc(size_t lsa_length)
+{
+	struct ospf6_lsa *lsa;
+
+	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
+	lsa->header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, lsa_length);
+
+	return lsa;
+}
+
 /* OSPFv3 LSA creation/deletion function */
 struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 {
 	struct ospf6_lsa *lsa = NULL;
-	struct ospf6_lsa_header *new_header = NULL;
 	uint16_t lsa_size = 0;
 
 	/* size of the entire LSA */
 	lsa_size = ntohs(header->length); /* XXX vulnerable */
 
-	/* allocate memory for this LSA */
-	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, lsa_size);
+	lsa = ospf6_lsa_alloc(lsa_size);
 
 	/* copy LSA from original header */
-	memcpy(new_header, header, lsa_size);
-
-	/* LSA information structure */
-	/* allocate memory */
-	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
-
-	lsa->header = new_header;
+	memcpy(lsa->header, header, lsa_size);
 
 	/* dump string */
 	ospf6_lsa_printbuf(lsa, lsa->name, sizeof(lsa->name));
@@ -691,20 +697,11 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 struct ospf6_lsa *ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header)
 {
 	struct ospf6_lsa *lsa = NULL;
-	struct ospf6_lsa_header *new_header = NULL;
 
-	/* allocate memory for this LSA */
-	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER,
-			     sizeof(struct ospf6_lsa_header));
+	lsa = ospf6_lsa_alloc(sizeof(struct ospf6_lsa_header));
 
-	/* copy LSA from original header */
-	memcpy(new_header, header, sizeof(struct ospf6_lsa_header));
+	memcpy(lsa->header, header, sizeof(struct ospf6_lsa_header));
 
-	/* LSA information structure */
-	/* allocate memory */
-	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
-
-	lsa->header = new_header;
 	SET_FLAG(lsa->flag, OSPF6_LSA_HEADERONLY);
 
 	/* dump string */
