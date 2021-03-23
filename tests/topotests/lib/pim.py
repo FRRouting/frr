@@ -1400,14 +1400,10 @@ def verify_pim_state(
                     errormsg = (
                         "[DUT %s]: Verifying pim state for group"
                         " %s, [FAILED]!! Expected: "
-                        "(iif: %s, oil: %s, installed: %s) ",
+                        "(iif: %s, oil: %s, installed: %s) "
+                        % (dut, grp_addr, iif, oil, "1"),
                         "Found: (iif: %s, oil: %s, installed: %s)"
                         % (
-                            dut,
-                            grp_addr,
-                            iif,
-                            oil,
-                            "1",
                             data["inboundInterface"],
                             data["outboundInterface"],
                             data["installed"],
@@ -2688,7 +2684,7 @@ def verify_igmp_config(tgen, input_dict, stats_return=False):
 
             if statistics and report:
                 show_ip_igmp_intf_json = run_frr_cmd(
-                    rnode, "{} json".format(cmd, interface), isjson=True
+                    rnode, "{} json".format(cmd), isjson=True
                 )
                 intf_detail_json = show_ip_igmp_intf_json["global"]
             else:
@@ -2764,7 +2760,6 @@ def verify_igmp_config(tgen, input_dict, stats_return=False):
                                         dut,
                                         interface,
                                         value,
-                                        intf_detail_json["reportV2"],
                                     )
                                 )
                                 return errormsg
