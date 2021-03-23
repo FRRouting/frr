@@ -60,6 +60,9 @@ extern void bgp_peer_config_apply(struct peer *p, struct peer_group *pg);
 /**
  * Allocates and configure BFD session for peer. If it is already configured,
  * then it does nothing.
+ *
+ * Always call `bgp_peer_config_apply` afterwards if you need the changes
+ * immediately applied.
  */
 extern void bgp_peer_configure_bfd(struct peer *p, bool manual);
 

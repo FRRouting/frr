@@ -310,7 +310,6 @@ void bgp_peer_configure_bfd(struct peer *p, bool manual)
 				       p->nexthop.ifp->name);
 
 	bfd_sess_enable(p->bfd_config->session, true);
-	bgp_peer_config_apply(p, p->group);
 }
 
 static void bgp_peer_remove_bfd(struct peer *p)
@@ -447,6 +446,8 @@ DEFUN (neighbor_bfd,
 		bgp_group_configure_bfd(peer);
 	else
 		bgp_peer_configure_bfd(peer, true);
+
+	bgp_peer_config_apply(peer, peer->group);
 
 	return CMD_SUCCESS;
 }
