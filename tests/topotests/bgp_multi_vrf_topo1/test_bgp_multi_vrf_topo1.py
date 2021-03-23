@@ -115,7 +115,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
-
+from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import (
     step,
     verify_rib,
@@ -214,6 +214,10 @@ def setup_module(mod):
     result = required_linux_kernel_version("4.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
+
+    # iproute2 needs to support VRFs for this suite to run.
+    if not iproute2_is_vrf_capable():
+        pytest.skip("Installed iproute2 version does not support VRFs")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
