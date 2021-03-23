@@ -197,7 +197,7 @@ static void walk_const_fptrs(struct json_object *js_call, LLVMValueRef value,
 #ifdef FRR_SPECIFIC
 static bool is_thread_sched(const char *name, size_t len)
 {
-#define thread_prefix "funcname_"
+#define thread_prefix "_"
 	static const char *const names[] = {
 		thread_prefix "thread_add_read_write",
 		thread_prefix "thread_add_timer",
@@ -226,6 +226,9 @@ static void process_call(struct json_object *js_calls,
 	struct json_object *js_call, *js_fptrs = NULL;
 
 	LLVMValueRef called = LLVMGetCalledValue(instr);
+
+	if (LLVMIsAInlineAsm(called))
+		return;
 
 	if (LLVMIsAConstantExpr(called)) {
 		LLVMOpcode opcode = LLVMGetConstOpcode(called);
@@ -324,12 +327,12 @@ static void process_call(struct json_object *js_calls,
 					prefix);
 		} else {
 			char *dump = LLVMPrintValueToString(called);
-			printf("\t%s\n", dump);
+			fprintf(stderr, "%s: ??? %s\n", prefix, dump);
 			LLVMDisposeMessage(dump);
 		}
 		return;
 #ifdef FRR_SPECIFIC
-	} else if (!strcmp(called_name, "install_element")) {
+	} else if (!strcmp(called_name, "_install_element")) {
 		called_type = FN_INSTALL_ELEMENT;
 
 		LLVMValueRef param0 = LLVMGetOperand(instr, 0);
@@ -380,10 +383,7 @@ static void process_call(struct json_object *js_calls,
 			json_object_new_string_len(called_name, called_len));
 
 		LLVMValueRef fparam;
-		if (strstr(called_name, "_read_"))
-			fparam = LLVMGetOperand(instr, 2);
-		else
-			fparam = LLVMGetOperand(instr, 1);
+		fparam = LLVMGetOperand(instr, 2);
 		assert(fparam);
 
 		size_t target_len = 0;
