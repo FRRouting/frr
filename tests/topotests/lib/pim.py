@@ -384,50 +384,6 @@ def _enable_disable_pim(tgen, topo, input_dict, router, build=False):
     return result
 
 
-def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
-    """
-    Add physical interfaces tp RP for all the RPs
-
-    Parameters
-    ----------
-    * `tgen` : Topogen object
-    * `topo` : json file data
-    * `interface` : RP interface
-    * `rp` : rp for given topology
-    * `rp_mapping` : dictionary of all groups and RPs
-
-    Returns
-    -------
-    True or False
-    """
-    result = False
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
-    try:
-        config_data = []
-
-        for group, rp_list in rp_mapping.items():
-            for _rp in rp_list:
-                config_data.append("interface {}".format(interface))
-                config_data.append("ip address {}".format(_rp))
-                config_data.append("ip pim")
-
-            result = create_common_configuration(
-                tgen, rp, config_data, "interface_config"
-            )
-            if result is not True:
-                return False
-
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
-
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return result
-
-
 def find_rp_details(tgen, topo):
     """
     Find who is RP in topology and returns list of RPs
@@ -2080,7 +2036,7 @@ def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: add_rp_interfaces_and_pim_config()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
