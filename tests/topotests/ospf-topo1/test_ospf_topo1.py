@@ -93,8 +93,6 @@ def setup_module(mod):
     tgen.start_topology()
 
     ospf6_config = "ospf6d.conf"
-    if tgen.gears["r1"].has_version("<", "4.0"):
-        ospf6_config = "ospf6d.conf-pre-v4"
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
