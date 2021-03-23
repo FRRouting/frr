@@ -61,6 +61,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--topology-only",
         action="store_true",
+        default=False,
         help="Only set up this topology, don't run tests",
     )
 
