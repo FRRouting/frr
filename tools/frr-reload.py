@@ -1220,6 +1220,53 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                                     lines_to_del_to_del.append((ctx_keys, line))
 
                 """
+                Neighbor changes of route-maps need to be accounted for in that we
+                do not want to do a `no route-map...` `route-map ....` when changing
+                a route-map.  This is bad mojo as that we will send/receive
+                data we don't want.
+                Additionally we need to ensure that if we have different afi/safi
+                variants that they actually match and if we are going from a very
+                old style command such that the neighbor command is under the
+                `router bgp ..` node that we need to handle that appropriately
+                """
+                re_nbr_rm = re.search("neighbor(.*)route-map(.*)(in|out)$", line)
+                if re_nbr_rm:
+                    adjust_for_bgp_node = 0
+                    neighbor_name = re_nbr_rm.group(1)
+                    rm_name_del = re_nbr_rm.group(2)
+                    dir = re_nbr_rm.group(3)
+                    search = "neighbor%sroute-map(.*)%s" % (neighbor_name, dir)
+                    save_line = "EMPTY"
+                    for (ctx_keys_al, add_line) in lines_to_add:
+                        if ctx_keys_al[0].startswith("router bgp"):
+                            if add_line:
+                                rm_match = re.search(search, add_line)
+                            if rm_match:
+                                rm_name_add = rm_match.group(1)
+                                if rm_name_add == rm_name_del:
+                                    continue
+                                if len(ctx_keys_al) == 1:
+                                    save_line = line
+                                    adjust_for_bgp_node = 1
+                                else:
+                                    if (
+                                        len(ctx_keys) > 1
+                                        and len(ctx_keys_al) > 1
+                                        and ctx_keys[1] == ctx_keys_al[1]
+                                    ):
+                                        lines_to_del_to_del.append((ctx_keys_al, line))
+
+                    if adjust_for_bgp_node == 1:
+                        for (ctx_keys_dl, dl_line) in lines_to_del:
+                            if (
+                                ctx_keys_dl[0].startswith("router bgp")
+                                and len(ctx_keys_dl) > 1
+                                and ctx_keys_dl[1] == "address-family ipv4 unicast"
+                            ):
+                                if save_line == dl_line:
+                                    lines_to_del_to_del.append((ctx_keys_dl, save_line))
+
+                """
                 We changed how we display the neighbor interface command. Older
                 versions of frr would display the following:
                     neighbor swp1 interface
