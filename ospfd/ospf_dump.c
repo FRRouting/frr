@@ -61,7 +61,7 @@ unsigned long conf_debug_ospf_ti_lfa = 0;
 unsigned long conf_debug_ospf_defaultinfo = 0;
 unsigned long conf_debug_ospf_ldp_sync = 0;
 unsigned long conf_debug_ospf_gr = 0;
-unsigned long conf_debug_ospf_bfd = 0;
+unsigned long conf_debug_ospf_bfd;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -78,7 +78,7 @@ unsigned long term_debug_ospf_ti_lfa = 0;
 unsigned long term_debug_ospf_defaultinfo;
 unsigned long term_debug_ospf_ldp_sync;
 unsigned long term_debug_ospf_gr = 0;
-unsigned long term_debug_ospf_bfd = 0;
+unsigned long term_debug_ospf_bfd;
 
 const char *ospf_redist_string(unsigned int route_type)
 {

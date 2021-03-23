@@ -114,7 +114,7 @@ struct ospf_if_params {
 		uint32_t min_tx;
 		/** BFD profile. */
 		char profile[BFD_PROFILE_NAME_LEN];
-	} * bfd_config;
+	} *bfd_config;
 
 	/* MPLS LDP-IGP Sync configuration */
 	struct ldp_sync_info *ldp_sync_info;

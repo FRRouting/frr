@@ -47,8 +47,6 @@
 
 DEFINE_MTYPE_STATIC(OSPFD, BFD_CONFIG, "BFD configuration data");
 
-extern struct zclient *zclient;
-
 /*
  * ospf_bfd_trigger_event - Neighbor is registered/deregistered with BFD when
  *                          neighbor state is changed to/from 2way.
