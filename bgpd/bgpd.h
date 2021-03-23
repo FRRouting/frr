@@ -477,6 +477,7 @@ struct bgp {
 #define BGP_FLAG_SHUTDOWN                 (1 << 27)
 #define BGP_FLAG_SUPPRESS_FIB_PENDING     (1 << 28)
 #define BGP_FLAG_SUPPRESS_DUPLICATES      (1 << 29)
+#define BGP_FLAG_DEFAULT_IPV6             (1 << 30)
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
 				      [BGP_GLOBAL_GR_EVENT_CMD];
@@ -1922,8 +1923,7 @@ extern bool peer_active(struct peer *);
 extern bool peer_active_nego(struct peer *);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *, const char *, struct bgp *,
-				as_t, as_t, int, afi_t, safi_t,
-				struct peer_group *);
+				as_t, as_t, int, struct peer_group *);
 extern struct peer *peer_create_accept(struct bgp *);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
@@ -1991,7 +1991,7 @@ extern bool bgp_update_delay_configured(struct bgp *);
 extern int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void peer_as_change(struct peer *, as_t, int);
 extern int peer_remote_as(struct bgp *, union sockunion *, const char *, as_t *,
-			  int, afi_t, safi_t);
+			  int);
 extern int peer_group_remote_as(struct bgp *, const char *, as_t *, int);
 extern int peer_delete(struct peer *peer);
 extern void peer_notify_unconfig(struct peer *peer);

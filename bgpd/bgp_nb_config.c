@@ -3146,8 +3146,7 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify(
 			return NB_OK;
 
 		str2sockunion(peer_str, &su);
-		ret = peer_remote_as(bgp, &su, NULL, &as, as_type, AFI_IP,
-				     SAFI_UNICAST);
+		ret = peer_remote_as(bgp, &su, NULL, &as, as_type);
 		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
 		    < 0)
 			return NB_ERR_INCONSISTENCY;
@@ -3202,8 +3201,7 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_modify(
 		as = yang_dnode_get_uint32(args->dnode, NULL);
 
 		str2sockunion(peer_str, &su);
-		ret = peer_remote_as(bgp, &su, NULL, &as, as_type, AFI_IP,
-				     SAFI_UNICAST);
+		ret = peer_remote_as(bgp, &su, NULL, &as, as_type);
 		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
 		    < 0)
 			return NB_ERR_INCONSISTENCY;
@@ -4370,8 +4368,7 @@ int bgp_neighbors_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 					"./neighbor-remote-as/remote-as");
 		}
 
-		if (peer_conf_interface_create(bgp, peer_str, AFI_IP,
-					       SAFI_UNICAST, v6_only,
+		if (peer_conf_interface_create(bgp, peer_str, v6_only,
 					       peer_grp_str, as_type, as,
 					       args->errmsg, args->errmsg_len))
 			return NB_ERR_INCONSISTENCY;
@@ -4440,9 +4437,9 @@ int bgp_neighbors_unnumbered_neighbor_v6only_modify(
 
 		v6_only = yang_dnode_get_bool(args->dnode, NULL);
 
-		if (peer_conf_interface_create(
-			    bgp, peer_str, AFI_IP, SAFI_UNICAST, v6_only, NULL,
-			    AS_UNSPECIFIED, 0, args->errmsg, args->errmsg_len))
+		if (peer_conf_interface_create(bgp, peer_str, v6_only, NULL,
+					       AS_UNSPECIFIED, 0, args->errmsg,
+					       args->errmsg_len))
 			return NB_ERR_INCONSISTENCY;
 
 		break;
@@ -5174,8 +5171,6 @@ void bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_apply_finish(
 	int ret;
 	as_t as = 0;
 	struct peer *peer = NULL;
-	afi_t afi = AFI_IP;
-	safi_t safi = SAFI_UNICAST;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	peer_str = yang_dnode_get_string(args->dnode, "../interface");
@@ -5185,7 +5180,7 @@ void bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_apply_finish(
 
 	peer = peer_lookup_by_conf_if(bgp, peer_str);
 
-	ret = peer_remote_as(bgp, NULL, peer_str, &as, as_type, afi, safi);
+	ret = peer_remote_as(bgp, NULL, peer_str, &as, as_type);
 
 	if (ret < 0 && !peer) {
 		snprintf(args->errmsg, args->errmsg_len,

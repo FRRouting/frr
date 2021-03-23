@@ -1468,8 +1468,10 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 
 	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
 		paf = peer_src->peer_af_array[afidx];
-		if (paf != NULL)
-			peer_af_create(peer_dst, paf->afi, paf->safi);
+		if (paf != NULL) {
+			if (!peer_af_find(peer_dst, paf->afi, paf->safi))
+				peer_af_create(peer_dst, paf->afi, paf->safi);
+		}
 	}
 
 	/* update-source apply */
@@ -1683,12 +1685,13 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
  */
 struct peer *peer_create(union sockunion *su, const char *conf_if,
 			 struct bgp *bgp, as_t local_as, as_t remote_as,
-			 int as_type, afi_t afi, safi_t safi,
-			 struct peer_group *group)
+			 int as_type, struct peer_group *group)
 {
 	int active;
 	struct peer *peer;
 	char buf[SU_ADDRSTRLEN];
+	afi_t afi;
+	safi_t safi;
 
 	peer = peer_new(bgp);
 	if (conf_if) {
@@ -1747,9 +1750,23 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 
 	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
-	if (afi && safi) {
-		peer->afc[afi][safi] = 1;
-		peer_af_create(peer, afi, safi);
+	/* If address family is IPv4 and `bgp default ipv4-unicast` (default),
+	 * then activate the neighbor for this AF.
+	 * If address family is IPv6 and `bgp default ipv6-unicast`
+	 * (non-default), then activate the neighbor for this AF.
+	 */
+	FOREACH_AFI_SAFI (afi, safi) {
+		if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST) {
+			if ((afi == AFI_IP
+			     && !CHECK_FLAG(bgp->flags,
+					    BGP_FLAG_NO_DEFAULT_IPV4))
+			    || (afi == AFI_IP6
+				&& CHECK_FLAG(bgp->flags,
+					      BGP_FLAG_DEFAULT_IPV6))) {
+				peer->afc[afi][safi] = 1;
+				peer_af_create(peer, afi, safi);
+			}
+		}
 	}
 
 	/* auto shutdown if configured */
@@ -1878,7 +1895,7 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 /* If peer does not exist, create new one.  If peer already exists,
    set AS number to the peer.  */
 int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
-		   as_t *as, int as_type, afi_t afi, safi_t safi)
+		   as_t *as, int as_type)
 {
 	struct peer *peer;
 	as_t local_as;
@@ -1946,16 +1963,7 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 		else
 			local_as = bgp->as;
 
-		/* If this is IPv4 unicast configuration and "no bgp default
-		   ipv4-unicast" is specified. */
-
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4)
-		    && afi == AFI_IP && safi == SAFI_UNICAST)
-			peer_create(su, conf_if, bgp, local_as, *as, as_type, 0,
-				    0, NULL);
-		else
-			peer_create(su, conf_if, bgp, local_as, *as, as_type,
-				    afi, safi, NULL);
+		peer_create(su, conf_if, bgp, local_as, *as, as_type, NULL);
 	}
 
 	return 0;
@@ -2562,6 +2570,8 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->conf = peer_new(bgp);
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4))
 		group->conf->afc[AFI_IP][SAFI_UNICAST] = 1;
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_IPV6))
+		group->conf->afc[AFI_IP6][SAFI_UNICAST] = 1;
 	XFREE(MTYPE_BGP_PEER_HOST, group->conf->host);
 	group->conf->host = XSTRDUP(MTYPE_BGP_PEER_HOST, name);
 	group->conf->group = group;
@@ -2996,7 +3006,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		}
 
 		peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-				   group->conf->as_type, 0, 0, group);
+				   group->conf->as_type, group);
 
 		peer = peer_lock(peer); /* group->peer list reference */
 		listnode_add(group->peer, peer);
@@ -3008,7 +3018,10 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		FOREACH_AFI_SAFI (afi, safi) {
 			if (group->conf->afc[afi][safi]) {
 				peer->afc[afi][safi] = 1;
-				peer_af_create(peer, afi, safi);
+
+				if (!peer_af_find(peer, afi, safi))
+					peer_af_create(peer, afi, safi);
+
 				peer_group2peer_config_copy_af(group, peer, afi,
 							       safi);
 			} else if (peer->afc[afi][safi])
@@ -3807,7 +3820,7 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 
 	/* Create peer first; we've already checked group config is valid. */
 	peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-			   group->conf->as_type, 0, 0, group);
+			   group->conf->as_type, group);
 	if (!peer)
 		return NULL;
 
