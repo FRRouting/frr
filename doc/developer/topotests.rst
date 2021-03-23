@@ -60,6 +60,7 @@ following steps will get you there on Ubuntu 20.04.
 
 .. code:: shell
 	  
+   apt install libsnmp-dev
    apt install snmpd snmp
    apt install snmp-mibs-downloader
    download-mibs
