@@ -194,6 +194,16 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   bnc->srte_color, bnc->bgp->name_pretty,
 				   peer);
 		}
+	} else {
+		if (BGP_DEBUG(nht, NHT)) {
+			char buf[PREFIX2STR_BUFFER];
+
+			zlog_debug(
+				"Found existing bnc %s(%s) flags 0x%x ifindex %d #paths %d peer %p",
+				bnc_str(bnc, buf, PREFIX2STR_BUFFER),
+				bnc->bgp->name_pretty, bnc->flags, bnc->ifindex,
+				bnc->path_count, bnc->nht_info);
+		}
 	}
 
 	if (is_bgp_static_route) {
@@ -236,6 +246,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+	}
+	if (peer && (bnc->ifindex != ifindex)) {
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+		bnc->ifindex = ifindex;
 	}
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW) {
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
@@ -505,6 +520,11 @@ static int bgp_nht_ifp_initial(struct thread *thread)
 
 	if (!ifp)
 		return 0;
+
+	if (BGP_DEBUG(nht, NHT))
+		zlog_debug(
+			"Handle NHT initial update for Intf %s(%d) status %s",
+			ifp->name, ifp->ifindex, if_is_up(ifp) ? "up" : "down");
 
 	if (if_is_up(ifp))
 		bgp_nht_ifp_up(ifp);
