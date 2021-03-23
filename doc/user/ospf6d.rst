@@ -229,7 +229,6 @@ Showing OSPF6 information
    Interface name can also be given. JSON output can be obtained by appending
    'json' to the end of command.
 
-.. index:: show ipv6 ospf6 spf tree [json]
 .. clicmd:: show ipv6 ospf6 spf tree [json]
 
    This commands shows the spf tree from the recent spf calculation with the
@@ -237,7 +236,7 @@ Showing OSPF6 information
    tree in JSON format. Each area that the router belongs to has it's own
    JSON object, with each router having "cost", "isLeafNode" and "children" as
    arguments.
-   
+
 OSPF6 Configuration Examples
 ============================
 
