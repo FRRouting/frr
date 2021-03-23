@@ -50,10 +50,14 @@
 
 #include <json-c/json.h>
 
+#include "frr-llvm-debuginfo.h"
+
 /* if you want to use this without the special FRRouting defines,
  * remove the following #define
  */
 #define FRR_SPECIFIC
+
+static struct dbginfo *dbginfo;
 
 static void dbgloc_add(struct json_object *jsobj, LLVMValueRef obj)
 {
@@ -82,6 +86,70 @@ static struct json_object *js_get_or_make(struct json_object *parent,
 		return ret;
 	ret = maker();
 	json_object_object_add(parent, key, ret);
+	return ret;
+}
+
+static bool try_struct_fptr(struct json_object *js_call, LLVMValueRef gep,
+			    const char *prefix)
+{
+	unsigned long long val = 0;
+	bool ret = false;
+	LLVMTypeRef ptrtype = LLVMTypeOf(LLVMGetOperand(gep, 0));
+	LLVMValueRef idx;
+
+	/* middle steps like struct a -> struct b a_member; -> fptr */
+	for (int i = 1; ptrtype && i < LLVMGetNumOperands(gep) - 1; i++) {
+		if (LLVMGetTypeKind(ptrtype) == LLVMPointerTypeKind
+		    || LLVMGetTypeKind(ptrtype) == LLVMArrayTypeKind
+		    || LLVMGetTypeKind(ptrtype) == LLVMVectorTypeKind) {
+			ptrtype = LLVMGetElementType(ptrtype);
+			continue;
+		}
+
+		if (LLVMGetTypeKind(ptrtype) != LLVMStructTypeKind)
+			return false;
+
+		idx = LLVMGetOperand(gep, i);
+		if (!LLVMIsConstant(idx))
+			return false;
+		val = LLVMConstIntGetZExtValue(idx);
+
+		unsigned n = LLVMGetNumContainedTypes(ptrtype);
+		LLVMTypeRef arr[n];
+
+		if (val > n)
+			return false;
+
+		LLVMGetSubtypes(ptrtype, arr);
+		ptrtype = arr[val];
+	}
+
+	if (!ptrtype)
+		return false;
+
+	idx = LLVMGetOperand(gep, LLVMGetNumOperands(gep) - 1);
+	if (!LLVMIsConstant(idx))
+		return false;
+
+	val = LLVMConstIntGetZExtValue(idx);
+
+	char *sname = NULL, *mname = NULL;
+
+	if (dbginfo_struct_member(dbginfo, ptrtype, val, &sname, &mname)) {
+		fprintf(stderr, "%s: call to struct %s->%s\n", prefix, sname,
+			mname);
+
+		json_object_object_add(js_call, "type",
+				       json_object_new_string("struct_memb"));
+		json_object_object_add(js_call, "struct",
+				       json_object_new_string(sname));
+		json_object_object_add(js_call, "member",
+				       json_object_new_string(mname));
+		ret = true;
+	}
+	free(sname);
+	free(mname);
+
 	return ret;
 }
 
@@ -173,6 +241,34 @@ static void walk_const_fptrs(struct json_object *js_call, LLVMValueRef value,
 		for (unsigned i = 0; i < len; i++)
 			walk_const_fptrs(js_call, LLVMGetOperand(value, i),
 					 prefix, hdr_written);
+		return;
+
+	case LLVMConstantExprValueKind:
+		switch (LLVMGetConstOpcode(value)) {
+		case LLVMGetElementPtr:
+			if (try_struct_fptr(js_call, value, prefix)) {
+				*hdr_written = true;
+				return;
+			}
+
+			fprintf(stderr,
+				"%s: calls function pointer from unhandled const GEP\n",
+				prefix);
+			*hdr_written = true;
+			/* fallthru */
+		default:
+			/* to help the user / development */
+			if (!*hdr_written) {
+				fprintf(stderr,
+					"%s: calls function pointer from constexpr\n",
+					prefix);
+				*hdr_written = true;
+			}
+			dump = LLVMPrintValueToString(value);
+			fprintf(stderr, "%s-   [opcode=%d] %s\n", prefix,
+				LLVMGetConstOpcode(value), dump);
+			LLVMDisposeMessage(dump);
+		}
 		return;
 
 	default:
@@ -280,6 +376,12 @@ static void process_call(struct json_object *js_calls,
 		snprintf(prefix, sizeof(prefix), "%.*s:%d:%.*s()",
 			 (int)file_len, file, line, (int)name_len, name_c);
 
+		if (LLVMIsALoadInst(called)
+		    && LLVMIsAGetElementPtrInst(LLVMGetOperand(called, 0))
+		    && try_struct_fptr(js_call, LLVMGetOperand(called, 0),
+				       prefix))
+			goto out_struct_fptr;
+
 		while (LLVMIsALoadInst(last) || LLVMIsAGetElementPtrInst(last))
 			/* skipping over details for GEP here, but meh. */
 			last = LLVMGetOperand(last, 0);
@@ -330,7 +432,6 @@ static void process_call(struct json_object *js_calls,
 			fprintf(stderr, "%s: ??? %s\n", prefix, dump);
 			LLVMDisposeMessage(dump);
 		}
-		return;
 #ifdef FRR_SPECIFIC
 	} else if (!strcmp(called_name, "_install_element")) {
 		called_type = FN_INSTALL_ELEMENT;
@@ -440,6 +541,7 @@ static void process_call(struct json_object *js_calls,
 			json_object_new_string_len(called_name, called_len));
 	}
 
+out_struct_fptr:
 	for (unsigned argno = 0; argno < n_args; argno++) {
 		LLVMValueRef param = LLVMGetOperand(instr, argno);
 		size_t target_len;
@@ -596,6 +698,8 @@ int main(int argc, char **argv)
 
 	// done with the memory buffer now, so dispose of it
 	LLVMDisposeMemoryBuffer(memoryBuffer);
+
+	dbginfo = dbginfo_load(module);
 
 	struct json_object *js_root, *js_funcs, *js_special;
 
