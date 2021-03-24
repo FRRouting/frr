@@ -835,6 +835,7 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	ctx->count++;
 
 	c = s->cache;
+	buf2[0] = '\0';
 	if (c)
 		sockunion2str(&c->remote_addr, buf2, sizeof(buf2));
 	prefix2str(s->p, buf1, sizeof(buf1));
