@@ -207,6 +207,16 @@ int routing_control_plane_protocols_name_validate(
 	FRR_S_ROUTE_SRC_INFO_KEY_NO_DISTANCE_XPATH                             \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
+/* route-group */
+#define FRR_STATIC_ROUTE_GROUP                                                 \
+	"/frr-routing:routing/control-plane-protocols/"                        \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
+	"frr-staticd:staticd/route-group[name='%s']"
+
+/* staticd root XPath. */
+#define FRR_STATIC_ROOT_XPATH                                                  \
+	"/frr-routing:routing/control-plane-protocols/control-plane-protocol"
+
 #ifdef __cplusplus
 }
 #endif

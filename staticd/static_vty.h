@@ -30,6 +30,8 @@ void static_nexthop_cli_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults);
 void static_src_nexthop_cli_show(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
+void static_route_group_show(struct vty *vty, const struct lyd_node *dnode,
+			     bool show_def);
 int static_nexthop_cli_cmp(const struct lyd_node *dnode1,
 			   const struct lyd_node *dnode2);
 int static_route_list_cli_cmp(const struct lyd_node *dnode1,
