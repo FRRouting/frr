@@ -356,6 +356,23 @@ void static_group_fixup_vrf_ids(struct vrf *vrf, bool vrf_enabled)
 	}
 }
 
+struct static_group_member *
+static_group_member_glookup(struct static_nexthop *sn)
+{
+	struct static_route_group *srg;
+	struct static_group_member *srm;
+
+	TAILQ_FOREACH (srg, &sbglobal.sbg_srglist, srg_entry) {
+		srm = static_group_member_lookup(srg, sn);
+		if (srm == NULL)
+			continue;
+
+		return srm;
+	}
+
+	return NULL;
+}
+
 void static_group_monitor_enable(const char *name, struct static_nexthop *sn)
 {
 	struct static_route_group *srg;
@@ -601,6 +618,22 @@ void static_route_group_bfd_interface(struct static_route_group *srg,
 /*
  * Misc.
  */
+static void
+static_route_group_var(vector comps,
+		       __attribute__((unused)) struct cmd_token *token)
+{
+	struct static_route_group *srg;
+
+	TAILQ_FOREACH (srg, &sbglobal.sbg_srglist, srg_entry)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, srg->srg_name));
+}
+
+static const struct cmd_variable_handler srg_vars[] = {
+	{.tokenname = "STRGRP", .completions = static_route_group_var},
+	{.completions = NULL}
+};
+
+
 void static_bfd_initialize(struct zclient *zc, struct thread_master *tm)
 {
 	/* Initialize list head. */
@@ -608,4 +641,7 @@ void static_bfd_initialize(struct zclient *zc, struct thread_master *tm)
 
 	/* Initialize BFD integration library. */
 	bfd_protocol_integration_init(zc, tm);
+
+	/* Auto complete route groups commands. */
+	cmd_variable_handler_register(srg_vars);
 }

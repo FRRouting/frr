@@ -267,6 +267,15 @@ TAILQ_HEAD(srglist, static_route_group);
 extern struct static_route_group *static_route_group_new(const char *name);
 extern void static_route_group_free(struct static_route_group **srg);
 
+/**
+ * TODO remove me.
+ *
+ * This function was temporarly created to enable us to implement
+ * `write_config`, once full northbound migration happens please
+ * remove this function.
+ */
+extern struct static_group_member *
+static_group_member_glookup(struct static_nexthop *sn);
 
 /*
  * BFD integration.
