@@ -233,6 +233,66 @@ module frr-bfdd {
     }
   }
 
+  grouping bfd-monitoring {
+    description
+      "BFD monitoring template for protocol integration.";
+
+    leaf enable {
+      description
+        "Administrative state.";
+      type boolean;
+      default false;
+    }
+
+    leaf multi-hop {
+      description
+        "Use multi hop session instead of single hop.";
+      type boolean;
+      default false;
+    }
+
+    leaf profile {
+      description
+        "BFD pre configured profile.";
+      type frr-bfdd:profile-ref;
+    }
+  }
+
+  grouping bfd-session-configuration {
+    description
+      "BFD session minimum required configurations.";
+
+    leaf vrf {
+      mandatory true;
+      type frr-vrf:vrf-ref;
+      description
+        "Specify peer VRF.";
+    }
+
+    leaf peer {
+      mandatory true;
+      type inet:ip-address;
+      description
+        "Peer address to use for liveness check.";
+    }
+
+    leaf source {
+      when "../multi-hop = 'true'";
+      mandatory true;
+      type inet:ip-address;
+      description
+        "Source address to use for liveness check.";
+    }
+
+    leaf interface {
+      type frr-interface:interface-ref;
+      description
+        "Specify peer interface.";
+    }
+
+    uses frr-bfdd:bfd-monitoring;
+  }
+
   grouping session-states {
     /*
      * Local settings.
