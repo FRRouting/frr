@@ -491,3 +491,299 @@ void static_bfd_initialize(struct zclient *zc, struct thread_master *tm)
 	/* Auto complete route groups commands. */
 	cmd_variable_handler_register(srg_vars);
 }
+
+/*
+ * CLI.
+ */
+static void static_bfd_show_nexthop_json(struct vty *vty,
+					 struct json_object *jo,
+					 const struct static_nexthop *sn)
+{
+	const struct prefix *dst_p, *src_p;
+	struct json_object *jo_nh;
+	char buf[256];
+
+	jo_nh = json_object_new_object();
+
+	srcdest_rnode_prefixes(sn->rn, &dst_p, &src_p);
+	if (src_p) {
+		snprintfrr(buf, sizeof(buf), "%pFX", src_p);
+		json_object_string_add(jo_nh, "from", buf);
+	}
+
+	snprintfrr(buf, sizeof(buf), "%pFX", dst_p);
+	json_object_string_add(jo_nh, "prefix", buf);
+	json_object_string_add(jo_nh, "vrf", sn->nh_vrfname);
+
+	json_object_boolean_add(jo_nh, "installed", !sn->path_down);
+
+	json_object_array_add(jo, jo_nh);
+}
+
+static void static_bfd_show_group_json(struct vty *vty, struct json_object *jo)
+{
+	struct json_object *jo_group, *jo_nharray;
+	struct static_group_member *sgm;
+	struct static_route_group *srg;
+	struct static_nexthop *sn;
+	enum bfd_session_state bss;
+	const char *vrfname;
+	const char *ifname;
+	int family;
+	uint8_t min_ttl;
+	struct in6_addr local, peer;
+	char buf[256];
+
+	TAILQ_FOREACH (srg, &sbglobal.sbg_srglist, srg_entry) {
+		bss = bfd_sess_status(srg->srg_bsp);
+		bfd_sess_addresses(srg->srg_bsp, &family, &local,
+					     &peer);
+		ifname = bfd_sess_interface(srg->srg_bsp);
+		vrfname = bfd_sess_vrf(srg->srg_bsp);
+		min_ttl = bfd_sess_minimum_ttl(srg->srg_bsp);
+
+		jo_group = json_object_new_object();
+		json_object_string_add(jo_group, "name", srg->srg_name);
+		json_object_boolean_add(jo_group, "installed", bss == BSS_UP);
+		if (min_ttl != BFD_SINGLE_HOP_TTL) {
+			if (family == AF_INET)
+				snprintfrr(buf, sizeof(buf), "%pI4",
+					   (struct in_addr *)&local);
+			else
+				snprintfrr(buf, sizeof(buf), "%pI6", &local);
+
+			json_object_boolean_add(jo_group, "multi-hop", true);
+			json_object_string_add(jo_group, "source", buf);
+		} else
+			json_object_boolean_add(jo_group, "multi-hop", false);
+
+		if (family == AF_INET)
+			snprintfrr(buf, sizeof(buf), "%pI4",
+				   (struct in_addr *)&peer);
+		else
+			snprintfrr(buf, sizeof(buf), "%pI6", &peer);
+		json_object_string_add(jo_group, "peer", buf);
+		json_object_string_add(jo_group, "vrf", vrfname);
+		if (ifname)
+			json_object_string_add(jo_group, "interface", ifname);
+
+		jo_nharray = json_object_new_array();
+		TAILQ_FOREACH (sgm, &srg->srg_sgmlist, sgm_entry) {
+			sn = sgm->sgm_sn;
+			static_bfd_show_nexthop_json(vty, jo_nharray, sn);
+		}
+
+		json_object_object_add(jo_group, "routes", jo_nharray);
+		json_object_array_add(jo, jo_group);
+	}
+}
+
+static void static_bfd_show_path_json(struct vty *vty, struct json_object *jo,
+				      struct route_table *rt)
+{
+	struct static_route_info *si;
+	struct static_nexthop *sn;
+	struct static_path *sp;
+	struct route_node *rn;
+
+	for (rn = route_top(rt); rn; rn = srcdest_route_next(rn)) {
+		si = static_route_info_from_rnode(rn);
+		if (si == NULL)
+			continue;
+
+		frr_each (static_path_list, &si->path_list, sp) {
+			frr_each (static_nexthop_list, &sp->nexthop_list, sn) {
+				/* Skip non configured BFD sessions. */
+				if (sn->bsp == NULL)
+					continue;
+
+				static_bfd_show_nexthop_json(vty, jo, sn);
+			}
+		}
+	}
+}
+
+static void static_bfd_show_json(struct vty *vty)
+{
+	struct json_object *jo, *jo_path, *jo_group, *jo_afi_safi;
+	struct static_vrf *svrf;
+	struct route_table *rt;
+	struct vrf *vrf;
+
+	jo = json_object_new_object();
+	jo_path = json_object_new_object();
+	jo_group = json_object_new_array();
+
+	json_object_object_add(jo, "route-group", jo_group);
+	static_bfd_show_group_json(vty, jo_group);
+
+	json_object_object_add(jo, "path-list", jo_path);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		svrf = vrf->info;
+
+		jo_afi_safi = json_object_new_array();
+		json_object_object_add(jo_path, "ipv4-unicast", jo_afi_safi);
+		rt = svrf->stable[AFI_IP][SAFI_UNICAST];
+		if (rt)
+			static_bfd_show_path_json(vty, jo_afi_safi, rt);
+
+		jo_afi_safi = json_object_new_array();
+		json_object_object_add(jo_path, "ipv4-multicast", jo_afi_safi);
+		rt = svrf->stable[AFI_IP][SAFI_MULTICAST];
+		if (rt)
+			static_bfd_show_path_json(vty, jo_afi_safi, rt);
+
+		jo_afi_safi = json_object_new_array();
+		json_object_object_add(jo_path, "ipv6-unicast", jo_afi_safi);
+		rt = svrf->stable[AFI_IP6][SAFI_UNICAST];
+		if (rt)
+			static_bfd_show_path_json(vty, jo_afi_safi, rt);
+	}
+
+	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
+	json_object_free(jo);
+}
+
+static void static_bfd_show_nexthop(struct vty *vty,
+				    const struct static_nexthop *sn)
+{
+	char buf[SRCDEST2STR_BUFFER];
+
+	vty_out(vty, "        %s",
+		srcdest_rnode2str(sn->rn, buf, sizeof(buf)));
+
+	if (sn->bsp == NULL) {
+		vty_out(vty, "\n");
+		return;
+	}
+
+	if (sn->type == STATIC_IPV4_GATEWAY
+	    || sn->type == STATIC_IPV4_GATEWAY_IFNAME)
+		vty_out(vty, " peer %pI4", &sn->addr.ipv4);
+	else if (sn->type == STATIC_IPV6_GATEWAY
+		 || sn->type == STATIC_IPV6_GATEWAY_IFNAME)
+		vty_out(vty, " peer %pI6", &sn->addr.ipv6);
+	else
+		vty_out(vty, " peer unknown");
+
+	vty_out(vty, " (status: %s)\n",
+		sn->path_down ? "uninstalled" : "installed");
+}
+
+static void static_bfd_show_group(struct vty *vty)
+{
+	struct static_group_member *sgm;
+	struct static_route_group *srg;
+	struct static_nexthop *sn;
+	enum bfd_session_state bss;
+	const char *vrfname;
+	const char *ifname;
+	int family;
+	uint8_t min_ttl;
+	struct in6_addr local, peer;
+
+	TAILQ_FOREACH (srg, &sbglobal.sbg_srglist, srg_entry) {
+		/* Skip groups without BFD configuration. */
+		if (srg->srg_bsp == NULL)
+			continue;
+
+		bss = bfd_sess_status(srg->srg_bsp);
+		bfd_sess_addresses(srg->srg_bsp, &family, &local,
+					     &peer);
+		ifname = bfd_sess_interface(srg->srg_bsp);
+		vrfname = bfd_sess_vrf(srg->srg_bsp);
+		min_ttl = bfd_sess_minimum_ttl(srg->srg_bsp);
+
+		vty_out(vty, "    %s", srg->srg_name);
+		if (strcmp(vrfname, VRF_DEFAULT_NAME))
+			vty_out(vty, " VRF %s", vrfname);
+		if (ifname)
+			vty_out(vty, " interface %s", ifname);
+
+		if (family == AF_INET)
+			vty_out(vty, " peer %pI4", (struct in_addr *)&peer);
+		else
+			vty_out(vty, " peer %pI6", (struct in6_addr *)&peer);
+
+		if (min_ttl != BFD_SINGLE_HOP_TTL) {
+			if (family == AF_INET)
+				vty_out(vty, " multi-hop source %pI4",
+					(struct in_addr *)&local);
+			else
+				vty_out(vty, " multi-hop source %pI6", &local);
+		}
+
+		vty_out(vty, " (status: %s):\n",
+			bss == BSS_UP ? "installed" : "uninstalled");
+
+		TAILQ_FOREACH (sgm, &srg->srg_sgmlist, sgm_entry) {
+			sn = sgm->sgm_sn;
+			static_bfd_show_nexthop(vty, sn);
+		}
+	}
+}
+
+static void static_bfd_show_path(struct vty *vty, struct route_table *rt)
+{
+	struct static_route_info *si;
+	struct static_nexthop *sn;
+	struct static_path *sp;
+	struct route_node *rn;
+
+	for (rn = route_top(rt); rn; rn = srcdest_route_next(rn)) {
+		si = static_route_info_from_rnode(rn);
+		if (si == NULL)
+			continue;
+
+		frr_each (static_path_list, &si->path_list, sp) {
+			frr_each (static_nexthop_list, &sp->nexthop_list, sn) {
+				/* Skip non configured BFD sessions. */
+				if (sn->bsp == NULL)
+					continue;
+
+				static_bfd_show_nexthop(vty, sn);
+			}
+		}
+	}
+}
+
+void static_bfd_show(struct vty *vty, bool isjson)
+{
+	struct static_vrf *svrf;
+	struct route_table *rt;
+	struct vrf *vrf;
+
+	if (isjson) {
+		static_bfd_show_json(vty);
+		return;
+	}
+
+	vty_out(vty, "Showing BFD monitored static routes:\n");
+
+	/* Route groups. */
+	vty_out(vty, "\n  Route groups:\n");
+	static_bfd_show_group(vty);
+
+	/* Individual next hops. */
+	vty_out(vty, "\n  Next hops:\n");
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		svrf = vrf->info;
+
+		vty_out(vty, "    VRF %s IPv4 Unicast:\n", vrf->name);
+		rt = svrf->stable[AFI_IP][SAFI_UNICAST];
+		if (rt)
+			static_bfd_show_path(vty, rt);
+
+		vty_out(vty, "\n    VRF %s IPv4 Multicast:\n", vrf->name);
+		rt = svrf->stable[AFI_IP][SAFI_MULTICAST];
+		if (rt)
+			static_bfd_show_path(vty, rt);
+
+		vty_out(vty, "\n    VRF %s IPv6 Unicast:\n", vrf->name);
+		rt = svrf->stable[AFI_IP6][SAFI_UNICAST];
+		if (rt)
+			static_bfd_show_path(vty, rt);
+	}
+
+	vty_out(vty, "\n");
+}
