@@ -249,6 +249,7 @@ void static_del_path(struct static_path *pn)
 	static_path_list_del(&si->path_list, pn);
 
 	frr_each_safe(static_nexthop_list, &pn->nexthop_list, nh) {
+		static_next_hop_bfd_monitor_destroy(nh);
 		static_delete_nexthop(nh);
 	}
 
@@ -277,6 +278,8 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
 
 	nh->pn = pn;
+	/* Copy back pointers. */
+	nh->rn = rn;
 
 	nh->type = type;
 	nh->color = color;
@@ -520,6 +523,11 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 						nh->ifindex = ifp->ifindex;
 					else
 						continue;
+				}
+				if (nh->bsp) {
+					bfd_sess_set_vrf(nh->bsp,
+							 nh->nh_vrf_id);
+					bfd_sess_install(nh->bsp);
 				}
 
 				static_install_path(pn);
