@@ -28,7 +28,7 @@
 #include "znl.h"
 #include "os.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_MULTICAST, "NHRP Multicast")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_MULTICAST, "NHRP Multicast");
 
 int netlink_mcast_nflog_group;
 static int netlink_mcast_log_fd = -1;
