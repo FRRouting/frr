@@ -19,7 +19,8 @@
         "remote-transmit-interval": 2000,
         "status": "up",
         "uptime": "*",
-        "transmit-interval": 2000
+        "transmit-interval": 2000,
+        "vrf": "default"
     },
     {
         "detect-multiplier": 3,
@@ -41,6 +42,49 @@
         "remote-transmit-interval": 2000,
         "status": "up",
         "uptime": "*",
-        "transmit-interval": 2000
+        "transmit-interval": 2000,
+        "vrf": "default"
+    },
+    {
+        "detect-multiplier": 3,
+        "diagnostic": "ok",
+        "echo-receive-interval": 50,
+        "echo-transmit-interval": 0,
+        "id": "*",
+        "multihop": false,
+        "passive-mode": false,
+        "peer": "192.168.4.3",
+        "receive-interval": 2000,
+        "remote-detect-multiplier": 3,
+        "remote-diagnostic": "ok",
+        "remote-echo-receive-interval": 50,
+        "remote-id": "*",
+        "remote-receive-interval": 2000,
+        "remote-transmit-interval": 2000,
+        "status": "up",
+        "transmit-interval": 2000,
+        "uptime": "*",
+        "vrf": "default"
+    },
+    {
+        "detect-multiplier": 3,
+        "diagnostic": "ok",
+        "echo-receive-interval": 50,
+        "echo-transmit-interval": 0,
+        "id": "*",
+        "multihop": false,
+        "passive-mode": false,
+        "peer": "192.168.4.2",
+        "receive-interval": 2000,
+        "remote-detect-multiplier": 3,
+        "remote-diagnostic": "ok",
+        "remote-echo-receive-interval": 50,
+        "remote-id": "*",
+        "remote-receive-interval": 2000,
+        "remote-transmit-interval": 2000,
+        "status": "up",
+        "transmit-interval": 2000,
+        "uptime": "*",
+        "vrf": "default"
     }
 ]
