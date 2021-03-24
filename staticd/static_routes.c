@@ -275,6 +275,11 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 	/* Make new static route structure. */
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
 
+	/* Copy back pointers. */
+	nh->rn = rn;
+	nh->sp = pn;
+	nh->safi = safi;
+
 	nh->type = type;
 	nh->color = color;
 

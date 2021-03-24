@@ -63,6 +63,14 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_create(struct nb_cb_create_args *args);
+int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_monitor_enable_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_profile_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_group_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_group_destroy(struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_destroy(
@@ -101,6 +109,20 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args);
+int route_group_create(struct nb_cb_create_args *args);
+int route_group_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_monitor_create(struct nb_cb_create_args *args);
+int route_group_bfd_monitor_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_vrf_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_peer_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_source_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_source_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_interface_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_interface_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_enable_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_profile_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_profile_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_multi_hop_modify(struct nb_cb_modify_args *args);
 
 /* Optional 'apply_finish' callbacks. */
 
