@@ -40,6 +40,18 @@ graph template {
     fillcolor="#f08080",
     style=filled,
   ];
+  r5 [
+    shape=doubleoctagon
+    label="r5",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+  r6 [
+    shape=doubleoctagon
+    label="r6",
+    fillcolor="#f08080",
+    style=filled,
+  ];
 
   # Switches
   sw1 [
@@ -60,6 +72,12 @@ graph template {
     fillcolor="#d0e0d0",
     style=filled,
   ];
+  sw4 [
+    shape=oval,
+    label="sw4\n192.168.4.0/24\n2001:db8:4::/64",
+    fillcolor="#d0e0d0",
+    style=filled,
+  ];
 
   # Connections
   r1 -- sw1 [label="eth0\n.1"];
@@ -70,4 +88,8 @@ graph template {
 
   r4 -- sw3 [label="eth0\n.1"];
   r3 -- sw3 [label="eth2\n.2"];
+
+  r4 -- sw4 [label="eth1\n.1"];
+  r5 -- sw4 [label="eth0\n.2"];
+  r6 -- sw4 [label="eth0\n.3"];
 }
