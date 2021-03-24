@@ -322,4 +322,6 @@ extern void static_group_fixup_vrf_ids(struct vrf *vrf, bool enabled);
 /** Call this function after zebra client initialization. */
 extern void static_bfd_initialize(struct zclient *zc, struct thread_master *tm);
 
+extern void static_bfd_show(struct vty *vty, bool isjson);
+
 #endif
