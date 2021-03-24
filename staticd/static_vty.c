@@ -1599,6 +1599,14 @@ DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(staticd_show_bfd_routes, staticd_show_bfd_routes_cmd,
+      "show bfd static route [json]$isjson",
+      SHOW_STR BFD_INTEGRATION_STR STATICD_STR ROUTE_STR JSON_STR)
+{
+	static_bfd_show(vty, !!isjson);
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (show_debugging_static,
 	    show_debugging_static_cmd,
 	    "show debugging [static]",
@@ -1645,4 +1653,6 @@ void static_vty_init(void)
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
+
+	install_element(ENABLE_NODE, &staticd_show_bfd_routes_cmd);
 }
