@@ -288,11 +288,17 @@ if test "$enable_clang_coverage" = "yes"; then
 fi
 
 if test "$enable_scripting" = "yes"; then
-   AX_PROG_LUA([5.3])
-   AX_LUA_HEADERS
+   AX_PROG_LUA([5.3], [5.4], [], [
+     AC_MSG_ERROR([Lua 5.3 is required to build with Lua support. No other version is supported.])
+   ])
+   AX_LUA_HEADERS([], [
+     AC_MSG_ERROR([Lua 5.3 headers are required to build with Lua support. No other version is supported.])
+   ])
    AX_LUA_LIBS([
-      AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-      LIBS="$LIBS $LUA_LIB"
+     AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+     LIBS="$LIBS $LUA_LIB"
+   ], [
+     AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
    ])
 fi
 
