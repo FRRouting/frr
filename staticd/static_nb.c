@@ -226,6 +226,7 @@ const struct frr_yang_module_info frr_staticd_info = {
 			.cbs = {
 				.create = route_group_bfd_monitor_create,
 				.destroy = route_group_bfd_monitor_destroy,
+				.cli_show = static_route_group_show,
 			}
 		},
 		{
