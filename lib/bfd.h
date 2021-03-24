@@ -47,6 +47,11 @@ extern "C" {
 
 #define BFD_PROFILE_NAME_LEN 64
 
+/** To use single hop the hop countmust be set to this. */
+#define BFD_SINGLE_HOP_COUNT 1
+/** To use multi hop the hop count must be at maximum this. */
+#define BFD_MULTI_HOP_MAX_HOP_COUNT 254
+
 const char *bfd_get_status_str(int status);
 
 extern void bfd_client_sendmsg(struct zclient *zclient, int command,
@@ -174,8 +179,9 @@ void bfd_sess_set_profile(struct bfd_session_params *bsp, const char *profile);
  *
  * \param bsp BFD session parameters.
  * \param vrf_id the VRF identification number.
+ * \returns true if vrf_id changed
  */
-void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id);
+bool bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id);
 
 /**
  * Configure the BFD session single/multi hop setting.

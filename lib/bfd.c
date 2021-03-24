@@ -410,7 +410,7 @@ struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
 static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 {
 	/* Peer/local address not configured. */
-	if (bsp->args.family == 0)
+	if (bsp->args.family == AF_UNSPEC)
 		return false;
 
 	/* Address configured but invalid. */
@@ -435,9 +435,13 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 		return false;
 	}
 
-	/* Multi hop requires local address. */
+	/* Multi hop requires local address.
+	 * - either CP is able to configure local address
+	 * - or profiles can be used
+	 */
 	if (bsp->args.mhop
-	    && memcmp(&i6a_zero, &bsp->args.src, sizeof(i6a_zero)) == 0) {
+	    && memcmp(&i6a_zero, &bsp->args.src, sizeof(i6a_zero)) == 0
+	    && bsp->args.profilelen == 0) {
 		if (bsglobal.debugging)
 			zlog_debug(
 				"%s: multi hop but no local address provided",
@@ -635,15 +639,16 @@ void bfd_sess_set_profile(struct bfd_session_params *bsp, const char *profile)
 	bsp->args.profilelen = strlen(bsp->args.profile);
 }
 
-void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
+bool bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 {
 	if (bsp->args.vrf_id == vrf_id)
-		return;
+		return false;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
 	bsp->args.vrf_id = vrf_id;
+	return true;
 }
 
 void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl)

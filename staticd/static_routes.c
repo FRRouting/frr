@@ -249,6 +249,7 @@ void static_del_path(struct route_node *rn, struct static_path *pn, safi_t safi,
 	static_path_list_del(&si->path_list, pn);
 
 	frr_each_safe(static_nexthop_list, &pn->nexthop_list, nh) {
+		static_next_hop_bfd_monitor_destroy(nh);
 		static_delete_nexthop(rn, pn, safi, svrf, nh);
 	}
 
@@ -275,6 +276,10 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 	/* Make new static route structure. */
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
 
+	/* Copy back pointers. */
+	nh->rn = rn;
+	nh->sp = pn;
+	nh->safi = safi;
 	nh->type = type;
 	nh->color = color;
 
@@ -519,6 +524,11 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 						nh->ifindex = ifp->ifindex;
 					else
 						continue;
+				}
+				if (nh->bsp) {
+					bfd_sess_set_vrf(nh->bsp,
+							 nh->nh_vrf_id);
+					bfd_sess_install(nh->bsp);
 				}
 
 				static_install_path(rn, pn, safi, svrf);
