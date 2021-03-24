@@ -283,20 +283,9 @@ static int bgp_ifp_down(struct interface *ifp)
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-#if defined(HAVE_CUMULUS)
-			/* Take down directly connected EBGP peers as well as
-			 * 1-hop BFD
-			 * tracked (directly connected) IBGP peers.
-			 */
-			if ((peer->ttl != BGP_DEFAULT_TTL)
-			    && (peer->gtsm_hops != BGP_GTSM_HOPS_CONNECTED)
-			    && (!peer->bfd_info
-				|| bgp_bfd_is_peer_multihop(peer)))
-#else
-			/* Take down directly connected EBGP peers */
+			/* Take down directly connected peers. */
 			if ((peer->ttl != BGP_DEFAULT_TTL)
 			    && (peer->gtsm_hops != BGP_GTSM_HOPS_CONNECTED))
-#endif
 				continue;
 
 			if (ifp == peer->nexthop.ifp) {

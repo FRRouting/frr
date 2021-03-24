@@ -45,6 +45,8 @@
 #include "bgp_nexthop.h"
 #include "bgp_damp.h"
 
+#include "lib/bfd.h"
+
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
 
@@ -1558,8 +1560,29 @@ struct peer {
 #define PEER_RMAP_TYPE_EXPORT         (1U << 7) /* neighbor route-map export */
 #define PEER_RMAP_TYPE_AGGREGATE      (1U << 8) /* aggregate-address route-map */
 
-	/* peer specific BFD information */
-	struct bfd_info *bfd_info;
+	/** Peer overwrite configuration. */
+	struct bfd_session_config {
+		/**
+		 * Manual configuration bit.
+		 *
+		 * This flag only makes sense for real peers (and not groups),
+		 * it keeps track if the user explicitly configured BFD for a
+		 * peer.
+		 */
+		bool manual;
+		/** Control Plane Independent. */
+		bool cbit;
+		/** Detection multiplier. */
+		uint8_t detection_multiplier;
+		/** Minimum required RX interval. */
+		uint32_t min_rx;
+		/** Minimum required TX interval. */
+		uint32_t min_tx;
+		/** Profile name. */
+		char profile[BFD_PROFILE_NAME_LEN];
+		/** Peer BFD session */
+		struct bfd_session_params *session;
+	} * bfd_config;
 
 	/* hostname and domainname advertised by host */
 	char *hostname;

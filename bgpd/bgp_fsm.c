@@ -1215,8 +1215,9 @@ int bgp_stop(struct peer *peer)
 	peer->nsf_af_count = 0;
 
 	/* deregister peer */
-	if (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
-		bgp_bfd_deregister_peer(peer);
+	if (peer->bfd_config
+	    && peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
+		bfd_sess_uninstall(peer->bfd_config->session);
 
 	if (peer_dynamic_neighbor(peer)
 	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
@@ -2122,7 +2123,10 @@ static int bgp_establish(struct peer *peer)
 	hash_release(peer->bgp->peerhash, peer);
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
-	bgp_bfd_reset_peer(peer);
+	/* Start BFD peer if not already running. */
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
+
 	return ret;
 }
 

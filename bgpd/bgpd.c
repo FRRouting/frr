@@ -1161,7 +1161,9 @@ static void peer_free(struct peer *peer)
 
 	XFREE(MTYPE_PEER_CONF_IF, peer->conf_if);
 
-	bfd_info_free(&(peer->bfd_info));
+	/* Remove BFD configuration. */
+	if (peer->bfd_config)
+		bgp_peer_remove_bfd_config(peer);
 
 	FOREACH_AFI_SAFI (afi, safi)
 		bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE);
@@ -2394,7 +2396,9 @@ int peer_delete(struct peer *peer)
 
 	SET_FLAG(peer->flags, PEER_FLAG_DELETE);
 
-	bgp_bfd_deregister_peer(peer);
+	/* Remove BFD settings. */
+	if (peer->bfd_config)
+		bgp_peer_remove_bfd_config(peer);
 
 	/* Delete peer route flap dampening configuration. This needs to happen
 	 * before removing the peer from peer groups.
@@ -2678,7 +2682,11 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	/* Update GR flags for the peer. */
 	bgp_peer_gr_flags_update(peer);
 
-	bgp_bfd_peer_group2peer_copy(conf, peer);
+	/* Apply BFD settings from group to peer if it exists. */
+	if (conf->bfd_config) {
+		bgp_peer_configure_bfd(peer, false);
+		bgp_peer_config_apply(peer, group);
+	}
 }
 
 /* Peer group's remote AS configuration.  */
@@ -2768,7 +2776,8 @@ int peer_group_delete(struct peer_group *group)
 	XFREE(MTYPE_PEER_GROUP_HOST, group->name);
 	group->name = NULL;
 
-	bfd_info_free(&(group->conf->bfd_info));
+	if (group->conf->bfd_config)
+		bgp_peer_remove_bfd_config(group->conf);
 
 	group->conf->group = NULL;
 	peer_delete(group->conf);
@@ -7700,7 +7709,7 @@ void bgp_init(unsigned short instance)
 	bgp_clist = community_list_init();
 
 	/* BFD init */
-	bgp_bfd_init();
+	bgp_bfd_init(bm->master);
 
 	bgp_lp_vty_init();
 
