@@ -1067,7 +1067,8 @@ static void clear_nhrp_cache(struct nhrp_cache *c, void *data)
 	if (c->cur.type <= NHRP_CACHE_DYNAMIC) {
 		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
 					  NULL);
-		ctx->count++;
+		if (ctx)
+			ctx->count++;
 	}
 }
 
@@ -1097,6 +1098,12 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 			nhrp_cache_foreach(ifp, clear_nhrp_cache, &ctx);
 	} else {
 		nhrp_shortcut_foreach(ctx.afi, clear_nhrp_shortcut, &ctx);
+		/* Clear cache also because when a shortcut is cleared then its
+		 * cache entry should be cleared as well (otherwise traffic
+		 * continues via the shortcut path)
+		 */
+		FOR_ALL_INTERFACES (vrf, ifp)
+			nhrp_cache_foreach(ifp, clear_nhrp_cache, NULL);
 	}
 
 	if (!ctx.count) {
