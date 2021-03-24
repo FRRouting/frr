@@ -1,0 +1,30 @@
+{
+    "path-list": {
+        "ipv4-multicast": [],
+        "ipv4-unicast": [
+            {
+                "installed": true,
+                "prefix": "10.254.254.4/32",
+                "vrf": "default"
+            }
+        ],
+        "ipv6-unicast": []
+    },
+    "route-group": [
+        {
+            "installed": false,
+            "multi-hop": true,
+            "name": "rg-1",
+            "peer": "2001:db8:4::2",
+            "routes": [
+                {
+                    "installed": false,
+                    "prefix": "2001:db8:4::2/128",
+                    "vrf": "default"
+                }
+            ],
+            "source": "2001:db8:4::3",
+            "vrf": "default"
+        }
+    ]
+}
