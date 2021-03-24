@@ -711,9 +711,9 @@ void pm_echo_send(struct event *event)
 		     pme->packet_size, 0,
 		     &pme->gw.sa, siz);
 	if (ret < 0) {
-		zlog_err("PMD: error when sending ICMP echo to %pSU (%x)",
-				&pme->peer, errno);
 		pme->last_errno = errno;
+		zlog_err("PMD: error when sending ICMP echo to %pSU (%x)",
+				&pme->peer, pme->last_errno);
 		pm_echo_trigger_down_event(pm);
 	} else {
 		pme->last_errno = 0;
