@@ -277,6 +277,8 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
 
 	nh->pn = pn;
+	/* Copy back pointers. */
+	nh->rn = rn;
 
 	nh->type = type;
 	nh->color = color;

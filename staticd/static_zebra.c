@@ -416,6 +416,9 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 		api_nh = &api.nexthops[nh_num];
 		if (nh->nh_vrf_id == VRF_UNKNOWN)
 			continue;
+		/* Skip next hop which peer is down. */
+		if (nh->path_down)
+			continue;
 
 		api_nh->vrf_id = nh->nh_vrf_id;
 		if (nh->onlink)
@@ -522,6 +525,8 @@ void static_zebra_init(void)
 	static_nht_hash = hash_create(static_nht_hash_key,
 				      static_nht_hash_cmp,
 				      "Static Nexthop Tracking hash");
+
+	static_bfd_initialize(zclient, master);
 }
 
 /* static_zebra_stop used by tests/lib/test_grpc.cpp */
