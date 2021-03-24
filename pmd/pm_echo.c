@@ -767,10 +767,10 @@ int pm_echo_send(struct thread *thread)
 	if (ret < 0) {
 		char buf[SU_ADDRSTRLEN];
 
+		pme->last_errno = errno;
 		sockunion2str(&pme->peer, buf, sizeof(buf));
 		zlog_err("PMD: error when sending ICMP echo to %s (%x)",
-			 buf, errno);
-		pme->last_errno = errno;
+			 buf, pme->last_errno);
 		pm_echo_trigger_down_event(pm);
 	} else {
 		pme->last_errno = 0;
