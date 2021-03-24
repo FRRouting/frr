@@ -35,6 +35,7 @@
 #include "ldp_sync.h"
 
 #include "ospfd/ospfd.h"
+#include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
@@ -545,10 +546,11 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	return oip;
 }
 
-void ospf_del_if_params(struct ospf_if_params *oip)
+static void ospf_del_if_params(struct interface *ifp,
+			       struct ospf_if_params *oip)
 {
 	list_delete(&oip->auth_crypt);
-	bfd_info_free(&(oip->bfd_info));
+	ospf_interface_disable_bfd(ifp, oip);
 	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
 }
@@ -582,7 +584,7 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_type)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, if_area)
 	    && listcount(oip->auth_crypt) == 0) {
-		ospf_del_if_params(oip);
+		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
 	}
@@ -696,10 +698,10 @@ static int ospf_if_delete_hook(struct interface *ifp)
 
 	for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
 		if (rn->info)
-			ospf_del_if_params(rn->info);
+			ospf_del_if_params(ifp, rn->info);
 	route_table_finish(IF_OIFS_PARAMS(ifp));
 
-	ospf_del_if_params((struct ospf_if_params *)IF_DEF_PARAMS(ifp));
+	ospf_del_if_params(ifp, IF_DEF_PARAMS(ifp));
 	XFREE(MTYPE_OSPF_IF_INFO, ifp->info);
 
 	return rc;

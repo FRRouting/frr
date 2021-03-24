@@ -968,6 +968,12 @@ TI-LFA requires a proper Segment Routing configuration.
 Debugging OSPF
 ==============
 
+.. clicmd:: debug ospf bfd
+
+   Enable or disable debugging for BFD events. This will show BFD integration
+   library messages and OSPF BFD integration messages that are mostly state
+   transitions and validation problems.
+
 .. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
 

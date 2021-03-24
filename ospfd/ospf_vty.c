@@ -3776,7 +3776,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				"  Neighbor Count is %d, Adjacent neighbor count is %d\n",
 				ospf_nbr_count(oi, 0),
 				ospf_nbr_count(oi, NSM_Full));
-		ospf_bfd_interface_show(vty, ifp, json_interface_sub, use_json);
+
+		ospf_interface_bfd_show(vty, ifp, json_interface_sub);
 
 		/* OSPF Authentication information */
 		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
@@ -5282,7 +5283,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 						 .helper_exit_reason));
 	}
 
-	ospf_bfd_show_info(vty, nbr->bfd_info, json_neigh, use_json, 0);
+	bfd_sess_show(vty, json_neigh, nbr->bfd_session);
 
 	if (use_json)
 		json_object_array_add(json_neigh_array, json_neigh);
@@ -11686,7 +11687,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			}
 
 			/* bfd  print. */
-			if (params && params->bfd_info)
+			if (params && params->bfd_config)
 				ospf_bfd_write_config(vty, params);
 
 			/* MTU ignore print. */

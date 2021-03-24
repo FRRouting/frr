@@ -67,6 +67,8 @@
 #define OSPF_DEBUG_GR_HELPER 0x01
 #define OSPF_DEBUG_GR 0x03
 
+#define OSPF_DEBUG_BFD_LIB 0x01
+
 /* Macro for setting debug option. */
 #define CONF_DEBUG_PACKET_ON(a, b)	    conf_debug_ospf_packet[a] |= (b)
 #define CONF_DEBUG_PACKET_OFF(a, b)	    conf_debug_ospf_packet[a] &= ~(b)
@@ -140,6 +142,7 @@ extern unsigned long term_debug_ospf_ti_lfa;
 extern unsigned long term_debug_ospf_defaultinfo;
 extern unsigned long term_debug_ospf_ldp_sync;
 extern unsigned long term_debug_ospf_gr;
+extern unsigned long term_debug_ospf_bfd;
 
 /* Message Strings. */
 extern char *ospf_lsa_type_str[];
