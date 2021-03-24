@@ -335,6 +335,7 @@ extern int bgp_evpn_es_route_install_uninstall(struct bgp *bgp,
 		struct bgp_evpn_es *es, afi_t afi, safi_t safi,
 		struct prefix_evpn *evp, struct bgp_path_info *pi,
 		int install);
+extern void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn);
 int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);

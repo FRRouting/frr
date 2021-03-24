@@ -970,6 +970,48 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp,
 	return 0;
 }
 
+/*
+ * This function is called when the export RT for a VNI changes.
+ * Update all type-1 local routes for this VNI from VNI/ES tables and the global
+ * table and advertise these routes to peers.
+ */
+
+void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct prefix_evpn p;
+	struct bgp_evpn_es *es;
+	struct bgp_evpn_es_evi *es_evi;
+	struct bgp_evpn_es_evi *es_evi_next;
+
+	RB_FOREACH_SAFE(es_evi, bgp_es_evi_rb_head,
+			&vpn->es_evi_rb_tree, es_evi_next) {
+		es = es_evi->es;
+
+		/* Update EAD-ES */
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP)) {
+			build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG,
+						&es->esi, es->originator_ip);
+			if (bgp_evpn_type1_route_update(bgp, es, NULL, &p))
+				flog_err(EC_BGP_EVPN_ROUTE_CREATE,
+					"%u: EAD-ES route update failure for ESI %s VNI %u",
+					bgp->vrf_id, es->esi_str,
+					es_evi->vpn->vni);
+		}
+
+		/* Update EAD-EVI */
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_ADV_EVI)) {
+			build_evpn_type1_prefix(&p, BGP_EVPN_AD_EVI_ETH_TAG,
+						&es->esi, es->originator_ip);
+			if (bgp_evpn_type1_route_update(bgp, es, es_evi->vpn,
+							&p))
+				flog_err(EC_BGP_EVPN_ROUTE_DELETE,
+					"%u: EAD-EVI route update failure for ESI %s VNI %u",
+					bgp->vrf_id, es->esi_str,
+					es_evi->vpn->vni);
+		}
+	}
+}
+
 /* Delete local Type-1 route */
 static int bgp_evpn_type1_es_route_delete(struct bgp *bgp,
 		struct bgp_evpn_es *es, struct prefix_evpn *p)
