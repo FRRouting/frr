@@ -597,6 +597,7 @@ module frr-zebra {
 
   grouping ribs {
     container ribs {
+      config false;
       description
         "RIBs supported by FRR.";
       list rib {
@@ -617,7 +618,6 @@ module frr-zebra {
 
         list route {
           key "prefix";
-          config false;
           leaf prefix {
             type inet:ip-prefix;
             description

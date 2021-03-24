@@ -2394,13 +2394,6 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 	struct ipaddr group_addr;
 	const struct lyd_node *if_dnode;
 
-	iif = nb_running_get_entry(args->dnode, NULL, true);
-	pim_iifp = iif->info;
-	pim = pim_iifp->pim;
-
-	oifname = yang_dnode_get_string(args->dnode, NULL);
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
@@ -2411,6 +2404,17 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 		}
 
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
+		iif = nb_running_get_entry(args->dnode, NULL, false);
+		if (!iif) {
+			return NB_OK;
+		}
+
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, NULL);
+		oif = if_lookup_by_name(oifname, pim->vrf_id);
+
 		if (oif && (iif->ifindex == oif->ifindex)) {
 			strlcpy(args->errmsg,
 				"% IIF same as OIF and loopfree enforcement is enabled; rejecting",
@@ -2423,6 +2427,12 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		iif = nb_running_get_entry(args->dnode, NULL, true);
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, NULL);
+		oif = if_lookup_by_name(oifname, pim->vrf_id);
 		if (!oif) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "No such interface name %s",

@@ -401,11 +401,21 @@ const struct frr_yang_module_info frr_zebra_info = {
 		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib",
 			.cbs = {
-				.create = lib_vrf_zebra_ribs_rib_create,
-				.destroy = lib_vrf_zebra_ribs_rib_destroy,
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,
 				.get_keys = lib_vrf_zebra_ribs_rib_get_keys,
 				.lookup_entry = lib_vrf_zebra_ribs_rib_lookup_entry,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/afi-safi-name",
+			.cbs = {
+				.get_elem = lib_vrf_zebra_ribs_rib_afi_safi_name_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/table-id",
+			.cbs = {
+				.get_elem = lib_vrf_zebra_ribs_rib_table_id_get_elem,
 			}
 		},
 		{

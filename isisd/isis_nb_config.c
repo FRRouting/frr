@@ -133,7 +133,7 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_get_entry(args->dnode, NULL, false);
 		if (area == NULL)
 			return NB_ERR_VALIDATION;
 		addr.addr_len = dotformat2buff(buff, net_title);
