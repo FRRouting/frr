@@ -427,8 +427,10 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	 * */
 	/* FIXME: push CIE for each local protocol address */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, NULL, NULL);
-	cie->prefix_length = 0xff;
 	if_ad = &nifp->afi[family2afi(sockunion_family(&s->addr))];
+	cie->prefix_length = (if_ad->flags & NHRP_IFF_REG_NO_UNIQUE)
+				? 8 * sockunion_get_addrlen(&s->addr)
+				: 0xff;
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 	debugf(NHRP_DEBUG_COMMON,
