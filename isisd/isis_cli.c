@@ -392,7 +392,7 @@ void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
 
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
-	vty_out(vty, " ip router isis %s ",
+	vty_out(vty, " ip router isis %s",
 		yang_dnode_get_string(dnode, "../area-tag"));
 	if (!strmatch(vrf, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf);
