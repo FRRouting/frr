@@ -853,11 +853,12 @@ int ospf6_lsa_refresh(struct thread *thread)
 
 void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 {
-	struct listnode *node;
+	struct listnode *node, *nnode;
 	struct ospf6_area *oa;
 	struct ospf6_lsa *lsa;
 	const struct route_node *end = NULL;
 	uint32_t type, adv_router;
+	struct ospf6_interface *oi;
 
 	ospf6->inst_shutdown = 1;
 
@@ -871,6 +872,19 @@ void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 			ospf6_flood(NULL, lsa);
 
 			lsa = ospf6_lsdb_next(end, lsa);
+		}
+
+		for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
+			end = ospf6_lsdb_head(oi->lsdb_self, 0, 0,
+					      ospf6->router_id, &lsa);
+			while (lsa) {
+				/* RFC 2328 (14.1):  Set MAXAGE */
+				lsa->header->age = htons(OSPF_LSA_MAXAGE);
+				/* Flood MAXAGE LSA*/
+				ospf6_flood(NULL, lsa);
+
+				lsa = ospf6_lsdb_next(end, lsa);
+			}
 		}
 	}
 
