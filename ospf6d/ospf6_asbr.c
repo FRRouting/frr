@@ -632,7 +632,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 		old = ospf6_route_lookup(&route->prefix, oa->route_table);
 	if (!old) {
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-			zlog_debug("%s : Adding new route", __func__);
+			zlog_debug("%s: Adding new route", __func__);
 		/* Add the new route to ospf6 instance route table. */
 		if (type == OSPF6_LSTYPE_AS_EXTERNAL)
 			ospf6_route_add(route, ospf6->route_table);
@@ -663,24 +663,42 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	struct ospf6_route *route, *nroute, *route_to_del;
 	struct ospf6_area *oa = NULL;
 	struct ospf6 *ospf6;
+	int type;
+	bool debug = false;
 
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
 
-	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-		zlog_debug("Withdraw AS-External route for %s", lsa->name);
+	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) || (IS_OSPF6_DEBUG_NSSA))
+		debug = true;
 
 	ospf6 = ospf6_get_by_lsdb(lsa);
-	if (ospf6_is_router_abr(ospf6))
-		oa = ospf6->backbone;
-	else
-		oa = listnode_head(ospf6->area_list);
+	type = ntohs(lsa->header->type);
 
-	if (oa == NULL)
+	if (type == OSPF6_LSTYPE_TYPE_7) {
+		if (debug)
+			zlog_debug("%s: Withdraw  Type 7 route for %s",
+				   __func__, lsa->name);
+		oa = lsa->lsdb->data;
+	} else {
+		if (debug)
+			zlog_debug("%s: Withdraw AS-External route for %s",
+				   __func__, lsa->name);
+
+		if (ospf6_is_router_abr(ospf6))
+			oa = ospf6->backbone;
+		else
+			oa = listgetdata(listhead(ospf6->area_list));
+	}
+
+	if (oa == NULL) {
+		if (debug)
+			zlog_debug("%s: Invalid area", __func__);
 		return;
+	}
 
 	if (lsa->header->adv_router == oa->ospf6->router_id) {
-		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
+		if (debug)
 			zlog_debug("Ignore self-originated AS-External-LSA");
 		return;
 	}
@@ -718,22 +736,23 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	prefix.prefixlen = external->prefix.prefix_length;
 	ospf6_prefix_in6_addr(&prefix.u.prefix6, external, &external->prefix);
 
-	route = ospf6_route_lookup(&prefix, oa->ospf6->route_table);
-	if (route == NULL) {
-		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-			zlog_debug("AS-External route %pFX not found", &prefix);
-		}
+	if (type == OSPF6_LSTYPE_TYPE_7)
+		route = ospf6_route_lookup(&prefix, oa->route_table);
+	else
+		route = ospf6_route_lookup(&prefix, oa->ospf6->route_table);
 
+	if (route == NULL) {
+		if (debug)
+			zlog_debug("AS-External route %pFX not found", &prefix);
 		ospf6_route_delete(route_to_del);
 		return;
 	}
 
-	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+	if (debug)
 		zlog_debug(
 			"%s: Current route %pFX cost %u e2 %u, route to del cost %u e2 %u",
 			__func__, &prefix, route->path.cost, route->path.u.cost_e2,
 			route_to_del->path.cost, route_to_del->path.u.cost_e2);
-	}
 
 	for (ospf6_route_lock(route);
 	     route && ospf6_route_is_prefix(&prefix, route); route = nroute) {
@@ -785,7 +804,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 					continue;
 				}
 
-				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+				if (debug) {
 					zlog_debug(
 						"%s: route %pFX path found with cost %u nh %u to remove.",
 						__func__, &prefix, route->path.cost,
@@ -826,7 +845,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 							     o_path->nh_list);
 				}
 
-				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+				if (debug) {
 					zlog_debug(
 						"%s: AS-External %u route %pFX update paths %u nh %u",
 						__func__,
@@ -869,8 +888,13 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 						h_path->origin.adv_router;
 					}
 				} else {
-					ospf6_route_remove(
-						route, oa->ospf6->route_table);
+					if (type == OSPF6_LSTYPE_TYPE_7)
+						ospf6_route_remove(
+							route, oa->route_table);
+					else
+						ospf6_route_remove(
+							route,
+							oa->ospf6->route_table);
 				}
 			}
 			continue;
@@ -885,7 +909,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				|| (route->path.cost != route_to_del->path.cost)
 				|| (route->path.u.cost_e2
 				    != route_to_del->path.u.cost_e2))) {
-				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+				if (debug) {
 					zlog_debug(
 						"%s: route %pFX to delete is not same, cost %u del cost %u. skip",
 						__func__, &prefix, route->path.cost,
@@ -900,7 +924,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 			    || (route->path.origin.id != lsa->header->id))
 				continue;
 		}
-		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+		if (debug) {
 			zlog_debug(
 				"%s: AS-External %u route remove %pFX cost %u(%u) nh %u",
 				__func__,
@@ -910,7 +934,10 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				&route->prefix, route->path.cost, route->path.u.cost_e2,
 				listcount(route->nh_list));
 		}
-		ospf6_route_remove(route, oa->ospf6->route_table);
+		if (type == OSPF6_LSTYPE_TYPE_7)
+			ospf6_route_remove(route, oa->route_table);
+		else
+			ospf6_route_remove(route, oa->ospf6->route_table);
 	}
 	if (route != NULL)
 		ospf6_route_unlock(route);
