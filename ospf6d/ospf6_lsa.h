@@ -80,6 +80,11 @@
 #define OSPF6_SCOPE_AS         0x4000
 #define OSPF6_SCOPE_RESERVED   0x6000
 
+/* AS-external-LSA refresh method. */
+#define LSA_REFRESH_IF_CHANGED  0
+#define LSA_REFRESH_FORCE       1
+
+
 /* XXX U-bit handling should be treated here */
 #define OSPF6_LSA_SCOPE(type) (ntohs(type) & OSPF6_LSTYPE_SCOPE_MASK)
 
@@ -113,6 +118,7 @@ struct ospf6_lsa_header {
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
 #define OSPF6_LSA_IS_SEQWRAP(L) ((L)->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER + 1))
 
+
 struct ospf6_lsa {
 	char name[64]; /* dump string */
 
@@ -133,6 +139,8 @@ struct ospf6_lsa {
 
 	struct ospf6_lsdb *lsdb;
 
+	in_addr_t external_lsa_id;
+
 	/* lsa instance */
 	struct ospf6_lsa_header *header;
 };
@@ -143,6 +151,7 @@ struct ospf6_lsa {
 #define OSPF6_LSA_IMPLIEDACK 0x08
 #define OSPF6_LSA_UNAPPROVED 0x10
 #define OSPF6_LSA_SEQWRAPPED 0x20
+#define OSPF6_LSA_FLUSH      0x40
 
 struct ospf6_lsa_handler {
 	uint16_t lh_type; /* host byte order */

@@ -46,6 +46,7 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "lib/json.h"
+#include "ospf6_nssa.h"
 
 DEFINE_MGROUP(OSPF6D, "ospf6d");
 
@@ -94,6 +95,7 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_asbr(vty);
 	config_write_ospf6_debug_abr(vty);
 	config_write_ospf6_debug_flood(vty);
+	config_write_ospf6_debug_nssa(vty);
 
 	return 0;
 }
@@ -153,6 +155,8 @@ static uint16_t parse_type_spec(int idx_lsa, int argc, struct cmd_token **argv)
 			type = htons(OSPF6_LSTYPE_INTER_PREFIX);
 		else if (strmatch(argv[idx_lsa]->text, "link"))
 			type = htons(OSPF6_LSTYPE_LINK);
+		else if (strmatch(argv[idx_lsa]->text, "type-7"))
+			type = htons(OSPF6_LSTYPE_TYPE_7);
 	}
 
 	return type;
@@ -1419,6 +1423,7 @@ void ospf6_init(struct thread_master *master)
 	install_element_ospf6_debug_asbr();
 	install_element_ospf6_debug_abr();
 	install_element_ospf6_debug_flood();
+	install_element_ospf6_debug_nssa();
 
 	install_element_ospf6_clear_interface();
 

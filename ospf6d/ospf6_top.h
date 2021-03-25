@@ -95,6 +95,8 @@ struct ospf6 {
 	struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
 	uint8_t flag;
+#define OSPF6_FLAG_ABR          0x04
+#define OSPF6_FLAG_ASBR         0x08
 
 	int redistribute; /* Num of redistributed protocols. */
 
@@ -145,14 +147,17 @@ struct ospf6 {
 	 * to support ECMP.
 	 */
 	uint16_t max_multipath;
+	/* Count of NSSA areas */
+	uint8_t anyNSSA;
+	struct thread *t_abr_task; /* ABR task timer. */
 
+	uint32_t redist_count;
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(ospf6);
 
 #define OSPF6_DISABLED    0x01
 #define OSPF6_STUB_ROUTER 0x02
-#define OSPF6_FLAG_ASBR   0x04
 #define OSPF6_MAX_IF_ADDRS 100
 #define OSPF6_MAX_IF_ADDRS_JUMBO 200
 #define OSPF6_DEFAULT_MTU 1500
