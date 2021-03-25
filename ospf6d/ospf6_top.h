@@ -84,8 +84,9 @@ struct ospf6 {
 
 	/* OSPF6 redistribute configuration */
 	struct list *redist[ZEBRA_ROUTE_MAX];
-
 	uint8_t flag;
+#define OSPF6_FLAG_ABR          0x04
+#define OSPF6_FLAG_ASBR         0x08
 
 	/* Configuration bitmask, refer to enum above */
 	uint8_t config_flags;
@@ -131,7 +132,11 @@ struct ospf6 {
 	 * to support ECMP.
 	 */
 	uint16_t max_multipath;
+	/* Count of NSSA areas */
+	uint8_t anyNSSA;
+	struct thread *t_abr_task; /* ABR task timer. */
 
+	uint32_t redist_count;
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(ospf6);

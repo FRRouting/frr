@@ -40,6 +40,7 @@
 #include "ospf6_neighbor.h"
 
 #include "ospf6_flood.h"
+#include "ospf6_nssa.h"
 
 unsigned char conf_debug_ospf6_flooding;
 
@@ -213,12 +214,19 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 {
 	struct timeval now;
 	struct ospf6_lsa *old;
+	struct ospf6_area *area = NULL;
 
 	/* Remove the old instance from all neighbors' Link state
 	   retransmission list (RFC2328 13.2 last paragraph) */
 	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				lsa->header->adv_router, lsa->lsdb);
 	if (old) {
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
+			if (IS_OSPF6_DEBUG_NSSA)
+				zlog_debug("%s : old LSA %s", __func__,
+					   lsa->name);
+			lsa->external_lsa_id = old->external_lsa_id;
+		}
 		THREAD_OFF(old->expire);
 		THREAD_OFF(old->refresh);
 		ospf6_flood_clear(old);
@@ -265,6 +273,22 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	lsa->installed = now;
 	ospf6_lsdb_add(lsa, lsa->lsdb);
 
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
+		area = OSPF6_AREA(lsa->lsdb->data);
+		ospf6_translated_nssa_refresh(area, lsa, NULL);
+		ospf6_schedule_abr_task(area->ospf6);
+	}
+
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER) {
+		area = OSPF6_AREA(lsa->lsdb->data);
+		if (old == NULL) {
+			if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
+			    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
+				zlog_debug("%s: New router LSA %s", __func__,
+					   lsa->name);
+			ospf6_abr_nssa_check_status(area->ospf6);
+		}
+	}
 	return;
 }
 
@@ -370,7 +394,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 			continue;
 		}
 
-		if (oi->area->ospf6->inst_shutdown) {
+		if ((oi->area->ospf6->inst_shutdown)
+		    || CHECK_FLAG(lsa->flag, OSPF6_LSA_FLUSH)) {
 			if (is_debug)
 				zlog_debug(
 					"%s: Send LSA %s (age %d) update now",
@@ -471,7 +496,12 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 			continue;
 
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(oa))
+		    && (IS_AREA_STUB(oa) || IS_AREA_NSSA(oa)))
+			continue;
+
+		/* Check for NSSA LSA */
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+		    && !IS_AREA_NSSA(oa) && !OSPF6_LSA_IS_MAXAGE(lsa))
 			continue;
 
 		ospf6_flood_area(from, lsa, oa);
@@ -511,7 +541,7 @@ static void ospf6_flood_clear_interface(struct ospf6_lsa *lsa,
 	}
 }
 
-static void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
+void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_interface *oi;
@@ -540,7 +570,11 @@ static void ospf6_flood_clear_process(struct ospf6_lsa *lsa,
 			continue;
 
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(oa))
+		    && (IS_AREA_STUB(oa) || (IS_AREA_NSSA(oa))))
+			continue;
+		/* Check for NSSA LSA */
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+		    && !IS_AREA_NSSA(oa))
 			continue;
 
 		ospf6_flood_clear_area(lsa, oa);
@@ -552,6 +586,8 @@ void ospf6_flood_clear(struct ospf6_lsa *lsa)
 	struct ospf6 *ospf6;
 
 	ospf6 = ospf6_get_by_lsdb(lsa);
+	if (ospf6 == NULL)
+		return;
 	ospf6_flood_clear_process(lsa, ospf6);
 }
 

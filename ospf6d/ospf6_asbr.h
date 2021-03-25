@@ -71,6 +71,8 @@ struct ospf6_as_external_lsa {
 	}
 
 extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa);
+#define IS_OSPF6_ASBR(o) ((o)->flag & OSPF6_FLAG_ASBR)
+
 extern void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				  struct ospf6_route *asbr_entry);
 extern void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry,
@@ -105,4 +107,9 @@ extern void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 extern void ospf6_asbr_distribute_list_update(int type, struct ospf6 *ospf6);
 struct ospf6_redist *ospf6_redist_lookup(struct ospf6 *ospf6, int type,
 					 unsigned short instance);
+extern void ospf6_asbr_routemap_update(const char *mapname);
+extern void ospf6_as_external_lsa_originate(struct ospf6_route *route,
+					    struct ospf6 *ospf6);
+extern void ospf6_asbr_status_update(struct ospf6 *ospf6, int status);
+
 #endif /* OSPF6_ASBR_H */
