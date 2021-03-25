@@ -1830,6 +1830,7 @@ int lib_interface_pim_hello_interval_modify(struct nb_cb_modify_args *args)
 		pim_ifp = ifp->info;
 		pim_ifp->pim_hello_period =
 			yang_dnode_get_uint8(args->dnode, NULL);
+		pim_ifp->pim_default_holdtime = -1;
 		break;
 	}
 

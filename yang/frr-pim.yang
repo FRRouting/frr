@@ -294,6 +294,9 @@ module frr-pim {
       type uint8 {
         range "1..180";
       }
+      must ". > ./../hello-interval" {
+      error-message "HoldTime must be greater than Hello";
+      }
       description
         "Hello holdtime";
     }
