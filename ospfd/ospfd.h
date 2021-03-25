@@ -476,7 +476,7 @@ struct ospf_area {
 	int shortcut_capability; /* Other ABRs agree on S-bit */
 	uint32_t default_cost;   /* StubDefaultCost. */
 	int auth_type;		 /* Authentication type. */
-
+	int suppress_fa;	 /* Suppress forwarding address in NSSA ABR */
 
 	uint8_t NSSATranslatorRole; /* NSSA configured role */
 #define OSPF_NSSA_ROLE_NEVER     0
@@ -668,6 +668,10 @@ extern int ospf_area_no_summary_set(struct ospf *, struct in_addr);
 extern int ospf_area_no_summary_unset(struct ospf *, struct in_addr);
 extern int ospf_area_nssa_set(struct ospf *, struct in_addr);
 extern int ospf_area_nssa_unset(struct ospf *, struct in_addr, int);
+extern int ospf_area_nssa_suppress_fa_set(struct ospf *ospf,
+					  struct in_addr area_id);
+extern int ospf_area_nssa_suppress_fa_unset(struct ospf *ospf,
+					    struct in_addr area_id);
 extern int ospf_area_nssa_translator_role_set(struct ospf *, struct in_addr,
 					      int);
 extern int ospf_area_export_list_set(struct ospf *, struct ospf_area *,

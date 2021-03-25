@@ -675,7 +675,8 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 		 * originate translated LSA
 		 */
 
-		if (ospf_translated_nssa_originate(area->ospf, lsa) == NULL) {
+		if (ospf_translated_nssa_originate(area->ospf, lsa, old)
+		    == NULL) {
 			if (IS_DEBUG_OSPF_NSSA)
 				zlog_debug(
 					"ospf_abr_translate_nssa(): Could not translate Type-7 for %pI4 to Type-5",

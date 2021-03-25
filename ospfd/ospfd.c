@@ -1672,6 +1672,7 @@ int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id)
 
 		/* set NSSA area defaults */
 		area->no_summary = 0;
+		area->suppress_fa = 0;
 		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
 		area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
 		area->NSSATranslatorStabilityInterval =
@@ -1693,6 +1694,7 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
 		ospf->anyNSSA--;
 		/* set NSSA area defaults */
 		area->no_summary = 0;
+		area->suppress_fa = 0;
 		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
 		area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
 		area->NSSATranslatorStabilityInterval =
@@ -1704,6 +1706,32 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
 	}
 
 	ospf_area_check_free(ospf, area_id);
+
+	return 1;
+}
+
+int ospf_area_nssa_suppress_fa_set(struct ospf *ospf, struct in_addr area_id)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area == NULL)
+		return 0;
+
+	area->suppress_fa = 1;
+
+	return 1;
+}
+
+int ospf_area_nssa_suppress_fa_unset(struct ospf *ospf, struct in_addr area_id)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area == NULL)
+		return 0;
+
+	area->suppress_fa = 0;
 
 	return 1;
 }

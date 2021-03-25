@@ -341,11 +341,12 @@ extern char link_info_set(struct stream **s, struct in_addr id,
 
 extern struct in_addr ospf_get_nssa_ip(struct ospf_area *);
 extern int ospf_translated_nssa_compare(struct ospf_lsa *, struct ospf_lsa *);
-extern struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *,
-						     struct ospf_lsa *,
-						     struct ospf_lsa *);
-extern struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *,
-						       struct ospf_lsa *);
+extern struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
+						     struct ospf_lsa *type7,
+						     struct ospf_lsa *type5);
+extern struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
+						       struct ospf_lsa *type7,
+						       struct ospf_lsa *type5);
 extern void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
 				     int type);
 #endif /* _ZEBRA_OSPF_LSA_H */
