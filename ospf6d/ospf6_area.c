@@ -661,7 +661,9 @@ DEFUN (area_filter_list,
 		XFREE(MTYPE_OSPF6_PLISTNAME, PREFIX_NAME_OUT(area));
 		PREFIX_NAME_OUT(area) =
 			XSTRDUP(MTYPE_OSPF6_PLISTNAME, plistname);
-		ospf6_abr_enable_area(area);
+
+		/* Redo summaries if required */
+		ospf6_abr_reexport(area);
 	}
 
 	return CMD_SUCCESS;
@@ -703,10 +705,30 @@ DEFUN (no_area_filter_list,
 				return CMD_SUCCESS;
 
 		XFREE(MTYPE_OSPF6_PLISTNAME, PREFIX_NAME_OUT(area));
-		ospf6_abr_enable_area(area);
+		PREFIX_LIST_OUT(area) = NULL;
+		ospf6_abr_reexport(area);
 	}
 
 	return CMD_SUCCESS;
+}
+
+void ospf6_filter_update(struct access_list *access)
+{
+	struct ospf6_area *oa;
+	struct listnode *n, *node, *nnode;
+	struct ospf6 *ospf6;
+
+	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
+		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, n, oa)) {
+			if (IMPORT_NAME(oa)
+			    && strcmp(IMPORT_NAME(oa), access->name) == 0)
+				ospf6_abr_reimport(oa);
+
+			if (EXPORT_NAME(oa)
+			    && strcmp(EXPORT_NAME(oa), access->name) == 0)
+				ospf6_abr_reexport(oa);
+		}
+	}
 }
 
 void ospf6_area_plist_update(struct prefix_list *plist, int add)
@@ -724,11 +746,15 @@ void ospf6_area_plist_update(struct prefix_list *plist, int add)
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, n, oa)) {
 			if (PREFIX_NAME_IN(oa)
-			    && !strcmp(PREFIX_NAME_IN(oa), name))
+			    && !strcmp(PREFIX_NAME_IN(oa), name)) {
 				PREFIX_LIST_IN(oa) = add ? plist : NULL;
+				ospf6_abr_reexport(oa);
+			}
 			if (PREFIX_NAME_OUT(oa)
-			    && !strcmp(PREFIX_NAME_OUT(oa), name))
+			    && !strcmp(PREFIX_NAME_OUT(oa), name)) {
 				PREFIX_LIST_OUT(oa) = add ? plist : NULL;
+				ospf6_abr_reexport(oa);
+			}
 		}
 	}
 }
@@ -818,7 +844,9 @@ DEFUN (area_export_list,
 		free(EXPORT_NAME(area));
 
 	EXPORT_NAME(area) = strdup(argv[idx_name]->arg);
-	ospf6_abr_enable_area(area);
+
+	/* Redo summaries if required */
+	ospf6_abr_reexport(area);
 
 	return CMD_SUCCESS;
 }
@@ -846,7 +874,7 @@ DEFUN (no_area_export_list,
 		free(EXPORT_NAME(area));
 
 	EXPORT_NAME(area) = NULL;
-	ospf6_abr_enable_area(area);
+	ospf6_abr_reexport(area);
 
 	return CMD_SUCCESS;
 }

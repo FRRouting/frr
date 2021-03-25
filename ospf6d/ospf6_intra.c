@@ -1672,7 +1672,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 				zlog_debug(
-					"%s: route %pFX %p with final effective paths %u nh%u",
+					"%s: route %pFX %p with final effective paths %u nh %u",
 					__func__, &route->prefix,
 					(void *)old_route,
 					old_route->paths
