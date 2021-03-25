@@ -1156,6 +1156,12 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
 		return CMD_WARNING;
 	}
 
+	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
+		vty_out(vty, "Interface %s not attached to area\n",
+			argv[idx_ifname]->arg);
+		return CMD_WARNING;
+	}
+
 	ospf6_route_table_show(vty, idx_prefix, argc, argv,
 			       oi->route_connected);
 
@@ -1187,7 +1193,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		oi = (struct ospf6_interface *)ifp->info;
-		if (oi == NULL)
+		if (oi == NULL || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
 			continue;
 
 		ospf6_route_table_show(vty, idx_prefix, argc, argv,
@@ -1327,12 +1333,11 @@ DEFUN (ipv6_ospf6_cost,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
 	if (oi->cost == lcost)
 		return CMD_SUCCESS;
 
 	oi->cost = lcost;
-	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
-
 	ospf6_interface_force_recalculate_cost(oi);
 
 	return CMD_SUCCESS;

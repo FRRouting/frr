@@ -735,7 +735,8 @@ DEFUN (no_ospf6_interface_area,
 
 	/* Verify Area */
 	if (oi->area == NULL) {
-		vty_out(vty, "No such Area-ID: %s\n", argv[idx_ipv4]->arg);
+		vty_out(vty, "%s not attached to area %s\n",
+			oi->interface->name, oi->area->name);
 		return CMD_SUCCESS;
 	}
 
@@ -756,7 +757,6 @@ DEFUN (no_ospf6_interface_area,
 		UNSET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
 		ospf6_abr_disable_area(oa);
 	}
-	ospf6_interface_delete(oi);
 
 	return CMD_SUCCESS;
 }

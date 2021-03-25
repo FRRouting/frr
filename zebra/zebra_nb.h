@@ -201,19 +201,6 @@ lib_vrf_zebra_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_next(
 	struct nb_cb_get_next_args *args);
 int lib_vrf_zebra_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_keys(
 	struct nb_cb_get_keys_args *args);
-int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args);
-int lib_vrf_zebra_ribs_rib_destroy(struct nb_cb_destroy_args *args);
-const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args);
-int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
-const void *
-lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args);
-const void *
-lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args);
-int lib_vrf_zebra_ribs_rib_route_get_keys(struct nb_cb_get_keys_args *args);
-const void *
-lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args);
-struct yang_data *
-lib_vrf_zebra_ribs_rib_route_prefix_get_elem(struct nb_cb_get_elem_args *args);
 const void *lib_vrf_zebra_ribs_rib_route_route_entry_get_next(
 	struct nb_cb_get_next_args *args);
 int lib_vrf_zebra_ribs_rib_route_route_entry_get_keys(

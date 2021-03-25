@@ -51,6 +51,17 @@
 /*
  * Prototypes.
  */
+static bool
+bfd_cli_is_single_hop(struct vty *vty)
+{
+	return strstr(VTY_CURR_XPATH, "/single-hop") != NULL;
+}
+
+static bool
+bfd_cli_is_profile(struct vty *vty)
+{
+	return strstr(VTY_CURR_XPATH, "/bfd/profile") != NULL;
+}
 
 /*
  * Functions.
@@ -112,10 +123,14 @@ DEFPY_YANG_NOSH(
 	char source_str[INET6_ADDRSTRLEN + 32];
 	char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
 
-	if (multihop)
+	if (multihop) {
+		if (!local_address_str) {
+			vty_out(vty, "%% local-address is required when using multihop\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		snprintf(source_str, sizeof(source_str), "[source-addr='%s']",
 			 local_address_str);
-	else
+	} else
 		source_str[0] = 0;
 
 	slen = snprintf(xpath, sizeof(xpath),
@@ -259,7 +274,7 @@ void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	if (show_defaults)
-		vty_out(vty, "  shutdown\n");
+		vty_out(vty, "  no shutdown\n");
 	else
 		vty_out(vty, "  %sshutdown\n",
 			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
@@ -293,6 +308,11 @@ DEFPY_YANG(
 	"Expect packets with at least this TTL\n"
 	"Minimum TTL expected\n")
 {
+	if (bfd_cli_is_single_hop(vty)) {
+		vty_out(vty, "%% Minimum TTL is only available for multi hop sessions.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (no)
 		nb_cli_enqueue_change(vty, "./minimum-ttl", NB_OP_DESTROY,
 				      NULL);
@@ -408,6 +428,11 @@ DEFPY_YANG(
 	NO_STR
 	"Configure echo mode\n")
 {
+	if (!bfd_cli_is_profile(vty) && !bfd_cli_is_single_hop(vty)) {
+		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	nb_cli_enqueue_change(vty, "./echo-mode", NB_OP_MODIFY,
 			      no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
@@ -430,6 +455,11 @@ DEFPY_YANG(
 	"Configure peer echo interval value in milliseconds\n")
 {
 	char value[32];
+
+	if (!bfd_cli_is_profile(vty) && !bfd_cli_is_single_hop(vty)) {
+		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	snprintf(value, sizeof(value), "%ld", interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",

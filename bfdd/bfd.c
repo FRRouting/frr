@@ -85,7 +85,7 @@ struct bfd_profile *bfd_profile_lookup(const char *name)
 
 static void bfd_profile_set_default(struct bfd_profile *bp)
 {
-	bp->admin_shutdown = true;
+	bp->admin_shutdown = false;
 	bp->detection_multiplier = BFD_DEFDETECTMULT;
 	bp->echo_mode = false;
 	bp->passive = false;
@@ -206,7 +206,7 @@ void bfd_session_apply(struct bfd_session *bs)
 		bfd_set_passive_mode(bs, bs->peer_profile.passive);
 
 	/* Toggle 'no shutdown' if default value. */
-	if (bs->peer_profile.admin_shutdown)
+	if (bs->peer_profile.admin_shutdown == false)
 		bfd_set_shutdown(bs, bp->admin_shutdown);
 	else
 		bfd_set_shutdown(bs, bs->peer_profile.admin_shutdown);
@@ -478,8 +478,10 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd)
 void ptm_bfd_echo_start(struct bfd_session *bfd)
 {
 	bfd->echo_detect_TO = (bfd->remote_detect_mult * bfd->echo_xmt_TO);
-	if (bfd->echo_detect_TO > 0)
+	if (bfd->echo_detect_TO > 0) {
+		bfd_echo_recvtimer_update(bfd);
 		ptm_bfd_echo_xmt_TO(bfd);
+	}
 }
 
 void ptm_bfd_sess_up(struct bfd_session *bfd)
@@ -1233,12 +1235,12 @@ void bs_final_handler(struct bfd_session *bs)
 	 * TODO: support sending/counting more packets inside detection
 	 * timeout.
 	 */
-	if (bs->remote_timers.required_min_rx > bs->timers.desired_min_tx)
+	if (bs->timers.required_min_rx > bs->remote_timers.desired_min_tx)
 		bs->detect_TO = bs->remote_detect_mult
-				* bs->remote_timers.required_min_rx;
+				* bs->timers.required_min_rx;
 	else
 		bs->detect_TO = bs->remote_detect_mult
-				* bs->timers.desired_min_tx;
+				* bs->remote_timers.desired_min_tx;
 
 	/* Apply new receive timer immediately. */
 	bfd_recvtimer_update(bs);
