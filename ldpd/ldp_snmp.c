@@ -301,8 +301,7 @@ static uint8_t *ldpEntityTable(struct variable *v, oid name[], size_t *length,
 
 		/* Append index */
 		*length = LDP_ENTITY_TOTAL_LEN;
-		oid_copy_addr(name + v->namelen, &entityLdpId,
-			      IN_ADDR_SIZE);
+		oid_copy_in_addr(name + v->namelen, &entityLdpId);
 		name[v->namelen + 4] = 0;
 		name[v->namelen + 5] = 0;
 		name[v->namelen + 6] = LDP_DEFAULT_ENTITY_INDEX;
@@ -402,8 +401,7 @@ static uint8_t *ldpEntityStatsTable(struct variable *v, oid name[],
 
 		/* Append index */
 		*length = LDP_ENTITY_TOTAL_LEN;
-		oid_copy_addr(name + v->namelen, &entityLdpId,
-			      IN_ADDR_SIZE);
+		oid_copy_in_addr(name + v->namelen, &entityLdpId);
 		name[v->namelen + 4] = 0;
 		name[v->namelen + 5] = 0;
 		name[v->namelen + 6] = LDP_DEFAULT_ENTITY_INDEX;
@@ -640,13 +638,11 @@ static uint8_t *ldpHelloAdjacencyTable(struct variable *v, oid name[], size_t *l
 
 		struct in_addr peerLdpId = ctl_adj->id;
 
-		oid_copy_addr(name + v->namelen, &entityLdpId,
-			sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, &entityLdpId);
 		name[v->namelen + 4] = 0;
 		name[v->namelen + 5] = 0;
 		name[v->namelen + 6] = LDP_DEFAULT_ENTITY_INDEX;
-		oid_copy_addr(name + v->namelen + 7, &peerLdpId,
-			sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen + 7, &peerLdpId);
 		name[v->namelen + 11] = 0;
 		name[v->namelen + 12] = 0;
 		name[v->namelen + 13] = adjacencyIndex;
@@ -804,14 +800,12 @@ static uint8_t *ldpPeerTable(struct variable *v, oid name[], size_t *length,
 		memcpy(name, v->name, v->namelen * sizeof(oid));
 
 		/* Append index */
-		oid_copy_addr(name + v->namelen, &entityLdpId,
-			sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, &entityLdpId);
 
 		name[v->namelen + 4] = 0;
 		name[v->namelen + 5] = 0;
 		name[v->namelen + 6] = entityIndex;
-		oid_copy_addr(name + v->namelen + 7, &peerLdpId,
-			sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen + 7, &peerLdpId);
 		name[v->namelen + 11] = 0;
 		name[v->namelen + 12] = 0;
 
@@ -875,14 +869,12 @@ static uint8_t *ldpSessionTable(struct variable *v, oid name[], size_t *length,
 		memcpy(name, v->name, v->namelen * sizeof(oid));
 
 		/* Append index */
-		oid_copy_addr(name + v->namelen, &entityLdpId,
-			sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, &entityLdpId);
 
 		name[v->namelen + 4] = 0;
 		name[v->namelen + 5] = 0;
 		name[v->namelen + 6] = entityIndex;
-		oid_copy_addr(name + v->namelen + 7, &peerLdpId,
-			sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen + 7, &peerLdpId);
 		name[v->namelen + 11] = 0;
 		name[v->namelen + 12] = 0;
 
@@ -961,13 +953,11 @@ static uint8_t *ldpSessionStatsTable(struct variable *v, oid name[],
 		memcpy(name, v->name, v->namelen * sizeof(oid));
 
 		/* Append index */
-		oid_copy_addr(name + v->namelen, &entityLdpId,
-			sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, &entityLdpId);
 		name[v->namelen + 4] = 0;
 		name[v->namelen + 5] = 0;
 		name[v->namelen + 6] = entityIndex;
-		oid_copy_addr(name + v->namelen + 7, &peerLdpId,
-			sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen + 7, &peerLdpId);
 		name[v->namelen + 11] = 0;
 		name[v->namelen + 12] = 0;
 
@@ -1147,15 +1137,15 @@ ldpTrapSession(struct nbr * nbr, unsigned int sptrap)
 	entityIndex = LDP_DEFAULT_ENTITY_INDEX;
 	peerLdpId = ctl_nbr->id;
 
-        oid_copy_addr(index, &entityLdpId, sizeof(struct in_addr));
-        index[4] = 0;
-        index[5] = 0;
-        index[6] = entityIndex;
-        oid_copy_addr(&index[7], &peerLdpId, sizeof(struct in_addr));
-        index[11] = 0;
-        index[12] = 0;
+	oid_copy_in_addr(index, &entityLdpId);
+	index[4] = 0;
+	index[5] = 0;
+	index[6] = entityIndex;
+	oid_copy_in_addr(&index[7], &peerLdpId);
+	index[11] = 0;
+	index[12] = 0;
 
-        index[LDP_PEER_ENTRY_MAX_IDX_LEN] = 0;
+	index[LDP_PEER_ENTRY_MAX_IDX_LEN] = 0;
 
         smux_trap(ldpe_variables, array_size(ldpe_variables), ldp_trap_oid,
                   array_size(ldp_trap_oid), ldp_oid,

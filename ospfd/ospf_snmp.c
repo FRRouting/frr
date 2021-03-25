@@ -674,7 +674,7 @@ static struct ospf_area *ospfAreaLookup(struct variable *v, oid name[],
 		if (area == NULL)
 			return NULL;
 
-		oid_copy_addr(name + v->namelen, addr, sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, addr);
 		*length = sizeof(struct in_addr) + v->namelen;
 
 		return area;
@@ -800,7 +800,7 @@ static struct ospf_area *ospfStubAreaLookup(struct variable *v, oid name[],
 		if (area == NULL)
 			return NULL;
 
-		oid_copy_addr(name + v->namelen, addr, sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, addr);
 		/* Set TOS 0. */
 		name[v->namelen + sizeof(struct in_addr)] = 0;
 		*length = v->namelen + sizeof(struct in_addr) + 1;
@@ -1008,15 +1008,14 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 
 				/* Fill in value. */
 				offset = name + v->namelen;
-				oid_copy_addr(offset, area_id, IN_ADDR_SIZE);
+				oid_copy_in_addr(offset, area_id);
 				offset += IN_ADDR_SIZE;
 				*offset = lsa->data->type;
 				offset++;
-				oid_copy_addr(offset, &lsa->data->id,
-					      IN_ADDR_SIZE);
+				oid_copy_in_addr(offset, &lsa->data->id);
 				offset += IN_ADDR_SIZE;
-				oid_copy_addr(offset, &lsa->data->adv_router,
-					      IN_ADDR_SIZE);
+				oid_copy_in_addr(offset,
+						 &lsa->data->adv_router);
 
 				return lsa;
 			}
@@ -1170,9 +1169,9 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 
 				/* Fill in value. */
 				offset = name + v->namelen;
-				oid_copy_addr(offset, area_id, IN_ADDR_SIZE);
+				oid_copy_in_addr(offset, area_id);
 				offset += IN_ADDR_SIZE;
-				oid_copy_addr(offset, range_net, IN_ADDR_SIZE);
+				oid_copy_in_addr(offset, range_net);
 
 				return range;
 			}
@@ -1573,7 +1572,7 @@ static struct ospf_interface *ospfIfLookup(struct variable *v, oid *name,
 		if (oi) {
 			*length = v->namelen + IN_ADDR_SIZE + 1;
 			offset = name + v->namelen;
-			oid_copy_addr(offset, ifaddr, IN_ADDR_SIZE);
+			oid_copy_in_addr(offset, ifaddr);
 			offset += IN_ADDR_SIZE;
 			*offset = *ifindex;
 			return oi;
@@ -1717,7 +1716,7 @@ static struct ospf_interface *ospfIfMetricLookup(struct variable *v, oid *name,
 		if (oi) {
 			*length = v->namelen + IN_ADDR_SIZE + 1 + 1;
 			offset = name + v->namelen;
-			oid_copy_addr(offset, ifaddr, IN_ADDR_SIZE);
+			oid_copy_in_addr(offset, ifaddr);
 			offset += IN_ADDR_SIZE;
 			*offset = *ifindex;
 			offset++;
@@ -1906,9 +1905,9 @@ ospfVirtIfLookup(struct variable *v, oid *name, size_t *length,
 
 		if (vl_data) {
 			*length = v->namelen + IN_ADDR_SIZE + IN_ADDR_SIZE;
-			oid_copy_addr(name + v->namelen, area_id, IN_ADDR_SIZE);
-			oid_copy_addr(name + v->namelen + IN_ADDR_SIZE,
-				      neighbor, IN_ADDR_SIZE);
+			oid_copy_in_addr(name + v->namelen, area_id);
+			oid_copy_in_addr(name + v->namelen + IN_ADDR_SIZE,
+					 neighbor);
 			return vl_data;
 		}
 	}
@@ -2083,8 +2082,7 @@ static struct ospf_neighbor *ospfNbrLookup(struct variable *v, oid *name,
 
 		if (nbr) {
 			*length = v->namelen + IN_ADDR_SIZE + 1;
-			oid_copy_addr(name + v->namelen, nbr_addr,
-				      IN_ADDR_SIZE);
+			oid_copy_in_addr(name + v->namelen, nbr_addr);
 			name[v->namelen + IN_ADDR_SIZE] = *ifindex;
 			return nbr;
 		}
@@ -2307,10 +2305,9 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 
 			*offset = OSPF_AS_EXTERNAL_LSA;
 			offset++;
-			oid_copy_addr(offset, &lsa->data->id, IN_ADDR_SIZE);
+			oid_copy_in_addr(offset, &lsa->data->id);
 			offset += IN_ADDR_SIZE;
-			oid_copy_addr(offset, &lsa->data->adv_router,
-				      IN_ADDR_SIZE);
+			oid_copy_in_addr(offset, &lsa->data->adv_router);
 
 			return lsa;
 		}
@@ -2440,7 +2437,7 @@ static void ospfTrapNbrStateChange(struct ospf_neighbor *on)
 		zlog_info("%s: trap sent: %pI4 now %s", __func__,
 			  &on->address.u.prefix4, msgbuf);
 
-	oid_copy_addr(index, &(on->address.u.prefix4), IN_ADDR_SIZE);
+	oid_copy_in_addr(index, &(on->address.u.prefix4));
 	index[IN_ADDR_SIZE] = 0;
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
@@ -2455,7 +2452,7 @@ static void ospfTrapVirtNbrStateChange(struct ospf_neighbor *on)
 
 	zlog_info("ospfTrapVirtNbrStateChange trap sent");
 
-	oid_copy_addr(index, &(on->address.u.prefix4), IN_ADDR_SIZE);
+	oid_copy_in_addr(index, &(on->address.u.prefix4));
 	index[IN_ADDR_SIZE] = 0;
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
@@ -2499,7 +2496,7 @@ static void ospfTrapIfStateChange(struct ospf_interface *oi)
 			  &oi->address->u.prefix4,
 			  lookup_msg(ospf_ism_state_msg, oi->state, NULL));
 
-	oid_copy_addr(index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
+	oid_copy_in_addr(index, &(oi->address->u.prefix4));
 	index[IN_ADDR_SIZE] = 0;
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
@@ -2514,7 +2511,7 @@ static void ospfTrapVirtIfStateChange(struct ospf_interface *oi)
 
 	zlog_info("ospfTrapVirtIfStateChange trap sent");
 
-	oid_copy_addr(index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
+	oid_copy_in_addr(index, &(oi->address->u.prefix4));
 	index[IN_ADDR_SIZE] = 0;
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,

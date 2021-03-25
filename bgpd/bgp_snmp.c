@@ -435,7 +435,7 @@ static struct peer *bgpPeerTable_lookup(struct variable *v, oid name[],
 		if (peer == NULL)
 			return NULL;
 
-		oid_copy_addr(name + namelen, addr, sizeof(struct in_addr));
+		oid_copy_in_addr(name + namelen, addr);
 		*length = sizeof(struct in_addr) + namelen;
 
 		return peer;
@@ -767,14 +767,12 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 					v->namelen + BGP_PATHATTR_ENTRY_OFFSET;
 
 				offset = name + v->namelen;
-				oid_copy_addr(offset, &rn_p->u.prefix4,
-					      IN_ADDR_SIZE);
+				oid_copy_in_addr(offset, &rn_p->u.prefix4);
 				offset += IN_ADDR_SIZE;
 				*offset = rn_p->prefixlen;
 				offset++;
-				oid_copy_addr(offset,
-					      &min->peer->su.sin.sin_addr,
-					      IN_ADDR_SIZE);
+				oid_copy_in_addr(offset,
+						 &min->peer->su.sin.sin_addr);
 				addr->prefix = rn_p->u.prefix4;
 				addr->prefixlen = rn_p->prefixlen;
 
@@ -868,7 +866,7 @@ static int bgpTrapEstablished(struct peer *peer)
 	if (ret == 0)
 		return 0;
 
-	oid_copy_addr(index, &addr, IN_ADDR_SIZE);
+	oid_copy_in_addr(index, &addr);
 
 	smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
 		  array_size(bgp_trap_oid), bgp_oid,
@@ -887,7 +885,7 @@ static int bgpTrapBackwardTransition(struct peer *peer)
 	if (ret == 0)
 		return 0;
 
-	oid_copy_addr(index, &addr, IN_ADDR_SIZE);
+	oid_copy_in_addr(index, &addr);
 
 	smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
 		  array_size(bgp_trap_oid), bgp_oid,

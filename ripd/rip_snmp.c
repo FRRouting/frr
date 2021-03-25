@@ -271,7 +271,7 @@ static struct interface *rip2IfLookup(struct variable *v, oid name[],
 		if (ifp == NULL)
 			return NULL;
 
-		oid_copy_addr(name + v->namelen, addr, sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, addr);
 
 		*length = v->namelen + sizeof(struct in_addr);
 
@@ -320,8 +320,8 @@ static struct rip_peer *rip2PeerLookup(struct variable *v, oid name[],
 			    || (peer->domain
 				> (int)name[v->namelen
 					    + sizeof(struct in_addr)])) {
-				oid_copy_addr(name + v->namelen, &peer->addr,
-					      sizeof(struct in_addr));
+				oid_copy_in_addr(name + v->namelen,
+						 &peer->addr);
 				name[v->namelen + sizeof(struct in_addr)] =
 					peer->domain;
 				*length =
@@ -334,8 +334,7 @@ static struct rip_peer *rip2PeerLookup(struct variable *v, oid name[],
 		if (!peer)
 			return NULL;
 
-		oid_copy_addr(name + v->namelen, &peer->addr,
-			      sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, &peer->addr);
 		name[v->namelen + sizeof(struct in_addr)] = peer->domain;
 		*length = sizeof(struct in_addr) + v->namelen + 1;
 
