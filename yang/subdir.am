@@ -86,3 +86,9 @@ endif
 if PATHD
 dist_yangmodels_DATA += yang/frr-pathd.yang
 endif
+
+CLEANFILES += \
+	yang/*.c \
+	yang/ietf/*.c \
+	yang/confd/*.c \
+	#
