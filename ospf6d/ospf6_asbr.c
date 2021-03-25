@@ -1096,8 +1096,10 @@ void ospf6_asbr_send_externals_to_area(struct ospf6_area *oa)
 
 	for (ALL_LSDB(oa->ospf6->lsdb, lsa, lsanext)) {
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL) {
-			zlog_debug("%s: Flooding AS-External LSA %s",
-				   __func__, lsa->name);
+			if (IS_OSPF6_DEBUG_ASBR)
+				zlog_debug("%s: Flooding AS-External LSA %s",
+					   __func__, lsa->name);
+
 			ospf6_flood_area(NULL, lsa, oa);
 		}
 	}
