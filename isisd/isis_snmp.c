@@ -1037,6 +1037,8 @@ static int isis_snmp_circuit_level_lookup_next(
 			break;
 		}
 
+		assert(oid_idx != NULL);
+
 		/* We have to check level specified by index */
 		if (oid_idx[1] < IS_LEVEL_1) {
 			level = IS_LEVEL_1;
