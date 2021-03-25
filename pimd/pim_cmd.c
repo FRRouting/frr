@@ -8991,7 +8991,7 @@ DEFUN (interface_ip_pim_hello,
 
 DEFUN (interface_no_ip_pim_hello,
        interface_no_ip_pim_hello_cmd,
-       "no ip pim hello [(1-180) (1-180)]",
+       "no ip pim hello [(1-180) [(1-180)]]",
        NO_STR
        IP_STR
        PIM_STR
