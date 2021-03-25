@@ -25,6 +25,7 @@
 #include "vty.h"
 #include "command.h"
 #include "plist.h"
+#include "filter.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_top.h"
@@ -1398,8 +1399,11 @@ void ospf6_init(struct thread_master *master)
 	ospf6_asbr_init();
 	ospf6_abr_init();
 
+	/* initialize hooks for modifying filter rules */
 	prefix_list_add_hook(ospf6_plist_add);
 	prefix_list_delete_hook(ospf6_plist_del);
+	access_list_add_hook(ospf6_filter_update);
+	access_list_delete_hook(ospf6_filter_update);
 
 	ospf6_bfd_init();
 	install_node(&debug_node);

@@ -381,7 +381,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		} else {
 			/* (d) add retrans-list, schedule retransmission */
 			if (is_debug)
-				zlog_debug("Add retrans-list of this neighbor");
+				zlog_debug("Add retrans-list of neighbor %s ",
+					   on->name);
 			ospf6_increment_retrans_count(lsa);
 			ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
 			thread_add_timer(master, ospf6_lsupdate_send_neighbor,
@@ -395,7 +396,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	if (retrans_added == 0) {
 		if (is_debug)
 			zlog_debug(
-				"No retransmission scheduled, next interface");
+				"No retransmission scheduled, next interface %s",
+				oi->interface->name);
 		return;
 	}
 
