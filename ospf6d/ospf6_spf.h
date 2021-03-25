@@ -37,7 +37,7 @@ extern unsigned char conf_debug_ospf6_spf;
 
 #define OSPF6_ASE_CALC_INTERVAL 1
 
-PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue)
+PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue);
 /* Transit Vertex */
 struct ospf6_vertex {
 	/* type of this vertex */
