@@ -457,10 +457,17 @@ void pceplib_external_timer_expire_handler(void *data)
 	}
 
 	pcep_timer *timer = (pcep_timer *)data;
+
 	pthread_mutex_lock(&timers_context_->timer_list_lock);
 	ordered_list_node *timer_node =
 		ordered_list_find2(timers_context_->timer_list, timer,
 				   timer_list_node_timer_ptr_compare);
+
+	/* Remove timer from list */
+	if (timer_node)
+		ordered_list_remove_node2(timers_context_->timer_list,
+					  timer_node);
+
 	pthread_mutex_unlock(&timers_context_->timer_list_lock);
 
 	/* Cannot continue if the timer does not exist */
@@ -473,10 +480,6 @@ void pceplib_external_timer_expire_handler(void *data)
 	}
 
 	timers_context_->expire_handler(timer->data, timer->timer_id);
-
-	pthread_mutex_lock(&timers_context_->timer_list_lock);
-	ordered_list_remove_node2(timers_context_->timer_list, timer_node);
-	pthread_mutex_unlock(&timers_context_->timer_list_lock);
 
 	pceplib_free(PCEPLIB_INFRA, timer);
 }
