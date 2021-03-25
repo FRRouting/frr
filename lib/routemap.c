@@ -2629,21 +2629,19 @@ static unsigned int route_map_dep_data_hash_make_key(const void *p)
 
 DEFUN (set_srte_color,
        set_srte_color_cmd,
-       "set sr-te color [(1-4294967295)]",
+       "set sr-te color (1-4294967295)",
        SET_STR
        SRTE_STR
        SRTE_COLOR_STR
        "Color of the SR-TE Policies to match with\n")
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	int idx = 0;
-	char *arg = argv_find(argv, argc, "(1-4294967295)", &idx)
-			    ? argv[idx]->arg
-			    : NULL;
-
+	int idx = 3;
+	
 	if (rmap_match_set_hook.set_srte_color)
 		return rmap_match_set_hook.set_srte_color(vty, index,
-							  "sr-te color", arg);
+							  "sr-te color",
+							  argv[idx]->arg);
 	return CMD_SUCCESS;
 }
 
