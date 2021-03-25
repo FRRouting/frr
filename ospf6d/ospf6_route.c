@@ -688,6 +688,9 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 		if (node->info == old) {
 			node->info = route;
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
+			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
+				zlog_debug("%s:  replace old route %s",
+					   __func__, buf);
 		}
 
 		if (old->prev)
@@ -745,12 +748,12 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 			UNSET_FLAG(next->flag, OSPF6_ROUTE_BEST);
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
 			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-				zlog_info(
+				zlog_debug(
 					"%s %p: route add %p cost %u: replacing previous best: %p cost %u",
 					ospf6_route_table_name(table),
 					(void *)table, (void *)route,
-					route->path.cost,
-					(void *)next, next->path.cost);
+					route->path.cost, (void *)next,
+					next->path.cost);
 		}
 
 		route->installed = now;
@@ -876,6 +879,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 		if (route->next && route->next->rnode == node) {
 			node->info = route->next;
 			SET_FLAG(route->next->flag, OSPF6_ROUTE_BEST);
+			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
+				zlog_debug("%s: remove route %s", __func__,
+					   buf);
 		} else {
 			node->info = NULL;
 			route->rnode = NULL;

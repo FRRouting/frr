@@ -131,7 +131,9 @@ static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa *lsa)
 		ospf6_abr_examin_summary(lsa,
 					 (struct ospf6_area *)lsa->lsdb->data);
 		break;
-
+	case OSPF6_LSTYPE_TYPE_7:
+		ospf6_asbr_lsa_remove(lsa, NULL);
+		break;
 	default:
 		break;
 	}
