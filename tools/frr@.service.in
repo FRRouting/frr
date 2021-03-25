@@ -4,7 +4,7 @@ Documentation=https://frrouting.readthedocs.io/en/latest/setup.html
 Wants=network.target
 After=network-pre.target systemd-sysctl.service
 Before=network.target
-OnFailure=heartbeat-failed@%n.service
+OnFailure=heartbeat-failed@%n
 
 [Service]
 Nice=-5

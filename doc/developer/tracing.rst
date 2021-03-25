@@ -396,7 +396,7 @@ modifying ``frr.service`` like so:
    --- a/frr.service
    +++ b/frr.service
    @@ -7,6 +7,7 @@ Before=network.target
-    OnFailure=heartbeat-failed@%n.service
+    OnFailure=heartbeat-failed@%n
 
     [Service]
    +Environment="LD_PRELOAD=liblttng-ust-fork.so"
