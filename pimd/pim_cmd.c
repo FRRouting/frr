@@ -1094,6 +1094,8 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 
 			json_object_int_add(json_row, "helloPeriod",
 					    pim_ifp->pim_hello_period);
+			json_object_int_add(json_row, "holdTime",
+					    PIM_IF_DEFAULT_HOLDTIME(pim_ifp));
 			json_object_string_add(json_row, "helloTimer",
 					       hello_timer);
 			json_object_string_add(json_row, "helloStatStart",
@@ -1243,6 +1245,8 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			vty_out(vty, "------\n");
 			vty_out(vty, "Period         : %d\n",
 				pim_ifp->pim_hello_period);
+			vty_out(vty, "HoldTime       : %d\n",
+				PIM_IF_DEFAULT_HOLDTIME(pim_ifp));
 			vty_out(vty, "Timer          : %s\n", hello_timer);
 			vty_out(vty, "StatStart      : %s\n", stat_uptime);
 			vty_out(vty, "Receive        : %d\n",
