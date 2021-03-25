@@ -88,13 +88,24 @@ void oid2int(oid oid[], int *dest)
 	*dest = ntohl(network_dest);
 }
 
-void oid_copy_addr(oid oid[], const struct in_addr *addr, int len)
+void oid_copy_in_addr(oid oid[], const struct in_addr *addr)
 {
 	int i;
 	const uint8_t *pnt;
+	int len = sizeof(struct in_addr);
 
-	if (len == 0)
-		return;
+	pnt = (uint8_t *)addr;
+
+	for (i = 0; i < len; i++)
+		oid[i] = *pnt++;
+}
+
+
+void oid_copy_in6_addr(oid oid[], const struct in6_addr *addr)
+{
+	int i;
+	const uint8_t *pnt;
+	int len = sizeof(struct in6_addr);
 
 	pnt = (uint8_t *)addr;
 

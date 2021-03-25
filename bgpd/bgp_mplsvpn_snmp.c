@@ -1478,10 +1478,16 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 			oid_copy_str(&name[namelen], (*l3vpn_bgp)->name,
 				     vrf_name_len);
 			oid_index = namelen + vrf_name_len;
-			name[oid_index++] =
-				v4 ? INETADDRESSTYPEIPV4 : INETADDRESSTYPEIPV6;
-			oid_copy_addr(&name[oid_index], &p->u.prefix4,
-				      addr_len);
+			if (v4) {
+				name[oid_index++] = INETADDRESSTYPEIPV4;
+				oid_copy_in_addr(&name[oid_index],
+						 &p->u.prefix4);
+			} else {
+				name[oid_index++] = INETADDRESSTYPEIPV6;
+				oid_copy_in6_addr(&name[oid_index],
+						  &p->u.prefix6);
+			}
+
 			oid_index += addr_len;
 			name[oid_index++] = p->prefixlen;
 			name[oid_index++] = *policy >> 8;
@@ -1493,9 +1499,8 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 						INETADDRESSTYPEUNKNOWN;
 				else {
 					name[oid_index++] = INETADDRESSTYPEIPV4;
-					oid_copy_addr(&name[oid_index],
-						      &attr->nexthop,
-						      sizeof(struct in_addr));
+					oid_copy_in_addr(&name[oid_index],
+							 &attr->nexthop);
 					oid_index += sizeof(struct in_addr);
 				}
 			} else {
@@ -1505,11 +1510,9 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 						INETADDRESSTYPEUNKNOWN;
 				else {
 					name[oid_index++] = INETADDRESSTYPEIPV6;
-					oid_copy_addr(
+					oid_copy_in6_addr(
 						&name[oid_index],
-						(struct in_addr *)&attr
-							->mp_nexthop_global,
-						sizeof(struct in6_addr));
+						&attr->mp_nexthop_global);
 					oid_index += sizeof(struct in6_addr);
 				}
 			}

@@ -588,8 +588,7 @@ static struct eigrp_neighbor *eigrpNbrLookup(struct variable *v, oid *name,
 
 		if (nbr) {
 			*length = v->namelen + IN_ADDR_SIZE + 1;
-			oid_copy_addr(name + v->namelen, nbr_addr,
-				      IN_ADDR_SIZE);
+			oid_copy_in_addr(name + v->namelen, nbr_addr);
 			name[v->namelen + IN_ADDR_SIZE] = *ifindex;
 			return nbr;
 		}
