@@ -149,6 +149,10 @@ daemon_prep() {
 
 daemon_start() {
 	local dmninst daemon inst args instopt wrap bin
+
+	all=false
+	[ "$1" = "--all" ] && { all=true; shift; }
+
 	daemon_inst "$1"
 
 	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
@@ -165,7 +169,11 @@ daemon_start() {
 
 	if eval "$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"; then
 		log_success_msg "Started $dmninst"
-		vtysh_b "$daemon"
+		if $all; then
+			debug "Skipping startup of vtysh until all have started"
+		else
+			vtysh_b "$daemon"
+		fi
 	else
 		log_failure_msg "Failed to start $dmninst!"
 	fi
@@ -237,8 +245,9 @@ print_status() {
 all_start() {
 	daemon_list daemons
 	for dmninst in $daemons; do
-		daemon_start "$dmninst"
+		daemon_start --all "$dmninst"
 	done
+	vtysh_b
 }
 
 all_stop() {
