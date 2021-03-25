@@ -7343,7 +7343,7 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
-	int idx = 0, idx_vrf = 0;
+	int idx_vrf = 0;
 	uint8_t use_vrf = 0;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -7388,7 +7388,7 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 		}
 
 		ret = show_ip_ospf_database_type_adv_router_common(
-			vty, ospf, idx ? 1 : 0, argc, argv, use_vrf, json, uj);
+			vty, ospf, 0, argc, argv, use_vrf, json, uj);
 	}
 
 	if (uj) {
