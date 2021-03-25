@@ -233,6 +233,85 @@ for ``master`` branch:
 
 and create ``frr`` user and ``frrvty`` group as shown above.
 
+Debugging Topotest Failures
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For the below debugging options which launch programs, if the topotest is run
+within screen_ or tmux_, ``gdb``, the shell or ``vtysh`` will be launched using
+that windowing program, otherwise mininet's ``xterm`` functionality will be used
+to launch the given program.
+
+If you wish to force the use of ``xterm`` rather than ``tmux`` or ``screen``, or
+wish to use ``gnome-terminal`` instead of ``xterm``, set the environment
+variable ``FRR_TOPO_TERMINAL`` to either ``xterm`` or ``gnome-terminal``.
+
+.. _screen: https://www.gnu.org/software/screen/
+.. _tmux: https://github.com/tmux/tmux/wiki
+
+Spawning ``vtysh`` or Shells on Routers
+"""""""""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch a shell or ``vtysh`` for any or all routers in
+a test. This is enabled by specifying 1 of 2 CLI arguments ``--shell`` or
+``--vtysh``. Both of these options can be set to a single router value, multiple
+comma-seperated values, or ``all``.
+
+When either of these options are specified topotest will pause after each test
+to allow for inspection of the router state.
+
+Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
+
+.. code:: shell
+
+   pytest --vtysh=rt1,rt2 all-protocol-startup
+
+Spawning Mininet CLI, ``vtysh`` or Shells on Routers on Test Failure
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Similar to the previous section one can have ``vtysh`` or a shell launched on
+routers, but in this case only when a test fails. To launch the given process on
+each router after a test failure specify one of ``--shell-on-error`` or
+``--vtysh-on-error``.
+
+
+Here's an example of having ``vtysh`` launched on test failure.
+
+.. code:: shell
+
+   pytest --vtysh-on-error all-protocol-startup
+
+
+Additionally, one can have the mininet CLI invoked on test failures by
+specifying the ``--mininet-on-error`` CLI option as shown in the example below.
+
+.. code:: shell
+
+   pytest --mininet-on-error all-protocol-startup
+
+Debugging with GDB
+""""""""""""""""""
+
+Topotest can automatically launch any daemon with ``gdb``, possibly setting
+breakpoints for any test run. This is enabled by specifying 1 or 2 CLI arguments
+``--gdb-routers`` and ``--gdb-daemons``. Additionally ``--gdb-breakpoints`` can
+be used to automatically set breakpoints in the launched ``gdb`` processes.
+
+Each of these options can be set to a single value, multiple comma-seperated
+values, or ``all``. If ``--gdb-routers`` is empty but ``--gdb_daemons`` is set
+then the given daemons will be launched in ``gdb`` on all routers in the test.
+Likewise if ``--gdb_routers`` is set, but ``--gdb_daemons`` is empty then all
+daemons on the given routers will be launched in ``gdb``.
+
+Here's an example of launching ``zebra`` and ``bgpd`` inside ``gdb`` on router
+``r1`` with a breakpoint set on ``nb_config_diff``
+
+.. code:: shell
+
+   pytest --gdb-routers=r1 \
+          --gdb-daemons=bgpd,zebra \
+          --gdb-breakpoints=nb_config_diff \
+          all-protocol-startup
+
 .. _topotests_docker:
 
 Running Tests with Docker

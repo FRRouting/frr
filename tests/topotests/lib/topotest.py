@@ -50,7 +50,9 @@ from mininet.node import Node, OVSSwitch, Host
 from mininet.log import setLogLevel, info
 from mininet.cli import CLI
 from mininet.link import Intf
+from mininet.term import makeTerm
 
+g_extra_config = {}
 
 def gdb_core(obj, daemon, corefiles):
     gdbcmds = """
@@ -1341,6 +1343,37 @@ class Router(Node):
             logger.info("No daemon {} known".format(daemon))
         # print "Daemons after:", self.daemons
 
+    # Run a command in a new window (gnome-terminal, screen, tmux, xterm)
+    def runInWindow(self, cmd, title=None):
+        topo_terminal = os.getenv("FRR_TOPO_TERMINAL")
+        if topo_terminal or (
+                "TMUX" not in os.environ and "STY" not in os.environ
+        ):
+            term = topo_terminal if topo_terminal else "xterm"
+            makeTerm(
+                self,
+                title=title if title else cmd,
+                term=term,
+                cmd=cmd)
+        else:
+            nscmd = "sudo nsenter -m -n -t {} {}".format(self.pid, cmd)
+            if "TMUX" in os.environ:
+                self.cmd("tmux select-layout main-horizontal")
+                wcmd = "tmux split-window -h"
+                cmd = "{} {}".format(wcmd, nscmd)
+            elif "STY" in os.environ:
+                if os.path.exists(
+                        "/run/screen/S-{}/{}".format(
+                            os.environ['USER'], os.environ['STY']
+                        )
+                ):
+                    wcmd = "screen"
+                else:
+                    wcmd = "sudo -u {} screen".format(os.environ["SUDO_USER"])
+                cmd = "{} {}".format(wcmd, nscmd)
+            self.cmd(cmd)
+
+
     def startRouter(self, tgen=None):
         # Disable integrated-vtysh-config
         self.cmd(
@@ -1393,6 +1426,14 @@ class Router(Node):
                 return "LDP/MPLS Tests need mpls kernel modules"
         self.cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
 
+        shell_routers = g_extra_config["shell"]
+        if "all" in shell_routers or self.name in shell_routers:
+            self.runInWindow(os.getenv("SHELL", "bash"))
+
+        vtysh_routers = g_extra_config["vtysh"]
+        if "all" in vtysh_routers or self.name in vtysh_routers:
+            self.runInWindow("vtysh")
+
         if self.daemons["eigrpd"] == 1:
             eigrpd_path = os.path.join(self.daemondir, "eigrpd")
             if not os.path.isfile(eigrpd_path):
@@ -1418,6 +1459,10 @@ class Router(Node):
 
     def startRouterDaemons(self, daemons=None):
         "Starts all FRR daemons for this router."
+
+        gdb_breakpoints =  g_extra_config["gdb_breakpoints"]
+        gdb_daemons = g_extra_config["gdb_daemons"]
+        gdb_routers = g_extra_config["gdb_routers"]
 
         bundle_data = ""
 
@@ -1448,7 +1493,7 @@ class Router(Node):
         # If `daemons` was specified then some upper API called us with
         # specific daemons, otherwise just use our own configuration.
         daemons_list = []
-        if daemons != None:
+        if daemons is not None:
             daemons_list = daemons
         else:
             # Append all daemons configured.
@@ -1456,47 +1501,67 @@ class Router(Node):
                 if self.daemons[daemon] == 1:
                     daemons_list.append(daemon)
 
+        def start_daemon(daemon, extra_opts=None):
+            daemon_opts = self.daemons_options.get(daemon, "")
+            rediropt = " > {0}.out 2> {0}.err".format(daemon)
+            if daemon == "snmpd":
+                binary = "/usr/sbin/snmpd"
+                cmdenv = ""
+                cmdopt = "{} -C -c /etc/frr/snmpd.conf -p ".format(
+                    daemon_opts
+                ) + "/var/run/{}/snmpd.pid -x /etc/frr/agentx".format(self.routertype)
+            else:
+                binary = os.path.join(self.daemondir, daemon)
+                cmdenv = "ASAN_OPTIONS=log_path={0}.asan".format(daemon)
+                cmdopt = "{} --log file:{}.log --log-level debug".format(
+                    daemon_opts, daemon
+                )
+            if extra_opts:
+                cmdopt += " " + extra_opts
+
+            if (
+                (gdb_routers or gdb_daemons)
+                and (not gdb_routers
+                     or self.name in gdb_routers
+                     or "all" in gdb_routers)
+                and (not gdb_daemons
+                     or daemon in gdb_daemons
+                     or "all" in gdb_daemons)
+            ):
+                if daemon == "snmpd":
+                    cmdopt += " -f "
+
+                cmdopt += rediropt
+                gdbcmd = "sudo -E gdb " + binary
+                if gdb_breakpoints:
+                    gdbcmd += " -ex 'set breakpoint pending on'"
+                for bp in gdb_breakpoints:
+                    gdbcmd += " -ex 'b {}'".format(bp)
+                gdbcmd += " -ex 'run {}'".format(cmdopt)
+
+                self.runInWindow(gdbcmd, daemon)
+            else:
+                if daemon != "snmpd":
+                    cmdopt += " -d "
+                cmdopt += rediropt
+                self.cmd(" ".join([cmdenv, binary, cmdopt]))
+            logger.info("{}: {} {} started".format(self, self.routertype, daemon))
+
+
         # Start Zebra first
         if "zebra" in daemons_list:
-            zebra_path = os.path.join(self.daemondir, "zebra")
-            zebra_option = self.daemons_options["zebra"]
-            self.cmd(
-                "ASAN_OPTIONS=log_path=zebra.asan {0} {1} --log file:zebra.log --log-level debug -s 90000000 -d > zebra.out 2> zebra.err".format(
-                    zebra_path, zebra_option
-                )
-            )
-            logger.debug("{}: {} zebra started".format(self, self.routertype))
-
-            # Remove `zebra` so we don't attempt to start it again.
+            start_daemon("zebra", "-s 90000000")
             while "zebra" in daemons_list:
                 daemons_list.remove("zebra")
 
         # Start staticd next if required
         if "staticd" in daemons_list:
-            staticd_path = os.path.join(self.daemondir, "staticd")
-            staticd_option = self.daemons_options["staticd"]
-            self.cmd(
-                "ASAN_OPTIONS=log_path=staticd.asan {0} {1} --log file:staticd.log --log-level debug -d > staticd.out 2> staticd.err".format(
-                    staticd_path, staticd_option
-                )
-            )
-            logger.debug("{}: {} staticd started".format(self, self.routertype))
-
-            # Remove `staticd` so we don't attempt to start it again.
+            start_daemon("staticd")
             while "staticd" in daemons_list:
                 daemons_list.remove("staticd")
 
         if "snmpd" in daemons_list:
-            snmpd_path = "/usr/sbin/snmpd"
-            snmpd_option = self.daemons_options["snmpd"]
-            self.cmd(
-                "{0} {1} -C -c /etc/frr/snmpd.conf -p /var/run/{2}/snmpd.pid -x /etc/frr/agentx > snmpd.out 2> snmpd.err".format(
-                    snmpd_path, snmpd_option, self.routertype
-                )
-            )
-            logger.info("{}: {} snmpd started".format(self, self.routertype))
-
-            # Remove `snmpd` so we don't attempt to start it again.
+            start_daemon("snmpd")
             while "snmpd" in daemons_list:
                 daemons_list.remove("snmpd")
 
@@ -1508,17 +1573,9 @@ class Router(Node):
 
         # Now start all the other daemons
         for daemon in daemons_list:
-            # Skip disabled daemons and zebra
             if self.daemons[daemon] == 0:
                 continue
-
-            daemon_path = os.path.join(self.daemondir, daemon)
-            self.cmd(
-                "ASAN_OPTIONS=log_path={2}.asan {0} {1} --log file:{2}.log --log-level debug -d > {2}.out 2> {2}.err".format(
-                    daemon_path, self.daemons_options.get(daemon, ""), daemon
-                )
-            )
-            logger.debug("{}: {} {} started".format(self, self.routertype, daemon))
+            start_daemon(daemon)
 
         # Check if daemons are running.
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
