@@ -458,6 +458,7 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	case OSPF6_LSTYPE_INTER_PREFIX:
 	case OSPF6_LSTYPE_INTER_ROUTER:
 	case OSPF6_LSTYPE_AS_EXTERNAL:
+	case OSPF6_LSTYPE_TYPE_7:
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -486,7 +487,6 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	case OSPF6_LSTYPE_ROUTER:
 	case OSPF6_LSTYPE_NETWORK:
 	case OSPF6_LSTYPE_GROUP_MEMBERSHIP:
-	case OSPF6_LSTYPE_TYPE_7:
 	case OSPF6_LSTYPE_LINK:
 	case OSPF6_LSTYPE_INTRA_PREFIX:
 		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)

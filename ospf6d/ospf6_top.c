@@ -52,6 +52,7 @@
 #include "ospf6_spf.h"
 #include "ospf6d.h"
 #include "lib/json.h"
+#include "ospf6_nssa.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_TOP, "OSPF6 top");
 
@@ -259,7 +260,15 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa *lsa)
 
 static void ospf6_top_route_hook_add(struct ospf6_route *route)
 {
-	struct ospf6 *ospf6 = route->table->scope;
+	struct ospf6 *ospf6 = NULL;
+	struct ospf6_area *oa = NULL;
+
+	if (route->table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL)
+		ospf6 = route->table->scope;
+	else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
+		oa = (struct ospf6_area *)route->table->scope;
+		ospf6 = oa->ospf6;
+	}
 
 	ospf6_abr_originate_summary(route, ospf6);
 	ospf6_zebra_route_update_add(route, ospf6);
@@ -267,7 +276,15 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 
 static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 {
-	struct ospf6 *ospf6 = route->table->scope;
+	struct ospf6 *ospf6 = NULL;
+	struct ospf6_area *oa = NULL;
+
+	if (route->table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL)
+		ospf6 = route->table->scope;
+	else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
+		oa = (struct ospf6_area *)route->table->scope;
+		ospf6 = oa->ospf6;
+	}
 
 	route->flag |= OSPF6_ROUTE_REMOVE;
 	ospf6_abr_originate_summary(route, ospf6);
@@ -917,8 +934,10 @@ DEFUN (ospf6_interface_area,
 	ospf6_interface_enable(oi);
 
 	/* If the router is ABR, originate summary routes */
-	if (ospf6_is_router_abr(ospf6))
+	if (ospf6_is_router_abr(ospf6)) {
 		ospf6_abr_enable_area(oa);
+		ospf6_schedule_abr_task(oa->ospf6);
+	}
 
 	return CMD_SUCCESS;
 }
