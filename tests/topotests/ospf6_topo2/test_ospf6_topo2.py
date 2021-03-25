@@ -54,8 +54,8 @@ class OSPFv3Topo2(Topo):
         "Build function"
         tgen = get_topogen(self)
 
-        # Create 3 routers
-        for routern in range(1, 4):
+        # Create 4 routers
+        for routern in range(1, 5):
             tgen.add_router("r{}".format(routern))
 
         switch = tgen.add_switch("s1")
@@ -65,6 +65,10 @@ class OSPFv3Topo2(Topo):
         switch = tgen.add_switch("s2")
         switch.add_link(tgen.gears["r2"])
         switch.add_link(tgen.gears["r3"])
+
+        switch = tgen.add_switch("s3")
+        switch.add_link(tgen.gears["r2"])
+        switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
@@ -110,7 +114,52 @@ def test_wait_protocol_convergence():
     expect_neighbor_full("r1", "10.254.254.2")
     expect_neighbor_full("r2", "10.254.254.1")
     expect_neighbor_full("r2", "10.254.254.3")
+    expect_neighbor_full("r2", "10.254.254.4")
     expect_neighbor_full("r3", "10.254.254.2")
+    expect_neighbor_full("r4", "10.254.254.2")
+
+
+def test_ospfv3_expected_route_types():
+    "Test routers route type to determine if NSSA/Stub is working as expected."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("waiting for protocols to converge")
+
+    def expect_ospf6_route_types(router, expected_summary):
+        "Expect the correct route types."
+        logger.info("waiting OSPFv3 router '{}'".format(router))
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show ipv6 ospf6 route summary json",
+            expected_summary,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+        assertmsg = '"{}" convergence failure'.format(router)
+        assert result is None, assertmsg
+
+    # Stub router: no external routes.
+    expect_ospf6_route_types(
+        "r1",
+        {
+            "numberOfIntraAreaRoutes": 1,
+            "numberOfInterAreaRoutes": 3,
+            "numberOfExternal1Routes": 0,
+            "numberOfExternal2Routes": 0,
+        },
+    )
+    # NSSA router: no external routes.
+    expect_ospf6_route_types(
+        "r4",
+        {
+            "numberOfIntraAreaRoutes": 1,
+            "numberOfInterAreaRoutes": 2,
+            "numberOfExternal1Routes": 0,
+            "numberOfExternal2Routes": 0,
+        },
+    )
 
 
 def test_ospf6_default_route():

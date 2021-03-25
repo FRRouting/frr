@@ -34,6 +34,12 @@ graph template {
     fillcolor="#f08080",
     style=filled,
   ];
+  r4 [
+    shape=doubleoctagon
+    label="r4",
+    fillcolor="#f08080",
+    style=filled,
+  ];
 
   # Switches
   sw1 [
@@ -62,10 +68,16 @@ graph template {
   }
 
   subgraph cluster1 {
+    label="area 0.0.0.2";
+    r4 -- sw3 [label="eth0\n.2"];
+  }
+
+  subgraph cluster2 {
     label="area 0.0.0.0";
     r2 -- sw1 [label="eth0\n.1"];
     r2 -- sw2 [label="eth1\n.2"];
+    r2 -- sw3 [label="eth2\n.1"];
+
     r3 -- sw2 [label="eth0\n.1"];
-    r3 -- sw3 [label="eth1\n.2"];
   }
 }
