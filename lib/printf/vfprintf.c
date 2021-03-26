@@ -138,7 +138,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
  * write a uintmax_t in octal (plus one byte).
  */
 #if UINTMAX_MAX <= UINT64_MAX
-#define	BUF	64
+#define	BUF	80
 #else
 #error "BUF must be large enough to format a uintmax_t"
 #endif
