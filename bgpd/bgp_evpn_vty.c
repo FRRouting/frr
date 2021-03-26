@@ -688,7 +688,8 @@ static void show_esi_routes(struct bgp *bgp,
 
 /* Display all MAC-IP VNI routes linked to an ES */
 static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
-					   json_object *json, int detail)
+					   json_object *json, int detail,
+					   bool global_table)
 {
 	struct bgp_node *rn;
 	struct bgp_path_info *pi;
@@ -709,11 +710,17 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 		json_paths = json_object_new_array();
 
 	RB_FOREACH (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree) {
+		struct list *es_list;
 
 		if (esi && memcmp(esi, &es->esi, sizeof(*esi)))
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(es->macip_path_list, node, es_info)) {
+		if (global_table)
+			es_list = es->macip_global_path_list;
+		else
+			es_list = es->macip_evi_path_list;
+
+		for (ALL_LIST_ELEMENTS_RO(es_list, node, es_info)) {
 			json_object *json_path = NULL;
 
 			pi = es_info->pi;
@@ -756,6 +763,18 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 			vty_out(vty, "\nDisplayed %u paths\n", path_cnt);
 		vty_out(vty, "\n");
 	}
+}
+
+static void bgp_evpn_show_routes_mac_ip_evi_es(struct vty *vty, esi_t *esi,
+					       json_object *json, int detail)
+{
+	return bgp_evpn_show_routes_mac_ip_es(vty, esi, json, detail, false);
+}
+
+static void bgp_evpn_show_routes_mac_ip_global_es(struct vty *vty, esi_t *esi,
+						  json_object *json, int detail)
+{
+	return bgp_evpn_show_routes_mac_ip_es(vty, esi, json, detail, true);
 }
 
 static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
@@ -4100,6 +4119,21 @@ DEFPY(show_bgp_l2vpn_evpn_es_vrf, show_bgp_l2vpn_evpn_es_vrf_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_bgp_l2vpn_evpn_nh,
+      show_bgp_l2vpn_evpn_nh_cmd,
+      "show bgp l2vpn evpn next-hops [json$uj]",
+      SHOW_STR
+      BGP_STR
+      L2VPN_HELP_STR
+      EVPN_HELP_STR
+      "Nexthops\n"
+      JSON_STR)
+{
+	bgp_evpn_nh_show(vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 /*
  * Display EVPN neighbor summary.
  */
@@ -4658,12 +4692,12 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
 }
 
 DEFPY_HIDDEN(
-	show_bgp_l2vpn_evpn_route_mac_ip_es,
-	show_bgp_l2vpn_evpn_route_mac_ip_es_cmd,
-	"show bgp l2vpn evpn route mac-ip-es [NAME$esi_str|detail$detail] [json$uj]",
+	show_bgp_l2vpn_evpn_route_mac_ip_evi_es,
+	show_bgp_l2vpn_evpn_route_mac_ip_evi_es_cmd,
+	"show bgp l2vpn evpn route mac-ip-evi-es [NAME$esi_str|detail$detail] [json$uj]",
 	SHOW_STR BGP_STR L2VPN_HELP_STR EVPN_HELP_STR
 	"EVPN route information\n"
-	"MAC IP routes linked to the ES\n"
+	"MAC IP routes in the EVI tables linked to the ES\n"
 	"ES ID\n"
 	"Detailed information\n" JSON_STR)
 {
@@ -4683,7 +4717,44 @@ DEFPY_HIDDEN(
 
 	if (uj)
 		json = json_object_new_object();
-	bgp_evpn_show_routes_mac_ip_es(vty, esi_p, json, !!detail);
+	bgp_evpn_show_routes_mac_ip_evi_es(vty, esi_p, json, !!detail);
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(
+	show_bgp_l2vpn_evpn_route_mac_ip_global_es,
+	show_bgp_l2vpn_evpn_route_mac_ip_global_es_cmd,
+	"show bgp l2vpn evpn route mac-ip-global-es [NAME$esi_str|detail$detail] [json$uj]",
+	SHOW_STR BGP_STR L2VPN_HELP_STR EVPN_HELP_STR
+	"EVPN route information\n"
+	"MAC IP routes in the global table linked to the ES\n"
+	"ES ID\n"
+	"Detailed information\n" JSON_STR)
+{
+	esi_t esi;
+	esi_t *esi_p;
+	json_object *json = NULL;
+
+	if (esi_str) {
+		if (!str_to_esi(esi_str, &esi)) {
+			vty_out(vty, "%%Malformed ESI\n");
+			return CMD_WARNING;
+		}
+		esi_p = &esi;
+	} else {
+		esi_p = NULL;
+	}
+
+	if (uj)
+		json = json_object_new_object();
+	bgp_evpn_show_routes_mac_ip_global_es(vty, esi_p, json, !!detail);
 	if (uj) {
 		vty_out(vty, "%s\n",
 			json_object_to_json_string_ext(
@@ -5957,6 +6028,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_es_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_es_evi_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_es_vrf_cmd);
+	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_nh_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vni_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_summary_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_cmd);
@@ -5968,7 +6040,10 @@ void bgp_ethernetvpn_init(void)
 			&show_bgp_l2vpn_evpn_route_vni_multicast_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_macip_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_all_cmd);
-	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_mac_ip_es_cmd);
+	install_element(VIEW_NODE,
+			&show_bgp_l2vpn_evpn_route_mac_ip_evi_es_cmd);
+	install_element(VIEW_NODE,
+			&show_bgp_l2vpn_evpn_route_mac_ip_global_es_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_import_rt_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vrf_import_rt_cmd);
 

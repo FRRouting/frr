@@ -664,6 +664,9 @@ struct bgp {
 	/* RB tree of ES-VRFs */
 	struct bgp_es_vrf_rb_head es_vrf_rb_tree;
 
+	/* Hash table of EVPN nexthops maintained per-tenant-VRF */
+	struct hash *evpn_nh_table;
+
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)
