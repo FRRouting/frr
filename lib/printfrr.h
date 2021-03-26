@@ -251,6 +251,31 @@ static inline ssize_t bputch(struct fbuf *buf, char ch)
 	return 1;
 }
 
+/* when using non-ISO-C compatible extension specifiers... */
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#define FMT_NSTD_BEGIN
+#define FMT_NSTD_END
+#else /* !_FRR_ATTRIBUTE_PRINTFRR */
+#define FMT_NSTD_BEGIN \
+	_Pragma("GCC diagnostic push")                                         \
+	_Pragma("GCC diagnostic ignored \"-Wformat\"")                         \
+	/* end */
+#define FMT_NSTD_END \
+	_Pragma("GCC diagnostic pop")                                          \
+	/* end */
+#endif
+
+#define FMT_NSTD(expr)                                                         \
+	({                                                                     \
+		typeof(expr) _v;                                               \
+		FMT_NSTD_BEGIN                                                 \
+		_v = expr;                                                     \
+		FMT_NSTD_END                                                   \
+		_v;                                                            \
+	})                                                                     \
+	/* end */
+
 #ifdef __cplusplus
 }
 #endif

@@ -59,8 +59,8 @@ static void printcmp(const char *fmt, ...)
 		errors++;
 }
 
-static void printchk(const char *ref, const char *fmt, ...) PRINTFRR(2, 3);
-static void printchk(const char *ref, const char *fmt, ...)
+static int printchk(const char *ref, const char *fmt, ...) PRINTFRR(2, 3);
+static int printchk(const char *ref, const char *fmt, ...)
 {
 	va_list ap;
 	char bufrr[256];
@@ -125,6 +125,7 @@ static void printchk(const char *ref, const char *fmt, ...)
 			(int)(outpos[i].off_end - outpos[i].off_start),
 			bufrr + outpos[i].off_start);
 	printf("\n");
+	return 0;
 }
 
 int main(int argc, char **argv)
