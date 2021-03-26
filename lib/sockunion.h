@@ -24,6 +24,7 @@
 
 #include "privs.h"
 #include "if.h"
+#include <sys/un.h>
 #ifdef __OpenBSD__
 #include <netmpls/mpls.h>
 #endif
@@ -36,6 +37,7 @@ union sockunion {
 	struct sockaddr sa;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
+	struct sockaddr_un sun;
 #ifdef __OpenBSD__
 	struct sockaddr_mpls smpls;
 	struct sockaddr_rtlabel rtlabel;
@@ -106,6 +108,11 @@ extern int sockunion_is_null(const union sockunion *su);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pSU"  (union sockunion *)
+#pragma FRR printfrr_ext "%pSU"  (struct sockaddr *)
+#pragma FRR printfrr_ext "%pSU"  (struct sockaddr_storage *)
+#pragma FRR printfrr_ext "%pSU"  (struct sockaddr_in *)
+#pragma FRR printfrr_ext "%pSU"  (struct sockaddr_in6 *)
+#pragma FRR printfrr_ext "%pSU"  (struct sockaddr_un *)
 #endif
 
 #ifdef __cplusplus

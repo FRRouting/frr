@@ -668,7 +668,7 @@ static ssize_t printfrr_psu(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
 	const union sockunion *su = ptr;
-	bool include_port = false;
+	bool include_port = false, include_scope = false;
 	bool endflags = false;
 	ssize_t ret = 0;
 	char cbuf[INET6_ADDRSTRLEN];
@@ -681,6 +681,10 @@ static ssize_t printfrr_psu(struct fbuf *buf, struct printfrr_eargs *ea,
 		case 'p':
 			ea->fmt++;
 			include_port = true;
+			break;
+		case 's':
+			ea->fmt++;
+			include_scope = true;
 			break;
 		default:
 			endflags = true;
@@ -696,14 +700,35 @@ static ssize_t printfrr_psu(struct fbuf *buf, struct printfrr_eargs *ea,
 		inet_ntop(AF_INET, &su->sin.sin_addr, cbuf, sizeof(cbuf));
 		ret += bputs(buf, cbuf);
 		if (include_port)
-			ret += bprintfrr(buf, ":%d", su->sin.sin_port);
+			ret += bprintfrr(buf, ":%d", ntohs(su->sin.sin_port));
 		break;
 	case AF_INET6:
+		if (include_port)
+			ret += bputch(buf, '[');
 		inet_ntop(AF_INET6, &su->sin6.sin6_addr, cbuf, sizeof(cbuf));
 		ret += bputs(buf, cbuf);
+		if (include_scope && su->sin6.sin6_scope_id)
+			ret += bprintfrr(buf, "%%%u",
+					 (unsigned int)su->sin6.sin6_scope_id);
 		if (include_port)
-			ret += bprintfrr(buf, ":%d", su->sin6.sin6_port);
+			ret += bprintfrr(buf, "]:%d",
+					 ntohs(su->sin6.sin6_port));
 		break;
+	case AF_UNIX: {
+		int len;
+#ifdef __linux__
+		if (su->sun.sun_path[0] == '\0' && su->sun.sun_path[1]) {
+			len = strnlen(su->sun.sun_path + 1,
+				      sizeof(su->sun.sun_path) - 1);
+			ret += bprintfrr(buf, "@%*pSE", len,
+					 su->sun.sun_path + 1);
+			break;
+		}
+#endif
+		len = strnlen(su->sun.sun_path, sizeof(su->sun.sun_path));
+		ret += bprintfrr(buf, "%*pSE", len, su->sun.sun_path);
+		break;
+	}
 	default:
 		ret += bprintfrr(buf, "(af %d)", sockunion_family(su));
 	}
