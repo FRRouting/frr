@@ -749,7 +749,7 @@ static ssize_t printfrr_nh(struct fbuf *buf, const char **fmt,
 		}
 
 		if (!nexthop)
-			return bputs(buf, "NULL");
+			return bputs(buf, "(null)");
 
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV4:
@@ -799,7 +799,7 @@ static ssize_t printfrr_nh(struct fbuf *buf, const char **fmt,
 		(*fmt)++;
 
 		if (!nexthop)
-			return bputs(buf, "NULL");
+			return bputs(buf, "(null)");
 
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IFINDEX:

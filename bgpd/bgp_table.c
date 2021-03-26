@@ -209,7 +209,7 @@ static ssize_t printfrr_bd(struct fbuf *buf, const char **fmt,
 	char cbuf[PREFIX_STRLEN];
 
 	if (!dest)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	/* need to get the real length even if buffer too small */
 	prefix2str(p, cbuf, sizeof(cbuf));

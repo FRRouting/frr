@@ -1368,7 +1368,7 @@ static ssize_t printfrr_ea(struct fbuf *buf, const char **fmt,
 	char cbuf[ETHER_ADDR_STRLEN];
 
 	if (!mac)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	/* need real length even if buffer is too short */
 	prefix_mac2str(mac, cbuf, sizeof(cbuf));
@@ -1383,7 +1383,7 @@ static ssize_t printfrr_ia(struct fbuf *buf, const char **fmt,
 	char cbuf[INET6_ADDRSTRLEN];
 
 	if (!ipa)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	ipaddr2str(ipa, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
@@ -1396,7 +1396,7 @@ static ssize_t printfrr_i4(struct fbuf *buf, const char **fmt,
 	char cbuf[INET_ADDRSTRLEN];
 
 	if (!ptr)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	inet_ntop(AF_INET, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
@@ -1409,7 +1409,7 @@ static ssize_t printfrr_i6(struct fbuf *buf, const char **fmt,
 	char cbuf[INET6_ADDRSTRLEN];
 
 	if (!ptr)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
@@ -1422,7 +1422,7 @@ static ssize_t printfrr_pfx(struct fbuf *buf, const char **fmt,
 	char cbuf[PREFIX_STRLEN];
 
 	if (!ptr)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	prefix2str(ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
@@ -1436,7 +1436,7 @@ static ssize_t printfrr_psg(struct fbuf *buf, const char **fmt,
 	ssize_t ret = 0;
 
 	if (!sg)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	if (sg->src.s_addr == INADDR_ANY)
 		ret += bputs(buf, "(*,");

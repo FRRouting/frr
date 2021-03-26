@@ -674,7 +674,7 @@ static ssize_t printfrr_psu(struct fbuf *buf, const char **fmt,
 	char cbuf[INET6_ADDRSTRLEN];
 
 	if (!su)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	while (!endflags) {
 		switch (**fmt) {

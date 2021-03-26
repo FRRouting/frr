@@ -315,7 +315,7 @@ static ssize_t printfrr_rn(struct fbuf *buf, const char **fmt,
 	char cbuf[PREFIX_STRLEN * 2 + 6];
 
 	if (!rn)
-		return bputs(buf, "NULL");
+		return bputs(buf, "(null)");
 
 	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 	srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p,
