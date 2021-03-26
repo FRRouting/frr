@@ -3316,6 +3316,13 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 		    && nh->type != NEXTHOP_TYPE_IPV6)
 	    || nh->vrf_id == VRF_UNKNOWN)
 		return;
+
+	/* in vrf-lite, no default route has to be announced
+	 * the table id of vrf is directly used to divert traffic
+	 */
+	if (!vrf_is_backend_netns() && bgp->vrf_id != nh->vrf_id)
+		return;
+
 	memset(&p, 0, sizeof(struct prefix));
 	if (afi != AFI_IP && afi != AFI_IP6)
 		return;
