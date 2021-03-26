@@ -752,3 +752,49 @@ int sockunion_is_null(const union sockunion *su)
 		return 0;
 	}
 }
+
+printfrr_ext_autoreg_i("PF", printfrr_pf)
+static ssize_t printfrr_pf(struct fbuf *buf, struct printfrr_eargs *ea,
+			   uintmax_t val)
+{
+	switch (val) {
+	case AF_INET:
+		return bputs(buf, "AF_INET");
+	case AF_INET6:
+		return bputs(buf, "AF_INET6");
+	case AF_UNIX:
+		return bputs(buf, "AF_UNIX");
+#ifdef AF_PACKET
+	case AF_PACKET:
+		return bputs(buf, "AF_PACKET");
+#endif
+#ifdef AF_NETLINK
+	case AF_NETLINK:
+		return bputs(buf, "AF_NETLINK");
+#endif
+	}
+	return bprintfrr(buf, "AF_(%ju)", val);
+}
+
+printfrr_ext_autoreg_i("SO", printfrr_so)
+static ssize_t printfrr_so(struct fbuf *buf, struct printfrr_eargs *ea,
+			   uintmax_t val)
+{
+	switch (val) {
+	case SOCK_STREAM:
+		return bputs(buf, "SOCK_STREAM");
+	case SOCK_DGRAM:
+		return bputs(buf, "SOCK_DGRAM");
+	case SOCK_SEQPACKET:
+		return bputs(buf, "SOCK_SEQPACKET");
+#ifdef SOCK_RAW
+	case SOCK_RAW:
+		return bputs(buf, "SOCK_RAW");
+#endif
+#ifdef SOCK_PACKET
+	case SOCK_PACKET:
+		return bputs(buf, "SOCK_PACKET");
+#endif
+	}
+	return bprintfrr(buf, "SOCK_(%ju)", val);
+}

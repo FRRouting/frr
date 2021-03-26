@@ -113,6 +113,11 @@ extern int sockunion_is_null(const union sockunion *su);
 #pragma FRR printfrr_ext "%pSU"  (struct sockaddr_in *)
 #pragma FRR printfrr_ext "%pSU"  (struct sockaddr_in6 *)
 #pragma FRR printfrr_ext "%pSU"  (struct sockaddr_un *)
+
+/* AF_INET/PF_INET & co., using "PF" to avoid confusion with AFI/SAFI */
+#pragma FRR printfrr_ext "%dPF"  (int)
+/* SOCK_STREAM & co. */
+#pragma FRR printfrr_ext "%dSO"  (int)
 #endif
 
 #ifdef __cplusplus
