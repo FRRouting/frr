@@ -159,6 +159,8 @@ int vty_out(struct vty *vty, const char *format, ...)
 	char buf[1024];
 	char *p = NULL;
 	char *filtered;
+	/* format string may contain %m, keep errno intact for printfrr */
+	int saved_errno = errno;
 
 	if (vty->frame_pos) {
 		vty->frame_pos = 0;
@@ -166,6 +168,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 	}
 
 	va_start(args, format);
+	errno = saved_errno;
 	p = vasnprintfrr(MTYPE_VTY_OUT_BUF, buf, sizeof(buf), format, args);
 	va_end(args);
 
