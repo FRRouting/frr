@@ -305,7 +305,7 @@ vbprintfrr(struct fbuf *cb_in, const char *fmt0, va_list ap)
 
 		flags = 0;
 		dprec = 0;
-		width = 0;
+		width = -1;
 		prec = -1;
 		sign = '\0';
 		ox[1] = '\0';
@@ -688,6 +688,9 @@ number:			if ((dprec = prec) >= 0)
 		 * Compute actual size, so we know how much to pad.
 		 * size excludes decimal prec; realsz includes it.
 		 */
+		if (width < 0)
+			width = 0;
+
 		realsz = dprec > size ? dprec : size;
 		if (sign)
 			realsz++;
@@ -749,6 +752,9 @@ ext_printed:
 		 *
 		 * Keep analogous to code above please.
 		 */
+
+		if (width < 0)
+			width = 0;
 
 		realsz = size;
 		prsize = width > realsz ? width : realsz;

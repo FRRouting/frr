@@ -178,6 +178,23 @@ struct printfrr_eargs {
 	bool leftadj;
 };
 
+/* for any extension that needs a buffer length */
+
+static inline ssize_t printfrr_ext_len(struct printfrr_eargs *ea)
+{
+	ssize_t rv;
+
+	if (ea->precision >= 0)
+		rv = ea->precision;
+	else if (ea->width >= 0) {
+		rv = ea->width;
+		ea->width = -1;
+	} else
+		rv = -1;
+
+	return rv;
+}
+
 /* no locking - must be called when single threaded (e.g. at startup.)
  * this restriction hopefully won't be a huge bother considering normal usage
  * scenarios...
