@@ -15,18 +15,22 @@
 #include <endian.h>
 #include <sys/types.h>
 
-#include "list.h"
+#include "typesafe.h"
+
+PREDECL_DLIST(zbuf_queue);
 
 struct zbuf {
-	struct list_head queue_list;
+	struct zbuf_queue_item queue_entry;
 	unsigned allocated : 1;
 	unsigned error : 1;
 	uint8_t *buf, *end;
 	uint8_t *head, *tail;
 };
 
+DECLARE_DLIST(zbuf_queue, struct zbuf, queue_entry);
+
 struct zbuf_queue {
-	struct list_head queue_head;
+	struct zbuf_queue_head queue_head;
 };
 
 struct zbuf *zbuf_alloc(size_t size);
