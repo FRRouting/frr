@@ -62,6 +62,8 @@ const struct typed_rb_entry *typed_rb_find_lt(const struct typed_rb_root *rbt,
 			const struct typed_rb_entry *b));
 struct typed_rb_entry *typed_rb_min(const struct typed_rb_root *rbt);
 struct typed_rb_entry *typed_rb_next(const struct typed_rb_entry *rbe);
+bool typed_rb_member(const struct typed_rb_root *rbt,
+		     const struct typed_rb_entry *rbe);
 
 #define _PREDECL_RBTREE(prefix)                                                \
 struct prefix ## _head { struct typed_rb_root rr; };                           \
@@ -141,6 +143,11 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->rr.count;                                                    \
+}                                                                              \
+macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
+				  const type *item)                            \
+{                                                                              \
+	return typed_rb_member(&h->rr, &item->field.re);                       \
 }                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
