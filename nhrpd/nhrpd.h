@@ -42,48 +42,53 @@ struct notifier_block;
 
 typedef void (*notifier_fn_t)(struct notifier_block *, unsigned long);
 
+PREDECL_DLIST(notifier_list);
+
 struct notifier_block {
-	struct list_head notifier_entry;
+	struct notifier_list_item notifier_entry;
 	notifier_fn_t action;
 };
 
+DECLARE_DLIST(notifier_list, struct notifier_block, notifier_entry);
+
 struct notifier_list {
-	struct list_head notifier_head;
+	struct notifier_list_head head;
 };
 
 #define NOTIFIER_LIST_INITIALIZER(l)                                           \
 	{                                                                      \
-		.notifier_head = LIST_INITIALIZER((l)->notifier_head)          \
+		.head = INIT_DLIST((l)->head)                                  \
 	}
 
 static inline void notifier_init(struct notifier_list *l)
 {
-	list_init(&l->notifier_head);
+	notifier_list_init(&l->head);
 }
 
 static inline void notifier_add(struct notifier_block *n,
 				struct notifier_list *l, notifier_fn_t action)
 {
 	n->action = action;
-	list_add_tail(&n->notifier_entry, &l->notifier_head);
+	notifier_list_add_tail(&l->head, n);
 }
 
-static inline void notifier_del(struct notifier_block *n)
+static inline void notifier_del(struct notifier_block *n,
+				struct notifier_list *l)
 {
-	list_del(&n->notifier_entry);
+	notifier_list_del(&l->head, n);
 }
 
 static inline void notifier_call(struct notifier_list *l, int cmd)
 {
-	struct notifier_block *n, *nn;
-	list_for_each_entry_safe(n, nn, &l->notifier_head, notifier_entry) {
+	struct notifier_block *n;
+
+	frr_each_safe (notifier_list, &l->head, n)
 		n->action(n, cmd);
-	}
 }
 
 static inline int notifier_active(struct notifier_list *l)
 {
-	return !list_empty(&l->notifier_head);
+	return notifier_list_count(&l->head) > 0;
 }
 
 extern struct hash *nhrp_gre_list;
