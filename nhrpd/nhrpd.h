@@ -10,8 +10,6 @@
 #ifndef NHRPD_H
 #define NHRPD_H
 
-#include "list.h"
-
 #include "zbuf.h"
 #include "zclient.h"
 #include "debug.h"

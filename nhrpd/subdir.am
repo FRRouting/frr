@@ -34,7 +34,6 @@ nhrpd_nhrpd_SOURCES = \
 
 noinst_HEADERS += \
 	nhrpd/debug.h \
-	nhrpd/list.h \
 	nhrpd/netlink.h \
 	nhrpd/nhrp_errors.h \
 	nhrpd/nhrp_protocol.h \
