@@ -39,6 +39,7 @@
 #define list_find	concat(TYPE, _find)
 #define list_find_lt	concat(TYPE, _find_lt)
 #define list_find_gteq	concat(TYPE, _find_gteq)
+#define list_member	concat(TYPE, _member)
 #define list_del	concat(TYPE, _del)
 #define list_pop	concat(TYPE, _pop)
 #define list_swap_all	concat(TYPE, _swap_all)
@@ -301,7 +302,7 @@ static void concat(test_, TYPE)(void)
 #elif IS_HEAP(REALTYPE)
 	/* heap - partially sorted. */
 	prev = NULL;
-	l = k / 2;
+	l = k / 4;
 	for (i = 0; i < l; i++) {
 		item = list_pop(&head);
 		if (prev)
@@ -310,7 +311,24 @@ static void concat(test_, TYPE)(void)
 		k--;
 		prev = item;
 	}
-	ts_hash("pop", NULL);
+	ts_hash("pop#1", NULL);
+
+	for (i = 0; i < NITEM; i++)
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+	ts_hash("member", NULL);
+
+	l = k / 2;
+	for (; i < l; i++) {
+		item = list_pop(&head);
+		if (prev)
+			assert(prev->val < item->val);
+		item->scratchpad = 0;
+		k--;
+		prev = item;
+	}
+	ts_hash("pop#2", NULL);
 
 #else /* !IS_UNIQ(REALTYPE) && !IS_HEAP(REALTYPE) */
 	for (i = 0; i < NITEM; i++) {
@@ -386,6 +404,14 @@ static void concat(test_, TYPE)(void)
 	}
 	assert(l + list_count(&head) == k);
 	ts_hashx("del", "cb2e5d80f08a803ef7b56c15e981b681adcea214bebc2f55e12e0bfb242b07ca");
+
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++)
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+	ts_hashx("member", "cb2e5d80f08a803ef7b56c15e981b681adcea214bebc2f55e12e0bfb242b07ca");
+#endif
 
 	frr_each_safe(list, &head, item) {
 		assert(item->scratchpad != 0);
@@ -475,7 +501,31 @@ static void concat(test_, TYPE)(void)
 	}
 	ts_hash("del-prng", "86d568a95eb429dab3162976c5a5f3f75aabc835932cd682aa280b6923549564");
 
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++)
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+	ts_hash("member", "86d568a95eb429dab3162976c5a5f3f75aabc835932cd682aa280b6923549564");
+#endif
+
 	l = 0;
+	while (l < (k / 4) && (prev = list_pop(&head))) {
+		assert(prev->scratchpad != 0);
+
+		prev->scratchpad = 0;
+		l++;
+	}
+	ts_hash("pop#1", "42b8950c880535b2d2e0c980f9845f7841ecf675c0fb9801aec4170d2036349d");
+
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++)
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+	ts_hash("member", "42b8950c880535b2d2e0c980f9845f7841ecf675c0fb9801aec4170d2036349d");
+#endif
+
 	while ((item = list_pop(&head))) {
 		assert(item->scratchpad != 0);
 
@@ -485,7 +535,7 @@ static void concat(test_, TYPE)(void)
 	assert(l == k);
 	assert(list_count(&head) == 0);
 	assert(list_first(&head) == NULL);
-	ts_hash("pop", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
+	ts_hash("pop#2", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
 
 	prng_free(prng);
 	prng = prng_new(0x1e5a2d69);
@@ -695,6 +745,7 @@ static void concat(test_, TYPE)(void)
 #undef list_find
 #undef list_find_lt
 #undef list_find_gteq
+#undef list_member
 #undef list_del
 #undef list_pop
 #undef list_swap_all

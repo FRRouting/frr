@@ -78,8 +78,34 @@ macro_inline type *prefix ## _find_gteq(struct prefix##_head *h,               \
 }                                                                              \
 /* ... */
 
+/* *_member via find - when there is no better membership check than find() */
+#define TYPESAFE_MEMBER_VIA_FIND(prefix, type)                                 \
+macro_inline bool prefix ## _member(struct prefix##_head *h,                   \
+				    const type *item)                          \
+{                                                                              \
+	return item == prefix ## _const_find(h, item);                         \
+}                                                                              \
+/* ... */
+
+/* *_member via find_gteq - same for non-unique containers */
+#define TYPESAFE_MEMBER_VIA_FIND_GTEQ(prefix, type, cmpfn)                     \
+macro_inline bool prefix ## _member(struct prefix##_head *h,                   \
+				    const type *item)                          \
+{                                                                              \
+	const type *iter;                                                      \
+	for (iter = prefix ## _const_find_gteq(h, item); iter;                 \
+	     iter = prefix ## _const_next(h, iter)) {                          \
+		if (iter == item)                                              \
+			return true;                                           \
+		if (cmpfn(iter, item) > 0)                                     \
+			break;                                                 \
+	}                                                                      \
+	return false;                                                          \
+}                                                                              \
+/* ... */
+
 /* SWAP_ALL_SIMPLE = for containers where the items don't point back to the
- * head *AND* the head doesn'T points to itself (= everything except LIST,
+ * head *AND* the head doesn't point to itself (= everything except LIST,
  * DLIST and SKIPLIST), just switch out the entire head
  */
 #define TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                       \
@@ -115,6 +141,9 @@ static inline void typesafe_list_add(struct slist_head *head,
 		head->last_next = &item->next;
 	head->count++;
 }
+
+extern bool typesafe_list_member(const struct slist_head *head,
+				 const struct slist_item *item);
 
 /* use as:
  *
@@ -218,6 +247,11 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
 }                                                                              \
+macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
+				  const type *item)                            \
+{                                                                              \
+	return typesafe_list_member(&h->sh, &item->field.si);                  \
+}                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* don't use these structs directly */
@@ -268,6 +302,9 @@ static inline void typesafe_dlist_swap_all(struct dlist_head *a,
 		b->hitem.prev = &b->hitem;
 	}
 }
+
+extern bool typesafe_dlist_member(const struct dlist_head *head,
+				  const struct dlist_item *item);
 
 /* double-linked list, for fast item deletion
  */
@@ -356,6 +393,11 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->dh.count;                                                    \
+}                                                                              \
+macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
+				  const type *item)                            \
+{                                                                              \
+	return typesafe_dlist_member(&h->dh, &item->field.di);                 \
 }                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
@@ -465,6 +507,14 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->hh.count;                                                    \
+}                                                                              \
+macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
+				  const type *item)                            \
+{                                                                              \
+	uint32_t idx = item->field.hi.index;                                   \
+	if (idx >= h->hh.count)                                                \
+		return false;                                                  \
+	return h->hh.array[idx] == &item->field.hi;                            \
 }                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
@@ -622,6 +672,7 @@ macro_inline const type *prefix ## _const_find(const struct prefix##_head *h,  \
 	return container_of(sitem, type, field.si);                            \
 }                                                                              \
 TYPESAFE_FIND(prefix, type)                                                    \
+TYPESAFE_MEMBER_VIA_FIND(prefix, type)                                         \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DECLARE_SORTLIST_NONUNIQ(prefix, type, field, cmpfn)                   \
@@ -637,6 +688,7 @@ macro_inline int _ ## prefix ## _cmp(const type *a, const type *b)             \
 	return 0;                                                              \
 }                                                                              \
 	_DECLARE_SORTLIST(prefix, type, field, cmpfn, _ ## prefix ## _cmp);    \
+TYPESAFE_MEMBER_VIA_FIND_GTEQ(prefix, type, cmpfn)                             \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
 
@@ -803,6 +855,19 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->hh.count;                                                    \
 }                                                                              \
+macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
+				  const type *item)                            \
+{                                                                              \
+	uint32_t hval = item->field.hi.hashval, hbits = HASH_KEY(h->hh, hval); \
+	const struct thash_item *hitem = h->hh.entries[hbits];                 \
+	while (hitem && hitem->hashval < hval)                                 \
+		hitem = hitem->next;                                           \
+	for (hitem = h->hh.entries[hbits]; hitem && hitem->hashval <= hval;    \
+	     hitem = hitem->next)                                              \
+		if (hitem == &item->field.hi)                                  \
+			return true;                                           \
+	return false;                                                          \
+}                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* skiplist, sorted.
@@ -941,6 +1006,7 @@ macro_inline const type *prefix ## _const_find(const struct prefix##_head *h,  \
 	return container_of_null(sitem, type, field.si);                       \
 }                                                                              \
 TYPESAFE_FIND(prefix, type)                                                    \
+TYPESAFE_MEMBER_VIA_FIND(prefix, type)                                         \
                                                                                \
 _DECLARE_SKIPLIST(prefix, type, field,                                         \
 		prefix ## __cmp, prefix ## __cmp);                             \
@@ -972,6 +1038,7 @@ macro_inline int prefix ## __cmp_uq(const struct sskip_item *a,                \
                                                                                \
 _DECLARE_SKIPLIST(prefix, type, field,                                         \
 		prefix ## __cmp, prefix ## __cmp_uq);                          \
+TYPESAFE_MEMBER_VIA_FIND_GTEQ(prefix, type, cmpfn)                             \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
 
