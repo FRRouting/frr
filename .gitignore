@@ -30,6 +30,7 @@
 /libtool.orig
 /changelog-auto
 /test-driver
+/test-suite.log
 
 /Makefile
 /Makefile.in
