@@ -268,9 +268,11 @@ struct nhrp_shortcut {
 	struct notifier_block cache_notifier;
 };
 
+PREDECL_DLIST(nhrp_nhslist);
+
 struct nhrp_nhs {
 	struct interface *ifp;
-	struct list_head nhslist_entry;
+	struct nhrp_nhslist_item nhslist_entry;
 
 	unsigned hub : 1;
 	afi_t afi;
@@ -281,6 +283,8 @@ struct nhrp_nhs {
 	struct resolver_query dns_resolve;
 	struct list_head reglist_head;
 };
+
+DECLARE_DLIST(nhrp_nhslist, struct nhrp_nhs, nhslist_entry);
 
 struct nhrp_multicast {
 	struct interface *ifp;
@@ -335,7 +339,7 @@ struct nhrp_interface {
 		short configured_mtu;
 		unsigned short mtu;
 		unsigned int holdtime;
-		struct list_head nhslist_head;
+		struct nhrp_nhslist_head nhslist_head;
 		struct list_head mcastlist_head;
 	} afi[AFI_MAX];
 };
@@ -386,7 +390,7 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);
 int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);
-int nhrp_nhs_free(struct nhrp_nhs *nhs);
+int nhrp_nhs_free(struct nhrp_interface *nifp, afi_t afi, struct nhrp_nhs *nhs);
 void nhrp_nhs_terminate(void);
 void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 		      void (*cb)(struct nhrp_nhs *, struct nhrp_registration *,
