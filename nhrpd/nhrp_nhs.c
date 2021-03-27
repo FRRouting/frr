@@ -254,7 +254,7 @@ static void nhrp_reg_delete(struct nhrp_registration *r)
 {
 	nhrp_peer_notify_del(r->peer, &r->peer_notifier);
 	nhrp_peer_unref(r->peer);
-	list_del(&r->reglist_entry);
+	nhrp_reglist_del(&r->nhs->reglist_head, r);
 	THREAD_OFF(r->t_register);
 	XFREE(MTYPE_NHRP_REGISTRATION, r);
 }
@@ -264,10 +264,9 @@ nhrp_reg_by_nbma(struct nhrp_nhs *nhs, const union sockunion *nbma_addr)
 {
 	struct nhrp_registration *r;
 
-	list_for_each_entry(
-		r, &nhs->reglist_head,
-		reglist_entry) if (sockunion_same(&r->peer->vc->remote.nbma,
-						  nbma_addr)) return r;
+	frr_each (nhrp_reglist, &nhs->reglist_head, r)
+		if (sockunion_same(&r->peer->vc->remote.nbma, nbma_addr))
+			return r;
 	return NULL;
 }
 
@@ -276,7 +275,7 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 {
 	struct nhrp_nhs *nhs = container_of(q, struct nhrp_nhs, dns_resolve);
 	struct nhrp_interface *nifp = nhs->ifp->info;
-	struct nhrp_registration *reg, *regn;
+	struct nhrp_registration *reg;
 	int i;
 
 	if (n < 0) {
@@ -289,8 +288,8 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 	thread_add_timer(master, nhrp_nhs_resolve, nhs, 2 * 60 * 60,
 			 &nhs->t_resolve);
 
-	list_for_each_entry(reg, &nhs->reglist_head, reglist_entry) reg->mark =
-		1;
+	frr_each (nhrp_reglist, &nhs->reglist_head, reg)
+		reg->mark = 1;
 
 	nhs->hub = 0;
 	for (i = 0; i < n; i++) {
@@ -309,19 +308,16 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 		reg->peer = nhrp_peer_get(nhs->ifp, &addrs[i]);
 		reg->nhs = nhs;
 		reg->timeout = 1;
-		list_init(&reg->reglist_entry);
-		list_add_tail(&reg->reglist_entry, &nhs->reglist_head);
+		nhrp_reglist_add_tail(&nhs->reglist_head, reg);
 		nhrp_peer_notify_add(reg->peer, &reg->peer_notifier,
 				     nhrp_reg_peer_notify);
 		thread_add_timer_msec(master, nhrp_reg_send_req, reg, 50,
 				      &reg->t_register);
 	}
 
-	list_for_each_entry_safe(reg, regn, &nhs->reglist_head, reglist_entry)
-	{
+	frr_each_safe (nhrp_reglist, &nhs->reglist_head, reg)
 		if (reg->mark)
 			nhrp_reg_delete(reg);
-	}
 }
 
 static int nhrp_nhs_resolve(struct thread *t)
@@ -361,7 +357,7 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		.ifp = ifp,
 		.proto_addr = *proto_addr,
 		.nbma_fqdn = strdup(nbma_fqdn),
-		.reglist_head = LIST_INITIALIZER(nhs->reglist_head),
+		.reglist_head = INIT_DLIST(nhs->reglist_head),
 	};
 	nhrp_nhslist_add_tail(&nifp->afi[afi].nhslist_head, nhs);
 	thread_add_timer_msec(master, nhrp_nhs_resolve, nhs, 1000,
@@ -396,9 +392,9 @@ int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 
 int nhrp_nhs_free(struct nhrp_interface *nifp, afi_t afi, struct nhrp_nhs *nhs)
 {
-	struct nhrp_registration *r, *rn;
+	struct nhrp_registration *r;
 
-	list_for_each_entry_safe(r, rn, &nhs->reglist_head, reglist_entry)
+	frr_each_safe (nhrp_reglist, &nhs->reglist_head, r)
 		nhrp_reg_delete(r);
 	THREAD_OFF(nhs->t_resolve);
 	nhrp_nhslist_del(&nifp->afi[afi].nhslist_head, nhs);
@@ -450,9 +446,9 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 	struct nhrp_registration *reg;
 
 	frr_each (nhrp_nhslist, &nifp->afi[afi].nhslist_head, nhs) {
-		if (!list_empty(&nhs->reglist_head)) {
-			list_for_each_entry(reg, &nhs->reglist_head,
-					    reglist_entry) cb(nhs, reg, ctx);
+		if (nhrp_reglist_count(&nhs->reglist_head)) {
+			frr_each (nhrp_reglist, &nhs->reglist_head, reg)
+				cb(nhs, reg, ctx);
 		} else
 			cb(nhs, 0, ctx);
 	}

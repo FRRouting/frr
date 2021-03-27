@@ -270,6 +270,7 @@ struct nhrp_shortcut {
 
 PREDECL_DLIST(nhrp_nhslist);
 PREDECL_DLIST(nhrp_mcastlist);
+PREDECL_DLIST(nhrp_reglist);
 
 struct nhrp_nhs {
 	struct interface *ifp;
@@ -282,7 +283,7 @@ struct nhrp_nhs {
 
 	struct thread *t_resolve;
 	struct resolver_query dns_resolve;
-	struct list_head reglist_head;
+	struct nhrp_reglist_head reglist_head;
 };
 
 DECLARE_DLIST(nhrp_nhslist, struct nhrp_nhs, nhslist_entry);
@@ -297,7 +298,7 @@ struct nhrp_multicast {
 DECLARE_DLIST(nhrp_mcastlist, struct nhrp_multicast, mcastlist_entry);
 
 struct nhrp_registration {
-	struct list_head reglist_entry;
+	struct nhrp_reglist_item reglist_entry;
 	struct thread *t_register;
 	struct nhrp_nhs *nhs;
 	struct nhrp_reqid reqid;
@@ -307,6 +308,8 @@ struct nhrp_registration {
 	struct nhrp_peer *peer;
 	struct notifier_block peer_notifier;
 };
+
+DECLARE_DLIST(nhrp_reglist, struct nhrp_registration, reglist_entry);
 
 #define NHRP_IFF_SHORTCUT		0x0001
 #define NHRP_IFF_REDIRECT		0x0002
