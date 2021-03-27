@@ -359,7 +359,7 @@ void nhrp_peer_notify_add(struct nhrp_peer *p, struct notifier_block *n,
 
 void nhrp_peer_notify_del(struct nhrp_peer *p, struct notifier_block *n)
 {
-	notifier_del(n);
+	notifier_del(n, &p->notifier_list);
 	nhrp_peer_check_delete(p);
 }
 

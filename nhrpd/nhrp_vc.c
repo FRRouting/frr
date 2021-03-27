@@ -170,7 +170,7 @@ void nhrp_vc_notify_add(struct nhrp_vc *vc, struct notifier_block *n,
 
 void nhrp_vc_notify_del(struct nhrp_vc *vc, struct notifier_block *n)
 {
-	notifier_del(n);
+	notifier_del(n, &vc->notifier_list);
 	nhrp_vc_check_delete(vc);
 }
 
