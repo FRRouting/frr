@@ -28,6 +28,7 @@
 #include "nexthop.h"
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
+#include "bgp_rpki.h"
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
@@ -56,6 +57,7 @@ enum bgp_show_type {
 	bgp_show_type_dampend_paths,
 	bgp_show_type_damp_neighbor,
 	bgp_show_type_detail,
+	bgp_show_type_rpki,
 };
 
 enum bgp_show_adj_route_type {
@@ -763,7 +765,8 @@ extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *bn,
 				 struct bgp_path_info *path, afi_t afi,
-				 safi_t safi, json_object *json_paths);
+				 safi_t safi, enum rpki_states,
+				 json_object *json_paths);
 extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
