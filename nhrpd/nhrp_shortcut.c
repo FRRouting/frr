@@ -301,7 +301,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	/* Update cache entry for the protocol to nbma binding */
 	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "Remote Device is NATed (NAT extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
+		       "Shortcut: NAT detected (NAT extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
 		       proto, &nat_nbma, &cie_nbma);
 		nbma = &nat_nbma;
 	}
@@ -311,7 +311,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	else if (!sockunion_same(&cie_nbma, &pp->peer->vc->remote.nbma)
 		 && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp)) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "Remote Device is NATed (no NAT Extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
+		       "Shortcut: NAT detected (no NAT Extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
 		       proto, &pp->peer->vc->remote.nbma, &cie_nbma);
 		nbma = &pp->peer->vc->remote.nbma;
 		nat_nbma = *nbma;

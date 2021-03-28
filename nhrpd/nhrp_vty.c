@@ -669,7 +669,7 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 
 		if (c->cur.peer
 		    && sockunion_family(&c->cur.remote_nbma_claimed)
-		    	       != AF_UNSPEC)
+		    != AF_UNSPEC)
 			sockunion2str(&c->cur.remote_nbma_claimed,
 				      buf[2], sizeof(buf[2]));
 		else

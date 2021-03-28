@@ -412,7 +412,7 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 				 * since it is behind a NAT device
 				 */
 				debugf(NHRP_DEBUG_COMMON,
-				       "Processing NAT Extension for %pSU",
+				       "shortcut res_resp: Processing NAT Extension for %pSU",
 				       proto);
 				while (nhrp_cie_pull(&payload, pp->hdr,
 						     cie_nbma, &cie_proto)) {
@@ -422,7 +422,7 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 
 					if (!sockunion_cmp(proto, &cie_proto)) {
 						debugf(NHRP_DEBUG_COMMON,
-						       "cie_nbma for proto %pSU is %pSU",
+						       "\tcie_nbma for proto %pSU is %pSU",
 						       proto, cie_nbma);
 						break;
 					}
@@ -507,18 +507,16 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			 * coming directly from NATTED Spoke and there is not
 			 * NAT Extension present
 			 */
-			debugf(NHRP_DEBUG_COMMON, "No NAT Extension for %pSU",
+			debugf(NHRP_DEBUG_COMMON, "shortcut res_rep: No NAT Extension for %pSU",
 			       proto_addr);
 
 			if (!sockunion_same(&pp->src_nbma,
 					    &pp->peer->vc->remote.nbma)
 			    && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma,
 						  nifp)) {
-				debugf(NHRP_DEBUG_COMMON,
-				       "Remote Device is NATTED");
 				cie_nbma_nat = pp->peer->vc->remote.nbma;
 				debugf(NHRP_DEBUG_COMMON,
-				       "Device is natted using %pSU as cie_nbma",
+				       "shortcut res_rep: NAT detected using %pSU as cie_nbma",
 				       &cie_nbma_nat);
 			}
 		}
