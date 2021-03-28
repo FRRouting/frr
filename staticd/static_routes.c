@@ -139,9 +139,6 @@ struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
 
 	rn->info = si;
 
-	/* Mark as having FRR configuration */
-	vrf_set_user_cfged(svrf->vrf);
-
 	return rn;
 }
 
@@ -160,9 +157,6 @@ static void static_del_src_route(struct route_node *rn, safi_t safi,
 
 	XFREE(MTYPE_STATIC_ROUTE, rn->info);
 	route_unlock_node(rn);
-	/* If no other FRR config for this VRF, mark accordingly. */
-	if (!static_vrf_has_config(svrf))
-		vrf_reset_user_cfged(svrf->vrf);
 }
 
 void static_del_route(struct route_node *rn, safi_t safi,
@@ -192,9 +186,6 @@ void static_del_route(struct route_node *rn, safi_t safi,
 	}
 	XFREE(MTYPE_STATIC_ROUTE, rn->info);
 	route_unlock_node(rn);
-	/* If no other FRR config for this VRF, mark accordingly. */
-	if (!static_vrf_has_config(svrf))
-		vrf_reset_user_cfged(svrf->vrf);
 }
 
 bool static_add_nexthop_validate(const char *nh_vrf_name, static_types type,
