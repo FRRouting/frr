@@ -207,6 +207,11 @@ extern int nexthop_g_addr_cmp(enum nexthop_types_t type,
 			      const union g_addr *addr1,
 			      const union g_addr *addr2);
 
+/* More-limited comparison function used to detect duplicate nexthops.
+ * Returns -1, 0, 1
+ */
+int nexthop_cmp_basic(const struct nexthop *nh1, const struct nexthop *nh2);
+
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
 extern bool nexthop_labels_match(const struct nexthop *nh1,
 				 const struct nexthop *nh2);

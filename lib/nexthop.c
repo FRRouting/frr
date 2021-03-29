@@ -204,6 +204,105 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 }
 
 /*
+ * More-limited comparison function used to detect duplicate
+ * nexthops. This is used in places where we don't need the full
+ * comparison of 'nexthop_cmp()'.
+ */
+int nexthop_cmp_basic(const struct nexthop *nh1,
+		      const struct nexthop *nh2)
+{
+	int ret = 0;
+	const struct mpls_label_stack *nhl1 = NULL;
+	const struct mpls_label_stack *nhl2 = NULL;
+
+	if (nh1 == NULL && nh2 == NULL)
+		return 0;
+
+	if (nh1 && !nh2)
+		return 1;
+
+	if (!nh1 && nh2)
+		return -1;
+
+	if (nh1->vrf_id < nh2->vrf_id)
+		return -1;
+
+	if (nh1->vrf_id > nh2->vrf_id)
+		return 1;
+
+	if (nh1->type < nh2->type)
+		return -1;
+
+	if (nh1->type > nh2->type)
+		return 1;
+
+	if (nh1->weight < nh2->weight)
+		return -1;
+
+	if (nh1->weight > nh2->weight)
+		return 1;
+
+	switch (nh1->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+		ret = nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+		if (ret != 0)
+			return ret;
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret = nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+		if (ret != 0)
+			return ret;
+		/* Intentional Fall-Through */
+	case NEXTHOP_TYPE_IFINDEX:
+		if (nh1->ifindex < nh2->ifindex)
+			return -1;
+
+		if (nh1->ifindex > nh2->ifindex)
+			return 1;
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		if (nh1->bh_type < nh2->bh_type)
+			return -1;
+
+		if (nh1->bh_type > nh2->bh_type)
+			return 1;
+		break;
+	}
+
+	/* Compare source addr */
+	ret = nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
+	if (ret != 0)
+		goto done;
+
+	nhl1 = nh1->nh_label;
+	nhl2 = nh2->nh_label;
+
+	/* No labels is a match */
+	if (!nhl1 && !nhl2)
+		return 0;
+
+	if (nhl1 && !nhl2)
+		return 1;
+
+	if (nhl2 && !nhl1)
+		return -1;
+
+	if (nhl1->num_labels > nhl2->num_labels)
+		return 1;
+
+	if (nhl1->num_labels < nhl2->num_labels)
+		return -1;
+
+	ret = memcmp(nhl1->label, nhl2->label,
+		     (nhl1->num_labels * sizeof(mpls_label_t)));
+
+done:
+	return ret;
+}
+
+/*
  * nexthop_type_to_str
  */
 const char *nexthop_type_to_str(enum nexthop_types_t nh_type)
