@@ -1154,6 +1154,7 @@ void zebra_if_update_all_links(void)
 	struct interface *ifp;
 	struct zebra_if *zif;
 	struct zebra_ns *ns;
+	ns_id_t link_nsid;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_info("fixup link dependencies");
@@ -1164,6 +1165,7 @@ void zebra_if_update_all_links(void)
 		if (!ifp)
 			continue;
 		zif = ifp->info;
+
 		/* update bond-member to bond linkages */
 		if ((IS_ZEBRA_IF_BOND_SLAVE(ifp))
 		    && (zif->bondslave_info.bond_ifindex != IFINDEX_INTERNAL)
@@ -1174,9 +1176,16 @@ void zebra_if_update_all_links(void)
 					   zif->bondslave_info.bond_ifindex);
 			zebra_l2_map_slave_to_bond(zif, ifp->vrf_id);
 		}
-
+		/* update VXLAN linkages */
+		if (!zif->link && IS_ZEBRA_IF_VXLAN(ifp)) {
+			link_nsid = zebra_l2if_get_link_nsid(ifp);
+			if (link_nsid != NS_UNKNOWN)
+				zif->link = if_lookup_by_index_per_ns(
+					zebra_ns_lookup(link_nsid),
+					zif->link_ifindex);
+		} else if ((zif->link_ifindex != IFINDEX_INTERNAL)
+			   && !zif->link) {
 		/* update SVI linkages */
-		if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
 			zif->link = if_lookup_by_index_per_ns(ns,
 							 zif->link_ifindex);
 			if (IS_ZEBRA_DEBUG_KERNEL)

@@ -499,3 +499,22 @@ void zebra_vlan_mbr_re_eval(struct interface *ifp, bitfield_t old_vlan_bitmap)
 		zebra_evpn_vl_mbr_deref(vid, zif);
 	}
 }
+
+/* get link_nsid from zebra_l2 information
+ * works ok for vxlan ifaces
+ */
+extern ns_id_t zebra_l2if_get_link_nsid(struct interface *ifp)
+{
+	ns_id_t link_nsid = NS_UNKNOWN;
+	struct zebra_if *zif;
+	struct zebra_l2info_vxlan *vxlan_info;
+
+	zif = ifp->info;
+	if (!zif)
+		return link_nsid;
+	if (IS_ZEBRA_IF_VXLAN(ifp)) {
+		vxlan_info = &zif->l2info.vxl;
+		return vxlan_info->link_nsid;
+	}
+	return link_nsid;
+}

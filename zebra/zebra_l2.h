@@ -113,6 +113,7 @@ extern void zebra_vlan_bitmap_compute(struct interface *ifp,
 extern void zebra_vlan_mbr_re_eval(struct interface *ifp,
 		bitfield_t vlan_bitmap);
 extern void zebra_l2if_update_bond(struct interface *ifp, bool add);
+extern ns_id_t zebra_l2if_get_link_nsid(struct interface *ifp);
 
 #ifdef __cplusplus
 }
