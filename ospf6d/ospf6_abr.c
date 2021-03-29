@@ -1209,7 +1209,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	 */
 	if (old_entry_updated == false) {
 		if ((old == NULL) || (old->type != route->type)
-		    || (old->path.type != route->path.type))
+		    || (old->path.type != route->path.type)
+		    || (old->path.cost != route->path.cost))
 			add_route = true;
 	}
 
