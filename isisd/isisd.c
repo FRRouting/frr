@@ -91,6 +91,9 @@ DEFINE_MTYPE(ISISD, ISIS_ACL_NAME,    "ISIS access-list name");
 
 DEFINE_QOBJ_TYPE(isis_area);
 
+DEFINE_HOOK(isis_vrf_enable_hook, (struct vrf *vrf), (vrf));
+DEFINE_HOOK(isis_vrf_disable_hook, (struct vrf *vrf), (vrf));
+
 /* ISIS process wide configuration. */
 static struct isis_master isis_master;
 
@@ -583,6 +586,9 @@ static int isis_vrf_enable(struct vrf *vrf)
 			zlog_debug(
 				"%s: isis linked to vrf %s vrf_id %u (old id %u)",
 				__func__, vrf->name, isis->vrf_id, old_vrf_id);
+
+		hook_call(isis_vrf_enable_hook, vrf);
+
 		if (old_vrf_id != isis->vrf_id) {
 			frr_with_privs (&isisd_privs) {
 				/* stop zebra redist to us for old vrf */
@@ -619,6 +625,8 @@ static int isis_vrf_disable(struct vrf *vrf)
 		if (IS_DEBUG_EVENTS)
 			zlog_debug("%s: isis old_vrf_id %d unlinked", __func__,
 				   old_vrf_id);
+
+		hook_call(isis_vrf_disable_hook, vrf);
 	}
 
 	return 0;

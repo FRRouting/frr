@@ -67,6 +67,9 @@ extern void isis_cli_init(void);
 
 #define SNMP_CIRCUITS_MAX (512)
 
+DECLARE_HOOK(isis_vrf_enable_hook, (struct vrf *vrf), (vrf));
+DECLARE_HOOK(isis_vrf_disable_hook, (struct vrf *vrf), (vrf));
+
 extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */

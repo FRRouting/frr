@@ -21,6 +21,8 @@
 #ifndef ISIS_REDIST_H
 #define ISIS_REDIST_H
 
+#include "vrf.h"
+
 #define REDIST_PROTOCOL_COUNT 2
 
 #define DEFAULT_ROUTE ZEBRA_ROUTE_MAX
@@ -39,6 +41,11 @@ struct isis_redist {
 	uint32_t metric;
 	char *map_name;
 	struct route_map *map;
+	struct isis_area *area;
+	int family;
+	int type;
+	int level;
+	char vrf_name[VRF_NAMSIZ + 1];
 };
 
 struct isis;

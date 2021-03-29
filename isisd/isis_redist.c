@@ -29,6 +29,7 @@
 #include "stream.h"
 #include "table.h"
 #include "vty.h"
+#include "vrf.h"
 #include "srcdest_table.h"
 
 #include "isisd/isis_constants.h"
@@ -219,6 +220,73 @@ static void isis_redist_ensure_default(struct isis *isis, int family)
 	info->metric = MAX_WIDE_PATH_METRIC;
 }
 
+static void delete_ext_reach_routes(struct isis_redist *redist)
+{
+	struct route_table *er_table = get_ext_reach(redist->area,
+						redist->family, redist->level);
+	struct isis_ext_info *info;
+	struct route_node *rn;
+
+	if (!er_table) {
+		zlog_warn("%s: External reachability table uninitialized.",
+			  __func__);
+		return;
+	}
+
+	for (rn = route_top(er_table); rn; rn = srcdest_route_next(rn)) {
+		if (!rn->info)
+			continue;
+
+		info = rn->info;
+
+		const struct prefix *p, *src_p;
+		srcdest_rnode_prefixes(rn, &p, &src_p);
+
+		if (redist->type == DEFAULT_ROUTE) {
+			if (!is_default_prefix(p)
+			    || (src_p && src_p->prefixlen)) {
+				continue;
+			}
+		} else {
+			if (info->origin != redist->type)
+				continue;
+		}
+
+		XFREE(MTYPE_ISIS_EXT_INFO, rn->info);
+		route_unlock_node(rn);
+	}
+
+	lsp_regenerate_schedule(redist->area, redist->level, 0);
+}
+
+static int isis_redist_vrf_enable(void *arg, struct vrf *vrf)
+{
+	struct isis_redist *redist = (struct isis_redist *)arg;
+
+	if (strcmp(vrf->name, redist->vrf_name))
+		return ISIS_OK;
+
+	afi_t afi = afi_for_redist_protocol(redist_protocol(redist->family));
+	isis_zebra_redistribute_set(afi, redist->type, vrf->vrf_id);
+
+	return ISIS_OK;
+}
+
+static int isis_redist_vrf_disable(void *arg, struct vrf *vrf)
+{
+	struct isis_redist *redist = (struct isis_redist *)arg;
+
+	if (strcmp(vrf->name, redist->vrf_name))
+		return ISIS_OK;
+
+	afi_t afi = afi_for_redist_protocol(redist_protocol(redist->family));
+	isis_zebra_redistribute_unset(afi, redist->type, vrf->vrf_id);
+
+	delete_ext_reach_routes(redist);
+
+	return ISIS_OK;
+}
+
 /* Handle notification about route being added */
 void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, uint8_t distance,
@@ -377,9 +445,11 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 			afi_t afi = afi_for_redist_protocol(protocol);
 
 			if (do_subscribe[protocol][type])
-				isis_zebra_redistribute_set(afi, type);
+				isis_zebra_redistribute_set(afi, type,
+						isis->vrf_id);
 			else
-				isis_zebra_redistribute_unset(afi, type);
+				isis_zebra_redistribute_unset(afi, type,
+						isis->vrf_id);
 		}
 }
 
@@ -406,9 +476,28 @@ void isis_redist_set(struct isis_area *area, int level, int family, int type,
 	struct route_table *ei_table;
 	struct route_node *rn;
 	struct isis_ext_info *info;
+	struct isis *isis = area->isis;
 
 	redist->redist = (type == DEFAULT_ROUTE) ? originate_type : 1;
+	redist->area = area;
 	redist->metric = metric;
+	redist->family = family;
+	redist->type = type;
+	redist->level = level;
+
+	memset(redist->vrf_name, 0, sizeof(redist->vrf_name));
+	if (isis->name && strlen(isis->name) &&
+	    strlen(isis->name) < sizeof(redist->vrf_name) &&
+	    strcmp(isis->name, vrf_get_default_name())) {
+		snprintf(redist->vrf_name, sizeof(redist->vrf_name), "%s",
+			isis->name);
+
+		hook_register_arg(isis_vrf_enable_hook, isis_redist_vrf_enable,
+				  redist);
+		hook_register_arg(isis_vrf_disable_hook,
+				  isis_redist_vrf_disable, redist);
+	}
+
 	isis_redist_routemap_set(redist, routemap);
 
 	if (!area->ext_reach[protocol][level - 1]) {
@@ -421,7 +510,7 @@ void isis_redist_set(struct isis_area *area, int level, int family, int type,
 		}
 	}
 
-	isis_redist_update_zebra_subscriptions(area->isis);
+	isis_redist_update_zebra_subscriptions(isis);
 
 	if (type == DEFAULT_ROUTE && originate_type == DEFAULT_ORIGINATE_ALWAYS)
 		isis_redist_ensure_default(area->isis, family);
@@ -456,43 +545,21 @@ void isis_redist_unset(struct isis_area *area, int level, int family, int type)
 {
 	struct isis_redist *redist =
 		get_redist_settings(area, family, type, level);
-	struct route_table *er_table = get_ext_reach(area, family, level);
-	struct route_node *rn;
-	struct isis_ext_info *info;
 
 	if (!redist->redist)
 		return;
 
 	redist->redist = 0;
-	if (!er_table) {
-		zlog_warn("%s: External reachability table uninitialized.",
-			  __func__);
-		return;
+
+	if (strlen(redist->vrf_name)) {
+		hook_unregister_arg(isis_vrf_enable_hook,
+				    isis_redist_vrf_enable, redist);
+		hook_unregister_arg(isis_vrf_disable_hook,
+				    isis_redist_vrf_disable, redist);
 	}
+	memset(redist->vrf_name, 0, sizeof(redist->vrf_name));
 
-	for (rn = route_top(er_table); rn; rn = srcdest_route_next(rn)) {
-		if (!rn->info)
-			continue;
-		info = rn->info;
-
-		const struct prefix *p, *src_p;
-		srcdest_rnode_prefixes(rn, &p, &src_p);
-
-		if (type == DEFAULT_ROUTE) {
-			if (!is_default_prefix(p)
-			    || (src_p && src_p->prefixlen)) {
-				continue;
-			}
-		} else {
-			if (info->origin != type)
-				continue;
-		}
-
-		XFREE(MTYPE_ISIS_EXT_INFO, rn->info);
-		route_unlock_node(rn);
-	}
-
-	lsp_regenerate_schedule(area, level, 0);
+	delete_ext_reach_routes(redist);
 	isis_redist_update_zebra_subscriptions(area->isis);
 }
 
