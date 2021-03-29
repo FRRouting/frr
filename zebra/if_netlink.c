@@ -1491,7 +1491,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					 ZEBRA_INTERFACE_VRF_LOOPBACK);
 
 			/* Update link. */
-			zebra_if_update_link(ifp, link_ifindex, ns_id);
+			zebra_if_update_link(ifp, link_ifindex, link_nsid);
 
 			netlink_interface_update_hw_addr(tb, ifp);
 
