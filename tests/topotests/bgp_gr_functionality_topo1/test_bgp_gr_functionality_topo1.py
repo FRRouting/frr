@@ -137,7 +137,7 @@ from lib.common_config import (
     kill_mininet_routers_process,
     get_frr_ipv6_linklocal,
     create_route_maps,
-    required_linux_kernel_version,
+    required_linux_kernel_version
 )
 
 # Reading the data from JSON File for topology and configuration creation
@@ -258,10 +258,12 @@ def configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut, peer):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
-        clear_bgp(tgen, addr_type, dut)
+        neighbor = topo["routers"][peer]["links"]["r1-link1"][addr_type].split("/")[0]
+        clear_bgp(tgen, addr_type, dut, neighbor=neighbor)
 
     for addr_type in ADDR_TYPES:
-        clear_bgp(tgen, addr_type, peer)
+        neighbor = topo["routers"][dut]["links"]["r2-link1"][addr_type].split("/")[0]
+        clear_bgp(tgen, addr_type, peer, neighbor=neighbor)
 
     result = verify_bgp_convergence_from_running_config(tgen)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -551,7 +553,7 @@ def test_BGP_GR_TC_46_p1(request):
     write_test_footer(tc_name)
 
 
-def test_BGP_GR_TC_50_p1(request):
+def BGP_GR_TC_50_p1(request):
     """
     Test Objective : Transition from Peer-level helper to Global inherit helper
     Global Mode : None
@@ -612,9 +614,6 @@ def test_BGP_GR_TC_50_p1(request):
     }
 
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
-
-    result = verify_bgp_convergence_from_running_config(tgen)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify on R2 that R1 advertises GR capabilities as a helper node")
 
@@ -721,7 +720,12 @@ def test_BGP_GR_TC_50_p1(request):
         }
     }
 
-    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+    result = create_router_bgp(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        neighbor = topo["routers"]["r2"]["links"]["r1-link1"][addr_type].split("/")[0]
+        clear_bgp(tgen, addr_type, "r1", neighbor=neighbor)
 
     result = verify_bgp_convergence_from_running_config(tgen)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -979,7 +983,15 @@ def test_BGP_GR_TC_51_p1(request):
         }
     }
 
-    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+    result = create_router_bgp(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        neighbor = topo["routers"]["r2"]["links"]["r1-link1"][addr_type].split("/")[0]
+        clear_bgp(tgen, addr_type, "r1", neighbor=neighbor)
+
+    result = verify_bgp_convergence_from_running_config(tgen)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify on R2 that R1 advertises GR capabilities as a helper node")
 
@@ -1695,10 +1707,10 @@ def test_BGP_GR_TC_6_1_2_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
-        clear_bgp(tgen, addr_type, "r1")
-        clear_bgp(tgen, addr_type, "r2")
+        neighbor = topo["routers"]["r2"]["links"]["r1-link1"][addr_type].split("/")[0]
+        clear_bgp(tgen, addr_type, "r1", neighbor=neighbor)
 
-    result = verify_bgp_convergence_from_running_config(tgen, topo)
+    result = verify_bgp_convergence_from_running_config(tgen)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verify GR stats
@@ -2651,10 +2663,10 @@ def test_BGP_GR_TC_31_1_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
-        clear_bgp(tgen, addr_type, "r1")
-        clear_bgp(tgen, addr_type, "r2")
+        neighbor = topo["routers"]["r2"]["links"]["r1-link1"][addr_type].split("/")[0]
+        clear_bgp(tgen, addr_type, "r1", neighbor=neighbor)
 
-    result = verify_bgp_convergence_from_running_config(tgen, topo)
+    result = verify_bgp_convergence_from_running_config(tgen)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verify GR stats
@@ -2932,10 +2944,10 @@ def test_BGP_GR_TC_31_2_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
-        clear_bgp(tgen, addr_type, "r1")
-        clear_bgp(tgen, addr_type, "r2")
+        neighbor = topo["routers"]["r2"]["links"]["r1-link1"][addr_type].split("/")[0]
+        clear_bgp(tgen, addr_type, "r1", neighbor=neighbor)
 
-    result = verify_bgp_convergence_from_running_config(tgen, topo)
+    result = verify_bgp_convergence_from_running_config(tgen)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verify GR stats
@@ -5258,7 +5270,7 @@ def test_BGP_GR_TC_49_p1(request):
     write_test_footer(tc_name)
 
 
-def test_BGP_GR_TC_52_p1(request):
+def BGP_GR_TC_52_p1(request):
     """
     Test Objective : Transition from Peer-level disbale to Global inherit helper
     Global Mode : None

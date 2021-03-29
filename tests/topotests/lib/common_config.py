@@ -72,6 +72,59 @@ config.read(PYTESTINI_PATH)
 
 config_section = "topogen"
 
+# Debug logs for daemons
+DEBUG_LOGS = {
+    "pimd": [
+       'debug msdp events',
+       'debug msdp packets',
+       'debug igmp events',
+       'debug igmp trace',
+       'debug mroute',
+       'debug mroute detail',
+       'debug pim events',
+       'debug pim packets',
+       'debug pim trace',
+       'debug pim zebra',
+       'debug pim bsm',
+       'debug pim packets joins',
+       'debug pim packets register',
+       'debug pim nht'
+    ],
+    "bgpd": [
+        'debug bgp neighbor-events',
+        'debug bgp updates',
+        'debug bgp zebra',
+        'debug bgp nht',
+        'debug bgp neighbor-events',
+        'debug bgp graceful-restart',
+        'debug bgp update-groups',
+        'debug bgp vpn leak-from-vrf',
+        'debug bgp vpn leak-to-vrf',
+        'debug bgp zebr',
+        'debug bgp updates',
+        'debug bgp nht',
+        'debug bgp neighbor-events',
+        'debug vrf'
+    ],
+    "zebra": [
+        'debug zebra events',
+        'debug zebra rib',
+        'debug zebra vxlan',
+        'debug zebra nht'
+    ],
+    "ospf": [
+        'debug ospf event',
+        'debug ospf ism',
+        'debug ospf lsa',
+        'debug ospf nsm',
+        'debug ospf nssa',
+        'debug ospf packet all',
+        'debug ospf sr',
+        'debug ospf te',
+        'debug ospf zebra',
+    ]
+}
+
 if config.has_option("topogen", "verbosity"):
     loglevel = config.get("topogen", "verbosity")
     loglevel = loglevel.upper()
@@ -249,6 +302,7 @@ def create_common_configuration(
     config_map = OrderedDict(
         {
             "general_config": "! FRR General Config\n",
+            "debug_log_config": "! Debug log Config\n",
             "interface_config": "! Interfaces Config\n",
             "static_route": "! Static Route Config\n",
             "prefix_list": "! Prefix List Config\n",
@@ -1050,6 +1104,92 @@ def tcpdump_capture_stop(tgen, router):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+def create_debug_log_config(tgen, input_dict, build=False):
+    """
+    Enable/disable debug logs for any protocol with defined debug
+    options and logs would be saved to created log file
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `input_dict` : details to enable debug logs for protocols
+    * `build` : Only for initial setup phase this is set as True.
+
+
+    Usage:
+    ------
+     input_dict = {
+        "r2": {
+            "debug":{
+                "log_file" : "debug.log",
+                "enable": ["pimd", "zebra"],
+                "disable": {
+                    "bgpd":[
+                        'debug bgp neighbor-events',
+                        'debug bgp updates',
+                        'debug bgp zebra',
+                    ]
+                }
+            }
+        }
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
+
+    Returns
+    -------
+    True or False
+    """
+
+    result = False
+    try:
+        for router in input_dict.keys():
+            debug_config = []
+            if "debug" in input_dict[router]:
+                debug_dict = input_dict[router]["debug"]
+
+                disable_logs = debug_dict.setdefault("disable", None)
+                enable_logs = debug_dict.setdefault("enable", None)
+                log_file = debug_dict.setdefault("log_file", None)
+
+                if log_file:
+                    _log_file = os.path.join(LOGDIR, tgen.modname,
+                        log_file)
+                    debug_config.append("log file {} \n".\
+                                        format(_log_file))
+
+                if type(enable_logs) is list:
+                    for daemon in enable_logs:
+                        for debug_log in DEBUG_LOGS[daemon]:
+                            debug_config.append("{}".format(debug_log))
+                elif type(enable_logs) is dict:
+                    for daemon, debug_logs in enable_logs.items():
+                        for debug_log in debug_logs:
+                            debug_config.append("{}".format(debug_log))
+
+                if type(disable_logs) is list:
+                    for daemon in disable_logs:
+                        for debug_log in DEBUG_LOGS[daemon]:
+                            debug_config.append("no {}".format(debug_log))
+                elif type(disable_logs) is dict:
+                    for daemon, debug_logs in disable_logs.items():
+                        for debug_log in debug_logs:
+                            debug_config.append("no {}".format(debug_log))
+
+                result = create_common_configuration(tgen, router,
+                                                 debug_config,
+                                                 "debug_log_config",
+                                                 build=build)
+    except InvalidCLIError:
+        # Traceback
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return result
 
 
 #############################################
