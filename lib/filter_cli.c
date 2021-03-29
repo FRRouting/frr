@@ -173,6 +173,7 @@ DEFPY_YANG(
 	if (seq_str == NULL) {
 		ada.ada_type = "ipv4";
 		ada.ada_name = name;
+		ada.ada_action = action;
 		if (host_str && mask_str == NULL) {
 			ada.ada_xpath[0] = "./host";
 			ada.ada_value[0] = host_str;
@@ -309,6 +310,7 @@ DEFPY_YANG(
 	if (seq_str == NULL) {
 		ada.ada_type = "ipv4";
 		ada.ada_name = name;
+		ada.ada_action = action;
 		if (src_str && src_mask_str == NULL) {
 			ada.ada_xpath[idx] = "./host";
 			ada.ada_value[idx] = src_str;
@@ -504,6 +506,7 @@ DEFPY_YANG(
 	if (seq_str == NULL) {
 		ada.ada_type = "ipv4";
 		ada.ada_name = name;
+		ada.ada_action = action;
 
 		if (prefix_str) {
 			ada.ada_xpath[0] = "./ipv4-prefix";
@@ -701,6 +704,7 @@ DEFPY_YANG(
 	if (seq_str == NULL) {
 		ada.ada_type = "ipv6";
 		ada.ada_name = name;
+		ada.ada_action = action;
 
 		if (prefix_str) {
 			ada.ada_xpath[0] = "./ipv6-prefix";
@@ -902,6 +906,7 @@ DEFPY_YANG(
 	if (seq_str == NULL) {
 		ada.ada_type = "mac";
 		ada.ada_name = name;
+		ada.ada_action = action;
 
 		if (mac_str) {
 			ada.ada_xpath[0] = "./mac";

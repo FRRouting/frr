@@ -182,6 +182,9 @@ struct acl_dup_args {
 	/** Access list name. */
 	const char *ada_name;
 
+	/** Entry action. */
+	const char *ada_action;
+
 #define ADA_MAX_VALUES 4
 	/** Entry XPath for value. */
 	const char *ada_xpath[ADA_MAX_VALUES];
