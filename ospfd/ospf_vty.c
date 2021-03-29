@@ -567,6 +567,7 @@ DEFUN (ospf_network_area,
 	struct prefix_ipv4 p;
 	struct in_addr area_id;
 	int ret, format;
+	uint32_t count;
 
 	if (ospf->instance) {
 		vty_out(vty,
@@ -574,14 +575,15 @@ DEFUN (ospf_network_area,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ospf->if_ospf_cli_count > 0) {
+	count = ospf_count_area_params(ospf);
+	if (count > 0) {
 		vty_out(vty,
 			"Please remove all ip ospf area x.x.x.x commands first.\n");
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"%s ospf vrf %s num of %u ip osp area x config",
 				__func__, ospf->name ? ospf->name : "NIL",
-				ospf->if_ospf_cli_count);
+				count);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -8061,10 +8063,8 @@ DEFUN (ip_ospf_area,
 
 		if (count > 0) {
 			ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
-			if (ospf) {
+			if (ospf)
 				ospf_interface_area_unset(ospf, ifp);
-				ospf->if_ospf_cli_count -= count;
-			}
 		}
 
 		return CMD_NOT_MY_INSTANCE;
@@ -8122,10 +8122,8 @@ DEFUN (ip_ospf_area,
 		params->if_area_id_fmt = format;
 	}
 
-	if (ospf) {
+	if (ospf)
 		ospf_interface_area_set(ospf, ifp);
-		ospf->if_ospf_cli_count++;
-	}
 
 	return CMD_SUCCESS;
 }
@@ -8191,7 +8189,6 @@ DEFUN (no_ip_ospf_area,
 
 	if (ospf) {
 		ospf_interface_area_unset(ospf, ifp);
-		ospf->if_ospf_cli_count--;
 		ospf_area_check_free(ospf, area_id);
 	}
 
