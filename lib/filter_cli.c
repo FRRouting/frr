@@ -1336,6 +1336,7 @@ DEFPY_YANG(
 	if (seq_str == NULL) {
 		pda.pda_type = "ipv4";
 		pda.pda_name = name;
+		pda.pda_action = action;
 		if (prefix_str) {
 			pda.pda_xpath[arg_idx] = "./ipv4-prefix";
 			pda.pda_value[arg_idx] = prefix_str;
@@ -1531,6 +1532,7 @@ DEFPY_YANG(
 	if (seq_str == NULL) {
 		pda.pda_type = "ipv6";
 		pda.pda_name = name;
+		pda.pda_action = action;
 		if (prefix_str) {
 			pda.pda_xpath[arg_idx] = "./ipv6-prefix";
 			pda.pda_value[arg_idx] = prefix_str;

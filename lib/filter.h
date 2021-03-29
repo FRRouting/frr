@@ -212,6 +212,9 @@ struct plist_dup_args {
 	/** Access list name. */
 	const char *pda_name;
 
+	/** Entry action. */
+	const char *pda_action;
+
 #define PDA_MAX_VALUES 4
 	/** Entry XPath for value. */
 	const char *pda_xpath[PDA_MAX_VALUES];
