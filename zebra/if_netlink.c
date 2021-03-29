@@ -843,8 +843,11 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
 	if (tb[IFLA_LINK_NETNSID]) {
-		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
-		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+		if (vrf_is_backend_netns()) {
+			link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+			link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+		} else
+			link_nsid = NS_UNKNOWN;
 	}
 
 	/* Add interface.
@@ -1407,8 +1410,11 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
 	if (tb[IFLA_LINK_NETNSID]) {
-		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
-		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+		if (vrf_is_backend_netns()) {
+			link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+			link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+		} else
+			link_nsid = NS_UNKNOWN;
 	}
 	if (tb[IFLA_IFALIAS]) {
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
