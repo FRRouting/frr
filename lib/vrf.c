@@ -997,17 +997,29 @@ const char *vrf_get_default_name(void)
 int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
 {
 	int ret = 0;
+	struct vrf *vrf;
 	struct interface *ifp;
 
-	if (fd < 0 || name == NULL)
+	if (fd < 0 || name == NULL || vrf_is_backend_netns()
+	    || (strcmp(name, VRF_DEFAULT_NAME) == 0) || vrf_id == VRF_UNKNOWN)
 		return fd;
-	/* the device should exist
-	 * otherwise we should return
-	 * case ifname = vrf in netns mode => return
+	/*
+	 * vrf_is_enabled checks that the vrf has been notified from zebra.
+	 * If it has not been, then fail as we don't want an unbound socket
+	 * dangling.
 	 */
-	ifp = if_lookup_by_name(name, vrf_id);
-	if (!ifp)
-		return fd;
+	vrf = vrf_lookup_by_name(name);
+	if (!vrf_is_enabled(vrf)) {
+		/* some daemons overload this API to do an interface bind */
+		ifp = if_lookup_by_name(name, vrf_id);
+		if (!ifp) {
+			zlog_err(
+				"failed to bind socket for vrf %s"
+				"- not enabled",
+				name);
+			return -1;
+		}
+	}
 #ifdef SO_BINDTODEVICE
 	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);
 	if (ret < 0)
