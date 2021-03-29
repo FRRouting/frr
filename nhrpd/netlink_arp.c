@@ -29,7 +29,6 @@ int netlink_req_fd = -1;
 int netlink_nflog_group;
 static int netlink_log_fd = -1;
 static struct thread *netlink_log_thread;
-typedef void (*netlink_dispatch_f)(struct nlmsghdr *msg, struct zbuf *zb);
 
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 			    union sockunion *nbma)
