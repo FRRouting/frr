@@ -396,6 +396,9 @@ static int _plist_is_dup(const struct lyd_node *dnode, void *arg)
 	    && pda->pda_entry_dnode == dnode)
 		return YANG_ITER_CONTINUE;
 
+	if (strcmp(yang_dnode_get_string(dnode, "action"), pda->pda_action))
+		return YANG_ITER_CONTINUE;
+
 	/* Check if all values match. */
 	for (idx = 0; idx < PDA_MAX_VALUES; idx++) {
 		/* No more values. */
@@ -449,6 +452,7 @@ static bool plist_is_dup_nb(const struct lyd_node *dnode)
 	/* Initialize. */
 	pda.pda_type = yang_dnode_get_string(entry_dnode, "../type");
 	pda.pda_name = yang_dnode_get_string(entry_dnode, "../name");
+	pda.pda_action = yang_dnode_get_string(entry_dnode, "action");
 	pda.pda_entry_dnode = entry_dnode;
 
 	/* Load all values/XPaths. */
