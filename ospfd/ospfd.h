@@ -301,11 +301,6 @@ struct ospf {
 	/* Statistics for LSA used for new instantiation. */
 	uint32_t rx_lsa_count;
 
-	/* Counter of "ip ospf area x.x.x.x" used
-	 * for multual exclusion of network command under
-	 * router ospf or ip ospf area x under interface. */
-	uint32_t if_ospf_cli_count;
-
 	struct route_table *distance_table;
 
 	/* Used during ospf instance going down send LSDB
@@ -522,6 +517,7 @@ extern struct ospf *ospf_get_instance(unsigned short, bool *created);
 extern struct ospf *ospf_lookup_by_inst_name(unsigned short instance,
 					     const char *name);
 extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);
+extern uint32_t ospf_count_area_params(struct ospf *ospf);
 extern void ospf_finish(struct ospf *);
 extern void ospf_router_id_update(struct ospf *ospf);
 extern int ospf_network_set(struct ospf *, struct prefix_ipv4 *, struct in_addr,
