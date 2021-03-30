@@ -95,6 +95,7 @@ extern struct thread_master *master;
 		return CMD_SUCCESS;                                            \
 	}
 
+#define IS_OSPF6_ASBR(O) ((O)->flag & OSPF6_FLAG_ASBR)
 extern struct zebra_privs_t ospf6d_privs;
 
 /* Function Prototypes */

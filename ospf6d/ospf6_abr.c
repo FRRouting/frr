@@ -46,6 +46,7 @@
 
 #include "ospf6_flood.h"
 #include "ospf6_intra.h"
+#include "ospf6_asbr.h"
 #include "ospf6_abr.h"
 #include "ospf6d.h"
 
@@ -646,8 +647,22 @@ void ospf6_abr_defaults_to_stub(struct ospf6 *o)
 	struct listnode *node, *nnode;
 	struct ospf6_area *oa;
 	struct ospf6_route *def, *route;
+	struct ospf6_redist *red;
+	int type = DEFAULT_ROUTE;
+	struct prefix_ipv6 p = {};
 
 	if (!o->backbone)
+		return;
+
+	red = ospf6_redist_lookup(o, type, 0);
+	if (!red)
+		return;
+
+	p.family = AF_INET6;
+	p.prefixlen = 0;
+
+	route = ospf6_route_lookup((struct prefix *)&p, o->external_table);
+	if (!route)
 		return;
 
 	def = ospf6_route_create();
@@ -659,6 +674,8 @@ void ospf6_abr_defaults_to_stub(struct ospf6 *o)
 	def->path.type = OSPF6_PATH_TYPE_INTER;
 	def->path.subtype = OSPF6_PATH_SUBTYPE_DEFAULT_RT;
 	def->path.area_id = o->backbone->area_id;
+	def->path.metric_type = metric_type(o, type, 0);
+	def->path.cost = metric_value(o, type, 0);
 
 	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa)) {
 		if (!IS_AREA_STUB(oa)) {
