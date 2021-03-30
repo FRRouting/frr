@@ -1122,6 +1122,7 @@ void ospf6_asbr_remove_externals_from_area(struct ospf6_area *oa)
 	/* if router is only in a stub area then purge AS-External LSAs */
 	iterend = ospf6_lsdb_head(ospf6->lsdb, 0, 0, 0, &lsa);
 	while (lsa != NULL) {
+		assert(lsa->lock > 1);
 		lsanext = ospf6_lsdb_next(iterend, lsa);
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL)
 			ospf6_lsdb_remove(lsa, ospf6->lsdb);
