@@ -1134,7 +1134,7 @@ int zapi_opaque_reg_decode(struct stream *msg,
  */
 enum zapi_opaque_registry {
 	/* Request link-state database dump, at restart for example */
-	LINK_STATE_REQUEST = 1,
+	LINK_STATE_SYNC = 1,
 	/* Update containing link-state db info */
 	LINK_STATE_UPDATE = 2,
 	/* Request LDP-SYNC state from LDP */

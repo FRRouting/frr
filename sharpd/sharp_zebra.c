@@ -30,6 +30,7 @@
 #include "zclient.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
+#include "link_state.h"
 
 #include "sharp_globals.h"
 #include "sharp_nht.h"
@@ -769,11 +770,15 @@ int sharp_zclient_delete(uint32_t session_id)
 	return 0;
 }
 
+static const char *const type2txt[] = { "Generic", "Vertex", "Edge", "Subnet" };
+static const char *const status2txt[] = { "Unknown", "New", "Update",
+					  "Delete", "Sync", "Orphan"};
 /* Handler for opaque messages */
 static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
+	struct ls_element *lse;
 
 	s = zclient->ibuf;
 
@@ -782,6 +787,18 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 
 	zlog_debug("%s: [%u] received opaque type %u", __func__,
 		   zclient->session_id, info.type);
+
+	if (info.type == LINK_STATE_UPDATE) {
+		lse = ls_stream2ted(sg.ted, s, false);
+		if (lse)
+			zlog_debug(" |- Got %s %s from Link State Database",
+				   status2txt[lse->status],
+				   type2txt[lse->type]);
+		else
+			zlog_debug(
+				"%s: Error to convert Stream into Link State",
+				__func__);
+	}
 
 	return 0;
 }
@@ -851,6 +868,16 @@ void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
 
 	(void)zclient_send_message(zclient);
 
+}
+
+/* Link State registration */
+void sharp_zebra_register_te(void)
+{
+	/* First register to received Link State Update messages */
+	zclient_register_opaque(zclient, LINK_STATE_UPDATE);
+
+	/* Then, request initial TED with SYNC message */
+	ls_request_sync(zclient);
 }
 
 void sharp_zebra_send_arp(const struct interface *ifp, const struct prefix *p)

@@ -131,3 +131,15 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    Send an ARP/NDP request to trigger the addition of a neighbor in the ARP
    table.
+
+.. clicmd:: sharp import-te
+
+   Import Traffic Engineering Database produce by OSPF or IS-IS.
+
+.. clicmd:: show sharp ted [verbose|json]
+
+.. clicmd:: show sharp ted [<vertex [A.B.C.D]|edge [A.B.C.D]|subnet [A.B.C.D/M]>] [verbose|json]
+
+   Show imported Traffic Engineering Data Base
+
+
