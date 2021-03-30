@@ -65,6 +65,7 @@
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_routemap_nb.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -388,6 +389,7 @@ static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_routing_info,
 	&frr_vrf_info,
+	&frr_bgp_route_map_info,
 };
 
 FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,

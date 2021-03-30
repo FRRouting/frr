@@ -732,4 +732,5 @@ extern int p_spaces_compare_func(const struct p_space *a,
 				 const struct p_space *b);
 extern int q_spaces_compare_func(const struct q_space *a,
 				 const struct q_space *b);
+
 #endif /* _ZEBRA_OSPFD_H */

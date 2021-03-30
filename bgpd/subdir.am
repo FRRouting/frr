@@ -96,6 +96,8 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_regex.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
+	bgpd/bgp_routemap_nb.c \
+	bgpd/bgp_routemap_nb_config.c \
 	bgpd/bgp_script.c \
 	bgpd/bgp_table.c \
 	bgpd/bgp_updgrp.c \
@@ -178,6 +180,7 @@ noinst_HEADERS += \
 	bgpd/bgp_regex.h \
 	bgpd/bgp_rpki.h \
 	bgpd/bgp_route.h \
+	bgpd/bgp_routemap_nb.h \
 	bgpd/bgp_script.h \
 	bgpd/bgp_table.h \
 	bgpd/bgp_updgrp.h \
@@ -255,4 +258,6 @@ nodist_bgpd_bgpd_SOURCES = \
 	yang/frr-bgp-bmp.yang.c \
 	yang/frr-bgp-rpki.yang.c \
 	yang/frr-deviations-bgp-datacenter.yang.c \
+	yang/frr-bgp-filter.yang.c \
+	yang/frr-bgp-route-map.yang.c \
 	# end
