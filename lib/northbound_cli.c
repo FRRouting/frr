@@ -529,25 +529,6 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-/*
- * ly_iter_next_is_up: detects when iterating up on the yang model.
- *
- * This function detects whether next node in the iteration is upwards,
- * then return the node otherwise return NULL.
- */
-static struct lyd_node *ly_iter_next_up(const struct lyd_node *elem)
-{
-	/* Are we going downwards? Is this still not a leaf? */
-	if (!(elem->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)))
-		return NULL;
-
-	/* Are there still leaves in this branch? */
-	if (elem->next != NULL)
-		return NULL;
-
-	return elem->parent;
-}
-
 /* Prepare the configuration for display. */
 void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 {
@@ -569,51 +550,78 @@ void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 				   ly_native_ctx);
 }
 
-void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
-			    bool with_defaults)
+static void show_dnode_children_cmds(struct vty *vty, struct lyd_node *root,
+				     bool with_defaults)
 {
-	struct lyd_node *next, *child, *parent;
+	struct nb_node *nb_node, *sort_node = NULL;
+	struct listnode *listnode;
+	struct lyd_node *child;
+	struct list *sort_list;
+	void *data;
 
-	LY_TREE_DFS_BEGIN (root, next, child) {
-		struct nb_node *nb_node;
-
+	LY_TREE_FOR (root->child, child) {
 		nb_node = child->schema->priv;
-		if (!nb_node || !nb_node->cbs.cli_show)
-			goto next;
 
-		/* Skip default values. */
-		if (!with_defaults && yang_dnode_is_default_recursive(child))
-			goto next;
-
-		(*nb_node->cbs.cli_show)(vty, child, with_defaults);
-	next:
 		/*
-		 * When transiting upwards in the yang model we should
-		 * give the previous container/list node a chance to
-		 * print its close vty output (e.g. "!" or "end-family"
-		 * etc...).
+		 * We finished processing current list,
+		 * it's time to print the config.
 		 */
-		parent = ly_iter_next_up(child);
-		if (parent != NULL) {
-			nb_node = parent->schema->priv;
-			if (nb_node && nb_node->cbs.cli_show_end)
-				(*nb_node->cbs.cli_show_end)(vty, parent);
+		if (sort_node && nb_node != sort_node) {
+			for (ALL_LIST_ELEMENTS_RO(sort_list, listnode, data))
+				nb_cli_show_dnode_cmds(vty, data,
+						       with_defaults);
+
+			list_delete(&sort_list);
+			sort_node = NULL;
 		}
 
 		/*
-		 * There is a possible path in this macro that ends up
-		 * dereferencing child->parent->parent. We just null checked
-		 * child->parent by checking (ly_iter_next_up(child) != NULL)
-		 * above.
-		 *
-		 * I am not sure whether it is possible for the other
-		 * conditions within this macro guarding the problem
-		 * dereference to be satisfied when child->parent == NULL.
+		 * If the config needs to be sorted,
+		 * then add the dnode to the sorting
+		 * list for later processing.
 		 */
-#ifndef __clang_analyzer__
-		LY_TREE_DFS_END(root, next, child);
-#endif
+		if (nb_node && nb_node->cbs.cli_cmp) {
+			if (!sort_node) {
+				sort_node = nb_node;
+				sort_list = list_new();
+				sort_list->cmp = (int (*)(void *, void *))
+						 nb_node->cbs.cli_cmp;
+			}
+
+			listnode_add_sort(sort_list, child);
+			continue;
+		}
+
+		nb_cli_show_dnode_cmds(vty, child, with_defaults);
 	}
+
+	if (sort_node) {
+		for (ALL_LIST_ELEMENTS_RO(sort_list, listnode, data))
+			nb_cli_show_dnode_cmds(vty, data, with_defaults);
+
+		list_delete(&sort_list);
+		sort_node = NULL;
+	}
+}
+
+void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
+			    bool with_defaults)
+{
+	struct nb_node *nb_node;
+
+	if (!with_defaults && yang_dnode_is_default_recursive(root))
+		return;
+
+	nb_node = root->schema->priv;
+
+	if (nb_node && nb_node->cbs.cli_show)
+		(*nb_node->cbs.cli_show)(vty, root, with_defaults);
+
+	if (!(root->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)))
+		show_dnode_children_cmds(vty, root, with_defaults);
+
+	if (nb_node && nb_node->cbs.cli_show_end)
+		(*nb_node->cbs.cli_show_end)(vty, root);
 }
 
 static void nb_cli_show_config_cmds(struct vty *vty, struct nb_config *config,

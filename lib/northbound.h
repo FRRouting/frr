@@ -474,6 +474,23 @@ struct nb_callbacks {
 	int (*rpc)(struct nb_cb_rpc_args *args);
 
 	/*
+	 * Optional callback to compare the data nodes when printing
+	 * the CLI commands associated with them.
+	 *
+	 * dnode1
+	 *    The first data node to compare.
+	 *
+	 * dnode2
+	 *    The second data node to compare.
+	 *
+	 * Returns:
+	 *    <0 when the CLI command for the dnode1 should be printed first
+	 *    >0 when the CLI command for the dnode2 should be printed first
+	 *     0 when there is no difference
+	 */
+	int (*cli_cmp)(struct lyd_node *dnode1, struct lyd_node *dnode2);
+
+	/*
 	 * Optional callback to show the CLI command associated to the given
 	 * YANG data node.
 	 *

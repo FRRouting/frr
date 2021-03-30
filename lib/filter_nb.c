@@ -1665,6 +1665,7 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.create = lib_access_list_entry_create,
 				.destroy = lib_access_list_entry_destroy,
+				.cli_cmp = access_list_cmp,
 				.cli_show = access_list_show,
 			}
 		},
@@ -1788,6 +1789,7 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.create = lib_prefix_list_entry_create,
 				.destroy = lib_prefix_list_entry_destroy,
+				.cli_cmp = prefix_list_cmp,
 				.cli_show = prefix_list_show,
 			}
 		},
