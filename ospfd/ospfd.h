@@ -374,6 +374,11 @@ struct ospf {
 	 */
 	int aggr_action;
 
+	/* Max number of multiple paths
+	 * to support ECMP.
+	 */
+	uint16_t max_multipath;
+
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
 

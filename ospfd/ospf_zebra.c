@@ -297,7 +297,7 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(or->paths, node, path)) {
-		if (api.nexthop_num >= MULTIPATH_NUM)
+		if (api.nexthop_num >= ospf->max_multipath)
 			break;
 
 		ospf_zebra_add_nexthop(ospf, path, &api);

@@ -1987,3 +1987,27 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 	thread_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
 			      delay, &ospf->t_spf_calc);
 }
+
+/* Restart OSPF SPF algorithm*/
+void ospf_restart_spf(struct ospf *ospf)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Restart SPF.", __PRETTY_FUNCTION__);
+
+	/* Handling inter area and intra area routes*/
+	if (ospf->new_table) {
+		ospf_route_delete(ospf, ospf->new_table);
+		ospf_route_table_free(ospf->new_table);
+		ospf->new_table = route_table_init();
+	}
+
+	/* Handling of TYPE-5 lsa(external routes) */
+	if (ospf->old_external_route) {
+		ospf_route_delete(ospf, ospf->old_external_route);
+		ospf_route_table_free(ospf->old_external_route);
+		ospf->old_external_route = route_table_init();
+	}
+
+	/* Trigger SPF */
+	ospf_spf_calculate_schedule(ospf, SPF_FLAG_CONFIG_CHANGE);
+}

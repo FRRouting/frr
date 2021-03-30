@@ -367,6 +367,9 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->maxage_lsa = route_table_init();
 	new->t_maxage_walker = NULL;
 
+	/* Max paths initialization */
+	new->max_multipath = MULTIPATH_NUM;
+
 	/* Distance table init. */
 	new->distance_table = route_table_init();
 
@@ -887,6 +890,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	close(ospf->fd);
 	stream_free(ospf->ibuf);
 	ospf->fd = -1;
+	ospf->max_multipath = MULTIPATH_NUM;
 	ospf_delete(ospf);
 
 	if (ospf->name) {
