@@ -1169,6 +1169,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	int nh_family;
 	unsigned int valid_nh_count = 0;
 	int has_valid_label = 0;
+	bool allow_recursion = false;
 	uint8_t distance;
 	struct peer *peer;
 	struct bgp_path_info *mpinfo;
@@ -1246,7 +1247,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	    || CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 
-		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+		allow_recursion = true;
 
 	if (info->attr->rmap_table_id) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
@@ -1372,6 +1373,15 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		if (!nh_updated)
 			continue;
 
+		/* Allow recursion if it is a multipath group with both
+		 * eBGP and iBGP paths.
+		 */
+		if (!allow_recursion
+		    && CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX)
+		    && (mpinfo->peer->sort == BGP_PEER_IBGP
+			|| mpinfo->peer->sort == BGP_PEER_CONFED))
+			allow_recursion = true;
+
 		if (mpinfo->extra
 		    && bgp_is_valid_label(&mpinfo->extra->label[0])
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
@@ -1399,6 +1409,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		api.opaque.length = strlen(aspath->str) + 1;
 		memcpy(api.opaque.data, aspath->str, api.opaque.length);
 	}
+
+	if (allow_recursion)
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	/*
 	 * When we create an aggregate route we must also

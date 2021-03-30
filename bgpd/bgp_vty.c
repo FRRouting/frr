@@ -3571,6 +3571,37 @@ DEFUN_YANG (no_bgp_bestpath_aspath_multipath_relax,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/* "bgp bestpath peer-type multipath-relax" configuration. */
+DEFUN(bgp_bestpath_peer_type_multipath_relax,
+      bgp_bestpath_peer_type_multipath_relax_cmd,
+      "bgp bestpath peer-type multipath-relax",
+      BGP_STR
+      "Change the default bestpath selection\n"
+      "Peer type\n"
+      "Allow load sharing across routes learned from different peer types\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	SET_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX);
+	bgp_recalculate_all_bestpaths(bgp);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_bestpath_peer_type_multipath_relax,
+      no_bgp_bestpath_peer_type_multipath_relax_cmd,
+      "no bgp bestpath peer-type multipath-relax",
+      NO_STR BGP_STR
+      "Change the default bestpath selection\n"
+      "Peer type\n"
+      "Allow load sharing across routes learned from different peer types\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX);
+	bgp_recalculate_all_bestpaths(bgp);
+
+	return CMD_SUCCESS;
+}
+
 /* "bgp log-neighbor-changes" configuration.  */
 DEFUN_YANG(bgp_log_neighbor_changes,
 	   bgp_log_neighbor_changes_cmd,
@@ -10495,6 +10526,9 @@ static void bgp_show_bestpath_json(struct bgp *bgp, json_object *json)
 					       "true");
 	} else
 		json_object_string_add(bestpath, "multiPathRelax", "false");
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
+		json_object_boolean_true_add(bestpath, "peerTypeRelax");
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID))
 		json_object_string_add(bestpath, "compareRouterId", "true");
@@ -17654,6 +17688,10 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, "\n");
 		}
 
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
+			vty_out(vty,
+				" bgp bestpath peer-type multipath-relax\n");
+
 		/* Link bandwidth handling. */
 		if (bgp->lb_handling == BGP_LINK_BW_IGNORE_BW)
 			vty_out(vty, " bgp bestpath bandwidth ignore\n");
@@ -18137,6 +18175,11 @@ void bgp_vty_init(void)
 	/* "bgp bestpath as-path multipath-relax" commands */
 	install_element(BGP_NODE, &bgp_bestpath_aspath_multipath_relax_cmd);
 	install_element(BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_cmd);
+
+	/* "bgp bestpath peer-type multipath-relax" commands */
+	install_element(BGP_NODE, &bgp_bestpath_peer_type_multipath_relax_cmd);
+	install_element(BGP_NODE,
+			&no_bgp_bestpath_peer_type_multipath_relax_cmd);
 
 	/* "bgp log-neighbor-changes" commands */
 	install_element(BGP_NODE, &bgp_log_neighbor_changes_cmd);

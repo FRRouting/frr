@@ -1,0 +1,33 @@
+{
+  "203.0.113.0\/30":[
+    {
+      "prefix":"203.0.113.0\/30",
+      "protocol":"bgp",
+      "installed":true,
+      "internalNextHopNum":4,
+      "internalNextHopActiveNum":4,
+      "nexthops":[
+        {
+          "ip":"198.51.100.2",
+          "active":true,
+          "recursive":true
+        },
+        {
+          "fib":true,
+          "ip":"10.0.3.2",
+          "active":true
+        },
+        {
+          "ip":"198.51.100.10",
+          "active":true,
+          "recursive":true
+        },
+        {
+          "fib":true,
+          "ip":"10.0.3.2",
+          "active":true
+        }
+      ]
+    }
+  ]
+}

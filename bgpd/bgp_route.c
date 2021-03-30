@@ -566,6 +566,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	int internal_as_route;
 	int confed_as_route;
 	int ret = 0;
+	int igp_metric_ret = 0;
+	int peer_sort_ret = -1;
 	char new_buf[PATH_ADDPATH_STR_BUFFER];
 	char exist_buf[PATH_ADDPATH_STR_BUFFER];
 	uint32_t new_mm_seq;
@@ -972,7 +974,9 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			zlog_debug(
 				"%s: %s wins over %s due to eBGP peer > iBGP peer",
 				pfx_buf, new_buf, exist_buf);
-		return 1;
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
+			return 1;
+		peer_sort_ret = 1;
 	}
 
 	if (exist_sort == BGP_PEER_EBGP
@@ -982,7 +986,9 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			zlog_debug(
 				"%s: %s loses to %s due to iBGP peer < eBGP peer",
 				pfx_buf, new_buf, exist_buf);
-		return 0;
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
+			return 0;
+		peer_sort_ret = 0;
 	}
 
 	/* 8. IGP metric check. */
@@ -994,19 +1000,19 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		existm = exist->extra->igpmetric;
 
 	if (newm < existm) {
-		if (debug)
+		if (debug && peer_sort_ret < 0)
 			zlog_debug(
 				"%s: %s wins over %s due to IGP metric %u < %u",
 				pfx_buf, new_buf, exist_buf, newm, existm);
-		ret = 1;
+		igp_metric_ret = 1;
 	}
 
 	if (newm > existm) {
-		if (debug)
+		if (debug && peer_sort_ret < 0)
 			zlog_debug(
 				"%s: %s loses to %s due to IGP metric %u > %u",
 				pfx_buf, new_buf, exist_buf, newm, existm);
-		ret = 0;
+		igp_metric_ret = 0;
 	}
 
 	/* 9. Same IGP metric. Compare the cluster list length as
@@ -1024,21 +1030,21 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			existm = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
 			if (newm < existm) {
-				if (debug)
+				if (debug && peer_sort_ret < 0)
 					zlog_debug(
 						"%s: %s wins over %s due to CLUSTER_LIST length %u < %u",
 						pfx_buf, new_buf, exist_buf,
 						newm, existm);
-				ret = 1;
+				igp_metric_ret = 1;
 			}
 
 			if (newm > existm) {
-				if (debug)
+				if (debug && peer_sort_ret < 0)
 					zlog_debug(
 						"%s: %s loses to %s due to CLUSTER_LIST length %u > %u",
 						pfx_buf, new_buf, exist_buf,
 						newm, existm);
-				ret = 0;
+				igp_metric_ret = 0;
 			}
 		}
 	}
@@ -1052,7 +1058,10 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				zlog_debug(
 					"%s: %s wins over %s due to confed-external peer > confed-internal peer",
 					pfx_buf, new_buf, exist_buf);
-			return 1;
+			if (!CHECK_FLAG(bgp->flags,
+					BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
+				return 1;
+			peer_sort_ret = 1;
 		}
 
 		if (exist_sort == BGP_PEER_CONFED
@@ -1062,7 +1071,10 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				zlog_debug(
 					"%s: %s loses to %s due to confed-internal peer < confed-external peer",
 					pfx_buf, new_buf, exist_buf);
-			return 0;
+			if (!CHECK_FLAG(bgp->flags,
+					BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
+				return 0;
+			peer_sort_ret = 0;
 		}
 	}
 
@@ -1123,19 +1135,39 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 * TODO: If unequal cost ibgp multipath is enabled we can
 		 * mark the paths as equal here instead of returning
 		 */
-		if (debug) {
-			if (ret == 1)
-				zlog_debug(
-					"%s: %s wins over %s after IGP metric comparison",
-					pfx_buf, new_buf, exist_buf);
-			else
-				zlog_debug(
-					"%s: %s loses to %s after IGP metric comparison",
-					pfx_buf, new_buf, exist_buf);
+
+		/* Prior to the addition of BGP_FLAG_PEERTYPE_MULTIPATH_RELAX,
+		 * if either step 7 or 10 (peer type checks) yielded a winner,
+		 * that result was returned immediately. Returning from step 10
+		 * ignored the return value computed in steps 8 and 9 (IGP
+		 * metric checks). In order to preserve that behavior, if
+		 * peer_sort_ret is set, return that rather than igp_metric_ret.
+		 */
+		ret = peer_sort_ret;
+		if (peer_sort_ret < 0) {
+			ret = igp_metric_ret;
+			if (debug) {
+				if (ret == 1)
+					zlog_debug(
+						"%s: %s wins over %s after IGP metric comparison",
+						pfx_buf, new_buf, exist_buf);
+				else
+					zlog_debug(
+						"%s: %s loses to %s after IGP metric comparison",
+						pfx_buf, new_buf, exist_buf);
+			}
+			*reason = bgp_path_selection_igp_metric;
 		}
-		*reason = bgp_path_selection_igp_metric;
 		return ret;
 	}
+
+	/*
+	 * At this point, the decision whether to set *paths_eq = 1 has been
+	 * completed. If we deferred returning because of bestpath peer-type
+	 * relax configuration, return now.
+	 */
+	if (peer_sort_ret >= 0)
+		return peer_sort_ret;
 
 	/* 12. If both paths are external, prefer the path that was received
 	   first (the oldest one).  This step minimizes route-flap, since a
