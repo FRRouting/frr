@@ -166,7 +166,9 @@ void ospf_bfd_write_config(struct vty *vty, const struct ospf_if_params *params
 			   __attribute__((unused)))
 {
 #if HAVE_BFDD == 0
-	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
+	if (params->bfd_config->detection_multiplier != BFD_DEF_DETECT_MULT
+	    || params->bfd_config->min_rx != BFD_DEF_MIN_RX
+	    || params->bfd_config->min_tx != BFD_DEF_MIN_TX)
 		vty_out(vty, " ip ospf bfd %d %d %d\n",
 			params->bfd_config->detection_multiplier,
 			params->bfd_config->min_rx, params->bfd_config->min_tx);
