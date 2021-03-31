@@ -3402,7 +3402,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 		return ret;
 	case BGP_SUCCESS:
 		if (*bgp_val)
-			return ret;
+			return BGP_INSTANCE_EXISTS;
 	}
 
 	bgp = bgp_create(as, name, inst_type);
