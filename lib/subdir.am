@@ -90,6 +90,7 @@ lib_libfrr_la_SOURCES = \
 	lib/spf_backoff.c \
 	lib/srcdest_table.c \
 	lib/stream.c \
+	lib/strformat.c \
 	lib/strlcat.c \
 	lib/strlcpy.c \
 	lib/systemd.c \
