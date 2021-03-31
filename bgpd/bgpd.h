@@ -1824,7 +1824,7 @@ struct bgp_nlri {
 /* BGP Dynamic Neighbors feature */
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT    100
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_MIN          1
-#define BGP_DYNAMIC_NEIGHBORS_LIMIT_MAX       5000
+#define BGP_DYNAMIC_NEIGHBORS_LIMIT_MAX      65535
 
 /* Flag for peer_clear_soft().  */
 enum bgp_clear_type {
