@@ -1265,9 +1265,6 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 			return NB_ERR;
 		}
 
-		/* Mark as having FRR configuration */
-		vrf_set_user_cfged(vrf);
-
 		break;
 	}
 
@@ -1314,10 +1311,6 @@ int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args)
 					vni, err);
 			return NB_ERR;
 		}
-
-		/* If no other FRR config for this VRF, mark accordingly. */
-		if (!zebra_vrf_has_config(zvrf))
-			vrf_reset_user_cfged(vrf);
 
 		break;
 	}
