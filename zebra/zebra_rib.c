@@ -3284,7 +3284,8 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->nh_label && nexthop->nh_label->num_labels > 0) {
 		mpls_label2str(nexthop->nh_label->num_labels,
 			       nexthop->nh_label->label, label_str,
-			       sizeof(label_str), 0 /*pretty*/);
+			       sizeof(label_str), nexthop->nh_label_type,
+			       0 /*pretty*/);
 		strlcat(label_str, ", ", sizeof(label_str));
 	}
 

@@ -104,7 +104,7 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf,
 						q_space->label_stack
 							->num_labels,
 						q_space->label_stack->label,
-						label_buf, MPLS_LABEL_STRLEN,
+						label_buf, MPLS_LABEL_STRLEN, 0,
 						true);
 					vty_out(vty, "\nLabel stack: %s\n",
 						label_buf);

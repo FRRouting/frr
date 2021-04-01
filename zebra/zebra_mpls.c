@@ -492,7 +492,7 @@ static void fec_print(struct zebra_fec *fec, struct vty *vty)
 
 	rn = fec->rn;
 	vty_out(vty, "%pRN\n", rn);
-	vty_out(vty, "  Label: %s", label2str(fec->label, buf, BUFSIZ));
+	vty_out(vty, "  Label: %s", label2str(fec->label, 0, buf, BUFSIZ));
 	if (fec->label_index != MPLS_INVALID_LABEL_INDEX)
 		vty_out(vty, ", Label Index: %u", fec->label_index);
 	vty_out(vty, "\n");
@@ -1592,8 +1592,8 @@ static void nhlfe_print(struct zebra_nhlfe *nhlfe, struct vty *vty,
 	vty_out(vty, " type: %s remote label: %s distance: %d\n",
 		nhlfe_type2str(nhlfe->type),
 		mpls_label2str(nexthop->nh_label->num_labels,
-			       nexthop->nh_label->label,
-			       buf, sizeof(buf), 0),
+			       nexthop->nh_label->label, buf, sizeof(buf),
+			       nexthop->nh_label_type, 0),
 		nhlfe->distance);
 
 	if (indent)
@@ -2677,7 +2677,7 @@ int zebra_mpls_write_fec_config(struct vty *vty, struct zebra_vrf *zvrf)
 
 			write = 1;
 			vty_out(vty, "mpls label bind %pFX %s\n", &rn->p,
-				label2str(fec->label, lstr, BUFSIZ));
+				label2str(fec->label, 0, lstr, BUFSIZ));
 		}
 	}
 
@@ -3126,10 +3126,10 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 
 			nhlfe2str(nhlfe, buf, sizeof(buf));
 			mpls_label2str(num_out_labels, out_labels, buf2,
-				       sizeof(buf2), 0);
+				       sizeof(buf2), 0, 0);
 			mpls_label2str(nh->nh_label->num_labels,
 				       nh->nh_label->label, buf3, sizeof(buf3),
-				       0);
+				       nh->nh_label_type, 0);
 
 			zlog_debug("LSP in-label %u type %d %snexthop %s out-label(s) changed to %s (old %s)",
 				   lsp->ile.in_label, type, backup_str, buf,
@@ -3157,7 +3157,7 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 
 			nhlfe2str(nhlfe, buf, sizeof(buf));
 			mpls_label2str(num_out_labels, out_labels, buf2,
-				       sizeof(buf2), 0);
+				       sizeof(buf2), 0, 0);
 
 			zlog_debug("Add LSP in-label %u type %d %snexthop %s out-label(s) %s",
 				   lsp->ile.in_label, type, backup_str, buf,
@@ -3739,10 +3739,10 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
-			json_object_object_add(
-				json, label2str(lsp->ile.in_label, buf,
-						sizeof(buf)),
-				lsp_json(lsp));
+			json_object_object_add(json,
+					       label2str(lsp->ile.in_label, 0,
+							 buf, sizeof(buf)),
+					       lsp_json(lsp));
 
 		vty_json(vty, json);
 	} else {
@@ -3794,7 +3794,8 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					out_label_str = mpls_label2str(
 						nexthop->nh_label->num_labels,
 						&nexthop->nh_label->label[0],
-						buf, sizeof(buf), 1);
+						buf, sizeof(buf),
+						nexthop->nh_label_type, 1);
 				else
 					out_label_str = "-";
 

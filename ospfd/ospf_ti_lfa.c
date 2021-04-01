@@ -721,7 +721,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	if (q_space->label_stack) {
 		mpls_label2str(q_space->label_stack->num_labels,
 			       q_space->label_stack->label, label_buf,
-			       MPLS_LABEL_STRLEN, true);
+			       MPLS_LABEL_STRLEN, 0, true);
 		zlog_info(
 			"%s: Generated label stack %s for root %pI4 and destination %pI4 for %s",
 			__func__, label_buf, &p_space->root->id,
@@ -1047,7 +1047,7 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 					path->srni.backup_label_stack
 						->num_labels,
 					path->srni.backup_label_stack->label,
-					label_buf, MPLS_LABEL_STRLEN, true);
+					label_buf, MPLS_LABEL_STRLEN, 0, true);
 				if (IS_DEBUG_OSPF_TI_LFA)
 					zlog_debug(
 						"%s: inserted backup path %s for prefix %pFX, router id %pI4 and nexthop %pI4.",
