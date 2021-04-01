@@ -13060,7 +13060,8 @@ DEFUN (show_ip_bgp_vpn_all_route_prefix,
 	}
 
 	return bgp_show_route(vty, bgp, network, AFI_IP, SAFI_MPLS_VPN, NULL, 0,
-			      BGP_PATH_SHOW_ALL, use_json(argc, argv));
+			      BGP_PATH_SHOW_ALL, RPKI_NOT_BEING_USED,
+			      use_json(argc, argv));
 }
 #endif /* KEEP_OLD_VPN_COMMANDS */
 
