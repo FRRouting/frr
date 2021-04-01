@@ -338,20 +338,6 @@ static int zebra_vrf_update(struct vrf *vrf)
 	return 0;
 }
 
-
-/* Return if this VRF has any FRR configuration or not.
- * IMPORTANT: This function needs to be updated when additional configuration
- * is added for a VRF.
- */
-int zebra_vrf_has_config(struct zebra_vrf *zvrf)
-{
-	/* EVPN L3-VNI? */
-	if (zvrf->l3vni)
-		return 1;
-
-	return 0;
-}
-
 /* Lookup the routing table in a VRF based on both VRF-Id and table-id.
  * NOTE: Table-id is relevant on two modes:
  * - case VRF backend is default : on default VRF only

@@ -170,27 +170,6 @@ static int static_vrf_config_write(struct vty *vty)
 	return 0;
 }
 
-int static_vrf_has_config(struct static_vrf *svrf)
-{
-	struct route_table *table;
-	safi_t safi;
-	afi_t afi;
-
-	/*
-	 * NOTE: This is a don't care for the default VRF, but we go through
-	 * the motions to keep things consistent.
-	 */
-	FOREACH_AFI_SAFI (afi, safi) {
-		table = svrf->stable[afi][safi];
-		if (!table)
-			continue;
-		if (route_table_count(table))
-			return 1;
-	}
-
-	return 0;
-}
-
 void static_vrf_init(void)
 {
 	vrf_init(static_vrf_new, static_vrf_enable,
