@@ -229,7 +229,15 @@ static int bfd_session_destroy(enum nb_event event,
  */
 int bfdd_bfd_create(struct nb_cb_create_args *args)
 {
-	/* NOTHING */
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/*
+	 * Set any non-NULL value to be able to call
+	 * nb_running_unset_entry in bfdd_bfd_destroy.
+	 */
+	nb_running_set_entry(args->dnode, (void *)0x1);
+
 	return NB_OK;
 }
 
@@ -245,6 +253,12 @@ int bfdd_bfd_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	case NB_EV_APPLY:
+		/*
+		 * We need to call this to unset pointers from
+		 * the child nodes - sessions and profiles.
+		 */
+		nb_running_unset_entry(args->dnode);
+
 		bfd_sessions_remove_manual();
 		bfd_profiles_remove();
 		break;
