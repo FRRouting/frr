@@ -246,6 +246,7 @@ int bfdd_bfd_destroy(struct nb_cb_destroy_args *args)
 
 	case NB_EV_APPLY:
 		bfd_sessions_remove_manual();
+		bfd_profiles_remove();
 		break;
 
 	case NB_EV_ABORT:
