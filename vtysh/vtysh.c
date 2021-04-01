@@ -2237,7 +2237,7 @@ DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
 }
 
 DEFUNSH(VTYSH_BFDD, bfd_profile_enter, bfd_profile_enter_cmd,
-	"profile WORD",
+	"profile BFDPROF",
 	BFD_PROFILE_STR
 	BFD_PROFILE_NAME_STR)
 {
