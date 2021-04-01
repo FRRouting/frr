@@ -1396,6 +1396,33 @@ void route_map_description_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " description %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+DEFPY_YANG(routemap_optimization, routemap_optimization_cmd,
+	   "[no] route-map optimization",
+	   NO_STR
+	   "route-map\n"
+	   "optimization\n")
+{
+	const struct lyd_node *rmi_dnode;
+	const char *rm_name;
+	char xpath[XPATH_MAXLEN];
+
+	rmi_dnode =
+		yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!rmi_dnode) {
+		vty_out(vty, "%% Failed to get RMI dnode in candidate DB\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	rm_name = yang_dnode_get_string(rmi_dnode, "../name");
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-route-map:lib/route-map[name='%s']/optimization-disabled",
+		rm_name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, no ? "true" : "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 static int route_map_config_write(struct vty *vty)
 {
 	struct lyd_node *dnode;
@@ -1513,4 +1540,6 @@ void route_map_cli_init(void)
 
 	install_element(RMAP_NODE, &set_srte_color_cmd);
 	install_element(RMAP_NODE, &no_set_srte_color_cmd);
+
+	install_element(RMAP_NODE, &routemap_optimization_cmd);
 }

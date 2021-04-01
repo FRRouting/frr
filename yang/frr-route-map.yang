@@ -364,6 +364,11 @@ module frr-route-map {
         description
           "Route map instance name";
       }
+      leaf optimization-disabled {
+        type boolean;
+        default false;
+        description "Disables or enables the optimization";
+      }
 
       list entry {
         key "sequence";

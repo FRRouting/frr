@@ -141,6 +141,30 @@ static int lib_route_map_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-route-map:lib/route-map/optimization-disabled
+ */
+static int
+lib_route_map_optimization_disabled_modify(struct nb_cb_modify_args *args)
+{
+	struct route_map *rm;
+	bool disabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		rm = nb_running_get_entry(args->dnode, NULL, true);
+		rm->optimization_disabled = disabled;
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-route-map:lib/route-map/entry
  */
 static int lib_route_map_entry_create(struct nb_cb_create_args *args)
@@ -1195,6 +1219,12 @@ const struct frr_yang_module_info frr_route_map_info = {
 			.cbs = {
 				.create = lib_route_map_create,
 				.destroy = lib_route_map_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/optimization-disabled",
+			.cbs = {
+				.modify = lib_route_map_optimization_disabled_modify,
 			}
 		},
 		{
