@@ -507,7 +507,8 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			 * coming directly from NATTED Spoke and there is not
 			 * NAT Extension present
 			 */
-			debugf(NHRP_DEBUG_COMMON, "shortcut res_rep: No NAT Extension for %pSU",
+			debugf(NHRP_DEBUG_COMMON,
+			       "shortcut res_rep: No NAT Extension for %pSU",
 			       proto_addr);
 
 			if (!sockunion_same(&pp->src_nbma,
@@ -936,10 +937,9 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 	struct nhrp_cie_header *cie;
 	struct nhrp_interface *nifp = pp->ifp->info;
 	struct nhrp_afi_data *if_ad = pp->if_ad;
-	union sockunion cie_nbma, cie_protocol, cie_protocol_mandatory,
-		*proto = NULL;
+	union sockunion cie_nbma, cie_protocol, cie_protocol_mandatory, *proto;
 	uint16_t type, len;
-	struct nhrp_cache *c = NULL;
+	struct nhrp_cache *c;
 
 	if (pp->hdr->hop_count == 0)
 		return;
@@ -998,11 +998,13 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			}
 			break;
 		case NHRP_EXTENSION_NAT_ADDRESS:
-			/* if NAT extension is not empty then copy it across
-			 * else attempt to populate it */
-			if (len > 0) {
-				zbuf_copy(zb, &extpl, len);
-			} else {
+			c = NULL;
+			proto = NULL;
+
+			/* If NAT extension is empty then attempt to populate
+			 * it with cached NBMA information
+			 */
+			if (len == 0) {
 				if (packet_types[hdr->type].type
 				    == PACKET_REQUEST) {
 					debugf(NHRP_DEBUG_COMMON,
@@ -1021,35 +1023,38 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 					    != AF_UNSPEC)
 						proto = &cie_protocol_mandatory;
 				}
+			}
 
-				if (proto) {
-					debugf(NHRP_DEBUG_COMMON, "Proto is %pSU",
-					       proto);
-					c = nhrp_cache_get(nifp->ifp, proto, 0);
+			if (proto) {
+				debugf(NHRP_DEBUG_COMMON, "Proto is %pSU",
+				       proto);
+				c = nhrp_cache_get(nifp->ifp, proto, 0);
+			}
+
+			if (c) {
+				debugf(NHRP_DEBUG_COMMON,
+				       "c->cur.remote_nbma_natoa is %pSU",
+				       &c->cur.remote_nbma_natoa);
+				if (sockunion_family(&c->cur.remote_nbma_natoa)
+				    != AF_UNSPEC) {
+					cie = nhrp_cie_push(
+						zb,
+						NHRP_CODE_SUCCESS,
+						&c->cur.remote_nbma_natoa,
+						proto);
+					if (!cie)
+						goto err;
 				}
-
-				if (c) {
+			} else {
+				if (proto)
 					debugf(NHRP_DEBUG_COMMON,
-					       "c->cur.remote_nbma_natoa is %pSU",
-					       &c->cur.remote_nbma_natoa);
-					if (sockunion_family(
-						    &c->cur.remote_nbma_natoa)
-					    != AF_UNSPEC) {
-						cie = nhrp_cie_push(
-							zb,
-							NHRP_CODE_SUCCESS,
-							&c->cur.remote_nbma_natoa,
-							proto);
-						if (!cie)
-							goto err;
-					}
-				} else {
-					if (proto)
-						debugf(NHRP_DEBUG_COMMON,
-						       "No cache entry for proto %pSU",
-						       proto);
-					zbuf_put(zb, extpl.head, len);
-				}
+					       "No cache entry for proto %pSU",
+					       proto);
+				/* Copy existing NAT extension to new packet if
+				 * either it was already not-empty, or we do not
+				 * have valid cache information
+				 */
+				zbuf_put(zb, extpl.head, len);
 			}
 			break;
 		default:

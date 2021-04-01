@@ -651,8 +651,7 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		if (sockunion_family(&nifp->nbma) != AF_UNSPEC) {
 			sockunion2str(&nifp->nbma, buf[1], sizeof(buf[1]));
 			sockunion2str(&nifp->nbma, buf[2], sizeof(buf[2]));
-		}
-		else {
+		} else {
 			snprintf(buf[1], sizeof(buf[1]), "-");
 			snprintf(buf[2], sizeof(buf[2]), "-");
 		}
