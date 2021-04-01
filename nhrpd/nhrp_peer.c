@@ -1083,6 +1083,7 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 err:
 	nhrp_packet_debug(pp->pkt, "FWD-FAIL");
 	zbuf_free(zb);
+	zbuf_free(zb_copy);
 }
 
 static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
