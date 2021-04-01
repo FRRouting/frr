@@ -48,6 +48,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_rpki.h"
+#include "northbound_cli.h"
 
 #include "lib/network.h"
 #include "lib/thread.h"
@@ -1390,7 +1391,6 @@ DEFUN_YANG (no_match_rpki,
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:rpki']";
-	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	return nb_cli_apply_changes(vty, NULL);
