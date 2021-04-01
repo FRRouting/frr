@@ -1941,6 +1941,14 @@ void bfd_sessions_remove_manual(void)
 	hash_iterate(bfd_key_hash, _bfd_session_remove_manual, NULL);
 }
 
+void bfd_profiles_remove(void)
+{
+	struct bfd_profile *bp;
+
+	while ((bp = TAILQ_FIRST(&bplist)) != NULL)
+		bfd_profile_free(bp);
+}
+
 /*
  * Profile related hash functions.
  */

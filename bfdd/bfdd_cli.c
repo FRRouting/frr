@@ -557,7 +557,7 @@ void bfd_cli_show_required_echo_receive_interval(struct vty *vty,
  * Profile commands.
  */
 DEFPY_YANG_NOSH(bfd_profile, bfd_profile_cmd,
-	   "profile WORD$name",
+	   "profile BFDPROF$name",
 	   BFD_PROFILE_STR
 	   BFD_PROFILE_NAME_STR)
 {
