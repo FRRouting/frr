@@ -540,6 +540,17 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	if (bpi) {
 		bool labelssame = labels_same(bpi, label, num_labels);
 
+		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)
+		    && CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
+			if (debug) {
+				zlog_debug(
+					"%s: ->%s(s_flags: 0x%x b_flags: 0x%x): %pFX: Found route, being removed, not leaking",
+					__func__, bgp->name_pretty,
+					source_bpi->flags, bpi->flags, p);
+			}
+			return NULL;
+		}
+
 		if (attrhash_cmp(bpi->attr, new_attr) && labelssame
 		    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
 
@@ -611,6 +622,16 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 				   __func__, bgp->name_pretty, bn);
 
 		return bpi;
+	}
+
+	if (CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)) {
+		if (debug) {
+			zlog_debug(
+				"%s: ->%s(s_flags: 0x%x): %pFX: New route, being removed, not leaking",
+				__func__, bgp->name_pretty,
+				source_bpi->flags, p);
+		}
+		return NULL;
 	}
 
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_IMPORTED, 0,
