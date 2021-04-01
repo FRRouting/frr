@@ -705,6 +705,12 @@ bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 	return nl_attr_put(n, maxlen, type, &data, sizeof(uint32_t));
 }
 
+bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+		   uint64_t data)
+{
+	return nl_attr_put(n, maxlen, type, &data, sizeof(uint64_t));
+}
+
 struct rtattr *nl_attr_nest(struct nlmsghdr *n, unsigned int maxlen, int type)
 {
 	struct rtattr *nest = NLMSG_TAIL(n);

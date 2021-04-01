@@ -1325,6 +1325,7 @@ static bool _netlink_route_add_gateway_info(uint8_t route_family,
 }
 
 static int build_label_stack(struct mpls_label_stack *nh_label,
+			     enum lsp_types_t nh_label_type,
 			     mpls_lse_t *out_lse, char *label_buf,
 			     size_t label_buf_size)
 {
@@ -1332,7 +1333,8 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
 	int num_labels = 0;
 
 	for (int i = 0; nh_label && i < nh_label->num_labels; i++) {
-		if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
+		if (nh_label_type == ZEBRA_LSP_EVPN
+		    && nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
 			continue;
 
 		if (IS_ZEBRA_DEBUG_KERNEL) {
@@ -1346,15 +1348,18 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
 			}
 		}
 
-		out_lse[num_labels] =
-			mpls_lse_encode(nh_label->label[i], 0, 0, 0);
+		if (nh_label_type == ZEBRA_LSP_EVPN)
+			out_lse[num_labels] = label2vni(&nh_label->label[i]);
+		else
+			out_lse[num_labels] =
+				mpls_lse_encode(nh_label->label[i], 0, 0, 0);
 		num_labels++;
 	}
 
 	return num_labels;
 }
 
-static bool _netlink_route_encode_label_info(struct mpls_label_stack *nh_label,
+static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 					     struct nlmsghdr *nlmsg,
 					     size_t buflen, struct rtmsg *rtmsg,
 					     char *label_buf,
@@ -1362,6 +1367,12 @@ static bool _netlink_route_encode_label_info(struct mpls_label_stack *nh_label,
 {
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
 	int num_labels;
+	struct rtattr *nest;
+	struct mpls_label_stack *nh_label;
+	enum lsp_types_t nh_label_type;
+
+	nh_label = nexthop->nh_label;
+	nh_label_type = nexthop->nh_label_type;
 
 	/*
 	 * label_buf is *only* currently used within debugging.
@@ -1371,10 +1382,45 @@ static bool _netlink_route_encode_label_info(struct mpls_label_stack *nh_label,
 	 */
 	label_buf[0] = '\0';
 
-	num_labels =
-		build_label_stack(nh_label, out_lse, label_buf, label_buf_size);
+	num_labels = build_label_stack(nh_label, nh_label_type, out_lse,
+				       label_buf, label_buf_size);
 
-	if (num_labels) {
+	if (num_labels && nh_label_type == ZEBRA_LSP_EVPN) {
+
+		if (!nl_attr_put16(nlmsg, buflen, RTA_ENCAP_TYPE,
+				   LWTUNNEL_ENCAP_IP))
+			return false;
+
+		nest = nl_attr_nest(nlmsg, buflen, RTA_ENCAP);
+		if (!nest)
+			return false;
+
+		if (!nl_attr_put64(nlmsg, buflen, LWTUNNEL_IP_ID,
+				   htonll((uint64_t)out_lse[0])))
+			return false;
+
+		if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
+					 &nexthop->gate.ipv4, 4))
+				return false;
+
+		} else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
+					 &nexthop->gate.ipv6, 16))
+				return false;
+
+		} else {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s: nexthop %pNHv %s must NEXTHOP_TYPE_IPV*_IFINDEX to be vxlan encapped",
+					__func__, nexthop, label_buf);
+
+			return false;
+		}
+
+		nl_attr_nest_end(nlmsg, nest);
+
+	} else if (num_labels) {
 		/* Set the BoS bit */
 		out_lse[num_labels - 1] |= htonl(1 << MPLS_LS_S_SHIFT);
 
@@ -1383,8 +1429,6 @@ static bool _netlink_route_encode_label_info(struct mpls_label_stack *nh_label,
 					 num_labels * sizeof(mpls_lse_t)))
 				return false;
 		} else {
-			struct rtattr *nest;
-
 			if (!nl_attr_put16(nlmsg, buflen, RTA_ENCAP_TYPE,
 					   LWTUNNEL_ENCAP_MPLS))
 				return false;
@@ -1498,9 +1542,8 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 	vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
-	if (!_netlink_route_encode_label_info(nexthop->nh_label, nlmsg,
-					      req_size, rtmsg, label_buf,
-					      sizeof(label_buf)))
+	if (!_netlink_route_encode_label_info(nexthop, nlmsg, req_size, rtmsg,
+					      label_buf, sizeof(label_buf)))
 		return false;
 
 	if (nexthop->nh_srv6) {
@@ -1781,9 +1824,8 @@ static bool _netlink_route_build_multipath(
 
 	vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
-	if (!_netlink_route_encode_label_info(nexthop->nh_label, nlmsg,
-					      req_size, rtmsg, label_buf,
-					      sizeof(label_buf)))
+	if (!_netlink_route_encode_label_info(nexthop, nlmsg, req_size, rtmsg,
+					      label_buf, sizeof(label_buf)))
 		return false;
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
@@ -2665,9 +2707,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 			if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
 				req->nhm.nh_flags |= RTNH_F_ONLINK;
 
-			num_labels =
-				build_label_stack(nh->nh_label, out_lse,
-						  label_buf, sizeof(label_buf));
+			num_labels = build_label_stack(
+				nh->nh_label, nh->nh_label_type, out_lse,
+				label_buf, sizeof(label_buf));
 
 			if (num_labels) {
 				/* Set the BoS bit */

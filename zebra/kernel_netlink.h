@@ -48,6 +48,8 @@ extern bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint16_t data);
 extern bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint32_t data);
+extern bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+			  uint64_t data);
 
 /*
  * nl_attr_nest - start an attribute nest.
