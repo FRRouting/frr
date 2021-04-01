@@ -34,7 +34,7 @@
 
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *__restrict dest,
-               const char *__restrict src, size_t destsize);
+	       const char *__restrict src, size_t destsize);
 #endif
 
 static int nhrp_socket_fd = -1;
