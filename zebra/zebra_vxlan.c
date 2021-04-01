@@ -366,8 +366,6 @@ static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty,
 						 buf1, sizeof(buf1)));
 		json_object_int_add(json, "refCount",
 				    rb_host_count(&zrmac->host_rb));
-		json_object_int_add(json, "localSequence", zrmac->loc_seq);
-		json_object_int_add(json, "remoteSequence", zrmac->rem_seq);
 		RB_FOREACH (hle, host_rb_tree_entry, &zrmac->host_rb)
 			json_object_array_add(
 				json_hosts,
