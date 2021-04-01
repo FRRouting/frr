@@ -338,6 +338,15 @@ struct in_pktinfo {
 
 #define strmatch(a,b) (!strcmp((a), (b)))
 
+#define htonll(x)                                                              \
+	((1 == htonl(1))                                                       \
+		 ? (x)                                                         \
+		 : ((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define ntohll(x)                                                              \
+	((1 == ntohl(1))                                                       \
+		 ? (x)                                                         \
+		 : ((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
 #endif
