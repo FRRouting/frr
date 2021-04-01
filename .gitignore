@@ -110,3 +110,5 @@ refix
 .vscode
 .kitchen
 .emacs.desktop*
+
+/test-suite.log
