@@ -1294,15 +1294,19 @@ bool ecommunity_del_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 
 	/* Delete the selected value */
 	ecom->size--;
-	p = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom->size * ecom->unit_size);
-	if (c != 0)
-		memcpy(p, ecom->val, c * ecom->unit_size);
-	if ((ecom->size - c) != 0)
-		memcpy(p + (c)*ecom->unit_size,
-		       ecom->val + (c + 1) * ecom->unit_size,
-		       (ecom->size - c) * ecom->unit_size);
-	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
-	ecom->val = p;
+	if (ecom->size) {
+		p = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom->size * ecom->unit_size);
+		if (c != 0)
+			memcpy(p, ecom->val, c * ecom->unit_size);
+		if ((ecom->size - c) != 0)
+			memcpy(p + (c)*ecom->unit_size,
+			       ecom->val + (c + 1) * ecom->unit_size,
+			       (ecom->size - c) * ecom->unit_size);
+		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+		ecom->val = p;
+	} else
+		ecom->val = NULL;
+
 	return true;
 }
 

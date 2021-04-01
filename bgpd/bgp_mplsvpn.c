@@ -1124,7 +1124,10 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	if (!ecom_intersect(
 		    bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
 		    path_vpn->attr->ecommunity)) {
-
+		if (debug)
+			zlog_debug(
+				"from vpn to vrf %s, skipping after no intersection of route targets",
+				bgp_vrf->name_pretty);
 		return;
 	}
 
@@ -1562,7 +1565,8 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 				 bool is_config)
 {
 	afi_t afi;
-	int debug;
+	int debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF)
+		     | BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
 	char *vname;
 	const char *export_name;
 	char buf[RD_ADDRSTRLEN];
@@ -1571,14 +1575,23 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 	struct ecommunity *ecom;
 	vpn_policy_direction_t idir, edir;
 
+	/*
+	 * Router-id change that is not explicitly configured
+	 * (a change from zebra, frr restart for example)
+	 * should not replace a configured vpn RD/RT.
+	 */
+	if (!is_config) {
+		if (debug)
+			zlog_debug("%s: skipping non explicit router-id change",
+				   __func__);
+		return;
+	}
+
 	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT
 	    && bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
 		return;
 
 	export_name = bgp->name ? bgp->name : VRF_DEFAULT_NAME;
-	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
-		     BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
-
 	idir = BGP_VPN_POLICY_DIR_FROMVPN;
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 
@@ -1604,26 +1617,12 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 				if (!bgp_import)
 					continue;
 
-				ecommunity_del_val(bgp_import->vpn_policy[afi].
-						   rtlist[idir],
+				ecommunity_del_val(
+					bgp_import->vpn_policy[afi]
+						.rtlist[idir],
 					(struct ecommunity_val *)ecom->val);
-
 			}
 		} else {
-			/*
-			 * Router-id changes that are not explicit config
-			 * changes should not replace configured RD/RT.
-			 */
-			if (!is_config) {
-				if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-					       BGP_VPN_POLICY_TOVPN_RD_SET)) {
-					if (debug)
-						zlog_debug("%s: auto router-id change skipped",
-							   __func__);
-					goto postchange;
-				}
-			}
-
 			/* New router-id derive auto RD and RT and export
 			 * to VPN
 			 */
@@ -1654,10 +1653,8 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 				else
 					bgp_import->vpn_policy[afi].rtlist[idir]
 						= ecommunity_dup(ecom);
-
 			}
 
-postchange:
 			/* Update routes to VPN */
 			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN,
 					    afi, bgp_get_default(),
