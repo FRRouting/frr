@@ -89,6 +89,9 @@ extern void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS);
 
 extern int is_l3vni_for_prefix_routes_only(vni_t vni);
 extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
+extern ifindex_t get_l3vni_vxlan_ifindex(vrf_id_t vrf_id);
+extern vni_t get_l3vni_vni(vrf_id_t vrf_id);
+extern bool is_vrf_l3vni_svd_backed(vrf_id_t vrf_id);
 extern int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf);
 extern int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf);
 extern int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf);
