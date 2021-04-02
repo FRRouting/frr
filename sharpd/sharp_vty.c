@@ -191,14 +191,7 @@ DEFPY (install_routes,
        "sharp install routes [vrf NAME$vrf_name]\
 	  <A.B.C.D$start4|X:X::X:X$start6>\
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
-	   nexthop-group NHGNAME$nexthop_group|\
-	   nexthop-seg6local NAME$seg6l_oif\
-	     <End$seg6l_end|\
-	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
-	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
-	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
-	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table>|\
-	   nexthop-seg6$nh_seg6 X:X::X:X$seg6_nh6 encap X:X::X:X$seg6_seg>\
+	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
 	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD]",
        "Sharp routing Protocol\n"
@@ -213,21 +206,6 @@ DEFPY (install_routes,
        "V6 Nexthop address to use\n"
        "Nexthop-Group to use\n"
        "The Name of the nexthop-group\n"
-       "Nexthop-seg6local to use\n"
-       "Output device to use\n"
-       "SRv6 End function to use\n"
-       "SRv6 End.X function to use\n"
-       "V6 Nexthop address to use\n"
-       "SRv6 End.T function to use\n"
-       "Redirect table id to use\n"
-       "SRv6 End.DX4 function to use\n"
-       "V4 Nexthop address to use\n"
-       "SRv6 End.DT6 function to use\n"
-       "Redirect table id to use\n"
-       "Nexthop-seg6 to use\n"
-       "V6 Nexthop address to use\n"
-       "Encap mode\n"
-       "Segment List to use\n"
        "Backup nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "Backup V4 Nexthop address to use\n"
        "Backup V6 Nexthop address to use\n"
@@ -243,7 +221,6 @@ DEFPY (install_routes,
 	struct prefix prefix;
 	uint32_t rts;
 	uint32_t nhgid = 0;
-	uint32_t route_flags = 0;
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
@@ -315,40 +292,6 @@ DEFPY (install_routes,
 			sg.r.backup_nhop.vrf_id = vrf->vrf_id;
 			sg.r.backup_nhop_group.nexthop = bnhgc->nhg.nexthop;
 		}
-	} else if (seg6l_oif) {
-		struct seg6local_context ctx = {};
-		enum seg6local_action_t action;
-
-		if (seg6l_enddx4) {
-			action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
-			ctx.nh4 = seg6l_enddx4_nh4;
-		} else if (seg6l_endx) {
-			action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-			ctx.nh6 = seg6l_endx_nh6;
-		} else if (seg6l_endt) {
-			action = ZEBRA_SEG6_LOCAL_ACTION_END_T;
-			ctx.table = seg6l_endt_table;
-		} else if (seg6l_enddt6) {
-			action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-			ctx.table = seg6l_enddt6_table;
-		} else {
-			action = ZEBRA_SEG6_LOCAL_ACTION_END;
-		}
-
-		sg.r.nhop.type = NEXTHOP_TYPE_IFINDEX;
-		sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);
-		sg.r.nhop.vrf_id = vrf->vrf_id;
-		sg.r.nhop_group.nexthop = &sg.r.nhop;
-		nexthop_add_seg6local(&sg.r.nhop, action, &ctx);
-		SET_FLAG(route_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE);
-	} else if (nh_seg6) {
-		sg.r.nhop.type = NEXTHOP_TYPE_IPV6;
-		sg.r.nhop.gate.ipv6 = seg6_nh6;
-		sg.r.nhop.vrf_id = vrf->vrf_id;
-		sg.r.nhop_group.nexthop = &sg.r.nhop;
-
-		nexthop_add_seg6(&sg.r.nhop, &seg6_seg);
-		SET_FLAG(route_flags, ZEBRA_FLAG_SEG6_ROUTE);
 	} else {
 		if (nexthop4.s_addr != INADDR_ANY) {
 			sg.r.nhop.gate.ipv4 = nexthop4;
@@ -391,7 +334,183 @@ DEFPY (install_routes,
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
-				    rts, route_flags, sg.r.opaque);
+				    rts, 0, sg.r.opaque);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (install_seg6_routes,
+       install_seg6_routes_cmd,
+       "sharp install seg6-routes [vrf NAME$vrf_name]\
+	  <A.B.C.D$start4|X:X::X:X$start6>\
+	  nexthop-seg6 X:X::X:X$seg6_nh6 encap X:X::X:X$seg6_seg\
+	  (1-1000000)$routes [repeat (2-1000)$rpt]",
+       "Sharp routing Protocol\n"
+       "install some routes\n"
+       "Routes to install\n"
+       "The vrf we would like to install into if non-default\n"
+       "The NAME of the vrf\n"
+       "v4 Address to start /32 generation at\n"
+       "v6 Address to start /32 generation at\n"
+       "Nexthop-seg6 to use\n"
+       "V6 Nexthop address to use\n"
+       "Encap mode\n"
+       "Segment List to use\n"
+       "How many to create\n"
+       "Should we repeat this command\n"
+       "How many times to repeat this command\n")
+{
+	struct vrf *vrf;
+	struct prefix prefix;
+	uint32_t route_flags = 0;
+
+	sg.r.total_routes = routes;
+	sg.r.installed_routes = 0;
+
+	if (rpt >= 2)
+		sg.r.repeat = rpt * 2;
+	else
+		sg.r.repeat = 0;
+
+	memset(&prefix, 0, sizeof(prefix));
+	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
+	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.backup_nhop_group, 0, sizeof(sg.r.nhop_group));
+	sg.r.opaque[0] = '\0';
+	sg.r.inst = 0;
+
+	if (start4.s_addr != INADDR_ANY) {
+		prefix.family = AF_INET;
+		prefix.prefixlen = 32;
+		prefix.u.prefix4 = start4;
+	} else {
+		prefix.family = AF_INET6;
+		prefix.prefixlen = 128;
+		prefix.u.prefix6 = start6;
+	}
+	sg.r.orig_prefix = prefix;
+
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			vrf_name);
+		return CMD_WARNING;
+	}
+
+	sg.r.nhop.type = NEXTHOP_TYPE_IPV6;
+	sg.r.nhop.gate.ipv6 = seg6_nh6;
+	sg.r.nhop.vrf_id = vrf->vrf_id;
+	sg.r.nhop_group.nexthop = &sg.r.nhop;
+
+	nexthop_add_seg6(&sg.r.nhop, &seg6_seg);
+	SET_FLAG(route_flags, ZEBRA_FLAG_SEG6_ROUTE);
+
+	sg.r.vrf_id = vrf->vrf_id;
+	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, 0,
+				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
+				    routes, route_flags, sg.r.opaque);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (install_seg6local_routes,
+       install_seg6local_routes_cmd,
+       "sharp install seg6local-routes [vrf NAME$vrf_name]\
+	  X:X::X:X$start6\
+	  nexthop-seg6local NAME$seg6l_oif\
+	     <End$seg6l_end|\
+	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
+	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
+	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
+	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table>\
+	  (1-1000000)$routes [repeat (2-1000)$rpt]",
+       "Sharp routing Protocol\n"
+       "install some routes\n"
+       "Routes to install\n"
+       "The vrf we would like to install into if non-default\n"
+       "The NAME of the vrf\n"
+       "v6 Address to start /32 generation at\n"
+       "Nexthop-seg6local to use\n"
+       "Output device to use\n"
+       "SRv6 End function to use\n"
+       "SRv6 End.X function to use\n"
+       "V6 Nexthop address to use\n"
+       "SRv6 End.T function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 End.DX4 function to use\n"
+       "V4 Nexthop address to use\n"
+       "SRv6 End.DT6 function to use\n"
+       "Redirect table id to use\n"
+       "How many to create\n"
+       "Should we repeat this command\n"
+       "How many times to repeat this command\n")
+{
+	struct vrf *vrf;
+	uint32_t route_flags = 0;
+	struct seg6local_context ctx = {};
+	enum seg6local_action_t action;
+
+	sg.r.total_routes = routes;
+	sg.r.installed_routes = 0;
+
+	if (rpt >= 2)
+		sg.r.repeat = rpt * 2;
+	else
+		sg.r.repeat = 0;
+
+	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
+	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.backup_nhop_group, 0, sizeof(sg.r.nhop_group));
+	sg.r.opaque[0] = '\0';
+	sg.r.inst = 0;
+	sg.r.orig_prefix.family = AF_INET6;
+	sg.r.orig_prefix.prefixlen = 128;
+	sg.r.orig_prefix.u.prefix6 = start6;
+
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			vrf_name);
+		return CMD_WARNING;
+	}
+
+	if (seg6l_enddx4) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
+		ctx.nh4 = seg6l_enddx4_nh4;
+	} else if (seg6l_endx) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		ctx.nh6 = seg6l_endx_nh6;
+	} else if (seg6l_endt) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_T;
+		ctx.table = seg6l_endt_table;
+	} else if (seg6l_enddt6) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		ctx.table = seg6l_enddt6_table;
+	} else {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+	}
+
+	sg.r.nhop.type = NEXTHOP_TYPE_IFINDEX;
+	sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);
+	sg.r.nhop.vrf_id = vrf->vrf_id;
+	sg.r.nhop_group.nexthop = &sg.r.nhop;
+	nexthop_add_seg6local(&sg.r.nhop, action, &ctx);
+	SET_FLAG(route_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE);
+
+	sg.r.vrf_id = vrf->vrf_id;
+	sharp_install_routes_helper(&sg.r.orig_prefix, sg.r.vrf_id, sg.r.inst, 0,
+				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
+				    routes, route_flags, sg.r.opaque);
 
 	return CMD_SUCCESS;
 }
@@ -1043,6 +1162,8 @@ void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
 	install_element(ENABLE_NODE, &install_routes_cmd);
+	install_element(ENABLE_NODE, &install_seg6_routes_cmd);
+	install_element(ENABLE_NODE, &install_seg6local_routes_cmd);
 	install_element(ENABLE_NODE, &remove_routes_cmd);
 	install_element(ENABLE_NODE, &vrf_label_cmd);
 	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
