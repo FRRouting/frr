@@ -44,6 +44,9 @@ from lib.common_config import shutdown_bringup_interface
 from mininet.topo import Topo
 
 
+pytestmark = [pytest.mark.sharpd, pytest.mark.srv6]
+
+
 def open_json_file(filename):
     try:
         with open(filename, "r") as f:

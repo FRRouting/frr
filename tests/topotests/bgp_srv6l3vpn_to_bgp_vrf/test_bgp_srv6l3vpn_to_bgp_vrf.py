@@ -40,6 +40,9 @@ from lib.common_config import required_linux_kernel_version
 from mininet.topo import Topo
 
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.srv6]
+
+
 class Topology(Topo):
     """
       CE1     CE3      CE5

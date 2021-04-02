@@ -44,6 +44,9 @@ from lib.topolog import logger
 from mininet.topo import Topo
 
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd, pytest.mark.srv6]
+
+
 def open_json_file(filename):
     try:
         with open(filename, "r") as f:
