@@ -82,7 +82,7 @@ def test_zebra_seg6local_routes():
     r1 = tgen.gears["r1"]
 
     def check(router, dest, nh, sid, expected):
-        router.vtysh_cmd("sharp install routes {} "\
+        router.vtysh_cmd("sharp install seg6-routes {} "\
                          "nexthop-seg6 {} encap {} 1".format(dest, nh, sid))
         output = json.loads(router.vtysh_cmd("show ipv6 route {} json".format(dest)))
         output = output.get('{}/128'.format(dest))
