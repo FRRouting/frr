@@ -5865,6 +5865,7 @@ DEFUN_YANG (set_vpn_nexthop,
 	int idx_ip = 3;
 	afi_t afi;
 	int idx = 0;
+	char xpath_value[XPATH_MAXLEN];
 
 	if (argv_find_and_parse_vpnvx(argv, argc, &idx, &afi)) {
 		if (afi == AFI_IP) {
@@ -5908,8 +5909,6 @@ DEFUN_YANG (no_set_vpn_nexthop,
 	   "VPN next-hop address\n"
 	   "IPv6 address of next hop\n")
 {
-	int idx_ip = 4;
-	char *arg;
 	afi_t afi;
 	int idx = 0;
 
