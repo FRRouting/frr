@@ -470,6 +470,74 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
 	return ret;
 }
 
+/*
+ * Convert an afi_t/safi_t pair to matching BGP_DEFAULT_AF* flag.
+ *
+ * afi
+ *    address-family identifier
+ *
+ * safi
+ *    subsequent address-family identifier
+ *
+ * Returns:
+ *    default_af string corresponding to the supplied afi/safi pair.
+ *    If afi/safi is invalid or if flag for afi/safi doesn't exist,
+ *    return -1.
+ */
+static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
+{
+	switch (afi) {
+	case AFI_IP:
+		switch (safi) {
+		case SAFI_UNICAST:
+			return "ipv4-unicast";
+		case SAFI_MULTICAST:
+			return "ipv4-multicast";
+		case SAFI_MPLS_VPN:
+			return "ipv4-vpn";
+		case SAFI_ENCAP:
+			return "ipv4-encap";
+		case SAFI_LABELED_UNICAST:
+			return "ipv4-labeled-unicast";
+		case SAFI_FLOWSPEC:
+			return "ipv4-flowspec";
+		default:
+			return "unknown-afi/safi";
+		}
+		break;
+	case AFI_IP6:
+		switch (safi) {
+		case SAFI_UNICAST:
+			return "ipv6-unicast";
+		case SAFI_MULTICAST:
+			return "ipv6-multicast";
+		case SAFI_MPLS_VPN:
+			return "ipv6-vpn";
+		case SAFI_ENCAP:
+			return "ipv6-encap";
+		case SAFI_LABELED_UNICAST:
+			return "ipv6-labeled-unicast";
+		case SAFI_FLOWSPEC:
+			return "ipv6-flowspec";
+		default:
+			return "unknown-afi/safi";
+		}
+		break;
+	case AFI_L2VPN:
+		switch (safi) {
+		case SAFI_EVPN:
+			return "l2vpn-evpn";
+		default:
+			return "unknown-afi/safi";
+		}
+	case AFI_UNSPEC:
+	case AFI_MAX:
+		return "unknown-afi/safi";
+	}
+	/* all AFIs are accounted for above, so this shouldn't happen */
+	return "unknown-afi/safi";
+}
+
 int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		enum bgp_instance_type inst_type)
 {
@@ -3741,52 +3809,34 @@ DEFPY (no_bgp_bestpath_bw,
 	return CMD_SUCCESS;
 }
 
-/* "no bgp default ipv6-unicast". */
-DEFUN(no_bgp_default_ipv6_unicast, no_bgp_default_ipv6_unicast_cmd,
-      "no bgp default ipv6-unicast", NO_STR
+DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
+      "[no] bgp default <ipv4-unicast|ipv6-unicast>$afi_safi",
+      NO_STR
       "BGP specific commands\n"
       "Configure BGP defaults\n"
+      "Activate ipv4-unicast for a peer by default\n"
       "Activate ipv6-unicast for a peer by default\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_IPV6);
-	return CMD_SUCCESS;
-}
+	char afi_safi_str[strlen(afi_safi) + 1];
+	char *afi_safi_str_tok;
 
-DEFUN(bgp_default_ipv6_unicast, bgp_default_ipv6_unicast_cmd,
-      "bgp default ipv6-unicast",
-      "BGP specific commands\n"
-      "Configure BGP defaults\n"
-      "Activate ipv6-unicast for a peer by default\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_IPV6);
-	return CMD_SUCCESS;
-}
+	strlcpy(afi_safi_str, afi_safi, sizeof(afi_safi_str));
+	char *afi_str = strtok_r(afi_safi_str, "-", &afi_safi_str_tok);
+	char *safi_str = strtok_r(NULL, "-", &afi_safi_str_tok);
+	afi_t afi = bgp_vty_afi_from_str(afi_str);
+	safi_t safi = bgp_vty_safi_from_str(safi_str);
 
-/* "no bgp default ipv4-unicast". */
-DEFUN (no_bgp_default_ipv4_unicast,
-       no_bgp_default_ipv4_unicast_cmd,
-       "no bgp default ipv4-unicast",
-       NO_STR
-       "BGP specific commands\n"
-       "Configure BGP defaults\n"
-       "Activate ipv4-unicast for a peer by default\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4);
-	return CMD_SUCCESS;
-}
+	if (safi != SAFI_UNICAST) {
+		vty_out(vty, "afi/safi combo not supported\n");
+		return CMD_WARNING;
+	}
 
-DEFUN (bgp_default_ipv4_unicast,
-       bgp_default_ipv4_unicast_cmd,
-       "bgp default ipv4-unicast",
-       "BGP specific commands\n"
-       "Configure BGP defaults\n"
-       "Activate ipv4-unicast for a peer by default\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4);
+	if (no)
+		bgp->default_af[afi][safi] = false;
+	else
+		bgp->default_af[afi][safi] = true;
+
 	return CMD_SUCCESS;
 }
 
@@ -17439,14 +17489,12 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 			if ((afi == AFI_IP || afi == AFI_IP6)
 			    && safi == SAFI_UNICAST) {
 				if (afi == AFI_IP
-				    && CHECK_FLAG(bgp->flags,
-						  BGP_FLAG_NO_DEFAULT_IPV4)) {
+				    && !bgp->default_af[AFI_IP][SAFI_UNICAST]) {
 					vty_out(vty, "  neighbor %s activate\n",
 						addr);
 				} else if (afi == AFI_IP6
-					   && !CHECK_FLAG(
-						      bgp->flags,
-						      BGP_FLAG_DEFAULT_IPV6)) {
+					   && !bgp->default_af[AFI_IP6]
+							      [SAFI_UNICAST]) {
 					vty_out(vty, "  neighbor %s activate\n",
 						addr);
 				}
@@ -17457,15 +17505,13 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 			if ((afi == AFI_IP || afi == AFI_IP6)
 			    && safi == SAFI_UNICAST) {
 				if (afi == AFI_IP
-				    && !CHECK_FLAG(bgp->flags,
-						  BGP_FLAG_NO_DEFAULT_IPV4)) {
+				    && bgp->default_af[AFI_IP][SAFI_UNICAST]) {
 					vty_out(vty,
 						"  no neighbor %s activate\n",
 						addr);
 				} else if (afi == AFI_IP6
-					   && CHECK_FLAG(
-						      bgp->flags,
-						      BGP_FLAG_DEFAULT_IPV6)) {
+					   && bgp->default_af[AFI_IP6]
+							     [SAFI_UNICAST]) {
 					vty_out(vty,
 						"  no neighbor %s activate\n",
 						addr);
@@ -17796,6 +17842,8 @@ int bgp_config_write(struct vty *vty)
 	struct peer *peer;
 	struct listnode *node, *nnode;
 	struct listnode *mnode, *mnnode;
+	afi_t afi;
+	safi_t safi;
 
 	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
 		vty_out(vty, "bgp route-map delay-timer %u\n",
@@ -17886,13 +17934,17 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
-		/* BGP default ipv4-unicast. */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4))
-			vty_out(vty, " no bgp default ipv4-unicast\n");
-
-		/* BGP default ipv6-unicast. */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_IPV6))
-			vty_out(vty, " bgp default ipv6-unicast\n");
+		/* BGP default <afi>-<safi> */
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (afi == AFI_IP && safi == SAFI_UNICAST) {
+				if (!bgp->default_af[afi][safi])
+					vty_out(vty, " no bgp default %s\n",
+						get_bgp_default_af_flag(afi,
+									safi));
+			} else if (bgp->default_af[afi][safi])
+				vty_out(vty, " bgp default %s\n",
+					get_bgp_default_af_flag(afi, safi));
+		}
 
 		/* BGP default local-preference. */
 		if (bgp->default_local_pref != BGP_DEFAULT_LOCAL_PREF)
@@ -18586,13 +18638,8 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_bestpath_bw_cmd);
 	install_element(BGP_NODE, &no_bgp_bestpath_bw_cmd);
 
-	/* "no bgp default ipv4-unicast" commands. */
-	install_element(BGP_NODE, &no_bgp_default_ipv4_unicast_cmd);
-	install_element(BGP_NODE, &bgp_default_ipv4_unicast_cmd);
-
-	/* "no bgp default ipv6-unicast" commands. */
-	install_element(BGP_NODE, &no_bgp_default_ipv6_unicast_cmd);
-	install_element(BGP_NODE, &bgp_default_ipv6_unicast_cmd);
+	/* "no bgp default <afi>-<safi>" commands. */
+	install_element(BGP_NODE, &bgp_default_afi_safi_cmd);
 
 	/* "bgp network import-check" commands. */
 	install_element(BGP_NODE, &bgp_network_import_check_cmd);
