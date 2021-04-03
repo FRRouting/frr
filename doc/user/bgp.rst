@@ -2597,6 +2597,19 @@ address-family:
    The CLI will disallow attempts to configure incompatible leaking
    modes.
 
+.. _bgp-l3vpn-srv6:
+
+L3VPN SRv6
+----------
+
+.. clicmd:: segment-routing srv6
+
+   Use SRv6 backend with BGP L3VPN, and go to its configuration node.
+
+.. clicmd:: locator NAME
+
+   Specify the SRv6 locator to be used for SRv6 L3VPN. The Locator name must
+   be set in zebra, but user can set it in any order.
 
 .. _bgp-evpn:
 
@@ -3527,6 +3540,40 @@ Displaying Update Group Information
 .. clicmd:: show bgp update-groups statistics
 
    Display Information about update-group events in FRR.
+
+Segment-Routing IPv6
+--------------------
+
+.. clicmd:: show bgp segment-routing srv6
+
+   This command displays information about SRv6 L3VPN in bgpd.  Specifically,
+   what kind of Locator is being used, and its Locator chunk information.
+   And the SID of the SRv6 Function that is actually managed on bgpd.
+   In the following example, bgpd is using a Locator named loc1, and two SRv6
+   Functions are managed to perform VPNv6 VRF redirect for vrf10 and vrf20.
+
+::
+
+   router# show bgp segment-routing srv6
+   locator_name: loc1
+   locator_chunks:
+   - 2001:db8:1:1::/64
+   functions:
+   - sid: 2001:db8:1:1::100
+     locator: loc1
+   - sid: 2001:db8:1:1::200
+     locator: loc1
+   bgps:
+   - name: default
+     vpn_policy[AFI_IP].tovpn_sid: none
+     vpn_policy[AFI_IP6].tovpn_sid: none
+   - name: vrf10
+     vpn_policy[AFI_IP].tovpn_sid: none
+     vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::100
+   - name: vrf20
+     vpn_policy[AFI_IP].tovpn_sid: none
+     vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::200
+
 
 .. _bgp-route-reflector:
 
