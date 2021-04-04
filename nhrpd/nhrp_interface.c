@@ -255,7 +255,7 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 		nc = nhrp_cache_get(ifp, &if_ad->addr, 0);
 		if (nc)
 			nhrp_cache_update_binding(nc, NHRP_CACHE_LOCAL, -1,
-						  NULL, 0, NULL);
+						  NULL, 0, NULL, NULL);
 	}
 
 	debugf(NHRP_DEBUG_KERNEL, "%s: IPv%d address changed to %s", ifp->name,
@@ -267,7 +267,7 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 		nc = nhrp_cache_get(ifp, &addr, 1);
 		if (nc)
 			nhrp_cache_update_binding(nc, NHRP_CACHE_LOCAL, 0, NULL,
-						  0, NULL);
+						  0, NULL, NULL);
 	}
 
 	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_ADDRESS_CHANGED);
@@ -364,7 +364,7 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
 		if (c && c->map) {
 			nhrp_cache_update_binding(
 				c, c->cur.type, -1,
-				nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
+				nhrp_peer_get(ifp, &nbma_addr), 0, NULL, NULL);
 		}
 		return;
 	}
@@ -375,11 +375,11 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
 	c->map = 1;
 	if (cc->type == NHRP_CACHE_LOCAL)
 		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0,
-					  NULL);
+					  NULL, NULL);
 	else {
 		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0,
 					  nhrp_peer_get(ifp, &cc->nbma), 0,
-					  NULL);
+					  NULL, NULL);
 	}
 }
 

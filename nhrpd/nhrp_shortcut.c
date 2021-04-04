@@ -203,17 +203,18 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 					      void *arg)
 {
 	struct nhrp_packet_parser *pp = arg;
+	struct interface *ifp = pp->ifp;
+	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_shortcut *s =
 		container_of(reqid, struct nhrp_shortcut, reqid);
 	struct nhrp_shortcut *ps;
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c = NULL;
-	struct nhrp_cache *c_dst_proto = NULL;
+	struct nhrp_cache *c_dst = NULL;
 	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
-	char buf[4][SU_ADDRSTRLEN];
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
@@ -233,16 +234,6 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			       "Shortcut: Resolution failed");
 		}
 		return;
-	}
-
-	/* Parse extensions */
-	memset(&nat_nbma, 0, sizeof(nat_nbma));
-	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
-		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
-		case NHRP_EXTENSION_NAT_ADDRESS:
-			nhrp_cie_pull(&extpl, pp->hdr, &nat_nbma, &cie_proto);
-			break;
-		}
 	}
 
 	/* Minor sanity check */
@@ -280,16 +271,58 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			prefix.prefixlen = route_prefix.prefixlen;
 	}
 
-	debugf(NHRP_DEBUG_COMMON,
-	       "Shortcut: %pFX is at proto %pSU dst_proto %pSU cie-nbma %pSU nat-nbma %pSU cie-holdtime %d",
-	       &prefix, proto, &pp->dst_proto, &cie_nbma, &nat_nbma,
-	       htons(cie->holding_time));
+	/* Parse extensions */
+	memset(&nat_nbma, 0, sizeof(nat_nbma));
+	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
+		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
+		case NHRP_EXTENSION_NAT_ADDRESS: {
+			struct nhrp_cie_header *cie_nat;
+
+			do {
+				union sockunion cie_nat_proto, cie_nat_nbma;
+
+				sockunion_family(&cie_nat_proto) = AF_UNSPEC;
+				sockunion_family(&cie_nat_nbma) = AF_UNSPEC;
+				cie_nat = nhrp_cie_pull(&extpl, pp->hdr,
+							&cie_nat_nbma,
+							&cie_nat_proto);
+				/* We are interested only in peer CIE */
+				if (cie_nat
+				    && sockunion_same(&cie_nat_proto, proto)) {
+					nat_nbma = cie_nat_nbma;
+				}
+			} while (cie_nat);
+		} break;
+		default:
+			break;
+		}
+	}
 
 	/* Update cache entry for the protocol to nbma binding */
-	if (sockunion_family(&nat_nbma) != AF_UNSPEC)
+	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
+		debugf(NHRP_DEBUG_COMMON,
+		       "Shortcut: NAT detected (NAT extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
+		       proto, &nat_nbma, &cie_nbma);
 		nbma = &nat_nbma;
-	else
+	}
+	/* For NHRP resolution reply the cie_nbma in mandatory part is the
+	 * address of the actual address of the sender
+	 */
+	else if (!sockunion_same(&cie_nbma, &pp->peer->vc->remote.nbma)
+		 && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp)) {
+		debugf(NHRP_DEBUG_COMMON,
+		       "Shortcut: NAT detected (no NAT Extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
+		       proto, &pp->peer->vc->remote.nbma, &cie_nbma);
+		nbma = &pp->peer->vc->remote.nbma;
+		nat_nbma = *nbma;
+	} else {
 		nbma = &cie_nbma;
+	}
+
+	debugf(NHRP_DEBUG_COMMON,
+	       "Shortcut: %pFX is at proto %pSU dst_proto %pSU NBMA %pSU cie-holdtime %d",
+	       &prefix, proto, &pp->dst_proto, nbma,
+	       htons(cie->holding_time));
 
 	if (sockunion_family(nbma)) {
 		c = nhrp_cache_get(pp->ifp, proto, 1);
@@ -299,25 +332,31 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma);
+						  htons(cie->mtu),
+						  nbma,
+						  &cie_nbma);
 		} else {
 			debugf(NHRP_DEBUG_COMMON,
-			       "Shortcut: no cache for nbma %s", buf[2]);
+			       "Shortcut: no cache for proto %pSU", proto);
 		}
 
 		/* Update cache binding for dst_proto as well */
-		if (proto != &pp->dst_proto) {
-			c_dst_proto = nhrp_cache_get(pp->ifp, &pp->dst_proto, 1);
-			if (c_dst_proto) {
+		if (sockunion_cmp(proto, &pp->dst_proto)) {
+			c_dst = nhrp_cache_get(pp->ifp, &pp->dst_proto, 1);
+			if (c_dst) {
 				debugf(NHRP_DEBUG_COMMON,
-			       "Shortcut: cache found, update binding");
-				nhrp_cache_update_binding(c_dst_proto, NHRP_CACHE_DYNAMIC,
+				       "Shortcut: cache found, update binding");
+				nhrp_cache_update_binding(c_dst,
+						  NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma);
+						  htons(cie->mtu),
+						  nbma,
+						  &cie_nbma);
 			} else {
 				debugf(NHRP_DEBUG_COMMON,
-			       "Shortcut: no cache for nbma %s", buf[2]);
+				       "Shortcut: no cache for proto %pSU",
+				       &pp->dst_proto);
 			}
 		}
 	}
@@ -356,6 +395,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	struct nhrp_afi_data *if_ad;
 	struct nhrp_peer *peer;
 	struct nhrp_cie_header *cie;
+	struct nhrp_extension_header *ext;
 
 	if (nhrp_route_address(NULL, &s->addr, NULL, &peer)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
@@ -399,7 +439,14 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 
 	/* Cisco NAT detection extension */
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_NAT);
-	nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
+	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
+	if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC) {
+		cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nat_nbma,
+				    &if_ad->addr);
+		cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
+		cie->mtu = htons(if_ad->mtu);
+		nhrp_ext_complete(zb, ext);
+	}
 
 	nhrp_packet_complete(zb, hdr);
 

@@ -32,7 +32,9 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c;
 	struct zbuf extpl;
-	union sockunion cie_nbma, cie_proto, *proto;
+	union sockunion cie_nbma, cie_nbma_nhs, cie_proto, cie_proto_nhs,
+		*proto;
+	char buf[64];
 	int ok = 0, holdtime;
 	unsigned short mtu = 0;
 
@@ -66,6 +68,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 
 	/* Parse extensions */
 	sockunion_family(&nifp->nat_nbma) = AF_UNSPEC;
+	sockunion_family(&cie_nbma_nhs) = AF_UNSPEC;
 	while ((ext = nhrp_ext_pull(&p->extensions, &extpl)) != NULL) {
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS:
@@ -75,9 +78,16 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 					     &cie_proto)) {
 				nifp->nat_nbma = cie_nbma;
 				debugf(NHRP_DEBUG_IF,
-				       "%s: NAT detected, real NBMA address: %pSU",
-				       ifp->name, &nifp->nbma);
+				       "%s: NAT detected, real NBMA address: %s",
+				       ifp->name,
+				       sockunion2str(&nifp->nbma, buf,
+						     sizeof(buf)));
 			}
+			break;
+		case NHRP_EXTENSION_RESPONDER_ADDRESS:
+			/* NHS adds its own record as responder address */
+			nhrp_cie_pull(&extpl, p->hdr, &cie_nbma_nhs,
+				      &cie_proto_nhs);
 			break;
 		}
 	}
@@ -96,7 +106,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
 	if (c)
 		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, holdtime,
-					  nhrp_peer_ref(r->peer), mtu, NULL);
+					  nhrp_peer_ref(r->peer), mtu, NULL,
+					  &cie_nbma_nhs);
 }
 
 static int nhrp_reg_timeout(struct thread *t)
@@ -111,7 +122,7 @@ static int nhrp_reg_timeout(struct thread *t)
 		c = nhrp_cache_get(r->nhs->ifp, &r->proto_addr, 0);
 		if (c)
 			nhrp_cache_update_binding(c, NHRP_CACHE_NHS, -1, NULL,
-						  0, NULL);
+						  0, NULL, NULL);
 		sockunion_family(&r->proto_addr) = AF_UNSPEC;
 	}
 
@@ -162,7 +173,7 @@ static int nhrp_reg_send_req(struct thread *t)
 	struct interface *ifp = nhs->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_afi_data *if_ad = &nifp->afi[nhs->afi];
-	union sockunion *dst_proto;
+	union sockunion *dst_proto, nhs_proto;
 	struct zbuf *zb;
 	struct nhrp_packet_header *hdr;
 	struct nhrp_extension_header *ext;
@@ -207,17 +218,34 @@ static int nhrp_reg_send_req(struct thread *t)
 	/* FIXME: push CIE for each local protocol address */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, NULL, NULL);
 	/* RFC2332 5.2.1 if unique is set then prefix length must be 0xff */
-	cie->prefix_length = (if_ad->flags & NHRP_IFF_REG_NO_UNIQUE) ? 8 * sockunion_get_addrlen(dst_proto) : 0xff;
+	cie->prefix_length = (if_ad->flags & NHRP_IFF_REG_NO_UNIQUE)
+				     ? 8 * sockunion_get_addrlen(dst_proto)
+				     : 0xff;
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 
 	nhrp_ext_request(zb, hdr, ifp);
 
 	/* Cisco NAT detection extension */
+	if (sockunion_family(&r->proto_addr) != AF_UNSPEC) {
+		nhs_proto = r->proto_addr;
+	} else if (sockunion_family(&nhs->proto_addr) != AF_UNSPEC) {
+		nhs_proto = nhs->proto_addr;
+	} else {
+		/* cisco magic: If NHS is not known then use all 0s as
+		 * client protocol address in NAT Extension header
+		 */
+		memset(&nhs_proto, 0, sizeof(nhs_proto));
+		sockunion_family(&nhs_proto) = afi2family(nhs->afi);
+	}
+
 	hdr->flags |= htons(NHRP_FLAG_REGISTRATION_NAT);
 	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
-	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nbma, &if_ad->addr);
+	/* push NHS details */
+	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &r->peer->vc->remote.nbma,
+			    &nhs_proto);
 	cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
+	cie->mtu = htons(if_ad->mtu);
 	nhrp_ext_complete(zb, ext);
 
 	nhrp_packet_complete(zb, hdr);
@@ -441,4 +469,30 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 		} else
 			cb(nhs, 0, ctx);
 	}
+}
+
+int nhrp_nhs_match_ip(union sockunion *in_ip, struct nhrp_interface *nifp)
+{
+	int i;
+	struct nhrp_nhs *nhs;
+	struct nhrp_registration *reg;
+
+	for (i = 0; i < AFI_MAX; i++) {
+		list_for_each_entry(nhs, &nifp->afi[i].nhslist_head,
+				    nhslist_entry)
+		{
+			if (!list_empty(&nhs->reglist_head)) {
+				list_for_each_entry(reg, &nhs->reglist_head,
+						    reglist_entry)
+				{
+					if (!sockunion_cmp(
+						    in_ip,
+						    &reg->peer->vc->remote
+							     .nbma))
+						return 1;
+				}
+			}
+		}
+	}
+	return 0;
 }

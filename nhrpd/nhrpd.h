@@ -156,6 +156,7 @@ struct nhrp_peer {
 	struct nhrp_vc *vc;
 	struct thread *t_fallback;
 	struct notifier_block vc_notifier, ifp_notifier;
+	struct thread *t_timer;
 };
 
 struct nhrp_packet_parser {
@@ -225,9 +226,11 @@ struct nhrp_cache {
 	struct {
 		enum nhrp_cache_type type;
 		union sockunion remote_nbma_natoa;
+		union sockunion remote_nbma_claimed;
 		struct nhrp_peer *peer;
 		time_t expires;
 		uint32_t mtu;
+		int holding_time;
 	} cur, new;
 };
 
@@ -383,7 +386,8 @@ void nhrp_cache_config_foreach(struct interface *ifp,
 void nhrp_cache_set_used(struct nhrp_cache *, int);
 int nhrp_cache_update_binding(struct nhrp_cache *, enum nhrp_cache_type type,
 			      int holding_time, struct nhrp_peer *p,
-			      uint32_t mtu, union sockunion *nbma_natoa);
+			      uint32_t mtu, union sockunion *nbma_natoa,
+			      union sockunion *claimed_nbma);
 void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *,
 			   notifier_fn_t);
 void nhrp_cache_notify_del(struct nhrp_cache *c, struct notifier_block *);
@@ -464,5 +468,7 @@ void nhrp_peer_notify_del(struct nhrp_peer *p, struct notifier_block *);
 void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb);
 void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb);
 void nhrp_peer_send_indication(struct interface *ifp, uint16_t, struct zbuf *);
+
+int nhrp_nhs_match_ip(union sockunion *in_ip, struct nhrp_interface *nifp);
 
 #endif

@@ -525,11 +525,11 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 	c->map = 1;
 	if (type == NHRP_CACHE_LOCAL)
 		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0,
-					  NULL);
+					  NULL, NULL);
 	else
 		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0,
 					  nhrp_peer_get(ifp, &nbma_addr), 0,
-					  NULL);
+					  NULL, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -565,7 +565,8 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 		return CMD_SUCCESS;
 
 	nhrp_cache_update_binding(c, c->cur.type, -1,
-				  nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
+				  nhrp_peer_get(ifp, &nbma_addr), 0, NULL,
+				  NULL);
 	return CMD_SUCCESS;
 }
 
@@ -629,7 +630,7 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 {
 	struct info_ctx *ctx = pctx;
 	struct vty *vty = ctx->vty;
-	char buf[2][SU_ADDRSTRLEN];
+	char buf[3][SU_ADDRSTRLEN];
 	struct json_object *json = NULL;
 
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
@@ -637,17 +638,42 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 
 
 	if (!ctx->count && !ctx->json) {
-		vty_out(vty, "%-8s %-8s %-24s %-24s %-6s %s\n", "Iface", "Type",
-			"Protocol", "NBMA", "Flags", "Identity");
+		vty_out(vty, "%-8s %-8s %-24s %-24s %-24s %-6s %s\n", "Iface",
+			"Type", "Protocol", "NBMA", "Claimed NBMA", "Flags",
+			"Identity");
 	}
 	ctx->count++;
 
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
-	if (c->cur.peer)
-		sockunion2str(&c->cur.peer->vc->remote.nbma,
-			      buf[1], sizeof(buf[1]));
-	else
-		snprintf(buf[1], sizeof(buf[1]), "-");
+	if (c->cur.type == NHRP_CACHE_LOCAL) {
+		struct nhrp_interface *nifp = c->ifp->info;
+
+		if (sockunion_family(&nifp->nbma) != AF_UNSPEC) {
+			sockunion2str(&nifp->nbma, buf[1], sizeof(buf[1]));
+			sockunion2str(&nifp->nbma, buf[2], sizeof(buf[2]));
+		} else {
+			snprintf(buf[1], sizeof(buf[1]), "-");
+			snprintf(buf[2], sizeof(buf[2]), "-");
+		}
+
+		/* if we are behind NAT then update NBMA field */
+		if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC)
+			sockunion2str(&nifp->nat_nbma, buf[1], sizeof(buf[1]));
+	} else {
+		if (c->cur.peer)
+			sockunion2str(&c->cur.peer->vc->remote.nbma,
+				      buf[1], sizeof(buf[1]));
+		else
+			snprintf(buf[1], sizeof(buf[1]), "-");
+
+		if (c->cur.peer
+		    && sockunion_family(&c->cur.remote_nbma_claimed)
+		    != AF_UNSPEC)
+			sockunion2str(&c->cur.remote_nbma_claimed,
+				      buf[2], sizeof(buf[2]));
+		else
+			snprintf(buf[2], sizeof(buf[2]), "-");
+	}
 
 	if (ctx->json) {
 		json = json_object_new_object();
@@ -656,6 +682,7 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 				       nhrp_cache_type_str[c->cur.type]);
 		json_object_string_add(json, "protocol", buf[0]);
 		json_object_string_add(json, "nbma", buf[1]);
+		json_object_string_add(json, "claimed_nbma", buf[2]);
 
 		if (c->used)
 			json_object_boolean_true_add(json, "used");
@@ -681,9 +708,10 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		json_object_array_add(ctx->json, json);
 		return;
 	}
-	vty_out(ctx->vty, "%-8s %-8s %-24s %-24s %c%c%c    %s\n", c->ifp->name,
+	vty_out(ctx->vty, "%-8s %-8s %-24s %-24s %-24s %c%c%c    %s\n",
+		c->ifp->name,
 		nhrp_cache_type_str[c->cur.type],
-		buf[0], buf[1],
+		buf[0], buf[1], buf[2],
 		c->used ? 'U' : ' ', c->t_timeout ? 'T' : ' ',
 		c->t_auth ? 'A' : ' ',
 		c->cur.peer ? c->cur.peer->vc->remote.id : "-");
@@ -970,7 +998,8 @@ static void clear_nhrp_cache(struct nhrp_cache *c, void *data)
 {
 	struct info_ctx *ctx = data;
 	if (c->cur.type <= NHRP_CACHE_DYNAMIC) {
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
+		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+					  NULL);
 		ctx->count++;
 	}
 }
