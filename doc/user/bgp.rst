@@ -1363,6 +1363,15 @@ Defining Peers
    ``net.core.optmem_max`` to allow the kernel to allocate the necessary option
    memory.
 
+.. clicmd:: bgp listen limit <1-65535>
+
+   Define the maximum number of peers accepted for one BGP instance. This
+   limit is set to 100 by default. Increasing this value will really be
+   possible if more file descriptors are available in the BGP process. This
+   value is defined by the underlying system (ulimit value), and can be
+   overriden by `--limit-fds`. More information is available in chapter
+   (:ref:`common-invocation-options`).
+
 .. clicmd:: coalesce-time (0-4294967295)
 
    The time in milliseconds that BGP will delay before deciding what peers

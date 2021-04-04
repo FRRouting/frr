@@ -393,7 +393,7 @@ submodule frr-bgp-common {
     container global-neighbor-config {
       leaf dynamic-neighbors-limit {
         type uint32 {
-          range "1..5000";
+          range "1..65535";
         }
         description
           "Maximum number of BGP Dynamic Neighbors that can be created.";

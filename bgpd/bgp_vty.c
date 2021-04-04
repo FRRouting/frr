@@ -3990,7 +3990,7 @@ void cli_show_router_global_neighbor_config(struct vty *vty,
 
 DEFUN_YANG(bgp_listen_limit,
 	   bgp_listen_limit_cmd,
-	   "bgp listen limit (1-5000)",
+	   "bgp listen limit (1-65535)",
 	   "BGP specific commands\n"
 	   "BGP Dynamic Neighbors listen commands\n"
 	   "Maximum number of BGP Dynamic Neighbors that can be created\n"
@@ -4007,7 +4007,7 @@ DEFUN_YANG(bgp_listen_limit,
 
 DEFUN_YANG(no_bgp_listen_limit,
 	   no_bgp_listen_limit_cmd,
-	   "no bgp listen limit [(1-5000)]",
+	   "no bgp listen limit [(1-65535)]",
 	   NO_STR
 	   "BGP specific commands\n"
 	   "BGP Dynamic Neighbors listen commands\n"
