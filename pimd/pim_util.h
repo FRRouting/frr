@@ -36,4 +36,21 @@ void pim_pkt_dump(const char *label, const uint8_t *buf, int size);
 int pim_is_group_224_0_0_0_24(struct in_addr group_addr);
 int pim_is_group_224_4(struct in_addr group_addr);
 bool pim_is_group_filtered(struct pim_interface *pim_ifp, struct in_addr *grp);
+
+/*
+ * For 'ip pim allow-rp'. This checks if a given RP address is allowed by the
+ * configured RP-filtering prefix list.
+ *
+ * Asserts that accept_rp is enabled; if it's not, there's no reason to call
+ * this.
+ *
+ * pim_ifp
+ *    The PIM interface the (*,G) JOIN with the RP address being checked was
+ *    received on.
+ *
+ * rp
+ *    The RP address that was received.
+ */
+bool pim_is_rp_allowed(struct pim_interface *pim_ifp, struct in_addr *rp);
+
 #endif /* PIM_UTIL_H */
