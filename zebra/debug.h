@@ -48,7 +48,8 @@ extern "C" {
 #define ZEBRA_DEBUG_NHT 0x01
 #define ZEBRA_DEBUG_NHT_DETAILED 0x02
 
-#define ZEBRA_DEBUG_MPLS    0x01
+#define ZEBRA_DEBUG_MPLS             0x01
+#define ZEBRA_DEBUG_MPLS_DETAILED    0x02
 
 #define ZEBRA_DEBUG_VXLAN   0x01
 
@@ -93,6 +94,8 @@ extern "C" {
 #define IS_ZEBRA_DEBUG_NHT_DETAILED (zebra_debug_nht & ZEBRA_DEBUG_NHT_DETAILED)
 
 #define IS_ZEBRA_DEBUG_MPLS  (zebra_debug_mpls & ZEBRA_DEBUG_MPLS)
+#define IS_ZEBRA_DEBUG_MPLS_DETAIL \
+	(zebra_debug_mpls & ZEBRA_DEBUG_MPLS_DETAILED)
 #define IS_ZEBRA_DEBUG_VXLAN (zebra_debug_vxlan & ZEBRA_DEBUG_VXLAN)
 #define IS_ZEBRA_DEBUG_PW  (zebra_debug_pw & ZEBRA_DEBUG_PW)
 
