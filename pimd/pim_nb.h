@@ -315,6 +315,7 @@ int lib_interface_gm_rmap_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_rmap_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_gm_alist_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_alist_destroy(struct nb_cb_destroy_args *args);
+int pim_cmd_interface_add(struct interface *ifp);
 
 /*
  * Callback registered with routing_nb lib to validate only

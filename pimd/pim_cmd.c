@@ -5860,6 +5860,47 @@ DEFPY_HIDDEN (pim_test_sg_keepalive,
 	return CMD_SUCCESS;
 }
 
+DEFPY (interface_ip_pim_allowrp,
+       interface_ip_pim_allowrp_cmd,
+       "[no] ip pim allow-rp [rp-list PLIST]",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Ignore mismatched RP addresses when processing (*,G) Joins\n"
+       "Specify a prefix-list which the RP address must match in order to be accepted\n"
+       "The prefix-list to check the RP address against\n")
+
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp;
+
+	if (!no && !pim_cmd_interface_add(ifp)) {
+		vty_out(vty, "Could not enable PIM SM allow-rp on interface %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	pim_ifp = ifp->info;
+
+	if (no && !pim_ifp) {
+		vty_out(vty, "PIM is not enabled on the interface %s\n", ifp->name);
+		return CMD_SUCCESS;
+	}
+
+	pim_ifp->allow_rp = !no;
+
+	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->allow_rp_plist);
+
+	if (plist) {
+		pim_ifp->allow_rp_plist = XSTRDUP(MTYPE_PIM_INTERFACE, plist);
+		if (!prefix_list_lookup(PIM_AFI, plist))
+			vty_out(vty,
+				"%% Prefix-list '%s' isn't configured yet; if it isn't configured, all RP addresses will be rejected\n",
+				plist);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (interface_ip_pim_activeactive,
        interface_ip_pim_activeactive_cmd,
        "[no$no] ip pim active-active",
@@ -9420,6 +9461,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ip_igmp_require_ra_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_alist_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_rmap_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_allowrp_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_passive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_cmd);
