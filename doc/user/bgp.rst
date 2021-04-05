@@ -1597,15 +1597,66 @@ Configuring Peers
 
 .. clicmd:: bgp default ipv4-unicast
 
-   This command allows the user to specify that v4 peering is turned
-   on by default or not.  This command defaults to on and is not displayed.
+   This command allows the user to specify that the IPv4 Unicast address
+   family is turned on by default or not.  This command defaults to on
+   and is not displayed.
    The `no bgp default ipv4-unicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv4-multicast
+
+   This command allows the user to specify that the IPv4 Multicast address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv4-multicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv4-vpn
+
+   This command allows the user to specify that the IPv4 MPLS VPN address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv4-vpn` form of the command is displayed.
+
+.. clicmd:: bgp default ipv4-flowspec
+
+   This command allows the user to specify that the IPv4 Flowspec address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv4-flowspec` form of the command is displayed.
 
 .. clicmd:: bgp default ipv6-unicast
 
-   This command allows the user to specify that v6 peering is turned
-   on by default or not.  This command defaults to off and is not displayed.
+   This command allows the user to specify that the IPv6 Unicast address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
    The `bgp default ipv6-unicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv6-multicast
+
+   This command allows the user to specify that the IPv6 Multicast address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv6-multicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv6-vpn
+
+   This command allows the user to specify that the IPv6 MPLS VPN address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv6-vpn` form of the command is displayed.
+
+.. clicmd:: bgp default ipv6-flowspec
+
+   This command allows the user to specify that the IPv6 Flowspec address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv6-flowspec` form of the command is displayed.
+
+.. clicmd:: bgp default l2vpn-evpn
+
+   This command allows the user to specify that the L2VPN EVPN address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default l2vpn-evpn` form of the command is displayed.
 
 .. clicmd:: bgp default show-hostname
 
