@@ -131,6 +131,18 @@ nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 	return num;
 }
 
+bool nexthop_group_has_label(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
+		if (nhop->nh_label)
+			return true;
+	}
+
+	return false;
+}
+
 struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
 			       const struct nexthop *nh)
 {
