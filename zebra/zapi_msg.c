@@ -1785,8 +1785,9 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
 		    && api_nh->label_num > 0) {
 
-			if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE))
-				label_type = ZEBRA_LSP_EVPN;
+			/* If label type was passed, use it */
+			if (api_nh->label_type)
+				label_type = api_nh->label_type;
 			else
 				label_type =
 					lsp_type_from_re_type(client->proto);
