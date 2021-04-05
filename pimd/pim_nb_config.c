@@ -149,7 +149,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	pim_ifchannel_delete_on_noinfo(ifp);
 }
 
-static int pim_cmd_interface_add(struct interface *ifp)
+int pim_cmd_interface_add(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
