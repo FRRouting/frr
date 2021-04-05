@@ -1756,8 +1756,9 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					   seg6local_action2str(
 						   api_nh->seg6local_action));
 
-			nexthop_add_seg6local(nexthop, api_nh->seg6local_action,
-					      &api_nh->seg6local_ctx);
+			nexthop_add_srv6_seg6local(nexthop,
+						   api_nh->seg6local_action,
+						   &api_nh->seg6local_ctx);
 		}
 
 		if (CHECK_FLAG(flags, ZEBRA_FLAG_SEG6_ROUTE)
@@ -1765,7 +1766,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			if (IS_ZEBRA_DEBUG_RECV)
 				zlog_debug("%s: adding seg6", __func__);
 
-			nexthop_add_seg6(nexthop, &api_nh->seg6_segs);
+			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs);
 		}
 
 		if (IS_ZEBRA_DEBUG_RECV) {

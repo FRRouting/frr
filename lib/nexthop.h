@@ -141,12 +141,8 @@ struct nexthop {
 	/* SR-TE color used for matching SR-TE policies */
 	uint32_t srte_color;
 
-	/* SRv6 localsid info for Endpoint-behaviour */
-	enum seg6local_action_t nh_seg6local_action;
-	struct seg6local_context *nh_seg6local_ctx;
-
-	/* SRv6 Headend-behaviour */
-	struct in6_addr *nh_seg6_segs;
+	/* SRv6 information */
+	struct nexthop_srv6 *nh_srv6;
 };
 
 /* Utility to append one nexthop to another. */
@@ -165,11 +161,12 @@ void nexthops_free(struct nexthop *nexthop);
 void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
 			uint8_t num_labels, const mpls_label_t *labels);
 void nexthop_del_labels(struct nexthop *);
-void nexthop_add_seg6local(struct nexthop *nexthop, uint32_t action,
-			   const struct seg6local_context *ctx);
-void nexthop_del_seg6local(struct nexthop *nexthop);
-void nexthop_add_seg6(struct nexthop *nexthop, const struct in6_addr *segs);
-void nexthop_del_seg6(struct nexthop *nexthop);
+void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
+				const struct seg6local_context *ctx);
+void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
+void nexthop_add_srv6_seg6(struct nexthop *nexthop,
+			   const struct in6_addr *segs);
+void nexthop_del_srv6_seg6(struct nexthop *nexthop);
 
 /*
  * Allocate a new nexthop object and initialize it from various args.
