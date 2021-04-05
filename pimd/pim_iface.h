@@ -170,6 +170,10 @@ struct pim_interface {
 	bool activeactive;
 	bool am_i_dr;
 
+	/* Turn on allow-rp for this interface */
+	bool allow_rp;
+	char *allow_rp_plist;
+
 	int64_t pim_ifstat_start; /* start timestamp for stats */
 	uint64_t pim_ifstat_bsm_rx;
 	uint64_t pim_ifstat_bsm_tx;
