@@ -258,7 +258,6 @@ static inline int zebra2proto(int proto)
 		break;
 	case ZEBRA_ROUTE_TABLE:
 	case ZEBRA_ROUTE_NHG:
-	case ZEBRA_ROUTE_NEIGH:
 		proto = RTPROT_ZEBRA;
 		break;
 	case ZEBRA_ROUTE_CONNECT:
@@ -2831,13 +2830,17 @@ netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
 			       void *buf, size_t buflen)
 {
 	struct ethaddr dst_mac = {.octet = {0}};
+	int proto = RTPROT_ZEBRA;
+
+	if (dplane_ctx_get_type(ctx) != 0)
+		proto = zebra2proto(dplane_ctx_get_type(ctx));
 
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, (const void *)&dst_mac, ETH_ALEN,
 		dplane_ctx_neigh_get_ipaddr(ctx), false, PF_BRIDGE, 0, NTF_SELF,
 		(NUD_NOARP | NUD_PERMANENT), 0 /*nhg*/, false /*nfy*/,
 		0 /*nfy_flags*/, false /*ext*/, 0 /*ext_flags*/, buf, buflen,
-		zebra2proto(dplane_ctx_get_type(ctx)));
+		proto);
 }
 
 #ifndef NDA_RTA
@@ -3203,6 +3206,10 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	uint32_t update_flags;
 	bool nfy = false;
 	uint8_t nfy_flags = 0;
+	int proto = RTPROT_ZEBRA;
+
+	if (dplane_ctx_get_type(ctx) != 0)
+		proto = zebra2proto(dplane_ctx_get_type(ctx));
 
 	cmd = dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL
 			  ? RTM_NEWNEIGH : RTM_DELNEIGH;
@@ -3272,7 +3279,7 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 		ctx, cmd, (const void *)dplane_ctx_mac_get_addr(ctx), ETH_ALEN,
 		&vtep_ip, true, AF_BRIDGE, 0, flags, state, nhg_id, nfy,
 		nfy_flags, false /*ext*/, 0 /*ext_flags*/, data, datalen,
-		zebra2proto(dplane_ctx_get_type(ctx)));
+		proto);
 
 	return total;
 }
@@ -3727,6 +3734,10 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	uint32_t update_flags;
 	uint32_t ext_flags = 0;
 	bool ext = false;
+	int proto = RTPROT_ZEBRA;
+
+	if (dplane_ctx_get_type(ctx) != 0)
+		proto = zebra2proto(dplane_ctx_get_type(ctx));
 
 	ip = dplane_ctx_neigh_get_ipaddr(ctx);
 
@@ -3777,7 +3788,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, link_ptr, llalen, ip, true, family, RTN_UNICAST,
 		flags, state, 0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/, ext,
-		ext_flags, buf, buflen, zebra2proto(dplane_ctx_get_type(ctx)));
+		ext_flags, buf, buflen, proto);
 }
 
 static int netlink_neigh_table_update_ctx(const struct zebra_dplane_ctx *ctx,
