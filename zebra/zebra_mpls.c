@@ -872,6 +872,22 @@ static void lsp_schedule(struct hash_bucket *bucket, void *ctxt)
 	zebra_lsp_t *lsp;
 
 	lsp = (zebra_lsp_t *)bucket->data;
+
+	/* In the common flow, this is used when external events occur. For
+	 * LSPs with backup nhlfes, we'll assume that the forwarding
+	 * plane will use the backups to handle these events, until the
+	 * owning protocol can react.
+	 */
+	if (ctxt == NULL) {
+		/* Skip LSPs with backups */
+		if (nhlfe_list_first(&lsp->backup_nhlfe_list) != NULL) {
+			if (IS_ZEBRA_DEBUG_MPLS_DETAIL)
+				zlog_debug("%s: skip LSP in-label %u",
+					   __func__, lsp->ile.in_label);
+			return;
+		}
+	}
+
 	(void)lsp_processq_add(lsp);
 }
 
