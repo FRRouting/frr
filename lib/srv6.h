@@ -117,6 +117,15 @@ struct srv6_locator_chunk {
 	uint32_t session_id;
 };
 
+struct nexthop_srv6 {
+	/* SRv6 localsid info for Endpoint-behaviour */
+	enum seg6local_action_t seg6local_action;
+	struct seg6local_context seg6local_ctx;
+
+	/* SRv6 Headend-behaviour */
+	struct in6_addr seg6_segs;
+};
+
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
 {
 	switch (mode) {

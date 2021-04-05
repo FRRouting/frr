@@ -534,10 +534,10 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, num_labels, labels);
 
 	if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
-		nexthop_add_seg6local(&nh, seg6l_act, &seg6l_ctx);
+		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
 
 	if (num_segs)
-		nexthop_add_seg6(&nh, &seg6_segs);
+		nexthop_add_srv6_seg6(&nh, &seg6_segs);
 
 	return nh;
 }
@@ -641,11 +641,11 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 						   num_labels, labels);
 
 			if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
-				nexthop_add_seg6local(nh, seg6l_act,
-						      &seg6l_ctx);
+				nexthop_add_srv6_seg6local(nh, seg6l_act,
+							   &seg6l_ctx);
 
 			if (num_segs)
-				nexthop_add_seg6(nh, &seg6_segs);
+				nexthop_add_srv6_seg6(nh, &seg6_segs);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
@@ -1399,84 +1399,97 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					      sizeof(label_buf)))
 		return false;
 
-	if (nexthop->nh_seg6local_ctx) {
-		struct rtattr *nest;
-		const struct seg6local_context *ctx;
+	if (nexthop->nh_srv6) {
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			struct rtattr *nest;
+			const struct seg6local_context *ctx;
 
-		ctx = nexthop->nh_seg6local_ctx;
-		if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
-				   LWTUNNEL_ENCAP_SEG6_LOCAL))
-			return false;
+			ctx = &nexthop->nh_srv6->seg6local_ctx;
+			if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
+					   LWTUNNEL_ENCAP_SEG6_LOCAL))
+				return false;
 
-		nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
-		if (!nest)
-			return false;
+			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
+			if (!nest)
+				return false;
 
-		switch (nexthop->nh_seg6local_action) {
-		case ZEBRA_SEG6_LOCAL_ACTION_END:
-			if (!nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
-					  SEG6_LOCAL_ACTION_END))
-				return false;
-			break;
-		case ZEBRA_SEG6_LOCAL_ACTION_END_X:
-			if (!nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
-				      SEG6_LOCAL_ACTION_END_X))
-				return false;
-			if (!nl_attr_put(nlmsg, req_size, SEG6_LOCAL_NH6,
-					 &ctx->nh6, sizeof(struct in6_addr)))
-				return false;
-			break;
-		case ZEBRA_SEG6_LOCAL_ACTION_END_T:
-			if (!nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
-					   SEG6_LOCAL_ACTION_END_T))
-				return false;
-			if (!nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_TABLE,
-					   ctx->table))
-				return false;
-			break;
-		case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-			if (!nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
-					   SEG6_LOCAL_ACTION_END_DX4))
-				return false;
-			if (!nl_attr_put(nlmsg, req_size, SEG6_LOCAL_NH4,
-					 &ctx->nh4, sizeof(struct in_addr)))
-				return false;
-			break;
-		case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
-			if (!nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
-					   SEG6_LOCAL_ACTION_END_DT6))
-				return false;
-			if (!nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_TABLE,
-					   ctx->table))
-				return false;
-			break;
-		default:
-			zlog_err("%s: unsupport seg6local behaviour action=%u",
-				 __func__, nexthop->nh_seg6local_action);
-			break;
+			switch (nexthop->nh_srv6->seg6local_action) {
+			case ZEBRA_SEG6_LOCAL_ACTION_END:
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_ACTION,
+						   SEG6_LOCAL_ACTION_END))
+					return false;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_ACTION,
+						   SEG6_LOCAL_ACTION_END_X))
+					return false;
+				if (!nl_attr_put(nlmsg, req_size,
+						 SEG6_LOCAL_NH6, &ctx->nh6,
+						 sizeof(struct in6_addr)))
+					return false;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_ACTION,
+						   SEG6_LOCAL_ACTION_END_T))
+					return false;
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_TABLE,
+						   ctx->table))
+					return false;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_ACTION,
+						   SEG6_LOCAL_ACTION_END_DX4))
+					return false;
+				if (!nl_attr_put(nlmsg, req_size,
+						 SEG6_LOCAL_NH4, &ctx->nh4,
+						 sizeof(struct in_addr)))
+					return false;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_ACTION,
+						   SEG6_LOCAL_ACTION_END_DT6))
+					return false;
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_TABLE,
+						   ctx->table))
+					return false;
+				break;
+			default:
+				zlog_err("%s: unsupport seg6local behaviour action=%u",
+					 __func__,
+					 nexthop->nh_srv6->seg6local_action);
+				break;
+			}
+			nl_attr_nest_end(nlmsg, nest);
 		}
-		nl_attr_nest_end(nlmsg, nest);
-	}
 
-	if (nexthop->nh_seg6_segs) {
-		char tun_buf[4096];
-		ssize_t tun_len;
-		struct rtattr *nest;
+		if (!sid_zero(&nexthop->nh_srv6->seg6_segs)) {
+			char tun_buf[4096];
+			ssize_t tun_len;
+			struct rtattr *nest;
 
-		if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
-				  LWTUNNEL_ENCAP_SEG6))
-			return false;
-		nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
-		if (!nest)
-			return false;
-		tun_len = fill_seg6ipt_encap(tun_buf, sizeof(tun_buf),
-					     nexthop->nh_seg6_segs);
-		if (tun_len < 0)
-			return false;
-		if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH, tun_buf,
-				tun_len))
-			return false;
-		nl_attr_nest_end(nlmsg, nest);
+			if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
+					  LWTUNNEL_ENCAP_SEG6))
+				return false;
+			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
+			if (!nest)
+				return false;
+			tun_len = fill_seg6ipt_encap(tun_buf, sizeof(tun_buf),
+					&nexthop->nh_srv6->seg6_segs);
+			if (tun_len < 0)
+				return false;
+			if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH,
+					 tun_buf, tun_len))
+				return false;
+			nl_attr_nest_end(nlmsg, nest);
+		}
 	}
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
@@ -2473,104 +2486,117 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				nl_attr_nest_end(&req->n, nest);
 			}
 
-			if (nh->nh_seg6local_ctx) {
-				uint32_t action;
-				uint16_t encap;
-				struct rtattr *nest;
-				const struct seg6local_context *ctx;
+			if (nh->nh_srv6) {
+				if (nh->nh_srv6->seg6local_action !=
+				    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+					uint32_t action;
+					uint16_t encap;
+					struct rtattr *nest;
+					const struct seg6local_context *ctx;
 
-				req->nhm.nh_family = AF_INET6;
-				action = nh->nh_seg6local_action;
-				ctx = nh->nh_seg6local_ctx;
-				encap = LWTUNNEL_ENCAP_SEG6_LOCAL;
-				if (!nl_attr_put(&req->n, buflen,
-						 NHA_ENCAP_TYPE, &encap,
-						 sizeof(uint16_t)))
-					return 0;
+					req->nhm.nh_family = AF_INET6;
+					action = nh->nh_srv6->seg6local_action;
+					ctx = &nh->nh_srv6->seg6local_ctx;
+					encap = LWTUNNEL_ENCAP_SEG6_LOCAL;
+					if (!nl_attr_put(&req->n, buflen,
+							 NHA_ENCAP_TYPE,
+							 &encap,
+							 sizeof(uint16_t)))
+						return 0;
 
-				nest = nl_attr_nest(&req->n, buflen,
-						    NHA_ENCAP | NLA_F_NESTED);
-				if (!nest)
-					return 0;
+					nest = nl_attr_nest(&req->n, buflen,
+						NHA_ENCAP | NLA_F_NESTED);
+					if (!nest)
+						return 0;
 
-				switch (action) {
-				case SEG6_LOCAL_ACTION_END:
-					if (!nl_attr_put32(&req->n, buflen,
+					switch (action) {
+					case SEG6_LOCAL_ACTION_END:
+						if (!nl_attr_put32(
+						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
 						    SEG6_LOCAL_ACTION_END))
-						return 0;
-					break;
-				case SEG6_LOCAL_ACTION_END_X:
-					if (!nl_attr_put32(&req->n, buflen,
+							return 0;
+						break;
+					case SEG6_LOCAL_ACTION_END_X:
+						if (!nl_attr_put32(
+						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
 						    SEG6_LOCAL_ACTION_END_X))
-						return 0;
-					if (!nl_attr_put(&req->n, buflen,
+							return 0;
+						if (!nl_attr_put(
+						    &req->n, buflen,
 						    SEG6_LOCAL_NH6, &ctx->nh6,
 						    sizeof(struct in6_addr)))
-						return 0;
-					break;
-				case SEG6_LOCAL_ACTION_END_T:
-					if (!nl_attr_put32(&req->n, buflen,
+							return 0;
+						break;
+					case SEG6_LOCAL_ACTION_END_T:
+						if (!nl_attr_put32(
+						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
 						    SEG6_LOCAL_ACTION_END_T))
-						return 0;
-					if (!nl_attr_put32(&req->n, buflen,
+							return 0;
+						if (!nl_attr_put32(
+						    &req->n, buflen,
 						    SEG6_LOCAL_TABLE,
 						    ctx->table))
-						return 0;
-					break;
-				case SEG6_LOCAL_ACTION_END_DX4:
-					if (!nl_attr_put32(&req->n, buflen,
+							return 0;
+						break;
+					case SEG6_LOCAL_ACTION_END_DX4:
+						if (!nl_attr_put32(
+						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
 						    SEG6_LOCAL_ACTION_END_DX4))
-						return 0;
-					if (!nl_attr_put(&req->n, buflen,
+							return 0;
+						if (!nl_attr_put(
+						    &req->n, buflen,
 						    SEG6_LOCAL_NH4, &ctx->nh4,
 						    sizeof(struct in_addr)))
-						return 0;
-					break;
-				case SEG6_LOCAL_ACTION_END_DT6:
-					if (!nl_attr_put32(&req->n, buflen,
+							return 0;
+						break;
+					case SEG6_LOCAL_ACTION_END_DT6:
+						if (!nl_attr_put32(
+						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
 						    SEG6_LOCAL_ACTION_END_DT6))
-						return 0;
-					if (!nl_attr_put32(&req->n, buflen,
+							return 0;
+						if (!nl_attr_put32(
+						    &req->n, buflen,
 						    SEG6_LOCAL_TABLE,
 						    ctx->table))
-						return 0;
-					break;
-				default:
-					zlog_err("%s: unsupport seg6local behaviour action=%u",
-						 __func__, action);
-					break;
+							return 0;
+						break;
+					default:
+						zlog_err("%s: unsupport seg6local behaviour action=%u",
+							 __func__, action);
+						break;
+					}
+					nl_attr_nest_end(&req->n, nest);
 				}
-				nl_attr_nest_end(&req->n, nest);
-			}
 
-			if (nh->nh_seg6_segs) {
-				char tun_buf[4096];
-				ssize_t tun_len;
-				struct rtattr *nest;
+				if (!sid_zero(&nh->nh_srv6->seg6_segs)) {
+					char tun_buf[4096];
+					ssize_t tun_len;
+					struct rtattr *nest;
 
-				if (!nl_attr_put16(&req->n, buflen,
-						   NHA_ENCAP_TYPE,
-						   LWTUNNEL_ENCAP_SEG6))
-					return 0;
-				nest = nl_attr_nest(&req->n, buflen,
-						    NHA_ENCAP | NLA_F_NESTED);
-				if (!nest)
-					return 0;
-				tun_len = fill_seg6ipt_encap(tun_buf,
-						sizeof(tun_buf),
-						nh->nh_seg6_segs);
-				if (tun_len < 0)
-					return 0;
-				if (!nl_attr_put(&req->n, buflen,
-						 SEG6_IPTUNNEL_SRH,
-						 tun_buf, tun_len))
-					return 0;
-				nl_attr_nest_end(&req->n, nest);
+					if (!nl_attr_put16(&req->n, buflen,
+					    NHA_ENCAP_TYPE,
+					    LWTUNNEL_ENCAP_SEG6))
+						return 0;
+					nest = nl_attr_nest(&req->n, buflen,
+					    NHA_ENCAP | NLA_F_NESTED);
+					if (!nest)
+						return 0;
+					tun_len = fill_seg6ipt_encap(tun_buf,
+					    sizeof(tun_buf),
+					    &nh->nh_srv6->seg6_segs);
+					if (tun_len < 0)
+						return 0;
+					if (!nl_attr_put(&req->n, buflen,
+							 SEG6_IPTUNNEL_SRH,
+							 tun_buf, tun_len))
+						return 0;
+					nl_attr_nest_end(&req->n, nest);
+				}
 			}
 
 nexthop_done:

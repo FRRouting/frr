@@ -407,7 +407,7 @@ DEFPY (install_seg6_routes,
 	sg.r.nhop.vrf_id = vrf->vrf_id;
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
 
-	nexthop_add_seg6(&sg.r.nhop, &seg6_seg);
+	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg);
 	SET_FLAG(route_flags, ZEBRA_FLAG_SEG6_ROUTE);
 
 	sg.r.vrf_id = vrf->vrf_id;
@@ -504,7 +504,7 @@ DEFPY (install_seg6local_routes,
 	sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);
 	sg.r.nhop.vrf_id = vrf->vrf_id;
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
-	nexthop_add_seg6local(&sg.r.nhop, action, &ctx);
+	nexthop_add_srv6_seg6local(&sg.r.nhop, action, &ctx);
 	SET_FLAG(route_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE);
 
 	sg.r.vrf_id = vrf->vrf_id;

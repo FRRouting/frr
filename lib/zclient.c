@@ -464,7 +464,7 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 
 	nh.type = NEXTHOP_TYPE_IFINDEX;
 	nh.ifindex = oif;
-	nexthop_add_seg6local(&nh, action, context);
+	nexthop_add_srv6_seg6local(&nh, action, context);
 
 	zapi_nexthop_from_nexthop(&api.nexthops[0], &nh);
 	api.nexthop_num = 1;
@@ -1734,7 +1734,6 @@ stream_failure:
 
 struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 {
-	uint8_t zero[16] = {0};
 	struct nexthop *n = nexthop_new();
 
 	n->type = znh->type;
@@ -1757,12 +1756,12 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 		memcpy(n->backup_idx, znh->backup_idx, n->backup_num);
 	}
 
-	if (znh->seg6local_action != 0)
-		nexthop_add_seg6local(n, znh->seg6local_action,
-				      &znh->seg6local_ctx);
+	if (znh->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
+					   &znh->seg6local_ctx);
 
-	if (memcmp(&znh->seg6_segs, zero, sizeof(struct in6_addr)) != 0)
-		nexthop_add_seg6(n, &znh->seg6_segs);
+	if (!sid_zero(&znh->seg6_segs))
+		nexthop_add_srv6_seg6(n, &znh->seg6_segs);
 
 	return n;
 }
@@ -1808,15 +1807,19 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 		memcpy(znh->backup_idx, nh->backup_idx, znh->backup_num);
 	}
 
-	if (nh->nh_seg6local_action != 0 && nh->nh_seg6local_ctx != NULL) {
-		znh->seg6local_action = nh->nh_seg6local_action;
-		memcpy(&znh->seg6local_ctx, nh->nh_seg6local_ctx,
-		       sizeof(struct seg6local_context));
-	}
+	if (nh->nh_srv6) {
+		if (nh->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			znh->seg6local_action = nh->nh_srv6->seg6local_action;
+			memcpy(&znh->seg6local_ctx,
+			       &nh->nh_srv6->seg6local_ctx,
+			       sizeof(struct seg6local_context));
+		}
 
-	if (nh->nh_seg6_segs != NULL)
-		memcpy(&znh->seg6_segs, nh->nh_seg6_segs,
-		       sizeof(struct in6_addr));
+		if (!sid_zero(&nh->nh_srv6->seg6_segs))
+			memcpy(&znh->seg6_segs, &nh->nh_srv6->seg6_segs,
+			       sizeof(struct in6_addr));
+	}
 
 	return 0;
 }
