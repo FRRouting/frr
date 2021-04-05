@@ -3562,8 +3562,12 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		const struct prefix_evpn *evp =
 			(const struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
-		/* Identify MAC-IP local routes. */
-		if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
+		/*
+		 * We have already processed type-3 routes.
+		 * Process only type-1 and type-2 routes here.
+		 */
+		if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE
+		    && evp->prefix.route_type != BGP_EVPN_AD_ROUTE)
 			continue;
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
@@ -3581,10 +3585,23 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		global_dest = bgp_global_evpn_node_get(bgp->rib[afi][safi], afi, safi,
 					     evp, &vpn->prd);
 		assert(global_dest);
-		update_evpn_route_entry(bgp, vpn, afi, safi, global_dest, attr, 1,
-				&global_pi, 0,
-				mac_mobility_seqnum(attr),
+
+		if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
+			/* Type-2 route */
+			update_evpn_route_entry(
+				bgp, vpn, afi, safi, global_dest, attr, 1,
+				&global_pi, 0, mac_mobility_seqnum(attr),
 				false /* setup_sync */, NULL /* old_is_sync */);
+		} else {
+			/* Type-1 route */
+			struct bgp_evpn_es *es;
+			int route_changed = 0;
+
+			es = bgp_evpn_es_find(&evp->prefix.ead_addr.esi);
+			bgp_evpn_mh_route_update(bgp, es, vpn, afi, safi,
+						 global_dest, attr, 1,
+						 &global_pi, &route_changed);
+		}
 
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, global_dest, afi, safi);
@@ -3630,6 +3647,8 @@ static int delete_withdraw_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		bgp_dest_unlock_node(global_dest);
 	}
 
+
+	delete_global_ead_evi_routes(bgp, vpn);
 	return 0;
 }
 
