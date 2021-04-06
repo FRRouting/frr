@@ -1115,6 +1115,16 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     for (ctx_keys, line) in lines_to_del:
         deleted = False
 
+        # If there is a change in the segment routing block ranges, do it
+        # in-place, to avoid requesting spurious label chunks which might fail
+        if line and "segment-routing global-block" in line:
+            for (add_key, add_line) in lines_to_add:
+                if ctx_keys[0] == add_key[0] and add_line and "segment-routing global-block" in add_line:
+                    lines_to_del_to_del.append((ctx_keys, line))
+                    break
+            continue
+
+
         if ctx_keys[0].startswith("router bgp") and line:
 
             if line.startswith("neighbor "):
