@@ -182,6 +182,9 @@ struct acl_dup_args {
 	/** Access list name. */
 	const char *ada_name;
 
+	/** Entry action. */
+	const char *ada_action;
+
 #define ADA_MAX_VALUES 4
 	/** Entry XPath for value. */
 	const char *ada_xpath[ADA_MAX_VALUES];
@@ -208,6 +211,9 @@ struct plist_dup_args {
 	const char *pda_type;
 	/** Access list name. */
 	const char *pda_name;
+
+	/** Entry action. */
+	const char *pda_action;
 
 #define PDA_MAX_VALUES 4
 	/** Entry XPath for value. */
