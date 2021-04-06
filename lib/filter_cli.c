@@ -184,7 +184,7 @@ DEFPY_YANG(
 			ada.ada_value[1] = mask_str;
 		} else {
 			ada.ada_xpath[0] = "./source-any";
-			ada.ada_value[0] = "true";
+			ada.ada_value[0] = "";
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -324,7 +324,7 @@ DEFPY_YANG(
 			idx++;
 		} else {
 			ada.ada_xpath[idx] = "./source-any";
-			ada.ada_value[idx] = "true";
+			ada.ada_value[idx] = "";
 			idx++;
 		}
 
@@ -341,7 +341,7 @@ DEFPY_YANG(
 			idx++;
 		} else {
 			ada.ada_xpath[idx] = "./destination-any";
-			ada.ada_value[idx] = "true";
+			ada.ada_value[idx] = "";
 			idx++;
 		}
 
@@ -517,7 +517,7 @@ DEFPY_YANG(
 			}
 		} else {
 			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "true";
+			ada.ada_value[0] = "";
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -715,7 +715,7 @@ DEFPY_YANG(
 			}
 		} else {
 			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "true";
+			ada.ada_value[0] = "";
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -913,7 +913,7 @@ DEFPY_YANG(
 			ada.ada_value[0] = mac_str;
 		} else {
 			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "true";
+			ada.ada_value[0] = "";
 		}
 
 		/* Duplicated entry without sequence, just quit. */
