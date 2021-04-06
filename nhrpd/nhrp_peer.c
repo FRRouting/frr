@@ -422,7 +422,7 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 
 					if (!sockunion_cmp(proto, &cie_proto)) {
 						debugf(NHRP_DEBUG_COMMON,
-						       "\tcie_nbma for proto %pSU is %pSU",
+						       "cie_nbma for proto %pSU is %pSU",
 						       proto, cie_nbma);
 						break;
 					}

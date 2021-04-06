@@ -34,7 +34,6 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	struct zbuf extpl;
 	union sockunion cie_nbma, cie_nbma_nhs, cie_proto, cie_proto_nhs,
 		*proto;
-	char buf[64];
 	int ok = 0, holdtime;
 	unsigned short mtu = 0;
 
@@ -78,10 +77,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 					     &cie_proto)) {
 				nifp->nat_nbma = cie_nbma;
 				debugf(NHRP_DEBUG_IF,
-				       "%s: NAT detected, real NBMA address: %s",
-				       ifp->name,
-				       sockunion2str(&nifp->nbma, buf,
-						     sizeof(buf)));
+				       "%s: NAT detected, real NBMA address: %pSU",
+				       ifp->name, &nifp->nbma);
 			}
 			break;
 		case NHRP_EXTENSION_RESPONDER_ADDRESS:
