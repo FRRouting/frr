@@ -7865,10 +7865,9 @@ DEFUN (ip_ospf_message_digest_key,
 	}
 
 	key_id = strtol(keyid, NULL, 10);
-	if (ospf_crypt_key_lookup(params->auth_crypt, key_id) != NULL) {
-		vty_out(vty, "OSPF: Key %d already exists\n", key_id);
-		return CMD_WARNING;
-	}
+
+	/* Remove existing key, if any */
+	ospf_crypt_key_delete(params->auth_crypt, key_id);
 
 	ck = ospf_crypt_key_new();
 	ck->key_id = (uint8_t)key_id;
