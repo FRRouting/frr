@@ -332,20 +332,29 @@ void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
 	if (EXTERNAL_INFO(ext))
 		for (rn = route_top(EXTERNAL_INFO(ext)); rn;
 		     rn = route_next(rn))
-			if ((ei = rn->info))
-				if (ospf_external_info_find_lsa(ospf, &ei->p)) {
-					if (is_prefix_default(&ei->p)
-					    && ospf->default_originate
-						       != DEFAULT_ORIGINATE_NONE)
-						continue;
+			if ((ei = rn->info)) {
+				struct ospf_external_aggr_rt *aggr;
+
+				if (is_prefix_default(&ei->p)
+				    && ospf->default_originate
+					       != DEFAULT_ORIGINATE_NONE)
+					continue;
+
+				aggr = ei->aggr_route;
+
+				if (aggr)
+					ospf_unlink_ei_from_aggr(ospf, aggr,
+								 ei);
+				else if (ospf_external_info_find_lsa(ospf,
+								     &ei->p))
 					ospf_external_lsa_flush(
 						ospf, type, &ei->p,
 						ei->ifindex /*, ei->nexthop */);
 
-					ospf_external_info_free(ei);
-					route_unlock_node(rn);
-					rn->info = NULL;
-				}
+				ospf_external_info_free(ei);
+				route_unlock_node(rn);
+				rn->info = NULL;
+			}
 }
 
 /* External Route Aggregator Handlers */
