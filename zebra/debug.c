@@ -94,8 +94,11 @@ DEFUN_NOSH (show_debugging_zebra,
 		vty_out(vty, "  Zebra detailed next-hop tracking debugging is on\n");
 	else if (IS_ZEBRA_DEBUG_NHT)
 		vty_out(vty, "  Zebra next-hop tracking debugging is on\n");
-	if (IS_ZEBRA_DEBUG_MPLS)
+	if (IS_ZEBRA_DEBUG_MPLS_DETAIL)
+		vty_out(vty, "  Zebra detailed MPLS debugging is on\n");
+	else if (IS_ZEBRA_DEBUG_MPLS)
 		vty_out(vty, "  Zebra MPLS debugging is on\n");
+
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		vty_out(vty, "  Zebra VXLAN debugging is on\n");
 	if (IS_ZEBRA_DEBUG_PW)
@@ -159,14 +162,19 @@ DEFUN (debug_zebra_nht,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_zebra_mpls,
+DEFPY (debug_zebra_mpls,
        debug_zebra_mpls_cmd,
-       "debug zebra mpls",
+       "debug zebra mpls [detailed$detail]",
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug option set for zebra MPLS LSPs\n")
+       "Debug option set for zebra MPLS LSPs\n"
+       "Debug option for detailed info\n")
 {
 	zebra_debug_mpls = ZEBRA_DEBUG_MPLS;
+
+	if (detail)
+		zebra_debug_mpls |= ZEBRA_DEBUG_MPLS_DETAILED;
+
 	return CMD_SUCCESS;
 }
 
@@ -422,11 +430,12 @@ DEFUN (no_debug_zebra_nht,
 
 DEFUN (no_debug_zebra_mpls,
        no_debug_zebra_mpls_cmd,
-       "no debug zebra mpls",
+       "no debug zebra mpls [detailed]",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug option set for zebra MPLS LSPs\n")
+       "Debug option set for zebra MPLS LSPs\n"
+       "Debug option for zebra detailed info\n")
 {
 	zebra_debug_mpls = 0;
 	return CMD_SUCCESS;
@@ -628,10 +637,14 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
-	if (IS_ZEBRA_DEBUG_MPLS) {
+	if (IS_ZEBRA_DEBUG_MPLS_DETAIL) {
+		vty_out(vty, "debug zebra mpls detailed\n");
+		write++;
+	} else if (IS_ZEBRA_DEBUG_MPLS) {
 		vty_out(vty, "debug zebra mpls\n");
 		write++;
 	}
+
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		vty_out(vty, "debug zebra vxlan\n");
 		write++;
