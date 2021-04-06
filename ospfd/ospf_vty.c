@@ -6400,6 +6400,7 @@ static int show_network_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 
 	if (lsa != NULL) {
 		struct network_lsa *nl = (struct network_lsa *)lsa->data;
+		struct in_addr *addr;
 
 		show_ip_ospf_database_header(vty, lsa, json);
 
@@ -6410,24 +6411,25 @@ static int show_network_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 			json_object_int_add(json, "networkMask",
 					    ip_masklen(nl->mask));
 
-		length = ntohs(lsa->data->length) - OSPF_LSA_HEADER_SIZE - 4;
-
-		for (i = 0; length > 0; i++, length -= 4)
+		length = lsa->size - OSPF_LSA_HEADER_SIZE - 4;
+		addr = &nl->routers[0];
+		for (i = 0; length > 0 && addr;
+		     length -= 4, addr = &nl->routers[++i])
 			if (!json) {
 				vty_out(vty, "        Attached Router: %pI4\n",
-					&nl->routers[i]);
+					addr);
 				vty_out(vty, "\n");
 			} else {
 				json_router = json_object_new_object();
 				json_object_string_add(
 					json_router, "attachedRouterId",
-					inet_ntop(AF_INET, &nl->routers[i],
-						  buf, sizeof(buf)));
-				json_object_object_add(
-					json_attached_rt,
-					inet_ntop(AF_INET, &(nl->routers[i]),
-						  buf, sizeof(buf)),
-					json_router);
+					inet_ntop(AF_INET, addr, buf,
+						  sizeof(buf)));
+				json_object_object_add(json_attached_rt,
+						       inet_ntop(AF_INET, addr,
+								 buf,
+								 sizeof(buf)),
+						       json_router);
 			}
 	}
 
