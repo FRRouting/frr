@@ -1462,13 +1462,18 @@ DEFPY_YANG(
 	ACCESS_LIST_REMARK_STR)
 {
 	char xpath[XPATH_MAXLEN];
+	int rv;
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']/remark",
 		 name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return plist_remove_if_empty(vty, "ipv4", name);
+
+	return rv;
 }
 
 ALIAS(
@@ -1658,13 +1663,18 @@ DEFPY_YANG(
 	ACCESS_LIST_REMARK_STR)
 {
 	char xpath[XPATH_MAXLEN];
+	int rv;
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']/remark",
 		 name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return plist_remove_if_empty(vty, "ipv6", name);
+
+	return rv;
 }
 
 ALIAS(
