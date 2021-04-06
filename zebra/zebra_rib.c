@@ -1992,7 +1992,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 							 ZAPI_ROUTE_FAIL_INSTALL,
 							 info->afi, info->safi);
 
-			zlog_warn("%s(%u:%u):%pFX: Route install failed",
+			zlog_warn("\t%s(%u:%u):%pFX: Route install failed",
 				  VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
 				  dplane_ctx_get_table(ctx), dest_pfx);
 		}
