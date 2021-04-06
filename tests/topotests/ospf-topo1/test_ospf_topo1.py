@@ -93,8 +93,6 @@ def setup_module(mod):
     tgen.start_topology()
 
     ospf6_config = "ospf6d.conf"
-    if tgen.gears["r1"].has_version("<", "4.0"):
-        ospf6_config = "ospf6d.conf-pre-v4"
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
@@ -116,6 +114,78 @@ def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
+
+
+def test_wait_protocol_convergence():
+    "Wait for OSPFv2/OSPFv3 to converge"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("waiting for protocols to converge")
+
+    def expect_ospfv2_neighbor_full(router, neighbor):
+        "Wait until OSPFv2 convergence."
+        logger.info("waiting OSPFv2 router '{}'".format(router))
+
+        def run_command_and_expect():
+            """
+            Function that runs command and expect the following outcomes:
+             * Full/DR
+             * Full/DROther
+             * Full/Backup
+            """
+            result = tgen.gears[router].vtysh_cmd('show ip ospf neighbor json',
+                                                  isjson=True)
+            if topotest.json_cmp(result, {"neighbors": {neighbor: [
+                    {"state": "Full/DR"}]}}) is None:
+                return None
+
+            if topotest.json_cmp(result, {"neighbors": {neighbor: [
+                    {"state": "Full/DROther"}]}}) is None:
+                return None
+
+            return topotest.json_cmp(result, {"neighbors": {neighbor: [
+                {"state": "Full/Backup"}]}})
+
+        _, result = topotest.run_and_expect(run_command_and_expect, None,
+                                            count=130, wait=1)
+        assertmsg = '"{}" convergence failure'.format(router)
+        assert result is None, assertmsg
+
+
+    def expect_ospfv3_neighbor_full(router, neighbor):
+        "Wait until OSPFv3 convergence."
+        logger.info("waiting OSPFv3 router '{}'".format(router))
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show ipv6 ospf6 neighbor json",
+            {"neighbors": [{"neighborId": neighbor, "state": "Full"}]},
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+        assertmsg = '"{}" convergence failure'.format(router)
+        assert result is None, assertmsg
+
+    # Wait for OSPFv2 convergence
+    expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    expect_ospfv2_neighbor_full("r1", "10.0.255.3")
+    expect_ospfv2_neighbor_full("r2", "10.0.255.1")
+    expect_ospfv2_neighbor_full("r2", "10.0.255.3")
+    expect_ospfv2_neighbor_full("r3", "10.0.255.1")
+    expect_ospfv2_neighbor_full("r3", "10.0.255.2")
+    expect_ospfv2_neighbor_full("r3", "10.0.255.4")
+    expect_ospfv2_neighbor_full("r4", "10.0.255.3")
+
+    # Wait for OSPFv3 convergence
+    expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+    expect_ospfv3_neighbor_full("r1", "10.0.255.3")
+    expect_ospfv3_neighbor_full("r2", "10.0.255.1")
+    expect_ospfv3_neighbor_full("r2", "10.0.255.3")
+    expect_ospfv3_neighbor_full("r3", "10.0.255.1")
+    expect_ospfv3_neighbor_full("r3", "10.0.255.2")
+    expect_ospfv3_neighbor_full("r3", "10.0.255.4")
+    expect_ospfv3_neighbor_full("r4", "10.0.255.3")
 
 
 def compare_show_ipv6_ospf6(rname, expected):
