@@ -954,7 +954,7 @@ static inline void update_adj_sid(struct sr_nhlfe n1, struct sr_nhlfe n2)
  */
 
 /* Extended Link SubTLVs Getter */
-static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh)
+static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh, size_t size)
 {
 
 	struct sr_link *srl;
@@ -966,13 +966,20 @@ static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh)
 	struct tlv_header *sub_tlvh;
 	uint16_t length = 0, sum = 0, i = 0;
 
+	/* Check TLV size */
+	if ((ntohs(tlvh->length) > size)
+	    || ntohs(tlvh->length) < EXT_TLV_LINK_SIZE) {
+		zlog_warn("Wrong Extended Link TLV size. Abort!");
+		return NULL;
+	}
+
 	srl = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_link));
 
 	/* Initialize TLV browsing */
 	length = ntohs(tlvh->length) - EXT_TLV_LINK_SIZE;
 	sub_tlvh = (struct tlv_header *)((char *)(tlvh) + TLV_HDR_SIZE
 					 + EXT_TLV_LINK_SIZE);
-	for (; sum < length; sub_tlvh = TLV_HDR_NEXT(sub_tlvh)) {
+	for (; sum < length && sub_tlvh; sub_tlvh = TLV_HDR_NEXT(sub_tlvh)) {
 		switch (ntohs(sub_tlvh->type)) {
 		case EXT_SUBTLV_ADJ_SID:
 			adj_sid = (struct ext_subtlv_adj_sid *)sub_tlvh;
@@ -1025,7 +1032,8 @@ static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh)
 }
 
 /* Extended Prefix SubTLVs Getter */
-static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh)
+static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh,
+					    size_t size)
 {
 
 	struct sr_prefix *srp;
@@ -1035,13 +1043,20 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh)
 	struct tlv_header *sub_tlvh;
 	uint16_t length = 0, sum = 0;
 
+	/* Check TLV size */
+	if ((ntohs(tlvh->length) > size)
+	    || ntohs(tlvh->length) < EXT_TLV_PREFIX_SIZE) {
+		zlog_warn("Wrong Extended Link TLV size. Abort!");
+		return NULL;
+	}
+
 	srp = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
 
 	/* Initialize TLV browsing */
 	length = ntohs(tlvh->length) - EXT_TLV_PREFIX_SIZE;
 	sub_tlvh = (struct tlv_header *)((char *)(tlvh) + TLV_HDR_SIZE
 					 + EXT_TLV_PREFIX_SIZE);
-	for (; sum < length; sub_tlvh = TLV_HDR_NEXT(sub_tlvh)) {
+	for (; sum < length && sub_tlvh; sub_tlvh = TLV_HDR_NEXT(sub_tlvh)) {
 		switch (ntohs(sub_tlvh->type)) {
 		case EXT_SUBTLV_PREFIX_SID:
 			psid = (struct ext_subtlv_prefix_sid *)sub_tlvh;
@@ -1353,7 +1368,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 
 	/* Collect Router Information Sub TLVs */
 	/* Initialize TLV browsing */
-	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
+	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 	srgb.range_size = 0;
 	srgb.lower_bound = 0;
 
@@ -1362,24 +1377,20 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		switch (ntohs(tlvh->type)) {
 		case RI_SR_TLV_SR_ALGORITHM:
 			algo = (struct ri_sr_tlv_sr_algorithm *)tlvh;
-			sum += TLV_SIZE(tlvh);
 			break;
 		case RI_SR_TLV_SRGB_LABEL_RANGE:
 			ri_srgb = (struct ri_sr_tlv_sid_label_range *)tlvh;
-			sum += TLV_SIZE(tlvh);
 			break;
 		case RI_SR_TLV_SRLB_LABEL_RANGE:
 			ri_srlb = (struct ri_sr_tlv_sid_label_range *)tlvh;
-			sum += TLV_SIZE(tlvh);
 			break;
 		case RI_SR_TLV_NODE_MSD:
 			msd = ((struct ri_sr_tlv_node_msd *)(tlvh))->value;
-			sum += TLV_SIZE(tlvh);
 			break;
 		default:
-			sum += TLV_SIZE(tlvh);
 			break;
 		}
+		sum += TLV_SIZE(tlvh);
 	}
 
 	/* Check if Segment Routing Capabilities has been found */
@@ -1519,7 +1530,7 @@ void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa)
 	struct lsa_header *lsah = lsa->data;
 	struct sr_link *srl;
 
-	uint16_t length, sum;
+	int length;
 
 	osr_debug("SR (%s): Process Extended Link LSA 8.0.0.%u from %pI4",
 		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
@@ -1546,20 +1557,19 @@ void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa)
 	}
 
 	/* Initialize TLV browsing */
-	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
-	sum = 0;
-	for (tlvh = TLV_HDR_TOP(lsah); (sum < length) && (tlvh != NULL);
+	length = lsa->size - OSPF_LSA_HEADER_SIZE;
+	for (tlvh = TLV_HDR_TOP(lsah); length > 0 && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		if (ntohs(tlvh->type) == EXT_TLV_LINK) {
 			/* Got Extended Link information */
-			srl = get_ext_link_sid(tlvh);
+			srl = get_ext_link_sid(tlvh, length);
 			/* Update SID if not null */
 			if (srl != NULL) {
 				srl->instance = ntohl(lsah->id.s_addr);
 				update_ext_link_sid(srn, srl, lsa->flags);
 			}
 		}
-		sum += TLV_SIZE(tlvh);
+		length -= TLV_SIZE(tlvh);
 	}
 }
 
@@ -1753,7 +1763,7 @@ void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	struct sr_prefix *srp;
 
-	uint16_t length, sum;
+	int length;
 
 	osr_debug("SR (%s): Process Extended Prefix LSA 7.0.0.%u from %pI4",
 		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
@@ -1780,20 +1790,19 @@ void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 	}
 
 	/* Initialize TLV browsing */
-	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
-	sum = 0;
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	length = lsa->size - OSPF_LSA_HEADER_SIZE;
+	for (tlvh = TLV_HDR_TOP(lsah); length > 0 && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		if (ntohs(tlvh->type) == EXT_TLV_LINK) {
 			/* Got Extended Link information */
-			srp = get_ext_prefix_sid(tlvh);
+			srp = get_ext_prefix_sid(tlvh, length);
 			/* Update SID if not null */
 			if (srp != NULL) {
 				srp->instance = ntohl(lsah->id.s_addr);
 				update_ext_prefix_sid(srn, srp);
 			}
 		}
-		sum += TLV_SIZE(tlvh);
+		length -= TLV_SIZE(tlvh);
 	}
 }
 

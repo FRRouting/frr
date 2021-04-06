@@ -1882,7 +1882,7 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
 	struct listnode *node;
-	int len;
+	int len, links;
 
 	/* Sanity Check */
 	if (!ted || !lsa || !lsa->data)
@@ -1932,8 +1932,9 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 		subnet->status = ORPHAN;
 
 	/* Then, process Link Information */
-	len = ntohs(rl->header.length) - 4;
-	for (int i = 0; i < ntohs(rl->links) && len > 0; len -= 12, i++) {
+	len = lsa->size - OSPF_LSA_HEADER_SIZE - OSPF_ROUTER_LSA_MIN_SIZE;
+	links = ntohs(rl->links);
+	for (int i = 0; i < links && len > 0; len -= 12, i++) {
 		struct prefix p;
 		uint32_t metric;
 
@@ -2152,20 +2153,20 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 	/* Initialize TLV browsing */
 	tlvh = TLV_HDR_TOP(lsa->data);
+	len = lsa->size - OSPF_LSA_HEADER_SIZE;
 
-	uint32_t total_len = TLV_BODY_SIZE(lsa->data) - OSPF_LSA_HEADER_SIZE;
+	/* Check if TE Router-ID TLV is present */
+	if (ntohs(tlvh->type) == TE_TLV_ROUTER_ADDR) {
+		/* if TE Router-ID is alone, we are done ... */
+		if (len == TE_LINK_SUBTLV_DEF_SIZE)
+			return 0;
 
-	/* If TE Router-ID is only TLV we are done */
-	if (ntohs(tlvh->type) == TE_TLV_ROUTER_ADDR
-	    && total_len == sizeof(struct te_tlv_router_addr))
-		return 0;
-
-	/* Skip TE Router-ID if present */
-	if (ntohs(tlvh->type) == TE_TLV_ROUTER_ADDR)
+		/* ... otherwise, skip it */
+		len -= TE_LINK_SUBTLV_DEF_SIZE + TLV_HDR_SIZE;
 		tlvh = TLV_HDR_NEXT(tlvh);
+	}
 
-	/* Check if we have a TE Link TLV */
-	len = TLV_BODY_SIZE(tlvh);
+	/* Check if we have a valid TE Link TLV */
 	if ((len == 0) || (ntohs(tlvh->type) != TE_TLV_LINK))
 		return 0;
 
@@ -2467,8 +2468,9 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 		  &lsa->data->id, &node->router_id);
 
 	/* Initialize TLV browsing */
-	len = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
-	for (tlvh = TLV_HDR_TOP(lsah); sum < len; tlvh = TLV_HDR_NEXT(tlvh)) {
+	len = lsa->size - OSPF_LSA_HEADER_SIZE;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < len && tlvh;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		struct ri_sr_tlv_sr_algorithm *algo;
 		struct ri_sr_tlv_sid_label_range *range;
 		struct ri_sr_tlv_node_msd *msd;
@@ -3152,10 +3154,24 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
 /*------------------------------------------------------------------------*
  * Followings are vty session control functions.
  *------------------------------------------------------------------------*/
+#define check_tlv_size(size, msg)                                              \
+	do {                                                                   \
+		if (ntohs(tlvh->length) > size) {                              \
+			if (vty != NULL)                                       \
+				vty_out(vty, "  Wrong %s TLV size: %d(%d)\n",  \
+					msg, ntohs(tlvh->length), size);       \
+			else                                                   \
+				zlog_debug("    Wrong %s TLV size: %d(%d)\n",  \
+					   msg, ntohs(tlvh->length), size);    \
+			return size + TLV_HDR_SIZE;                            \
+		}                                                              \
+	} while(0)
 
 static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct te_tlv_router_addr *top = (struct te_tlv_router_addr *)tlvh;
+
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Router Address");
 
 	if (vty != NULL)
 		vty_out(vty, "  Router-Address: %pI4\n", &top->value);
@@ -3165,9 +3181,22 @@ static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
-static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh,
+				     size_t buf_size)
 {
 	struct te_tlv_link *top = (struct te_tlv_link *)tlvh;
+
+	if (TLV_SIZE(tlvh) > buf_size) {
+		if (vty != NULL)
+			vty_out(vty,
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		else
+			zlog_debug(
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		return buf_size;
+	}
 
 	if (vty != NULL)
 		vty_out(vty, "  Link: %u octets of data\n",
@@ -3184,6 +3213,8 @@ static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
 {
 	struct te_link_subtlv_link_type *top;
 	const char *cp = "Unknown";
+
+	check_tlv_size(TE_LINK_SUBTLV_TYPE_SIZE, "Link Type");
 
 	top = (struct te_link_subtlv_link_type *)tlvh;
 	switch (top->link_type.value) {
@@ -3211,6 +3242,8 @@ static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
 {
 	struct te_link_subtlv_link_id *top;
 
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Link ID");
+
 	top = (struct te_link_subtlv_link_id *)tlvh;
 	if (vty != NULL)
 		vty_out(vty, "  Link-ID: %pI4\n", &top->value);
@@ -3221,10 +3254,23 @@ static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
-						  struct tlv_header *tlvh)
+						  struct tlv_header *tlvh,
+						  size_t buf_size)
 {
 	struct te_link_subtlv_lclif_ipaddr *top;
 	int i, n;
+
+	if (TLV_SIZE(tlvh) > buf_size) {
+		if (vty != NULL)
+			vty_out(vty,
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		else
+			zlog_debug(
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		return buf_size;
+	}
 
 	top = (struct te_link_subtlv_lclif_ipaddr *)tlvh;
 	n = ntohs(tlvh->length) / sizeof(top->value[0]);
@@ -3244,10 +3290,23 @@ static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
-						  struct tlv_header *tlvh)
+						  struct tlv_header *tlvh,
+						  size_t buf_size)
 {
 	struct te_link_subtlv_rmtif_ipaddr *top;
 	int i, n;
+
+	if (TLV_SIZE(tlvh) > buf_size) {
+		if (vty != NULL)
+			vty_out(vty,
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		else
+			zlog_debug(
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		return buf_size;
+	}
 
 	top = (struct te_link_subtlv_rmtif_ipaddr *)tlvh;
 	n = ntohs(tlvh->length) / sizeof(top->value[0]);
@@ -3270,6 +3329,8 @@ static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
 {
 	struct te_link_subtlv_te_metric *top;
 
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "TE Metric");
+
 	top = (struct te_link_subtlv_te_metric *)tlvh;
 	if (vty != NULL)
 		vty_out(vty, "  Traffic Engineering Metric: %u\n",
@@ -3287,6 +3348,8 @@ static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
 	struct te_link_subtlv_max_bw *top;
 	float fval;
 
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Maximum Bandwidth");
+
 	top = (struct te_link_subtlv_max_bw *)tlvh;
 	fval = ntohf(top->value);
 
@@ -3303,6 +3366,8 @@ static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
 {
 	struct te_link_subtlv_max_rsv_bw *top;
 	float fval;
+
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Maximum Reservable Bandwidth");
 
 	top = (struct te_link_subtlv_max_rsv_bw *)tlvh;
 	fval = ntohf(top->value);
@@ -3323,6 +3388,8 @@ static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
 	struct te_link_subtlv_unrsv_bw *top;
 	float fval1, fval2;
 	int i;
+
+	check_tlv_size(TE_LINK_SUBTLV_UNRSV_SIZE, "Unreserved Bandwidth");
 
 	top = (struct te_link_subtlv_unrsv_bw *)tlvh;
 	if (vty != NULL)
@@ -3353,6 +3420,8 @@ static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
 {
 	struct te_link_subtlv_rsc_clsclr *top;
 
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Resource class/color");
+
 	top = (struct te_link_subtlv_rsc_clsclr *)tlvh;
 	if (vty != NULL)
 		vty_out(vty, "  Resource class/color: 0x%x\n",
@@ -3368,6 +3437,8 @@ static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
 					   struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_lrrid *top;
+
+	check_tlv_size(TE_LINK_SUBTLV_LRRID_SIZE, "Local/Remote Router ID");
 
 	top = (struct te_link_subtlv_lrrid *)tlvh;
 
@@ -3391,6 +3462,8 @@ static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
 {
 	struct te_link_subtlv_llri *top;
 
+	check_tlv_size(TE_LINK_SUBTLV_LLRI_SIZE, "Link Local/Remote ID");
+
 	top = (struct te_link_subtlv_llri *)tlvh;
 
 	if (vty != NULL) {
@@ -3413,6 +3486,8 @@ static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
 {
 	struct te_link_subtlv_rip *top;
 
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Remote ASBR Address");
+
 	top = (struct te_link_subtlv_rip *)tlvh;
 
 	if (vty != NULL)
@@ -3429,6 +3504,8 @@ static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
 					 struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_ras *top;
+
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Remote AS number");
 
 	top = (struct te_link_subtlv_ras *)tlvh;
 
@@ -3448,6 +3525,8 @@ static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
 	struct te_link_subtlv_av_delay *top;
 	uint32_t delay;
 	uint32_t anomalous;
+
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Average Link Delay");
 
 	top = (struct te_link_subtlv_av_delay *)tlvh;
 	delay = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
@@ -3470,6 +3549,8 @@ static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
 	uint32_t low, high;
 	uint32_t anomalous;
 
+	check_tlv_size(TE_LINK_SUBTLV_MM_DELAY_SIZE, "Min/Max Link Delay");
+
 	top = (struct te_link_subtlv_mm_delay *)tlvh;
 	low = (uint32_t)ntohl(top->low) & TE_EXT_MASK;
 	anomalous = (uint32_t)ntohl(top->low) & TE_EXT_ANORMAL;
@@ -3491,6 +3572,8 @@ static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
 	struct te_link_subtlv_delay_var *top;
 	uint32_t jitter;
 
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Link Delay Variation");
+
 	top = (struct te_link_subtlv_delay_var *)tlvh;
 	jitter = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
 
@@ -3509,6 +3592,8 @@ static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
 	uint32_t loss;
 	uint32_t anomalous;
 	float fval;
+
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Link Loss");
 
 	top = (struct te_link_subtlv_pkt_loss *)tlvh;
 	loss = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
@@ -3531,6 +3616,8 @@ static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
 	struct te_link_subtlv_res_bw *top;
 	float fval;
 
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Residual Bandwidth");
+
 	top = (struct te_link_subtlv_res_bw *)tlvh;
 	fval = ntohf(top->value);
 
@@ -3551,6 +3638,8 @@ static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
 {
 	struct te_link_subtlv_ava_bw *top;
 	float fval;
+
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Available Bandwidth");
 
 	top = (struct te_link_subtlv_ava_bw *)tlvh;
 	fval = ntohf(top->value);
@@ -3573,6 +3662,8 @@ static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
 	struct te_link_subtlv_use_bw *top;
 	float fval;
 
+	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Utilized Bandwidth");
+
 	top = (struct te_link_subtlv_use_bw *)tlvh;
 	fval = ntohf(top->value);
 
@@ -3588,8 +3679,21 @@ static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
+				     size_t buf_size)
 {
+	if (TLV_SIZE(tlvh) > buf_size) {
+		if (vty != NULL)
+			vty_out(vty,
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		else
+			zlog_debug(
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		return buf_size;
+	}
+
 	if (vty != NULL)
 		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
 			ntohs(tlvh->type), ntohs(tlvh->length));
@@ -3607,8 +3711,7 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 	struct tlv_header *tlvh;
 	uint16_t sum = subtotal;
 
-	for (tlvh = tlvh0; sum < total;
-	     tlvh = TLV_HDR_NEXT(tlvh)) {
+	for (tlvh = tlvh0; sum < total; tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case TE_LINK_SUBTLV_LINK_TYPE:
 			sum += show_vty_link_subtlv_link_type(vty, tlvh);
@@ -3617,10 +3720,12 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 			sum += show_vty_link_subtlv_link_id(vty, tlvh);
 			break;
 		case TE_LINK_SUBTLV_LCLIF_IPADDR:
-			sum += show_vty_link_subtlv_lclif_ipaddr(vty, tlvh);
+			sum += show_vty_link_subtlv_lclif_ipaddr(vty, tlvh,
+								 total - sum);
 			break;
 		case TE_LINK_SUBTLV_RMTIF_IPADDR:
-			sum += show_vty_link_subtlv_rmtif_ipaddr(vty, tlvh);
+			sum += show_vty_link_subtlv_rmtif_ipaddr(vty, tlvh,
+								 total - sum);
 			break;
 		case TE_LINK_SUBTLV_TE_METRIC:
 			sum += show_vty_link_subtlv_te_metric(vty, tlvh);
@@ -3671,7 +3776,7 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 			sum += show_vty_link_subtlv_use_bw(vty, tlvh);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh);
+			sum += show_vty_unknown_tlv(vty, tlvh, total - sum);
 			break;
 		}
 	}
@@ -3687,9 +3792,9 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
 			    uint16_t subtotal, uint16_t total) = NULL;
 
 	sum = 0;
-	total = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
+	total = lsa->size - OSPF_LSA_HEADER_SIZE;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < total;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < total && tlvh;
 	     tlvh = (next ? next : TLV_HDR_NEXT(tlvh))) {
 		if (subfunc != NULL) {
 			sum = (*subfunc)(vty, tlvh, sum, total);
@@ -3704,12 +3809,12 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
 			sum += show_vty_router_addr(vty, tlvh);
 			break;
 		case TE_TLV_LINK:
-			sum += show_vty_link_header(vty, tlvh);
+			sum += show_vty_link_header(vty, tlvh, total - sum);
 			subfunc = ospf_mpls_te_show_link_subtlv;
 			next = TLV_DATA(tlvh);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh);
+			sum += show_vty_unknown_tlv(vty, tlvh, total - sum);
 			break;
 		}
 	}
@@ -4081,10 +4186,12 @@ static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
 			show_vty_link_subtlv_link_id(vty, &lp->link_id.header);
 		if (TLV_TYPE(lp->lclif_ipaddr) != 0)
 			show_vty_link_subtlv_lclif_ipaddr(
-				vty, &lp->lclif_ipaddr.header);
+				vty, &lp->lclif_ipaddr.header,
+				lp->lclif_ipaddr.header.length);
 		if (TLV_TYPE(lp->rmtif_ipaddr) != 0)
 			show_vty_link_subtlv_rmtif_ipaddr(
-				vty, &lp->rmtif_ipaddr.header);
+				vty, &lp->rmtif_ipaddr.header,
+				lp->rmtif_ipaddr.header.length);
 		if (TLV_TYPE(lp->rip) != 0)
 			show_vty_link_subtlv_rip(vty, &lp->rip.header);
 		if (TLV_TYPE(lp->ras) != 0)

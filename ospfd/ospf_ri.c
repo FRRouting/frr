@@ -294,8 +294,8 @@ static void set_pce_address(struct in_addr ipv4, struct ospf_pce_info *pce)
 	pce->pce_header.header.type = htons(RI_TLV_PCE);
 	/* Set PCE Address */
 	pce->pce_address.header.type = htons(RI_PCE_SUBTLV_ADDRESS);
-	pce->pce_address.header.length = htons(PCE_ADDRESS_LENGTH_IPV4);
-	pce->pce_address.address.type = htons(PCE_ADDRESS_TYPE_IPV4);
+	pce->pce_address.header.length = htons(PCE_ADDRESS_IPV4_SIZE);
+	pce->pce_address.address.type = htons(PCE_ADDRESS_IPV4);
 	pce->pce_address.address.value = ipv4;
 
 	return;
@@ -323,7 +323,7 @@ static void set_pce_domain(uint16_t type, uint32_t domain,
 		      sizeof(struct ri_pce_subtlv_domain));
 
 	new->header.type = htons(RI_PCE_SUBTLV_DOMAIN);
-	new->header.length = htons(PCE_ADDRESS_LENGTH_IPV4);
+	new->header.length = htons(PCE_ADDRESS_IPV4_SIZE);
 	new->type = htons(type);
 	new->value = htonl(domain);
 
@@ -369,7 +369,7 @@ static void set_pce_neighbor(uint16_t type, uint32_t domain,
 		      sizeof(struct ri_pce_subtlv_neighbor));
 
 	new->header.type = htons(RI_PCE_SUBTLV_NEIGHBOR);
-	new->header.length = htons(PCE_ADDRESS_LENGTH_IPV4);
+	new->header.length = htons(PCE_ADDRESS_IPV4_SIZE);
 	new->type = htons(type);
 	new->value = htonl(domain);
 
@@ -1226,9 +1226,24 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
  * Followings are vty session control functions.
  *------------------------------------------------------------------------*/
 
+#define check_tlv_size(size, msg)                                              \
+	do {                                                                   \
+		if (ntohs(tlvh->length) > size) {                              \
+			if (vty != NULL)                                       \
+				vty_out(vty, "  Wrong %s TLV size: %d(%d)\n",  \
+					msg, ntohs(tlvh->length), size);       \
+			else                                                   \
+				zlog_debug("    Wrong %s TLV size: %d(%d)\n",  \
+					   msg, ntohs(tlvh->length), size);    \
+			return size + TLV_HDR_SIZE;                            \
+		}                                                              \
+	} while (0)
+
 static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct ri_tlv_router_cap *top = (struct ri_tlv_router_cap *)tlvh;
+
+	check_tlv_size(RI_TLV_CAPABILITIES_SIZE, "Router Capabilities");
 
 	if (vty != NULL)
 		vty_out(vty, "  Router Capabilities: 0x%x\n",
@@ -1245,21 +1260,30 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 	struct ri_pce_subtlv_address *top =
 		(struct ri_pce_subtlv_address *)tlvh;
 
-	if (ntohs(top->address.type) == PCE_ADDRESS_TYPE_IPV4) {
+	if (ntohs(top->address.type) == PCE_ADDRESS_IPV4) {
+		check_tlv_size(PCE_ADDRESS_IPV4_SIZE, "PCE Address");
 		if (vty != NULL)
 			vty_out(vty, "  PCE Address: %pI4\n",
 				&top->address.value);
 		else
 			zlog_debug("    PCE Address: %pI4",
 				   &top->address.value);
-	} else {
+	} else if (ntohs(top->address.type) == PCE_ADDRESS_IPV6) {
 		/* TODO: Add support to IPv6 with inet_ntop() */
+		check_tlv_size(PCE_ADDRESS_IPV6_SIZE, "PCE Address");
 		if (vty != NULL)
 			vty_out(vty, "  PCE Address: 0x%x\n",
 				ntohl(top->address.value.s_addr));
 		else
 			zlog_debug("    PCE Address: 0x%x",
 				   ntohl(top->address.value.s_addr));
+	} else {
+		if (vty != NULL)
+			vty_out(vty, "  Wrong PCE Address type: 0x%x\n",
+				ntohl(top->address.type));
+		else
+			zlog_debug("    Wrong PCE Address type: 0x%x",
+				   ntohl(top->address.type));
 	}
 
 	return TLV_SIZE(tlvh);
@@ -1270,6 +1294,8 @@ static uint16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
 {
 	struct ri_pce_subtlv_path_scope *top =
 		(struct ri_pce_subtlv_path_scope *)tlvh;
+
+	check_tlv_size(RI_PCE_SUBTLV_PATH_SCOPE_SIZE, "PCE Path Scope");
 
 	if (vty != NULL)
 		vty_out(vty, "  PCE Path Scope: 0x%x\n", ntohl(top->value));
@@ -1285,19 +1311,29 @@ static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
 	struct ri_pce_subtlv_domain *top = (struct ri_pce_subtlv_domain *)tlvh;
 	struct in_addr tmp;
 
+	check_tlv_size(RI_PCE_SUBTLV_DOMAIN_SIZE, "PCE Domain");
+
 	if (ntohs(top->type) == PCE_DOMAIN_TYPE_AREA) {
 		tmp.s_addr = top->value;
 		if (vty != NULL)
-			vty_out(vty, "  PCE domain Area: %pI4\n", &tmp);
+			vty_out(vty, "  PCE Domain Area: %pI4\n", &tmp);
 		else
-			zlog_debug("    PCE domain Area: %pI4", &tmp);
-	} else {
+			zlog_debug("    PCE Domain Area: %pI4", &tmp);
+	} else if (ntohs(top->type) == PCE_DOMAIN_TYPE_AS) {
 		if (vty != NULL)
-			vty_out(vty, "  PCE domain AS: %d\n",
+			vty_out(vty, "  PCE Domain AS: %d\n",
 				ntohl(top->value));
 		else
-			zlog_debug("    PCE domain AS: %d", ntohl(top->value));
+			zlog_debug("    PCE Domain AS: %d", ntohl(top->value));
+	} else {
+		if (vty != NULL)
+			vty_out(vty, "  Wrong PCE Domain type: %d\n",
+				ntohl(top->type));
+		else
+			zlog_debug("    Wrong PCE Domain type: %d",
+				   ntohl(top->type));
 	}
+
 	return TLV_SIZE(tlvh);
 }
 
@@ -1309,21 +1345,30 @@ static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
 		(struct ri_pce_subtlv_neighbor *)tlvh;
 	struct in_addr tmp;
 
+	check_tlv_size(RI_PCE_SUBTLV_NEIGHBOR_SIZE, "PCE Neighbor");
+
 	if (ntohs(top->type) == PCE_DOMAIN_TYPE_AREA) {
 		tmp.s_addr = top->value;
 		if (vty != NULL)
-			vty_out(vty, "  PCE neighbor Area: %pI4\n",
-				&tmp);
+			vty_out(vty, "  PCE Neighbor Area: %pI4\n", &tmp);
 		else
-			zlog_debug("    PCE neighbor Area: %pI4", &tmp);
-	} else {
+			zlog_debug("    PCE Neighbor Area: %pI4", &tmp);
+	} else if (ntohs(top->type) == PCE_DOMAIN_TYPE_AS) {
 		if (vty != NULL)
-			vty_out(vty, "  PCE neighbor AS: %d\n",
+			vty_out(vty, "  PCE Neighbor AS: %d\n",
 				ntohl(top->value));
 		else
-			zlog_debug("    PCE neighbor AS: %d",
+			zlog_debug("    PCE Neighbor AS: %d",
 				   ntohl(top->value));
+	} else {
+		if (vty != NULL)
+			vty_out(vty, "  Wrong PCE Neighbor type: %d\n",
+				ntohl(top->type));
+		else
+			zlog_debug("    Wrong PCE Neighbor type: %d",
+				   ntohl(top->type));
 	}
+
 	return TLV_SIZE(tlvh);
 }
 
@@ -1332,6 +1377,8 @@ static uint16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
 {
 	struct ri_pce_subtlv_cap_flag *top =
 		(struct ri_pce_subtlv_cap_flag *)tlvh;
+
+	check_tlv_size(RI_PCE_SUBTLV_CAP_FLAG_SIZE, "PCE Capabilities");
 
 	if (vty != NULL)
 		vty_out(vty, "  PCE Capabilities Flag: 0x%x\n",
@@ -1343,8 +1390,21 @@ static uint16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
+				     size_t buf_size)
 {
+	if (TLV_SIZE(tlvh) > buf_size) {
+		if (vty != NULL)
+			vty_out(vty,
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		else
+			zlog_debug(
+				"    TLV size %d exceeds buffer size. Abort!",
+				TLV_SIZE(tlvh));
+		return buf_size;
+	}
+
 	if (vty != NULL)
 		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
 			ntohs(tlvh->type), ntohs(tlvh->length));
@@ -1356,12 +1416,21 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
 }
 
 static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
-				  uint32_t total)
+				  size_t buf_size)
 {
 	struct tlv_header *tlvh;
+	uint16_t length = ntohs(ri->length);
 	uint16_t sum = 0;
 
-	for (tlvh = ri; sum < total; tlvh = TLV_HDR_NEXT(tlvh)) {
+	/* Verify that TLV length is valid against remaining buffer size */
+	if (length > buf_size) {
+		vty_out(vty,
+			"  PCE Info TLV size %d exceeds buffer size. Abort!\n",
+			length);
+		return buf_size;
+	}
+
+	for (tlvh = ri; sum < length; tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case RI_PCE_SUBTLV_ADDRESS:
 			sum += show_vty_pce_subtlv_address(vty, tlvh);
@@ -1379,7 +1448,7 @@ static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
 			sum += show_vty_pce_subtlv_cap_flag(vty, tlvh);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh);
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
 			break;
 		}
 	}
@@ -1392,6 +1461,8 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 	struct ri_sr_tlv_sr_algorithm *algo =
 		(struct ri_sr_tlv_sr_algorithm *)tlvh;
 	int i;
+
+	check_tlv_size(ALGORITHM_COUNT, "Segment Routing Algorithm");
 
 	if (vty != NULL) {
 		vty_out(vty, "  Segment Routing Algorithm TLV:\n");
@@ -1411,9 +1482,7 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 				break;
 			}
 		}
-	}
-
-	else {
+	} else {
 		zlog_debug("  Segment Routing Algorithm TLV:");
 		for (i = 0; i < ntohs(algo->header.length); i++)
 			switch (algo->value[i]) {
@@ -1438,6 +1507,8 @@ static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct ri_sr_tlv_sid_label_range *range =
 		(struct ri_sr_tlv_sid_label_range *)tlvh;
+
+	check_tlv_size(RI_SR_TLV_LABEL_RANGE_SIZE, "SR Label Range");
 
 	if (vty != NULL) {
 		vty_out(vty,
@@ -1467,6 +1538,8 @@ static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct ri_sr_tlv_node_msd *msd = (struct ri_sr_tlv_node_msd *)tlvh;
 
+	check_tlv_size(RI_SR_TLV_NODE_MSD_SIZE, "Node Maximum Stack Depth");
+
 	if (vty != NULL) {
 		vty_out(vty,
 			"  Segment Routing MSD TLV:\n"
@@ -1488,9 +1561,9 @@ static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
 	uint16_t length = 0, sum = 0;
 
 	/* Initialize TLV browsing */
-	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
+	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case RI_TLV_CAPABILITIES:
@@ -1513,7 +1586,7 @@ static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
 			break;
 
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh);
+			sum += show_vty_unknown_tlv(vty, tlvh, length);
 			break;
 		}
 	}

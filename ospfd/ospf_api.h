@@ -276,7 +276,7 @@ struct apimsg {
  */
 
 /* For debugging only. */
-extern void api_opaque_lsa_print(struct lsa_header *data);
+extern void api_opaque_lsa_print(struct ospf_lsa *lsa);
 
 /* Messages sent by client */
 extern struct msg *new_msg_register_opaque_type(uint32_t seqnum, uint8_t ltype,
