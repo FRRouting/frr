@@ -1020,3 +1020,68 @@ For protocols requiring an IPv6 router-id, the following commands are available:
 .. clicmd:: show ipv6 router-id [vrf NAME]
 
    Display the user configured IPv6 router-id.
+
+
+Debugging
+=========
+
+.. clicmd:: debug zebra mpls [detailed]
+
+   MPLS-related events and information.
+
+.. clicmd:: debug zebra events
+
+   Zebra events
+
+.. clicmd:: debug zebra nht [detailed]
+
+   Nexthop-tracking / reachability information
+
+.. clicmd:: debug zebra vxlan
+
+   VxLAN (EVPN) events
+
+.. clicmd:: debug zebra pseudowires
+
+   Pseudowire events.
+
+.. clicmd:: debug zebra packet [<recv|send>] [detail]
+
+   ZAPI message and packet details
+
+.. clicmd:: debug zebra kernel
+
+   Kernel / OS events.
+
+.. clicmd:: debug zebra kernel msgdump [<recv|send>]
+
+   Raw OS (netlink) message details.
+
+.. clicmd:: debug zebra rib [detailed]
+
+   RIB events.
+
+.. clicmd:: debug zebra fpm
+
+   FPM (forwarding-plane manager) events.
+
+.. clicmd:: debug zebra dplane [detailed]
+
+   Dataplane / FIB events.
+
+.. clicmd:: debug zebra pbr
+
+   PBR (policy-based routing) events.
+
+.. clicmd:: debug zebra mlag
+
+   MLAG events.
+
+.. clicmd:: debug zebra evpn mh <es|mac|neigh|nh>
+
+   EVPN multi-hop events.
+
+.. clicmd:: debug zebra nexthop [detail]
+
+   Nexthop and nexthop-group events.
+
