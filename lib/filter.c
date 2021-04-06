@@ -469,59 +469,6 @@ void access_list_filter_add(struct access_list *access,
   host                 A single host address
 */
 
-struct filter *filter_lookup_cisco(struct access_list *access,
-				   struct filter *mnew)
-{
-	struct filter *mfilter;
-	struct filter_cisco *filter;
-	struct filter_cisco *new;
-
-	new = &mnew->u.cfilter;
-
-	for (mfilter = access->head; mfilter; mfilter = mfilter->next) {
-		filter = &mfilter->u.cfilter;
-
-		if (filter->extended) {
-			if (mfilter->type == mnew->type
-			    && filter->addr.s_addr == new->addr.s_addr
-			    && filter->addr_mask.s_addr == new->addr_mask.s_addr
-			    && filter->mask.s_addr == new->mask.s_addr
-			    && filter->mask_mask.s_addr
-				       == new->mask_mask.s_addr)
-				return mfilter;
-		} else {
-			if (mfilter->type == mnew->type
-			    && filter->addr.s_addr == new->addr.s_addr
-			    && filter->addr_mask.s_addr
-				       == new->addr_mask.s_addr)
-				return mfilter;
-		}
-	}
-
-	return NULL;
-}
-
-struct filter *filter_lookup_zebra(struct access_list *access,
-				   struct filter *mnew)
-{
-	struct filter *mfilter;
-	struct filter_zebra *filter;
-	struct filter_zebra *new;
-
-	new = &mnew->u.zfilter;
-
-	for (mfilter = access->head; mfilter; mfilter = mfilter->next) {
-		filter = &mfilter->u.zfilter;
-
-		if (filter->exact == new->exact
-		    && mfilter->type == mnew->type) {
-			if (prefix_same(&filter->prefix, &new->prefix))
-				return mfilter;
-		}
-	}
-	return NULL;
-}
-
 static void config_write_access_zebra(struct vty *, struct filter *);
 static void config_write_access_cisco(struct vty *, struct filter *);
 
