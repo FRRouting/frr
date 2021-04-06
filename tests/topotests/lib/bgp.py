@@ -1582,7 +1582,7 @@ def verify_bgp_convergence_from_running_config(tgen, dut=None):
     return True
 
 
-def clear_bgp(tgen, addr_type, router, vrf=None):
+def clear_bgp(tgen, addr_type, router, vrf=None, neighbor=None):
     """
     This API is to clear bgp neighborship by running
     clear ip bgp */clear bgp ipv6 * command,
@@ -1593,6 +1593,7 @@ def clear_bgp(tgen, addr_type, router, vrf=None):
     * `addr_type`: ip type ipv4/ipv6
     * `router`: device under test
     * `vrf`: vrf name
+    * `neighbor`: Neighbor for which bgp needs to be cleared
 
     Usage
     -----
@@ -1616,12 +1617,16 @@ def clear_bgp(tgen, addr_type, router, vrf=None):
         if vrf:
             for _vrf in vrf:
                 run_frr_cmd(rnode, "clear ip bgp vrf {} *".format(_vrf))
+        elif neighbor:
+            run_frr_cmd(rnode, "clear bgp ipv4 {}".format(neighbor))
         else:
             run_frr_cmd(rnode, "clear ip bgp *")
     elif addr_type == "ipv6":
         if vrf:
             for _vrf in vrf:
                 run_frr_cmd(rnode, "clear bgp vrf {} ipv6 *".format(_vrf))
+        elif neighbor:
+            run_frr_cmd(rnode, "clear bgp ipv6 {}".format(neighbor))
         else:
             run_frr_cmd(rnode, "clear bgp ipv6 *")
     else:
