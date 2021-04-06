@@ -310,7 +310,7 @@ void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core)
 	thread_cancel(&core->thread);
 
 	if ((*cb)->read.cancelled && !(*cb)->read.thread
-	    && (*cb)->write.cancelled && (*cb)->write.thread)
+	    && (*cb)->write.cancelled && !(*cb)->write.thread)
 		XFREE(MTYPE_ZEROMQ_CB, *cb);
 }
 
@@ -330,12 +330,16 @@ void frrzmq_check_events(struct frrzmq_cb **cbp, struct cb_core *core,
 	len = sizeof(events);
 	if (zmq_getsockopt(cb->zmqsock, ZMQ_EVENTS, &events, &len))
 		return;
-	if (events & event && core->thread && !core->cancelled) {
+	if ((events & event) && core->thread && !core->cancelled) {
 		struct thread_master *tm = core->thread->master;
+
 		thread_cancel(&core->thread);
 
-		thread_add_event(tm, (event == ZMQ_POLLIN ? frrzmq_read_msg
-							  : frrzmq_write_msg),
-				 cbp, cb->fd, &core->thread);
+		if (event == ZMQ_POLLIN)
+			thread_add_event(tm, frrzmq_read_msg,
+					 cbp, cb->fd, &core->thread);
+		else
+			thread_add_event(tm, frrzmq_write_msg,
+					 cbp, cb->fd, &core->thread);
 	}
 }
