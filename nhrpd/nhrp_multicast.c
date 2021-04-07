@@ -41,7 +41,6 @@ struct mcast_ctx {
 
 static void nhrp_multicast_send(struct nhrp_peer *p, struct zbuf *zb)
 {
-	char buf[2][256];
 	size_t addrlen;
 	int ret;
 
@@ -51,10 +50,9 @@ static void nhrp_multicast_send(struct nhrp_peer *p, struct zbuf *zb)
 			 addrlen == 4 ? ETH_P_IP : ETH_P_IPV6);
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Multicast Packet: %s -> %s, ret = %d, size = %zu, addrlen = %zu",
-	       sockunion2str(&p->vc->local.nbma, buf[0], sizeof(buf[0])),
-	       sockunion2str(&p->vc->remote.nbma, buf[1], sizeof(buf[1])), ret,
-	       zbuf_used(zb), addrlen);
+	       "Multicast Packet: %pSU -> %pSU, ret = %d, size = %zu, addrlen = %zu",
+	       &p->vc->local.nbma, &p->vc->remote.nbma, ret, zbuf_used(zb),
+	       addrlen);
 }
 
 static void nhrp_multicast_forward_nbma(union sockunion *nbma_addr,
@@ -232,7 +230,6 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
-	char buf[SU_ADDRSTRLEN];
 
 	list_for_each_entry(mcast, &nifp->afi[afi].mcastlist_head, list_entry)
 	{
@@ -247,8 +244,7 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 	};
 	list_add_tail(&mcast->list_entry, &nifp->afi[afi].mcastlist_head);
 
-	sockunion2str(nbma_addr, buf, sizeof(buf));
-	debugf(NHRP_DEBUG_COMMON, "Adding multicast entry (%s)", buf);
+	debugf(NHRP_DEBUG_COMMON, "Adding multicast entry (%pSU)", nbma_addr);
 
 	return NHRP_OK;
 }
@@ -258,7 +254,6 @@ int nhrp_multicast_del(struct interface *ifp, afi_t afi,
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast, *tmp;
-	char buf[SU_ADDRSTRLEN];
 
 	list_for_each_entry_safe(mcast, tmp, &nifp->afi[afi].mcastlist_head,
 				 list_entry)
@@ -266,8 +261,8 @@ int nhrp_multicast_del(struct interface *ifp, afi_t afi,
 		if (!sockunion_same(&mcast->nbma_addr, nbma_addr))
 			continue;
 
-		sockunion2str(nbma_addr, buf, sizeof(buf));
-		debugf(NHRP_DEBUG_COMMON, "Deleting multicast entry (%s)", buf);
+		debugf(NHRP_DEBUG_COMMON, "Deleting multicast entry (%pSU)",
+		       nbma_addr);
 
 		nhrp_multicast_free(ifp, mcast);
 

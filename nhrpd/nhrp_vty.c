@@ -1127,16 +1127,15 @@ static void interface_config_write_nhrp_map(struct nhrp_cache_config *c,
 {
 	struct write_map_ctx *ctx = data;
 	struct vty *vty = ctx->vty;
-	char buf[2][SU_ADDRSTRLEN];
 
 	if (sockunion_family(&c->remote_addr) != ctx->family)
 		return;
 
-	vty_out(vty, " %s nhrp map %s %s\n", ctx->aficmd,
-		sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
-		c->type == NHRP_CACHE_LOCAL
-			? "local"
-			: sockunion2str(&c->nbma, buf[1], sizeof(buf[1])));
+	vty_out(vty, " %s nhrp map %pSU ", ctx->aficmd, &c->remote_addr);
+	if (c->type == NHRP_CACHE_LOCAL)
+		vty_out(vty, "local\n");
+	else
+		vty_out(vty, "%pSU\n", &c->nbma);
 }
 
 static int interface_config_write(struct vty *vty)
@@ -1149,7 +1148,6 @@ static int interface_config_write(struct vty *vty)
 	struct nhrp_multicast *mcast;
 	const char *aficmd;
 	afi_t afi;
-	char buf[SU_ADDRSTRLEN];
 	int i;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -1206,28 +1204,25 @@ static int interface_config_write(struct vty *vty)
 			list_for_each_entry(nhs, &ad->nhslist_head,
 					    nhslist_entry)
 			{
-				vty_out(vty, " %s nhrp nhs %s nbma %s\n",
-					aficmd,
-					sockunion_family(&nhs->proto_addr)
-							== AF_UNSPEC
-						? "dynamic"
-						: sockunion2str(
-							  &nhs->proto_addr, buf,
-							  sizeof(buf)),
-					nhs->nbma_fqdn);
+				vty_out(vty, " %s nhrp nhs ", aficmd);
+				if (sockunion_family(&nhs->proto_addr)
+				   == AF_UNSPEC)
+					vty_out(vty, "dynamic");
+				else
+					vty_out(vty, "%pSU", &nhs->proto_addr);
+				vty_out(vty, "nbma %s\n", nhs->nbma_fqdn);
 			}
 
 			list_for_each_entry(mcast, &ad->mcastlist_head,
 					    list_entry)
 			{
-				vty_out(vty, " %s nhrp map multicast %s\n",
-					aficmd,
-					sockunion_family(&mcast->nbma_addr)
-							== AF_UNSPEC
-						? "dynamic"
-						: sockunion2str(
-							  &mcast->nbma_addr,
-							  buf, sizeof(buf)));
+				vty_out(vty, " %s nhrp map multicast ", aficmd);
+				if (sockunion_family(&mcast->nbma_addr)
+				   == AF_UNSPEC)
+					vty_out(vty, "dynamic\n");
+				else
+					vty_out(vty, "%pSU\n",
+						&mcast->nbma_addr);
 			}
 		}
 
