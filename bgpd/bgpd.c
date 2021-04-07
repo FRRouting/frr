@@ -1231,7 +1231,7 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer)
 	 * UPDATE.
 	 */
 	connection->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_DEFAULT);
 
 	connection->status = Idle;
 	connection->ostatus = Idle;
@@ -3534,9 +3534,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			n);
 	}
 
-	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
+	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_DEFAULT,
 			      memory_order_relaxed);
-	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
+	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_DEFAULT,
 			      memory_order_relaxed);
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	bgp->default_af[AFI_IP][SAFI_UNICAST] = true;
