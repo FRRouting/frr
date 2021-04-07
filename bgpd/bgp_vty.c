@@ -2003,7 +2003,7 @@ static int bgp_wpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	quanta = set ? quanta : BGP_WRITE_PACKET_MAX;
+	quanta = set ? quanta : BGP_WRITE_PACKET_DEFAULT;
 	atomic_store_explicit(&bgp->wpkt_quanta, quanta, memory_order_relaxed);
 
 	return CMD_SUCCESS;
@@ -2014,7 +2014,7 @@ static int bgp_rpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	quanta = set ? quanta : BGP_READ_PACKET_MAX;
+	quanta = set ? quanta : BGP_READ_PACKET_DEFAULT;
 	atomic_store_explicit(&bgp->rpkt_quanta, quanta, memory_order_relaxed);
 
 	return CMD_SUCCESS;
@@ -2024,7 +2024,7 @@ void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp)
 {
 	uint32_t quanta =
 		atomic_load_explicit(&bgp->wpkt_quanta, memory_order_relaxed);
-	if (quanta != BGP_WRITE_PACKET_MAX)
+	if (quanta != BGP_WRITE_PACKET_DEFAULT)
 		vty_out(vty, " write-quanta %d\n", quanta);
 }
 
@@ -2032,7 +2032,7 @@ void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
 {
 	uint32_t quanta =
 		atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed);
-	if (quanta != BGP_READ_PACKET_MAX)
+	if (quanta != BGP_READ_PACKET_DEFAULT)
 		vty_out(vty, " read-quanta %d\n", quanta);
 }
 
@@ -2046,7 +2046,7 @@ void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
  */
 DEFPY (bgp_wpkt_quanta,
        bgp_wpkt_quanta_cmd,
-       "[no] write-quanta (1-64)$quanta",
+       "[no] write-quanta (1-10000)$quanta",
        NO_STR
        "How many packets to write to peer socket per run\n"
        "Number of packets\n")
@@ -2056,7 +2056,7 @@ DEFPY (bgp_wpkt_quanta,
 
 DEFPY (bgp_rpkt_quanta,
        bgp_rpkt_quanta_cmd,
-       "[no] read-quanta (1-10)$quanta",
+       "[no] read-quanta (1-1000)$quanta",
        NO_STR
        "How many packets to read from peer socket per I/O cycle\n"
        "Number of packets\n")
