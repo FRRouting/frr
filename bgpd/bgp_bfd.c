@@ -424,8 +424,7 @@ void bgp_bfd_peer_config_write(struct vty *vty, const struct peer *peer,
 void bgp_bfd_show_info(struct vty *vty, const struct peer *peer,
 		       json_object *json_neigh)
 {
-	if (peer->bfd_config->session)
-		bfd_sess_show(vty, json_neigh, peer->bfd_config->session);
+	bfd_sess_show(vty, json_neigh, peer->bfd_config->session);
 }
 
 DEFUN (neighbor_bfd,
