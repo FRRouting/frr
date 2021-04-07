@@ -314,6 +314,225 @@ static bool is_thread_sched(const char *name, size_t len)
 }
 #endif
 
+static bool _check_val(bool cond, const char *text, LLVMValueRef dumpval)
+{
+	if (cond)
+		return true;
+
+	char *dump = LLVMPrintValueToString(dumpval);
+	fprintf(stderr, "check failed: %s\ndump:\n\t%s\n", text, dump);
+	LLVMDisposeMessage(dump);
+	return false;
+}
+
+#define check_val(cond, dump)                                                  \
+	if (!_check_val(cond, #cond, dump))                                    \
+		return;
+
+static char *get_string(LLVMValueRef value)
+{
+	if (!LLVMIsAConstant(value))
+		return strdup("!NOT-A-CONST");
+
+	if (LLVMGetValueKind(value) == LLVMConstantExprValueKind
+	    && LLVMGetConstOpcode(value) == LLVMGetElementPtr) {
+		value = LLVMGetOperand(value, 0);
+
+		if (!LLVMIsAConstant(value))
+			return strdup("!NOT-A-CONST-2");
+	}
+
+	if (LLVMIsAGlobalVariable(value))
+		value = LLVMGetInitializer(value);
+
+	size_t len = 0;
+	const char *sval = LLVMGetAsString(value, &len);
+
+	return strndup(sval, len);
+}
+
+static void handle_yang_module(struct json_object *js_special,
+			       LLVMValueRef yang_mod)
+{
+	check_val(LLVMIsAGlobalVariable(yang_mod), yang_mod);
+
+	LLVMValueRef value;
+
+	value = LLVMGetInitializer(yang_mod);
+	LLVMValueKind kind = LLVMGetValueKind(value);
+
+	check_val(kind == LLVMConstantStructValueKind, value);
+
+	size_t var_len = 0;
+	const char *var_name = LLVMGetValueName2(yang_mod, &var_len);
+	char buf_name[var_len + 1];
+
+	memcpy(buf_name, var_name, var_len);
+	buf_name[var_len] = '\0';
+
+	struct json_object *js_yang, *js_yangmod, *js_items;
+
+	js_yang = js_get_or_make(js_special, "yang", json_object_new_object);
+	js_yangmod = js_get_or_make(js_yang, buf_name, json_object_new_object);
+	js_items = js_get_or_make(js_yangmod, "items", json_object_new_array);
+
+	char *mod_name = get_string(LLVMGetOperand(value, 0));
+	json_object_object_add(js_yangmod, "name",
+			       json_object_new_string(mod_name));
+	free(mod_name);
+
+	value = LLVMGetOperand(value, 1);
+	kind = LLVMGetValueKind(value);
+	check_val(kind == LLVMConstantArrayValueKind, value);
+
+	unsigned len = LLVMGetArrayLength(LLVMTypeOf(value));
+
+	for (unsigned i = 0; i < len - 1; i++) {
+		struct json_object *js_item, *js_cbs;
+		LLVMValueRef item = LLVMGetOperand(value, i);
+		char *xpath = get_string(LLVMGetOperand(item, 0));
+
+		js_item = json_object_new_object();
+		json_object_array_add(js_items, js_item);
+
+		json_object_object_add(js_item, "xpath",
+				       json_object_new_string(xpath));
+		js_cbs = js_get_or_make(js_item, "cbs", json_object_new_object);
+
+		free(xpath);
+
+		LLVMValueRef cbs = LLVMGetOperand(item, 1);
+
+		check_val(LLVMGetValueKind(cbs) == LLVMConstantStructValueKind,
+			  value);
+
+		LLVMTypeRef cbs_type = LLVMTypeOf(cbs);
+		unsigned cblen = LLVMCountStructElementTypes(cbs_type);
+
+		for (unsigned i = 0; i < cblen; i++) {
+			LLVMValueRef cb = LLVMGetOperand(cbs, i);
+
+			char *sname = NULL;
+			char *mname = NULL;
+
+			if (dbginfo_struct_member(dbginfo, cbs_type, i, &sname,
+						  &mname)) {
+				(void)0;
+			}
+
+			if (LLVMIsAFunction(cb)) {
+				size_t fn_len;
+				const char *fn_name;
+
+				fn_name = LLVMGetValueName2(cb, &fn_len);
+
+				json_object_object_add(
+					js_cbs, mname,
+					json_object_new_string_len(fn_name,
+								   fn_len));
+			}
+
+			free(sname);
+			free(mname);
+		}
+	}
+}
+
+static void handle_daemoninfo(struct json_object *js_special,
+			      LLVMValueRef daemoninfo)
+{
+	check_val(LLVMIsAGlobalVariable(daemoninfo), daemoninfo);
+
+	LLVMTypeRef type;
+	LLVMValueRef value;
+	unsigned len;
+
+	type = LLVMGlobalGetValueType(daemoninfo);
+	value = LLVMGetInitializer(daemoninfo);
+	LLVMValueKind kind = LLVMGetValueKind(value);
+
+	check_val(kind == LLVMConstantStructValueKind, value);
+
+	int yang_idx = -1;
+
+	len = LLVMCountStructElementTypes(type);
+
+	LLVMTypeRef fieldtypes[len];
+	LLVMGetSubtypes(type, fieldtypes);
+
+	for (unsigned i = 0; i < len; i++) {
+		LLVMTypeRef t = fieldtypes[i];
+
+		if (LLVMGetTypeKind(t) != LLVMPointerTypeKind)
+			continue;
+		t = LLVMGetElementType(t);
+		if (LLVMGetTypeKind(t) != LLVMPointerTypeKind)
+			continue;
+		t = LLVMGetElementType(t);
+		if (LLVMGetTypeKind(t) != LLVMStructTypeKind)
+			continue;
+
+		const char *name = LLVMGetStructName(t);
+		if (!strcmp(name, "struct.frr_yang_module_info"))
+			yang_idx = i;
+	}
+
+	if (yang_idx == -1)
+		return;
+
+	LLVMValueRef yang_mods = LLVMGetOperand(value, yang_idx);
+	LLVMValueRef yang_size = LLVMGetOperand(value, yang_idx + 1);
+
+	check_val(LLVMIsConstant(yang_size), yang_size);
+
+	unsigned long long ival = LLVMConstIntGetZExtValue(yang_size);
+
+	check_val(LLVMGetValueKind(yang_mods) == LLVMConstantExprValueKind
+			  && LLVMGetConstOpcode(yang_mods) == LLVMGetElementPtr,
+		  yang_mods);
+
+	yang_mods = LLVMGetOperand(yang_mods, 0);
+
+	check_val(LLVMIsAGlobalVariable(yang_mods), yang_mods);
+
+	yang_mods = LLVMGetInitializer(yang_mods);
+
+	check_val(LLVMGetValueKind(yang_mods) == LLVMConstantArrayValueKind,
+		  yang_mods);
+
+	len = LLVMGetArrayLength(LLVMTypeOf(yang_mods));
+
+	if (len != ival)
+		fprintf(stderr, "length mismatch - %llu vs. %u\n", ival, len);
+
+	for (unsigned i = 0; i < len; i++) {
+		char *dump;
+
+		LLVMValueRef item = LLVMGetOperand(yang_mods, i);
+		LLVMValueKind kind = LLVMGetValueKind(item);
+
+		check_val(kind == LLVMGlobalVariableValueKind
+				  || kind == LLVMConstantExprValueKind,
+			  item);
+
+		if (kind == LLVMGlobalVariableValueKind)
+			continue;
+
+		LLVMOpcode opcode = LLVMGetConstOpcode(item);
+		switch (opcode) {
+		case LLVMBitCast:
+			item = LLVMGetOperand(item, 0);
+			handle_yang_module(js_special, item);
+			break;
+
+		default:
+			dump = LLVMPrintValueToString(item);
+			printf("[%u] = [opcode=%u] %s\n", i, opcode, dump);
+			LLVMDisposeMessage(dump);
+		}
+	}
+}
+
 static void process_call(struct json_object *js_calls,
 			 struct json_object *js_special,
 			 LLVMValueRef instr,
@@ -535,6 +754,14 @@ static void process_call(struct json_object *js_calls,
 		 * - zclient->* ?
 		 */
 #endif /* FRR_SPECIFIC */
+	} else if (!strcmp(called_name, "frr_preinit")) {
+		LLVMValueRef daemoninfo = LLVMGetOperand(instr, 0);
+
+		handle_daemoninfo(js_special, daemoninfo);
+
+		json_object_object_add(
+			js_call, "target",
+			json_object_new_string_len(called_name, called_len));
 	} else {
 		json_object_object_add(
 			js_call, "target",
