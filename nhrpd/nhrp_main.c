@@ -146,6 +146,7 @@ int main(int argc, char **argv)
 
 	/* Run with elevated capabilities, as for all netlink activity
 	 * we need privileges anyway. */
+	assert(nhrpd_privs.change);
 	nhrpd_privs.change(ZPRIVS_RAISE);
 
 	netlink_init();
