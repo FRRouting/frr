@@ -76,6 +76,7 @@ check_PROGRAMS = \
 	tests/lib/test_idalloc \
 	tests/lib/test_memory \
 	tests/lib/test_nexthop_iter \
+	tests/lib/test_nexthop \
 	tests/lib/test_ntop \
 	tests/lib/test_prefix2str \
 	tests/lib/test_printfrr \
@@ -293,6 +294,10 @@ tests_lib_test_nexthop_iter_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_nexthop_iter_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_nexthop_iter_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_nexthop_iter_SOURCES = tests/lib/test_nexthop_iter.c tests/helpers/c/prng.c
+tests_lib_test_nexthop_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_nexthop_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_nexthop_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_nexthop_SOURCES = tests/lib/test_nexthop.c
 tests_lib_test_ntop_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_ntop_CPPFLAGS = $(CPPFLAGS_BASE) # no assert override
 tests_lib_test_ntop_LDADD = # none
@@ -412,6 +417,7 @@ EXTRA_DIST += \
 	tests/lib/test_assert.py \
 	tests/lib/test_atomlist.py \
 	tests/lib/test_nexthop_iter.py \
+	tests/lib/test_nexthop.py \
 	tests/lib/test_ntop.py \
 	tests/lib/test_prefix2str.py \
 	tests/lib/test_printfrr.py \
