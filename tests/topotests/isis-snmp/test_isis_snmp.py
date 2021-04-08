@@ -124,7 +124,6 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears["r3"])
 
 
-
 def setup_module(mod):
     "Sets up the pytest environment"
 
@@ -148,19 +147,23 @@ def setup_module(mod):
         # Don't start the following in the CE nodes
         if router.name[0] == "r":
             router.load_config(
-                TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname)),
+                TopoRouter.RD_ISIS,
+                os.path.join(CWD, "{}/isisd.conf".format(rname)),
                 "-M snmp",
             )
             router.load_config(
-                TopoRouter.RD_LDP, os.path.join(CWD, "{}/ldpd.conf".format(rname)),
+                TopoRouter.RD_LDP,
+                os.path.join(CWD, "{}/ldpd.conf".format(rname)),
             )
             router.load_config(
-                TopoRouter.RD_SNMP, os.path.join(CWD, "{}/snmpd.conf".format(rname)),
+                TopoRouter.RD_SNMP,
+                os.path.join(CWD, "{}/snmpd.conf".format(rname)),
                 "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap",
             )
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -168,6 +171,7 @@ def teardown_module(mod):
 
     # This function tears down the whole topology.
     tgen.stop_topology()
+
 
 def router_compare_json_output(rname, command, reference):
     "Compare router JSON output"
@@ -183,6 +187,7 @@ def router_compare_json_output(rname, command, reference):
     _, diff = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
+
 
 def generate_oid(numoids, index1, index2):
     if numoids == 1:
@@ -200,7 +205,9 @@ def test_isis_convergence():
         router_compare_json_output(
             rname,
             "show yang operational-data /frr-interface:lib isisd",
-            "show_yang_interface_isis_adjacencies.ref")
+            "show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_r1_scalar_snmp():
     "Wait for protocol convergence"
@@ -213,26 +220,26 @@ def test_r1_scalar_snmp():
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
-    assert r1_snmp.test_oid('isisSysVersion', "one(1)")
-    assert r1_snmp.test_oid('isisSysLevelType', "level1and2(3)")
-    assert r1_snmp.test_oid('isisSysID',"00 00 00 00 00 01")
-    assert r1_snmp.test_oid('isisSysMaxPathSplits',"32")
-    assert r1_snmp.test_oid('isisSysMaxLSPGenInt',"900 seconds")
-    assert r1_snmp.test_oid('isisSysAdminState',"on(1)")
-    assert r1_snmp.test_oid('isisSysMaxAge',"1200 seconds")
-    assert r1_snmp.test_oid('isisSysProtSupported',"07 5 6 7")
+    assert r1_snmp.test_oid("isisSysVersion", "one(1)")
+    assert r1_snmp.test_oid("isisSysLevelType", "level1and2(3)")
+    assert r1_snmp.test_oid("isisSysID", "00 00 00 00 00 01")
+    assert r1_snmp.test_oid("isisSysMaxPathSplits", "32")
+    assert r1_snmp.test_oid("isisSysMaxLSPGenInt", "900 seconds")
+    assert r1_snmp.test_oid("isisSysAdminState", "on(1)")
+    assert r1_snmp.test_oid("isisSysMaxAge", "1200 seconds")
+    assert r1_snmp.test_oid("isisSysProtSupported", "07 5 6 7")
 
     r2 = tgen.net.get("r2")
     r2_snmp = SnmpTester(r2, "2.2.2.2", "public", "2c")
- 
-    assert r2_snmp.test_oid('isisSysVersion', "one(1)")
-    assert r2_snmp.test_oid('isisSysLevelType', "level1and2(3)")
-    assert r2_snmp.test_oid('isisSysID',"00 00 00 00 00 02")
-    assert r2_snmp.test_oid('isisSysMaxPathSplits',"32")
-    assert r2_snmp.test_oid('isisSysMaxLSPGenInt',"900 seconds")
-    assert r2_snmp.test_oid('isisSysAdminState',"on(1)")
-    assert r2_snmp.test_oid('isisSysMaxAge',"1200 seconds")
-    assert r2_snmp.test_oid('isisSysProtSupported',"07 5 6 7")
+
+    assert r2_snmp.test_oid("isisSysVersion", "one(1)")
+    assert r2_snmp.test_oid("isisSysLevelType", "level1and2(3)")
+    assert r2_snmp.test_oid("isisSysID", "00 00 00 00 00 02")
+    assert r2_snmp.test_oid("isisSysMaxPathSplits", "32")
+    assert r2_snmp.test_oid("isisSysMaxLSPGenInt", "900 seconds")
+    assert r2_snmp.test_oid("isisSysAdminState", "on(1)")
+    assert r2_snmp.test_oid("isisSysMaxAge", "1200 seconds")
+    assert r2_snmp.test_oid("isisSysProtSupported", "07 5 6 7")
 
 
 circtable_test = {
@@ -245,7 +252,8 @@ circtable_test = {
     "isisCircMeshGroupEnabled": ["inactive(1)", "inactive(1)", "inactive(1)"],
     "isisCircSmallHellos": ["false(2)", "false(2)", "false(2)"],
     "isisCirc3WayEnabled": ["false(2)", "false(2)", "false(2)"],
- }
+}
+
 
 def test_r1_isisCircTable():
     tgen = get_topogen()
@@ -256,9 +264,9 @@ def test_r1_isisCircTable():
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     oids = []
-    oids.append(generate_oid(1,1,0))
-    oids.append(generate_oid(1,2,0))
-    oids.append(generate_oid(1,3,0))
+    oids.append(generate_oid(1, 1, 0))
+    oids.append(generate_oid(1, 2, 0))
+    oids.append(generate_oid(1, 3, 0))
 
     # check items
     for item in circtable_test.keys():
@@ -267,14 +275,26 @@ def test_r1_isisCircTable():
         )
         assert r1_snmp.test_oid_walk(item, circtable_test[item], oids), assertmsg
 
+
 circleveltable_test = {
     "isisCircLevelMetric": ["10", "10", "10", "10"],
     "isisCircLevelWideMetric": ["10", "10", "0", "0"],
     "isisCircLevelISPriority": ["64", "64", "64", "64"],
     "isisCircLevelHelloMultiplier": ["10", "10", "10", "10"],
-    "isisCircLevelHelloTimer": ["3000 milliseconds", "3000 milliseconds", "3000 milliseconds", "3000 milliseconds"],
-    "isisCircLevelMinLSPRetransInt": ["1 seconds", "1 seconds", "0 seconds", "0 seconds"],
- }
+    "isisCircLevelHelloTimer": [
+        "3000 milliseconds",
+        "3000 milliseconds",
+        "3000 milliseconds",
+        "3000 milliseconds",
+    ],
+    "isisCircLevelMinLSPRetransInt": [
+        "1 seconds",
+        "1 seconds",
+        "0 seconds",
+        "0 seconds",
+    ],
+}
+
 
 def test_r1_isislevelCircTable():
     tgen = get_topogen()
@@ -285,10 +305,10 @@ def test_r1_isislevelCircTable():
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     oids = []
-    oids.append(generate_oid(2,1,"area"))
-    oids.append(generate_oid(2,2,"area"))
-    oids.append(generate_oid(2,3,"area"))
-    oids.append(generate_oid(2,3,"domain"))
+    oids.append(generate_oid(2, 1, "area"))
+    oids.append(generate_oid(2, 2, "area"))
+    oids.append(generate_oid(2, 3, "area"))
+    oids.append(generate_oid(2, 3, "domain"))
 
     # check items
     for item in circleveltable_test.keys():
@@ -316,6 +336,7 @@ adjtable_down_test = {
     "isisISAdjNeighPriority": ["64"],
 }
 
+
 def test_r1_isisAdjTable():
     "check ISIS Adjacency Table"
     tgen = get_topogen()
@@ -324,11 +345,11 @@ def test_r1_isisAdjTable():
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     oids = []
-    oids.append(generate_oid(2,1,1))
-    oids.append(generate_oid(2,2,1))
+    oids.append(generate_oid(2, 1, 1))
+    oids.append(generate_oid(2, 2, 1))
 
     oids_down = []
-    oids_down.append(generate_oid(2,1,1))
+    oids_down.append(generate_oid(2, 1, 1))
 
     # check items
     for item in adjtable_test.keys():
@@ -336,7 +357,6 @@ def test_r1_isisAdjTable():
             item, adjtable_test[item], oids, r1_snmp.walk(item)
         )
         assert r1_snmp.test_oid_walk(item, adjtable_test[item], oids), assertmsg
-
 
     # shutdown interface and one adjacency should be removed
     "check ISIS adjacency is removed when interface is shutdown"
@@ -347,7 +367,9 @@ def test_r1_isisAdjTable():
         assertmsg = "{} should be {} oids {} full dict {}:".format(
             item, adjtable_down_test[item], oids_down, r1_snmp.walk(item)
         )
-        assert r1_snmp.test_oid_walk(item, adjtable_down_test[item], oids_down), assertmsg
+        assert r1_snmp.test_oid_walk(
+            item, adjtable_down_test[item], oids_down
+        ), assertmsg
 
     # no shutdown interface and adjacency should be restored
     r1_cmd.vtysh_cmd("conf t\ninterface r1-eth1\nno shutdown")

@@ -249,17 +249,20 @@ def test_ospf_chaos_tc31_p1(request):
     dut = "r1"
     protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-        expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: routes are still present \n Error: {}".format(
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     step("Bring up OSPFd daemon on R0.")
     start_router_daemons(tgen, "r0", ["ospfd"])
@@ -482,17 +485,20 @@ def test_ospf_chaos_tc34_p1(request):
     dut = "r1"
     protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol,
-            expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: routes are still present \n Error: {}".format(
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     step("Bring up staticd daemon on R0.")
     start_router_daemons(tgen, "r0", ["staticd"])

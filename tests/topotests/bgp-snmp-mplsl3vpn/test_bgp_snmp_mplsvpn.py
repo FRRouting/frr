@@ -505,8 +505,10 @@ def test_r1_mplsvpn_VrfTable():
     associated_int = r1_snmp.get(
         "mplsL3VpnVrfAssociatedInterfaces.{}".format(snmp_str_to_oid("VRF-a"))
     )
-    assertmsg = "mplsL3VpnVrfAssociatedInterfaces incorrect should be 3 value {}".format(
-        associated_int
+    assertmsg = (
+        "mplsL3VpnVrfAssociatedInterfaces incorrect should be 3 value {}".format(
+            associated_int
+        )
     )
 
     assert associated_int == "3", assertmsg

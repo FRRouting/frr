@@ -79,6 +79,7 @@ import pytest
 
 pytestmark = [pytest.mark.ospfd]
 
+
 class OspfTeTopo(Topo):
     "Test topology builder"
 
@@ -175,6 +176,7 @@ def setup_testcase(msg):
 
 # Note that all routers must discover the same Network Topology, so the same TED.
 
+
 def test_step1():
     "Step1: Check initial topology"
 
@@ -190,12 +192,8 @@ def test_step2():
 
     tgen = setup_testcase("Step2: Shutdown interface between r1 & r2")
 
-    tgen.net["r1"].cmd(
-        'vtysh -c "conf t" -c "interface r1-eth1" -c "shutdown"'
-    )
-    tgen.net["r2"].cmd(
-        'vtysh -c "conf t" -c "interface r2-eth1" -c "shutdown"'
-    )
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface r1-eth1" -c "shutdown"')
+    tgen.net["r2"].cmd('vtysh -c "conf t" -c "interface r2-eth1" -c "shutdown"')
 
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step2.json")
@@ -207,9 +205,7 @@ def test_step3():
 
     tgen = setup_testcase("Step3: Disable Inter-AS on r3")
 
-    tgen.net["r3"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "no mpls-te inter-as"'
-    )
+    tgen.net["r3"].cmd('vtysh -c "conf t" -c "router ospf" -c "no mpls-te inter-as"')
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step3.json")
 
@@ -221,18 +217,14 @@ def test_step4():
 
     tgen = setup_testcase("Step4: Enable Segment Routing on r1 & r2")
 
-    tgen.net["r1"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "segment-routing on"'
-    )
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "router ospf" -c "segment-routing on"')
     tgen.net["r1"].cmd(
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing global-block 20000 23999"'
     )
     tgen.net["r1"].cmd(
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing prefix 10.0.255.1/32 index 10"'
     )
-    tgen.net["r2"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "segment-routing on"'
-    )
+    tgen.net["r2"].cmd('vtysh -c "conf t" -c "router ospf" -c "segment-routing on"')
     tgen.net["r2"].cmd(
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing node-msd 16"'
     )
@@ -253,12 +245,8 @@ def test_step5():
 
     tgen = setup_testcase("Step5: Re-enable interface between r1 & r2")
 
-    tgen.net["r1"].cmd(
-        'vtysh -c "conf t" -c "interface r1-eth1" -c "no shutdown"'
-    )
-    tgen.net["r2"].cmd(
-        'vtysh -c "conf t" -c "interface r2-eth1" -c "no shutdown"'
-    )
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface r1-eth1" -c "no shutdown"')
+    tgen.net["r2"].cmd('vtysh -c "conf t" -c "interface r2-eth1" -c "no shutdown"')
 
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step5.json")
@@ -291,9 +279,7 @@ def test_step7():
 
     tgen = setup_testcase("Step7: Disable OSPF on r4")
 
-    tgen.net["r4"].cmd(
-        'vtysh -c "conf t" -c "no router ospf"'
-    )
+    tgen.net["r4"].cmd('vtysh -c "conf t" -c "no router ospf"')
 
     for rname in ["r1", "r2", "r3"]:
         compare_ted_json_output(tgen, rname, "ted_step7.json")

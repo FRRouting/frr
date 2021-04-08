@@ -397,10 +397,11 @@ def test_ospf_lan_tc1_p0(request):
     shutdown_bringup_interface(tgen, dut, intf, False)
 
     result = verify_ospf_neighbor(tgen, topo, dut, lan=True, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r0: OSPF neighbors-hip is up \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r0: OSPF neighbors-hip is up \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     step("No Shut interface on R0")
     dut = "r0"

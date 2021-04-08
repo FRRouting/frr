@@ -86,6 +86,7 @@ from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ospfd]
 
+
 class TemplateTopo(Topo):
     "Test topology builder"
 
@@ -385,9 +386,7 @@ def test_rib_ipv4_step5():
         pytest.skip(tgen.errors)
 
     logger.info("Disabling SR on rt6")
-    tgen.net["rt6"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "no segment-routing on"'
-    )
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "router ospf" -c "no segment-routing on"')
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
@@ -652,7 +651,7 @@ def test_mpls_lib_step10():
 # Expected changes:
 # -All commands should be rejected
 #
-#def test_ospf_invalid_config_step11():
+# def test_ospf_invalid_config_step11():
 #    logger.info("Test (step 11): check if invalid configuration is rejected")
 #    tgen = get_topogen()
 #

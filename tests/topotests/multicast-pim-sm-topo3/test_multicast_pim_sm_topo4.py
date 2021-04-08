@@ -490,10 +490,12 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, ("Testcase {} : Failed \n "
+        assert result is not True, (
+            "Testcase {} : Failed \n "
             "mroutes(S,G) are present after delete of static routes on c1 \n Error: {}".format(
-            tc_name, result
-        ))
+                tc_name, result
+            )
+        )
 
         result = verify_upstream_iif(
             tgen,
@@ -503,10 +505,12 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
             IGMP_JOIN_RANGE_1,
             expected=False,
         )
-        assert result is not True, ("Testcase {} : Failed \n "
+        assert result is not True, (
+            "Testcase {} : Failed \n "
             "upstream is present after delete of static routes on c1 \n Error: {}".format(
-            tc_name, result
-        ))
+                tc_name, result
+            )
+        )
 
     for data in input_dict_starg:
         result = verify_ip_mroutes(
@@ -518,10 +522,12 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, ("Testcase {} : Failed \n "
+        assert result is not True, (
+            "Testcase {} : Failed \n "
             "mroutes(*,G) are present after delete of static routes on c1 \n Error: {}".format(
-            tc_name, result
-        ))
+                tc_name, result
+            )
+        )
 
         result = verify_upstream_iif(
             tgen,
@@ -531,10 +537,12 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
             IGMP_JOIN_RANGE_1,
             expected=False,
         )
-        assert result is not True, ("Testcase {} : Failed \n "
+        assert result is not True, (
+            "Testcase {} : Failed \n "
             "upstream is present after delete of static routes on c1 \n Error: {}".format(
-            tc_name, result
-        ))
+                tc_name, result
+            )
+        )
 
     step("Configure default routes on c2")
 
@@ -557,10 +565,12 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     result = verify_pim_rp_info(
         tgen, topo, dut, GROUP_RANGE_1, "Unknown", rp_address, SOURCE, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "RP info is unknown after removing static route from c2 \n Error: {}".format(
-        tc_name, result
-    ))
+            tc_name, result
+        )
+    )
 
     step("Verify (s,g) populated after adding default route ")
 
@@ -787,10 +797,11 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, ("Testcase {} : Failed \n "
-            "mroutes are still present \n Error: {}".format(
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
             tc_name, result
-        ))
+        )
 
         result = verify_upstream_iif(
             tgen,
@@ -800,10 +811,11 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
             IGMP_JOIN_RANGE_1,
             expected=False,
         )
-        assert result is not True, ("Testcase {} : Failed \n "
-            "upstream is still present \n Error: {}".format(
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "upstream is still present \n Error: {}".format(
             tc_name, result
-        ))
+        )
 
     step("Configure default routes on all the nodes")
 
@@ -840,10 +852,12 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     result = verify_pim_rp_info(
         tgen, topo, dut, GROUP_RANGE_1, "Unknown", rp_address, SOURCE, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "RP info is unknown after removing static route from c2 \n Error: {}".format(
-        tc_name, result
-    ))
+            tc_name, result
+        )
+    )
 
     step("Verify (s,g) populated after adding default route ")
 

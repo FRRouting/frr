@@ -141,12 +141,19 @@ def test_ospf6_default_route():
             topotest.router_json_cmp,
             tgen.gears[router],
             "show ipv6 ospf6 database inter-prefix detail json",
-            {"areaScopedLinkStateDb": [{
-                "areaId": area,
-                "lsa": [{
-                    "prefix": prefix,
-                    "metric": metric,
-                }]}]},
+            {
+                "areaScopedLinkStateDb": [
+                    {
+                        "areaId": area,
+                        "lsa": [
+                            {
+                                "prefix": prefix,
+                                "metric": metric,
+                            }
+                        ],
+                    }
+                ]
+            },
         )
         _, result = topotest.run_and_expect(test_func, None, count=4, wait=1)
         assertmsg = '"{}" convergence failure'.format(router)

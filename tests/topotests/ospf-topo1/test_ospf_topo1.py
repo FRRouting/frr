@@ -135,24 +135,34 @@ def test_wait_protocol_convergence():
              * Full/DROther
              * Full/Backup
             """
-            result = tgen.gears[router].vtysh_cmd('show ip ospf neighbor json',
-                                                  isjson=True)
-            if topotest.json_cmp(result, {"neighbors": {neighbor: [
-                    {"state": "Full/DR"}]}}) is None:
+            result = tgen.gears[router].vtysh_cmd(
+                "show ip ospf neighbor json", isjson=True
+            )
+            if (
+                topotest.json_cmp(
+                    result, {"neighbors": {neighbor: [{"state": "Full/DR"}]}}
+                )
+                is None
+            ):
                 return None
 
-            if topotest.json_cmp(result, {"neighbors": {neighbor: [
-                    {"state": "Full/DROther"}]}}) is None:
+            if (
+                topotest.json_cmp(
+                    result, {"neighbors": {neighbor: [{"state": "Full/DROther"}]}}
+                )
+                is None
+            ):
                 return None
 
-            return topotest.json_cmp(result, {"neighbors": {neighbor: [
-                {"state": "Full/Backup"}]}})
+            return topotest.json_cmp(
+                result, {"neighbors": {neighbor: [{"state": "Full/Backup"}]}}
+            )
 
-        _, result = topotest.run_and_expect(run_command_and_expect, None,
-                                            count=130, wait=1)
+        _, result = topotest.run_and_expect(
+            run_command_and_expect, None, count=130, wait=1
+        )
         assertmsg = '"{}" convergence failure'.format(router)
         assert result is None, assertmsg
-
 
     def expect_ospfv3_neighbor_full(router, neighbor):
         "Wait until OSPFv3 convergence."

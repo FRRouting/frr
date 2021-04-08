@@ -648,7 +648,11 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     input_dict = {
         "i1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": next_hop_rp}]},
         "l1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": next_hop_lhr}]},
-        "f1": {"static_routes": [{"network": CRP, "next_hop": next_hop_fhr, "delete": True}]},
+        "f1": {
+            "static_routes": [
+                {"network": CRP, "next_hop": next_hop_fhr, "delete": True}
+            ]
+        },
     }
 
     result = create_static_routes(tgen, input_dict)
@@ -692,10 +696,11 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
 
     step("Verify if b1 chosen as BSR in l1")
     result = verify_pim_bsr(tgen, topo, "l1", BSR_IP_1, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "b1 is not chosen as BSR in l1 \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "b1 is not chosen as BSR in l1 \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
@@ -841,10 +846,12 @@ def test_new_router_fwd_p0(request):
     # Verify bsr state in l1
     step("Verify no BSR in l1 as i1 would not forward the no-forward bsm")
     result = verify_pim_bsr(tgen, topo, "l1", bsr_ip, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "BSR data is present after no-forward bsm also \n Error: {}".format(
-        tc_name, result
-    ))
+            tc_name, result
+        )
+    )
 
     # unconfigure unicast bsm on f1-i1-eth2
     step("unconfigure unicast bsm on f1-i1-eth2, will forward with only mcast")
@@ -966,10 +973,11 @@ def test_int_bsm_config_p1(request):
     result = verify_ip_mroutes(
         tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "Mroutes are still present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "Mroutes are still present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     # unconfigure bsm processing on f1 on  f1-i1-eth2
     step("unconfigure bsm processing on f1 in f1-i1-eth2, will drop bsm")
@@ -989,20 +997,21 @@ def test_int_bsm_config_p1(request):
     # Verify bsr state in i1
     step("Verify if b1 is not chosen as BSR in i1")
     result = verify_pim_bsr(tgen, topo, "i1", bsr_ip, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "b1 is chosen as BSR in i1 \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "b1 is chosen as BSR in i1 \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     # check if mroute still not installed because of rp not available
     step("check if mroute still not installed because of rp not available")
     result = verify_ip_mroutes(
         tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "mroute installed but rp not available \n Error: {}".format(
-        tc_name, result
-    ))
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "mroute installed but rp not available \n Error: {}".format(tc_name, result)
+    )
 
     # configure bsm processing on i1 on  f1-i1-eth2
     step("configure bsm processing on f1 in f1-i1-eth2, will accept bsm")
@@ -1464,10 +1473,11 @@ def test_BSM_timeout_p0(request):
         tgen, topo, "f1", group, rp_source="BSR", expected=False
     )
 
-    assert result is not True, ("Testcase {} : Failed \n "
-        "bsr has not aged out in f1 \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "bsr has not aged out in f1 \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     # Verify RP mapping removed after hold timer expires
     group = "225.1.1.1/32"
@@ -1491,20 +1501,23 @@ def test_BSM_timeout_p0(request):
     result = verify_join_state_and_timer(
         tgen, dut, iif, src_addr, GROUP_ADDRESS, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "join state is up and join timer is running in l1 \n Error: {}".format(
-        tc_name, result
-    ))
+            tc_name, result
+        )
+    )
 
     # Verify ip mroute is not installed
     step("Verify mroute not installed in l1")
     result = verify_ip_mroutes(
         tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "mroute installed in l1 \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "mroute installed in l1 \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     step("clear  BSM database before moving to next case")
     clear_bsrp_data(tgen, topo)
@@ -1657,10 +1670,11 @@ def test_iif_join_state_p0(request):
     result = verify_ip_mroutes(
         tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "mroute installed in l1 \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "mroute installed in l1 \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     # Add back route for RP to make it reachable
     step("Add back route for RP to make it reachable")

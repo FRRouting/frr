@@ -75,54 +75,54 @@ config_section = "topogen"
 # Debug logs for daemons
 DEBUG_LOGS = {
     "pimd": [
-       'debug msdp events',
-       'debug msdp packets',
-       'debug igmp events',
-       'debug igmp trace',
-       'debug mroute',
-       'debug mroute detail',
-       'debug pim events',
-       'debug pim packets',
-       'debug pim trace',
-       'debug pim zebra',
-       'debug pim bsm',
-       'debug pim packets joins',
-       'debug pim packets register',
-       'debug pim nht'
+        "debug msdp events",
+        "debug msdp packets",
+        "debug igmp events",
+        "debug igmp trace",
+        "debug mroute",
+        "debug mroute detail",
+        "debug pim events",
+        "debug pim packets",
+        "debug pim trace",
+        "debug pim zebra",
+        "debug pim bsm",
+        "debug pim packets joins",
+        "debug pim packets register",
+        "debug pim nht",
     ],
     "bgpd": [
-        'debug bgp neighbor-events',
-        'debug bgp updates',
-        'debug bgp zebra',
-        'debug bgp nht',
-        'debug bgp neighbor-events',
-        'debug bgp graceful-restart',
-        'debug bgp update-groups',
-        'debug bgp vpn leak-from-vrf',
-        'debug bgp vpn leak-to-vrf',
-        'debug bgp zebr',
-        'debug bgp updates',
-        'debug bgp nht',
-        'debug bgp neighbor-events',
-        'debug vrf'
+        "debug bgp neighbor-events",
+        "debug bgp updates",
+        "debug bgp zebra",
+        "debug bgp nht",
+        "debug bgp neighbor-events",
+        "debug bgp graceful-restart",
+        "debug bgp update-groups",
+        "debug bgp vpn leak-from-vrf",
+        "debug bgp vpn leak-to-vrf",
+        "debug bgp zebr",
+        "debug bgp updates",
+        "debug bgp nht",
+        "debug bgp neighbor-events",
+        "debug vrf",
     ],
     "zebra": [
-        'debug zebra events',
-        'debug zebra rib',
-        'debug zebra vxlan',
-        'debug zebra nht'
+        "debug zebra events",
+        "debug zebra rib",
+        "debug zebra vxlan",
+        "debug zebra nht",
     ],
     "ospf": [
-        'debug ospf event',
-        'debug ospf ism',
-        'debug ospf lsa',
-        'debug ospf nsm',
-        'debug ospf nssa',
-        'debug ospf packet all',
-        'debug ospf sr',
-        'debug ospf te',
-        'debug ospf zebra',
-    ]
+        "debug ospf event",
+        "debug ospf ism",
+        "debug ospf lsa",
+        "debug ospf nsm",
+        "debug ospf nssa",
+        "debug ospf packet all",
+        "debug ospf sr",
+        "debug ospf te",
+        "debug ospf zebra",
+    ],
 }
 
 if config.has_option("topogen", "verbosity"):
@@ -1155,10 +1155,8 @@ def create_debug_log_config(tgen, input_dict, build=False):
                 log_file = debug_dict.setdefault("log_file", None)
 
                 if log_file:
-                    _log_file = os.path.join(LOGDIR, tgen.modname,
-                        log_file)
-                    debug_config.append("log file {} \n".\
-                                        format(_log_file))
+                    _log_file = os.path.join(LOGDIR, tgen.modname, log_file)
+                    debug_config.append("log file {} \n".format(_log_file))
 
                 if type(enable_logs) is list:
                     for daemon in enable_logs:
@@ -1178,10 +1176,9 @@ def create_debug_log_config(tgen, input_dict, build=False):
                         for debug_log in debug_logs:
                             debug_config.append("no {}".format(debug_log))
 
-                result = create_common_configuration(tgen, router,
-                                                 debug_config,
-                                                 "debug_log_config",
-                                                 build=build)
+                result = create_common_configuration(
+                    tgen, router, debug_config, "debug_log_config", build=build
+                )
     except InvalidCLIError:
         # Traceback
         errormsg = traceback.format_exc()
@@ -3868,7 +3865,7 @@ def get_ipv6_linklocal_address(topo, node, intf):
     """
     tgen = get_topogen()
     ext_nh = tgen.net[node].get_ipv6_linklocal()
-    req_nh = topo[node]['links'][intf]['interface']
+    req_nh = topo[node]["links"][intf]["interface"]
     llip = None
     for llips in ext_nh:
         if llips[0] == req_nh:
@@ -3876,8 +3873,9 @@ def get_ipv6_linklocal_address(topo, node, intf):
             logger.info("Link local ip found = %s", llip)
             return llip
 
-    errormsg = "Failed: Link local ip not found on router {}, "\
-        "interface {}".format(node, intf)
+    errormsg = "Failed: Link local ip not found on router {}, " "interface {}".format(
+        node, intf
+    )
 
     return errormsg
 
@@ -4553,9 +4551,7 @@ def adjust_router_l3mdev(tgen, router):
     )
 
     output = tgen.net[router].cmd("sysctl -n net.ipv4.tcp_l3mdev_accept")
-    logger.info(
-        "router {0}: existing tcp_l3mdev_accept was {1}".format(router, output)
-    )
+    logger.info("router {0}: existing tcp_l3mdev_accept was {1}".format(router, output))
 
     tgen.net[router].cmd(
         "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept)
