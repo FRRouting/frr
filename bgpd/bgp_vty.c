@@ -22,6 +22,7 @@
 
 #include "command.h"
 #include "lib/json.h"
+#include "lib/sockopt.h"
 #include "lib_errors.h"
 #include "lib/zclient.h"
 #include "lib/printfrr.h"
@@ -12594,6 +12595,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	uint8_t *msg;
 	json_object *json_neigh = NULL;
 	time_t epoch_tbuf;
+	uint32_t sync_tcp_mss;
 
 	bgp = p->bgp;
 
@@ -12855,6 +12857,15 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    p->v_delayopen * 1000);
 		}
 
+		/* Configured and Synced tcp-mss value for peer */
+		if (CHECK_FLAG(p->flags, PEER_FLAG_TCP_MSS)) {
+			sync_tcp_mss = sockopt_tcp_mss_get(p->fd);
+			json_object_int_add(json_neigh, "bgpTcpMssConfigured",
+					    p->tcp_mss);
+			json_object_int_add(json_neigh, "bgpTcpMssSynced",
+					    sync_tcp_mss);
+		}
+
 		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER)) {
 			json_object_int_add(json_neigh,
 					    "bgpTimerConfiguredHoldTimeMsecs",
@@ -12938,6 +12949,13 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			vty_out(vty,
 				"  Configured DelayOpenTime is %d seconds\n",
 				p->delayopen);
+
+		/* Configured and synced tcp-mss value for peer */
+		if (CHECK_FLAG(p->flags, PEER_FLAG_TCP_MSS)) {
+			sync_tcp_mss = sockopt_tcp_mss_get(p->fd);
+			vty_out(vty, "  Configured tcp-mss is %d", p->tcp_mss);
+			vty_out(vty, ", synced tcp-mss is %d\n", sync_tcp_mss);
+		}
 	}
 	/* Capability. */
 	if (p->status == Established) {
@@ -16357,6 +16375,55 @@ void cli_show_bgp_global_afi_safi_ip_unicast_redistribution_list(
 	vty_out(vty, "\n");
 }
 
+/* Neighbor update tcp-mss. */
+static int peer_tcp_mss_vty(struct vty *vty, const char *peer_str,
+			    const char *tcp_mss_str)
+{
+	struct peer *peer;
+	uint32_t tcp_mss_val = 0;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (tcp_mss_str) {
+		tcp_mss_val = strtoul(tcp_mss_str, NULL, 10);
+		peer_tcp_mss_set(peer, tcp_mss_val);
+	} else {
+		peer_tcp_mss_unset(peer);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(neighbor_tcp_mss, neighbor_tcp_mss_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> tcp-mss (1-65535)",
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "TCP max segment size\n"
+      "TCP MSS value\n")
+{
+	int peer_index = 1;
+	int mss_index = 3;
+
+	vty_out(vty,
+		" Warning: Reset BGP session for tcp-mss value to take effect\n");
+	return peer_tcp_mss_vty(vty, argv[peer_index]->arg,
+				argv[mss_index]->arg);
+}
+
+DEFUN(no_neighbor_tcp_mss, no_neighbor_tcp_mss_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> tcp-mss [(1-65535)]",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "TCP max segment size\n"
+      "TCP MSS value\n")
+{
+	int peer_index = 2;
+
+	vty_out(vty,
+		" Warning: Reset BGP session for tcp-mss value to take effect\n");
+	return peer_tcp_mss_vty(vty, argv[peer_index]->arg, NULL);
+}
+
 static void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp,
 					  afi_t afi, safi_t safi)
 {
@@ -16805,6 +16872,10 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peer->ifname) {
 		vty_out(vty, " neighbor %s interface %s\n", addr, peer->ifname);
 	}
+
+	/* TCP max segment size */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TCP_MSS))
+		vty_out(vty, " neighbor %s tcp-mss %d\n", addr, peer->tcp_mss);
 
 	/* passive */
 	if (peergroup_flag_check(peer, PEER_FLAG_PASSIVE))
@@ -19217,6 +19288,10 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_no_route_map_vpn_imexport_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_import_vrf_route_map_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_import_vrf_route_map_cmd);
+
+	/* tcp-mss command */
+	install_element(BGP_NODE, &neighbor_tcp_mss_cmd);
+	install_element(BGP_NODE, &no_neighbor_tcp_mss_cmd);
 }
 
 #include "memory.h"
