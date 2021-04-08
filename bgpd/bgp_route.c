@@ -11086,16 +11086,22 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		}
 	} else {
 		if (!json) {
-			vty_out(vty, "BGP routing table entry for %s%s%pFX\n",
+			vty_out(vty,
+				"BGP routing table entry for %s%s%pFX, version %" PRIu64
+				"\n",
 				((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
 					 ? prefix_rd2str(prd, buf1,
 							 sizeof(buf1))
 					 : ""),
-				safi == SAFI_MPLS_VPN ? ":" : "", p);
+				safi == SAFI_MPLS_VPN ? ":" : "", p,
+				dest->version);
 
-		} else
+		} else {
 			json_object_string_add(json, "prefix",
 				prefix2str(p, prefix_str, sizeof(prefix_str)));
+			json_object_int_add(json, "version", dest->version);
+
+		}
 	}
 
 	if (has_valid_label) {
