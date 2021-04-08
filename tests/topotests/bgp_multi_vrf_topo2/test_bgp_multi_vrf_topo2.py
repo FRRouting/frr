@@ -102,6 +102,10 @@ from lib.topolog import logger
 from lib.bgp import clear_bgp, verify_bgp_rib, create_router_bgp, verify_bgp_convergence
 from lib.topojson import build_config_from_json, build_topo_from_json
 
+
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
+
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/bgp_multi_vrf_topo2.json".format(CWD)
 

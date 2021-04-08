@@ -45,6 +45,10 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+
+pytestmark = [pytest.mark.bgpd]
+
+
 # Basic scenario for BGP-LU. Nodes are directly connected.
 # Node 3 is advertising many routes to 2, which advertises them
 # as BGP-LU to 1; this way we get routes with actual labels, as

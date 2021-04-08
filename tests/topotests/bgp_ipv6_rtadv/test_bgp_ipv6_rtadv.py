@@ -46,6 +46,9 @@ from lib.topolog import logger
 from mininet.topo import Topo
 
 
+pytestmark = [pytest.mark.bgpd]
+
+
 class BGPIPV6RTADVTopo(Topo):
     "Test topology builder"
 
