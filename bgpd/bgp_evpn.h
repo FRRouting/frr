@@ -208,5 +208,10 @@ bgp_evpn_handle_resolve_overlay_index_set(struct hash_bucket *bucket,
 extern void
 bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
 					    void *arg);
+extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
+							 uint32_t num_labels);
+extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
+extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
+				    struct bgp_path_info *mpinfo);
 
 #endif /* _QUAGGA_BGP_EVPN_H */

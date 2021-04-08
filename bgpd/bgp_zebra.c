@@ -1523,14 +1523,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
 
 			if (is_evpn) {
-				/*
-				 * L3VNI is always last label. Type5 will only
-				 * have one label, Type2 will have two.
-				 */
-				nh_label = labels[num_labels - 1];
+				nh_label = *bgp_evpn_path_info_labels_get_l3vni(
+					labels, num_labels);
 				nh_label_type = ZEBRA_LSP_EVPN;
-
-			} else if (bgp_is_valid_label(&labels[0])) {
+			} else {
 				mpls_lse_decode(labels[0], &nh_label, &ttl,
 						&exp, &bos);
 			}

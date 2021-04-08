@@ -55,6 +55,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_mpath.h"
 
 /*
  * Definitions and external declarations.
@@ -7177,4 +7178,67 @@ void bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
 	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 
 	bgp_evpn_remote_ip_hash_destroy(vpn);
+}
+
+/*
+ * Helper function for getting the correct label index for l3vni.
+ *
+ * Returns the label with the l3vni of the path's label stack.
+ *
+ * L3vni is always last label. Type5 will only
+ * have one label, Type2 will have two.
+ *
+ */
+mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
+						  uint32_t num_labels)
+{
+	if (!labels)
+		return NULL;
+
+	if (!num_labels)
+		return NULL;
+
+	return &labels[num_labels - 1];
+}
+
+/*
+ * Returns the l3vni of the path converted from the label stack.
+ */
+vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi)
+{
+	if (!pi->extra)
+		return 0;
+
+	return label2vni(bgp_evpn_path_info_labels_get_l3vni(
+		pi->extra->label, pi->extra->num_labels));
+}
+
+/*
+ * Returns true if the l3vni of any of this path doesn't match vrf's l3vni.
+ */
+static bool bgp_evpn_path_is_dvni(const struct bgp *bgp_vrf,
+				  const struct bgp_path_info *pi)
+{
+	vni_t vni = 0;
+
+	vni = bgp_evpn_path_info_get_l3vni(pi);
+
+	if ((vni > 0) && (vni != bgp_vrf->l3vni))
+		return true;
+
+	return false;
+}
+
+/*
+ * Returns true if the l3vni of any of the mpath's doesn't match vrf's l3vni.
+ */
+bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
+			     struct bgp_path_info *mpinfo)
+{
+	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+		if (bgp_evpn_path_is_dvni(bgp_vrf, mpinfo))
+			return true;
+	}
+
+	return false;
 }
