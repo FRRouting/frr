@@ -168,6 +168,10 @@ extern void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen,
 extern size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out,
 			  uint32_t flags);
 
+/* "mmm dd hh:mm:ss" for RFC3164 syslog.  Only ZLOG_TS_UTC for flags. */
+extern size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out,
+			       uint32_t flags);
+
 /* This list & struct implements the actual logging targets.  It is accessed
  * lock-free from all threads, and thus MUST only be changed atomically, i.e.
  * RCU.
