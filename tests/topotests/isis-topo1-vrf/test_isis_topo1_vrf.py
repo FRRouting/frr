@@ -41,7 +41,10 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+        required_linux_kernel_version,
+        adjust_router_l3mdev,
+)
 
 from mininet.topo import Topo
 
@@ -106,22 +109,6 @@ def setup_module(mod):
     tgen.start_topology()
 
     logger.info("Testing with VRF Lite support")
-    krel = platform.release()
-
-    # May need to adjust handling of vrf traffic depending on kernel version
-    l3mdev_accept = 0
-    if (
-        topotest.version_cmp(krel, "4.15") >= 0
-        and topotest.version_cmp(krel, "4.18") <= 0
-    ):
-        l3mdev_accept = 1
-
-    if topotest.version_cmp(krel, "5.0") >= 0:
-        l3mdev_accept = 1
-
-    logger.info(
-        "krel '{0}' setting net.ipv4.tcp_l3mdev_accept={1}".format(krel, l3mdev_accept)
-    )
 
     cmds = [
         "ip link add {0}-cust1 type vrf table 1001",
@@ -135,15 +122,9 @@ def setup_module(mod):
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
-        output = tgen.net[rname].cmd("sysctl -n net.ipv4.tcp_l3mdev_accept")
-        logger.info(
-            "router {0}: existing tcp_l3mdev_accept was {1}".format(rname, output)
-        )
 
-        if l3mdev_accept:
-            output = tgen.net[rname].cmd(
-                "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept)
-            )
+        # adjust handling of vrf traffic
+        adjust_router_l3mdev(tgen, rname)
 
     for rname, router in tgen.routers().items():
         router.load_config(

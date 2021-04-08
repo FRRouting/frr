@@ -4512,3 +4512,53 @@ def verify_ip_nht(tgen, input_dict):
 
     logger.debug("Exiting lib API: verify_ip_nht()")
     return False
+
+
+def kernel_requires_l3mdev_adjustment():
+    """
+    Checks if the L3 master device needs to be adjusted to handle VRF traffic
+    based on kernel version.
+
+    Returns
+    -------
+    1 or 0
+    """
+
+    if version_cmp(platform.release(), "4.15") >= 0:
+        return 1
+    return 0
+
+
+def adjust_router_l3mdev(tgen, router):
+    """
+    Adjusts a routers L3 master device to handle VRF traffic depending on kernel
+    version.
+
+    Parameters
+    ----------
+    * `tgen`   : tgen object
+    * `router` : router id to be configured.
+
+    Returns
+    -------
+    True
+    """
+
+    l3mdev_accept = kernel_requires_l3mdev_adjustment()
+
+    logger.info(
+        "router {0}: setting net.ipv4.tcp_l3mdev_accept={1}".format(
+            router, l3mdev_accept
+        )
+    )
+
+    output = tgen.net[router].cmd("sysctl -n net.ipv4.tcp_l3mdev_accept")
+    logger.info(
+        "router {0}: existing tcp_l3mdev_accept was {1}".format(router, output)
+    )
+
+    tgen.net[router].cmd(
+        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept)
+    )
+
+    return True

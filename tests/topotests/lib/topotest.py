@@ -544,8 +544,7 @@ def iproute2_is_vrf_capable():
                 ["ip", "route", "show", "vrf"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE,
-                encoding="utf-8"
+                stdin=subprocess.PIPE
             )
             iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
 

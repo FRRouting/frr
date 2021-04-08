@@ -1,6 +1,7 @@
 from lib.lutil import luCommand
-from customize import l3mdev_accept
+from lib.common_config import kernel_requires_l3mdev_adjustment
 
+l3mdev_accept = kernel_requires_l3mdev_adjustment()
 l3mdev_rtrs = ["r1", "r3", "r4", "ce4"]
 for rtr in l3mdev_rtrs:
     luCommand(rtr, "sysctl net.ipv4.tcp_l3mdev_accept", " = \d*", "none", "")
