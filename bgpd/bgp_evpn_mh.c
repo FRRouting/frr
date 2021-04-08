@@ -3184,6 +3184,10 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 	if (!memcmp(esi, zero_esi, sizeof(*esi)))
 		return false;
 
+	/* we don't support NHG for d-vni yet */
+	if (bgp_evpn_mpath_has_dvni(bgp_vrf, pi))
+		return false;
+
 	bgp_evpn_es_vrf_use_nhg(bgp_vrf, esi, &use_l3nhg, &is_l3nhg_active,
 				&es_vrf);
 
