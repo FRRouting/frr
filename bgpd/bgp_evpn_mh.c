@@ -801,6 +801,10 @@ static void bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es *es,
 				evi_node, es_evi)) {
 		if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
 			continue;
+
+		/* Help SA understand the following loop */
+		assert(es_evi->vpn != NULL);
+
 		for (ALL_LIST_ELEMENTS_RO(es_evi->vpn->export_rtl,
 					rt_node, ecom))
 			attr->ecommunity = ecommunity_merge(attr->ecommunity,
