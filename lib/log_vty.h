@@ -37,6 +37,8 @@ extern void log_show_syslog(struct vty *vty);
 DECLARE_HOOK(zlog_rotate, (), ());
 extern void zlog_rotate(void);
 
+DECLARE_HOOK(zlog_cli_show, (struct vty * vty), (vty));
+
 #ifdef __cplusplus
 }
 #endif
