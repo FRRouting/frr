@@ -28,12 +28,10 @@
 #endif
 
 #if defined(linux) || defined(GNU_LINUX)
-//#include <netinet/in.h>
+
 #define ipv6_u __in6_u
 #else
-// bsd family
-#define TCP_MD5SIG_MAXKEYLEN 80
-//#include <netinet/in.h>
+/* bsd family */
 #define ipv6_u __u6_addr
 #ifdef __FreeBSD__
 #include <sys/endian.h>
@@ -45,4 +43,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+
+/* Cross-compilation seems to have trouble finding this */
+#if defined(TCP_MD5SIG_MAXKEYLEN)
+#define PCEP_MD5SIG_MAXKEYLEN TCP_MD5SIG_MAXKEYLEN
+#else
+#define PCEP_MD5SIG_MAXKEYLEN 80
+#endif
+
 #endif
