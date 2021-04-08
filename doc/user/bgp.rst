@@ -3908,6 +3908,147 @@ Example of how to set up a 6-Bone connection.
    log file bgpd.log
    !
 
+.. _bgp-tcp-mss:
+
+BGP tcp-mss support
+===================
+TCP provides a mechanism for the user to specify the max segment size.
+setsockopt API is used to set the max segment size for TCP session. We
+can configure this as part of BGP neighbor configuration.
+
+This document explains how to avoid ICMP vulnerability issues by limiting
+TCP max segment size when you are using MTU discovery. Using MTU discovery
+on TCP paths is one method of avoiding BGP packet fragmentation.
+
+TCP negotiates a maximum segment size (MSS) value during session connection
+establishment between two peers. The MSS value negotiated is primarily based
+on the maximum transmission unit (MTU) of the interfaces to which the 
+communicating peers are directly connected. However, due to variations in 
+link MTU on the path taken by the TCP packets, some packets in the network 
+that are well within the MSS value might be fragmented when the packet size
+exceeds the link's MTU. 
+
+This feature is supported with TCP over IPv4 and TCP over IPv6.
+
+CLI Configuration:
+------------------
+Below configuration can be done in router bgp mode and allows the user to
+configure the tcp-mss value per neighbor. The configuration gets applied
+only after hard reset is performed on that neighbor. If we configure tcp-mss
+on both the neighbors then both neighbors need to be reset.
+
+The configuration takes effect based on below rules, so there is a configured
+tcp-mss and a synced tcp-mss value per TCP session.
+
+By default if the configuration is not done then the TCP max segment size is
+set to the Maximum Transmission unit (MTU) – (IP/IP6 header size + TCP header
+size + ethernet header). For IPv4 its MTU – (20 bytes IP header + 20 bytes TCP
+header + 12 bytes ethernet header) and for IPv6 its MTU – (40 bytes IPv6 header
++ 20 bytes TCP header + 12 bytes ethernet header).
+
+If the config is done then it reduces 12-14 bytes for the ether header and 
+uses it after synchronizing in TCP handshake.
+
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> tcp-mss (1-65535)
+
+When tcp-mss is configured kernel reduces 12-14 bytes for ethernet header.
+E.g. if tcp-mss is configured as 150 the synced value will be 138.
+
+Note: configured and synced value is different since TCP module will reduce
+12 bytes for ethernet header.
+
+Running config:
+---------------
+
+.. code-block:: frr
+
+   frr# show running-config 
+   Building configuration...
+
+   Current configuration:
+   !
+   router bgp 100
+    bgp router-id 192.0.2.1
+    neighbor 198.51.100.2 remote-as 100
+    neighbor 198.51.100.2 tcp-mss 150       => new entry
+    neighbor 2001:DB8::2 remote-as 100
+    neighbor 2001:DB8::2 tcp-mss 400        => new entry
+
+Show command:
+-------------
+
+.. code-block:: frr
+
+   frr# show bgp neighbors 198.51.100.2 
+   BGP neighbor is 198.51.100.2, remote AS 100, local AS 100, internal link
+   Hostname: frr
+     BGP version 4, remote router ID 192.0.2.2, local router ID 192.0.2.1
+     BGP state = Established, up for 02:15:28
+     Last read 00:00:28, Last write 00:00:28
+     Hold time is 180, keepalive interval is 60 seconds
+     Configured tcp-mss is 150, synced tcp-mss is 138     => new display
+
+.. code-block:: frr
+
+   frr# show bgp neighbors 2001:DB8::2 
+   BGP neighbor is 2001:DB8::2, remote AS 100, local AS 100, internal link
+   Hostname: frr
+     BGP version 4, remote router ID 192.0.2.2, local router ID 192.0.2.1
+     BGP state = Established, up for 02:16:34
+     Last read 00:00:34, Last write 00:00:34
+     Hold time is 180, keepalive interval is 60 seconds
+     Configured tcp-mss is 400, synced tcp-mss is 388      => new display
+
+Show command json output:
+-------------------------
+
+.. code-block:: frr
+
+   frr# show bgp neighbors 2001:DB8::2 json 
+   {
+     "2001:DB8::2":{
+       "remoteAs":100,
+       "localAs":100,
+       "nbrInternalLink":true,
+       "hostname":"frr",
+       "bgpVersion":4,
+       "remoteRouterId":"192.0.2.2",
+       "localRouterId":"192.0.2.1",
+       "bgpState":"Established",
+       "bgpTimerUpMsec":8349000,
+       "bgpTimerUpString":"02:19:09",
+       "bgpTimerUpEstablishedEpoch":1613054251,
+       "bgpTimerLastRead":9000,
+       "bgpTimerLastWrite":9000,
+       "bgpInUpdateElapsedTimeMsecs":8347000,
+       "bgpTimerHoldTimeMsecs":180000,
+       "bgpTimerKeepAliveIntervalMsecs":60000,
+       "bgpTcpMssConfigured":400,                                   => new entry
+       "bgpTcpMssSynced":388,                                  => new entry
+
+.. code-block:: frr
+
+   frr# show bgp neighbors 198.51.100.2 json 
+   {
+     "198.51.100.2":{
+       "remoteAs":100,
+       "localAs":100,
+       "nbrInternalLink":true,
+       "hostname":"frr",
+       "bgpVersion":4,
+       "remoteRouterId":"192.0.2.2",
+       "localRouterId":"192.0.2.1",
+       "bgpState":"Established",
+       "bgpTimerUpMsec":8370000,
+       "bgpTimerUpString":"02:19:30",
+       "bgpTimerUpEstablishedEpoch":1613054251,
+       "bgpTimerLastRead":30000,
+       "bgpTimerLastWrite":30000,
+       "bgpInUpdateElapsedTimeMsecs":8368000,
+       "bgpTimerHoldTimeMsecs":180000,
+       "bgpTimerKeepAliveIntervalMsecs":60000,
+       "bgpTcpMssConfigured":150,                                  => new entry
+       "bgpTcpMssSynced":138,                                  => new entry
 
 .. include:: routeserver.rst
 

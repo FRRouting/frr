@@ -1241,14 +1241,14 @@ struct peer {
 #define PEER_FLAG_GRACEFUL_RESTART          (1U << 24) /* Graceful Restart */
 #define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1U << 25) /* Global-Inherit */
 #define PEER_FLAG_RTT_SHUTDOWN (1U << 26) /* shutdown rtt */
+#define PEER_FLAG_TIMER_DELAYOPEN (1U << 27) /* delayopen timer */
+#define PEER_FLAG_TCP_MSS (1U << 28)	 /* tcp-mss */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
 	 *& PEER_FLAG_GRACEFUL_RESTART_HELPER
 	 *and PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT
 	 */
-
-#define PEER_FLAG_TIMER_DELAYOPEN (1 << 27) /* delayopen timer */
 
 	struct bgp_peer_gr PEER_GR_FSM[BGP_PEER_GR_MODE][BGP_PEER_GR_EVENT_CMD];
 	enum peer_mode peer_gr_present_state;
@@ -1605,6 +1605,9 @@ struct peer {
 	/* Conditional advertisement */
 	bool advmap_config_change[AFI_MAX][SAFI_MAX];
 	bool advmap_table_change;
+
+	/* set TCP max segment size */
+	uint32_t tcp_mss;
 
 	QOBJ_FIELDS;
 };
@@ -2409,4 +2412,6 @@ DECLARE_HOOK(bgp_rpki_prefix_status,
 
 void peer_nsf_stop(struct peer *peer);
 
+void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss);
+void peer_tcp_mss_unset(struct peer *peer);
 #endif /* _QUAGGA_BGPD_H */

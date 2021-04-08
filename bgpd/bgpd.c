@@ -43,6 +43,7 @@
 #include "jhash.h"
 #include "table.h"
 #include "lib/json.h"
+#include "lib/sockopt.h"
 #include "frr_pthread.h"
 #include "bitfield.h"
 
@@ -1439,6 +1440,8 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 
 	peer_dst->local_as = peer_src->local_as;
 	peer_dst->port = peer_src->port;
+	/* copy tcp_mss value */
+	peer_dst->tcp_mss = peer_src->tcp_mss;
 	(void)peer_sort(peer_dst);
 	peer_dst->rmap_type = peer_src->rmap_type;
 
@@ -5114,6 +5117,26 @@ void peer_port_set(struct peer *peer, uint16_t port)
 void peer_port_unset(struct peer *peer)
 {
 	peer->port = BGP_PORT_DEFAULT;
+}
+
+/* Set the TCP-MSS value in the peer structure,
+ * This gets applied only after connection reset
+ * So this value will be used in bgp_connect.
+ */
+void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss)
+{
+	peer->tcp_mss = tcp_mss;
+	SET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
+}
+
+/* Reset the TCP-MSS value in the peer structure,
+ * This gets applied only after connection reset
+ * So this value will be used in bgp_connect.
+ */
+void peer_tcp_mss_unset(struct peer *peer)
+{
+	UNSET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
+	peer->tcp_mss = 0;
 }
 
 /*
