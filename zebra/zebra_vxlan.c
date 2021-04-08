@@ -378,11 +378,16 @@ static void zl3vni_print_nh(struct zebra_neigh *n, struct vty *vty,
 			ipaddr2str(&n->ip, buf2, sizeof(buf2)));
 		vty_out(vty, "  RMAC: %s\n",
 			prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
-		vty_out(vty, "  Refcount: %d\n",
-			rb_host_count(&n->host_rb));
-		vty_out(vty, "  Prefixes:\n");
-		RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
-			vty_out(vty, "    %pFX\n", &hle->p);
+		if (n->refcnt)
+			/* SVD neigh */
+			vty_out(vty, "  Refcount: %u\n", n->refcnt);
+		else {
+			vty_out(vty, "  Refcount: %d\n",
+				rb_host_count(&n->host_rb));
+			vty_out(vty, "  Prefixes:\n");
+			RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
+				vty_out(vty, "    %pFX\n", &hle->p);
+		}
 	} else {
 		json_hosts = json_object_new_array();
 		json_object_string_add(
@@ -390,13 +395,19 @@ static void zl3vni_print_nh(struct zebra_neigh *n, struct vty *vty,
 		json_object_string_add(
 			json, "routerMac",
 			prefix_mac2str(&n->emac, buf2, sizeof(buf2)));
-		json_object_int_add(json, "refCount",
-				    rb_host_count(&n->host_rb));
-		RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
-			json_object_array_add(json_hosts,
-					      json_object_new_string(prefix2str(
-										&hle->p, buf2, sizeof(buf2))));
-		json_object_object_add(json, "prefixList", json_hosts);
+		if (n->refcnt)
+			/* SVD neigh */
+			json_object_int_add(json, "refCount", n->refcnt);
+		else {
+			json_object_int_add(json, "refCount",
+					    rb_host_count(&n->host_rb));
+			RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
+				json_object_array_add(
+					json_hosts,
+					json_object_new_string(prefix2str(
+						&hle->p, buf2, sizeof(buf2))));
+			json_object_object_add(json, "prefixList", json_hosts);
+		}
 	}
 }
 
@@ -600,33 +611,36 @@ static void zl3vni_print_nh_hash(struct hash_bucket *bucket, void *ctx)
 	}
 }
 
-static void zl3vni_print_nh_hash_all_vni(struct hash_bucket *bucket,
-					 void **args)
+static void zl3vni_print_nh_all_table(struct hash *nh_table, vni_t vni,
+				      struct vty *vty, json_object *json)
 {
-	struct vty *vty = NULL;
-	json_object *json = NULL;
-	json_object *json_evpn = NULL;
-	struct zebra_l3vni *zl3vni = NULL;
 	uint32_t num_nh = 0;
 	struct nh_walk_ctx wctx;
 	char vni_str[VNI_STR_LEN];
+	json_object *json_evpn = NULL;
+	bool is_svd = false;
+	const char *svd_str = "Global SVD Table";
 
-	vty = (struct vty *)args[0];
-	json = (struct json_object *)args[1];
+	if (vni == 0)
+		is_svd = true;
 
-	zl3vni = (struct zebra_l3vni *)bucket->data;
+	num_nh = hashcount(nh_table);
 
-	num_nh = hashcount(zl3vni->nh_table);
 	if (!num_nh)
 		return;
 
 	if (json) {
 		json_evpn = json_object_new_object();
-		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
+
+		snprintf(vni_str, VNI_STR_LEN, "%u", vni);
 	}
 
 	if (json == NULL) {
-		vty_out(vty, "\nVNI %u #Next-Hops %u\n\n", zl3vni->vni, num_nh);
+		if (is_svd)
+			vty_out(vty, "\n%s #Next-Hops %u\n\n", svd_str, num_nh);
+		else
+			vty_out(vty, "\nVNI %u #Next-Hops %u\n\n", vni, num_nh);
+
 		vty_out(vty, "%-15s %-17s\n", "IP", "RMAC");
 	} else
 		json_object_int_add(json_evpn, "numNextHops", num_nh);
@@ -634,9 +648,29 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_bucket *bucket,
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
 	wctx.json = json_evpn;
-	hash_iterate(zl3vni->nh_table, zl3vni_print_nh_hash, &wctx);
+	hash_iterate(nh_table, zl3vni_print_nh_hash, &wctx);
 	if (json)
 		json_object_object_add(json, vni_str, json_evpn);
+}
+
+static void svd_print_nh_all_table(struct vty *vty, json_object *json)
+{
+	zl3vni_print_nh_all_table(svd_nh_table, 0, vty, json);
+}
+
+static void zl3vni_print_nh_hash_all_vni(struct hash_bucket *bucket,
+					 void **args)
+{
+	struct vty *vty = NULL;
+	json_object *json = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
+
+	vty = (struct vty *)args[0];
+	json = (struct json_object *)args[1];
+
+	zl3vni = (struct zebra_l3vni *)bucket->data;
+
+	zl3vni_print_nh_all_table(zl3vni->nh_table, zl3vni->vni, vty, json);
 }
 
 static void zl3vni_print_rmac_hash_all_vni(struct hash_bucket *bucket,
@@ -2686,22 +2720,29 @@ void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 	if (use_json)
 		json = json_object_new_object();
 
-	zl3vni = zl3vni_lookup(l3vni);
-	if (!zl3vni) {
-		if (use_json)
-			vty_out(vty, "{}\n");
-		else
-			vty_out(vty, "%% L3-VNI %u does not exist\n", l3vni);
-		return;
+	/* If vni=0 passed, assume svd lookup */
+	if (!l3vni)
+		n = svd_nh_lookup(ip);
+	else {
+		zl3vni = zl3vni_lookup(l3vni);
+		if (!zl3vni) {
+			if (use_json)
+				vty_out(vty, "{}\n");
+			else
+				vty_out(vty, "%% L3-VNI %u does not exist\n",
+					l3vni);
+			return;
+		}
+
+		n = zl3vni_nh_lookup(zl3vni, ip);
 	}
 
-	n = zl3vni_nh_lookup(zl3vni, ip);
 	if (!n) {
 		if (use_json)
 			vty_out(vty, "{}\n");
 		else
 			vty_out(vty,
-				"%% Requested next-hop not present for L3-VNI %u",
+				"%% Requested next-hop not present for L3-VNI %u\n",
 				l3vni);
 		return;
 	}
@@ -2712,26 +2753,14 @@ void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 		vty_json(vty, json);
 }
 
-void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
+static void l3vni_print_nh_table(struct hash *nh_table, struct vty *vty,
+				 bool use_json)
 {
 	uint32_t num_nh;
 	struct nh_walk_ctx wctx;
 	json_object *json = NULL;
-	struct zebra_l3vni *zl3vni = NULL;
 
-	if (!is_evpn_enabled())
-		return;
-
-	zl3vni = zl3vni_lookup(l3vni);
-	if (!zl3vni) {
-		if (use_json)
-			vty_out(vty, "{}\n");
-		else
-			vty_out(vty, "%% L3-VNI %u does not exist\n", l3vni);
-		return;
-	}
-
-	num_nh = hashcount(zl3vni->nh_table);
+	num_nh = hashcount(nh_table);
 	if (!num_nh)
 		return;
 
@@ -2747,10 +2776,43 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 	} else
 		json_object_int_add(json, "numNextHops", num_nh);
 
-	hash_iterate(zl3vni->nh_table, zl3vni_print_nh_hash, &wctx);
+	hash_iterate(nh_table, zl3vni_print_nh_hash, &wctx);
 
 	if (use_json)
 		vty_json(vty, json);
+}
+
+void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
+{
+	struct zebra_l3vni *zl3vni = NULL;
+
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		return;
+	}
+
+	zl3vni = zl3vni_lookup(l3vni);
+	if (!zl3vni) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "%% L3-VNI %u does not exist\n", l3vni);
+		return;
+	}
+
+	l3vni_print_nh_table(zl3vni->nh_table, vty, use_json);
+}
+
+void zebra_vxlan_print_nh_svd(struct vty *vty, bool use_json)
+{
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		return;
+	}
+
+	l3vni_print_nh_table(svd_nh_table, vty, use_json);
 }
 
 void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json)
@@ -2773,6 +2835,9 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json)
 		     (void (*)(struct hash_bucket *,
 			       void *))zl3vni_print_nh_hash_all_vni,
 		     args);
+
+	/* Global svd table */
+	svd_print_nh_all_table(vty, json);
 
 	if (use_json)
 		vty_json(vty, json);

@@ -3197,6 +3197,30 @@ DEFUN (show_evpn_nh_vni_ip,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_evpn_nh_svd_ip,
+       show_evpn_nh_svd_ip_cmd,
+       "show evpn next-hops svd ip WORD [json]",
+       SHOW_STR
+       "EVPN\n"
+       "Remote Vteps\n"
+       "Single Vxlan Device\n"
+       "Ip address\n"
+       "Host address (ipv4 or ipv6)\n"
+       JSON_STR)
+{
+	struct ipaddr ip;
+	bool uj = use_json(argc, argv);
+
+	if (str2ipaddr(argv[5]->arg, &ip) != 0) {
+		if (!uj)
+			vty_out(vty, "%% Malformed Neighbor address\n");
+		return CMD_WARNING;
+	}
+	zebra_vxlan_print_specific_nh_l3vni(vty, 0, &ip, uj);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_evpn_nh_vni,
        show_evpn_nh_vni_cmd,
        "show evpn next-hops vni " CMD_VNI_RANGE "[json]",
@@ -3212,6 +3236,22 @@ DEFUN (show_evpn_nh_vni,
 
 	l3vni = strtoul(argv[4]->arg, NULL, 10);
 	zebra_vxlan_print_nh_l3vni(vty, l3vni, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_nh_svd,
+       show_evpn_nh_svd_cmd,
+       "show evpn next-hops svd [json]",
+       SHOW_STR
+       "EVPN\n"
+       "Remote VTEPs\n"
+       "Single Vxlan Device\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+
+	zebra_vxlan_print_nh_svd(vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -4571,7 +4611,9 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_nh_vni_ip_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_svd_ip_cmd);
 	install_element(VIEW_NODE, &show_evpn_nh_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_svd_cmd);
 	install_element(VIEW_NODE, &show_evpn_nh_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_cmd);
