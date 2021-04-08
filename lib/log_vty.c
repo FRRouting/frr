@@ -34,6 +34,7 @@
 #define ZLOG_MAXLVL(a, b) MAX(a, b)
 
 DEFINE_HOOK(zlog_rotate, (), ());
+DEFINE_HOOK(zlog_cli_show, (struct vty * vty), (vty));
 
 static const int log_default_lvl = LOG_DEBUG;
 
@@ -194,6 +195,8 @@ DEFUN_NOSH (show_logging,
 	vty_out(vty, "Record priority: %s\n",
 		(zt_file.record_priority ? "enabled" : "disabled"));
 	vty_out(vty, "Timestamp precision: %d\n", zt_file.ts_subsec);
+
+	hook_call(zlog_cli_show, vty);
 	return CMD_SUCCESS;
 }
 
