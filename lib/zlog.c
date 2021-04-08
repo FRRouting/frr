@@ -117,8 +117,14 @@ struct zlog_msg {
 	 * Valid if ZLOG_TS_ISO8601 is set.
 	 * (0 if timestamp has not been formatted yet)
 	 */
-	uint32_t ts_flags;
 	char ts_str[32], *ts_dot, ts_zonetail[8];
+	uint32_t ts_flags;
+
+	/* "mmm dd hh:mm:ss" for 3164 legacy syslog - too dissimilar from
+	 * the above, so just kept separately here.
+	 */
+	uint32_t ts_3164_flags;
+	char ts_3164_str[16];
 
 	/* at the time of writing, 16 args was the actual maximum of arguments
 	 * to a single zlog call.  Particularly printing flag bitmasks seems
@@ -744,6 +750,35 @@ size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out, uint32_t flags)
 		out->pos += len2;
 		return len1 + len2;
 	}
+}
+
+size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out, uint32_t flags)
+{
+	flags &= ZLOG_TS_UTC;
+
+	if (!msg->ts_3164_str[0] || flags != msg->ts_3164_flags) {
+		/* these are "hardcoded" in RFC3164, so they're here too... */
+		static const char *const months[12] = {
+			"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+			"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+		};
+		struct tm tm;
+
+		/* RFC3164 explicitly asks for local time, but common usage
+		 * also includes UTC.
+		 */
+		if (flags & ZLOG_TS_UTC)
+			gmtime_r(&msg->ts.tv_sec, &tm);
+		else
+			localtime_r(&msg->ts.tv_sec, &tm);
+
+		snprintfrr(msg->ts_3164_str, sizeof(msg->ts_3164_str),
+			   "%3s %2d %02d:%02d:%02d", months[tm.tm_mon],
+			   tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+		msg->ts_3164_flags = flags;
+	}
+	return bputs(out, msg->ts_3164_str);
 }
 
 void zlog_set_prefix_ec(bool enable)
