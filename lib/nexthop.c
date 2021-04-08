@@ -62,7 +62,8 @@ static int _nexthop_labels_cmp(const struct nexthop *nh1,
 	if (nhl1->num_labels < nhl2->num_labels)
 		return -1;
 
-	return memcmp(nhl1->label, nhl2->label, nhl1->num_labels);
+	return memcmp(nhl1->label, nhl2->label,
+		      (nhl1->num_labels * sizeof(mpls_label_t)));
 }
 
 int nexthop_g_addr_cmp(enum nexthop_types_t type, const union g_addr *addr1,
