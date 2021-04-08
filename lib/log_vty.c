@@ -588,8 +588,9 @@ DEFUN (no_config_log_filterfile,
 
 DEFPY (log_filter,
        log_filter_cmd,
-       "[no] log-filter WORD$filter",
+       "[no] log filter-text WORD$filter",
        NO_STR
+       "Logging control\n"
        FILTER_LOG_STR
        "String to filter by\n")
 {
@@ -616,8 +617,9 @@ DEFPY (log_filter,
 /* Clear all log filters */
 DEFPY (log_filter_clear,
        log_filter_clear_cmd,
-       "clear log-filter",
+       "clear log filter-text",
        CLEAR_STR
+       "Logging control\n"
        FILTER_LOG_STR)
 {
 	zlog_filter_clear();
@@ -627,8 +629,9 @@ DEFPY (log_filter_clear,
 /* Show log filter */
 DEFPY (show_log_filter,
        show_log_filter_cmd,
-       "show log-filter",
+       "show logging filter-text",
        SHOW_STR
+       "Show current logging configuration\n"
        FILTER_LOG_STR)
 {
 	char log_filters[ZLOG_FILTERS_MAX * (ZLOG_FILTER_LENGTH_MAX + 3)] = "";
