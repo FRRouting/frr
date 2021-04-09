@@ -480,6 +480,15 @@ Some things to keep in mind:
 - Avoid including unstable data in your test: don't rely on link-local
   addresses or ifindex values, for example, because these can change
   from run to run.
+- Using sleep is almost never appropriate to wait for some convergence
+  event as the sole item done.  As an example: if the test resets the peers
+  in BGP, the test should look for the peers reconverging instead of just
+  sleeping an arbitrary amount of time and continuing on.  It is ok to
+  use sleep in a tight loop with appropriate show commands to ensure that
+  the protocol reaches the desired state.  This should be bounded by 
+  appropriate timeouts for the protocol in question though.  See
+  verify_bgp_convergence as a good example of this.  If you are having
+  troubles figuring out what to look for, please do not be afraid to ask.
 
 
 Topotest File Hierarchy
