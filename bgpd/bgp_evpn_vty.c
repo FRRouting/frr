@@ -3452,12 +3452,6 @@ DEFUN (no_bgp_evpn_advertise_default_gw,
 	if (!bgp)
 		return CMD_WARNING;
 
-	if (!EVPN_ENABLED(bgp)) {
-		vty_out(vty,
-			"This command is only supported under the EVPN VRF\n");
-		return CMD_WARNING;
-	}
-
 	evpn_unset_advertise_default_gw(bgp, NULL);
 
 	return CMD_SUCCESS;
@@ -3718,16 +3712,16 @@ DEFPY(bgp_evpn_advertise_svi_ip,
 	if (!bgp)
 		return CMD_WARNING;
 
-	if (!EVPN_ENABLED(bgp)) {
-		vty_out(vty,
-			"This command is only supported under EVPN VRF\n");
-		return CMD_WARNING;
-	}
-
 	if (no)
 		evpn_set_advertise_svi_macip(bgp, NULL, 0);
-	else
+	else {
+		if (!EVPN_ENABLED(bgp)) {
+			vty_out(vty,
+				"This command is only supported under EVPN VRF\n");
+			return CMD_WARNING;
+		}
 		evpn_set_advertise_svi_macip(bgp, NULL, 1);
+	}
 
 	return CMD_SUCCESS;
 }
