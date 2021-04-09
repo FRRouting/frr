@@ -298,7 +298,7 @@ def test_staticroute_with_ecmp_p0_tc3_ibgp(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol
         )
-        assert result is True, "Testcase {} : Failed \nError: Routes are"
+        assert result is True, "Testcase {} : Failed \nError: Routes are" \
         " missing in RIB".format(tc_name)
     step("Configure redistribute static in BGP on R2 router")
     for addr_type in ADDR_TYPES:
@@ -352,7 +352,7 @@ def test_staticroute_with_ecmp_p0_tc3_ibgp(request):
             protocol=protocol,
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \nError: Routes are"
+        assert result is not True, "Testcase {} : Failed \nError: Routes are" \
         " still present in RIB".format(tc_name)
 
     step("Configure the static route with nexthop N1 to N8, one by" "one")
@@ -380,7 +380,7 @@ def test_staticroute_with_ecmp_p0_tc3_ibgp(request):
     result = verify_rib(
         tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol
     )
-    assert result is True, "Testcase {} : Failed \nError: Routes are"
+    assert result is True, "Testcase {} : Failed \nError: Routes are" \
     " missing in RIB".format(tc_name)
 
     step("Random shut of the nexthop interfaces")
@@ -408,7 +408,7 @@ def test_staticroute_with_ecmp_p0_tc3_ibgp(request):
             protocol=protocol,
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n"
+        assert result is not True, "Testcase {} : Failed \n" \
         "Error: Routes are still present in RIB".format(tc_name)
 
     step("Random no shut of the nexthop interfaces")
@@ -419,7 +419,7 @@ def test_staticroute_with_ecmp_p0_tc3_ibgp(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_5, next_hop=nhip, protocol=protocol
         )
-        assert result is True, "Testcase {} : Failed \n"
+        assert result is True, "Testcase {} : Failed \n" \
         "Error: Routes are missing in RIB".format(tc_name)
 
     step("Reload the FRR router")
@@ -430,7 +430,7 @@ def test_staticroute_with_ecmp_p0_tc3_ibgp(request):
     result = verify_rib(
         tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol
     )
-    assert result is True, "Testcase {} : Failed \nError: Routes are"
+    assert result is True, "Testcase {} : Failed \nError: Routes are" \
     " missing in RIB".format(tc_name)
 
     write_test_footer(tc_name)
@@ -510,7 +510,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol, fib=True
         )
-        assert result is True, "Testcase {} : Failed \nError: Route with "
+        assert result is True, "Testcase {} : Failed \nError: Route with " \
         " lowest AD is missing in RIB".format(tc_name)
 
         nh = []
@@ -526,7 +526,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
             fib=True,
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
+        assert result is not True, "Testcase {} : Failed \nError: Routes " \
         " with high AD are active in RIB".format(tc_name)
 
     step("Configure redistribute static in BGP on R2 router")
@@ -570,7 +570,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol, fib=True
         )
-        assert result is True, "Testcase {} : Failed \nError: Route with "
+        assert result is True, "Testcase {} : Failed \nError: Route with " \
         " lowest AD is missing in RIB".format(tc_name)
 
     step(
@@ -614,7 +614,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
         protocol=protocol,
         expected=False,
     )
-    assert result is not True, "Testcase {} : Failed \nError: Routes are"
+    assert result is not True, "Testcase {} : Failed \nError: Routes are" \
     " still present in RIB".format(tc_name)
 
     step("Configure the static route with nexthop N1 to N8, one by" "one")
@@ -656,7 +656,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol, fib=True
         )
-        assert result is True, "Testcase {} : Failed \nError: Route with "
+        assert result is True, "Testcase {} : Failed \nError: Route with " \
         " lowest AD is missing in RIB".format(tc_name)
 
         nh = []
@@ -672,7 +672,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
             fib=True,
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
+        assert result is not True, "Testcase {} : Failed \nError: Routes " \
         " with high AD are active in RIB".format(tc_name)
 
     step("Random shut of the nexthop interfaces")
@@ -700,7 +700,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
             protocol=protocol,
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n"
+        assert result is not True, "Testcase {} : Failed \n" \
         "Error: Routes are still present in RIB".format(tc_name)
 
     step("Random no shut of the nexthop interfaces")
@@ -711,7 +711,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_5, next_hop=nhip, protocol=protocol
         )
-        assert result is True, "Testcase {} : Failed \n"
+        assert result is True, "Testcase {} : Failed \n" \
         "Error: Routes are missing in RIB".format(tc_name)
 
     step("Reload the FRR router")
@@ -741,7 +741,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol, fib=True
         )
-        assert result is True, "Testcase {} : Failed \nError: Route with "
+        assert result is True, "Testcase {} : Failed \nError: Route with " \
         " lowest AD is missing in RIB".format(tc_name)
 
         nh = []
@@ -757,7 +757,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
             fib=True,
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
+        assert result is not True, "Testcase {} : Failed \nError: Routes " \
         " with high AD are active in RIB".format(tc_name)
 
     step("Remove the redistribute static knob")
@@ -796,8 +796,8 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
             protocol=protocol,
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \nError: Routes are"
-        " strill present in RIB of R3".format(tc_name)
+        assert result is not True, "Testcase {} : Failed \nError: Routes are" \
+        " still present in RIB of R3".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -858,17 +858,17 @@ def test_bgp_local_nexthop_p1_tc14_ibgp(request):
         step("Verify R2 BGP table has IPv4 route")
         dut = "r2"
         result = verify_rib(tgen, addr_type, dut, input_dict_4)
-        assert result is True, "Testcase {} : Failed \nError: Routes is"
+        assert result is True, "Testcase {} : Failed \nError: Routes is" \
         " missing in RIB of R2".format(tc_name)
 
         step(" Verify route did not install in the R3 BGP table, RIB/FIB")
         dut = "r3"
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4, expected=False)
-        assert result is not True, "Testcase {} : Failed \nError: Routes is"
+        assert result is not True, "Testcase {} : Failed \nError: Routes is" \
         " still present in BGP RIB of R2".format(tc_name)
 
         result = verify_rib(tgen, addr_type, dut, input_dict_4, expected=False)
-        assert result is not True, "Testcase {} : Failed \nError: Routes is"
+        assert result is not True, "Testcase {} : Failed \nError: Routes is" \
         " still present in RIB of R2".format(tc_name)
 
     write_test_footer(tc_name)
