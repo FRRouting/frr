@@ -988,6 +988,9 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
 	json_object *json_bfd = NULL;
 	char time_buf[64];
 
+	if (!bsp)
+		return;
+
 	/* Show type. */
 	if (json) {
 		json_bfd = json_object_new_object();
