@@ -748,9 +748,6 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 								? peer->conf_if
 								: peer->ifname,
 							peer->bgp->vrf_id);
-			else if (peer->update_if)
-				ifp = if_lookup_by_name(peer->update_if,
-							peer->bgp->vrf_id);
 		} else if (peer->update_if)
 			ifp = if_lookup_by_name(peer->update_if,
 						peer->bgp->vrf_id);
