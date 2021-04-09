@@ -1417,7 +1417,6 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 				struct bgp *bgp_vpn, /* from */
 				afi_t afi)
 {
-	struct prefix_rd prd;
 	struct bgp_dest *pdest;
 	safi_t safi = SAFI_MPLS_VPN;
 
@@ -1428,15 +1427,9 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 	 */
 	for (pdest = bgp_table_top(bgp_vpn->rib[afi][safi]); pdest;
 	     pdest = bgp_route_next(pdest)) {
-		const struct prefix *p = bgp_dest_get_prefix(pdest);
 		struct bgp_table *table;
 		struct bgp_dest *bn;
 		struct bgp_path_info *bpi;
-
-		memset(&prd, 0, sizeof(prd));
-		prd.family = AF_UNSPEC;
-		prd.prefixlen = 64;
-		memcpy(prd.val, &p->u.val, 8);
 
 		/* This is the per-RD table of prefixes */
 		table = bgp_dest_get_bgp_table_info(pdest);
