@@ -122,7 +122,7 @@ typedef struct pcep_configuration_ {
 
 	struct pcep_versioning *pcep_msg_versioning;
 
-	char tcp_authentication_str[TCP_MD5SIG_MAXKEYLEN];
+	char tcp_authentication_str[PCEP_MD5SIG_MAXKEYLEN];
 	bool is_tcp_auth_md5; /* true: RFC 2385, false: RFC 5925 */
 
 } pcep_configuration;

@@ -53,7 +53,7 @@ struct cmd_line_args {
 	char dest_ip_str[MAX_DST_IP_STR];
 	short src_tcp_port;
 	short dest_tcp_port;
-	char tcp_md5_str[TCP_MD5SIG_MAXKEYLEN]; /* RFC 2385 */
+	char tcp_md5_str[PCEP_MD5SIG_MAXKEYLEN]; /* RFC 2385 */
 	bool is_ipv6;
 	bool eventpoll; /* poll for pcep_event's, or use callback (default) */
 };

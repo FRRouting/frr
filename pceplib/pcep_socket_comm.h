@@ -91,9 +91,9 @@ typedef struct pcep_socket_comm_session_ {
 	int received_bytes;
 	bool close_after_write;
 	void *external_socket_data; /* used for external socket infra */
-	char tcp_authentication_str[TCP_MD5SIG_MAXKEYLEN
-				    + 1]; /* should be used with is_tcp_auth_md5
-					     flag */
+	/* should be used with is_tcp_auth_md5 flag */
+	char tcp_authentication_str[PCEP_MD5SIG_MAXKEYLEN + 1];
+
 	bool is_tcp_auth_md5; /* flag to distinguish between rfc 2385 (md5) and
 				 rfc 5925 (tcp-ao) */
 

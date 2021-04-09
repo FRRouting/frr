@@ -84,7 +84,7 @@ DECLARE_MTYPE(PCEP);
 
 struct pcep_config_group_opts {
 	char name[64];
-	char tcp_md5_auth[TCP_MD5SIG_MAXKEYLEN];
+	char tcp_md5_auth[PCEP_MD5SIG_MAXKEYLEN];
 	struct ipaddr source_ip;
 	short source_port;
 	bool draft07;
