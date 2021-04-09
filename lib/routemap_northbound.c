@@ -1225,6 +1225,7 @@ const struct frr_yang_module_info frr_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/optimization-disabled",
 			.cbs = {
 				.modify = lib_route_map_optimization_disabled_modify,
+				.cli_show = route_map_optimization_disabled_show,
 			}
 		},
 		{

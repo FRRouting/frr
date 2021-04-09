@@ -342,6 +342,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(OPENFABRIC_NODE, line);
 		else if (strncmp(line, "route-map", strlen("route-map")) == 0)
 			config = config_get(RMAP_NODE, line);
+		else if (strncmp(line, "no route-map", strlen("no route-map"))
+			 == 0)
+			config = config_get(RMAP_NODE, line);
 		else if (strncmp(line, "pbr-map", strlen("pbr-map")) == 0)
 			config = config_get(PBRMAP_NODE, line);
 		else if (strncmp(line, "access-list", strlen("access-list"))

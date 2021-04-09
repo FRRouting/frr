@@ -1396,15 +1396,56 @@ void route_map_description_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " description %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
-DEFPY_YANG(routemap_optimization, routemap_optimization_cmd,
-	   "[no] route-map optimization",
-	   NO_STR
-	   "route-map\n"
-	   "optimization\n")
+DEFPY_YANG(
+	route_map_optimization, route_map_optimization_cmd,
+	"[no] route-map WORD$name optimization",
+	NO_STR
+	ROUTE_MAP_CMD_STR
+	"Configure route-map optimization\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-route-map:lib/route-map[name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-route-map:lib/route-map[name='%s']/optimization-disabled",
+		name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, no ? "true" : "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void route_map_optimization_disabled_show(struct vty *vty,
+					  struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, "../name");
+	const bool disabled = yang_dnode_get_bool(dnode, NULL);
+
+	vty_out(vty, "%sroute-map %s optimization\n", disabled ? "no " : "",
+		name);
+}
+
+#if CONFDATE > 20220409
+CPP_NOTICE("Time to remove old route-map optimization command")
+#endif
+
+DEFPY_HIDDEN(
+	routemap_optimization, routemap_optimization_cmd,
+	"[no] route-map optimization",
+	NO_STR
+	"route-map\n"
+	"optimization\n")
 {
 	const struct lyd_node *rmi_dnode;
 	const char *rm_name;
 	char xpath[XPATH_MAXLEN];
+
+	vty_out(vty,
+		"%% This command is deprecated. Please, use `route-map NAME optimization` from the config node.\n");
 
 	rmi_dnode =
 		yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
@@ -1474,6 +1515,7 @@ void route_map_cli_init(void)
 	install_element(CONFIG_NODE, &route_map_cmd);
 	install_element(CONFIG_NODE, &no_route_map_cmd);
 	install_element(CONFIG_NODE, &no_route_map_all_cmd);
+	install_element(CONFIG_NODE, &route_map_optimization_cmd);
 
 	/* Install the on-match stuff */
 	install_element(RMAP_NODE, &rmap_onmatch_next_cmd);

@@ -902,6 +902,9 @@ extern void route_map_call_show(struct vty *vty, struct lyd_node *dnode,
 extern void route_map_description_show(struct vty *vty,
 				       struct lyd_node *dnode,
 				       bool show_defaults);
+extern void route_map_optimization_disabled_show(struct vty *vty,
+						 struct lyd_node *dnode,
+						 bool show_defaults);
 extern void route_map_cli_init(void);
 
 #ifdef __cplusplus

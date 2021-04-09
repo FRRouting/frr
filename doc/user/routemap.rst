@@ -333,10 +333,10 @@ Route Map Exit Action Command
 Route Map Optimization Command
 ==============================
 
-.. clicmd:: route-map optimization
+.. clicmd:: route-map ROUTE-MAP-NAME optimization
 
-   Enable route-map processing optimization. The optimization is
-   enabled by default.
+   Enable route-map processing optimization for `route-map-name`.
+   The optimization is enabled by default.
    Instead of sequentially passing through all the route-map indexes
    until a match is found, the search for the best-match index will be
    based on a look-up in a prefix-tree. A per-route-map prefix-tree
