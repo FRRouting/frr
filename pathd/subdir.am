@@ -22,7 +22,6 @@ pathd_libpath_a_SOURCES = \
 	pathd/path_cli.c \
 	pathd/path_debug.c \
 	pathd/path_errors.c \
-	pathd/path_main.c \
 	pathd/path_nb.c \
 	pathd/path_nb_config.c \
 	pathd/path_nb_state.c \
@@ -50,7 +49,9 @@ noinst_HEADERS += \
 	pathd/pathd.h \
 	# end
 
-pathd_pathd_SOURCES = pathd/path_main.c
+pathd_pathd_SOURCES = \
+	pathd/path_main.c \
+	# end
 nodist_pathd_pathd_SOURCES = \
 	yang/frr-pathd.yang.c \
 	# end
