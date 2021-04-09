@@ -694,6 +694,13 @@ static int ospf_if_delete_hook(struct interface *ifp)
 	struct route_node *rn;
 	rc = ospf_opaque_del_if(ifp);
 
+	/*
+	 * This function must be called before `route_table_finish` due to
+	 * BFD integration need to iterate over the interface neighbors to
+	 * remove all registrations.
+	 */
+	ospf_del_if_params(ifp, IF_DEF_PARAMS(ifp));
+
 	route_table_finish(IF_OIFS(ifp));
 
 	for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
@@ -701,7 +708,6 @@ static int ospf_if_delete_hook(struct interface *ifp)
 			ospf_del_if_params(ifp, rn->info);
 	route_table_finish(IF_OIFS_PARAMS(ifp));
 
-	ospf_del_if_params(ifp, IF_DEF_PARAMS(ifp));
 	XFREE(MTYPE_OSPF_IF_INFO, ifp->info);
 
 	return rc;
