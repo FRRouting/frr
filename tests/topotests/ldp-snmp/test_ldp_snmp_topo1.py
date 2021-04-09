@@ -141,14 +141,15 @@ def setup_module(mod):
                 TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
             )
             router.load_config(
-                TopoRouter.RD_LDP, os.path.join(CWD, "{}/ldpd.conf".format(rname)),
-                "-M snmp"
+                TopoRouter.RD_LDP,
+                os.path.join(CWD, "{}/ldpd.conf".format(rname)),
+                "-M snmp",
             )
             router.load_config(
-                TopoRouter.RD_SNMP, os.path.join(CWD, "{}/snmpd.conf".format(rname)),
-                "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap"
+                TopoRouter.RD_SNMP,
+                os.path.join(CWD, "{}/snmpd.conf".format(rname)),
+                "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap",
             )
-
 
     tgen.start_router()
 
@@ -199,7 +200,7 @@ def test_rib():
 
     # Skip if previous fatal error condition is raised
     # TODO: disabling this check to avoid 'snmpd not running' errors
-    #if tgen.routers_have_failure():
+    # if tgen.routers_have_failure():
     #    pytest.skip(tgen.errors)
 
     for rname in ["r1", "r2", "r3"]:
@@ -212,7 +213,7 @@ def test_ldp_adjacencies():
 
     # Skip if previous fatal error condition is raised
     # TODO: disabling this check to avoid 'snmpd not running' errors
-    #if tgen.routers_have_failure():
+    # if tgen.routers_have_failure():
     #    pytest.skip(tgen.errors)
 
     for rname in ["r1", "r2", "r3"]:
@@ -226,7 +227,7 @@ def test_ldp_neighbors():
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
-    #if tgen.routers_have_failure():
+    # if tgen.routers_have_failure():
     #    pytest.skip(tgen.errors)
 
     for rname in ["r1", "r2", "r3"]:
@@ -242,8 +243,8 @@ def test_r1_ldp_lsr_objects():
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
-    assert r1_snmp.test_oid('mplsLdpLsrId', "01 01 01 01")
-    assert r1_snmp.test_oid('mplsLdpLsrLoopDetectionCapable', 'none(1)')
+    assert r1_snmp.test_oid("mplsLdpLsrId", "01 01 01 01")
+    assert r1_snmp.test_oid("mplsLdpLsrLoopDetectionCapable", "none(1)")
 
 
 def test_r1_ldp_entity_table():
@@ -253,52 +254,31 @@ def test_r1_ldp_entity_table():
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
+    assert r1_snmp.test_oid_walk("mplsLdpEntityLdpId", ["1.1.1.1:0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityIndex", ["1"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityProtocolVersion", ["1"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityAdminStatus", ["enable(1)"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityOperStatus", ["enabled(2)"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityTcpPort", ["646"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityUdpDscPort", ["646"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityMaxPduLength", ["4096 octets"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityKeepAliveHoldTimer", ["180 seconds"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityHelloHoldTimer", ["0 seconds"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityInitSessionThreshold", ["0"])
     assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityLdpId', ['1.1.1.1:0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityIndex', ['1'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityProtocolVersion', ['1'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityAdminStatus', ['enable(1)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityOperStatus', ['enabled(2)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityTcpPort', ['646'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityUdpDscPort', ['646'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityMaxPduLength', ['4096 octets'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityKeepAliveHoldTimer', ['180 seconds'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityHelloHoldTimer', ['0 seconds'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityInitSessionThreshold', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityLabelDistMethod', ['downstreamUnsolicited(2)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityLabelRetentionMode', ['liberal(2)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityPathVectorLimit', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityHopCountLimit', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityTransportAddrKind', ['loopback(2)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityTargetPeer', ['true(1)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityTargetPeerAddrType', ['ipv4(1)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityTargetPeerAddr', ['01 01 01 01'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityLabelType', ['generic(1)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityDiscontinuityTime', ['(0) 0:00:00.00'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStorageType', ['nonVolatile(3)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityRowStatus', ['createAndGo(4)'])
+        "mplsLdpEntityLabelDistMethod", ["downstreamUnsolicited(2)"]
+    )
+    assert r1_snmp.test_oid_walk("mplsLdpEntityLabelRetentionMode", ["liberal(2)"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityPathVectorLimit", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityHopCountLimit", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityTransportAddrKind", ["loopback(2)"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityTargetPeer", ["true(1)"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityTargetPeerAddrType", ["ipv4(1)"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityTargetPeerAddr", ["01 01 01 01"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityLabelType", ["generic(1)"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityDiscontinuityTime", ["(0) 0:00:00.00"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStorageType", ["nonVolatile(3)"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityRowStatus", ["createAndGo(4)"])
 
 
 def test_r1_ldp_entity_stats_table():
@@ -308,32 +288,23 @@ def test_r1_ldp_entity_stats_table():
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsSessionAttempts", ["0"])
     assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsSessionAttempts', ['0'])
+        "mplsLdpEntityStatsSessionRejectedNoHelloErrors", ["0"]
+    )
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsSessionRejectedAdErrors", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsSessionRejectedMaxPduErrors", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsSessionRejectedLRErrors", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsBadLdpIdentifierErrors", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsBadPduLengthErrors", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsBadMessageLengthErrors", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsBadTlvLengthErrors", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsMalformedTlvValueErrors", ["0"])
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsKeepAliveTimerExpErrors", ["0"])
     assert r1_snmp.test_oid_walk(
-       'mplsLdpEntityStatsSessionRejectedNoHelloErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsSessionRejectedAdErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsSessionRejectedMaxPduErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsSessionRejectedLRErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsBadLdpIdentifierErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsBadPduLengthErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsBadMessageLengthErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsBadTlvLengthErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsMalformedTlvValueErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsKeepAliveTimerExpErrors', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsShutdownReceivedNotifications', ['0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpEntityStatsShutdownSentNotifications', ['0'])
+        "mplsLdpEntityStatsShutdownReceivedNotifications", ["0"]
+    )
+    assert r1_snmp.test_oid_walk("mplsLdpEntityStatsShutdownSentNotifications", ["0"])
 
 
 def test_r1_ldp_peer_table():
@@ -343,17 +314,16 @@ def test_r1_ldp_peer_table():
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
+    assert r1_snmp.test_oid_walk("mplsLdpPeerLdpId", ["2.2.2.2:0", "3.3.3.3:0"])
     assert r1_snmp.test_oid_walk(
-        'mplsLdpPeerLdpId', ['2.2.2.2:0', '3.3.3.3:0'])
+        "mplsLdpPeerLabelDistMethod",
+        ["downstreamUnsolicited(2)", "downstreamUnsolicited(2)"],
+    )
+    assert r1_snmp.test_oid_walk("mplsLdpPeerPathVectorLimit", ["0", "0"])
+    assert r1_snmp.test_oid_walk("mplsLdpPeerTransportAddrType", ["ipv4(1)", "ipv4(1)"])
     assert r1_snmp.test_oid_walk(
-        'mplsLdpPeerLabelDistMethod',
-        ['downstreamUnsolicited(2)', 'downstreamUnsolicited(2)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpPeerPathVectorLimit', ['0', '0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpPeerTransportAddrType', ['ipv4(1)', 'ipv4(1)'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpPeerTransportAddr', ['02 02 02 02', '03 03 03 03'])
+        "mplsLdpPeerTransportAddr", ["02 02 02 02", "03 03 03 03"]
+    )
 
 
 def test_r1_ldp_session_table():
@@ -363,18 +333,20 @@ def test_r1_ldp_session_table():
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
-    assert r1_snmp.test_oid_walk('mplsLdpSessionState',
-        ['operational(5)', 'operational(5)'])
-    assert r1_snmp.test_oid_walk('mplsLdpSessionRole',
-        ['passive(3)', 'passive(3)'])
-    assert r1_snmp.test_oid_walk('mplsLdpSessionProtocolVersion',
-        ['1', '1'])
-    assert r1_snmp.test_oid_walk('mplsLdpSessionKeepAliveTime',
-        ['180 seconds', '180 seconds'])
-    assert r1_snmp.test_oid_walk('mplsLdpSessionMaxPduLength',
-        ['4096 octets', '4096 octets'])
-    assert r1_snmp.test_oid_walk('mplsLdpSessionDiscontinuityTime',
-        ['(0) 0:00:00.00', '(0) 0:00:00.00'])
+    assert r1_snmp.test_oid_walk(
+        "mplsLdpSessionState", ["operational(5)", "operational(5)"]
+    )
+    assert r1_snmp.test_oid_walk("mplsLdpSessionRole", ["passive(3)", "passive(3)"])
+    assert r1_snmp.test_oid_walk("mplsLdpSessionProtocolVersion", ["1", "1"])
+    assert r1_snmp.test_oid_walk(
+        "mplsLdpSessionKeepAliveTime", ["180 seconds", "180 seconds"]
+    )
+    assert r1_snmp.test_oid_walk(
+        "mplsLdpSessionMaxPduLength", ["4096 octets", "4096 octets"]
+    )
+    assert r1_snmp.test_oid_walk(
+        "mplsLdpSessionDiscontinuityTime", ["(0) 0:00:00.00", "(0) 0:00:00.00"]
+    )
 
 
 def test_r1_ldp_session_stats_table():
@@ -384,10 +356,8 @@ def test_r1_ldp_session_stats_table():
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpSessionStatsUnknownMesTypeErrors', ['0', '0'])
-    assert r1_snmp.test_oid_walk(
-        'mplsLdpSessionStatsUnknownTlvErrors', ['0', '0'])
+    assert r1_snmp.test_oid_walk("mplsLdpSessionStatsUnknownMesTypeErrors", ["0", "0"])
+    assert r1_snmp.test_oid_walk("mplsLdpSessionStatsUnknownTlvErrors", ["0", "0"])
 
 
 def test_r1_ldp_hello_adjacency_table():
@@ -397,12 +367,11 @@ def test_r1_ldp_hello_adjacency_table():
     r1 = tgen.net.get("r1")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
-    assert r1_snmp.test_oid_walk('mplsLdpHelloAdjacencyIndex',
-        ['1', '2', '1'])
-    assert r1_snmp.test_oid_walk('mplsLdpHelloAdjacencyHoldTime',
-        ['15', '45', '15'])
-    assert r1_snmp.test_oid_walk('mplsLdpHelloAdjacencyType',
-        ['link(1)', 'targeted(2)', 'link(1)'])
+    assert r1_snmp.test_oid_walk("mplsLdpHelloAdjacencyIndex", ["1", "2", "1"])
+    assert r1_snmp.test_oid_walk("mplsLdpHelloAdjacencyHoldTime", ["15", "45", "15"])
+    assert r1_snmp.test_oid_walk(
+        "mplsLdpHelloAdjacencyType", ["link(1)", "targeted(2)", "link(1)"]
+    )
 
 
 # Memory leak test template

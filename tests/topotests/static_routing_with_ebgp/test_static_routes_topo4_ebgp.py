@@ -949,10 +949,11 @@ def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         result4 = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result4 is not True, ("Testcase {} : Failed \n"
-            "routes are still present \n Error: {}".format(
+        assert (
+            result4 is not True
+        ), "Testcase {} : Failed \n" "routes are still present \n Error: {}".format(
             tc_name, result4
-        ))
+        )
 
         step("vm4 should be present in FRR1")
         dut = "r1"

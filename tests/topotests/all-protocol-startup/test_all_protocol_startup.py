@@ -346,9 +346,9 @@ def test_converge_protocols():
 
         print("Show that v4 routes are right\n")
         v4_routesFile = "%s/r%s/ipv4_routes.ref" % (thisDir, i)
-        expected = net["r%s" % i].cmd(
-            "sort {} 2> /dev/null".format(v4_routesFile)
-        ).rstrip()
+        expected = (
+            net["r%s" % i].cmd("sort {} 2> /dev/null".format(v4_routesFile)).rstrip()
+        )
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = (
@@ -379,9 +379,9 @@ def test_converge_protocols():
 
         print("Show that v6 routes are right\n")
         v6_routesFile = "%s/r%s/ipv6_routes.ref" % (thisDir, i)
-        expected = net["r%s" % i].cmd(
-            "sort {} 2> /dev/null".format(v6_routesFile)
-        ).rstrip()
+        expected = (
+            net["r%s" % i].cmd("sort {} 2> /dev/null".format(v6_routesFile)).rstrip()
+        )
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = (

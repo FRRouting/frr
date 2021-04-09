@@ -3487,11 +3487,11 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
             IGMP_JOIN_RANGE_1,
             expected=False,
         )
-        assert result is not True, ("Testcase {} : Failed \n "
+        assert result is not True, (
+            "Testcase {} : Failed \n "
             "upstream is still present after shut the link from "
-            "FHR to RP from RP node \n Error: {}".format(
-            tc_name, result
-        ))
+            "FHR to RP from RP node \n Error: {}".format(tc_name, result)
+        )
 
     step(" No shut the link from FHR to RP from RP node")
 
@@ -3638,11 +3638,11 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
             IGMP_JOIN_RANGE_1,
             expected=False,
         )
-        assert result is not True, ("Testcase {} : Failed \n "
+        assert result is not True, (
+            "Testcase {} : Failed \n "
             "upstream is still present after shut the link from "
-            "FHR to RP from FHR node \n Error: {}".format(
-            tc_name, result
-        ))
+            "FHR to RP from FHR node \n Error: {}".format(tc_name, result)
+        )
 
     step(" No shut the link from FHR to RP from FHR node")
 

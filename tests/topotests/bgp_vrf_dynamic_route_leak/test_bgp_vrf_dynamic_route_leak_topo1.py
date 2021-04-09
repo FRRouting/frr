@@ -498,6 +498,7 @@ def disable_route_map_to_prefer_global_next_hop(tgen, topo):
 #
 #####################################################
 
+
 def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
     """
     TC5_FUNC_5:
@@ -762,9 +763,7 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
 
     for addr_type in ADDR_TYPES:
 
-        step(
-            "On router R1 delete static routes in vrf ISR to LOOPBACK_1"
-        )
+        step("On router R1 delete static routes in vrf ISR to LOOPBACK_1")
 
         input_routes_r1 = {
             "r1": {
@@ -772,7 +771,7 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
                     {
                         "network": [NETWORK1_3[addr_type], NETWORK1_4[addr_type]],
                         "next_hop": (intf_r2_r1[addr_type]).split("/")[0],
-                        "delete": True
+                        "delete": True,
                     }
                 ]
             }

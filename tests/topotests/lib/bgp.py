@@ -43,7 +43,7 @@ from lib.common_config import (
     run_frr_cmd,
     FRRCFG_FILE,
     retry,
-    get_ipv6_linklocal_address
+    get_ipv6_linklocal_address,
 )
 
 LOGDIR = "/tmp/topotests/"

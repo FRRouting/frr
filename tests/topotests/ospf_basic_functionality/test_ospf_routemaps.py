@@ -332,18 +332,20 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
         }
     }
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: routes are present in fib \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are present in fib \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     step("Delete and reconfigure prefix list.")
     # Create ip prefix list
@@ -383,18 +385,20 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
         }
     }
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     pfx_list = {
         "r0": {
@@ -438,18 +442,20 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
         }
     }
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: routes are still present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     write_test_footer(tc_name)
 
@@ -496,18 +502,20 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     dut = "r1"
     protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, attempts=2, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, attempts=2, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: routes are still present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     step(
         "configure the route map with the same name that is used "
@@ -523,18 +531,20 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     dut = "r1"
     protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: routes are still present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     # Create route map
     routemaps = {"r0": {"route_maps": {"rmap_ipv4": [{"action": "deny"}]}}}
@@ -545,18 +555,20 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     dut = "r1"
     protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: routes are still present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     step("Delete the route map.")
     # Create route map
@@ -573,18 +585,20 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     dut = "r1"
     protocol = "ospf"
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: OSPF routes are present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
-        "r1: routes are still present \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
         tc_name, result
-    ))
+    )
 
     write_test_footer(tc_name)
 

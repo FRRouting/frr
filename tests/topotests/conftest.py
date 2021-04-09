@@ -11,6 +11,7 @@ from lib.topotest import json_cmp_result
 from lib.topotest import g_extra_config as topotest_extra_config
 from lib.topolog import logger
 
+
 def pytest_addoption(parser):
     """
     Add topology-only option to the topology tester. This option makes pytest
@@ -143,9 +144,7 @@ def pytest_configure(config):
     vtysh_on_error = config.getoption("--vtysh-on-error")
     topotest_extra_config["vtysh_on_error"] = vtysh_on_error
 
-    topotest_extra_config["pause_after"] = (
-        pause_after or shell or vtysh
-    )
+    topotest_extra_config["pause_after"] = pause_after or shell or vtysh
 
     topotest_extra_config["topology_only"] = config.getoption("--topology-only")
 
@@ -177,9 +176,11 @@ def pytest_runtest_makereport(item, call):
         else:
             error = True
             # Handle assert failures
-            parent._previousfailed = item       # pylint: disable=W0212
+            parent._previousfailed = item  # pylint: disable=W0212
             logger.error(
-                'assert failed at "{}/{}": {}'.format(modname, item.name, call.excinfo.value)
+                'assert failed at "{}/{}": {}'.format(
+                    modname, item.name, call.excinfo.value
+                )
             )
 
             # (topogen) Set topology error to avoid advancing in the test.
@@ -187,7 +188,6 @@ def pytest_runtest_makereport(item, call):
             if tgen is not None:
                 # This will cause topogen to report error on `routers_have_failure`.
                 tgen.set_error("{}/{}".format(modname, item.name))
-
 
     if error and topotest_extra_config["shell_on_error"]:
         for router in tgen.routers():

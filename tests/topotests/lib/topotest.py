@@ -54,6 +54,7 @@ from mininet.term import makeTerm
 
 g_extra_config = {}
 
+
 def gdb_core(obj, daemon, corefiles):
     gdbcmds = """
         info threads
@@ -544,7 +545,7 @@ def iproute2_is_vrf_capable():
                 ["ip", "route", "show", "vrf"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE
+                stdin=subprocess.PIPE,
             )
             iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
 
@@ -1345,15 +1346,9 @@ class Router(Node):
     # Run a command in a new window (gnome-terminal, screen, tmux, xterm)
     def runInWindow(self, cmd, title=None):
         topo_terminal = os.getenv("FRR_TOPO_TERMINAL")
-        if topo_terminal or (
-                "TMUX" not in os.environ and "STY" not in os.environ
-        ):
+        if topo_terminal or ("TMUX" not in os.environ and "STY" not in os.environ):
             term = topo_terminal if topo_terminal else "xterm"
-            makeTerm(
-                self,
-                title=title if title else cmd,
-                term=term,
-                cmd=cmd)
+            makeTerm(self, title=title if title else cmd, term=term, cmd=cmd)
         else:
             nscmd = "sudo nsenter -m -n -t {} {}".format(self.pid, cmd)
             if "TMUX" in os.environ:
@@ -1362,16 +1357,13 @@ class Router(Node):
                 cmd = "{} {}".format(wcmd, nscmd)
             elif "STY" in os.environ:
                 if os.path.exists(
-                        "/run/screen/S-{}/{}".format(
-                            os.environ['USER'], os.environ['STY']
-                        )
+                    "/run/screen/S-{}/{}".format(os.environ["USER"], os.environ["STY"])
                 ):
                     wcmd = "screen"
                 else:
                     wcmd = "sudo -u {} screen".format(os.environ["SUDO_USER"])
                 cmd = "{} {}".format(wcmd, nscmd)
             self.cmd(cmd)
-
 
     def startRouter(self, tgen=None):
         # Disable integrated-vtysh-config
@@ -1459,7 +1451,7 @@ class Router(Node):
     def startRouterDaemons(self, daemons=None):
         "Starts all FRR daemons for this router."
 
-        gdb_breakpoints =  g_extra_config["gdb_breakpoints"]
+        gdb_breakpoints = g_extra_config["gdb_breakpoints"]
         gdb_daemons = g_extra_config["gdb_daemons"]
         gdb_routers = g_extra_config["gdb_routers"]
 
@@ -1520,12 +1512,10 @@ class Router(Node):
 
             if (
                 (gdb_routers or gdb_daemons)
-                and (not gdb_routers
-                     or self.name in gdb_routers
-                     or "all" in gdb_routers)
-                and (not gdb_daemons
-                     or daemon in gdb_daemons
-                     or "all" in gdb_daemons)
+                and (
+                    not gdb_routers or self.name in gdb_routers or "all" in gdb_routers
+                )
+                and (not gdb_daemons or daemon in gdb_daemons or "all" in gdb_daemons)
             ):
                 if daemon == "snmpd":
                     cmdopt += " -f "
@@ -1545,7 +1535,6 @@ class Router(Node):
                 cmdopt += rediropt
                 self.cmd(" ".join([cmdenv, binary, cmdopt]))
             logger.info("{}: {} {} started".format(self, self.routertype, daemon))
-
 
         # Start Zebra first
         if "zebra" in daemons_list:

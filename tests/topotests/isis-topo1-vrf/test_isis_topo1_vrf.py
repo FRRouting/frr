@@ -42,8 +42,8 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import (
-        required_linux_kernel_version,
-        adjust_router_l3mdev,
+    required_linux_kernel_version,
+    adjust_router_l3mdev,
 )
 
 from mininet.topo import Topo
@@ -51,18 +51,19 @@ from mininet.topo import Topo
 pytestmark = [pytest.mark.isisd]
 
 VERTEX_TYPE_LIST = [
-		"pseudo_IS",
-		"pseudo_TE-IS",
-		"IS",
-		"TE-IS",
-		"ES",
-		"IP internal",
-		"IP external",
-		"IP TE",
-		"IP6 internal",
-		"IP6 external",
-		"UNKNOWN"
-	      ]
+    "pseudo_IS",
+    "pseudo_TE-IS",
+    "IS",
+    "TE-IS",
+    "ES",
+    "IP internal",
+    "IP external",
+    "IP TE",
+    "IP6 internal",
+    "IP6 external",
+    "UNKNOWN",
+]
+
 
 class ISISTopo1(Topo):
     "Simple two layer ISIS vrf topology"
@@ -330,8 +331,9 @@ def parse_topology(lines, level):
             ipv = "ipv4"
             continue
 
-        item_match = re.match(r"([^\s]+) ([^\s]+) ([^\s]+) ([^\s]+) ([^\s]+) ([^\s]+)"
-                              , line)
+        item_match = re.match(
+            r"([^\s]+) ([^\s]+) ([^\s]+) ([^\s]+) ([^\s]+) ([^\s]+)", line
+        )
         if (
             item_match is not None
             and item_match.group(1) == "Vertex"
@@ -344,8 +346,12 @@ def parse_topology(lines, level):
             # Skip header
             continue
 
-        item_match = re.match(r"([^\s]+) ({}) ([0]|([1-9][0-9]*)) ([^\s]+) ([^\s]+) ([^\s]+)"
-                              .format(vertex_type_regex), line)
+        item_match = re.match(
+            r"([^\s]+) ({}) ([0]|([1-9][0-9]*)) ([^\s]+) ([^\s]+) ([^\s]+)".format(
+                vertex_type_regex
+            ),
+            line,
+        )
         if item_match is not None:
             areas[area][level][ipv].append(
                 {
@@ -359,8 +365,10 @@ def parse_topology(lines, level):
             )
             continue
 
-        item_match = re.match(r"([^\s]+) ({}) ([0]|([1-9][0-9]*)) ([^\s]+)"
-                              .format(vertex_type_regex), line)
+        item_match = re.match(
+            r"([^\s]+) ({}) ([0]|([1-9][0-9]*)) ([^\s]+)".format(vertex_type_regex),
+            line,
+        )
 
         if item_match is not None:
             areas[area][level][ipv].append(

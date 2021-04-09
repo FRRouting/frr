@@ -94,11 +94,13 @@ def setup_module(mod):
 
     tgen.start_router()
 
+
 def teardown_module(_mod):
     "Teardown the pytest environment"
 
     tgen = get_topogen()
     tgen.stop_topology()
+
 
 def test_converge_protocols():
     "Wait for protocol convergence"
@@ -110,19 +112,26 @@ def test_converge_protocols():
 
     topotest.sleep(10, "Waiting for OSPF convergence")
 
+
 def ospf_configure_suppress_fa(router_name, area):
     "Configure OSPF suppress-fa in router_name"
 
     tgen = get_topogen()
     router = tgen.gears[router_name]
-    router.vtysh_cmd("conf t\nrouter ospf\narea {} nssa suppress-fa\nexit\n".format(area))
+    router.vtysh_cmd(
+        "conf t\nrouter ospf\narea {} nssa suppress-fa\nexit\n".format(area)
+    )
+
 
 def ospf_unconfigure_suppress_fa(router_name, area):
     "Remove OSPF suppress-fa in router_name"
 
     tgen = get_topogen()
     router = tgen.gears[router_name]
-    router.vtysh_cmd("conf t\nrouter ospf\nno area {} nssa suppress-fa\nexit\n".format(area))
+    router.vtysh_cmd(
+        "conf t\nrouter ospf\nno area {} nssa suppress-fa\nexit\n".format(area)
+    )
+
 
 def ospf_get_lsa_type5(router_name):
     "Return a dict with link state id as key and forwarding addresses as value"
@@ -141,7 +150,8 @@ def ospf_get_lsa_type5(router_name):
             result[lsa] = re1.group(1)
     return result
 
-@pytest.fixture(scope='module', name='original')
+
+@pytest.fixture(scope="module", name="original")
 def test_ospf_set_suppress_fa():
     "Test OSPF area [x] nssa suppress-fa"
 
@@ -161,6 +171,7 @@ def test_ospf_set_suppress_fa():
     # Return the original forwarding addresses so we can compare them
     # in the test_ospf_unset_supress_fa
     return initial
+
 
 def test_ospf_unset_supress_fa(original):
     "Test OSPF no area [x] nssa suppress-fa"
