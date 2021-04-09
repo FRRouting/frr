@@ -500,9 +500,21 @@ made. For example, a change in :file:`bgpd/rfapi` would be formatted as::
 The first line should be no longer than 50 characters. Subsequent lines should
 be wrapped to 72 characters.
 
+The purpose of commit messages is to briefly summarize what the commit is
+changing. Therefore, the extended summary portion should be in the form of an
+English paragraph. Brief examples of program output are acceptable but if
+present should be short (on the order of 10 lines) and clearly demonstrate what
+has changed. The goal should be that someone with only passing familiarity with
+the code in question can understand what is being changed.
+
+Commit messages consisting entirely of program output are *unacceptable*. These
+do not describe the behavior changed. For example, putting VTYSH output or the
+result of test runs as the sole content of commit messages is unacceptable.
+
 You must also sign off on your commit.
 
 .. seealso:: :ref:`signing-off`
+
 
 Source File Header
 ------------------
