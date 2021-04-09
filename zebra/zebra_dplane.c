@@ -1,6 +1,9 @@
 /*
  * Zebra dataplane layer.
  * Copyright (c) 2018 Volta Networks, Inc.
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *		Approved for Public Release; Distribution Unlimited 21-1402
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +23,6 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-
 #include "lib/libfrr.h"
 #include "lib/debug.h"
 #include "lib/frratomic.h"
@@ -249,7 +251,9 @@ struct dplane_neigh_table {
  * Policy based routing rule info for the dataplane
  */
 struct dplane_ctx_rule {
+	uint32_t seq;
 	uint32_t priority;
+	uint32_t unique;
 
 	/* The route table pointed by this rule */
 	uint32_t table;
@@ -267,6 +271,10 @@ struct dplane_ctx_rule {
 	uint16_t action_vlan_flags;
 
 	uint32_t action_queue_id;
+
+	uint8_t filter_pcp;
+	uint16_t filter_vlan_id;
+	uint16_t filter_vlan_flags;
 
 	char ifname[INTERFACE_NAMSIZ + 1];
 };
@@ -2311,7 +2319,6 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 
 	return AOK;
 }
-
 /*
  * Initialize a context block for a route update from zebra data structs.
  */
@@ -2775,6 +2782,9 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->fwmark = rule->rule.filter.fwmark;
 	dplane_rule->dsfield = rule->rule.filter.dsfield;
 	dplane_rule->ip_proto = rule->rule.filter.ip_proto;
+	dplane_rule->filter_pcp = rule->rule.filter.pcp;
+	dplane_rule->filter_vlan_id = rule->rule.filter.vlan_id;
+	dplane_rule->filter_vlan_flags = rule->rule.filter.vlan_flags;
 	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
 	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
 
@@ -2824,6 +2834,7 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.rule.seq = new_rule->rule.seq;
 
 	dplane_ctx_rule_init_single(&ctx->u.rule.new, new_rule);
+
 	if (op == DPLANE_OP_RULE_UPDATE)
 		dplane_ctx_rule_init_single(&ctx->u.rule.old, old_rule);
 

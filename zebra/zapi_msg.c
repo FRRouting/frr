@@ -4,6 +4,8 @@
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
+ *	 Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *		Approved for Public Release; Distribution Unlimited 21-1402
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -3174,6 +3176,7 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		zpr.sock = client->sock;
 		zpr.rule.vrf_id = hdr->vrf_id;
+
 		STREAM_GETL(s, zpr.rule.seq);
 		STREAM_GETL(s, zpr.rule.priority);
 		STREAM_GETL(s, zpr.rule.unique);
@@ -3191,14 +3194,16 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETC(s, zpr.rule.filter.dsfield);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 
-		STREAM_GETL(s, zpr.rule.action.queue_id);
+		STREAM_GETC(s, zpr.rule.filter.pcp);
+		STREAM_GETW(s, zpr.rule.action.pcp);
+		STREAM_GETW(s, zpr.rule.filter.vlan_id);
+		STREAM_GETW(s, zpr.rule.filter.vlan_flags);
 		STREAM_GETW(s, zpr.rule.action.vlan_id);
 		STREAM_GETW(s, zpr.rule.action.vlan_flags);
-		STREAM_GETW(s, zpr.rule.action.pcp);
+		STREAM_GETL(s, zpr.rule.action.queue_id);
 
 		STREAM_GETL(s, zpr.rule.action.table);
 		STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
-
 		strlcpy(zpr.ifname, ifname, sizeof(zpr.ifname));
 		strlcpy(zpr.rule.ifname, ifname, sizeof(zpr.rule.ifname));
 
@@ -3223,6 +3228,15 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		if (zpr.rule.filter.fwmark)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
 
+		if (zpr.rule.filter.pcp)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_PCP;
+
+		if (zpr.rule.filter.vlan_flags)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_VLAN_FLAGS;
+
+		if (zpr.rule.filter.vlan_id)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_VLAN_ID;
+
 		if (!(zpr.rule.filter.src_ip.family == AF_INET
 		      || zpr.rule.filter.src_ip.family == AF_INET6)) {
 			zlog_warn(
@@ -3239,7 +3253,6 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 				zpr.rule.filter.dst_ip.family);
 			return;
 		}
-
 
 		zpr.vrf_id = zvrf->vrf->vrf_id;
 		if (hdr->command == ZEBRA_RULE_ADD)
@@ -3325,7 +3338,7 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		if (zpi.src_port_max != 0)
 			zpi.filter_bm |= PBR_FILTER_SRC_PORT_RANGE;
 		if (zpi.proto != 0)
-			zpi.filter_bm |= PBR_FILTER_PROTO;
+			zpi.filter_bm |= PBR_FILTER_IP_PROTOCOL;
 
 		if (!(zpi.dst.family == AF_INET
 		      || zpi.dst.family == AF_INET6)) {

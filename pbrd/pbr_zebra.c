@@ -2,6 +2,9 @@
  * Zebra connect code.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *		Approved for Public Release; Distribution Unlimited 21-1402
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -541,19 +544,28 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putw(s, pbrms->dst_prt);
 	stream_putc(s, pbrms->dsfield);
 	stream_putl(s, pbrms->mark);
-
-	stream_putl(s, pbrms->action_queue_id);
-
+	/* pcp */
+	stream_putc(s, pbrms->match_pcp);
+	stream_putw(s, pbrms->action_pcp);
+	/* VLAN */
+	stream_putw(s, pbrms->match_vlan_id);
+	stream_putw(s, pbrms->match_vlan_flags);
 	stream_putw(s, pbrms->action_vlan_id);
 	stream_putw(s, pbrms->action_vlan_flags);
-	stream_putw(s, pbrms->action_pcp);
+	stream_putl(s, pbrms->action_queue_id);
 
+	/* if the user does not use the command "set vrf name |unchanged"
+	 * then pbr_encode_pbr_map_sequence_vrf will not be called
+	 */
+
+	/* these statement get a table id */
 	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
 		pbr_encode_pbr_map_sequence_vrf(s, pbrms, ifp);
 	else if (pbrms->nhgrp_name)
 		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
 	else if (pbrms->nhg)
 		stream_putl(s, pbr_nht_get_table(pbrms->internal_nhg_name));
+
 	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
 }
 
@@ -565,9 +577,6 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	uint64_t is_installed = (uint64_t)1 << pmi->install_bit;
 
 	is_installed &= pbrms->installed;
-
-	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d(%" PRIu64 ")", __func__,
-	       pbrm->name, install, is_installed);
 
 	/*
 	 * If we are installed and asked to do so again and the config
@@ -603,6 +612,5 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zclient_send_message(zclient);
-
 	return true;
 }

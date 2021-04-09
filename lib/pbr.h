@@ -1,5 +1,8 @@
 /* Policy Based Routing (PBR) main header
  * Copyright (C) 2018 6WIND
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *		Approved for Public Release; Distribution Unlimited 21-1402
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,21 +42,24 @@ extern "C" {
  * specified.
  */
 struct pbr_filter {
-	uint32_t filter_bm; /* not encoded by zapi
-			     */
-#define PBR_FILTER_SRC_IP		(1 << 0)
-#define PBR_FILTER_DST_IP		(1 << 1)
-#define PBR_FILTER_SRC_PORT		(1 << 2)
-#define PBR_FILTER_DST_PORT		(1 << 3)
-#define PBR_FILTER_FWMARK		(1 << 4)
-#define PBR_FILTER_PROTO		(1 << 5)
+	uint32_t filter_bm; /* not encoded by zapi */
+#define PBR_FILTER_SRC_IP (1 << 0)
+#define PBR_FILTER_DST_IP (1 << 1)
+#define PBR_FILTER_SRC_PORT (1 << 2)
+#define PBR_FILTER_DST_PORT (1 << 3)
+#define PBR_FILTER_FWMARK (1 << 4)
+#define PBR_FILTER_PROTO (1 << 5)
 #define PBR_FILTER_SRC_PORT_RANGE	(1 << 6)
 #define PBR_FILTER_DST_PORT_RANGE	(1 << 7)
-#define PBR_FILTER_DSFIELD		(1 << 8)
-#define PBR_FILTER_IP_PROTOCOL	(1 << 9)
+#define PBR_FILTER_DSFIELD (1 << 8)
+#define PBR_FILTER_IP_PROTOCOL (1 << 9)
+#define PBR_FILTER_PCP (1 << 10)
+#define PBR_FILTER_VLAN_FLAGS (1 << 11)
+#define PBR_FILTER_VLAN_ID (1 << 12)
 
 #define PBR_DSFIELD_DSCP (0xfc) /* Upper 6 bits of DS field: DSCP */
 #define PBR_DSFIELD_ECN (0x03)	/* Lower 2 bits of DS field: BCN */
+#define PBR_PCP (0x07)		/* 3 bit value 0..7 */
 
 	/* Source and Destination IP address with masks. */
 	struct prefix src_ip;
@@ -63,6 +69,9 @@ struct pbr_filter {
 	uint16_t src_port;
 	uint16_t dst_port;
 
+	uint8_t pcp;
+	uint16_t vlan_id;
+	uint16_t vlan_flags;
 	/* Filter by Differentiated Services field  */
 	uint8_t dsfield; /* DSCP (6 bits) & ECN (2 bits) */
 
