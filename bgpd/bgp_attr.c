@@ -3734,7 +3734,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	struct aspath *aspath;
 	int send_as4_path = 0;
 	int send_as4_aggregator = 0;
-	int use32bit = (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)) ? 1 : 0;
+	bool use32bit = CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV);
 
 	if (!bgp)
 		bgp = peer->bgp;
