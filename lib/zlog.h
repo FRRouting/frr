@@ -163,7 +163,7 @@ extern void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen,
 /* default is local time zone */
 #define ZLOG_TS_UTC		(1 << 10)
 
-extern size_t zlog_msg_ts(struct zlog_msg *msg, char *out, size_t outsz,
+extern size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out,
 			  uint32_t flags);
 
 /* This list & struct implements the actual logging targets.  It is accessed

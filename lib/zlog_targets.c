@@ -82,10 +82,16 @@ void zlog_fd(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsgs)
 			iov[iovpos].iov_base = ts_pos;
 			if (iovpos > 0)
 				*ts_pos++ = '\n';
-			ts_pos += zlog_msg_ts(msg, ts_pos,
-					      sizeof(ts_buf) - 1
-						      - (ts_pos - ts_buf),
-					      ZLOG_TS_LEGACY | zte->ts_subsec);
+
+			struct fbuf fbuf = {
+				.buf = ts_buf,
+				.pos = ts_pos,
+				.len = sizeof(ts_buf),
+			};
+			zlog_msg_ts(msg, &fbuf,
+				    ZLOG_TS_LEGACY | zte->ts_subsec);
+			ts_pos = fbuf.pos;
+
 			*ts_pos++ = ' ';
 			iov[iovpos].iov_len =
 				ts_pos - (char *)iov[iovpos].iov_base;
