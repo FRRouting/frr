@@ -659,9 +659,9 @@ void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen, size_t *n_argpos,
 #define ZLOG_TS_FORMAT		(ZLOG_TS_ISO8601 | ZLOG_TS_LEGACY)
 #define ZLOG_TS_FLAGS		~ZLOG_TS_PREC
 
-size_t zlog_msg_ts(struct zlog_msg *msg, char *out, size_t outsz,
-		   uint32_t flags)
+size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out, uint32_t flags)
 {
+	size_t outsz = out ? (out->buf + out->len - out->pos) : 0;
 	size_t len1;
 
 	if (!(flags & ZLOG_TS_FORMAT))
@@ -703,32 +703,45 @@ size_t zlog_msg_ts(struct zlog_msg *msg, char *out, size_t outsz,
 		len1 = strlen(msg->ts_str);
 
 	if (flags & ZLOG_TS_LEGACY) {
-		if (len1 + 1 > outsz)
-			return 0;
+		if (!out)
+			return len1;
+
+		if (len1 > outsz) {
+			memset(out->pos, 0, outsz);
+			out->pos += outsz;
+			return len1;
+		}
 
 		/* just swap out the formatting, faster than redoing it */
 		for (char *p = msg->ts_str; p < msg->ts_str + len1; p++) {
 			switch (*p) {
 			case '-':
-				*out++ = '/';
+				*out->pos++ = '/';
 				break;
 			case 'T':
-				*out++ = ' ';
+				*out->pos++ = ' ';
 				break;
 			default:
-				*out++ = *p;
+				*out->pos++ = *p;
 			}
 		}
-		*out = '\0';
 		return len1;
 	} else {
 		size_t len2 = strlen(msg->ts_zonetail);
 
-		if (len1 + len2 + 1 > outsz)
-			return 0;
-		memcpy(out, msg->ts_str, len1);
-		memcpy(out + len1, msg->ts_zonetail, len2);
-		out[len1 + len2] = '\0';
+		if (!out)
+			return len1 + len2;
+
+		if (len1 + len2 > outsz) {
+			memset(out->pos, 0, outsz);
+			out->pos += outsz;
+			return len1 + len2;
+		}
+
+		memcpy(out->pos, msg->ts_str, len1);
+		out->pos += len1;
+		memcpy(out->pos, msg->ts_zonetail, len2);
+		out->pos += len2;
 		return len1 + len2;
 	}
 }
