@@ -142,7 +142,13 @@ struct zlog_msg;
 extern int zlog_msg_prio(struct zlog_msg *msg);
 extern const struct xref_logmsg *zlog_msg_xref(struct zlog_msg *msg);
 
-/* pass NULL as textlen if you don't need it. */
+/* text is NOT \0 terminated; instead there is a \n after textlen since the
+ * logging targets would jump extra hoops otherwise for a single byte.  (the
+ * \n is not included in textlen)
+ *
+ * calling this with NULL textlen is likely wrong.
+ * use  "%.*s", (int)textlen, text  when passing to printf-like functions
+ */
 extern const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen);
 
 extern void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen,

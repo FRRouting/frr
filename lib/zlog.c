@@ -585,7 +585,7 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		va_end(args);
 
 		msg->textlen = need;
-		need += bputch(&fb, '\0');
+		need += bputch(&fb, '\n');
 
 		if (need <= msg->stackbufsz)
 			msg->text = msg->stackbuf;
@@ -603,7 +603,7 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 			vbprintfrr(&fb, msg->fmt, args);
 			va_end(args);
 
-			bputch(&fb, '\0');
+			bputch(&fb, '\n');
 		}
 
 		msg->n_argpos = fb.outpos_i;
