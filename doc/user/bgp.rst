@@ -1624,6 +1624,16 @@ Configuring Peers
    peer in question.  This number is between 0 and 600 seconds,
    with the default advertisement interval being 0.
 
+.. clicmd:: neighbor PEER timers (0-65535) (0-65535)
+
+   Set keepalive and hold timers for a neighbor. The first value is keepalive
+   and the second is hold time.
+
+.. clicmd:: neighbor PEER connect (1-65535)
+
+   Set connect timer for a neighbor. The connect timer controls how long BGP
+   waits between connection attempts to a neighbor.
+
 .. clicmd:: neighbor PEER timers delayopen (1-240)
 
    This command allows the user enable the
