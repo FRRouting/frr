@@ -58,6 +58,33 @@ routes to Internet exchanges running full Internet tables.
 FRR runs on all modern \*NIX operating systems, including Linux and the BSDs.
 Feature support varies by platform; see the :ref:`feature-matrix`.
 
+System Requirements
+-------------------
+
+System resources needed by FRR are highly dependent on workload. Routing
+software performance is particularly susceptible to external factors such as:
+
+* Kernel networking stack
+* Physical NIC
+* Peer behavior
+* Routing information scale
+
+Because of these factors - especially the last one - it's difficult to lay out
+resource requirements.
+
+To put this in perspective, FRR can be run on very low resource systems such as
+SBCs, provided it is not stressed too much. If you want to set up 4 Raspberry
+Pis to play with BGP or OSPF, it should work fine. If you ask a FRR to process
+a complete internet routing table on a Raspberry Pi, you will be disappointed.
+However, given enough resources, FRR ought to be capable of acting as a core IX
+router. Such a use case requires at least 4gb of memory and a recent quad-core
+server processor at a minimum.
+
+If you are new to networking, an important thing to remember is that FRR is
+control plane software. It does not itself forward packets - it exchanges
+information with peers about how to forward packets. Forwarding plane
+performance largely depends on choice of NIC / ASIC.
+
 
 System Architecture
 -------------------
