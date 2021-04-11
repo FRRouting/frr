@@ -31,7 +31,6 @@
  * absolute end.
  */
 
-DECLARE_MGROUP(LOG);
 DEFINE_MGROUP_ACTIVEATEXIT(LOG, "logging subsystem");
 
 DEFINE_MTYPE_STATIC(LOG, LOG_FD,        "log file target");

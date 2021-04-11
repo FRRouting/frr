@@ -35,10 +35,13 @@
 extern "C" {
 #endif
 
+DECLARE_MGROUP(LOG);
+
 extern char zlog_prefix[];
 extern size_t zlog_prefixsz;
 extern int zlog_tmpdirfd;
 extern int zlog_instance;
+extern const char *zlog_progname;
 
 struct xref_logmsg {
 	struct xref xref;
@@ -268,6 +271,8 @@ extern void zlog_startup_end(void);
 extern void zlog_tls_buffer_init(void);
 extern void zlog_tls_buffer_flush(void);
 extern void zlog_tls_buffer_fini(void);
+
+extern const char *zlog_priority_str(int priority);
 
 #ifdef __cplusplus
 }

@@ -58,7 +58,7 @@ static struct zlog_cfg_filterfile zt_filterfile = {
 	},
 };
 
-static const char *zlog_progname;
+const char *zlog_progname;
 static const char *zlog_protoname;
 
 static const struct facility_map {
@@ -95,7 +95,14 @@ static const char * const zlog_priority[] = {
 	"notifications", "informational", "debugging", NULL,
 };
 
-static const char *facility_name(int facility)
+const char *zlog_priority_str(int priority)
+{
+	if (priority > LOG_DEBUG)
+		return "???";
+	return zlog_priority[priority];
+}
+
+const char *facility_name(int facility)
 {
 	const struct facility_map *fm;
 
@@ -105,7 +112,7 @@ static const char *facility_name(int facility)
 	return "";
 }
 
-static int facility_match(const char *str)
+int facility_match(const char *str)
 {
 	const struct facility_map *fm;
 
