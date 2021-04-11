@@ -215,8 +215,15 @@ static inline void zlog_tls_set(struct zlog_tls *val)
 #endif
 
 #ifdef CAN_DO_TLS
-static long zlog_gettid(void)
+static intmax_t zlog_gettid(void)
 {
+#ifndef __OpenBSD__
+	/* accessing a TLS variable is much faster than a syscall */
+	static thread_local intmax_t cached_tid = -1;
+	if (cached_tid != -1)
+		return cached_tid;
+#endif
+
 	long rv = -1;
 #ifdef HAVE_PTHREAD_GETTHREADID_NP
 	rv = pthread_getthreadid_np();
@@ -235,6 +242,10 @@ static long zlog_gettid(void)
 #elif defined(__APPLE__)
 	rv = mach_thread_self();
 	mach_port_deallocate(mach_task_self(), rv);
+#endif
+
+#ifndef __OpenBSD__
+	cached_tid = rv;
 #endif
 	return rv;
 }
@@ -255,7 +266,7 @@ void zlog_tls_buffer_init(void)
 	for (i = 0; i < array_size(zlog_tls->msgp); i++)
 		zlog_tls->msgp[i] = &zlog_tls->msgs[i];
 
-	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%ld", zlog_gettid());
+	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%jd", zlog_gettid());
 
 	mmfd = openat(zlog_tmpdirfd, mmpath,
 		      O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
@@ -322,7 +333,7 @@ void zlog_tls_buffer_fini(void)
 	zlog_tls_free(zlog_tls);
 	zlog_tls_set(NULL);
 
-	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%ld", zlog_gettid());
+	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%jd", zlog_gettid());
 	if (do_unlink && unlinkat(zlog_tmpdirfd, mmpath, 0))
 		zlog_err("unlink logbuf: %s (%d)", strerror(errno), errno);
 }
@@ -336,6 +347,24 @@ void zlog_tls_buffer_fini(void)
 {
 }
 #endif
+
+void zlog_msg_pid(struct zlog_msg *msg, intmax_t *pid, intmax_t *tid)
+{
+#ifndef __OpenBSD__
+	static thread_local intmax_t cached_pid = -1;
+	if (cached_pid != -1)
+		*pid = cached_pid;
+	else
+		cached_pid = *pid = (intmax_t)getpid();
+#else
+	*pid = (intmax_t)getpid();
+#endif
+#ifdef CAN_DO_TLS
+	*tid = zlog_gettid();
+#else
+	*tid = *pid;
+#endif
+}
 
 static inline void zlog_tls_free(void *arg)
 {
