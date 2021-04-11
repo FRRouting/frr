@@ -22,6 +22,7 @@ Basics
    :maxdepth: 2
 
    basic
+   extlog
    vtysh
    grpc
    filter
