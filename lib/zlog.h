@@ -38,6 +38,7 @@ extern "C" {
 extern char zlog_prefix[];
 extern size_t zlog_prefixsz;
 extern int zlog_tmpdirfd;
+extern int zlog_instance;
 
 struct xref_logmsg {
 	struct xref xref;
