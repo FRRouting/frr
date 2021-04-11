@@ -37,10 +37,13 @@
 extern "C" {
 #endif
 
+DECLARE_MGROUP(LOG);
+
 extern char zlog_prefix[];
 extern size_t zlog_prefixsz;
 extern int zlog_tmpdirfd;
 extern int zlog_instance;
+extern const char *zlog_progname;
 
 struct xref_logmsg {
 	struct xref xref;
@@ -273,6 +276,8 @@ extern void zlog_tls_buffer_fini(void);
 
 /* Enable or disable 'immediate' output - default is to buffer messages. */
 extern void zlog_set_immediate(bool set_p);
+
+extern const char *zlog_priority_str(int priority);
 
 #ifdef __cplusplus
 }
