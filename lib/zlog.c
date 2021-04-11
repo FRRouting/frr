@@ -67,6 +67,7 @@ DEFINE_HOOK(zlog_aux_init, (const char *prefix, int prio_min),
 char zlog_prefix[128];
 size_t zlog_prefixsz;
 int zlog_tmpdirfd = -1;
+int zlog_instance = -1;
 
 static atomic_bool zlog_ec = true, zlog_xid = true;
 
@@ -885,6 +886,7 @@ void zlog_init(const char *progname, const char *protoname,
 {
 	zlog_uid = uid;
 	zlog_gid = gid;
+	zlog_instance = instance;
 
 	if (instance) {
 		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir),
