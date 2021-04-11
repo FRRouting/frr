@@ -21,6 +21,7 @@
 /lib/cli/test_commands_defun.c
 /lib/northbound/test_oper_data
 /lib/cxxcompat
+/lib/fuzz_zlog
 /lib/test_assert
 /lib/test_atomlist
 /lib/test_buffer
