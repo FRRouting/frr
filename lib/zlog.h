@@ -178,6 +178,11 @@ extern size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out,
 extern size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out,
 			       uint32_t flags);
 
+/* currently just returns the current PID/TID since we never write another
+ * thread's messages
+ */
+extern void zlog_msg_pid(struct zlog_msg *msg, intmax_t *pid, intmax_t *tid);
+
 /* This list & struct implements the actual logging targets.  It is accessed
  * lock-free from all threads, and thus MUST only be changed atomically, i.e.
  * RCU.
