@@ -3,6 +3,7 @@ Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
                i internal, r RIB-failure, S Stale, R Removed
 Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
 Origin codes:  i - IGP, e - EGP, ? - incomplete
+RPKI validation codes: V valid, I invalid, N Not found
 
    Network          Next Hop            Metric LocPrf Weight Path
 *  10.0.1.0/24      172.16.1.5                             0 65005 i
