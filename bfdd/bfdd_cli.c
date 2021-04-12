@@ -273,11 +273,8 @@ DEFPY_YANG(
 void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	if (show_defaults)
-		vty_out(vty, "  no shutdown\n");
-	else
-		vty_out(vty, "  %sshutdown\n",
-			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
+	vty_out(vty, "  %sshutdown\n",
+		yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 DEFPY_YANG(
@@ -294,11 +291,8 @@ DEFPY_YANG(
 void bfd_cli_show_passive(struct vty *vty, struct lyd_node *dnode,
 			  bool show_defaults)
 {
-	if (show_defaults)
-		vty_out(vty, "  no passive-mode\n");
-	else
-		vty_out(vty, "  %spassive-mode\n",
-			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
+	vty_out(vty, "  %spassive-mode\n",
+		yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 DEFPY_YANG(
@@ -335,11 +329,7 @@ DEFPY_YANG(
 void bfd_cli_show_minimum_ttl(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults)
 {
-	if (show_defaults)
-		vty_out(vty, "  minimum-ttl 254\n");
-	else
-		vty_out(vty, "  minimum-ttl %s\n",
-			yang_dnode_get_string(dnode, NULL));
+	vty_out(vty, "  minimum-ttl %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 DEFPY_YANG(
@@ -356,12 +346,8 @@ DEFPY_YANG(
 void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
 		       bool show_defaults)
 {
-	if (show_defaults)
-		vty_out(vty, "  detect-multiplier %d\n",
-			BFD_DEFDETECTMULT);
-	else
-		vty_out(vty, "  detect-multiplier %s\n",
-			yang_dnode_get_string(dnode, NULL));
+	vty_out(vty, "  detect-multiplier %s\n",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 DEFPY_YANG(
@@ -382,15 +368,9 @@ DEFPY_YANG(
 void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
 		     bool show_defaults)
 {
-	uint32_t value;
+	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
 
-	if (show_defaults)
-		vty_out(vty, "  receive-interval %d\n",
-			BFD_DEFREQUIREDMINRX);
-	else {
-		value = yang_dnode_get_uint32(dnode, NULL);
-		vty_out(vty, "  receive-interval %u\n", value / 1000);
-	}
+	vty_out(vty, "  receive-interval %u\n", value / 1000);
 }
 
 DEFPY_YANG(
@@ -411,15 +391,9 @@ DEFPY_YANG(
 void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
 		     bool show_defaults)
 {
-	uint32_t value;
+	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
 
-	if (show_defaults)
-		vty_out(vty, "  transmit-interval %d\n",
-			BFD_DEFDESIREDMINTX);
-	else {
-		value = yang_dnode_get_uint32(dnode, NULL);
-		vty_out(vty, "  transmit-interval %u\n", value / 1000);
-	}
+	vty_out(vty, "  transmit-interval %u\n", value / 1000);
 }
 
 DEFPY_YANG(
@@ -445,11 +419,8 @@ DEFPY_YANG(
 void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	if (show_defaults)
-		vty_out(vty, "  no echo-mode\n");
-	else
-		vty_out(vty, "  %secho-mode\n",
-			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
+	vty_out(vty, "  %secho-mode\n",
+		yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 DEFPY_YANG(
@@ -498,15 +469,9 @@ DEFPY_YANG(
 void bfd_cli_show_desired_echo_transmission_interval(struct vty *vty,
 	struct lyd_node *dnode, bool show_defaults)
 {
-	uint32_t value;
+	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
 
-	if (show_defaults)
-		vty_out(vty, "  echo transmit-interval %d\n",
-			BFD_DEF_DES_MIN_ECHO_TX);
-	else {
-		value = yang_dnode_get_uint32(dnode, NULL);
-		vty_out(vty, "  echo transmit-interval %u\n", value / 1000);
-	}
+	vty_out(vty, "  echo transmit-interval %u\n", value / 1000);
 }
 
 DEFPY_YANG(
@@ -538,19 +503,12 @@ DEFPY_YANG(
 void bfd_cli_show_required_echo_receive_interval(struct vty *vty,
 	struct lyd_node *dnode, bool show_defaults)
 {
-	uint32_t value;
+	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
 
-	if (show_defaults)
-		vty_out(vty, "  echo receive-interval %d\n",
-			BFD_DEF_REQ_MIN_ECHO_RX);
-	else {
-		value = yang_dnode_get_uint32(dnode, NULL);
-		if (value)
-			vty_out(vty, "  echo receive-interval %u\n",
-				value / 1000);
-		else
-			vty_out(vty, "  echo receive-interval disabled\n");
-	}
+	if (value)
+		vty_out(vty, "  echo receive-interval %u\n", value / 1000);
+	else
+		vty_out(vty, "  echo receive-interval disabled\n");
 }
 
 /*
