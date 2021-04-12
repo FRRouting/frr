@@ -2849,6 +2849,7 @@ When default route is present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2.1/3
                   i internal, r RIB-failure, S Stale, R Removed
    Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
    Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
 
       Network          Next Hop            Metric LocPrf Weight Path
    *> 0.0.0.0/0        10.10.10.1               0             0 1 i
@@ -2878,6 +2879,7 @@ When default route is present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2.1/3
                i internal, r RIB-failure, S Stale, R Removed
    Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
    Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
 
       Network          Next Hop            Metric LocPrf Weight Path
    *> 0.0.0.0/0        0.0.0.0                                0 1 i
@@ -2896,6 +2898,7 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
                   i internal, r RIB-failure, S Stale, R Removed
    Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
    Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
 
       Network          Next Hop            Metric LocPrf Weight Path
    *> 10.139.224.0/20  10.10.10.1               0             0 1 ?
@@ -2925,6 +2928,7 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
                   i internal, r RIB-failure, S Stale, R Removed
    Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
    Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
 
       Network          Next Hop            Metric LocPrf Weight Path
    *> 10.139.224.0/20  0.0.0.0                                0 1 ?
