@@ -277,9 +277,15 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 /* If there's redistribution configured, we need to refresh external
  * LSAs in order to install Type-7 and flood to all NSSA Areas
  */
-void ospf_asbr_nssa_redist_task(struct ospf *ospf)
+static int ospf_asbr_nssa_redist_update_timer(struct thread *thread)
 {
+	struct ospf *ospf = THREAD_ARG(thread);
 	int type;
+
+	ospf->t_asbr_nssa_redist_update = NULL;
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("Running ASBR NSSA redistribution update on timer");
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
 		struct list *red_list;
@@ -293,10 +299,22 @@ void ospf_asbr_nssa_redist_task(struct ospf *ospf)
 		for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
 			ospf_external_lsa_refresh_type(ospf, type,
 						       red->instance,
-						       LSA_REFRESH_IF_CHANGED);
+						       LSA_REFRESH_FORCE);
 	}
 
 	ospf_external_lsa_refresh_default(ospf);
+
+	return 0;
+}
+
+void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("Scheduling ASBR NSSA redistribution update");
+
+	thread_add_timer(master, ospf_asbr_nssa_redist_update_timer, ospf,
+			 OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY,
+			 &ospf->t_asbr_nssa_redist_update);
 }
 
 void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
