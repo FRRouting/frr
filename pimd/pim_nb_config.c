@@ -1882,11 +1882,19 @@ int lib_interface_pim_hello_holdtime_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_pim_bfd_create(struct nb_cb_create_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->bfd_config.enabled = true;
 		break;
 	}
 
@@ -1912,13 +1920,10 @@ int lib_interface_pim_bfd_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode->parent, NULL, true);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		if (pim_ifp->bfd_info) {
-			pim_bfd_reg_dereg_all_nbr(ifp,
-					ZEBRA_BFD_DEST_DEREGISTER);
-			bfd_info_free(&(pim_ifp->bfd_info));
-		}
+		pim_ifp->bfd_config.enabled = false;
+		pim_bfd_reg_dereg_all_nbr(ifp);
 		break;
 	}
 
@@ -1932,11 +1937,8 @@ void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
-	uint32_t min_rx;
-	uint32_t min_tx;
-	uint8_t detect_mult;
 
-	ifp = nb_running_get_entry(args->dnode->parent, NULL, true);
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
@@ -1944,17 +1946,14 @@ void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
 		return;
 	}
 
-	min_rx = yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
-	min_tx = yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
-	detect_mult = yang_dnode_get_uint8(args->dnode, "./detect_mult");
+	pim_ifp->bfd_config.detection_multiplier =
+		yang_dnode_get_uint8(args->dnode, "./detect_mult");
+	pim_ifp->bfd_config.min_rx =
+		yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
+	pim_ifp->bfd_config.min_tx =
+		yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
 
-	if ((min_rx == BFD_DEF_MIN_RX) && (min_tx == BFD_DEF_MIN_TX)
-			&& (detect_mult == BFD_DEF_DETECT_MULT))
-		pim_bfd_if_param_set(ifp, min_rx, min_tx, detect_mult, 1);
-	else
-		pim_bfd_if_param_set(ifp, min_rx, min_tx, detect_mult, 0);
-
-	nb_running_set_entry(args->dnode, pim_ifp->bfd_info);
+	pim_bfd_reg_dereg_all_nbr(ifp);
 }
 
 /*
