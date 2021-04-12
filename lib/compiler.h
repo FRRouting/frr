@@ -356,7 +356,11 @@ extern "C" {
 #define PRIx64 "Lx"
 
 #else /* !_FRR_ATTRIBUTE_PRINTFRR */
+#ifdef __NetBSD__
+#define PRINTFRR(a, b) __attribute__((format(gnu_syslog, a, b)))
+#else
 #define PRINTFRR(a, b) __attribute__((format(printf, a, b)))
+#endif
 
 /* frr-format plugin is C-only for now, so no point in doing these shenanigans
  * for C++...  (also they can break some C++ stuff...)
