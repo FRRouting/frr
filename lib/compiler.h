@@ -371,7 +371,11 @@ CPP_NOTICE("time to remove this CONFDATE block")
 #define PRIx64 "Lx"
 
 #else /* !_FRR_ATTRIBUTE_PRINTFRR */
+#ifdef __NetBSD__
+#define PRINTFRR(a, b) __attribute__((format(gnu_syslog, a, b)))
+#else
 #define PRINTFRR(a, b) __attribute__((format(printf, a, b)))
+#endif
 
 /* these should be typedefs, but might also be #define */
 #ifdef uint64_t
