@@ -101,7 +101,7 @@ static int bgp_delayopen_timer(struct thread *);
 static int bgp_start(struct peer *);
 
 /* Register peer with NHT */
-static int bgp_peer_reg_with_nht(struct peer *peer)
+int bgp_peer_reg_with_nht(struct peer *peer)
 {
 	int connected = 0;
 
@@ -340,6 +340,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	 * needed, even on a passive connection.
 	 */
 	bgp_peer_reg_with_nht(peer);
+	if (from_peer)
+		bgp_replace_nexthop_by_peer(from_peer, peer);
 
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
