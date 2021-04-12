@@ -1390,7 +1390,6 @@ DEFUN_YANG_NOSH(router_bgp,
 					      NB_OP_MODIFY, "true");
 		}
 
-		nb_cli_pending_commit_check(vty);
 		ret = nb_cli_apply_changes(vty, base_xpath);
 		if (ret == CMD_SUCCESS) {
 			VTY_PUSH_XPATH(BGP_NODE, base_xpath);
@@ -1399,6 +1398,7 @@ DEFUN_YANG_NOSH(router_bgp,
 			 * For backward compatibility with old commands we still
 			 * need to use the qobj infrastructure.
 			 */
+			nb_cli_pending_commit_check(vty);
 			bgp = bgp_lookup(as, name);
 			if (bgp)
 				VTY_PUSH_CONTEXT(BGP_NODE, bgp);
