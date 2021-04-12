@@ -162,7 +162,10 @@ class ELFDissectData(object):
         for field in parent._efields[self.elfclass]:
             if field[0] == fieldname:
                 break
-            offset += struct.calcsize(field[1])
+            spec = field[1]
+            if spec == 'P':
+                spec = 'I' if self.elfclass == 32 else 'Q'
+            offset += struct.calcsize(spec)
         else:
             raise AttributeError('%r not found in %r.fields' % (fieldname, parent))
 

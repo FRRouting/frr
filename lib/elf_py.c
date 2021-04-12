@@ -1032,7 +1032,7 @@ static char *elfdata_strptr(Elf_Data *data, size_t offset)
 
 static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 				 size_t entries, Elf_Data *symdata,
-				 Elf_Data *strdata)
+				 Elf_Data *strdata, Elf_Type typ)
 {
 	size_t i;
 
@@ -1041,12 +1041,59 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 		size_t symidx;
 		GElf_Rela *rela;
 		GElf_Sym *sym;
+		GElf_Addr rel_offs = 0;
 
 		relw = (struct elfreloc *)typeobj_elfreloc.tp_alloc(
 				&typeobj_elfreloc, 0);
 		relw->ef = w;
 
-		rela = relw->rela = gelf_getrela(reldata, i, &relw->_rela);
+		if (typ == ELF_T_REL) {
+			GElf_Rel _rel, *rel;
+			GElf_Addr offs;
+
+			rel = gelf_getrel(reldata, i, &_rel);
+			relw->rela = &relw->_rela;
+			relw->rela->r_offset = rel->r_offset;
+			relw->rela->r_info = rel->r_info;
+			relw->rela->r_addend = 0;
+			relw->relative = true;
+
+			/* REL uses the pointer contents itself instead of the
+			 * RELA addend field :( ... theoretically this could
+			 * be some weird platform specific encoding, but since
+			 * we only care about data relocations it should
+			 * always be a pointer...
+			 */
+			if (elffile_virt2file(w, rel->r_offset, &offs)) {
+				Elf_Data *ptr, *conv;
+				GElf_Addr tmp;
+				Elf_Data mem = {
+					.d_buf = (void *)&tmp,
+					.d_type = ELF_T_ADDR,
+					.d_version = EV_CURRENT,
+					.d_size = sizeof(tmp),
+					.d_off = 0,
+					.d_align = 0,
+				};
+
+				ptr = elf_getdata_rawchunk(w->elf, offs,
+							   w->elfclass / 8,
+							   ELF_T_ADDR);
+
+				conv = gelf_xlatetom(w->elf, &mem, ptr,
+						     w->mmap[EI_DATA]);
+				if (conv) {
+					memcpy(&rel_offs, conv->d_buf,
+					       conv->d_size);
+
+					relw->relative = false;
+					relw->rela->r_addend = rel_offs;
+				}
+			}
+		} else
+			relw->rela = gelf_getrela(reldata, i, &relw->_rela);
+
+		rela = relw->rela;
 		symidx = relw->symidx = GELF_R_SYM(rela->r_info);
 		sym = relw->sym = gelf_getsym(symdata, symidx, &relw->_sym);
 		if (sym) {
@@ -1062,9 +1109,16 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 			relw->st_value = 0;
 		}
 
-		debugf("dynreloc @ %016llx sym %5llu %016llx %s\n",
-		       (long long)rela->r_offset, (unsigned long long)symidx,
-		       (long long)rela->r_addend, relw->symname);
+		if (typ == ELF_T_RELA)
+			debugf("dynrela @ %016llx sym %5llu %016llx %s\n",
+			       (long long)rela->r_offset,
+			       (unsigned long long)symidx,
+			       (long long)rela->r_addend, relw->symname);
+		else
+			debugf("dynrel @ %016llx sym %5llu (%016llx) %s\n",
+			       (long long)rela->r_offset,
+			       (unsigned long long)symidx,
+			       (unsigned long long)rel_offs, relw->symname);
 
 		elfrelocs_add(&w->dynrelocs, relw);
 	}
@@ -1166,8 +1220,10 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 		Elf_Data *dyndata = elf_getdata_rawchunk(w->elf,
 				phdr->p_offset, phdr->p_filesz, ELF_T_DYN);
 
-		GElf_Addr dynrela = 0, symtab = 0, strtab = 0;
-		size_t dynrelasz = 0, dynrelaent = 0, strsz = 0;
+		GElf_Addr dynrela = 0, dynrel = 0, symtab = 0, strtab = 0;
+		size_t dynrelasz = 0, dynrelaent = 0;
+		size_t dynrelsz = 0, dynrelent = 0;
+		size_t strsz = 0;
 		GElf_Dyn _dyn, *dyn;
 
 		for (size_t j = 0;; j++) {
@@ -1198,16 +1254,20 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 				dynrelaent = dyn->d_un.d_val;
 				break;
 
+			case DT_REL:
+				dynrel = dyn->d_un.d_ptr;
+				break;
 			case DT_RELSZ:
-				if (dyn->d_un.d_val)
-					fprintf(stderr,
-						"WARNING: ignoring non-empty DT_REL!\n");
+				dynrelsz = dyn->d_un.d_val;
+				break;
+			case DT_RELENT:
+				dynrelent = dyn->d_un.d_val;
 				break;
 			}
 		}
 
 		GElf_Addr offset;
-		Elf_Data *symdata = NULL, *strdata = NULL, *reladata = NULL;
+		Elf_Data *symdata = NULL, *strdata = NULL;
 
 		if (elffile_virt2file(w, symtab, &offset))
 			symdata = elf_getdata_rawchunk(w->elf, offset,
@@ -1217,19 +1277,37 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 			strdata = elf_getdata_rawchunk(w->elf, offset,
 						       strsz, ELF_T_BYTE);
 
-		if (!dynrela || !dynrelasz || !dynrelaent)
-			continue;
+		size_t c;
 
-		if (!elffile_virt2file(w, dynrela, &offset))
-			continue;
+		if (dynrela && dynrelasz && dynrelaent
+		    && elffile_virt2file(w, dynrela, &offset)) {
+			Elf_Data *reladata = NULL;
 
-		debugf("dynrela @%llx/%llx+%llx\n", (long long)dynrela,
-		       (long long)offset, (long long)dynrelasz);
+			debugf("dynrela @%llx/%llx+%llx\n", (long long)dynrela,
+			       (long long)offset, (long long)dynrelasz);
 
-		reladata = elf_getdata_rawchunk(w->elf, offset, dynrelasz,
-						ELF_T_RELA);
-		elffile_add_dynreloc(w, reladata, dynrelasz / dynrelaent,
-				     symdata, strdata);
+			reladata = elf_getdata_rawchunk(w->elf, offset,
+							dynrelasz, ELF_T_RELA);
+
+			c = dynrelasz / dynrelaent;
+			elffile_add_dynreloc(w, reladata, c, symdata, strdata,
+					     ELF_T_RELA);
+		}
+
+		if (dynrel && dynrelsz && dynrelent
+		    && elffile_virt2file(w, dynrel, &offset)) {
+			Elf_Data *reldata = NULL;
+
+			debugf("dynrel @%llx/%llx+%llx\n", (long long)dynrel,
+			       (long long)offset, (long long)dynrelsz);
+
+			reldata = elf_getdata_rawchunk(w->elf, offset, dynrelsz,
+						       ELF_T_REL);
+
+			c = dynrelsz / dynrelent;
+			elffile_add_dynreloc(w, reldata, c, symdata, strdata,
+					     ELF_T_REL);
+		}
 	}
 #endif
 
