@@ -3234,6 +3234,26 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    Display flap statistics of routes of the selected afi and safi selected.
 
+.. clicmd:: show bgp [afi] [safi] [all] version (1-4294967295) [wide|json]
+
+   Display prefixes with matching version numbers. The version number and
+   above having prefixes will be listed here.
+
+   It helps to identify which prefixes were installed at some point.
+
+   Here is an example of how to check what prefixes were installed starting
+   with an arbitrary version::
+
+   .. code-block:: frr
+
+      ~# vtysh -c 'show bgp ipv4 unicast json' | jq '.tableVersion'
+      9
+      ~# vtysh -c 'show ip bgp version 9 json' | jq -r '.routes | keys[]'
+      192.168.3.0/24
+      ~# vtysh -c 'show ip bgp version 8 json' | jq -r '.routes | keys[]'
+      192.168.2.0/24
+      192.168.3.0/24
+
 .. clicmd:: show bgp [afi] [safi] statistics
 
    Display statistics of routes of the selected afi and safi.
