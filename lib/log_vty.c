@@ -146,11 +146,11 @@ void log_show_syslog(struct vty *vty)
 			zlog_progname);
 }
 
-DEFUN (show_logging,
-       show_logging_cmd,
-       "show logging",
-       SHOW_STR
-       "Show current logging configuration\n")
+DEFUN_NOSH (show_logging,
+	    show_logging_cmd,
+	    "show logging",
+	    SHOW_STR
+	    "Show current logging configuration\n")
 {
 	log_show_syslog(vty);
 

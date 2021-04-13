@@ -141,6 +141,7 @@ vtysh_scan += \
 	lib/if_rmap.c \
 	lib/keychain.c \
 	lib/lib_vty.c \
+	lib/log_vty.c \
 	lib/nexthop_group.c \
 	lib/plist.c \
 	lib/routemap.c \
