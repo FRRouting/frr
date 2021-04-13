@@ -64,7 +64,6 @@ an example)
     export CPPFLAGS="-I/usr/pkg/include"
     ./configure \
         --sysconfdir=/usr/pkg/etc/frr \
-        --enable-exampledir=/usr/pkg/share/examples/frr \
         --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
         --localstatedir=/var/run/frr \
         --enable-multipath=64 \

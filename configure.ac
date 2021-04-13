@@ -114,15 +114,6 @@ AC_PATH_PROG([PERL], [perl])
 PKG_PROG_PKG_CONFIG
 
 dnl default is to match previous behavior
-exampledir=${sysconfdir}
-AC_ARG_ENABLE([exampledir],
-	  AS_HELP_STRING([--enable-exampledir],
-			 [specify alternate directory for examples]),
-			 exampledir="$enableval",)
-dnl XXX add --exampledir to autoconf standard directory list somehow
-AC_SUBST([exampledir])
-
-dnl default is to match previous behavior
 pkgsrcrcdir=""
 AC_ARG_ENABLE([pkgsrcrcdir],
 	  AS_HELP_STRING([--enable-pkgsrcrcdir],
@@ -2693,7 +2684,6 @@ make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
-example directory       : `eval echo \`echo ${exampledir}\``
 module directory        : ${CFG_MODULE}
 script directory        : ${CFG_SCRIPT}
 user to run as          : ${enable_user}

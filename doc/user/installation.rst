@@ -561,7 +561,6 @@ the options you chose:
 
    ./configure \
        --prefix=/usr \
-       --enable-exampledir=/usr/share/doc/frr/examples/ \
        --localstatedir=/var/run/frr \
        --sbindir=/usr/lib/frr \
        --sysconfdir=/etc/frr \

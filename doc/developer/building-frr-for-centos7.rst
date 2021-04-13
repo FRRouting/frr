@@ -67,7 +67,6 @@ an example.)
         --enable-group=frr \
         --enable-vty-group=frrvty \
 	--enable-systemd=yes \
-        --disable-exampledir \
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
