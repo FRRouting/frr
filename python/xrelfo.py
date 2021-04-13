@@ -357,6 +357,7 @@ def main():
     argp.add_argument('--out-by-file',     type=str, help='write by-file JSON output')
     argp.add_argument('-Wlog-format',      action='store_const', const=True)
     argp.add_argument('-Wlog-args',        action='store_const', const=True)
+    argp.add_argument('-Werror',           action='store_const', const=True)
     argp.add_argument('--profile',         action='store_const', const=True)
     argp.add_argument('binaries', metavar='BINARY', nargs='+', type=str, help='files to read (ELF files or libtool objects)')
     args = argp.parse_args()
@@ -380,9 +381,12 @@ def _main(args):
             traceback.print_exc()
 
     for option in dir(args):
-        if option.startswith('W'):
+        if option.startswith('W') and option != 'Werror':
             checks = sorted(xrelfo.check(args))
             sys.stderr.write(''.join([c[-1] for c in checks]))
+
+            if args.Werror and len(checks) > 0:
+                errors += 1
             break
 
 
