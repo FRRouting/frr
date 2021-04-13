@@ -502,37 +502,37 @@ static int vty_command(struct vty *vty, char *buf)
 		zlog_notice("%s%s", prompt_str, buf);
 	}
 
-#ifdef CONSUMED_TIME_CHECK
-	{
-		RUSAGE_T before;
-		RUSAGE_T after;
-		unsigned long realtime, cputime;
+	RUSAGE_T before;
+	RUSAGE_T after;
+	unsigned long walltime, cputime;
 
-		GETRUSAGE(&before);
-#endif /* CONSUMED_TIME_CHECK */
+	/* cmd_execute() may change cputime_enabled if we're executing the
+	 * "service cputime-stats" command, which can result in nonsensical
+	 * and very confusing warnings
+	 */
+	bool cputime_enabled_here = cputime_enabled;
 
-		ret = cmd_execute(vty, buf, NULL, 0);
+	GETRUSAGE(&before);
 
-		/* Get the name of the protocol if any */
-		protocolname = frr_protoname;
+	ret = cmd_execute(vty, buf, NULL, 0);
 
-#ifdef CONSUMED_TIME_CHECK
-		GETRUSAGE(&after);
-		realtime = thread_consumed_time(&after, &before, &cputime);
-		if (cputime > CONSUMED_TIME_CHECK) {
-			/* Warn about CPU hog that must be fixed. */
-			flog_warn(
-				EC_LIB_SLOW_THREAD_CPU,
-				"CPU HOG: command took %lums (cpu time %lums): %s",
-				realtime / 1000, cputime / 1000, buf);
-		} else if (realtime > CONSUMED_TIME_CHECK) {
-			flog_warn(
-				EC_LIB_SLOW_THREAD_WALL,
-				"STARVATION: command took %lums (cpu time %lums): %s",
-				realtime / 1000, cputime / 1000, buf);
-		}
-	}
-#endif /* CONSUMED_TIME_CHECK */
+	GETRUSAGE(&after);
+
+	walltime = thread_consumed_time(&after, &before, &cputime);
+
+	if (cputime_enabled_here && cputime_enabled && cputime_threshold
+	    && cputime > cputime_threshold)
+		/* Warn about CPU hog that must be fixed. */
+		flog_warn(EC_LIB_SLOW_THREAD_CPU,
+			  "CPU HOG: command took %lums (cpu time %lums): %s",
+			  walltime / 1000, cputime / 1000, buf);
+	else if (walltime_threshold && walltime > walltime_threshold)
+		flog_warn(EC_LIB_SLOW_THREAD_WALL,
+			  "STARVATION: command took %lums (cpu time %lums): %s",
+			  walltime / 1000, cputime / 1000, buf);
+
+	/* Get the name of the protocol if any */
+	protocolname = frr_protoname;
 
 	if (ret != CMD_SUCCESS)
 		switch (ret) {
