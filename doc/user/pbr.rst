@@ -290,3 +290,22 @@ kernel that points to a table to use for forwarding once the rule matches.
 The creation of a nexthop or nexthop-group is translated to a default route in a
 table with the nexthops specified as the nexthops for the default route.
 
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+   nexthop-group TEST
+     nexthop 4.5.6.7
+     nexthop 5.6.7.8
+   !
+   pbr-map BLUE seq 100
+     match dst-ip 9.9.9.0/24
+     match src-ip 10.10.10.0/24
+     set nexthop-group TEST
+   !
+   int swp1
+     pbr-policy BLUE
+
+

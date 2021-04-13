@@ -5,7 +5,6 @@
 if BABELD
 noinst_LIBRARIES += babeld/libbabel.a
 sbin_PROGRAMS += babeld/babeld
-dist_examples_DATA += babeld/babeld.conf.sample
 vtysh_scan += \
 	babeld/babel_interface.c \
 	babeld/babel_zebra.c \

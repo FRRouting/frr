@@ -1,5 +1,6 @@
 debian/frr.conf usr/lib/tmpfiles.d
 etc/
+tools/etc/frr/frr.conf etc/frr/
 tools/frr-reload usr/lib/frr/
 usr/bin/mtracebis
 usr/bin/vtysh
@@ -16,6 +17,5 @@ usr/lib/frr/*.sh
 usr/lib/frr/*d
 usr/lib/frr/watchfrr
 usr/lib/frr/zebra
-usr/share/doc/frr/examples
 usr/share/man/
 usr/share/yang/

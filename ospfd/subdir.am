@@ -5,7 +5,6 @@
 if OSPFD
 noinst_LIBRARIES += ospfd/libfrrospf.a
 sbin_PROGRAMS += ospfd/ospfd
-dist_examples_DATA += ospfd/ospfd.conf.sample
 vtysh_scan += \
 	ospfd/ospf_bfd.c \
 	ospfd/ospf_dump.c \

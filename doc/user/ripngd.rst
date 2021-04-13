@@ -71,3 +71,19 @@ ripngd Filtering Commands
 
       distribute-list local-only out sit1
 
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+   debug ripng events
+   debug ripng packet
+
+   router ripng
+    network sit1
+    route 3ffe:506::0/32
+    distribute-list local-only out sit1
+
+   ipv6 access-list local-only permit 3ffe:506::0/32
+   ipv6 access-list local-only deny any

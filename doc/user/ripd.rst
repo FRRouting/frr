@@ -539,3 +539,21 @@ Debug for RIP protocol.
 
    Shows all information currently set for ripd debug.
 
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+
+   debug rip events
+   debug rip packet
+
+   router rip
+    network 11.0.0.0/8
+    network eth0
+    route 10.0.0.0/8
+    distribute-list private-only in eth0
+
+   access-list private-only permit 10.0.0.0/8
+   access-list private-only deny any
