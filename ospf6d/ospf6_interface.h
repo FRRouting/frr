@@ -121,6 +121,9 @@ struct ospf6_interface {
 
 	struct ospf6_route_table *route_connected;
 
+	/* last hello sent */
+	struct timeval last_hello;
+
 	/* prefix-list name to filter connected prefix */
 	char *plist_name;
 
