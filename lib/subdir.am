@@ -168,6 +168,7 @@ clippy_scan += \
 	lib/northbound_cli.c \
 	lib/plist.c \
 	lib/routemap_cli.c \
+	lib/thread.c \
 	lib/vty.c \
 	# end
 
