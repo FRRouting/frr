@@ -3094,21 +3094,111 @@ DEFUNSH(VTYSH_ALL, vtysh_log_timestamp_precision,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_debug_memstats,
-	vtysh_debug_memstats_cmd, "[no] debug memstats-at-exit",
-	NO_STR
-	"Debug\n"
-	"Print memory statistics at exit\n")
-{
-	return CMD_SUCCESS;
-}
-
 DEFUNSH(VTYSH_ALL, no_vtysh_log_timestamp_precision,
 	no_vtysh_log_timestamp_precision_cmd, "no log timestamp precision",
 	NO_STR
 	"Logging control\n"
 	"Timestamp configuration\n"
 	"Reset the timestamp precision to the default value of 0\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_config_log_ec, vtysh_config_log_ec_cmd,
+	"log error-category",
+	"Logging control\n"
+	"Prefix log message text with [EC 9999] code\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_no_config_log_ec,
+	vtysh_no_config_log_ec_cmd,
+	"no log error-category",
+	NO_STR
+	"Logging control\n"
+	"Prefix log message text with [EC 9999] code\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_config_log_xid, vtysh_config_log_xid_cmd,
+       "log unique-id",
+       "Logging control\n"
+       "Prefix log message text with [XXXXX-XXXXX] identifier\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_config_no_log_xid, vtysh_no_config_log_xid_cmd,
+       "no log unique-id",
+       NO_STR
+       "Logging control\n"
+       "Prefix log message text with [XXXXX-XXXXX] identifier\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_config_log_filterfile, vtysh_config_log_filterfile_cmd,
+       "log filtered-file FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
+       "Logging control\n"
+       "Logging to file with string filter\n"
+       "Logging filename\n"
+       LOG_LEVEL_DESC)
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_no_config_log_filterfile,
+	vtysh_no_config_log_filterfile_cmd,
+	"no log filtered-file [FILENAME [LEVEL]]",
+	NO_STR
+	"Logging control\n"
+	"Cancel logging to file with string filter\n"
+	"Logging file name\n"
+	"Logging level\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_log_filter, vtysh_log_filter_cmd,
+       "log-filter WORD",
+       FILTER_LOG_STR
+       "String to filter by\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_no_log_filter, vtysh_no_log_filter_cmd,
+       "no log-filter WORD",
+       NO_STR
+       FILTER_LOG_STR
+       "String to filter by\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_log_filter_clear, vtysh_log_filter_clear_cmd,
+       "clear log-filter",
+       CLEAR_STR
+       FILTER_LOG_STR)
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL, vtysh_show_log_filter, vtysh_show_log_filter_cmd,
+	 "show log-filter",
+	 SHOW_STR
+	 FILTER_LOG_STR)
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_debug_memstats,
+	vtysh_debug_memstats_cmd, "[no] debug memstats-at-exit",
+	NO_STR
+	"Debug\n"
+	"Print memory statistics at exit\n")
 {
 	return CMD_SUCCESS;
 }
@@ -4602,6 +4692,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
 #endif
 	install_element(VIEW_NODE, &vtysh_show_poll_cmd);
+	install_element(VIEW_NODE, &vtysh_show_log_filter_cmd);
 
 	/* Logging */
 	install_element(VIEW_NODE, &vtysh_show_logging_cmd);
@@ -4621,6 +4712,15 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &no_vtysh_log_record_priority_cmd);
 	install_element(CONFIG_NODE, &vtysh_log_timestamp_precision_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_log_timestamp_precision_cmd);
+	install_element(CONFIG_NODE, &vtysh_config_log_ec_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_config_log_ec_cmd);
+	install_element(CONFIG_NODE, &vtysh_config_log_xid_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_config_log_xid_cmd);
+	install_element(CONFIG_NODE, &vtysh_config_log_filterfile_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_config_log_filterfile_cmd);
+	install_element(CONFIG_NODE, &vtysh_log_filter_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_log_filter_cmd);
+	install_element(CONFIG_NODE, &vtysh_log_filter_clear_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);
