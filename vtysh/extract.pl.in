@@ -139,7 +139,7 @@ sub scan_file {
 	elsif ($file =~ /lib\/spf_backoff\.c$/) {
 	    $protocol = "VTYSH_ISISD";
 	}
-        elsif ($file =~ /lib\/vty\.c$/) {
+        elsif ($file =~ /lib\/(vty|thread)\.c$/) {
            $protocol = "VTYSH_ALL";
         }
         elsif ($file =~ /librfp\/.*\.c$/ || $file =~ /rfapi\/.*\.c$/) {

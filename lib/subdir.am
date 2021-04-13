@@ -148,6 +148,7 @@ vtysh_scan += \
 	lib/routemap.c \
 	lib/routemap_cli.c \
 	lib/spf_backoff.c \
+	lib/thread.c \
 	lib/vrf.c \
 	lib/vty.c \
 	# end
