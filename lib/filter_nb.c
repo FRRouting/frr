@@ -279,6 +279,7 @@ static int _acl_is_dup(const struct lyd_node *dnode, void *arg)
 	}
 
 	ada->ada_found = true;
+	ada->ada_seq = yang_dnode_get_uint32(dnode, "sequence");
 
 	return YANG_ITER_STOP;
 }
@@ -416,6 +417,7 @@ static int _plist_is_dup(const struct lyd_node *dnode, void *arg)
 	}
 
 	pda->pda_found = true;
+	pda->pda_seq = yang_dnode_get_uint32(dnode, "sequence");
 
 	return YANG_ITER_STOP;
 }

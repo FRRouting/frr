@@ -52,69 +52,6 @@
 #define PREFIX_LIST_NAME_STR "Prefix list entry name\n"
 
 /*
- * Helper function to locate filter data structures for Cisco-style ACLs.
- */
-static int64_t acl_cisco_get_seq(struct access_list *acl, const char *action,
-				 const char *src, const char *src_mask,
-				 const char *dst, const char *dst_mask)
-{
-	struct filter_cisco *fc;
-	struct filter f, *fn;
-
-	memset(&f, 0, sizeof(f));
-	f.cisco = 1;
-	if (strcmp(action, "permit") == 0)
-		f.type = FILTER_PERMIT;
-	else
-		f.type = FILTER_DENY;
-
-	fc = &f.u.cfilter;
-	inet_pton(AF_INET, src, &fc->addr);
-	inet_pton(AF_INET, src_mask, &fc->addr_mask);
-	fc->addr.s_addr &= ~fc->addr_mask.s_addr;
-	if (dst != NULL) {
-		fc->extended = 1;
-		inet_pton(AF_INET, dst, &fc->mask);
-		inet_pton(AF_INET, dst_mask, &fc->mask_mask);
-		fc->mask.s_addr &= ~fc->mask_mask.s_addr;
-	}
-
-	fn = filter_lookup_cisco(acl, &f);
-	if (fn == NULL)
-		return -1;
-
-	return fn->seq;
-}
-
-/*
- * Helper function to locate filter data structures for zebra-style ACLs.
- */
-static int64_t acl_zebra_get_seq(struct access_list *acl, const char *action,
-				 const struct prefix *p, bool exact)
-{
-	struct filter_zebra *fz;
-	struct filter f, *fn;
-
-	memset(&f, 0, sizeof(f));
-	memset(&fz, 0, sizeof(fz));
-	if (strcmp(action, "permit") == 0)
-		f.type = FILTER_PERMIT;
-	else
-		f.type = FILTER_DENY;
-
-	fz = &f.u.zfilter;
-	if (p->family)
-		prefix_copy(&fz->prefix, p);
-	fz->exact = exact;
-
-	fn = filter_lookup_zebra(acl, &f);
-	if (fn == NULL)
-		return -1;
-
-	return fn->seq;
-}
-
-/*
  * Helper function to generate a sequence number for legacy commands.
  */
 static int acl_get_seq_cb(const struct lyd_node *dnode, void *arg)
@@ -144,6 +81,53 @@ static long acl_get_seq(struct vty *vty, const char *xpath)
 			   "%s/entry", xpath);
 
 	return seq + 5;
+}
+
+static int acl_remove_if_empty(struct vty *vty, const char *iptype,
+			       const char *name)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/access-list[type='%s'][name='%s']/remark",
+		 iptype, name);
+	/* List is not empty if there is a remark, check that: */
+	if (yang_dnode_exists(vty->candidate_config->dnode, xpath))
+		return CMD_SUCCESS;
+
+	/* Check if we have any entries: */
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/access-list[type='%s'][name='%s']", iptype,
+		 name);
+	/*
+	 * NOTE: if the list is empty it will return the first sequence
+	 * number: 5.
+	 */
+	if (acl_get_seq(vty, xpath) != 5)
+		return CMD_SUCCESS;
+
+	/* Nobody is using this list, lets remove it. */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static int acl_remove(struct vty *vty, const char *iptype, const char *name,
+		      int64_t sseq)
+{
+	char xpath[XPATH_MAXLEN];
+	int rv;
+
+	snprintfrr(
+		xpath, sizeof(xpath),
+		"/frr-filter:lib/access-list[type='%s'][name='%s']/entry[sequence='%" PRId64 "']",
+		iptype, name, sseq);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return acl_remove_if_empty(vty, iptype, name);
+
+	return rv;
 }
 
 /*
@@ -184,7 +168,7 @@ DEFPY_YANG(
 			ada.ada_value[1] = mask_str;
 		} else {
 			ada.ada_xpath[0] = "./source-any";
-			ada.ada_value[0] = "true";
+			ada.ada_value[0] = "";
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -238,44 +222,36 @@ DEFPY_YANG(
 	"Address to match\n"
 	"Wildcard bits\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int64_t sseq;
-	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
+	struct acl_dup_args ada = {};
 
 	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL) {
-		snprintf(
-			xpath, sizeof(xpath),
-			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
-			name, seq_str);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-		return nb_cli_apply_changes(vty, NULL);
-	}
+	if (seq_str != NULL)
+		return acl_remove(vty, "ipv4", name, seq);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (host_str && mask_str == NULL) {
+		ada.ada_xpath[0] = "./host";
+		ada.ada_value[0] = host_str;
+	} else if (host_str && mask_str) {
+		ada.ada_xpath[0] = "./network/address";
+		ada.ada_value[0] = host_str;
+		ada.ada_xpath[1] = "./network/mask";
+		ada.ada_value[1] = mask_str;
+	} else {
+		ada.ada_xpath[0] = "./source-any";
+		ada.ada_value[0] = "";
+	}
 
-	/* Access-list must exist before entries. */
-	if (yang_dnode_exists(running_config->dnode, xpath) == false)
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		sseq = ada.ada_seq;
+	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/* Use access-list data structure to fetch sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
-	sseq = acl_cisco_get_seq(acl, action, host_str,
-				 mask_str ? mask_str : CISCO_HOST_WILDCARD_MASK,
-				 NULL, NULL);
-	if (sseq == -1)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintfrr(xpath_entry, sizeof(xpath_entry),
-		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
-	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return acl_remove(vty, "ipv4", name, sseq);
 }
 
 DEFPY_YANG(
@@ -324,7 +300,7 @@ DEFPY_YANG(
 			idx++;
 		} else {
 			ada.ada_xpath[idx] = "./source-any";
-			ada.ada_value[idx] = "true";
+			ada.ada_value[idx] = "";
 			idx++;
 		}
 
@@ -341,7 +317,7 @@ DEFPY_YANG(
 			idx++;
 		} else {
 			ada.ada_xpath[idx] = "./destination-any";
-			ada.ada_value[idx] = "true";
+			ada.ada_value[idx] = "";
 			idx++;
 		}
 
@@ -416,68 +392,58 @@ DEFPY_YANG(
 	"Destination address to match\n"
 	"Any destination host\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
+	int idx = 0;
 	int64_t sseq;
-	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
+	struct acl_dup_args ada = {};
 
 	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL) {
-		snprintfrr(
-			xpath, sizeof(xpath),
-			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
-			name, seq_str);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-		return nb_cli_apply_changes(vty, NULL);
-	}
+	if (seq_str != NULL)
+		return acl_remove(vty, "ipv4", name, seq);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
-
-	/* Access-list must exist before entries. */
-	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	/* Use access-list data structure to fetch sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
-	if (src_str != NULL) {
-		if (dst_str != NULL)
-			sseq = acl_cisco_get_seq(
-				acl, action, src_str,
-				src_mask_str ? src_mask_str
-					     : CISCO_HOST_WILDCARD_MASK,
-				dst_str,
-				dst_mask_str ? dst_mask_str
-					     : CISCO_HOST_WILDCARD_MASK);
-		else
-			sseq = acl_cisco_get_seq(
-				acl, action, src_str,
-				src_mask_str ? src_mask_str
-					     : CISCO_HOST_WILDCARD_MASK,
-				"0.0.0.0", CISCO_ANY_WILDCARD_MASK);
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (src_str && src_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./host";
+		ada.ada_value[idx] = src_str;
+		idx++;
+	} else if (src_str && src_mask_str) {
+		ada.ada_xpath[idx] = "./network/address";
+		ada.ada_value[idx] = src_str;
+		idx++;
+		ada.ada_xpath[idx] = "./network/mask";
+		ada.ada_value[idx] = src_mask_str;
+		idx++;
 	} else {
-		if (dst_str != NULL)
-			sseq = acl_cisco_get_seq(
-				acl, action, "0.0.0.0", CISCO_ANY_WILDCARD_MASK,
-				dst_str,
-				dst_mask_str ? dst_mask_str
-					     : CISCO_HOST_WILDCARD_MASK);
-		else
-			sseq = acl_cisco_get_seq(
-				acl, action, "0.0.0.0", CISCO_ANY_WILDCARD_MASK,
-				"0.0.0.0", CISCO_ANY_WILDCARD_MASK);
+		ada.ada_xpath[idx] = "./source-any";
+		ada.ada_value[idx] = "";
+		idx++;
 	}
-	if (sseq == -1)
+
+	if (dst_str && dst_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./destination-host";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+	} else if (dst_str && dst_mask_str) {
+		ada.ada_xpath[idx] = "./destination-network/address";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+		ada.ada_xpath[idx] = "./destination-network/mask";
+		ada.ada_value[idx] = dst_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./destination-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		sseq = ada.ada_seq;
+	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintfrr(xpath_entry, sizeof(xpath_entry),
-		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
-	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return acl_remove(vty, "ipv4", name, sseq);
 }
 
 /*
@@ -517,7 +483,7 @@ DEFPY_YANG(
 			}
 		} else {
 			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "true";
+			ada.ada_value[0] = "";
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -568,49 +534,36 @@ DEFPY_YANG(
 	"Exact match of the prefixes\n"
 	"Match any IPv4\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int64_t sseq;
-	struct prefix pany;
-	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
+	struct acl_dup_args ada = {};
 
 	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL) {
-		snprintf(
-			xpath, sizeof(xpath),
-			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
-			name, seq_str);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-		return nb_cli_apply_changes(vty, NULL);
-	}
+	if (seq_str != NULL)
+		return acl_remove(vty, "ipv4", name, seq);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-	/* Access-list must exist before entries. */
-	if (yang_dnode_exists(running_config->dnode, xpath) == false)
+	if (prefix_str) {
+		ada.ada_xpath[0] = "./ipv4-prefix";
+		ada.ada_value[0] = prefix_str;
+		if (exact) {
+			ada.ada_xpath[1] = "./ipv4-exact-match";
+			ada.ada_value[1] = "true";
+		}
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		sseq = ada.ada_seq;
+	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/* Use access-list data structure to fetch sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
-	if (prefix_str == NULL) {
-		memset(&pany, 0, sizeof(pany));
-		pany.family = AF_INET;
-		sseq = acl_zebra_get_seq(acl, action, &pany, exact);
-	} else
-		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
-					 exact);
-	if (sseq == -1)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintfrr(xpath_entry, sizeof(xpath_entry),
-		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
-	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return acl_remove(vty, "ipv4", name, sseq);
 }
 
 DEFPY_YANG(
@@ -662,13 +615,18 @@ DEFPY_YANG(
 	ACCESS_LIST_REMARK_STR)
 {
 	char xpath[XPATH_MAXLEN];
+	int rv;
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']/remark",
 		 name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return acl_remove_if_empty(vty, "ipv4", name);
+
+	return rv;
 }
 
 ALIAS(
@@ -715,7 +673,7 @@ DEFPY_YANG(
 			}
 		} else {
 			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "true";
+			ada.ada_value[0] = "";
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -767,49 +725,36 @@ DEFPY_YANG(
 	"Exact match of the prefixes\n"
 	"Match any IPv6\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int64_t sseq;
-	struct prefix pany;
-	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
+	struct acl_dup_args ada = {};
 
 	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL) {
-		snprintf(
-			xpath, sizeof(xpath),
-			"/frr-filter:lib/access-list[type='ipv6'][name='%s']/entry[sequence='%s']",
-			name, seq_str);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-		return nb_cli_apply_changes(vty, NULL);
-	}
+	if (seq_str != NULL)
+		return acl_remove(vty, "ipv6", name, seq);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']", name);
+	ada.ada_type = "ipv6";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-	/* Access-list must exist before entries. */
-	if (yang_dnode_exists(running_config->dnode, xpath) == false)
+	if (prefix_str) {
+		ada.ada_xpath[0] = "./ipv6-prefix";
+		ada.ada_value[0] = prefix_str;
+		if (exact) {
+			ada.ada_xpath[1] = "./ipv6-exact-match";
+			ada.ada_value[1] = "true";
+		}
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		sseq = ada.ada_seq;
+	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/* Use access-list data structure to fetch sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
-	if (prefix == NULL) {
-		memset(&pany, 0, sizeof(pany));
-		pany.family = AF_INET6;
-		sseq = acl_zebra_get_seq(acl, action, &pany, exact);
-	} else
-		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
-					 exact);
-	if (sseq == -1)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintfrr(xpath_entry, sizeof(xpath_entry),
-		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
-	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return acl_remove(vty, "ipv6", name, sseq);
 }
 
 DEFPY_YANG(
@@ -864,13 +809,18 @@ DEFPY_YANG(
 	ACCESS_LIST_REMARK_STR)
 {
 	char xpath[XPATH_MAXLEN];
+	int rv;
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']/remark",
 		 name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return acl_remove_if_empty(vty, "ipv6", name);
+
+	return rv;
 }
 
 ALIAS(
@@ -913,7 +863,7 @@ DEFPY_YANG(
 			ada.ada_value[0] = mac_str;
 		} else {
 			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "true";
+			ada.ada_value[0] = "";
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -951,7 +901,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_mac_access_list, no_mac_access_list_cmd,
-	"no mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$prefix|any>",
+	"no mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -961,49 +911,32 @@ DEFPY_YANG(
 	"MAC address\n"
 	"Match any MAC address\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int64_t sseq;
-	struct prefix pany;
-	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
+	struct acl_dup_args ada = {};
 
 	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL) {
-		snprintf(
-			xpath, sizeof(xpath),
-			"/frr-filter:lib/access-list[type='mac'][name='%s']/entry[sequence='%s']",
-			name, seq_str);
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-		return nb_cli_apply_changes(vty, NULL);
-	}
+	if (seq_str != NULL)
+		return acl_remove(vty, "mac", name, seq);
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='mac'][name='%s']", name);
+	ada.ada_type = "mac";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-	/* Access-list must exist before entries. */
-	if (yang_dnode_exists(running_config->dnode, xpath) == false)
+	if (mac_str) {
+		ada.ada_xpath[0] = "./mac";
+		ada.ada_value[0] = mac_str;
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		sseq = ada.ada_seq;
+	else
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/* Use access-list data structure to fetch sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
-	if (prefix == NULL) {
-		memset(&pany, 0, sizeof(pany));
-		pany.family = AF_ETHERNET;
-		sseq = acl_zebra_get_seq(acl, action, &pany, false);
-	} else
-		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
-					 false);
-	if (sseq == -1)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintfrr(xpath_entry, sizeof(xpath_entry),
-		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
-	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return acl_remove(vty, "mac", name, sseq);
 }
 
 DEFPY_YANG(
@@ -1058,13 +991,18 @@ DEFPY_YANG(
 	ACCESS_LIST_REMARK_STR)
 {
 	char xpath[XPATH_MAXLEN];
+	int rv;
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='mac'][name='%s']/remark",
 		 name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return acl_remove_if_empty(vty, "mac", name);
+
+	return rv;
 }
 
 ALIAS(
@@ -1257,13 +1195,13 @@ static int plist_remove_if_empty(struct vty *vty, const char *iptype,
 }
 
 static int plist_remove(struct vty *vty, const char *iptype, const char *name,
-			const char *seq, const char *action, struct prefix *p,
-			long ge, long le)
+			const char *seq, const char *action,
+			const char *prefix_str, const char *ge_str,
+			const char *le_str)
 {
-	struct prefix_list_entry *pentry;
-	enum prefix_list_type plt;
-	struct prefix_list *pl;
-	struct lyd_node *dnode;
+	int64_t sseq;
+	int arg_idx = 0;
+	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 32];
 	int rv;
@@ -1284,29 +1222,57 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	}
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']", iptype,
-		 name);
+	pda.pda_type = iptype;
+	pda.pda_name = name;
+	pda.pda_action = action;
+	if (prefix_str) {
+		if (strmatch(iptype, "ipv4")) {
+			pda.pda_xpath[arg_idx] = "./ipv4-prefix";
+			pda.pda_value[arg_idx] = prefix_str;
+			arg_idx++;
+			if (ge_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv4-prefix-length-greater-or-equal";
+				pda.pda_value[arg_idx] = ge_str;
+				arg_idx++;
+			}
+			if (le_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv4-prefix-length-lesser-or-equal";
+				pda.pda_value[arg_idx] = le_str;
+				arg_idx++;
+			}
+		} else {
+			pda.pda_xpath[arg_idx] = "./ipv6-prefix";
+			pda.pda_value[arg_idx] = prefix_str;
+			arg_idx++;
+			if (ge_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv6-prefix-length-greater-or-equal";
+				pda.pda_value[arg_idx] = ge_str;
+				arg_idx++;
+			}
+			if (le_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv6-prefix-length-lesser-or-equal";
+				pda.pda_value[arg_idx] = le_str;
+				arg_idx++;
+			}
+		}
+	} else {
+		pda.pda_xpath[0] = "./any";
+		pda.pda_value[0] = "";
+	}
 
-	/* Access-list must exist before entries. */
-	if (yang_dnode_exists(running_config->dnode, xpath) == false)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	/* Use access-list data structure to fetch sequence. */
-	assert(action != NULL);
-	if (strcmp(action, "permit") == 0)
-		plt = PREFIX_PERMIT;
+	if (plist_is_dup(vty->candidate_config->dnode, &pda))
+		sseq = pda.pda_seq;
 	else
-		plt = PREFIX_DENY;
-
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	pl = nb_running_get_entry(dnode, NULL, true);
-	pentry = prefix_list_entry_lookup(pl, p, plt, -1, le, ge);
-	if (pentry == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintfrr(xpath_entry, sizeof(xpath_entry),
-		   "%s/entry[sequence='%" PRId64 "']", xpath, pentry->seq);
+	snprintfrr(
+		xpath_entry, sizeof(xpath_entry),
+		"/frr-filter:lib/prefix-list[type='%s'][name='%s']/entry[sequence='%" PRId64 "']",
+		iptype, name, sseq);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
 	rv = nb_cli_apply_changes(vty, NULL);
@@ -1425,8 +1391,8 @@ DEFPY_YANG(
 	"Maximum prefix length to be matched\n"
 	"Maximum prefix length\n")
 {
-	return plist_remove(vty, "ipv4", name, seq_str, action,
-			    (struct prefix *)prefix, ge, le);
+	return plist_remove(vty, "ipv4", name, seq_str, action, prefix_str,
+			    ge_str, le_str);
 }
 
 DEFPY_YANG(
@@ -1438,7 +1404,7 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
-	return plist_remove(vty, "ipv4", name, seq_str, NULL, NULL, 0, 0);
+	return plist_remove(vty, "ipv4", name, seq_str, NULL, NULL, NULL, NULL);
 }
 
 DEFPY_YANG(
@@ -1493,13 +1459,18 @@ DEFPY_YANG(
 	ACCESS_LIST_REMARK_STR)
 {
 	char xpath[XPATH_MAXLEN];
+	int rv;
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']/remark",
 		 name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return plist_remove_if_empty(vty, "ipv4", name);
+
+	return rv;
 }
 
 ALIAS(
@@ -1621,8 +1592,8 @@ DEFPY_YANG(
 	"Minimum prefix length to be matched\n"
 	"Minimum prefix length\n")
 {
-	return plist_remove(vty, "ipv6", name, seq_str, action,
-			    (struct prefix *)prefix, ge, le);
+	return plist_remove(vty, "ipv6", name, seq_str, action, prefix_str,
+			    ge_str, le_str);
 }
 
 DEFPY_YANG(
@@ -1634,7 +1605,7 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
-	return plist_remove(vty, "ipv6", name, seq_str, NULL, NULL, 0, 0);
+	return plist_remove(vty, "ipv6", name, seq_str, NULL, NULL, NULL, NULL);
 }
 
 DEFPY_YANG(
@@ -1689,13 +1660,18 @@ DEFPY_YANG(
 	ACCESS_LIST_REMARK_STR)
 {
 	char xpath[XPATH_MAXLEN];
+	int rv;
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']/remark",
 		 name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return plist_remove_if_empty(vty, "ipv6", name);
+
+	return rv;
 }
 
 ALIAS(

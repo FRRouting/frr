@@ -151,10 +151,6 @@ void access_list_filter_add(struct access_list *access,
 void access_list_filter_delete(struct access_list *access,
 			       struct filter *filter);
 int64_t filter_new_seq_get(struct access_list *access);
-struct filter *filter_lookup_cisco(struct access_list *access,
-				   struct filter *mnew);
-struct filter *filter_lookup_zebra(struct access_list *access,
-				   struct filter *mnew);
 
 extern const struct frr_yang_module_info frr_filter_info;
 
@@ -194,6 +190,9 @@ struct acl_dup_args {
 	/** Duplicated entry found in list? */
 	bool ada_found;
 
+	/** Sequence number of the found entry */
+	int64_t ada_seq;
+
 	/** (Optional) Already existing `dnode`. */
 	const struct lyd_node *ada_entry_dnode;
 };
@@ -223,6 +222,9 @@ struct plist_dup_args {
 
 	/** Duplicated entry found in list? */
 	bool pda_found;
+
+	/** Sequence number of the found entry */
+	int64_t pda_seq;
 
 	/** (Optional) Already existing `dnode`. */
 	const struct lyd_node *pda_entry_dnode;
