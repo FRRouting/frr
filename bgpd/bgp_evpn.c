@@ -1670,8 +1670,9 @@ static inline bool bgp_evpn_route_add_l3_ecomm_ok(struct bgpevpn *vpn,
 {
 	return p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
 	       && (is_evpn_prefix_ipaddr_v4(p)
-		   || !IN6_IS_ADDR_LINKLOCAL(
-			   &p->prefix.macip_addr.ip.ipaddr_v6))
+		   || (is_evpn_prefix_ipaddr_v6(p)
+		       && !IN6_IS_ADDR_LINKLOCAL(
+			       &p->prefix.macip_addr.ip.ipaddr_v6)))
 	       && CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)
 	       && bgpevpn_get_l3vni(vpn) && bgp_evpn_es_add_l3_ecomm_ok(esi);
 }
