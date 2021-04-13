@@ -464,7 +464,7 @@ endif
 
 SUFFIXES += .xref
 %.xref: % $(CLIPPY)
-	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(XRELFO_FLAGS) -o $@ $<
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(WERROR) $(XRELFO_FLAGS) -o $@ $<
 
 # dependencies added in python/makefile.py
 frr.xref:
