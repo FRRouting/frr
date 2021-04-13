@@ -799,7 +799,13 @@ static int ospf_write(struct thread *thread)
 				&iph.ip_dst, iph.ip_id, iph.ip_off,
 				iph.ip_len, oi->ifp->name, oi->ifp->mtu);
 
-		if (ret < 0)
+		/* sendmsg will return EPERM if firewall is blocking sending.
+		 * This is a normal situation when 'ip nhrp map multicast xxx'
+		 * is being used to send multicast packets to DMVPN peers. In
+		 * that case the original message is blocked with iptables rule
+		 * causing the EPERM result
+		 */
+		if (ret < 0 && errno != EPERM)
 			flog_err(
 				EC_LIB_SOCKET,
 				"*** sendmsg in ospf_write failed to %pI4, id %d, off %d, len %d, interface %s, mtu %u: %s",
@@ -907,8 +913,11 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 
 	/* Compare network mask. */
 	/* Checking is ignored for Point-to-Point and Virtual link. */
+	/* Checking is also ignored for Point-to-Multipoint with /32 prefix */
 	if (oi->type != OSPF_IFTYPE_POINTOPOINT
-	    && oi->type != OSPF_IFTYPE_VIRTUALLINK)
+	    && oi->type != OSPF_IFTYPE_VIRTUALLINK
+	    && !(oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
+		 && oi->address->prefixlen == IPV4_MAX_BITLEN))
 		if (oi->address->prefixlen != p.prefixlen) {
 			flog_warn(
 				EC_OSPF_PACKET,
@@ -2425,6 +2434,11 @@ static int ospf_check_network_mask(struct ospf_interface *oi,
 
 	if (oi->type == OSPF_IFTYPE_POINTOPOINT
 	    || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+		return 1;
+
+	/* Ignore mask check for max prefix length (32) */
+	if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
+	    && oi->address->prefixlen == IPV4_MAX_BITLEN)
 		return 1;
 
 	masklen2ip(oi->address->prefixlen, &mask);

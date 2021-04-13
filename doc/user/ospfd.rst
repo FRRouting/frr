@@ -587,7 +587,7 @@ Interfaces
    :clicmd:`ip ospf dead-interval minimal hello-multiplier (2-20)` is also
    specified for the interface.
 
-.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)
+.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn])
 
    When configuring a point-to-point network on an interface and the interface
    has a /32 address associated with then OSPF will treat the interface
@@ -595,6 +595,9 @@ Interfaces
    net.ipv4.conf.<interface name>.rp_filter value to 0.  In order for
    the ospf multicast packets to be delivered by the kernel.
 
+   When used in a DMVPN network at a spoke, this OSPF will be configured in
+   point-to-point, but the HUB will be a point-to-multipoint. To make this
+   topology work, specify the optional 'dmvpn' parameter at the spoke.
 
    Set explicitly network type for specified interface.
 

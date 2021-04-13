@@ -8391,6 +8391,7 @@ DEFUN (no_ip_ospf_hello_interval,
 			continue;
 
 		oi->type = IF_DEF_PARAMS(ifp)->type;
+		oi->ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
 
 		if (oi->state > ISM_Down) {
 			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
@@ -8418,20 +8419,21 @@ DEFUN_HIDDEN (no_ospf_hello_interval,
 	return no_ip_ospf_hello_interval(self, vty, argc, argv);
 }
 
-DEFUN (ip_ospf_network,
-       ip_ospf_network_cmd,
-       "ip ospf network <broadcast|non-broadcast|point-to-multipoint|point-to-point>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Network type\n"
-       "Specify OSPF broadcast multi-access network\n"
-       "Specify OSPF NBMA network\n"
-       "Specify OSPF point-to-multipoint network\n"
-       "Specify OSPF point-to-point network\n")
+DEFUN(ip_ospf_network, ip_ospf_network_cmd,
+      "ip ospf network <broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn]>",
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Network type\n"
+      "Specify OSPF broadcast multi-access network\n"
+      "Specify OSPF NBMA network\n"
+      "Specify OSPF point-to-multipoint network\n"
+      "Specify OSPF point-to-point network\n"
+      "Specify OSPF point-to-point DMVPN network\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
 	int old_type = IF_DEF_PARAMS(ifp)->type;
+	uint8_t old_ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
 	struct route_node *rn;
 
 	if (old_type == OSPF_IFTYPE_LOOPBACK) {
@@ -8440,16 +8442,22 @@ DEFUN (ip_ospf_network,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
+
 	if (argv_find(argv, argc, "broadcast", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_BROADCAST;
 	else if (argv_find(argv, argc, "non-broadcast", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_NBMA;
 	else if (argv_find(argv, argc, "point-to-multipoint", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOMULTIPOINT;
-	else if (argv_find(argv, argc, "point-to-point", &idx))
+	else if (argv_find(argv, argc, "point-to-point", &idx)) {
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOPOINT;
+		if (argv_find(argv, argc, "dmvpn", &idx))
+			IF_DEF_PARAMS(ifp)->ptp_dmvpn = 1;
+	}
 
-	if (IF_DEF_PARAMS(ifp)->type == old_type)
+	if (IF_DEF_PARAMS(ifp)->type == old_type
+	    && IF_DEF_PARAMS(ifp)->ptp_dmvpn == old_ptp_dmvpn)
 		return CMD_SUCCESS;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
@@ -8501,6 +8509,7 @@ DEFUN (no_ip_ospf_network,
 	struct route_node *rn;
 
 	IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
 
 	if (IF_DEF_PARAMS(ifp)->type == old_type)
 		return CMD_SUCCESS;
@@ -11643,6 +11652,10 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					vty_out(vty, " ip ospf network %s",
 						ospf_int_type_str
 							[params->type]);
+					if (params->type
+						    == OSPF_IFTYPE_POINTOPOINT
+					    && params->ptp_dmvpn)
+						vty_out(vty, " dmvpn");
 					if (params != IF_DEF_PARAMS(ifp) && rn)
 						vty_out(vty, " %pI4",
 							&rn->p.u.prefix4);

@@ -187,6 +187,9 @@ static int nhrp_config_write(struct vty *vty)
 	if (netlink_nflog_group) {
 		vty_out(vty, "nhrp nflog-group %d\n", netlink_nflog_group);
 	}
+	if (netlink_mcast_nflog_group)
+		vty_out(vty, "nhrp multicast-nflog-group %d\n",
+			netlink_mcast_nflog_group);
 
 	return 0;
 }
@@ -254,6 +257,31 @@ DEFUN(no_nhrp_nflog_group, no_nhrp_nflog_group_cmd,
 	"NFLOG group number\n")
 {
 	netlink_set_nflog_group(0);
+	return CMD_SUCCESS;
+}
+
+DEFUN(nhrp_multicast_nflog_group, nhrp_multicast_nflog_group_cmd,
+	"nhrp multicast-nflog-group (1-65535)",
+	NHRP_STR
+	"Specify NFLOG group number for Multicast Packets\n"
+	"NFLOG group number\n")
+{
+	uint32_t nfgroup;
+
+	nfgroup = strtoul(argv[2]->arg, NULL, 10);
+	netlink_mcast_set_nflog_group(nfgroup);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_nhrp_multicast_nflog_group, no_nhrp_multicast_nflog_group_cmd,
+	"no nhrp multicast-nflog-group [(1-65535)]",
+	NO_STR
+	NHRP_STR
+	"Specify NFLOG group number\n"
+	"NFLOG group number\n")
+{
+	netlink_mcast_set_nflog_group(0);
 	return CMD_SUCCESS;
 }
 
@@ -570,6 +598,53 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(if_nhrp_map_multicast, if_nhrp_map_multicast_cmd,
+	AFI_CMD " nhrp map multicast <A.B.C.D|X:X::X:X|dynamic>",
+	AFI_STR
+	NHRP_STR
+	"Multicast NBMA Configuration\n"
+	"Use this NBMA mapping for multicasts\n"
+	"IPv4 NBMA address\n"
+	"IPv6 NBMA address\n"
+	"Dynamically learn destinations from client registrations on hub\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	afi_t afi = cmd_to_afi(argv[0]);
+	union sockunion nbma_addr;
+	int ret;
+
+	if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)
+		sockunion_family(&nbma_addr) = AF_UNSPEC;
+
+	ret = nhrp_multicast_add(ifp, afi, &nbma_addr);
+
+	return nhrp_vty_return(vty, ret);
+}
+
+DEFUN(if_no_nhrp_map_multicast, if_no_nhrp_map_multicast_cmd,
+	"no " AFI_CMD " nhrp map multicast <A.B.C.D|X:X::X:X|dynamic>",
+	NO_STR
+	AFI_STR
+	NHRP_STR
+	"Multicast NBMA Configuration\n"
+	"Use this NBMA mapping for multicasts\n"
+	"IPv4 NBMA address\n"
+	"IPv6 NBMA address\n"
+	"Dynamically learn destinations from client registrations on hub\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	afi_t afi = cmd_to_afi(argv[1]);
+	union sockunion nbma_addr;
+	int ret;
+
+	if (str2sockunion(argv[5]->arg, &nbma_addr) < 0)
+		sockunion_family(&nbma_addr) = AF_UNSPEC;
+
+	ret = nhrp_multicast_del(ifp, afi, &nbma_addr);
+
+	return nhrp_vty_return(vty, ret);
+}
+
 DEFUN(if_nhrp_nhs, if_nhrp_nhs_cmd,
 	AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN>",
 	AFI_STR
@@ -732,8 +807,8 @@ static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg,
 	ctx->count++;
 
 	if (reg && reg->peer)
-		sockunion2str(&reg->peer->vc->remote.nbma,
-			      buf[0], sizeof(buf[0]));
+		sockunion2str(&reg->peer->vc->remote.nbma, buf[0],
+			      sizeof(buf[0]));
 	else
 		snprintf(buf[0], sizeof(buf[0]), "-");
 	sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1],
@@ -1047,19 +1122,20 @@ struct write_map_ctx {
 	const char *aficmd;
 };
 
-static void interface_config_write_nhrp_map(struct nhrp_cache_config *c, void *data)
+static void interface_config_write_nhrp_map(struct nhrp_cache_config *c,
+					    void *data)
 {
 	struct write_map_ctx *ctx = data;
 	struct vty *vty = ctx->vty;
-	char buf[2][SU_ADDRSTRLEN];
 
 	if (sockunion_family(&c->remote_addr) != ctx->family)
 		return;
 
-	vty_out(vty, " %s nhrp map %s %s\n", ctx->aficmd,
-		sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
-		c->type == NHRP_CACHE_LOCAL
-		? "local" : sockunion2str(&c->nbma, buf[1], sizeof(buf[1])));
+	vty_out(vty, " %s nhrp map %pSU ", ctx->aficmd, &c->remote_addr);
+	if (c->type == NHRP_CACHE_LOCAL)
+		vty_out(vty, "local\n");
+	else
+		vty_out(vty, "%pSU\n", &c->nbma);
 }
 
 static int interface_config_write(struct vty *vty)
@@ -1069,9 +1145,9 @@ static int interface_config_write(struct vty *vty)
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
 	struct nhrp_nhs *nhs;
+	struct nhrp_multicast *mcast;
 	const char *aficmd;
 	afi_t afi;
-	char buf[SU_ADDRSTRLEN];
 	int i;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -1122,21 +1198,31 @@ static int interface_config_write(struct vty *vty)
 				.family = afi2family(afi),
 				.aficmd = aficmd,
 			};
-			nhrp_cache_config_foreach(ifp, interface_config_write_nhrp_map,
-						  &mapctx);
+			nhrp_cache_config_foreach(
+				ifp, interface_config_write_nhrp_map, &mapctx);
 
 			list_for_each_entry(nhs, &ad->nhslist_head,
 					    nhslist_entry)
 			{
-				vty_out(vty, " %s nhrp nhs %s nbma %s\n",
-					aficmd,
-					sockunion_family(&nhs->proto_addr)
-							== AF_UNSPEC
-						? "dynamic"
-						: sockunion2str(
-							  &nhs->proto_addr, buf,
-							  sizeof(buf)),
-					nhs->nbma_fqdn);
+				vty_out(vty, " %s nhrp nhs ", aficmd);
+				if (sockunion_family(&nhs->proto_addr)
+				   == AF_UNSPEC)
+					vty_out(vty, "dynamic");
+				else
+					vty_out(vty, "%pSU", &nhs->proto_addr);
+				vty_out(vty, "nbma %s\n", nhs->nbma_fqdn);
+			}
+
+			list_for_each_entry(mcast, &ad->mcastlist_head,
+					    list_entry)
+			{
+				vty_out(vty, " %s nhrp map multicast ", aficmd);
+				if (sockunion_family(&mcast->nbma_addr)
+				   == AF_UNSPEC)
+					vty_out(vty, "dynamic\n");
+				else
+					vty_out(vty, "%pSU\n",
+						&mcast->nbma_addr);
 			}
 		}
 
@@ -1171,6 +1257,8 @@ void nhrp_config_init(void)
 	install_element(CONFIG_NODE, &no_nhrp_event_socket_cmd);
 	install_element(CONFIG_NODE, &nhrp_nflog_group_cmd);
 	install_element(CONFIG_NODE, &no_nhrp_nflog_group_cmd);
+	install_element(CONFIG_NODE, &nhrp_multicast_nflog_group_cmd);
+	install_element(CONFIG_NODE, &no_nhrp_multicast_nflog_group_cmd);
 
 	/* interface specific commands */
 	install_node(&nhrp_interface_node);
@@ -1192,6 +1280,8 @@ void nhrp_config_init(void)
 	install_element(INTERFACE_NODE, &if_no_nhrp_reg_flags_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_map_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_map_cmd);
+	install_element(INTERFACE_NODE, &if_nhrp_map_multicast_cmd);
+	install_element(INTERFACE_NODE, &if_no_nhrp_map_multicast_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_nhs_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_nhs_cmd);
 }

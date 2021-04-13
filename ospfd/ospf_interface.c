@@ -543,6 +543,8 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	oip->network_lsa_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
 	oip->is_v_wait_set = false;
 
+	oip->ptp_dmvpn = 0;
+
 	return oip;
 }
 

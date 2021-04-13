@@ -1076,6 +1076,7 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	/* If network type is specified previously,
 	   skip network type setting. */
 	oi->type = IF_DEF_PARAMS(co->ifp)->type;
+	oi->ptp_dmvpn = IF_DEF_PARAMS(co->ifp)->ptp_dmvpn;
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(oi, oi->ospf->router_id);
