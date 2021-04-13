@@ -133,6 +133,9 @@ sub scan_file {
                 $protocol = "VTYSH_RIPD";
             }
         }
+	elsif ($file =~ /lib\/resolver\.c$/) {
+	    $protocol = "VTYSH_NHRPD|VTYSH_BGPD";
+	}
 	elsif ($file =~ /lib\/spf_backoff\.c$/) {
 	    $protocol = "VTYSH_ISISD";
 	}

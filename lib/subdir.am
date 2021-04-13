@@ -144,6 +144,7 @@ vtysh_scan += \
 	lib/log_vty.c \
 	lib/nexthop_group.c \
 	lib/plist.c \
+	lib/resolver.c \
 	lib/routemap.c \
 	lib/routemap_cli.c \
 	lib/spf_backoff.c \
