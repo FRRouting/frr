@@ -1821,9 +1821,14 @@ static unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 				   unsigned long *cputime)
 {
+#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
+	*cputime = (now->cpu.tv_sec - start->cpu.tv_sec) * TIMER_SECOND_MICRO
+		   + (now->cpu.tv_nsec - start->cpu.tv_nsec) / 1000;
+#else
 	/* This is 'user + sys' time.  */
 	*cputime = timeval_elapsed(now->cpu.ru_utime, start->cpu.ru_utime)
 		   + timeval_elapsed(now->cpu.ru_stime, start->cpu.ru_stime);
+#endif
 	return timeval_elapsed(now->real, start->real);
 }
 
@@ -1856,14 +1861,25 @@ void thread_set_yield_time(struct thread *thread, unsigned long yield_time)
 
 void thread_getrusage(RUSAGE_T *r)
 {
+	monotime(&r->real);
+	if (!cputime_enabled) {
+		memset(&r->cpu, 0, sizeof(r->cpu));
+		return;
+	}
+
+#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
+	/* not currently implemented in Linux's vDSO, but maybe at some point
+	 * in the future?
+	 */
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &r->cpu);
+#else /* !HAVE_CLOCK_THREAD_CPUTIME_ID */
 #if defined RUSAGE_THREAD
 #define FRR_RUSAGE RUSAGE_THREAD
 #else
 #define FRR_RUSAGE RUSAGE_SELF
 #endif
-	monotime(&r->real);
-	if (cputime_enabled)
-		getrusage(FRR_RUSAGE, &(r->cpu));
+	getrusage(FRR_RUSAGE, &(r->cpu));
+#endif
 }
 
 /*
