@@ -172,7 +172,6 @@ an example.)
         --enable-user=frr \
         --enable-group=frr \
         --enable-vty-group=frrvty \
-        --disable-exampledir \
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
