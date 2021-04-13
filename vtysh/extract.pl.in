@@ -269,7 +269,7 @@ EOF
 foreach (sort keys %odefun) {
     my ($node, $str) = (split (/,/));
     $cmd = $ocmd{$_};
-    $cmd =~ s/_cmd/_cmd_vtysh/;
+    $cmd =~ s/_cmd$/_cmd_vtysh/;
     printf "  install_element ($node, &$cmd);\n";
 }
 
