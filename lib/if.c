@@ -1056,15 +1056,30 @@ struct connected *connected_get_linklocal(struct interface *ifp)
 void if_terminate(struct vrf *vrf)
 {
 	struct interface *ifp;
+	bool delete;
+
+	/*
+	 * If the default VRF is being terminated or has
+	 * already been terminated it means that
+	 * the program is shutting down and we need to
+	 * delete all the interfaces. Otherwise, we only
+	 * need to move VRF's interfaces to the default VRF.
+	 */
+	delete = vrf_is_backend_netns() || vrf->vrf_id == VRF_DEFAULT
+		 || !vrf_lookup_by_id(VRF_DEFAULT);
 
 	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
 
-		if (ifp->node) {
-			ifp->node->info = NULL;
-			route_unlock_node(ifp->node);
+		if (delete) {
+			if (ifp->node) {
+				ifp->node->info = NULL;
+				route_unlock_node(ifp->node);
+			}
+			if_delete(&ifp);
+		} else {
+			if_update_to_new_vrf(ifp, VRF_DEFAULT);
 		}
-		if_delete(&ifp);
 	}
 }
 

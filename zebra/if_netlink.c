@@ -1661,8 +1661,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		else if (IS_ZEBRA_IF_VXLAN(ifp))
 			zebra_l2_vxlanif_del(ifp);
 
-		if (!IS_ZEBRA_IF_VRF(ifp))
-			if_delete_update(ifp);
+		if_delete_update(ifp);
 	}
 
 	return 0;
