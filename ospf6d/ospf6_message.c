@@ -396,7 +396,10 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	int neighborchange = 0;
 	int neighbor_ifindex_change = 0;
 	int backupseen = 0;
+	int64_t latency = 0;
+	struct timeval timestamp;
 
+	monotime(&timestamp);
 	hello = (struct ospf6_hello *)((caddr_t)oh
 				       + sizeof(struct ospf6_header));
 
@@ -437,6 +440,17 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 		on->prev_bdrouter = on->bdrouter = hello->bdrouter;
 		on->priority = hello->priority;
 	}
+
+	/* check latency against hello period */
+	if (on->hello_in)
+		latency = monotime_since(&on->last_hello, NULL)
+			  - (oi->hello_interval * 1000000);
+	/* log if latency exceeds the hello period */
+	if (latency > (oi->hello_interval * 1000000))
+		zlog_warn("%s RX %pI4 high latency %" PRId64 "us.", __func__,
+			  &on->router_id, latency);
+	on->last_hello = timestamp;
+	on->hello_in++;
 
 	/* Always override neighbor's source address */
 	memcpy(&on->linklocal_addr, src, sizeof(struct in6_addr));
@@ -1940,6 +1954,8 @@ static int ospf6_write(struct thread *thread)
 	struct iovec iovector[2];
 	int pkt_count = 0;
 	int len;
+	int64_t latency = 0;
+	struct timeval timestamp;
 
 	if (ospf6->fd < 0) {
 		zlog_warn("ospf6_write failed to send, fd %d", ospf6->fd);
@@ -1984,6 +2000,17 @@ static int ospf6_write(struct thread *thread)
 		}
 		switch (oh->type) {
 		case OSPF6_MESSAGE_TYPE_HELLO:
+			monotime(&timestamp);
+			if (oi->hello_out)
+				latency = monotime_since(&oi->last_hello, NULL)
+					  - (oi->hello_interval * 1000000);
+
+			/* log if latency exceeds the hello period */
+			if (latency > (oi->hello_interval * 1000000))
+				zlog_warn("%s hello TX high latency %" PRId64
+					  "us.",
+					  __func__, latency);
+			oi->last_hello = timestamp;
 			oi->hello_out++;
 			ospf6_hello_print(oh, OSPF6_ACTION_SEND);
 			break;
