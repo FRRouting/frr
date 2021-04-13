@@ -210,6 +210,7 @@ class CreateTopo(Topo):
         """ Dummy """
         print("%s", self.name)
 
+
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -272,9 +273,7 @@ def teardown_module():
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
-    logger.info(
-        "Testsuite end time: %s", time.asctime(time.localtime(time.time()))
-    )
+    logger.info("Testsuite end time: %s", time.asctime(time.localtime(time.time())))
     logger.info("=" * 40)
 
 
@@ -338,10 +337,8 @@ def verify_mroute_repopulated(uptime_before, uptime_after):
                 )
                 return errormsg
 
-            d_1 = datetime.datetime.strptime(uptime_before[group][source],
-                                             "%H:%M:%S")
-            d_2 = datetime.datetime.strptime(uptime_after[group][source],
-                                             "%H:%M:%S")
+            d_1 = datetime.datetime.strptime(uptime_before[group][source], "%H:%M:%S")
+            d_2 = datetime.datetime.strptime(uptime_after[group][source], "%H:%M:%S")
             if d_2 >= d_1:
                 errormsg = "mroute (%s, %s) is not " "repopulated [FAILED!!]" % (
                     source,
@@ -365,7 +362,7 @@ def verify_state_incremented(state_before, state_after):
     """
 
     for router, state_data in state_before.items():
-        for state, _  in state_data.items():
+        for state, _ in state_data.items():
             if state_before[router][state] >= state_after[router][state]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"
@@ -498,7 +495,8 @@ def test_add_delete_static_RP_p0(request):
 
     step("r1: Verify RP info")
     result = verify_pim_rp_info(
-        tgen, TOPO, dut, GROUP_RANGE_ALL, iif, rp_address, SOURCE)
+        tgen, TOPO, dut, GROUP_RANGE_ALL, iif, rp_address, SOURCE
+    )
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: RP info present \n Error: {}".format(
@@ -513,9 +511,7 @@ def test_add_delete_static_RP_p0(request):
     )
 
     step("r1: Verify upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, STAR, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is up and join timer is running \n Error: {}".format(
@@ -690,8 +686,7 @@ def test_SPT_RPT_path_same_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S, G) upstream join state is up and join timer is running\n Error: {}".format(
@@ -759,8 +754,9 @@ def test_not_reachable_static_RP_p0(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     step("Enable IGMP on r1 interface and send IGMP " "join (225.1.1.1) to r1")
     step("Configure r2 loopback interface as RP")
@@ -842,9 +838,7 @@ def test_not_reachable_static_RP_p0(request):
         "r1: join state should not be joined and join timer should stop,"
         "verify using show ip pim upstream"
     )
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, STAR, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: join state is joined and timer is not stopped \n Error: {}".format(
@@ -859,8 +853,9 @@ def test_not_reachable_static_RP_p0(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -950,14 +945,13 @@ def test_add_RP_after_join_received_p1(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     step("r0 : Send IGMP join (225.1.1.1) to r1, when rp is not configured" "in r1")
     result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(
-        tc_name, result
-    )
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: IGMP group is received on R1 verify using show ip igmp groups")
     oif = "r1-r0-eth0"
@@ -973,9 +967,7 @@ def test_add_RP_after_join_received_p1(request):
 
     step("r1: Verify upstream join state and join timer")
 
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, STAR, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is joined and timer is running \n Error: {}".format(
@@ -1042,8 +1034,9 @@ def test_add_RP_after_join_received_p1(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -1090,8 +1083,9 @@ def test_reachable_static_RP_after_join_p0(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     step("r1: Make RP un-reachable")
     dut = "r1"
@@ -1127,9 +1121,7 @@ def test_reachable_static_RP_after_join_p0(request):
     )
 
     step("r1 : Verify upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, STAR, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is joined and timer is running\n Error: {}".format(
@@ -1188,8 +1180,9 @@ def test_reachable_static_RP_after_join_p0(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -1279,8 +1272,9 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     step("r0 : Send IGMP join for 225.1.1.1")
     result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
@@ -1328,8 +1322,9 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -1359,8 +1354,9 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     step("r1 : Delete RP configuration for 225.1.1.1")
     input_dict = {
@@ -1389,9 +1385,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
 
     step("r1 : Verify rp-info for group 225.1.1.1")
     iif = "r1-r4-eth3"
-    result = verify_pim_rp_info(
-        tgen, TOPO, dut, GROUP_RANGE, oif, rp_address_2, SOURCE
-    )
+    result = verify_pim_rp_info(tgen, TOPO, dut, GROUP_RANGE, oif, rp_address_2, SOURCE)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: rp-info is present for group 225.1.1.1 \n Error: {}".format(
@@ -1440,8 +1434,9 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n " \
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -1648,9 +1643,7 @@ def test_RP_configured_as_LHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S, G) upstream join state is joined and join"
@@ -1857,9 +1850,7 @@ def test_RP_configured_as_LHR_2_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2067,9 +2058,7 @@ def test_RP_configured_as_FHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2079,12 +2068,8 @@ def test_RP_configured_as_FHR_1_p1(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS,
-                               iif, oif)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(
-        tc_name,
-        result
-    )
+    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Uncomment next line for debugging
     # tgen.mininet_cli()
@@ -2282,9 +2267,7 @@ def test_RP_configured_as_FHR_2_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2411,9 +2394,7 @@ def test_SPT_RPT_path_different_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2435,9 +2416,7 @@ def test_SPT_RPT_path_different_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r2: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2666,9 +2645,7 @@ def test_restart_pimd_process_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS
-    )
+    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
