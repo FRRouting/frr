@@ -88,7 +88,12 @@ static inline int notifier_active(struct notifier_list *l)
 
 void nhrp_zebra_init(void);
 void nhrp_zebra_terminate(void);
-
+void nhrp_send_zebra_configure_arp(struct interface *ifp, int family);
+void nhrp_send_zebra_nbr(union sockunion *in,
+			 union sockunion *out,
+			 struct interface *ifp);
+void nhrp_send_zebra_configure_arp(struct interface *ifp,
+				   int family);
 struct zbuf;
 struct nhrp_vc;
 struct nhrp_cache;
@@ -326,6 +331,7 @@ int nhrp_interface_up(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_down(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
+void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS);
 
 void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
 			       notifier_fn_t fn);

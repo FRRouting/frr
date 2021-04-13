@@ -165,6 +165,12 @@ enum dplane_op_e {
 	DPLANE_OP_IPSET_DELETE,
 	DPLANE_OP_IPSET_ENTRY_ADD,
 	DPLANE_OP_IPSET_ENTRY_DELETE,
+
+	/* LINK LAYER IP address update */
+	DPLANE_OP_NEIGH_IP_INSTALL,
+	DPLANE_OP_NEIGH_IP_DELETE,
+
+	DPLANE_OP_NEIGH_TABLE_UPDATE,
 };
 
 /*
@@ -184,6 +190,8 @@ enum dplane_op_e {
 #define DPLANE_NUD_NOARP          0x04
 #define DPLANE_NUD_PROBE          0x08
 #define DPLANE_NUD_INCOMPLETE     0x10
+#define DPLANE_NUD_PERMANENT      0x20
+#define DPLANE_NUD_FAILED         0x40
 
 /* MAC update flags - dplane_mac_info.update_flags */
 #define DPLANE_MAC_REMOTE       (1 << 0)
@@ -196,6 +204,7 @@ enum dplane_op_e {
 #define DPLANE_NEIGH_WAS_STATIC   (1 << 1)
 #define DPLANE_NEIGH_SET_STATIC   (1 << 2)
 #define DPLANE_NEIGH_SET_INACTIVE (1 << 3)
+#define DPLANE_NEIGH_NO_EXTENSION (1 << 4)
 
 #define DPLANE_BR_PORT_NON_DF (1 << 0)
 
@@ -458,6 +467,8 @@ const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
 	const struct zebra_dplane_ctx *ctx);
 const struct ethaddr *dplane_ctx_neigh_get_mac(
 	const struct zebra_dplane_ctx *ctx);
+const struct ipaddr *
+dplane_ctx_neigh_get_link_ip(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx);
@@ -506,6 +517,15 @@ const struct in_addr *
 dplane_ctx_get_br_port_sph_filters(const struct zebra_dplane_ctx *ctx);
 uint32_t
 dplane_ctx_get_br_port_backup_nhg_id(const struct zebra_dplane_ctx *ctx);
+
+/* Accessors for neighbor table information */
+uint8_t dplane_ctx_neightable_get_family(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_app_probes(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_mcast_probes(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_ucast_probes(const struct zebra_dplane_ctx *ctx);
 
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
@@ -585,6 +605,16 @@ enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 						const struct connected *ifc);
 
 /*
+ * Link layer operations for the dataplane.
+ */
+enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
+						const struct interface *ifp,
+						struct ipaddr *link_ip,
+						struct ipaddr *ip,
+						uint32_t ndm_state,
+						int protocol);
+
+/*
  * Enqueue evpn mac operations for the dataplane.
  */
 enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
@@ -655,6 +685,15 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
  */
 enum zebra_dplane_result dplane_neigh_discover(const struct interface *ifp,
 					       const struct ipaddr *ip);
+
+/*
+ * Enqueue a neighbor table parameter set
+ */
+enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
+						   const uint8_t family,
+						   const uint32_t app_probes,
+						   const uint32_t ucast_probes,
+						   const uint32_t mcast_probes);
 
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;

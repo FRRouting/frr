@@ -23,6 +23,7 @@
 
 /* For struct zapi_route. */
 #include "prefix.h"
+#include "ipaddr.h"
 
 /* For struct interface and struct connected. */
 #include "if.h"
@@ -223,6 +224,14 @@ typedef enum {
 	ZEBRA_NEIGH_DISCOVER,
 	ZEBRA_ROUTE_NOTIFY_REQUEST,
 	ZEBRA_CLIENT_CLOSE_NOTIFY,
+	ZEBRA_NHRP_NEIGH_ADDED,
+	ZEBRA_NHRP_NEIGH_REMOVED,
+	ZEBRA_NHRP_NEIGH_GET,
+	ZEBRA_NHRP_NEIGH_REGISTER,
+	ZEBRA_NHRP_NEIGH_UNREGISTER,
+	ZEBRA_NEIGH_IP_ADD,
+	ZEBRA_NEIGH_IP_DEL,
+	ZEBRA_CONFIGURE_ARP,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -381,6 +390,9 @@ struct zclient {
 	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
 	int (*sr_policy_notify_status)(ZAPI_CALLBACK_ARGS);
 	int (*zebra_client_close_notify)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_added)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_removed)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_get)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -793,6 +805,27 @@ struct zclient_options {
 };
 
 extern struct zclient_options zclient_options_default;
+
+/* link layer representation for GRE like interfaces
+ * ip_in is the underlay IP, ip_out is the tunnel dest
+ * index stands for the index of the interface
+ * ndm state stands for the NDM value in netlink
+ */
+#define ZEBRA_NEIGH_STATE_REACHABLE (0x02)
+#define ZEBRA_NEIGH_STATE_FAILED    (0x20)
+struct zapi_neigh_ip {
+	int cmd;
+	struct ipaddr ip_in;
+	struct ipaddr ip_out;
+	ifindex_t index;
+	uint32_t ndm_state;
+};
+int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api);
+int zclient_neigh_ip_encode(struct stream *s,
+			    uint16_t cmd,
+			    union sockunion *in,
+			    union sockunion *out,
+			    struct interface *ifp);
 
 /*
  * We reserve the top 4 bits for l2-NHG, everything else

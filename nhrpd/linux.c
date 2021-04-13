@@ -154,7 +154,6 @@ int os_configure_dmvpn(unsigned int ifindex, const char *ifname, int af)
 		break;
 	}
 	ret |= linux_configure_arp(ifname, 1);
-	ret |= netlink_configure_arp(ifindex, af);
 
 	return ret;
 }

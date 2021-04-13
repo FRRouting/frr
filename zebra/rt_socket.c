@@ -362,8 +362,14 @@ enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
-int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
-			int llalen, ns_id_t ns_id)
+int kernel_neigh_register(vrf_id_t vrf_id, struct zserv *client, bool reg)
+{
+	/* TODO */
+	return 0;
+}
+
+int kernel_neigh_update(int add, int ifindex, void *addr, char *lla, int llalen,
+			ns_id_t ns_id, uint8_t family, bool permanent)
 {
 	/* TODO */
 	return 0;
@@ -386,6 +392,12 @@ extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute)
 enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx)
 {
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+}
+
+int kernel_configure_if_link(struct interface *ifp, struct interface *link_ifp,
+			     ns_id_t ns_id)
+{
+	return 0;
 }
 
 extern int kernel_interface_set_master(struct interface *master,

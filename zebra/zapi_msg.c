@@ -974,6 +974,37 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
+void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
+				struct ipaddr *ipaddr, int ndm_state,
+				union sockunion *link_layer_ipv4)
+{
+	struct stream *s;
+	struct listnode *node, *nnode;
+	struct zserv *client;
+	afi_t afi;
+	union sockunion ip;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying Neighbor entry (%u)",
+			   __PRETTY_FUNCTION__, cmd);
+
+	sockunion_family(&ip) = ipaddr_family(ipaddr);
+	afi = family2afi(sockunion_family(&ip));
+	memcpy((char *)sockunion_get_addr(&ip), &ipaddr->ip.addr,
+	       family2addrsize(sockunion_family(&ip)));
+
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi], ifp->vrf_id))
+			continue;
+
+		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+		zclient_neigh_ip_encode(s, cmd, &ip, link_layer_ipv4, ifp);
+		stream_putw_at(s, 0, stream_get_endp(s));
+		zserv_send_message(client, s);
+	}
+}
+
+
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_UPDATE to client. */
 int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 			   vrf_id_t vrf_id)
@@ -2277,6 +2308,7 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 	}
 }
 
@@ -3167,6 +3199,97 @@ stream_failure:
 	return;
 }
 
+
+static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
+{
+	afi_t afi;
+
+	STREAM_GETW(msg, afi);
+	if (afi <= AFI_UNSPEC || afi >= AFI_MAX) {
+		zlog_warn(
+			"Invalid AFI %u while registering for neighbors notifications",
+			afi);
+		goto stream_failure;
+	}
+	vrf_bitmap_set(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+stream_failure:
+	return;
+}
+
+static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
+{
+	afi_t afi;
+
+	STREAM_GETW(msg, afi);
+	if (afi <= AFI_UNSPEC || afi >= AFI_MAX) {
+		zlog_warn(
+			"Invalid AFI %u while unregistering from neighbor notifications",
+			afi);
+		goto stream_failure;
+	}
+	vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+stream_failure:
+	return;
+}
+
+static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	uint8_t fam;
+	ifindex_t idx;
+	struct interface *ifp;
+
+	s = msg;
+	STREAM_GETC(s, fam);
+	if (fam != AF_INET && fam != AF_INET6)
+		return;
+	STREAM_GETL(s, idx);
+	ifp = if_lookup_by_index_per_ns(zvrf->zns, idx);
+	if (!ifp)
+		return;
+	dplane_neigh_table_update(ifp, fam, 1, 0, 0);
+stream_failure:
+	return;
+}
+
+static inline void zebra_neigh_ip_add(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_neigh_ip api = {};
+	int ret;
+	const struct interface *ifp;
+
+	s = msg;
+	ret = zclient_neigh_ip_decode(s, &api);
+	if (ret < 0)
+		return;
+	ifp = if_lookup_by_index(api.index, zvrf_id(zvrf));
+	if (!ifp)
+		return;
+	dplane_neigh_ip_update(DPLANE_OP_NEIGH_IP_INSTALL, ifp, &api.ip_out,
+			       &api.ip_in, api.ndm_state, client->proto);
+}
+
+
+static inline void zebra_neigh_ip_del(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_neigh_ip api = {};
+	int ret;
+	struct interface *ifp;
+
+	s = msg;
+	ret = zclient_neigh_ip_decode(s, &api);
+	if (ret < 0)
+		return;
+	ifp = if_lookup_by_index(api.index, zvrf_id(zvrf));
+	if (!ifp)
+		return;
+	dplane_neigh_ip_update(DPLANE_OP_NEIGH_IP_DELETE, ifp, &api.ip_out,
+			       &api.ip_in, api.ndm_state, client->proto);
+}
+
+
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
 	struct zebra_pbr_iptable *zpi =
@@ -3352,6 +3475,11 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
 	[ZEBRA_EVPN_REMOTE_NH_ADD] = zebra_evpn_proc_remote_nh,
 	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,
+	[ZEBRA_NEIGH_IP_ADD] = zebra_neigh_ip_add,
+	[ZEBRA_NEIGH_IP_DEL] = zebra_neigh_ip_del,
+	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
+	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
+	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
 };
 
 /*

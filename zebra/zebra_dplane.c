@@ -220,10 +220,23 @@ struct dplane_mac_info {
  */
 struct dplane_neigh_info {
 	struct ipaddr ip_addr;
-	struct ethaddr mac;
+	union {
+		struct ethaddr mac;
+		struct ipaddr ip_addr;
+	} link;
 	uint32_t flags;
 	uint16_t state;
 	uint32_t update_flags;
+};
+
+/*
+ * Neighbor Table
+ */
+struct dplane_neigh_table {
+	uint8_t family;
+	uint32_t app_probes;
+	uint32_t ucast_probes;
+	uint32_t mcast_probes;
 };
 
 /*
@@ -313,6 +326,7 @@ struct zebra_dplane_ctx {
 			struct zebra_pbr_ipset_entry entry;
 			struct zebra_pbr_ipset_info info;
 		} ipset_entry;
+		struct dplane_neigh_table neightable;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -452,6 +466,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_ipset_entry_in;
 	_Atomic uint32_t dg_ipset_entry_errors;
 
+	_Atomic uint32_t dg_neightable_in;
+	_Atomic uint32_t dg_neightable_errors;
+
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
 
@@ -496,12 +513,11 @@ static enum zebra_dplane_result mac_update_common(
 	vlanid_t vid, const struct ethaddr *mac,
 	struct in_addr vtep_ip,	bool sticky, uint32_t nhg_id,
 	uint32_t update_flags);
-static enum zebra_dplane_result neigh_update_internal(
-	enum dplane_op_e op,
-	const struct interface *ifp,
-	const struct ethaddr *mac,
-	const struct ipaddr *ip,
-	uint32_t flags, uint16_t state, uint32_t update_flags);
+static enum zebra_dplane_result
+neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
+		      const void *link, int link_family,
+		      const struct ipaddr *ip, uint32_t flags, uint16_t state,
+		      uint32_t update_flags, int protocol);
 
 /*
  * Public APIs
@@ -669,6 +685,8 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_RULE_UPDATE:
 	case DPLANE_OP_NEIGH_DISCOVER:
 	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
 	case DPLANE_OP_NONE:
 	case DPLANE_OP_IPSET_ADD:
 	case DPLANE_OP_IPSET_DELETE:
@@ -676,6 +694,8 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
+		break;
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 		break;
 	case DPLANE_OP_IPTABLE_ADD:
 	case DPLANE_OP_IPTABLE_DELETE:
@@ -949,6 +969,15 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 		ret = "IPSET_ENTRY_DELETE";
+		break;
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+		ret = "NEIGH_IP_INSTALL";
+		break;
+	case DPLANE_OP_NEIGH_IP_DELETE:
+		ret = "NEIGH_IP_DELETE";
+		break;
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+		ret = "NEIGH_TABLE_UPDATE";
 		break;
 	}
 
@@ -1711,11 +1740,18 @@ const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
 	return &(ctx->u.neigh.ip_addr);
 }
 
+const struct ipaddr *
+dplane_ctx_neigh_get_link_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.neigh.link.ip_addr);
+}
+
 const struct ethaddr *dplane_ctx_neigh_get_mac(
 	const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
-	return &(ctx->u.neigh.mac);
+	return &(ctx->u.neigh.link.mac);
 }
 
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx)
@@ -1976,6 +2012,37 @@ uint32_t dplane_intf_extra_get_flags(const struct dplane_intf_extra *ptr)
 uint32_t dplane_intf_extra_get_status(const struct dplane_intf_extra *ptr)
 {
 	return ptr->status;
+}
+
+uint8_t dplane_ctx_neightable_get_family(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neightable.family;
+}
+
+uint32_t
+dplane_ctx_neightable_get_app_probes(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neightable.app_probes;
+}
+
+uint32_t
+dplane_ctx_neightable_get_ucast_probes(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neightable.ucast_probes;
+}
+
+uint32_t
+dplane_ctx_neightable_get_mcast_probes(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neightable.mcast_probes;
 }
 
 /*
@@ -3436,6 +3503,41 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 }
 
 /*
+ * API to configure link local with either MAC address or IP information
+ */
+enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
+						const struct interface *ifp,
+						struct ipaddr *link_ip,
+						struct ipaddr *ip,
+						uint32_t ndm_state, int protocol)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	uint16_t state = 0;
+	uint32_t update_flags;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char buf1[PREFIX_STRLEN], buf2[PREFIX_STRLEN];
+
+		ipaddr2str(link_ip, buf1, sizeof(buf1));
+		ipaddr2str(ip, buf2, sizeof(buf2));
+		zlog_debug("init link ctx %s: ifp %s, ip %s link %s",
+			   dplane_op2str(op), ifp->name, buf1, buf2);
+	}
+	if (ndm_state == ZEBRA_NEIGH_STATE_REACHABLE)
+		state = DPLANE_NUD_REACHABLE;
+	else if (ndm_state == ZEBRA_NEIGH_STATE_FAILED)
+		state = DPLANE_NUD_FAILED;
+
+	update_flags = DPLANE_NEIGH_NO_EXTENSION;
+
+	result = neigh_update_internal(op, ifp, (const void *)link_ip,
+				       ipaddr_family(link_ip), ip, 0, state,
+				       update_flags, protocol);
+
+	return result;
+}
+
+/*
  * Enqueue local mac add (or update).
  */
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
@@ -3584,9 +3686,9 @@ enum zebra_dplane_result dplane_rem_neigh_add(const struct interface *ifp,
 	if (was_static)
 		update_flags |= DPLANE_NEIGH_WAS_STATIC;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_INSTALL,
-				       ifp, mac, ip, flags, DPLANE_NUD_NOARP,
-				       update_flags);
+	result = neigh_update_internal(
+		DPLANE_OP_NEIGH_INSTALL, ifp, (const void *)mac, AF_ETHERNET,
+		ip, flags, DPLANE_NUD_NOARP, update_flags, 0);
 
 	return result;
 }
@@ -3618,9 +3720,9 @@ enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 	if (set_router)
 		ntf |= DPLANE_NTF_ROUTER;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_INSTALL,
-				       ifp, mac, ip, ntf,
-				       state, update_flags);
+	result = neigh_update_internal(DPLANE_OP_NEIGH_INSTALL, ifp,
+				       (const void *)mac, AF_ETHERNET, ip, ntf,
+				       state, update_flags, 0);
 
 	return result;
 }
@@ -3636,8 +3738,8 @@ enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
 
 	update_flags |= DPLANE_NEIGH_REMOTE;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_DELETE,
-				       ifp, NULL, ip, 0, 0, update_flags);
+	result = neigh_update_internal(DPLANE_OP_NEIGH_DELETE, ifp, NULL,
+				       AF_ETHERNET, ip, 0, 0, update_flags, 0);
 
 	return result;
 }
@@ -3660,8 +3762,8 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
 	SET_IPADDR_V4(&addr);
 	addr.ipaddr_v4 = *ip;
 
-	result = neigh_update_internal(DPLANE_OP_VTEP_ADD,
-				       ifp, &mac, &addr, 0, 0, 0);
+	result = neigh_update_internal(DPLANE_OP_VTEP_ADD, ifp, &mac,
+				       AF_ETHERNET, &addr, 0, 0, 0, 0);
 
 	return result;
 }
@@ -3685,8 +3787,9 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 	SET_IPADDR_V4(&addr);
 	addr.ipaddr_v4 = *ip;
 
-	result = neigh_update_internal(DPLANE_OP_VTEP_DELETE,
-				       ifp, &mac, &addr, 0, 0, 0);
+	result = neigh_update_internal(DPLANE_OP_VTEP_DELETE, ifp,
+				       (const void *)&mac, AF_ETHERNET, &addr,
+				       0, 0, 0, 0);
 
 	return result;
 }
@@ -3696,31 +3799,29 @@ enum zebra_dplane_result dplane_neigh_discover(const struct interface *ifp,
 {
 	enum zebra_dplane_result result;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_DISCOVER, ifp, NULL, ip,
-				       DPLANE_NTF_USE, DPLANE_NUD_INCOMPLETE, 0);
+	result = neigh_update_internal(DPLANE_OP_NEIGH_DISCOVER, ifp, NULL,
+				       AF_ETHERNET, ip, DPLANE_NTF_USE,
+				       DPLANE_NUD_INCOMPLETE, 0, 0);
 
 	return result;
 }
 
-/*
- * Common helper api for neighbor updates
- */
-static enum zebra_dplane_result
-neigh_update_internal(enum dplane_op_e op,
-		      const struct interface *ifp,
-		      const struct ethaddr *mac,
-		      const struct ipaddr *ip,
-		      uint32_t flags, uint16_t state,
-			  uint32_t update_flags)
+enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
+						   const uint8_t family,
+						   const uint32_t app_probes,
+						   const uint32_t ucast_probes,
+						   const uint32_t mcast_probes)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct zebra_ns *zns;
+	enum dplane_op_e op = DPLANE_OP_NEIGH_TABLE_UPDATE;
 
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-		zlog_debug("init neigh ctx %s: ifp %s, mac %pEA, ip %pIA",
-			   dplane_op2str(op), ifp->name, mac, ip);
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("set neigh ctx %s: ifp %s, family %s",
+			   dplane_op2str(op), ifp->name, family2str(family));
+	}
 
 	ctx = dplane_ctx_alloc();
 
@@ -3735,11 +3836,89 @@ neigh_update_internal(enum dplane_op_e op,
 	ctx->zd_ifindex = ifp->ifindex;
 
 	/* Init the neighbor-specific data area */
+	memset(&ctx->u.neightable, 0, sizeof(ctx->u.neightable));
+
+	ctx->u.neightable.family = family;
+	ctx->u.neightable.app_probes = app_probes;
+	ctx->u.neightable.ucast_probes = ucast_probes;
+	ctx->u.neightable.mcast_probes = mcast_probes;
+
+	/* Enqueue for processing on the dplane pthread */
+	ret = dplane_update_enqueue(ctx);
+
+	/* Increment counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_neightable_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		/* Error counter */
+		atomic_fetch_add_explicit(&zdplane_info.dg_neightable_errors, 1,
+					  memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+/*
+ * Common helper api for neighbor updates
+ */
+static enum zebra_dplane_result
+neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
+		      const void *link, const int link_family,
+		      const struct ipaddr *ip, uint32_t flags, uint16_t state,
+		      uint32_t update_flags, int protocol)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_ns *zns;
+	const struct ethaddr *mac = NULL;
+	const struct ipaddr *link_ip = NULL;
+
+	if (link_family == AF_ETHERNET)
+		mac = (const struct ethaddr *)link;
+	else
+		link_ip = (const struct ipaddr *)link;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char buf1[PREFIX_STRLEN];
+
+		buf1[0] = '\0';
+		if (link_family == AF_ETHERNET)
+			prefix_mac2str(mac, buf1, sizeof(buf1));
+		else
+			ipaddr2str(link_ip, buf1, sizeof(buf1));
+		zlog_debug("init neigh ctx %s: ifp %s, %s %s, ip %pIA",
+			   dplane_op2str(op), ifp->name,
+			   link_family == AF_ETHERNET ? "mac " : "link ",
+			   buf1, ip);
+	}
+
+	ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf_id;
+	dplane_ctx_set_type(ctx, protocol);
+
+	zns = zebra_ns_lookup(ifp->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+	ctx->zd_ifindex = ifp->ifindex;
+
+	/* Init the neighbor-specific data area */
 	memset(&ctx->u.neigh, 0, sizeof(ctx->u.neigh));
 
 	ctx->u.neigh.ip_addr = *ip;
 	if (mac)
-		ctx->u.neigh.mac = *mac;
+		ctx->u.neigh.link.mac = *mac;
+	else if (link_ip)
+		ctx->u.neigh.link.ip_addr = *link_ip;
+
 	ctx->u.neigh.flags = flags;
 	ctx->u.neigh.state = state;
 	ctx->u.neigh.update_flags = update_flags;
@@ -4048,6 +4227,13 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 				    memory_order_relaxed);
 	vty_out(vty, "IPset entry updates:             %" PRIu64 "\n", incoming);
 	vty_out(vty, "IPset entry errors:              %" PRIu64 "\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_neightable_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_neightable_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "Neighbor Table updates:       %"PRIu64"\n", incoming);
+	vty_out(vty, "Neighbor Table errors:        %"PRIu64"\n", errs);
 	return CMD_SUCCESS;
 }
 
@@ -4433,6 +4619,8 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
 	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
 		ipaddr2str(dplane_ctx_neigh_get_ipaddr(ctx), buf,
 			   sizeof(buf));
 
@@ -4485,6 +4673,13 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 				   dplane_op2str(dplane_ctx_get_op(ctx)),
 				   ipent.unique, ctx);
 	} break;
+
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+		zlog_debug("Dplane neigh table op %s, ifp %s, family %s",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifname(ctx),
+			   family2str(dplane_ctx_neightable_get_family(ctx)));
+		break;
 	}
 }
 
@@ -4568,6 +4763,8 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
 	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(&zdplane_info.dg_neigh_errors,
 						  1, memory_order_relaxed);
@@ -4601,6 +4798,13 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(
 				&zdplane_info.dg_ipset_entry_errors, 1,
+				memory_order_relaxed);
+		break;
+
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(
+				&zdplane_info.dg_neightable_errors, 1,
 				memory_order_relaxed);
 		break;
 
