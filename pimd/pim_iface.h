@@ -166,6 +166,7 @@ struct pim_interface {
 		uint32_t min_rx;
 		uint32_t min_tx;
 		uint8_t detection_multiplier;
+		char *profile;
 	} bfd_config;
 };
 

@@ -9676,12 +9676,14 @@ DEFUN (interface_no_pim_use_source,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (ip_pim_bfd,
+DEFPY (ip_pim_bfd,
        ip_pim_bfd_cmd,
-       "ip pim bfd",
+       "ip pim bfd [profile BFDPROF$prof]",
        IP_STR
        PIM_STR
-       "Enables BFD support\n")
+       "Enables BFD support\n"
+       "Use BFD profile\n"
+       "Use BFD profile name\n")
 {
 	const struct lyd_node *igmp_enable_dnode;
 
@@ -9698,6 +9700,22 @@ DEFUN (ip_pim_bfd,
 	}
 
 	nb_cli_enqueue_change(vty, "./bfd", NB_OP_CREATE, NULL);
+	if (prof)
+		nb_cli_enqueue_change(vty, "./bfd/profile", NB_OP_MODIFY, prof);
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+}
+
+DEFPY(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
+      "no ip pim bfd profile [BFDPROF]",
+      NO_STR
+      IP_STR
+      PIM_STR
+      "Enables BFD support\n"
+      "Disable BFD profile\n"
+      "BFD Profile name\n")
+{
+	nb_cli_enqueue_change(vty, "./bfd/profile", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
@@ -11694,6 +11712,7 @@ void pim_cmd_init(void)
 	/* Install BFD command */
 	install_element(INTERFACE_NODE, &ip_pim_bfd_cmd);
 	install_element(INTERFACE_NODE, &ip_pim_bfd_param_cmd);
+	install_element(INTERFACE_NODE, &no_ip_pim_bfd_profile_cmd);
 	install_element(INTERFACE_NODE, &no_ip_pim_bfd_cmd);
 #if HAVE_BFDD == 0
 	install_element(INTERFACE_NODE, &no_ip_pim_bfd_param_cmd);
