@@ -514,31 +514,42 @@ Terminal Mode Commands
    Send a message to all logging destinations that are enabled for messages of
    the given severity.
 
-.. clicmd:: find COMMAND...
+.. clicmd:: find REGEX...
 
-   This command performs a simple substring search across all defined commands
-   in all modes. As an example, suppose you're in enable mode and can't
-   remember where the command to turn OSPF segment routing on is:
+   This command performs a regex search across all defined commands in all
+   modes. As an example, suppose you're in enable mode and can't remember where
+   the command to turn OSPF segment routing on is:
 
    ::
 
       frr# find segment-routing on
         (ospf)  segment-routing on
+        (isis)  segment-routing on
+
 
    The CLI mode is displayed next to each command. In this example,
    :clicmd:`segment-routing on` is under the `router ospf` mode.
 
-   Similarly, suppose you want a listing of all commands that contain "l2vpn":
+   Similarly, suppose you want a listing of all commands that contain "l2vpn"
+   and "neighbor":
 
    ::
 
-      frr# find l2vpn
-        (view)  show [ip] bgp l2vpn evpn [json]
-        (view)  show [ip] bgp l2vpn evpn all <A.B.C.D|A.B.C.D/M> [json]
-        (view)  show [ip] bgp l2vpn evpn all neighbors A.B.C.D advertised-routes [json]
-        (view)  show [ip] bgp l2vpn evpn all neighbors A.B.C.D routes [json]
-        (view)  show [ip] bgp l2vpn evpn all overlay
+      frr# find l2vpn.*neighbor
+        (view)  show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]
+        (view)  show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]
+        (view)  show [ip] bgp l2vpn evpn rd ASN:NN_OR_IP-ADDRESS:NN neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]
+        (view)  show [ip] bgp l2vpn evpn rd ASN:NN_OR_IP-ADDRESS:NN neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]
         ...
+
+
+   Note that when entering spaces as part of a regex specification, repeated
+   spaces will be compressed into a single space for matching purposes. This is
+   a consequence of spaces being used to delimit CLI tokens. If you need to
+   match more than one space, use the ``\s`` escape.
+
+   POSIX Extended Regular Expressions are supported.
+
 
 .. _common-show-commands:
 

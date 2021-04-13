@@ -3724,18 +3724,18 @@ DEFUN (no_vtysh_output_file,
 
 DEFUN(find,
       find_cmd,
-      "find REGEX",
+      "find REGEX...",
       "Find CLI command matching a regular expression\n"
       "Search pattern (POSIX regex)\n")
 {
-	char *pattern = argv[1]->arg;
 	const struct cmd_node *node;
 	const struct cmd_element *cli;
 	vector clis;
-
 	regex_t exp = {};
-
+	char *pattern = argv_concat(argv, argc, 1);
 	int cr = regcomp(&exp, pattern, REG_NOSUB | REG_EXTENDED);
+
+	XFREE(MTYPE_TMP, pattern);
 
 	if (cr != 0) {
 		switch (cr) {
