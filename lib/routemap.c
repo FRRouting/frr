@@ -2906,29 +2906,6 @@ void route_map_notify_dependencies(const char *affected_name,
 }
 
 /* VTY related functions. */
-DEFUN(no_routemap_optimization, no_routemap_optimization_cmd,
-      "no route-map optimization",
-      NO_STR
-      "route-map\n"
-      "optimization\n")
-{
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-
-	index->map->optimization_disabled = true;
-	return CMD_SUCCESS;
-}
-
-DEFUN(routemap_optimization, routemap_optimization_cmd,
-      "route-map optimization",
-      "route-map\n"
-      "optimization\n")
-{
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-
-	index->map->optimization_disabled = false;
-	return CMD_SUCCESS;
-}
-
 static void clear_route_map_helper(struct route_map *map)
 {
 	struct route_map_index *index;
@@ -3240,9 +3217,6 @@ void route_map_init(void)
 
 	install_element(ENABLE_NODE, &debug_rmap_cmd);
 	install_element(ENABLE_NODE, &no_debug_rmap_cmd);
-
-	install_element(RMAP_NODE, &routemap_optimization_cmd);
-	install_element(RMAP_NODE, &no_routemap_optimization_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_pfx_tbl_cmd);
 }
