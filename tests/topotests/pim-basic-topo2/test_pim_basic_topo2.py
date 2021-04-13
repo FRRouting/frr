@@ -45,7 +45,7 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
-pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.ospfd]
+pytestmark = [pytest.mark.bfdd, pytest.mark.pimd]
 
 
 class PimBasicTopo2(Topo):
@@ -190,6 +190,38 @@ def test_pim_reconvergence():
     logger.info("waiting for reconvergence")
     tgen.gears["r4"].link_enable("r4-eth0", enabled=True)
     expect_neighbor("r2", "r2-eth2", "192.168.3.4")
+
+
+def test_pim_bfd_profile():
+    "Test that the BFD profile is properly applied in BFD."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def expect_bfd_peer_settings(router, settings):
+        "Expect the following BFD configuration"
+        logger.info("Verifying BFD peer {} in {}".format(settings["peer"], router))
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show bfd peers json",
+            [settings]
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=4, wait=1)
+        assertmsg = '"{}" BFD convergence failure'.format(router)
+        assert result is None, assertmsg
+
+    expect_bfd_peer_settings("r1", {
+        "peer": "192.168.1.2",
+        "receive-interval": 250,
+        "transmit-interval": 250,
+    })
+
+    expect_bfd_peer_settings("r2", {
+        "peer": "192.168.1.1",
+        "remote-receive-interval": 250,
+        "remote-transmit-interval": 250,
+    })
 
 
 def test_memory_leak():
