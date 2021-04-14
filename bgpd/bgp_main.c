@@ -451,7 +451,7 @@ static struct peer *FuzzingCreatePeer(int state)
 	su.sin.sin_family = AF_INET;
 	su.sin.sin_port = 2001;
 	struct peer *p = peer_create(&su, NULL, bgp_get_default(), 65000, 65001,
-				     0, AFI_IP, SAFI_UNICAST, NULL);
+				     AS_UNSPECIFIED, NULL);
 	p->bgp->rpkt_quanta = 1;
 	p->status = state;
 	p->as_type = AS_EXTERNAL;
@@ -571,6 +571,9 @@ int main(int argc, char **argv)
 	int skip_runas = 0;
 	int instance = 0;
 	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
+	struct list *addresses = list_new();
+	struct listnode *node;
+	char *address;
 
 	frr_preinit(&bgpd_di, argc, argv);
 
