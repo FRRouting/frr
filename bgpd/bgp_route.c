@@ -10845,9 +10845,17 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				flap_route_vty_out(vty, dest_p, pi, display,
 						   AFI_IP, safi, use_json,
 						   json_paths);
-			else
-				route_vty_out(vty, dest_p, pi, display, safi,
-					      json_paths, wide);
+			else {
+				if (CHECK_FLAG(show_flags, BGP_SHOW_OPT_DETAIL))
+					route_vty_out_detail(
+						vty, bgp, dest, pi,
+						family2afi(dest_p->family),
+						safi, RPKI_NOT_BEING_USED,
+						json_paths);
+				else
+					route_vty_out(vty, dest_p, pi, display,
+						      safi, json_paths, wide);
+			}
 			display++;
 		}
 
@@ -11920,7 +11928,7 @@ DEFPY (show_ip_bgp_json,
                      |route-filter-translated-v4] [exact-match]\
           |rpki <invalid|valid|notfound>\
           |version (1-4294967295)\
-          ] [json$uj | wide$wide]",
+          ] [json$uj [detail$detail] | wide$wide]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11956,6 +11964,7 @@ DEFPY (show_ip_bgp_json,
        "Display prefixes with matching version numbers\n"
        "Version number and above\n"
        JSON_STR
+       "Display detailed version of JSON output\n"
        "Increase table width for longer prefixes\n")
 {
 	afi_t afi = AFI_IP6;
@@ -11974,6 +11983,9 @@ DEFPY (show_ip_bgp_json,
 		argc--;
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 	}
+
+	if (detail)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_DETAIL);
 
 	/* [<ipv4|ipv6> [all]] */
 	if (all) {

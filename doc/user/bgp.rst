@@ -3119,11 +3119,11 @@ daemon project, while :clicmd:`show bgp` command is the new format. The choice
 has been done to keep old format with IPv4 routing table, while new format
 displays IPv6 routing table.
 
-.. clicmd:: show ip bgp [all] [wide|json]
+.. clicmd:: show ip bgp [all] [wide|json [detail]]
 
 .. clicmd:: show ip bgp A.B.C.D [json]
 
-.. clicmd:: show bgp [all] [wide|json]
+.. clicmd:: show bgp [all] [wide|json [detail]]
 
 .. clicmd:: show bgp X:X::X:X [json]
 
@@ -3151,6 +3151,9 @@ displays IPv6 routing table.
    show ip bgp all commands display routes for all AFIs and SAFIs.
 
    If ``json`` option is specified, output is displayed in JSON format.
+
+   If ``detail`` option is specified after ``json``, more verbose JSON output
+   will be displayed.
 
 Some other commands provide additional options for filtering the output.
 
