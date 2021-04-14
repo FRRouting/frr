@@ -185,8 +185,10 @@ void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 
 void vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 {
+#ifdef FUZZING
 	if (!ifp)
-		return 0;
+		return;
+#endif
 
 	DEBUGD(&vrrp_dbg_zebra,
 	       VRRP_LOGPFX "Requesting Zebra to set %s protodown %s", ifp->name,

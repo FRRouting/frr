@@ -175,7 +175,7 @@ static bool FuzzingInit(void)
 	prefix_list_init();
 	ospf_if_init();
 	ospf_zebra_init(master, instance);
-	ospf_bfd_init();
+	ospf_bfd_init(master);
 	ospf_route_map_init();
 	ospf_opaque_init();
 	ospf_error_init();
@@ -191,7 +191,7 @@ static struct ospf *FuzzingCreateOspf(void)
 	str2prefix("11.0.2.0/24", &p);
 
 	bool created;
-	struct ospf *o = ospf_get_instance(0, &created);
+	struct ospf *o = ospf_get(0, NULL, &created);
 	o->fd = 69;
 
 	struct in_addr in;
