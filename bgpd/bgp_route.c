@@ -8342,8 +8342,11 @@ bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 /* Print the short form route status for a bgp_path_info */
 static void route_vty_short_status_out(struct vty *vty,
 				       struct bgp_path_info *path,
+				       const struct prefix *p,
 				       json_object *json_path)
 {
+	enum rpki_states rpki_state = RPKI_NOT_BEING_USED;
+
 	if (json_path) {
 
 		/* Route status display. */
@@ -8388,6 +8391,17 @@ static void route_vty_short_status_out(struct vty *vty,
 
 		return;
 	}
+
+	/* RPKI validation state */
+	rpki_state =
+		hook_call(bgp_rpki_prefix_status, path->peer, path->attr, p);
+
+	if (rpki_state == RPKI_VALID)
+		vty_out(vty, "V");
+	else if (rpki_state == RPKI_INVALID)
+		vty_out(vty, "I");
+	else if (rpki_state == RPKI_NOTFOUND)
+		vty_out(vty, "N");
 
 	/* Route status display. */
 	if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED))
@@ -8457,7 +8471,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		json_path = json_object_new_object();
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, path, json_path);
+	route_vty_short_status_out(vty, path, p, json_path);
 
 	if (!json_paths) {
 		/* print prefix and mask */
@@ -9103,7 +9117,7 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 		json_out = json_object_new_object();
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, path, json_out);
+	route_vty_short_status_out(vty, path, p, json_out);
 
 	/* print prefix and mask */
 	if (json == NULL) {
@@ -9206,7 +9220,7 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 	}
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, path, json_path);
+	route_vty_short_status_out(vty, path, p, json_path);
 
 	/* print prefix and mask */
 	if (!display)
@@ -9310,7 +9324,7 @@ static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 	char timebuf[BGP_UPTIME_LEN];
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, path, json);
+	route_vty_short_status_out(vty, path, p, json);
 
 	/* print prefix and mask */
 	if (!use_json) {
@@ -9381,7 +9395,7 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 	bdi = path->extra->damp_info;
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, path, json);
+	route_vty_short_status_out(vty, path, p, json);
 
 	/* print prefix and mask */
 	if (!use_json) {
@@ -10803,6 +10817,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				vty_out(vty, BGP_SHOW_SCODE_HEADER);
 				vty_out(vty, BGP_SHOW_NCODE_HEADER);
 				vty_out(vty, BGP_SHOW_OCODE_HEADER);
+				vty_out(vty, BGP_SHOW_RPKI_HEADER);
 				if (type == bgp_show_type_dampend_paths
 				    || type == bgp_show_type_damp_neighbor)
 					vty_out(vty, BGP_SHOW_DAMP_HEADER);
@@ -13179,6 +13194,7 @@ static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, BGP_SHOW_SCODE_HEADER);
 			vty_out(vty, BGP_SHOW_NCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);
+			vty_out(vty, BGP_SHOW_RPKI_HEADER);
 		}
 		*header1 = 0;
 	}
@@ -13265,6 +13281,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 			vty_out(vty, BGP_SHOW_SCODE_HEADER);
 			vty_out(vty, BGP_SHOW_NCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);
+			vty_out(vty, BGP_SHOW_RPKI_HEADER);
 
 			vty_out(vty, "Originating default network %s\n\n",
 				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
