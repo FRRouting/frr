@@ -50,8 +50,6 @@ extern "C" {
 /* Filter type is made by `permit', `deny' and `dynamic'. */
 enum filter_type { FILTER_DENY, FILTER_PERMIT, FILTER_DYNAMIC };
 
-enum access_type { ACCESS_TYPE_STRING, ACCESS_TYPE_NUMBER };
-
 struct filter_cisco {
 	/* Cisco access-list */
 	int extended;
@@ -103,8 +101,6 @@ struct access_list {
 
 	struct access_master *master;
 
-	enum access_type type;
-
 	struct access_list *next;
 	struct access_list *prev;
 
@@ -120,9 +116,6 @@ struct access_list_list {
 
 /* Master structure of access_list. */
 struct access_master {
-	/* List of access_list which name is number. */
-	struct access_list_list num;
-
 	/* List of access_list which name is string. */
 	struct access_list_list str;
 

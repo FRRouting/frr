@@ -40,9 +40,6 @@ struct as_list_list {
 
 /* AS path filter master. */
 struct as_list_master {
-	/* List of access_list which name is number. */
-	struct as_list_list num;
-
 	/* List of access_list which name is string. */
 	struct as_list_list str;
 
@@ -70,8 +67,6 @@ struct as_filter {
 /* AS path filter list. */
 struct as_list {
 	char *name;
-
-	enum access_type type;
 
 	struct as_list *next;
 	struct as_list *prev;
@@ -115,7 +110,6 @@ static struct as_filter *bgp_aslist_seq_check(struct as_list *list, int64_t seq)
 /* as-path access-list 10 permit AS1. */
 
 static struct as_list_master as_list_master = {{NULL, NULL},
-					       {NULL, NULL},
 					       NULL,
 					       NULL};
 
@@ -237,10 +231,6 @@ struct as_list *as_list_lookup(const char *name)
 	if (name == NULL)
 		return NULL;
 
-	for (aslist = as_list_master.num.head; aslist; aslist = aslist->next)
-		if (strcmp(aslist->name, name) == 0)
-			return aslist;
-
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
 		if (strcmp(aslist->name, name) == 0)
 			return aslist;
@@ -263,8 +253,6 @@ static void as_list_free(struct as_list *aslist)
    the name. */
 static struct as_list *as_list_insert(const char *name)
 {
-	size_t i;
-	long number;
 	struct as_list *aslist;
 	struct as_list *point;
 	struct as_list_list *list;
@@ -274,36 +262,13 @@ static struct as_list *as_list_insert(const char *name)
 	aslist->name = XSTRDUP(MTYPE_AS_STR, name);
 	assert(aslist->name);
 
-	/* If name is made by all digit character.  We treat it as
-	   number. */
-	for (number = 0, i = 0; i < strlen(name); i++) {
-		if (isdigit((unsigned char)name[i]))
-			number = (number * 10) + (name[i] - '0');
-		else
+	/* Set access_list to string list. */
+	list = &as_list_master.str;
+
+	/* Set point to insertion point. */
+	for (point = list->head; point; point = point->next)
+		if (strcmp(point->name, name) >= 0)
 			break;
-	}
-
-	/* In case of name is all digit character */
-	if (i == strlen(name)) {
-		aslist->type = ACCESS_TYPE_NUMBER;
-
-		/* Set access_list to number list. */
-		list = &as_list_master.num;
-
-		for (point = list->head; point; point = point->next)
-			if (atol(point->name) >= number)
-				break;
-	} else {
-		aslist->type = ACCESS_TYPE_STRING;
-
-		/* Set access_list to string list. */
-		list = &as_list_master.str;
-
-		/* Set point to insertion point. */
-		for (point = list->head; point; point = point->next)
-			if (strcmp(point->name, name) >= 0)
-				break;
-	}
 
 	/* In case of this is the first element of master. */
 	if (list->head == NULL) {
@@ -371,10 +336,7 @@ static void as_list_delete(struct as_list *aslist)
 		as_filter_free(filter);
 	}
 
-	if (aslist->type == ACCESS_TYPE_NUMBER)
-		list = &as_list_master.num;
-	else
-		list = &as_list_master.str;
+	list = &as_list_master.str;
 
 	if (aslist->next)
 		aslist->next->prev = aslist->prev;
@@ -667,17 +629,6 @@ static void as_list_show_all(struct vty *vty)
 	struct as_list *aslist;
 	struct as_filter *asfilter;
 
-	for (aslist = as_list_master.num.head; aslist; aslist = aslist->next) {
-		vty_out(vty, "AS path access list %s\n", aslist->name);
-
-		for (asfilter = aslist->head; asfilter;
-		     asfilter = asfilter->next) {
-			vty_out(vty, "    %s %s\n",
-				filter_type_str(asfilter->type),
-				asfilter->reg_str);
-		}
-	}
-
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next) {
 		vty_out(vty, "AS path access list %s\n", aslist->name);
 
@@ -740,18 +691,6 @@ static int config_write_as_list(struct vty *vty)
 	struct as_filter *asfilter;
 	int write = 0;
 
-	for (aslist = as_list_master.num.head; aslist; aslist = aslist->next)
-		for (asfilter = aslist->head; asfilter;
-		     asfilter = asfilter->next) {
-			vty_out(vty,
-				"bgp as-path access-list %s seq %" PRId64
-				" %s %s\n",
-				aslist->name, asfilter->seq,
-				filter_type_str(asfilter->type),
-				asfilter->reg_str);
-			write++;
-		}
-
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
 		for (asfilter = aslist->head; asfilter;
 		     asfilter = asfilter->next) {
@@ -794,18 +733,10 @@ void bgp_filter_reset(void)
 	struct as_list *aslist;
 	struct as_list *next;
 
-	for (aslist = as_list_master.num.head; aslist; aslist = next) {
-		next = aslist->next;
-		as_list_delete(aslist);
-	}
-
 	for (aslist = as_list_master.str.head; aslist; aslist = next) {
 		next = aslist->next;
 		as_list_delete(aslist);
 	}
-
-	assert(as_list_master.num.head == NULL);
-	assert(as_list_master.num.tail == NULL);
 
 	assert(as_list_master.str.head == NULL);
 	assert(as_list_master.str.tail == NULL);
