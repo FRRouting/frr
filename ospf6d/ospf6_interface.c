@@ -272,8 +272,6 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	if (oi->plist_name)
 		XFREE(MTYPE_CFG_PLIST_NAME, oi->plist_name);
 
-	ospf6_bfd_info_free(&(oi->bfd_info));
-
 	/* disable from area list if possible */
 	ospf6_area_interface_delete(oi);
 
@@ -1148,7 +1146,29 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 	}
-	ospf6_bfd_show_info(vty, oi->bfd_info, 1, json_obj, use_json);
+
+	/* BFD specific. */
+	if (oi->bfd_config.enabled) {
+		if (use_json) {
+			struct json_object *json_bfd = json_object_new_object();
+
+			json_object_int_add(
+				json_bfd, "detectMultiplier",
+				oi->bfd_config.detection_multiplier);
+			json_object_int_add(json_bfd, "rxMinInterval",
+					    oi->bfd_config.min_rx);
+			json_object_int_add(json_bfd, "txMinInterval",
+					    oi->bfd_config.min_tx);
+			json_object_object_add(json_obj, "peerBfdInfo",
+					       json_bfd);
+		} else {
+			vty_out(vty,
+				"  BFD: Detect Multiplier: %d, Min Rx interval: %d, Min Tx interval: %d\n",
+				oi->bfd_config.detection_multiplier,
+				oi->bfd_config.min_rx, oi->bfd_config.min_tx);
+		}
+	}
+
 	return 0;
 }
 

@@ -119,7 +119,12 @@ struct ospf6_interface {
 	char *plist_name;
 
 	/* BFD information */
-	void *bfd_info;
+	struct {
+		bool enabled;
+		uint8_t detection_multiplier;
+		uint32_t min_rx;
+		uint32_t min_tx;
+	} bfd_config;
 
 	/* Statistics Fields */
 	uint32_t hello_in;
