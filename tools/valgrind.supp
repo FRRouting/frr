@@ -16,3 +16,17 @@
    obj:/usr/lib/x86_64-linux-gnu/libyang.so.1.9.2
    fun:ly_load_plugins
 }
+{
+   <zprivs_init leak in a function we do not control>
+   Memcheck:Leak
+   fun:calloc
+   fun:cap_init
+   fun:zprivs_caps_init
+}
+{
+   <sqlite3 leak in a function we do not control>
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:sqlite3_step
+}
