@@ -515,13 +515,19 @@ static int vty_command(struct vty *vty, char *buf)
 
 #ifdef CONSUMED_TIME_CHECK
 		GETRUSAGE(&after);
-		if ((realtime = thread_consumed_time(&after, &before, &cputime))
-		    > CONSUMED_TIME_CHECK)
+		realtime = thread_consumed_time(&after, &before, &cputime);
+		if (cputime > CONSUMED_TIME_CHECK) {
 			/* Warn about CPU hog that must be fixed. */
 			flog_warn(
-				EC_LIB_SLOW_THREAD,
-				"SLOW COMMAND: command took %lums (cpu time %lums): %s",
+				EC_LIB_SLOW_THREAD_CPU,
+				"CPU HOG: command took %lums (cpu time %lums): %s",
 				realtime / 1000, cputime / 1000, buf);
+		} else if (realtime > CONSUMED_TIME_CHECK) {
+			flog_warn(
+				EC_LIB_SLOW_THREAD_WALL,
+				"STARVATION: command took %lums (cpu time %lums): %s",
+				realtime / 1000, cputime / 1000, buf);
+		}
 	}
 #endif /* CONSUMED_TIME_CHECK */
 

@@ -119,6 +119,8 @@ struct thread {
 
 struct cpu_thread_history {
 	int (*func)(struct thread *);
+	atomic_size_t total_cpu_warn;
+	atomic_size_t total_wall_warn;
 	atomic_size_t total_calls;
 	atomic_size_t total_active;
 	struct time_stats {
