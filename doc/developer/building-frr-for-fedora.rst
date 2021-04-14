@@ -1,10 +1,10 @@
-Fedora 24+
+Fedora 33+
 ==========
 
 This document describes installation from source. If you want to build an RPM,
 see :ref:`packaging-redhat`.
 
-These instructions have been tested on Fedora 24+.
+These instructions have been tested on Fedora 33+.
 
 Installing Dependencies
 -----------------------
@@ -15,7 +15,9 @@ Installing Dependencies
      readline-devel texinfo net-snmp-devel groff pkgconfig json-c-devel \
      pam-devel python3-pytest bison flex c-ares-devel python3-devel \
      python3-sphinx perl-core patch systemd-devel libcap-devel \
-     elfutils-libelf-devel
+     elfutils-libelf-devel libyang libyang-devel
+
+For Fedora <33 libyang is too old and can be installed as follows. For Fedora 33+ libyang is available via dnf and included in the previous command.
 
 .. include:: building-libyang.rst
 
