@@ -106,17 +106,6 @@ ip prefix-list description
    description to the prefix list.
 
 
-.. _ip-prefix-list-sequential-number-control:
-
-ip prefix-list sequential number control
-----------------------------------------
-
-.. clicmd:: ip prefix-list sequence-number
-
-   With this command, the IP prefix list sequential number is displayed.
-   This is the default behavior.
-
-
 .. _showing-ip-prefix-list:
 
 Showing ip prefix-list

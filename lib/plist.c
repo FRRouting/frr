@@ -72,9 +72,6 @@ struct prefix_master {
 	/* List of prefix_list which name is string. */
 	struct prefix_list_list str;
 
-	/* Whether sequential number is used. */
-	bool seqnum;
-
 	/* The latest update. */
 	struct prefix_list *recent;
 
@@ -90,22 +87,22 @@ struct prefix_master {
 
 /* Static structure of IPv4 prefix_list's master. */
 static struct prefix_master prefix_master_ipv4 = {
-	{NULL, NULL}, {NULL, NULL}, 1, NULL, NULL, NULL, PLC_MAXLEVELV4,
+	{NULL, NULL}, {NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV4,
 };
 
 /* Static structure of IPv6 prefix-list's master. */
 static struct prefix_master prefix_master_ipv6 = {
-	{NULL, NULL}, {NULL, NULL}, 1, NULL, NULL, NULL, PLC_MAXLEVELV6,
+	{NULL, NULL}, {NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV6,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v4 = {
-	{NULL, NULL}, {NULL, NULL}, 1, NULL, NULL, NULL, PLC_MAXLEVELV4,
+	{NULL, NULL}, {NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV4,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v6 = {
-	{NULL, NULL}, {NULL, NULL}, 1, NULL, NULL, NULL, PLC_MAXLEVELV6,
+	{NULL, NULL}, {NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV6,
 };
 
 static struct prefix_master *prefix_master_get(afi_t afi, int orf)
@@ -1003,8 +1000,7 @@ static void vty_show_prefix_entry(struct vty *vty, afi_t afi,
 
 			vty_out(vty, "   ");
 
-			if (master->seqnum)
-				vty_out(vty, "seq %" PRId64 " ", pentry->seq);
+			vty_out(vty, "seq %" PRId64 " ", pentry->seq);
 
 			vty_out(vty, "%s ", prefix_list_type_str(pentry));
 
@@ -1192,19 +1188,6 @@ static int vty_clear_prefix_list(struct vty *vty, afi_t afi, const char *name,
 #include "lib/plist_clippy.c"
 #endif
 
-DEFPY (ip_prefix_list_sequence_number,
-       ip_prefix_list_sequence_number_cmd,
-       "[no] ip prefix-list sequence-number",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Include/exclude sequence numbers in NVGEN\n")
-{
-	prefix_master_ipv4.seqnum = no ? false : true;
-	return CMD_SUCCESS;
-}
-
-
 DEFPY (show_ip_prefix_list,
        show_ip_prefix_list_cmd,
        "show ip prefix-list [WORD [seq$dseq (1-4294967295)$arg]]",
@@ -1279,18 +1262,6 @@ DEFPY (clear_ip_prefix_list,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
 	return vty_clear_prefix_list(vty, AFI_IP, prefix_list, prefix_str);
-}
-
-DEFPY (ipv6_prefix_list_sequence_number,
-       ipv6_prefix_list_sequence_number_cmd,
-       "[no] ipv6 prefix-list sequence-number",
-       NO_STR
-       IPV6_STR
-       PREFIX_LIST_STR
-       "Include/exclude sequence numbers in NVGEN\n")
-{
-	prefix_master_ipv6.seqnum = no ? false : true;
-	return CMD_SUCCESS;
 }
 
 DEFPY (show_ipv6_prefix_list,
@@ -1553,7 +1524,6 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 	assert(master->str.head == NULL);
 	assert(master->str.tail == NULL);
 
-	master->seqnum = true;
 	master->recent = NULL;
 }
 
@@ -1597,8 +1567,6 @@ static void prefix_list_init_ipv4(void)
 {
 	install_node(&prefix_node);
 
-	install_element(CONFIG_NODE, &ip_prefix_list_sequence_number_cmd);
-
 	install_element(VIEW_NODE, &show_ip_prefix_list_cmd);
 	install_element(VIEW_NODE, &show_ip_prefix_list_prefix_cmd);
 	install_element(VIEW_NODE, &show_ip_prefix_list_summary_cmd);
@@ -1617,8 +1585,6 @@ static struct cmd_node prefix_ipv6_node = {
 static void prefix_list_init_ipv6(void)
 {
 	install_node(&prefix_ipv6_node);
-
-	install_element(CONFIG_NODE, &ipv6_prefix_list_sequence_number_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_prefix_list_cmd);
 	install_element(VIEW_NODE, &show_ipv6_prefix_list_prefix_cmd);
