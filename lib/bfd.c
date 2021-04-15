@@ -237,7 +237,7 @@ struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	memset(sp, 0, sizeof(*sp));
 
 	/* Get interface index. */
-	ifindex = stream_getl(s);
+	STREAM_GETL(s, ifindex);
 
 	/* Lookup index. */
 	if (ifindex != 0) {
@@ -252,25 +252,28 @@ struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	}
 
 	/* Fetch destination address. */
-	dp->family = stream_getc(s);
+	STREAM_GETC(s, dp->family);
 
 	plen = prefix_blen(dp);
-	stream_get(&dp->u.prefix, s, plen);
-	dp->prefixlen = stream_getc(s);
+	STREAM_GET(&dp->u.prefix, s, plen);
+	STREAM_GETC(s, dp->prefixlen);
 
 	/* Get BFD status. */
-	*status = stream_getl(s);
+	STREAM_GETL(s, (*status));
 
-	sp->family = stream_getc(s);
+	STREAM_GETC(s, sp->family);
 
 	plen = prefix_blen(sp);
-	stream_get(&sp->u.prefix, s, plen);
-	sp->prefixlen = stream_getc(s);
+	STREAM_GET(&sp->u.prefix, s, plen);
+	STREAM_GETC(s, sp->prefixlen);
 
-	local_remote_cbit = stream_getc(s);
+	STREAM_GETC(s, local_remote_cbit);
 	if (remote_cbit)
 		*remote_cbit = local_remote_cbit;
 	return ifp;
+
+stream_failure:
+	return NULL;
 }
 
 /*
@@ -1094,6 +1097,13 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 
 	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit,
 				vrf_id);
+	/*
+	 * When interface lookup fails or an invalid stream is read, we must
+	 * not proceed otherwise it will trigger an assertion while checking
+	 * family type below.
+	 */
+	if (dp.family == 0 || sp.family == 0)
+		return 0;
 
 	if (bsglobal.debugging) {
 		ifstr[0] = 0;
