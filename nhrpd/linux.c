@@ -60,7 +60,7 @@ int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	int status;
+	int status, fd;
 
 	if (addrlen > sizeof(lladdr.sll_addr))
 		return -1;
@@ -72,7 +72,11 @@ int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
 	lladdr.sll_halen = addrlen;
 	memcpy(lladdr.sll_addr, addr, addrlen);
 
-	status = sendmsg(os_socket(), &msg, 0);
+	fd = os_socket();
+	if (fd < 0)
+		return -1;
+
+	status = sendmsg(fd, &msg, 0);
 	if (status < 0)
 		return -errno;
 
