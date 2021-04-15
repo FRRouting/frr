@@ -137,6 +137,19 @@ extern void xref_gcc_workaround(const struct xref *xref);
 extern const struct xref * const __start_xref_array[1] DSO_LOCAL;
 extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
 
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+/* no redzone around each of the xref_p please, we're building an array out
+ * of variables here.  kinda breaks things if there's redzones between each
+ * array item.
+ */
+#define xref_array_attr used, section("xref_array"), no_sanitize("address")
+#endif
+#endif
+#ifndef xref_array_attr
+#define xref_array_attr used, section("xref_array")
+#endif
+
 /* this macro is invoked once for each standalone DSO through
  *   FRR_MODULE_SETUP  \
  *                      }-> FRR_COREMOD_SETUP -> XREF_SETUP
@@ -151,8 +164,7 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
 			/* .func = */ "dummy",                                 \
 	};                                                                     \
 	static const struct xref * const _dummy_xref_p                         \
-			__attribute__((used, section("xref_array")))           \
-			= &_dummy_xref;                                        \
+			__attribute__((xref_array_attr)) = &_dummy_xref;       \
 	static void __attribute__((used, _CONSTRUCTOR(1100)))                  \
 			_xref_init(void) {                                     \
 		static struct xref_block _xref_block = {                       \
@@ -225,7 +237,7 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
 #if defined(__clang__) || !defined(__cplusplus)
 #define XREF_LINK(dst)                                                         \
 	static const struct xref * const NAMECTR(xref_p_)                      \
-			__attribute__((used, section("xref_array")))           \
+			__attribute__((xref_array_attr))                       \
 		= &(dst)                                                       \
 	/* end */
 
