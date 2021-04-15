@@ -3187,6 +3187,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	struct nexthop *rtnh;
 	char buf2[INET6_ADDRSTRLEN];
 	rib_dest_t *dest;
+	int curr_active;
 
 	assert(!src_p || !src_p->prefixlen || afi == AFI_IP6);
 
@@ -3297,7 +3298,12 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 					    rn, fib,
 					    zebra_route_string(fib->type));
 			}
-			if (allow_delete
+
+			/* Check for nexthop group availability again.
+			 * This might be caused by an interface going down! */
+			curr_active = nexthop_active_update(rn, fib);
+
+			if (!curr_active || allow_delete
 			    || CHECK_FLAG(dest->flags, RIB_ROUTE_ANY_QUEUED)) {
 				UNSET_FLAG(fib->status, ROUTE_ENTRY_INSTALLED);
 				/* Unset flags. */
