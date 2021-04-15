@@ -1309,7 +1309,6 @@ def verify_bgp_community(
 
     command = "show bgp"
 
-    sleep(5)
     for net in network:
         if vrf:
             cmd = "{} vrf {} {} {} json".format(command, vrf, addr_type, net)
