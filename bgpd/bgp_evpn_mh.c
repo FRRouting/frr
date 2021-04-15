@@ -2493,6 +2493,10 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 		if (!CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE))
 			continue;
 
+		/* Don't overrun the zapi buffer. */
+		if (api_nhg.nexthop_num == MULTIPATH_NUM)
+			break;
+
 		/* overwrite the gw */
 		if (v4_nhg)
 			nh.gate.ipv4 = es_vtep->vtep_ip;
@@ -2512,9 +2516,6 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 	}
 
 	if (!api_nhg.nexthop_num)
-		return;
-
-	if (api_nhg.nexthop_num > MULTIPATH_NUM)
 		return;
 
 	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
