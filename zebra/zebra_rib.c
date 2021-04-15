@@ -62,6 +62,7 @@ DEFINE_MGROUP(ZEBRA, "zebra");
 DEFINE_MTYPE(ZEBRA, RE,       "Route Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_DEST,       "RIB destination");
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_UPDATE_CTX, "Rib update context object");
+DEFINE_MTYPE_STATIC(ZEBRA, WQ_NHG_WRAPPER, "WQ nhg wrapper");
 
 /*
  * Event, list, and mutex for delivery of dataplane results
@@ -116,6 +117,20 @@ static const struct {
 
 	/* no entry/default: 150 */
 };
+
+/* Wrapper struct for nhg workqueue items; a 'ctx' is an incoming update
+ * from the OS, and an 'nhe' is a nhe update.
+ */
+struct wq_nhg_wrapper {
+	int type;
+	union {
+		struct nhg_ctx *ctx;
+		struct nhg_hash_entry *nhe;
+	} u;
+};
+
+#define WQ_NHG_WRAPPER_TYPE_CTX  0x01
+#define WQ_NHG_WRAPPER_TYPE_NHG  0x02
 
 static void PRINTFRR(5, 6)
 _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
@@ -908,6 +923,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		if (nh_active) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				char buf[SRCDEST2STR_BUFFER];
+
 				srcdest_rnode2str(rn, buf, sizeof(buf));
 				if (new != old)
 					zlog_debug(
@@ -1066,12 +1082,6 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 		return alternate;
 
 	return current;
-}
-
-/* Core function for processing nexthop group contexts's off metaq */
-static void rib_nhg_process(struct nhg_ctx *ctx)
-{
-	nhg_ctx_process(ctx);
 }
 
 /* Core function for processing routing information base. */
@@ -2289,21 +2299,60 @@ done:
 	dplane_ctx_fini(&ctx);
 }
 
+/*
+ * Process the nexthop-group workqueue subqueue
+ */
 static void process_subq_nhg(struct listnode *lnode)
 {
-	struct nhg_ctx *ctx = NULL;
+	struct nhg_ctx *ctx;
+	struct nhg_hash_entry *nhe, *newnhe;
+	struct wq_nhg_wrapper *w;
 	uint8_t qindex = route_info[ZEBRA_ROUTE_NHG].meta_q_map;
 
-	ctx = listgetdata(lnode);
+	w = listgetdata(lnode);
 
-	if (!ctx)
+	if (!w)
 		return;
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("NHG Context id=%u dequeued from sub-queue %u",
-			   ctx->id, qindex);
+	/* Two types of object - an update from the local kernel, or
+	 * an nhg update from a daemon.
+	 */
+	if (w->type == WQ_NHG_WRAPPER_TYPE_CTX) {
+		ctx = w->u.ctx;
 
-	rib_nhg_process(ctx);
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug(
+				"NHG Context id=%u dequeued from sub-queue %u",
+				ctx->id, qindex);
+
+
+		/* Process nexthop group updates coming 'up' from the OS */
+		nhg_ctx_process(ctx);
+
+	} else if (w->type == WQ_NHG_WRAPPER_TYPE_NHG) {
+		nhe = w->u.nhe;
+
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("NHG %u dequeued from sub-queue %u",
+				   nhe->id, qindex);
+
+		/* Process incoming nhg update, probably from a proto daemon */
+		newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
+					     nhe->zapi_instance,
+					     nhe->zapi_session,
+					     &nhe->nhg, 0);
+
+		/* Report error to daemon via ZAPI */
+		if (newnhe == NULL)
+			zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+					 nhe->zapi_session, nhe->id,
+					 ZAPI_NHG_FAIL_INSTALL);
+
+		/* Free temp nhe - we own that memory. */
+		zebra_nhg_free(nhe);
+	}
+
+	XFREE(MTYPE_WQ_NHG_WRAPPER, w);
 }
 
 static void process_subq_route(struct listnode *lnode, uint8_t qindex)
@@ -2335,8 +2384,8 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 
 		srcdest_rnode2str(rnode, buf, sizeof(buf));
 		zlog_debug("%s(%u:%u):%s: rn %p dequeued from sub-queue %u",
-			   zvrf_name(zvrf), zvrf_id(zvrf), re ? re->table : 0, buf,
-			   rnode, qindex);
+			   zvrf_name(zvrf), zvrf_id(zvrf), re ? re->table : 0,
+			   buf, rnode, qindex);
 	}
 
 	if (rnode->info)
@@ -2369,8 +2418,7 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
  * a non-empty sub-queue with lowest priority. wq is equal to zebra->ribq and
- * data
- * is pointed to the meta queue structure.
+ * data is pointed to the meta queue structure.
  */
 static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 {
@@ -2463,22 +2511,54 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
-static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
+static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 {
 	struct nhg_ctx *ctx = NULL;
 	uint8_t qindex = route_info[ZEBRA_ROUTE_NHG].meta_q_map;
+	struct wq_nhg_wrapper *w;
 
 	ctx = (struct nhg_ctx *)data;
 
 	if (!ctx)
 		return -1;
 
-	listnode_add(mq->subq[qindex], ctx);
+	w = XCALLOC(MTYPE_WQ_NHG_WRAPPER, sizeof(struct wq_nhg_wrapper));
+
+	w->type = WQ_NHG_WRAPPER_TYPE_CTX;
+	w->u.ctx = ctx;
+
+	listnode_add(mq->subq[qindex], w);
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("NHG Context id=%u queued into sub-queue %u",
 			   ctx->id, qindex);
+
+	return 0;
+}
+
+static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
+{
+	struct nhg_hash_entry *nhe = NULL;
+	uint8_t qindex = route_info[ZEBRA_ROUTE_NHG].meta_q_map;
+	struct wq_nhg_wrapper *w;
+
+	nhe = (struct nhg_hash_entry *)data;
+
+	if (!nhe)
+		return -1;
+
+	w = XCALLOC(MTYPE_WQ_NHG_WRAPPER, sizeof(struct wq_nhg_wrapper));
+
+	w->type = WQ_NHG_WRAPPER_TYPE_NHG;
+	w->u.nhe = nhe;
+
+	listnode_add(mq->subq[qindex], w);
+	mq->size++;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("NHG id=%u queued into sub-queue %u",
+			   nhe->id, qindex);
 
 	return 0;
 }
@@ -2520,14 +2600,50 @@ int rib_queue_add(struct route_node *rn)
 		return -1;
 	}
 
-	return mq_add_handler(rn, &rib_meta_queue_add);
+	return mq_add_handler(rn, rib_meta_queue_add);
 }
 
-int rib_queue_nhg_add(struct nhg_ctx *ctx)
+/*
+ * Enqueue incoming nhg info from OS for processing
+ */
+int rib_queue_nhg_ctx_add(struct nhg_ctx *ctx)
 {
 	assert(ctx);
 
-	return mq_add_handler(ctx, &rib_meta_queue_nhg_add);
+	return mq_add_handler(ctx, rib_meta_queue_nhg_ctx_add);
+}
+
+/*
+ * Enqueue incoming nhg from proto daemon for processing
+ */
+int rib_queue_nhe_add(struct nhg_hash_entry *nhe)
+{
+	if (nhe == NULL)
+		return -1;
+
+	return mq_add_handler(nhe, rib_meta_queue_nhg_add);
+}
+
+/* Clean up the nhg meta-queue list */
+static void nhg_meta_queue_free(struct list *l)
+{
+	struct wq_nhg_wrapper *w;
+	struct listnode *node;
+
+	/* Free the node wrapper object, and the struct it wraps */
+	while ((node = listhead(l)) != NULL) {
+		w = node->data;
+		node->data = NULL;
+
+		if (w->type == WQ_NHG_WRAPPER_TYPE_CTX)
+			nhg_ctx_free(&w->u.ctx);
+		else if (w->type == WQ_NHG_WRAPPER_TYPE_NHG)
+			zebra_nhg_free(w->u.nhe);
+
+		XFREE(MTYPE_WQ_NHG_WRAPPER, w);
+
+		list_delete_node(l, node);
+	}
 }
 
 /* Create new meta queue.
@@ -2552,8 +2668,13 @@ void meta_queue_free(struct meta_queue *mq)
 {
 	unsigned i;
 
-	for (i = 0; i < MQ_SIZE; i++)
+	for (i = 0; i < MQ_SIZE; i++) {
+		/* Some subqueues may need cleanup - nhgs for example */
+		if (i == route_info[ZEBRA_ROUTE_NHG].meta_q_map)
+			nhg_meta_queue_free(mq->subq[i]);
+
 		list_delete(&mq->subq[i]);
+	}
 
 	XFREE(MTYPE_WORK_QUEUE, mq);
 }
