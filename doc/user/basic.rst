@@ -188,6 +188,12 @@ Basic Config Commands
    This command clears all current filters in the log-filter table. Can be
    daemon independent.
 
+
+.. clicmd:: log immediate-mode
+
+   Use unbuffered output for log and debug messages; normally there is
+   some internal buffering.
+
 .. clicmd:: service password-encryption
 
    Encrypt password.
