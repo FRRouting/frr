@@ -80,6 +80,39 @@ Basic Config Commands
    Set enable password. The ``no`` form of the command deletes the enable
    password.
 
+.. clicmd:: service cputime-stats
+
+   Collect CPU usage statistics for individual FRR event handlers and CLI
+   commands.  This is enabled by default and can be disabled if the extra
+   overhead causes a noticeable slowdown on your system.
+
+   Disabling these statistics will also make the
+   :clicmd:`service cputime-warning (1-4294967295)` limit non-functional.
+
+.. clicmd:: service cputime-warning (1-4294967295)
+
+   Warn if the CPU usage of an event handler or CLI command exceeds the
+   specified limit (in milliseconds.)  Such warnings are generally indicative
+   of some routine in FRR mistakenly blocking/hogging the processing loop and
+   should be reported as a FRR bug.
+
+   The default limit is 5 seconds (i.e. 5000), but this can be changed by the
+   deprecated ``--enable-time-check=...`` compile-time option.
+
+   This command has no effect if :clicmd:`service cputime-stats` is disabled.
+
+.. clicmd:: service walltime-warning (1-4294967295)
+
+   Warn if the total wallclock time spent handling an event or executing a CLI
+   command exceeds the specified limit (in milliseconds.)  This includes time
+   spent waiting for I/O or other tasks executing and may produce excessive
+   warnings if the system is overloaded.  (This may still be useful to
+   provide an immediate sign that FRR is not operating correctly due to
+   externally caused starvation.)
+
+   The default limit is 5 seconds as above, including the same deprecated
+   ``--enable-time-check=...`` compile-time option.
+
 .. clicmd:: log trap LEVEL
 
    These commands are deprecated and are present only for historical
