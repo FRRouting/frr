@@ -71,4 +71,4 @@ RUN cd ~/frr && \
 RUN cd ~/frr && make check || true
 
 COPY docker/ubuntu20-ci/docker-start /usr/sbin/docker-start
-ENTRYPOINT ["/usr/sbin/docker-start"]
+CMD ["/usr/sbin/docker-start"]

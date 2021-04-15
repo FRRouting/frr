@@ -17,4 +17,4 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ADD docker-start /usr/sbin/docker-start
-ENTRYPOINT ["/usr/sbin/docker-start"]
+CMD ["/usr/sbin/docker-start"]

@@ -41,4 +41,4 @@ COPY --from=centos-8-builder /rpmbuild/RPMS/ /pkgs/rpm/
 RUN yum install -y /pkgs/rpm/*/*.rpm \
     && rm -rf /pkgs
 COPY docker/centos-8/docker-start /usr/lib/frr/docker-start
-ENTRYPOINT [ "/usr/lib/frr/docker-start" ]
+CMD [ "/usr/lib/frr/docker-start" ]
