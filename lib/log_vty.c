@@ -647,6 +647,18 @@ DEFPY (show_log_filter,
 	return CMD_SUCCESS;
 }
 
+/* Enable/disable 'immediate' mode, with no output buffering */
+DEFPY (log_immediate_mode,
+       log_immediate_mode_cmd,
+       "[no] log immediate-mode",
+       NO_STR
+       "Logging control"
+       "Output immediately, without buffering")
+{
+	zlog_set_immediate(!no);
+	return CMD_SUCCESS;
+}
+
 void log_config_write(struct vty *vty)
 {
 	bool show_cmdline_hint = false;
@@ -775,4 +787,5 @@ void log_cmd_init(void)
 	install_element(CONFIG_NODE, &log_filter_clear_cmd);
 	install_element(CONFIG_NODE, &config_log_filterfile_cmd);
 	install_element(CONFIG_NODE, &no_config_log_filterfile_cmd);
+	install_element(CONFIG_NODE, &log_immediate_mode_cmd);
 }
