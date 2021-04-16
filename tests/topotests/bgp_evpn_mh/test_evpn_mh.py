@@ -267,7 +267,9 @@ def config_vxlan(node, node_ip):
     node.run("ip link set dev vx-1000 type vxlan local %s" % node_ip)
     node.run("ip link set dev vx-1000 type vxlan ttl 64")
     node.run("ip link set dev vx-1000 mtu 9152")
-    node.run("ip link set dev vx-1000 type vxlan dev ipmr-lo group 239.1.1.100")
+    # use of pim for optimizing flooding is dependent on the kernel
+    # version. temporarily disabled and using IR instead.
+    #node.run("ip link set dev vx-1000 type vxlan dev ipmr-lo group 239.1.1.100")
     node.run("ip link set dev vx-1000 up")
 
     # bridge attrs
@@ -325,12 +327,23 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
 
     # create SVI
     config_svi(tor, svi_pip)
+    tor.run("sysctl -w net.ipv4.ip_forward=1")
 
 
 def config_tors(tgen, tors):
     for tor_name in tors:
         tor = tgen.gears[tor_name]
         config_tor(tor_name, tor, tor_ips.get(tor_name), svi_ips.get(tor_name))
+
+
+def config_spine(spine):
+    spine.run("sysctl -w net.ipv4.ip_forward=1")
+
+
+def config_spines(tgen, spines):
+    for spine_name in spines:
+        spine = tgen.gears[spine_name]
+        config_spine(spine)
 
 
 def compute_host_ip_mac(host_name):
@@ -378,6 +391,11 @@ def setup_module(module):
     tors.append("torm21")
     tors.append("torm22")
     config_tors(tgen, tors)
+
+    spines = []
+    spines.append("spine1")
+    spines.append("spine2")
+    config_spines(tgen, spines)
 
     hosts = []
     hosts.append("hostd11")
@@ -801,6 +819,73 @@ def test_evpn_uplink_tracking():
     test_fn = partial(check_protodown_rc, dut, None)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
+    assert result is None, assertmsg
+
+
+def check_arp_redirect_stats(tor, host, host_cmd, cnt):
+    """
+    Verify if arp_redirect counts on the tor is more than the provided cnt
+    """
+    host.run(host_cmd)
+    arp_stat = tor.vtysh_cmd("show evpn arp-nd-redirect json")
+    arp_stat_json = json.loads(arp_stat)
+
+    arp_redirect_stats = int(arp_stat_json.get("redirectPkts", 0))
+
+    if arp_redirect_stats < cnt:
+        return "incorrect count %d" % arp_redirect_stats
+
+    return None
+
+
+def test_evpn_arp_redirect():
+    """
+    1. Wait for access ports to come out of startup-delay
+    2. disable link between torm-11 and hostd-12
+    3. disable link between torm-12 and hostd-11
+    4. arping hostd-12 from hostd-11 -
+       a. arp request is flooded over the fabric. packet path -
+          hostd-11 => torm-11 => fabric => torm-12 => hostd-12
+       b. arp reply is redirected by FRR over the fabric. packet path -
+          hostd-12 => torm-12 => fabric => torm-11 => hostd-11
+    5. check if arp-reply is rxed by hostd-11. check arp-redirect
+       stats on torm-12
+    """
+
+    tgen = get_topogen()
+    hostd11 = tgen.gears["hostd11"]
+    hostd12 = tgen.gears["hostd12"]
+    torm11 = tgen.gears["torm11"]
+    torm12 = tgen.gears["torm12"]
+
+    tors = []
+    tors.append(torm11)
+    tors.append(torm12)
+    for tor in tors:
+        test_fn = partial(check_protodown_rc, tor, None)
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assertmsg = '"{}" protodown rc incorrect'.format(tor.name)
+
+    # run arping from hostd11=>hostd12
+    host_cmd = "arping -I torbond 45.0.0.12 -c 3 -b"
+    # check arp-redirect stats on torm12 - will be zero as all links are up
+    test_fn = partial(check_arp_redirect_stats, torm12, hostd11, host_cmd, 0)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = '"{}" arp no-redirect'.format(hostd11.name)
+    assert result is None, assertmsg
+
+    # force arp-request and arp-reply to use the vxlan fabric by
+    # disabling links between the tor and host
+    torm11.run("ip link set torm11-eth3 down")
+    hostd12.run("ip link set hostd12-eth0 down")
+    torm12.run("ip link set torm12-eth2 down")
+    hostd11.run("ip link set hostd11-eth1 down")
+
+    # run arping from hostd11=>hostd12
+    # check arp-redirect stats on torm12 - should be non-zero
+    test_fn = partial(check_arp_redirect_stats, torm12, hostd11, host_cmd, 3)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = '"{}" arp redirect'.format(hostd11.name)
     assert result is None, assertmsg
 
 
