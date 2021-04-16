@@ -26,6 +26,10 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF_GRE, "NHRP GRE interface");
 
 struct hash *nhrp_gre_list;
 
+static void nhrp_interface_update_cache_config(struct interface *ifp,
+					       bool available,
+					       uint8_t family);
+
 static unsigned int nhrp_gre_info_key(const void *data)
 {
 	const struct nhrp_gre_info *r = data;
@@ -60,10 +64,6 @@ struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p)
 					     nhrp_interface_gre_alloc);
 	return a;
 }
-
-static void nhrp_interface_update_cache_config(struct interface *ifp,
-					       bool available,
-					       uint8_t family);
 
 static int nhrp_if_new_hook(struct interface *ifp)
 {
