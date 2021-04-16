@@ -2530,34 +2530,26 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	case ZAPI_ROUTE_INSTALLED:
 		new_select = NULL;
 		/* Clear the flags so that route can be processed */
-		if (CHECK_FLAG(dest->flags,
-			       BGP_NODE_FIB_INSTALL_PENDING)) {
-			UNSET_FLAG(dest->flags,
-				   BGP_NODE_FIB_INSTALL_PENDING);
-			SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
-			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("route %pRN : INSTALLED", dest);
-			/* Find the best route */
-			for (pi = dest->info; pi; pi = pi->next) {
-				/* Process aggregate route */
-				bgp_aggregate_increment(bgp, &p, pi,
-							afi, safi);
-				if (CHECK_FLAG(pi->flags,
-					       BGP_PATH_SELECTED))
-					new_select = pi;
-			}
-			/* Advertise the route */
-			if (new_select)
-				group_announce_route(bgp, afi, safi,
-						     dest, new_select);
-			else {
-				flog_err(EC_BGP_INVALID_ROUTE,
-					 "selected route %pRN not found",
-					 dest);
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("route %pRN : INSTALLED", dest);
+		/* Find the best route */
+		for (pi = dest->info; pi; pi = pi->next) {
+			/* Process aggregate route */
+			bgp_aggregate_increment(bgp, &p, pi, afi, safi);
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+				new_select = pi;
+		}
+		/* Advertise the route */
+		if (new_select)
+			group_announce_route(bgp, afi, safi, dest, new_select);
+		else {
+			flog_err(EC_BGP_INVALID_ROUTE,
+				 "selected route %pRN not found", dest);
 
-				bgp_dest_unlock_node(dest);
-				return -1;
-			}
+			bgp_dest_unlock_node(dest);
+			return -1;
 		}
 		break;
 	case ZAPI_ROUTE_REMOVED:
@@ -2570,15 +2562,34 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 			zlog_debug("route %pRN: Removed from Fib", dest);
 		break;
 	case ZAPI_ROUTE_FAIL_INSTALL:
+		new_select = NULL;
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("route: %pRN Failed to Install into Fib",
 				   dest);
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+				new_select = pi;
+		}
+		if (new_select)
+			group_announce_route(bgp, afi, safi, dest, new_select);
 		/* Error will be logged by zebra module */
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("route: %pRN removed due to better admin won",
 				   dest);
+		new_select = NULL;
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			bgp_aggregate_decrement(bgp, &p, pi, afi, safi);
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+				new_select = pi;
+		}
+		if (new_select)
+			group_announce_route(bgp, afi, safi, dest, new_select);
 		/* No action required */
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:

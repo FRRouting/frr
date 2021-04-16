@@ -1,0 +1,20 @@
+{
+  "40.0.0.0\/8":[
+    {
+      "prefix":"40.0.0.0\/8",
+      "protocol":"static",
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "ip":"10.0.0.10",
+          "afi":"ipv4",
+          "active":true
+        }
+      ]
+    }
+  ]
+}
