@@ -587,6 +587,33 @@ static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest)
 		 (!bgp_option_check(BGP_OPT_NO_FIB))));
 }
 
+/*
+ * If we have a fib result and it failed to install( or was withdrawn due
+ * to better admin distance we need to send down the wire a withdrawal.
+ * This function assumes that bgp_check_advertise was already returned
+ * as good to go.
+ */
+static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest)
+{
+	struct bgp_path_info *pi;
+
+	if (!BGP_SUPPRESS_FIB_ENABLED(bgp))
+		return false;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+			continue;
+
+		if (pi->sub_type != BGP_ROUTE_NORMAL)
+			return true;
+	}
+
+	if (CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED))
+		return false;
+
+	return true;
+}
+
 /* called before bgp_process() */
 DECLARE_HOOK(bgp_process,
 	     (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
