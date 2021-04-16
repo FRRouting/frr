@@ -164,18 +164,22 @@ void ospf6_bfd_write_config(struct vty *vty, struct ospf6_interface *oi)
 	else
 #endif /* ! HAVE_BFDD */
 		vty_out(vty, " ipv6 ospf6 bfd\n");
+
+	if (oi->bfd_config.profile)
+		vty_out(vty, " ipv6 ospf6 bfd profile %s\n",
+			oi->bfd_config.profile);
 }
 
-DEFUN (ipv6_ospf6_bfd,
-       ipv6_ospf6_bfd_cmd,
-       "ipv6 ospf6 bfd",
-       IP6_STR
-       OSPF6_STR
-       "Enables BFD support\n"
-       )
+DEFUN(ipv6_ospf6_bfd, ipv6_ospf6_bfd_cmd,
+      "ipv6 ospf6 bfd [profile BFDPROF]",
+      IP6_STR OSPF6_STR
+      "Enables BFD support\n"
+      "BFD Profile selection\n"
+      "BFD Profile name\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
+	int prof_idx = 4;
 	assert(ifp);
 
 	oi = (struct ospf6_interface *)ifp->info;
@@ -187,7 +191,39 @@ DEFUN (ipv6_ospf6_bfd,
 	oi->bfd_config.min_rx = BFD_DEF_MIN_RX;
 	oi->bfd_config.min_tx = BFD_DEF_MIN_TX;
 	oi->bfd_config.enabled = true;
+	if (argc > prof_idx) {
+		XFREE(MTYPE_TMP, oi->bfd_config.profile);
+		oi->bfd_config.profile =
+			XSTRDUP(MTYPE_TMP, argv[prof_idx]->arg);
+	}
 
+	ospf6_bfd_reg_dereg_all_nbr(oi, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_ospf6_bfd_profile, no_ipv6_ospf6_bfd_profile_cmd,
+      "no ipv6 ospf6 bfd profile [BFDPROF]",
+      NO_STR IP6_STR OSPF6_STR
+      "BFD support\n"
+      "BFD Profile selection\n"
+      "BFD Profile name\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+	assert(ifp);
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+
+	/* BFD not enabled, nothing to do. */
+	if (!oi->bfd_config.enabled)
+		return CMD_SUCCESS;
+
+	/* Remove profile and apply new configuration. */
+	XFREE(MTYPE_TMP, oi->bfd_config.profile);
 	ospf6_bfd_reg_dereg_all_nbr(oi, true);
 
 	return CMD_SUCCESS;
@@ -263,5 +299,6 @@ void ospf6_bfd_init(void)
 	/* Install BFD command */
 	install_element(INTERFACE_NODE, &ipv6_ospf6_bfd_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_bfd_param_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_bfd_profile_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_bfd_cmd);
 }

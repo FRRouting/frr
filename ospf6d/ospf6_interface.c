@@ -275,6 +275,9 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	/* disable from area list if possible */
 	ospf6_area_interface_delete(oi);
 
+	/* Free BFD allocated data. */
+	XFREE(MTYPE_TMP, oi->bfd_config.profile);
+
 	XFREE(MTYPE_OSPF6_IF, oi);
 }
 

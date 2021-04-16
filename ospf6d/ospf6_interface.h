@@ -124,6 +124,7 @@ struct ospf6_interface {
 		uint8_t detection_multiplier;
 		uint32_t min_rx;
 		uint32_t min_tx;
+		char *profile;
 	} bfd_config;
 
 	/* Statistics Fields */
