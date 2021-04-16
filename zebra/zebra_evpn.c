@@ -1380,7 +1380,7 @@ zebra_evpn_process_sync_macip_add(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 
 /************************** remote mac-ip handling **************************/
 /* Process a remote MACIP add from BGP. */
-void process_remote_macip_add(vni_t vni, struct ethaddr *macaddr,
+void zebra_evpn_rem_macip_add(vni_t vni, struct ethaddr *macaddr,
 			      uint16_t ipa_len, struct ipaddr *ipaddr,
 			      uint8_t flags, uint32_t seq,
 			      struct in_addr vtep_ip, esi_t *esi)
@@ -1447,17 +1447,18 @@ void process_remote_macip_add(vni_t vni, struct ethaddr *macaddr,
 		return;
 
 
-	if (process_mac_remote_macip_add(zevpn, zvrf, macaddr, ipa_len, ipaddr,
-					 &mac, vtep_ip, flags, seq, esi)
+	if (zebra_evpn_mac_remote_macip_add(zevpn, zvrf, macaddr, ipa_len,
+					    ipaddr, &mac, vtep_ip, flags, seq,
+					    esi)
 	    != 0)
 		return;
 
-	process_neigh_remote_macip_add(zevpn, zvrf, ipaddr, mac, vtep_ip, flags,
-				       seq);
+	zebra_evpn_neigh_remote_macip_add(zevpn, zvrf, ipaddr, mac, vtep_ip,
+					  flags, seq);
 }
 
 /* Process a remote MACIP delete from BGP. */
-void process_remote_macip_del(vni_t vni, struct ethaddr *macaddr,
+void zebra_evpn_rem_macip_del(vni_t vni, struct ethaddr *macaddr,
 			      uint16_t ipa_len, struct ipaddr *ipaddr,
 			      struct in_addr vtep_ip)
 {
