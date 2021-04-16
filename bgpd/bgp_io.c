@@ -180,8 +180,8 @@ static int bgp_process_reads(struct thread *thread)
 	bool more = true;		// whether we got more data
 	bool fatal = false;		// whether fatal error occurred
 	bool added_pkt = false;		// whether we pushed onto ->ibuf
+	int code = 0;			// FSM code if error occurred
 	/* clang-format on */
-	int code;
 
 	peer = THREAD_ARG(thread);
 
@@ -454,6 +454,9 @@ done : {
 
 /*
  * Reads a chunk of data from peer->fd into peer->ibuf_work.
+ *
+ * code_p
+ *    Pointer to location to store FSM event code in case of fatal error.
  *
  * @return status flag (see top-of-file)
  */
