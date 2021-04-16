@@ -262,11 +262,11 @@ void zebra_evpn_rem_mac_del(zebra_evpn_t *zevi, zebra_mac_t *mac);
 void zebra_evpn_print_dad_mac_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 					  void *ctxt);
-int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
-				 struct ethaddr *macaddr, uint16_t ipa_len,
-				 struct ipaddr *ipaddr, zebra_mac_t **macp,
-				 struct in_addr vtep_ip, uint8_t flags,
-				 uint32_t seq, esi_t *esi);
+int zebra_evpn_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
+				    struct ethaddr *macaddr, uint16_t ipa_len,
+				    struct ipaddr *ipaddr, zebra_mac_t **macp,
+				    struct in_addr vtep_ip, uint8_t flags,
+				    uint32_t seq, esi_t *esi);
 
 int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 				    struct interface *ifp,

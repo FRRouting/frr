@@ -3844,7 +3844,7 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 				ipaddr2str(&ip, buf1, sizeof(buf1)) : "",
 				&vtep_ip, zebra_route_string(client->proto));
 
-		process_remote_macip_del(vni, &macaddr, ipa_len, &ip, vtep_ip);
+		zebra_evpn_rem_macip_del(vni, &macaddr, ipa_len, &ip, vtep_ip);
 	}
 
 stream_failure:
@@ -3907,7 +3907,7 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 				zebra_route_string(client->proto));
 		}
 
-		process_remote_macip_add(vni, &macaddr, ipa_len, &ip,
+		zebra_evpn_rem_macip_add(vni, &macaddr, ipa_len, &ip,
 					 flags, seq, vtep_ip, &esi);
 	}
 

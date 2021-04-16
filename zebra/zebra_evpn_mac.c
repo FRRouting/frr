@@ -1958,11 +1958,11 @@ void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 		zebra_evpn_print_mac_hash_detail(bucket, ctxt);
 }
 
-int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
-				 struct ethaddr *macaddr, uint16_t ipa_len,
-				 struct ipaddr *ipaddr, zebra_mac_t **macp,
-				 struct in_addr vtep_ip, uint8_t flags,
-				 uint32_t seq, esi_t *esi)
+int zebra_evpn_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
+				    struct ethaddr *macaddr, uint16_t ipa_len,
+				    struct ipaddr *ipaddr, zebra_mac_t **macp,
+				    struct in_addr vtep_ip, uint8_t flags,
+				    uint32_t seq, esi_t *esi)
 {
 	char buf1[INET6_ADDRSTRLEN];
 	bool sticky;
