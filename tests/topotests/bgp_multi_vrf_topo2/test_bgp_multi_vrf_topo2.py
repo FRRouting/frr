@@ -1571,9 +1571,7 @@ def test_shut_noshut_p1(request):
         sleep(HOLDDOWNTIMER + 1)
 
         result = verify_bgp_convergence(tgen, topo, expected=False)
-        assert result is not True, "Testcase {} : Failed \n "
-        "Expected Behaviour: BGP will not be converged \n "
-        "Error {}".format(tc_name, result)
+        assert result is not True, "Testcase {} : Failed \nExpected Behaviour: BGP will not be converged \nError {}".format(tc_name, result)
 
         for addr_type in ADDR_TYPES:
             dut = "r2"
@@ -1616,14 +1614,10 @@ def test_shut_noshut_p1(request):
             }
 
             result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
-            assert result is not True, "Testcase {} : Failed \n "
-            " Expected Behaviour: Routes are flushed out \n "
-            "Error {}".format(tc_name, result)
+            assert result is not True, "Testcase {} : Failed \nExpected Behaviour: Routes are flushed out \nError {}".format(tc_name, result)
 
             result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
-            assert result is not True, "Testcase {} : Failed \n "
-            " Expected Behaviour: Routes are flushed out \n "
-            "Error {}".format(tc_name, result)
+            assert result is not True, "Testcase {} : Failed \nExpected Behaviour: Routes are flushed out \nError {}".format(tc_name, result)
 
         step("Bring up connecting interface between R1<<>>R2 on R1.")
         for intf in interfaces:
@@ -1862,8 +1856,7 @@ def test_vrf_vlan_routing_table_p1(request):
             result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
             assert (
                 result is not True
-            ), "Testcase {} : Failed \n Expected Behaviour: Routes are"
-            " cleaned \n Error {}".format(tc_name, result)
+            ), "Testcase {} : Failed \n Expected Behaviour: Routes are cleaned \n Error {}".format(tc_name, result)
 
         step("Add/reconfigure the same VRF instance again")
 
@@ -2180,7 +2173,7 @@ def test_restart_bgpd_daemon_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     result = verify_bgp_convergence(tgen, topo)
-    assert result is True, "Testcase () :Failed\n Error {}".format(tc_name, result)
+    assert result is True, "Testcase {} :Failed\n Error {}".format(tc_name, result)
 
     step("Kill BGPd daemon on R1.")
     kill_router_daemons(tgen, "r1", ["bgpd"])
@@ -3392,14 +3385,12 @@ def test_vrf_name_significance_p1(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert (
             result is not True
-        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not"
-        " present \n Error {}".format(tc_name, result)
+        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(tc_name, result)
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert (
             result is not True
-        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not"
-        " present \n Error {}".format(tc_name, result)
+        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
         dut = "blue2"
@@ -3417,14 +3408,12 @@ def test_vrf_name_significance_p1(request):
 
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert result is not True, (
-            "Testcase {} :Failed \n Expected Behaviour: Routes are not"
-            " present \n Error {}".format(tc_name, result)
+            "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(tc_name, result)
         )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert result is not True, (
-            "Testcase {} :Failed \n Expected Behaviour: Routes are not"
-            " present \n Error {}".format(tc_name, result)
+            "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(tc_name, result)
         )
 
     step("Create 2 new VRFs PINK_A and GREY_A IN R3")

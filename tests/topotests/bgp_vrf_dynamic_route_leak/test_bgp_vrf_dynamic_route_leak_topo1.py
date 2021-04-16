@@ -224,6 +224,7 @@ def disable_route_map_to_prefer_global_next_hop(tgen, topo):
 
     """
 
+    tc_name = request.node.name
     logger.info("Remove prefer-global rmap applied on neighbors")
     input_dict = {
         "r1": {

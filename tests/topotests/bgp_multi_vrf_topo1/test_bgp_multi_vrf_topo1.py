@@ -2677,14 +2677,12 @@ def test_route_map_within_vrf_to_alter_bgp_attribute_nexthop_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because"
-        " nexthop-self config is deleted \n Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because nexthop-self config is deleted \n Error {}".format(tc_name, result)
 
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because"
-        " nexthop-self config is deleted \n Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because nexthop-self config is deleted \n Error {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -4958,8 +4956,7 @@ def test_prefix_list_to_permit_deny_prefixes_p0(request):
 
         result = verify_rib(tgen, addr_type, dut, denied_routes, expected=False)
         assert result is not True, "Testcase {} : Failed \n"
-        "Expected behaviour: Routes are denied by prefix-list \n"
-        "Error {}".format(tc_name, result)
+        "{}:Expected behaviour: Routes are denied by prefix-list \nError {}".format(tc_name, result)
 
     step(
         "On router R1, configure prefix-lists to permit 2 "
@@ -5169,9 +5166,7 @@ def test_prefix_list_to_permit_deny_prefixes_p0(request):
         )
 
         result = verify_rib(tgen, addr_type, dut, denied_routes, expected=False)
-        assert result is not True, "Testcase {} : Failed \n"
-        "Expected behaviour: Routes are denied by prefix-list \n"
-        "Error {}".format(tc_name, result)
+        assert result is not True, "Testcase {} : Failed \nExpected behaviour: Routes are denied by prefix-list \nError {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -5449,8 +5444,7 @@ def test_route_map_set_and_match_tag_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \n"
-        "Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \nError {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -5853,8 +5847,7 @@ def test_route_map_set_and_match_metric_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \n"
-        "Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \nError {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 

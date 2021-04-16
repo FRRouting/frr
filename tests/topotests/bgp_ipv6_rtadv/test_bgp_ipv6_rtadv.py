@@ -112,7 +112,7 @@ def test_protocols_convergence():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ip route json".format(router.name),
+            "show ip route json",
             expected,
         )
         _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
@@ -131,7 +131,7 @@ def test_protocols_convergence():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ipv6 route json".format(router.name),
+            "show ipv6 route json",
             expected,
         )
         _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
