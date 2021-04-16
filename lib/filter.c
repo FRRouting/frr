@@ -181,6 +181,11 @@ void access_list_delete(struct access_list *access)
 	else
 		list->head = access->next;
 
+	route_map_notify_dependencies(access->name, RMAP_EVENT_FILTER_DELETED);
+
+	if (master->delete_hook)
+		master->delete_hook(access);
+
 	XFREE(MTYPE_ACCESS_LIST_STR, access->name);
 
 	XFREE(MTYPE_TMP, access->remark);
