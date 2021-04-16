@@ -2627,9 +2627,14 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 			/* Route is selected, if the route is already installed
 			 * in FIB, then it is advertised
 			 */
-			if (advertise)
-				bgp_adj_out_set_subgroup(dest, subgrp, &attr,
-							 selected);
+			if (advertise) {
+				if (!bgp_check_withdrawal(bgp, dest))
+					bgp_adj_out_set_subgroup(
+						dest, subgrp, &attr, selected);
+				else
+					bgp_adj_out_unset_subgroup(
+						dest, subgrp, 1, addpath_tx_id);
+			}
 		} else
 			bgp_adj_out_unset_subgroup(dest, subgrp, 1,
 						   addpath_tx_id);
@@ -2908,6 +2913,11 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			if (bgp_fibupd_safi(safi)
 			    && !bgp_option_check(BGP_OPT_NO_FIB)) {
 
+				if (BGP_SUPPRESS_FIB_ENABLED(bgp)
+				    && new_select->sub_type == BGP_ROUTE_NORMAL)
+					SET_FLAG(dest->flags,
+						 BGP_NODE_FIB_INSTALL_PENDING);
+
 				if (new_select->type == ZEBRA_ROUTE_BGP
 				    && (new_select->sub_type == BGP_ROUTE_NORMAL
 					|| new_select->sub_type
@@ -3007,10 +3017,15 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	/* FIB update. */
 	if (bgp_fibupd_safi(safi) && (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
 	    && !bgp_option_check(BGP_OPT_NO_FIB)) {
+
 		if (new_select && new_select->type == ZEBRA_ROUTE_BGP
 		    && (new_select->sub_type == BGP_ROUTE_NORMAL
 			|| new_select->sub_type == BGP_ROUTE_AGGREGATE
 			|| new_select->sub_type == BGP_ROUTE_IMPORTED)) {
+
+			if (BGP_SUPPRESS_FIB_ENABLED(bgp))
+				SET_FLAG(dest->flags,
+					 BGP_NODE_FIB_INSTALL_PENDING);
 
 			/* if this is an evpn imported type-5 prefix,
 			 * we need to withdraw the route first to clear
@@ -8336,6 +8351,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 		bgp_aggregate_increment(bgp, p, new, afi, SAFI_UNICAST);
 		bgp_path_info_add(bn, new);
 		bgp_dest_unlock_node(bn);
+		SET_FLAG(bn->flags, BGP_NODE_FIB_INSTALLED);
 		bgp_process(bgp, bn, afi, SAFI_UNICAST);
 
 		if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
