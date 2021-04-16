@@ -307,13 +307,13 @@ static uint8_t parse_filter(const char *filterstr)
 }
 
 #ifndef EXCLUDE_CPU_TIME
-DEFUN (show_thread_cpu,
-       show_thread_cpu_cmd,
-       "show thread cpu [FILTER]",
-       SHOW_STR
-       "Thread information\n"
-       "Thread CPU usage\n"
-       "Display filter (rwtex)\n")
+DEFUN_NOSH (show_thread_cpu,
+	    show_thread_cpu_cmd,
+	    "show thread cpu [FILTER]",
+	    SHOW_STR
+	    "Thread information\n"
+	    "Thread CPU usage\n"
+	    "Display filter (rwtex)\n")
 {
 	uint8_t filter = (uint8_t)-1U;
 	int idx = 0;
@@ -374,12 +374,12 @@ static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
 	}
 }
 
-DEFUN (show_thread_poll,
-       show_thread_poll_cmd,
-       "show thread poll",
-       SHOW_STR
-       "Thread information\n"
-       "Show poll FD's and information\n")
+DEFUN_NOSH (show_thread_poll,
+	    show_thread_poll_cmd,
+	    "show thread poll",
+	    SHOW_STR
+	    "Thread information\n"
+	    "Show poll FD's and information\n")
 {
 	struct listnode *node;
 	struct thread_master *m;

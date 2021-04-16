@@ -2964,151 +2964,11 @@ DEFUN (vtysh_show_logging,
 			       "Logging configuration for %s:\n");
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_log_stdout, vtysh_log_stdout_cmd, "log stdout",
-	"Logging control\n"
-	"Set stdout logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_stdout_level, vtysh_log_stdout_level_cmd,
-	"log stdout <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
-	"Logging control\n"
-	"Set stdout logging level\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_stdout, no_vtysh_log_stdout_cmd,
-	"no log stdout [LEVEL]", NO_STR
-	"Logging control\n"
-	"Cancel logging to stdout\n"
-	"Logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_file, vtysh_log_file_cmd, "log file FILENAME",
-	"Logging control\n"
-	"Logging to file\n"
-	"Logging filename\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_file_level, vtysh_log_file_level_cmd,
-	"log file FILENAME <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
-	"Logging control\n"
-	"Logging to file\n"
-	"Logging filename\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_file, no_vtysh_log_file_cmd,
-	"no log file [FILENAME [LEVEL]]", NO_STR
-	"Logging control\n"
-	"Cancel logging to file\n"
-	"Logging file name\n"
-	"Logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_monitor, vtysh_log_monitor_cmd,
-	"log monitor [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
-	"Logging control\n"
-	"Set terminal line (monitor) logging level\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_monitor, no_vtysh_log_monitor_cmd,
-	"no log monitor [LEVEL]", NO_STR
-	"Logging control\n"
-	"Disable terminal line (monitor) logging\n"
-	"Logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_syslog, vtysh_log_syslog_cmd,
-	"log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
-	"Logging control\n"
-	"Set syslog logging level\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_syslog, no_vtysh_log_syslog_cmd,
-	"no log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
-	NO_STR
-	"Logging control\n"
-	"Cancel logging to syslog\n"
-	LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_facility, vtysh_log_facility_cmd,
-	"log facility <kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>",
-	"Logging control\n"
-	"Facility parameter for syslog messages\n" LOG_FACILITY_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_facility, no_vtysh_log_facility_cmd,
-	"no log facility [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>]",
-	NO_STR
-	"Logging control\n"
-	"Reset syslog facility to default (daemon)\n"
-	LOG_FACILITY_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_record_priority, vtysh_log_record_priority_cmd,
-	"log record-priority",
-	"Logging control\n"
-	"Log the priority of the message within the message\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_record_priority,
-	no_vtysh_log_record_priority_cmd, "no log record-priority", NO_STR
-	"Logging control\n"
-	"Do not log the priority of the message within the message\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_timestamp_precision,
-	vtysh_log_timestamp_precision_cmd, "log timestamp precision (0-6)",
-	"Logging control\n"
-	"Timestamp configuration\n"
-	"Set the timestamp precision\n"
-	"Number of subsecond digits\n")
-{
-	return CMD_SUCCESS;
-}
-
 DEFUNSH(VTYSH_ALL, vtysh_debug_memstats,
 	vtysh_debug_memstats_cmd, "[no] debug memstats-at-exit",
 	NO_STR
 	"Debug\n"
 	"Print memory statistics at exit\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_timestamp_precision,
-	no_vtysh_log_timestamp_precision_cmd, "no log timestamp precision",
-	NO_STR
-	"Logging control\n"
-	"Timestamp configuration\n"
-	"Reset the timestamp precision to the default value of 0\n")
 {
 	return CMD_SUCCESS;
 }
@@ -4605,22 +4465,6 @@ void vtysh_init_vty(void)
 
 	/* Logging */
 	install_element(VIEW_NODE, &vtysh_show_logging_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_stdout_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_stdout_level_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_stdout_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_file_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_file_level_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_file_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_monitor_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_monitor_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_syslog_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_syslog_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_facility_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_facility_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_record_priority_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_record_priority_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_timestamp_precision_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_timestamp_precision_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);

@@ -141,10 +141,14 @@ vtysh_scan += \
 	lib/if_rmap.c \
 	lib/keychain.c \
 	lib/lib_vty.c \
+	lib/log_vty.c \
 	lib/nexthop_group.c \
 	lib/plist.c \
+	lib/resolver.c \
 	lib/routemap.c \
 	lib/routemap_cli.c \
+	lib/spf_backoff.c \
+	lib/thread.c \
 	lib/vrf.c \
 	lib/vty.c \
 	# end
