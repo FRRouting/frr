@@ -113,7 +113,6 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	struct external_info *new;
 	struct route_node *rn;
 	struct ospf_external *ext;
-	char inetbuf[INET6_BUFSIZ];
 
 	ext = ospf_external_lookup(ospf, type, instance);
 	if (!ext)
@@ -130,13 +129,11 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 			return NULL; /* NULL => no LSA to refresh */
 		}
 
-		inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
-			  sizeof(inetbuf));
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 			zlog_debug(
-				"Redistribute[%s][%d][%u]: %pFX discarding old info with NH %s.",
+				"Redistribute[%s][%d][%u]: %pFX discarding old info with NH %pI4.",
 				ospf_redist_string(type), instance,
-				ospf->vrf_id, &p, inetbuf);
+				ospf->vrf_id, &p, &nexthop.s_addr);
 		XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
 	}
 
@@ -154,12 +151,10 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		rn->info = new;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
-			  sizeof(inetbuf));
 		zlog_debug(
-			"Redistribute[%s][%u]: %pFX external info created, with NH %s",
-			ospf_redist_string(type), ospf->vrf_id,
-			&p, inetbuf);
+			"Redistribute[%s][%u]: %pFX external info created, with NH %pI4",
+			ospf_redist_string(type), ospf->vrf_id, &p,
+			&nexthop.s_addr);
 	}
 	return new;
 }
