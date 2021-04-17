@@ -1689,7 +1689,8 @@ void ospf_sr_ext_itf_add(struct ext_itf *exti)
 		else
 			srl->nhlfe[1].nexthop = exti->rmt_itf_addr.value;
 		break;
-	default:
+	case PREF_SID:
+	case LOCAL_SID:
 		/* Wrong SID Type. Abort! */
 		XFREE(MTYPE_OSPF_SR_PARAMS, srl);
 		return;

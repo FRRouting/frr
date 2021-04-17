@@ -637,7 +637,8 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 			}
 		}
 		break;
-	default:
+	case ADJ_SID:
+	case LAN_ADJ_SID:
 		return;
 	}
 
