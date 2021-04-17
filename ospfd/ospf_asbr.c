@@ -121,25 +121,24 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 
 	rn = route_node_get(EXTERNAL_INFO(ext), (struct prefix *)&p);
 	/* If old info exists, -- discard new one or overwrite with new one? */
-	if (rn)
-		if (rn->info) {
-			new = rn->info;
-			if ((new->ifindex == ifindex)
-			    && (new->nexthop.s_addr == nexthop.s_addr)
-			    && (new->tag == tag)) {
-				route_unlock_node(rn);
-				return NULL; /* NULL => no LSA to refresh */
-			}
-
-			inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
-				  sizeof(inetbuf));
-			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-				zlog_debug(
-					"Redistribute[%s][%d][%u]: %pFX discarding old info with NH %s.",
-					ospf_redist_string(type), instance,
-					ospf->vrf_id, &p, inetbuf);
-			XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
+	if (rn && rn->info) {
+		new = rn->info;
+		if ((new->ifindex == ifindex)
+		    && (new->nexthop.s_addr == nexthop.s_addr)
+		    && (new->tag == tag)) {
+			route_unlock_node(rn);
+			return NULL; /* NULL => no LSA to refresh */
 		}
+
+		inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
+			  sizeof(inetbuf));
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"Redistribute[%s][%d][%u]: %pFX discarding old info with NH %s.",
+				ospf_redist_string(type), instance,
+				ospf->vrf_id, &p, inetbuf);
+		XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
+	}
 
 	/* Create new External info instance. */
 	new = ospf_external_info_new(type, instance);
@@ -329,33 +328,35 @@ void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
 		return;
 
 	/* Delete external info for specified type. */
-	if (EXTERNAL_INFO(ext))
-		for (rn = route_top(EXTERNAL_INFO(ext)); rn;
-		     rn = route_next(rn))
-			if ((ei = rn->info)) {
-				struct ospf_external_aggr_rt *aggr;
+	if (!EXTERNAL_INFO(ext))
+		return;
 
-				if (is_prefix_default(&ei->p)
-				    && ospf->default_originate
-					       != DEFAULT_ORIGINATE_NONE)
-					continue;
+	for (rn = route_top(EXTERNAL_INFO(ext)); rn; rn = route_next(rn)) {
+		ei = rn->info;
 
-				aggr = ei->aggr_route;
+		if (!ei)
+			continue;
 
-				if (aggr)
-					ospf_unlink_ei_from_aggr(ospf, aggr,
-								 ei);
-				else if (ospf_external_info_find_lsa(ospf,
-								     &ei->p))
-					ospf_external_lsa_flush(
-						ospf, type, &ei->p,
+		struct ospf_external_aggr_rt *aggr;
+
+		if (is_prefix_default(&ei->p)
+		    && ospf->default_originate != DEFAULT_ORIGINATE_NONE)
+			continue;
+
+		aggr = ei->aggr_route;
+
+		if (aggr)
+			ospf_unlink_ei_from_aggr(ospf, aggr, ei);
+		else if (ospf_external_info_find_lsa(ospf, &ei->p))
+			ospf_external_lsa_flush(ospf, type, &ei->p,
 						ei->ifindex /*, ei->nexthop */);
 
-				ospf_external_info_free(ei);
-				route_unlock_node(rn);
-				rn->info = NULL;
-			}
+		ospf_external_info_free(ei);
+		route_unlock_node(rn);
+		rn->info = NULL;
+	}
 }
+
 
 /* External Route Aggregator Handlers */
 bool is_valid_summary_addr(struct prefix_ipv4 *p)
