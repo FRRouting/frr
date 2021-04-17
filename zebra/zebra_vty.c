@@ -2530,8 +2530,8 @@ DEFPY (evpn_mh_neigh_holdtime,
        "Duration in seconds\n")
 {
 
-	return zebra_evpn_mh_neigh_holdtime_update(vty, duration, 
-			no ? true : false);
+	return zebra_evpn_mh_neigh_holdtime_update(vty, duration,
+						   no ? true : false);
 }
 
 DEFPY (evpn_mh_startup_delay,
