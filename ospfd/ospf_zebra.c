@@ -766,12 +766,12 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 					   ospf->vrf_id)
 			: ((instance
 			    && redist_check_instance(
-				       &zclient->mi_redist[AFI_IP][type],
-				       instance))
+				    &zclient->mi_redist[AFI_IP][type],
+				    instance))
 			   || (!instance
 			       && vrf_bitmap_check(
-					  zclient->redist[AFI_IP][type],
-					  ospf->vrf_id))));
+				       zclient->redist[AFI_IP][type],
+				       ospf->vrf_id))));
 }
 
 int ospf_redistribute_set(struct ospf *ospf, int type, unsigned short instance,
