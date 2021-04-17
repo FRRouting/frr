@@ -1262,104 +1262,92 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			return 0;
 		}
 		if (ospf->router_id.s_addr != INADDR_ANY) {
-			if (ei) {
-				if (is_prefix_default(&p))
-					ospf_external_lsa_refresh_default(ospf);
-				else {
-					struct ospf_external_aggr_rt *aggr;
-					struct as_external_lsa *al;
-					struct ospf_lsa *lsa = NULL;
-					struct in_addr mask;
+			if (is_prefix_default(&p))
+				ospf_external_lsa_refresh_default(ospf);
+			else {
+				struct ospf_external_aggr_rt *aggr;
+				struct as_external_lsa *al;
+				struct ospf_lsa *lsa = NULL;
+				struct in_addr mask;
 
-					aggr = ospf_external_aggr_match(ospf,
-									&ei->p);
+				aggr = ospf_external_aggr_match(ospf, &ei->p);
 
-					if (aggr) {
-						/* Check the AS-external-LSA
-						 * should be originated.
+				if (aggr) {
+					/* Check the AS-external-LSA
+					 * should be originated.
+					 */
+					if (!ospf_redistribute_check(ospf, ei,
+								     NULL))
+						return 0;
+
+					if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
+						zlog_debug(
+							"%s: Send Aggreate LSA (%pI4/%d)",
+							__func__,
+							&aggr->p.prefix,
+							aggr->p.prefixlen);
+
+					ospf_originate_summary_lsa(ospf, aggr,
+								   ei);
+
+					/* Handling the case where the
+					 * external route prefix
+					 * and aggegate prefix is same
+					 * If same dont flush the
+					 * originated
+					 * external LSA.
+					 */
+					if (prefix_same(
+						    (struct prefix *)&aggr->p,
+						    (struct prefix *)&ei->p))
+						return 0;
+
+					lsa = ospf_external_info_find_lsa(
+						ospf, &ei->p);
+
+					if (lsa) {
+						al = (struct as_external_lsa *)
+							     lsa->data;
+						masklen2ip(ei->p.prefixlen,
+							   &mask);
+
+						if (mask.s_addr
+						    != al->mask.s_addr)
+							return 0;
+
+						ospf_external_lsa_flush(
+							ospf, ei->type, &ei->p,
+							0);
+					}
+				} else {
+					struct ospf_lsa *current;
+
+					current = ospf_external_info_find_lsa(
+						ospf, &ei->p);
+					if (!current) {
+						/* Check the
+						 * AS-external-LSA
+						 * should be
+						 * originated.
 						 */
 						if (!ospf_redistribute_check(
 							    ospf, ei, NULL))
 							return 0;
 
-						if (IS_DEBUG_OSPF(
-							    lsa,
-							    EXTNL_LSA_AGGR))
-							zlog_debug(
-								"%s: Send Aggreate LSA (%pI4/%d)",
-								__func__,
-								&aggr->p.prefix,
-								aggr->p.prefixlen);
-
-						ospf_originate_summary_lsa(
-							ospf, aggr, ei);
-
-						/* Handling the case where the
-						 * external route prefix
-						 * and aggegate prefix is same
-						 * If same dont flush the
-						 * originated
-						 * external LSA.
-						 */
-						if (prefix_same(
-							    (struct prefix
-								     *)&aggr->p,
-							    (struct prefix *)&ei
-								    ->p))
-							return 0;
-
-						lsa = ospf_external_info_find_lsa(
-							ospf, &ei->p);
-
-						if (lsa) {
-							al = (struct
-							      as_external_lsa *)
-								     lsa->data;
-							masklen2ip(
-								ei->p.prefixlen,
-								&mask);
-
-							if (mask.s_addr
-							    != al->mask.s_addr)
-								return 0;
-
-							ospf_external_lsa_flush(
-								ospf, ei->type,
-								&ei->p, 0);
-						}
+						ospf_external_lsa_originate(
+							ospf, ei);
 					} else {
-						struct ospf_lsa *current;
-
-						current =
-							ospf_external_info_find_lsa(
-								ospf, &ei->p);
-						if (!current) {
-							/* Check the
-							 * AS-external-LSA
-							 * should be
-							 * originated.
-							 */
-							if (!ospf_redistribute_check(
-								    ospf, ei,
-								    NULL))
-								return 0;
-
-							ospf_external_lsa_originate(
-								ospf, ei);
-						} else {
-							if (IS_DEBUG_OSPF(
-								    zebra,
-								    ZEBRA_REDISTRIBUTE))
-								zlog_debug(
-									"%s: %pI4 refreshing LSA",
-									__func__,
-									&p.prefix);
-							ospf_external_lsa_refresh(
-								ospf, current,
-								ei,
-								LSA_REFRESH_FORCE,
-								false);
-						}
+						if (IS_DEBUG_OSPF(
+							    zebra,
+							    ZEBRA_REDISTRIBUTE))
+							zlog_debug(
+								"%s: %pI4 refreshing LSA",
+								__func__,
+								&p.prefix);
+						ospf_external_lsa_refresh(
+							ospf, current, ei,
+							LSA_REFRESH_FORCE,
+							false);
 					}
 				}
 			}
@@ -1371,20 +1359,19 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		 */
 		ospf_external_lsa_default_routemap_apply(ospf, ei, cmd);
 
-	} else /* if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
-	{
+	} else { /* if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
 		struct ospf_external_aggr_rt *aggr;
 
 		ei = ospf_external_info_lookup(ospf, rt_type, api.instance, &p);
 		if (ei == NULL)
 			return 0;
-		else
-			/*
-			 * Check if default-information originate i
-			 * with some routemap prefix/access list match.
-			 * Apply before ei is deleted.
-			 */
-			ospf_external_lsa_default_routemap_apply(ospf, ei, cmd);
+
+		/*
+		 * Check if default-information originate i
+		 * with some routemap prefix/access list match.
+		 * Apply before ei is deleted.
+		 */
+		ospf_external_lsa_default_routemap_apply(ospf, ei, cmd);
 
 		aggr = ospf_external_aggr_match(ospf, &ei->p);
 
@@ -1404,7 +1391,6 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							ifindex /*, nexthop */);
 		}
 	}
-
 
 	return 0;
 }
@@ -1490,85 +1476,83 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 			rt = ext->external_info;
 			if (!rt)
 				continue;
-			for (rn = route_top(rt); rn; rn = route_next(rn))
-				if ((ei = rn->info) != NULL) {
-					if (is_prefix_default(&ei->p))
-						default_refresh = 1;
-					else {
-						struct ospf_external_aggr_rt
-							*aggr;
-						aggr = ospf_external_aggr_match(
-							ospf, &ei->p);
-						if (aggr) {
-							/* Check the
-							 * AS-external-LSA
-							 * should be originated.
-							 */
-							if (!ospf_redistribute_check(
-								    ospf, ei,
-								    NULL)) {
+			for (rn = route_top(rt); rn; rn = route_next(rn)) {
+				ei = rn->info;
+				if (!ei)
+					continue;
 
-								ospf_unlink_ei_from_aggr(
-									ospf,
-									aggr,
-									ei);
-								continue;
-							}
+				if (is_prefix_default(&ei->p))
+					default_refresh = 1;
+				else {
+					struct ospf_external_aggr_rt *aggr;
 
-							if (IS_DEBUG_OSPF(
-								    lsa,
-								    EXTNL_LSA_AGGR))
-								zlog_debug(
-									"%s: Send Aggregate LSA (%pI4/%d)",
-									__func__,
-									&aggr->p.prefix,
-									aggr->p.prefixlen);
+					aggr = ospf_external_aggr_match(ospf,
+									&ei->p);
+					if (aggr) {
+						/* Check the
+						 * AS-external-LSA
+						 * should be originated.
+						 */
+						if (!ospf_redistribute_check(
+							    ospf, ei, NULL)) {
 
-							/* Originate Aggregate
-							 * LSA
-							 */
-							ospf_originate_summary_lsa(
+							ospf_unlink_ei_from_aggr(
 								ospf, aggr, ei);
-						} else if (
-							(lsa = ospf_external_info_find_lsa(
-								 ospf,
-								 &ei->p))) {
-							int force =
-								LSA_REFRESH_IF_CHANGED;
-							/* If this is a MaxAge
-							 * LSA, we need to
-							 * force refresh it
-							 * because distribute
-							 * settings might have
-							 * changed and now,
-							 * this LSA needs to be
-							 * originated, not be
-							 * removed.
-							 * If we don't force
-							 * refresh it, it will
-							 * remain a MaxAge LSA
-							 * because it will look
-							 * like it hasn't
-							 * changed. Neighbors
-							 * will not receive
-							 * updates for this LSA.
-							 */
-							if (IS_LSA_MAXAGE(lsa))
-								force = LSA_REFRESH_FORCE;
-
-							ospf_external_lsa_refresh(
-								ospf, lsa, ei,
-								force, false);
-						} else {
-							if (!ospf_redistribute_check(
-								    ospf, ei,
-								    NULL))
-								continue;
-							ospf_external_lsa_originate(
-								ospf, ei);
+							continue;
 						}
+
+						if (IS_DEBUG_OSPF(
+							    lsa,
+							    EXTNL_LSA_AGGR))
+							zlog_debug(
+								"%s: Send Aggregate LSA (%pI4/%d)",
+								__func__,
+								&aggr->p.prefix,
+								aggr->p.prefixlen);
+
+						/* Originate Aggregate
+						 * LSA
+						 */
+						ospf_originate_summary_lsa(
+							ospf, aggr, ei);
+					} else if (
+						(lsa = ospf_external_info_find_lsa(
+							 ospf, &ei->p))) {
+						int force =
+							LSA_REFRESH_IF_CHANGED;
+						/* If this is a MaxAge
+						 * LSA, we need to
+						 * force refresh it
+						 * because distribute
+						 * settings might have
+						 * changed and now,
+						 * this LSA needs to be
+						 * originated, not be
+						 * removed.
+						 * If we don't force
+						 * refresh it, it will
+						 * remain a MaxAge LSA
+						 * because it will look
+						 * like it hasn't
+						 * changed. Neighbors
+						 * will not receive
+						 * updates for this LSA.
+						 */
+						if (IS_LSA_MAXAGE(lsa))
+							force = LSA_REFRESH_FORCE;
+
+						ospf_external_lsa_refresh(
+							ospf, lsa, ei, force,
+							false);
+					} else {
+						if (!ospf_redistribute_check(
+							    ospf, ei, NULL))
+							continue;
+						ospf_external_lsa_originate(
+							ospf, ei);
 					}
 				}
+			}
 		}
 	}
 	if (default_refresh)
@@ -1718,17 +1702,16 @@ void ospf_prefix_list_update(struct prefix_list *plist)
 			struct ospf_redist *red;
 
 			red_list = ospf->redist[type];
-			if (red_list) {
-				for (ALL_LIST_ELEMENTS_RO(red_list, node,
-							  red)) {
-					if (ROUTEMAP(red)) {
-						/* if route-map is not NULL
-						 * it may be using
-						 * this prefix list */
-						ospf_distribute_list_update(
-							ospf, type,
-							red->instance);
-					}
+			if (!red_list)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
+				if (ROUTEMAP(red)) {
+					/* if route-map is not NULL
+					 * it may be using
+					 * this prefix list */
+					ospf_distribute_list_update(
+						ospf, type, red->instance);
 				}
 			}
 		}
@@ -1736,28 +1719,24 @@ void ospf_prefix_list_update(struct prefix_list *plist)
 		/* Update area filter-lists. */
 		for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
 			/* Update filter-list in. */
-			if (PREFIX_NAME_IN(area))
-				if (strcmp(PREFIX_NAME_IN(area),
-					   prefix_list_name(plist))
-				    == 0) {
-					PREFIX_LIST_IN(area) =
-						prefix_list_lookup(
-							AFI_IP,
-							PREFIX_NAME_IN(area));
-					abr_inv++;
-				}
+			if (PREFIX_NAME_IN(area)
+			    && strcmp(PREFIX_NAME_IN(area),
+				      prefix_list_name(plist))
+				       == 0) {
+				PREFIX_LIST_IN(area) = prefix_list_lookup(
+					AFI_IP, PREFIX_NAME_IN(area));
+				abr_inv++;
+			}
 
 			/* Update filter-list out. */
-			if (PREFIX_NAME_OUT(area))
-				if (strcmp(PREFIX_NAME_OUT(area),
-					   prefix_list_name(plist))
-				    == 0) {
-					PREFIX_LIST_IN(area) =
-						prefix_list_lookup(
-							AFI_IP,
-							PREFIX_NAME_OUT(area));
-					abr_inv++;
-				}
+			if (PREFIX_NAME_OUT(area)
+			    && strcmp(PREFIX_NAME_OUT(area),
+				      prefix_list_name(plist))
+				       == 0) {
+				PREFIX_LIST_IN(area) = prefix_list_lookup(
+					AFI_IP, PREFIX_NAME_OUT(area));
+				abr_inv++;
+			}
 		}
 
 		/* Schedule ABR task. */
@@ -1857,14 +1836,17 @@ void ospf_distance_reset(struct ospf *ospf)
 	struct route_node *rn;
 	struct ospf_distance *odistance;
 
-	for (rn = route_top(ospf->distance_table); rn; rn = route_next(rn))
-		if ((odistance = rn->info) != NULL) {
-			if (odistance->access_list)
-				free(odistance->access_list);
-			ospf_distance_free(odistance);
-			rn->info = NULL;
-			route_unlock_node(rn);
-		}
+	for (rn = route_top(ospf->distance_table); rn; rn = route_next(rn)) {
+		odistance = rn->info;
+		if (!odistance)
+			continue;
+
+		if (odistance->access_list)
+			free(odistance->access_list);
+		ospf_distance_free(odistance);
+		rn->info = NULL;
+		route_unlock_node(rn);
+	}
 }
 
 uint8_t ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *p,
@@ -1874,18 +1856,16 @@ uint8_t ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *p,
 	if (ospf == NULL)
 		return 0;
 
-	if (ospf->distance_intra)
-		if (or->path_type == OSPF_PATH_INTRA_AREA)
-			return ospf->distance_intra;
+	if (ospf->distance_intra && or->path_type == OSPF_PATH_INTRA_AREA)
+		return ospf->distance_intra;
 
-	if (ospf->distance_inter)
-		if (or->path_type == OSPF_PATH_INTER_AREA)
-			return ospf->distance_inter;
+	if (ospf->distance_inter && or->path_type == OSPF_PATH_INTER_AREA)
+		return ospf->distance_inter;
 
-	if (ospf->distance_external)
-		if (or->path_type == OSPF_PATH_TYPE1_EXTERNAL ||
-		    or->path_type == OSPF_PATH_TYPE2_EXTERNAL)
-			return ospf->distance_external;
+	if (ospf->distance_external
+	    && (or->path_type == OSPF_PATH_TYPE1_EXTERNAL ||
+		or->path_type == OSPF_PATH_TYPE2_EXTERNAL))
+		return ospf->distance_external;
 
 	if (ospf->distance_all)
 		return ospf->distance_all;
