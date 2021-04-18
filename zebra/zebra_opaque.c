@@ -25,6 +25,7 @@
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_opaque.h"
+#include "zebra/rib.h"
 
 /* Mem type */
 DEFINE_MTYPE_STATIC(ZEBRA, OPQ, "ZAPI Opaque Information");

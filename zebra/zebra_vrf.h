@@ -26,6 +26,7 @@
 
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
+#include <zebra/rtadv.h>
 #include <lib/vxlan.h>
 
 #ifdef __cplusplus
@@ -177,9 +178,7 @@ struct zebra_vrf {
 
 	struct table_manager *tbl_mgr;
 
-#if defined(HAVE_RTADV)
 	struct rtadv rtadv;
-#endif /* HAVE_RTADV */
 
 	bool zebra_rnh_ip_default_route;
 	bool zebra_rnh_ipv6_default_route;
