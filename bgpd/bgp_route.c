@@ -10260,7 +10260,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		vty_out(vty, "\n");
 
 	/* Line 4 display Community */
-	if (attr->community) {
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
 		if (json_paths) {
 			if (!attr->community->json)
 				community_str(attr->community, true);
