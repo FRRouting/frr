@@ -11620,13 +11620,13 @@ DEFUN (show_ip_bgp_large_community_list,
 	struct bgp *bgp = NULL;
 	bool uj = use_json(argc, argv);
 
-        if (uj)
-                argc--;
+	if (uj)
+		argc--;
 
-        bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
-                                            &bgp, uj);
-        if (!idx)
-                return CMD_WARNING;
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, uj);
+	if (!idx)
+		return CMD_WARNING;
 
 	argv_find(argv, argc, "large-community-list", &idx);
 
