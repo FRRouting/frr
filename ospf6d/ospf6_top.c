@@ -814,7 +814,7 @@ DEFUN (no_ospf6_interface_area,
 	/* Verify Area */
 	if (oi->area == NULL) {
 		vty_out(vty, "%s not attached to area %s\n",
-			oi->interface->name, oi->area->name);
+			oi->interface->name, argv[idx_ipv4]->arg);
 		return CMD_SUCCESS;
 	}
 
