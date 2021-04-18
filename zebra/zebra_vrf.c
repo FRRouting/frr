@@ -141,9 +141,8 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
 	else
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
-#if defined(HAVE_RTADV)
+
 	rtadv_vrf_init(zvrf);
-#endif
 
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
@@ -186,9 +185,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	/* Stop any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_disable(zvrf);
 
-#if defined(HAVE_RTADV)
 	rtadv_vrf_terminate(zvrf);
-#endif
 
 	/* Inform clients that the VRF is now inactive. This is a
 	 * delete for the clients.

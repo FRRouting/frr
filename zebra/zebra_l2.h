@@ -28,6 +28,7 @@
 #include "if.h"
 #include "vlan.h"
 #include "vxlan.h"
+#include "zebra/zebra_vrf.h"
 
 #ifdef __cplusplus
 extern "C" {
