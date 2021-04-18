@@ -247,6 +247,7 @@ pkginclude_HEADERS += \
 	lib/queue.h \
 	lib/ringbuf.h \
 	lib/routemap.h \
+	lib/route_opaque.h \
 	lib/sbuf.h \
 	lib/seqlock.h \
 	lib/sha256.h \
