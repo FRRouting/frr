@@ -14,7 +14,7 @@ Add packages:
     sudo dnf install --enablerepo=PowerTools git autoconf pcre-devel \
       automake libtool make readline-devel texinfo net-snmp-devel pkgconfig \
       groff pkgconfig json-c-devel pam-devel bison flex python2-pytest \
-      c-ares-devel python2-devel systemd-devel libcap-devel \
+      c-ares-devel python2-devel libcap-devel \
       elfutils-libelf-devel
 
 .. include:: building-libyang.rst
@@ -59,7 +59,6 @@ an example.)
         --enable-user=frr \
         --enable-group=frr \
         --enable-vty-group=frrvty \
-	--enable-systemd=yes \
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
