@@ -177,15 +177,16 @@ struct route_entry {
 
 /* meta-queue structure:
  * sub-queue 0: nexthop group objects
- * sub-queue 1: connected
- * sub-queue 2: kernel
- * sub-queue 3: static
- * sub-queue 4: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
- * sub-queue 5: iBGP, eBGP
- * sub-queue 6: any other origin (if any) typically those that
+ * sub-queue 1: EVPN/VxLAN objects
+ * sub-queue 2: connected
+ * sub-queue 3: kernel
+ * sub-queue 4: static
+ * sub-queue 5: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
+ * sub-queue 6: iBGP, eBGP
+ * sub-queue 7: any other origin (if any) typically those that
  *              don't generate routes
  */
-#define MQ_SIZE 7
+#define MQ_SIZE 8
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */
@@ -445,6 +446,21 @@ extern int rib_queue_nhg_ctx_add(struct nhg_ctx *ctx);
 
 /* Enqueue incoming nhg from proto daemon for processing */
 extern int rib_queue_nhe_add(struct nhg_hash_entry *nhe);
+
+/* Enqueue evpn route for processing */
+int zebra_rib_queue_evpn_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
+				   const struct ipaddr *vtep_ip,
+				   const struct prefix *host_prefix);
+int zebra_rib_queue_evpn_route_del(vrf_id_t vrf_id,
+				   const struct ipaddr *vtep_ip,
+				   const struct prefix *host_prefix);
+/* Enqueue EVPN remote ES for processing */
+int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi,
+				    const struct in_addr *vtep_ip,
+				    bool esr_rxed, uint8_t df_alg,
+				    uint16_t df_pref);
+int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
+				    const struct in_addr *vtep_ip);
 
 extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
