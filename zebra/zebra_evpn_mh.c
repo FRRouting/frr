@@ -2541,7 +2541,7 @@ bool zebra_evpn_es_mac_ref_entry(zebra_mac_t *mac, struct zebra_evpn_es *es)
 	return true;
 }
 
-bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, esi_t *esi)
+bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, const esi_t *esi)
 {
 	struct zebra_evpn_es *es;
 

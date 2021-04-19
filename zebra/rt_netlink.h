@@ -99,8 +99,9 @@ extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
 				       struct interface *vlan_if);
 extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 					    struct interface *br_if,
-					    struct ethaddr *mac, uint16_t vid);
-extern int netlink_neigh_read_specific_ip(struct ipaddr *ip,
+					    const struct ethaddr *mac,
+					    uint16_t vid);
+extern int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 					  struct interface *vlan_if);
 extern vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 

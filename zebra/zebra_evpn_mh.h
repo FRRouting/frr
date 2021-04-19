@@ -338,8 +338,8 @@ extern void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj,
 		vni_t vni, int detail);
 extern void zebra_evpn_es_mac_deref_entry(zebra_mac_t *mac);
 extern bool zebra_evpn_es_mac_ref_entry(zebra_mac_t *mac,
-		struct zebra_evpn_es *es);
-extern bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, esi_t *esi);
+					struct zebra_evpn_es *es);
+extern bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, const esi_t *esi);
 extern struct zebra_evpn_es *zebra_evpn_es_find(const esi_t *esi);
 extern void zebra_evpn_interface_init(void);
 extern int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp);
