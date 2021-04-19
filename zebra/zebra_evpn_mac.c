@@ -986,8 +986,8 @@ void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
 /*
  * Inform BGP about local MACIP.
  */
-int zebra_evpn_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
-					struct ipaddr *ip, uint8_t flags,
+int zebra_evpn_macip_send_msg_to_client(vni_t vni, const struct ethaddr *macaddr,
+					const struct ipaddr *ip, uint8_t flags,
 					uint32_t seq, int state,
 					struct zebra_evpn_es *es, uint16_t cmd)
 {
@@ -1095,7 +1095,8 @@ static void *zebra_evpn_mac_alloc(void *p)
 /*
  * Add MAC entry.
  */
-zebra_mac_t *zebra_evpn_mac_add(zebra_evpn_t *zevpn, struct ethaddr *macaddr)
+zebra_mac_t *zebra_evpn_mac_add(zebra_evpn_t *zevpn,
+				const struct ethaddr *macaddr)
 {
 	zebra_mac_t tmp_mac;
 	zebra_mac_t *mac = NULL;
@@ -1254,7 +1255,8 @@ void zebra_evpn_mac_del_all(zebra_evpn_t *zevpn, int uninstall, int upd_client,
 /*
  * Look up MAC hash entry.
  */
-zebra_mac_t *zebra_evpn_mac_lookup(zebra_evpn_t *zevpn, struct ethaddr *mac)
+zebra_mac_t *zebra_evpn_mac_lookup(zebra_evpn_t *zevpn,
+				   const struct ethaddr *mac)
 {
 	zebra_mac_t tmp;
 	zebra_mac_t *pmac;
@@ -1269,7 +1271,7 @@ zebra_mac_t *zebra_evpn_mac_lookup(zebra_evpn_t *zevpn, struct ethaddr *mac)
 /*
  * Inform BGP about local MAC addition.
  */
-int zebra_evpn_mac_send_add_to_client(vni_t vni, struct ethaddr *macaddr,
+int zebra_evpn_mac_send_add_to_client(vni_t vni, const struct ethaddr *macaddr,
 				      uint32_t mac_flags, uint32_t seq,
 				      struct zebra_evpn_es *es)
 {
@@ -1303,7 +1305,7 @@ int zebra_evpn_mac_send_add_to_client(vni_t vni, struct ethaddr *macaddr,
 /*
  * Inform BGP about local MAC deletion.
  */
-int zebra_evpn_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr,
+int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 				      uint32_t flags, bool force)
 {
 	if (!force) {
@@ -1563,7 +1565,7 @@ void zebra_evpn_sync_mac_del(zebra_mac_t *mac)
 static inline bool zebra_evpn_mac_is_bgp_seq_ok(zebra_evpn_t *zevpn,
 						zebra_mac_t *mac, uint32_t seq,
 						uint16_t ipa_len,
-						struct ipaddr *ipaddr,
+						const struct ipaddr *ipaddr,
 						bool sync)
 {
 	char ipbuf[INET6_ADDRSTRLEN];
@@ -1627,11 +1629,10 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(zebra_evpn_t *zevpn,
 	return true;
 }
 
-zebra_mac_t *
-zebra_evpn_proc_sync_mac_update(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
-				uint16_t ipa_len, struct ipaddr *ipaddr,
-				uint8_t flags, uint32_t seq, esi_t *esi,
-				struct sync_mac_ip_ctx *ctx)
+zebra_mac_t *zebra_evpn_proc_sync_mac_update(
+	zebra_evpn_t *zevpn, const struct ethaddr *macaddr, uint16_t ipa_len,
+	const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
+	const esi_t *esi, struct sync_mac_ip_ctx *ctx)
 {
 	zebra_mac_t *mac;
 	bool inform_bgp = false;
@@ -1959,10 +1960,12 @@ void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 }
 
 int zebra_evpn_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
-				    struct ethaddr *macaddr, uint16_t ipa_len,
-				    struct ipaddr *ipaddr, zebra_mac_t **macp,
-				    struct in_addr vtep_ip, uint8_t flags,
-				    uint32_t seq, esi_t *esi)
+				    const struct ethaddr *macaddr,
+				    uint16_t ipa_len,
+				    const struct ipaddr *ipaddr,
+				    zebra_mac_t **macp, struct in_addr vtep_ip,
+				    uint8_t flags, uint32_t seq,
+				    const esi_t *esi)
 {
 	char buf1[INET6_ADDRSTRLEN];
 	bool sticky;
@@ -2127,7 +2130,7 @@ int zebra_evpn_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 
 int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 				    struct interface *ifp,
-				    struct ethaddr *macaddr, vlanid_t vid,
+				    const struct ethaddr *macaddr, vlanid_t vid,
 				    bool sticky, bool local_inactive,
 				    bool dp_static, zebra_mac_t *mac)
 {
@@ -2447,8 +2450,8 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac,
 }
 
 int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
-				struct ipaddr *ip, zebra_mac_t **macp,
-				struct ethaddr *macaddr, vlanid_t vlan_id,
+				const struct ipaddr *ip, zebra_mac_t **macp,
+				const struct ethaddr *macaddr, vlanid_t vlan_id,
 				bool def_gw)
 {
 	zebra_mac_t *mac;
