@@ -1747,7 +1747,7 @@ static int zebra_es_rb_cmp(const struct zebra_evpn_es *es1,
 RB_GENERATE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
 
 /* Lookup ES */
-struct zebra_evpn_es *zebra_evpn_es_find(esi_t *esi)
+struct zebra_evpn_es *zebra_evpn_es_find(const esi_t *esi)
 {
 	struct zebra_evpn_es tmp;
 
@@ -1758,7 +1758,7 @@ struct zebra_evpn_es *zebra_evpn_es_find(esi_t *esi)
 /* A new local es is created when a local-es-id and sysmac is configured
  * against an interface.
  */
-static struct zebra_evpn_es *zebra_evpn_es_new(esi_t *esi)
+static struct zebra_evpn_es *zebra_evpn_es_new(const esi_t *esi)
 {
 	struct zebra_evpn_es *es;
 
@@ -2392,7 +2392,7 @@ static int zebra_evpn_type3_esi_update(struct zebra_if *zif, uint32_t lid,
 	return zebra_evpn_local_es_update(zif, &esi);
 }
 
-static int zebra_evpn_remote_es_del(esi_t *esi, struct in_addr vtep_ip)
+int zebra_evpn_remote_es_del(const esi_t *esi, struct in_addr vtep_ip)
 {
 	char buf[ESI_STR_LEN];
 	struct zebra_evpn_es *es;
@@ -2432,9 +2432,8 @@ static void zebra_evpn_remote_es_flush(struct zebra_evpn_es **esp)
 	zebra_evpn_es_remote_info_re_eval(esp);
 }
 
-static int zebra_evpn_remote_es_add(esi_t *esi, struct in_addr vtep_ip,
-				    bool esr_rxed, uint8_t df_alg,
-				    uint16_t df_pref)
+int zebra_evpn_remote_es_add(const esi_t *esi, struct in_addr vtep_ip,
+			     bool esr_rxed, uint8_t df_alg, uint16_t df_pref)
 {
 	char buf[ESI_STR_LEN];
 	struct zebra_evpn_es *es;
@@ -2498,10 +2497,10 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 								     : false;
 		STREAM_GETC(s, df_alg);
 		STREAM_GETW(s, df_pref);
-		zebra_evpn_remote_es_add(&esi, vtep_ip, esr_rxed, df_alg,
-					 df_pref);
+		zebra_rib_queue_evpn_rem_es_add(&esi, &vtep_ip, esr_rxed, df_alg,
+						df_pref);
 	} else {
-		zebra_evpn_remote_es_del(&esi, vtep_ip);
+		zebra_rib_queue_evpn_rem_es_del(&esi, &vtep_ip);
 	}
 
 stream_failure:
@@ -3901,12 +3900,12 @@ void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS)
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("evpn remote nh %d %pIA rmac %pEA add",
 				   vrf_id, &nh, &rmac);
-		zebra_vxlan_evpn_vrf_route_add(vrf_id, &rmac, &nh,
+		zebra_rib_queue_evpn_route_add(vrf_id, &rmac, &nh,
 					       (struct prefix *)&dummy_prefix);
 	} else {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("evpn remote nh %d %pIA del", vrf_id, &nh);
-		zebra_vxlan_evpn_vrf_route_del(vrf_id, &nh,
+		zebra_rib_queue_evpn_route_del(vrf_id, &nh,
 					       (struct prefix *)&dummy_prefix);
 	}
 }

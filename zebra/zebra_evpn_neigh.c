@@ -2299,7 +2299,7 @@ int zebra_evpn_neigh_del_ip(zebra_evpn_t *zevpn, struct ipaddr *ip)
 	}
 
 	/* If it is a remote entry, the kernel has aged this out or someone has
-	 * deleted it, it needs to be re-installed as Quagga is the owner.
+	 * deleted it, it needs to be re-installed as FRR is the owner.
 	 */
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
 		zebra_evpn_rem_neigh_install(zevpn, n, false /*was_static*/);
