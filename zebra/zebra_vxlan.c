@@ -3820,10 +3820,6 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 	uint16_t l = 0, ipa_len;
 	char buf1[INET6_ADDRSTRLEN];
 
-	memset(&macaddr, 0, sizeof(struct ethaddr));
-	memset(&ip, 0, sizeof(struct ipaddr));
-	memset(&vtep_ip, 0, sizeof(struct in_addr));
-
 	s = msg;
 
 	while (l < hdr->length) {
@@ -3844,7 +3840,8 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 				ipaddr2str(&ip, buf1, sizeof(buf1)) : "",
 				&vtep_ip, zebra_route_string(client->proto));
 
-		zebra_evpn_rem_macip_del(vni, &macaddr, ipa_len, &ip, vtep_ip);
+		/* Enqueue to workqueue for processing */
+		zebra_rib_queue_evpn_rem_macip_del(vni, &macaddr, &ip, vtep_ip);
 	}
 
 stream_failure:
@@ -3870,10 +3867,6 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	esi_t esi;
 	char esi_buf[ESI_STR_LEN];
 
-	memset(&macaddr, 0, sizeof(struct ethaddr));
-	memset(&ip, 0, sizeof(struct ipaddr));
-	memset(&vtep_ip, 0, sizeof(struct in_addr));
-
 	if (!EVPN_ENABLED(zvrf)) {
 		zlog_debug("EVPN not enabled, ignoring remote MACIP ADD");
 		return;
@@ -3882,6 +3875,7 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
+
 		int res_length = zebra_vxlan_remote_macip_helper(
 			true, s, &vni, &macaddr, &ipa_len, &ip, &vtep_ip,
 			&flags, &seq, &esi);
@@ -3907,8 +3901,9 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 				zebra_route_string(client->proto));
 		}
 
-		zebra_evpn_rem_macip_add(vni, &macaddr, ipa_len, &ip,
-					 flags, seq, vtep_ip, &esi);
+		/* Enqueue to workqueue for processing */
+		zebra_rib_queue_evpn_rem_macip_add(vni, &macaddr, &ip, flags,
+						   seq, vtep_ip, &esi);
 	}
 
 stream_failure:

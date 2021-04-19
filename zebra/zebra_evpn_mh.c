@@ -2497,8 +2497,8 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 								     : false;
 		STREAM_GETC(s, df_alg);
 		STREAM_GETW(s, df_pref);
-		zebra_rib_queue_evpn_rem_es_add(&esi, &vtep_ip, esr_rxed, df_alg,
-						df_pref);
+		zebra_rib_queue_evpn_rem_es_add(&esi, &vtep_ip, esr_rxed,
+						df_alg, df_pref);
 	} else {
 		zebra_rib_queue_evpn_rem_es_del(&esi, &vtep_ip);
 	}
