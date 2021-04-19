@@ -461,6 +461,15 @@ int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi,
 				    uint16_t df_pref);
 int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
 				    const struct in_addr *vtep_ip);
+/* Enqueue EVPN remote macip update for processing */
+int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
+				       const struct ipaddr *ip,
+				       struct in_addr vtep_ip);
+int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
+				       const struct ipaddr *ipaddr,
+				       uint8_t flags, uint32_t seq,
+				       struct in_addr vtep_ip,
+				       const esi_t *esi);
 
 extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);

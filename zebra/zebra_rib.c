@@ -144,14 +144,19 @@ struct wq_evpn_wrapper {
 	bool esr_rxed;
 	uint8_t df_alg;
 	uint16_t df_pref;
+	uint32_t flags;
+	uint32_t seq;
 	esi_t esi;
+	vni_t vni;
 	struct ipaddr ip;
-	struct ethaddr mac;
+	struct ethaddr macaddr;
 	struct prefix prefix;
+	struct in_addr vtep_ip;
 };
 
-#define WQ_EVPN_WRAPPER_TYPE_VRFROUTE 0x01
-#define WQ_EVPN_WRAPPER_TYPE_REM_ES   0x02
+#define WQ_EVPN_WRAPPER_TYPE_VRFROUTE     0x01
+#define WQ_EVPN_WRAPPER_TYPE_REM_ES       0x02
+#define WQ_EVPN_WRAPPER_TYPE_REM_MACIP    0x03
 
 /* %pRN is already a printer for route_nodes that just prints the prefix */
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
@@ -2352,7 +2357,7 @@ static void process_subq_evpn(struct listnode *lnode)
 
 	if (w->type == WQ_EVPN_WRAPPER_TYPE_VRFROUTE) {
 		if (w->add_p)
-			zebra_vxlan_evpn_vrf_route_add(w->vrf_id, &w->mac,
+			zebra_vxlan_evpn_vrf_route_add(w->vrf_id, &w->macaddr,
 						       &w->ip, &w->prefix);
 		else
 			zebra_vxlan_evpn_vrf_route_del(w->vrf_id, &w->ip,
@@ -2364,6 +2369,21 @@ static void process_subq_evpn(struct listnode *lnode)
 						 w->df_pref);
 		else
 			zebra_evpn_remote_es_del(&w->esi, w->ip.ipaddr_v4);
+	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_MACIP) {
+		uint16_t ipa_len = 0;
+
+		if (w->ip.ipa_type == IPADDR_V4)
+			ipa_len = IPV4_MAX_BYTELEN;
+		else if (w->ip.ipa_type == IPADDR_V6)
+			ipa_len = IPV6_MAX_BYTELEN;
+
+		if (w->add_p)
+			zebra_evpn_rem_macip_add(w->vni, &w->macaddr, ipa_len,
+						 &w->ip, w->flags, w->seq,
+						 w->vtep_ip, &w->esi);
+		else
+			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len,
+						 &w->ip, w->vtep_ip);
 	}
 
 	XFREE(MTYPE_WQ_WRAPPER, w);
@@ -2717,7 +2737,7 @@ int zebra_rib_queue_evpn_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
 	w->type = WQ_EVPN_WRAPPER_TYPE_VRFROUTE;
 	w->add_p = true;
 	w->vrf_id = vrf_id;
-	w->mac = *rmac;
+	w->macaddr = *rmac;
 	w->ip = *vtep_ip;
 	w->prefix = *host_prefix;
 
@@ -2799,6 +2819,64 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
 		zlog_debug("%s: vtep %pI4, esi %s enqueued", __func__, vtep_ip,
 			   buf);
 	}
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+/*
+ * Enqueue EVPN remote macip update for processing
+ */
+int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
+				       const struct ipaddr *ipaddr,
+				       uint8_t flags, uint32_t seq,
+				       struct in_addr vtep_ip, const esi_t *esi)
+{
+	struct wq_evpn_wrapper *w;
+	char buf[ESI_STR_LEN];
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
+	w->add_p = true;
+	w->vni = vni;
+	w->macaddr = *macaddr;
+	w->ip = *ipaddr;
+	w->flags = flags;
+	w->seq = seq;
+	w->vtep_ip = vtep_ip;
+	w->esi = *esi;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		if (memcmp(esi, zero_esi, sizeof(esi_t)) != 0)
+			esi_to_str(esi, buf, sizeof(buf));
+		else
+			strlcpy(buf, "-", sizeof(buf));
+
+		zlog_debug("%s: mac %pEA, vtep %pI4, esi %s enqueued", __func__,
+			   macaddr, &vtep_ip, buf);
+	}
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
+				       const struct ipaddr *ip,
+				       struct in_addr vtep_ip)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
+	w->add_p = false;
+	w->vni = vni;
+	w->macaddr = *macaddr;
+	w->ip = *ip;
+	w->vtep_ip = vtep_ip;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: mac %pEA, vtep %pI4 enqueued", __func__,
+			   macaddr, &vtep_ip);
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }

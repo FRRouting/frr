@@ -986,7 +986,8 @@ void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
 /*
  * Inform BGP about local MACIP.
  */
-int zebra_evpn_macip_send_msg_to_client(vni_t vni, const struct ethaddr *macaddr,
+int zebra_evpn_macip_send_msg_to_client(vni_t vni,
+					const struct ethaddr *macaddr,
 					const struct ipaddr *ip, uint8_t flags,
 					uint32_t seq, int state,
 					struct zebra_evpn_es *es, uint16_t cmd)
