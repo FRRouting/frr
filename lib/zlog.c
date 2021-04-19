@@ -142,6 +142,7 @@ struct zlog_msg {
 struct zlog_tls {
 	char *mmbuf;
 	size_t bufpos;
+	bool do_unlink;
 
 	size_t nmsgs;
 	struct zlog_msg msgs[TLS_LOG_MAXMSG];
@@ -266,13 +267,14 @@ void zlog_tls_buffer_init(void)
 			 mmpath, strerror(errno));
 		goto out_anon_unlink;
 	}
+	zlog_tls->do_unlink = true;
 
 	close(mmfd);
 	zlog_tls_set(zlog_tls);
 	return;
 
 out_anon_unlink:
-	unlink(mmpath);
+	unlinkat(zlog_tmpdirfd, mmpath, 0);
 	close(mmfd);
 out_anon:
 
@@ -296,14 +298,16 @@ out_anon:
 void zlog_tls_buffer_fini(void)
 {
 	char mmpath[MAXPATHLEN];
+	struct zlog_tls *zlog_tls = zlog_tls_get();
+	bool do_unlink = zlog_tls ? zlog_tls->do_unlink : false;
 
 	zlog_tls_buffer_flush();
 
-	zlog_tls_free(zlog_tls_get());
+	zlog_tls_free(zlog_tls);
 	zlog_tls_set(NULL);
 
 	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%ld", zlog_gettid());
-	if (unlinkat(zlog_tmpdirfd, mmpath, 0))
+	if (do_unlink && unlinkat(zlog_tmpdirfd, mmpath, 0))
 		zlog_err("unlink logbuf: %s (%d)", strerror(errno), errno);
 }
 
