@@ -146,11 +146,6 @@ options from the list below.
    software available on your machine.  This is needed for systemd integration, if you
    disable watchfrr you cannot have any systemd integration.
 
-.. option:: --enable-systemd
-
-   Build watchfrr with systemd integration, this will allow FRR to communicate with
-   systemd to tell systemd if FRR has come up properly.
-
 .. option:: --enable-werror
 
    Build with all warnings converted to errors as a compile option.  This
@@ -403,6 +398,12 @@ options to the configuration script.
 .. option:: --with-vici-socket <path>
 
    Set StrongSWAN vici interface socket path [/var/run/charon.vici].
+
+.. note::
+
+   The former ``--enable-systemd`` option does not exist anymore.  Support for
+   systemd is now always available through built-in functions, without
+   depending on libsystemd.
 
 Python dependency, documentation and tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

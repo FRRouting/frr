@@ -41,7 +41,6 @@ build() {
 		--sysconfdir=$_sysconfdir \
 		--libdir=$_libdir \
 		--localstatedir=$_localstatedir \
-		--enable-systemd=no \
 		--enable-rpki \
 		--enable-vtysh \
 		--enable-multipath=64 \

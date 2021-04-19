@@ -672,8 +672,6 @@ AC_ARG_ENABLE([fpm],
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
 AC_ARG_ENABLE([pcep],
   AS_HELP_STRING([--enable-pcep], [enable PCEP support for pathd]))
-AC_ARG_ENABLE([systemd],
-  AS_HELP_STRING([--enable-systemd], [enable Systemd support]))
 AC_ARG_ENABLE([werror],
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE([cumulus],
@@ -766,19 +764,6 @@ case "${enable_cpu_time}" in
   ;;
   "*")
   ;;
-esac
-
-case "${enable_systemd}" in
-  "no") ;;
-  "yes")
-  AC_CHECK_LIB([systemd], [sd_notify], [LIBS="$LIBS -lsystemd"])
-  if test "$ac_cv_lib_systemd_sd_notify" = "no"; then
-    AC_MSG_ERROR([enable systemd has been specified but systemd development env not found on your system])
-  else
-    AC_DEFINE([HAVE_SYSTEMD], [1], [Compile systemd support in])
-  fi
-  ;;
-  "*") ;;
 esac
 
 if test "$enable_rr_semantics" != "no" ; then
