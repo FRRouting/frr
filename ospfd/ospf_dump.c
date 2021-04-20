@@ -169,8 +169,7 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 /* Making formatted timer strings. */
 #define MINUTE_IN_SECONDS	60
 #define HOUR_IN_SECONDS		(60*MINUTE_IN_SECONDS)
-#define DAY_IN_SECONDS		(24*HOUR_IN_SECONDS)
-#define WEEK_IN_SECONDS		(7*DAY_IN_SECONDS)
+
 	unsigned long w, d, h, m, ms, us;
 
 	if (!t)
@@ -191,14 +190,14 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 		ms %= 1000;
 	}
 
-	if (t->tv_sec > WEEK_IN_SECONDS) {
-		w = t->tv_sec / WEEK_IN_SECONDS;
-		t->tv_sec -= w * WEEK_IN_SECONDS;
+	if (t->tv_sec > ONE_WEEK_SECOND) {
+		w = t->tv_sec / ONE_WEEK_SECOND;
+		t->tv_sec -= w * ONE_WEEK_SECOND;
 	}
 
-	if (t->tv_sec > DAY_IN_SECONDS) {
-		d = t->tv_sec / DAY_IN_SECONDS;
-		t->tv_sec -= d * DAY_IN_SECONDS;
+	if (t->tv_sec > ONE_DAY_SECOND) {
+		d = t->tv_sec / ONE_DAY_SECOND;
+		t->tv_sec -= d * ONE_DAY_SECOND;
 	}
 
 	if (t->tv_sec >= HOUR_IN_SECONDS) {
@@ -221,7 +220,7 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 		snprintf(buf, size, "%luh%02lum%02lds", h, m, (long)t->tv_sec);
 	else if (m)
 		snprintf(buf, size, "%lum%02lds", m, (long)t->tv_sec);
-	else if (ms)
+	else if (t->tv_sec > 0 || ms > 0)
 		snprintf(buf, size, "%ld.%03lus", (long)t->tv_sec, ms);
 	else
 		snprintf(buf, size, "%ld usecs", (long)t->tv_usec);
