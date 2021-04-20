@@ -3847,6 +3847,31 @@ static void clear_interfaces(struct pim_instance *pim)
 		return CMD_WARNING_CONFIG_FAILED;			\
 	}
 
+/**
+ * Get current node VRF name.
+ *
+ * NOTE:
+ * In case of failure it will print error message to user.
+ *
+ * \returns name or NULL if failed to get VRF.
+ */
+static const char *pim_cli_get_vrf_name(struct vty *vty)
+{
+	const struct lyd_node *vrf_node;
+
+	/* Not inside any VRF context. */
+	if (vty->xpath_index == 0)
+		return VRF_DEFAULT_NAME;
+
+	vrf_node = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (vrf_node == NULL) {
+		vty_out(vty, "%% Failed to get vrf dnode in configuration\n");
+		return NULL;
+	}
+
+	return yang_dnode_get_string(vrf_node, "./name");
+}
+
 DEFUN (clear_ip_interfaces,
        clear_ip_interfaces_cmd,
        "clear ip interfaces [vrf NAME]",
@@ -6925,25 +6950,13 @@ DEFUN (ip_pim_spt_switchover_infinity,
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
 		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
@@ -6976,25 +6989,13 @@ DEFUN (ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
 		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
@@ -7025,25 +7026,13 @@ DEFUN (no_ip_pim_spt_switchover_infinity,
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
 		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
@@ -7075,25 +7064,13 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
 		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
@@ -7123,22 +7100,12 @@ DEFPY (pim_register_accept_list,
        "Only accept registers from a specific source prefix list\n"
        "Prefix-List name\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char reg_alist_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(reg_alist_xpath, sizeof(reg_alist_xpath),
 		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
@@ -7233,22 +7200,12 @@ DEFUN (ip_pim_rp_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
 		 FRR_PIM_XPATH, "frr-pim:pimd", "pim", vrfname);
@@ -7271,26 +7228,15 @@ DEFUN (no_ip_pim_rp_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char rp_ka_timer[5];
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 
 	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
-
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
 		 FRR_PIM_XPATH, "frr-pim:pimd", "pim", vrfname);
@@ -7311,22 +7257,12 @@ DEFUN (ip_pim_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ka_timer_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_XPATH,
 		 "frr-pim:pimd", "pim", vrfname);
@@ -7347,25 +7283,15 @@ DEFUN (no_ip_pim_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ka_timer[5];
 	char ka_timer_xpath[XPATH_MAXLEN];
 
 	snprintf(ka_timer, sizeof(ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_XPATH,
 		 "frr-pim:pimd", "pim", vrfname);
@@ -7447,22 +7373,12 @@ DEFUN (ip_pim_v6_secondary,
        "pim multicast routing\n"
        "Send v6 secondary addresses\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char send_v6_secondary_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -7484,22 +7400,12 @@ DEFUN (no_ip_pim_v6_secondary,
        "pim multicast routing\n"
        "Send v6 secondary addresses\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char send_v6_secondary_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -7522,7 +7428,6 @@ DEFUN (ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	int idx_rp = 3, idx_group = 4;
 	char rp_group_xpath[XPATH_MAXLEN];
@@ -7558,20 +7463,9 @@ DEFUN (ip_pim_rp,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_group_xpath, sizeof(rp_group_xpath),
 		 FRR_PIM_STATIC_RP_XPATH,
@@ -7595,24 +7489,12 @@ DEFUN (ip_pim_rp_prefix_list,
        "Name of a prefix-list\n")
 {
 	int idx_rp = 3, idx_plist = 5;
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char rp_plist_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
 		 FRR_PIM_STATIC_RP_XPATH,
@@ -7642,24 +7524,12 @@ DEFUN (no_ip_pim_rp,
 	char group_list_xpath[XPATH_MAXLEN + 32];
 	char group_xpath[XPATH_MAXLEN + 64];
 	char rp_xpath[XPATH_MAXLEN];
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	const struct lyd_node *group_dnode;
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
@@ -7702,23 +7572,13 @@ DEFUN (no_ip_pim_rp_prefix_list,
 	int idx_plist = 6;
 	char rp_xpath[XPATH_MAXLEN];
 	char plist_xpath[XPATH_MAXLEN];
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	const struct lyd_node *plist_dnode;
 	const char *plist;
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
@@ -7755,22 +7615,12 @@ DEFUN (ip_pim_ssm_prefix_list,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ssm_plist_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), FRR_PIM_AF_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
@@ -7790,22 +7640,12 @@ DEFUN (no_ip_pim_ssm_prefix_list,
        "Source Specific Multicast\n"
        "group range prefix-list filter\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ssm_plist_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -7827,27 +7667,14 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	const struct lyd_node *ssm_plist_dnode;
 	char ssm_plist_xpath[XPATH_MAXLEN];
 	const char *ssm_plist_name;
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
-
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -8001,22 +7828,12 @@ DEFUN (ip_ssmpingd,
 {
 	int idx_ipv4 = 2;
 	const char *source_str = (argc == 3) ? argv[idx_ipv4]->arg : "0.0.0.0";
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -8038,24 +7855,14 @@ DEFUN (no_ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	int idx_ipv4 = 3;
 	const char *source_str = (argc == 4) ? argv[idx_ipv4]->arg : "0.0.0.0";
 	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -8076,22 +7883,12 @@ DEFUN (ip_pim_ecmp,
        "pim multicast routing\n"
        "Enable PIM ECMP \n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ecmp_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
 		 "frr-pim:pimd", "pim", vrfname);
@@ -8109,22 +7906,12 @@ DEFUN (no_ip_pim_ecmp,
        "pim multicast routing\n"
        "Disable PIM ECMP \n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ecmp_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
 		 "frr-pim:pimd", "pim", vrfname);
@@ -8143,23 +7930,13 @@ DEFUN (ip_pim_ecmp_rebalance,
        "Enable PIM ECMP \n"
        "Enable PIM ECMP Rebalance\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ecmp_xpath[XPATH_MAXLEN];
 	char ecmp_rebalance_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
 		 "frr-pim:pimd", "pim", vrfname);
@@ -8185,22 +7962,12 @@ DEFUN (no_ip_pim_ecmp_rebalance,
        "Disable PIM ECMP \n"
        "Disable PIM ECMP Rebalance\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char ecmp_rebalance_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
 		 FRR_PIM_XPATH,
@@ -9882,23 +9649,13 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
 	       "Source address for TCP connection\n"
 	       "local ip address\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char temp_xpath[XPATH_MAXLEN];
 	char msdp_peer_source_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(msdp_peer_source_xpath, sizeof(msdp_peer_source_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -9924,23 +9681,13 @@ DEFUN (no_ip_msdp_peer,
        "Delete MSDP peer\n"
        "peer ip address\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char msdp_peer_xpath[XPATH_MAXLEN];
 	char temp_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(msdp_peer_xpath, sizeof(msdp_peer_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -9966,23 +9713,13 @@ DEFUN (ip_msdp_mesh_group_member,
        "mesh group member\n"
        "peer ip address\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char msdp_mesh_group_name_xpath[XPATH_MAXLEN];
 	char msdp_mesh_group_member_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(msdp_mesh_group_name_xpath, sizeof(msdp_mesh_group_name_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -10015,7 +9752,6 @@ DEFUN (no_ip_msdp_mesh_group_member,
        "mesh group member\n"
        "peer ip address\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char pim_af_xpath[XPATH_MAXLEN];
 	char mesh_group_xpath[XPATH_MAXLEN + 32];
@@ -10026,18 +9762,9 @@ DEFUN (no_ip_msdp_mesh_group_member,
 	const char *mesh_group_name;
 	const struct lyd_node *member_dnode;
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(pim_af_xpath, sizeof(pim_af_xpath), FRR_PIM_AF_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
@@ -10103,23 +9830,13 @@ DEFUN (ip_msdp_mesh_group_source,
        "mesh group local address\n"
        "source ip address for the TCP connection\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char msdp_mesh_source_ip_xpath[XPATH_MAXLEN];
 	char msdp_mesh_group_name_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(msdp_mesh_group_name_xpath, sizeof(msdp_mesh_group_name_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -10152,7 +9869,6 @@ DEFUN (no_ip_msdp_mesh_group_source,
        "mesh group source\n"
        "mesh group local address\n")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	char msdp_mesh_xpath[XPATH_MAXLEN];
 	char source_xpath[XPATH_MAXLEN];
@@ -10160,18 +9876,9 @@ DEFUN (no_ip_msdp_mesh_group_source,
 	char mesh_group_name_xpath[XPATH_MAXLEN];
 	const char *mesh_group_name;
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(msdp_mesh_xpath, sizeof(msdp_mesh_xpath),
 		 FRR_PIM_AF_XPATH,
@@ -10226,24 +9933,14 @@ DEFUN (no_ip_msdp_mesh_group,
        "Delete MSDP mesh-group\n"
        "mesh group name")
 {
-	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
 	const char *mesh_group_name;
 	char xpath[XPATH_MAXLEN];
 	char msdp_mesh_xpath[XPATH_MAXLEN];
 
-	if (vty->xpath_index) {
-		vrf_dnode =
-			yang_dnode_get(vty->candidate_config->dnode,
-				       VTY_CURR_XPATH);
-		if (!vrf_dnode) {
-			vty_out(vty,
-				"%% Failed to get vrf dnode in candidate db\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
-	} else
-		vrfname = VRF_DEFAULT_NAME;
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (argc == 5) {
 		snprintf(xpath, sizeof(xpath), FRR_PIM_AF_XPATH, "frr-pim:pimd",
