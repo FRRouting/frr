@@ -890,7 +890,6 @@ static void ospf6_restart_spf(struct ospf6 *ospf6)
 {
 	ospf6_route_remove_all(ospf6->route_table);
 	ospf6_route_remove_all(ospf6->brouter_table);
-	ospf6_route_remove_all(ospf6->external_table);
 
 	/* Trigger SPF */
 	ospf6_spf_schedule(ospf6, OSPF6_SPF_FLAGS_CONFIG_CHANGE);
