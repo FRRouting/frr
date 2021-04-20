@@ -947,6 +947,95 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/hold-time
+ */
+int pim_msdp_hold_time_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_instance *pim;
+	struct vrf *vrf;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_get_uint32(args->dnode, NULL)
+		    <= yang_dnode_get_uint32(args->dnode, "../keep-alive")) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Hold time must be greater than keep alive interval");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->msdp.hold_time = yang_dnode_get_uint32(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/keep-alive
+ */
+int pim_msdp_keep_alive_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_instance *pim;
+	struct vrf *vrf;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_get_uint32(args->dnode, NULL)
+		    >= yang_dnode_get_uint32(args->dnode, "../hold-time")) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Keep alive must be less than hold time interval");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->msdp.keep_alive = yang_dnode_get_uint32(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/connection-retry
+ */
+int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_instance *pim;
+	struct vrf *vrf;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->msdp.connection_retry =
+			yang_dnode_get_uint32(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-groups
  */
 int pim_msdp_mesh_group_create(struct nb_cb_create_args *args)
