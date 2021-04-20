@@ -37,6 +37,7 @@ net.ipv4.icmp_errors_use_inbound_ifaddr=1
 
 #   Keep ipv6 permanent addresses on an admin down
 net.ipv6.conf.all.keep_addr_on_down=1
+net.ipv6.route.skip_notify_on_dev_down=1
 
 # igmp
 net.ipv4.igmp_max_memberships=1000
