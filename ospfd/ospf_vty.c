@@ -1546,6 +1546,7 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 	/* Flush the external LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	ospf_schedule_abr_task(ospf);
+	ospf_schedule_asbr_nssa_redist_update(ospf);
 
 	return CMD_SUCCESS;
 }

@@ -242,6 +242,8 @@ struct ospf {
 	/* Threads. */
 	struct thread *t_abr_task;	  /* ABR task timer. */
 	struct thread *t_asbr_check;	/* ASBR check timer. */
+	struct thread *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
+						     update timer. */
 	struct thread *t_distribute_update; /* Distirbute list update timer. */
 	struct thread *t_spf_calc;	  /* SPF calculation timer. */
 	struct thread *t_ase_calc;	  /* ASE calculation timer. */

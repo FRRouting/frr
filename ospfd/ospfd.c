@@ -791,6 +791,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	OSPF_TIMER_OFF(ospf->t_maxage_walker);
 	OSPF_TIMER_OFF(ospf->t_abr_task);
 	OSPF_TIMER_OFF(ospf->t_asbr_check);
+	OSPF_TIMER_OFF(ospf->t_asbr_nssa_redist_update);
 	OSPF_TIMER_OFF(ospf->t_distribute_update);
 	OSPF_TIMER_OFF(ospf->t_lsa_refresher);
 	OSPF_TIMER_OFF(ospf->t_opaque_lsa_self);
