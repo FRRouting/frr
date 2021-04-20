@@ -207,6 +207,13 @@ struct pim_msdp {
 
 	/** List of mesh groups. */
 	struct pim_mesh_group_list mglist;
+
+	/** MSDP global hold time period. */
+	uint32_t hold_time;
+	/** MSDP global keep alive period. */
+	uint32_t keep_alive;
+	/** MSDP global connection retry period. */
+	uint32_t connection_retry;
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
