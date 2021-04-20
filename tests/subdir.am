@@ -87,6 +87,7 @@ check_PROGRAMS = \
 	tests/lib/test_nexthop_iter \
 	tests/lib/test_nexthop \
 	tests/lib/test_ntop \
+	tests/lib/test_plist \
 	tests/lib/test_prefix2str \
 	tests/lib/test_printfrr \
 	tests/lib/test_privs \
@@ -344,6 +345,10 @@ tests_lib_test_ntop_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_ntop_CPPFLAGS = $(CPPFLAGS_BASE) # no assert override
 tests_lib_test_ntop_LDADD = # none
 tests_lib_test_ntop_SOURCES = tests/lib/test_ntop.c tests/helpers/c/prng.c
+tests_lib_test_plist_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_plist_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_plist_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_plist_SOURCES = tests/lib/test_plist.c tests/lib/cli/common_cli.c
 tests_lib_test_prefix2str_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_prefix2str_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_prefix2str_LDADD = $(ALL_TESTS_LDADD)
