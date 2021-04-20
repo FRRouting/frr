@@ -113,6 +113,49 @@ module frr-pim {
         "RP keep alive Timer in seconds.";
     }
   }
+
+  grouping msdp-timers {
+    leaf hold-time {
+      type uint32 {
+        range 3..600;
+      }
+      units seconds;
+      default 75;
+      description
+        "Hold period is started at the MSDP peer connection establishment
+         and is reset every new message. When the period expires the
+         connection is closed.
+
+         This value needs to be greater than `keep-alive-period`.";
+    }
+
+    leaf keep-alive {
+      type uint32 {
+        range 2..600;
+      }
+      units seconds;
+      default 60;
+      description
+        "To maintain a connection established it is necessary to send
+         keep alive messages in a certain frequency and this allows its
+         configuration.
+
+         This value needs to be lesser than `hold-time-period`.";
+    }
+
+    leaf connection-retry {
+      type uint32 {
+        range 1..600;
+      }
+      units seconds;
+      default 30;
+      description
+        "This period is used in the MSDP peer with the highest IP value
+         in the pair and configures the interval between TCP connection
+         attempts.";
+    }
+  }
+
   grouping per-af-global-pim-config-attributes {
     description
       "A grouping defining per address family pim global attributes";
@@ -172,6 +215,12 @@ module frr-pim {
       type inet:ip-address;
       description
         "Enable ssmpingd operation.";
+    }
+
+    /* Global timers configuration. */
+    container msdp {
+      description "Global MSDP configuration.";
+      uses msdp-timers;
     }
 
     list msdp-mesh-groups {
