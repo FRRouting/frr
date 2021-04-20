@@ -1844,6 +1844,7 @@ enum bgp_clear_type {
 /* BGP error codes.  */
 #define BGP_SUCCESS                               0
 #define BGP_CREATED                               1
+#define BGP_INSTANCE_EXISTS                       2
 #define BGP_ERR_INVALID_VALUE                    -1
 #define BGP_ERR_INVALID_FLAG                     -2
 #define BGP_ERR_INVALID_AS                       -3

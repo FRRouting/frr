@@ -347,17 +347,12 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 					   zvrf_id(zvrf), afi);
 		}
 	} else {
-		if (!vrf_bitmap_check(client->redist[afi][type],
-				      zvrf_id(zvrf))) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug(
-					"%s: setting vrf %s(%u) redist bitmap",
-					__func__, VRF_LOGNAME(zvrf->vrf),
-					zvrf_id(zvrf));
-			vrf_bitmap_set(client->redist[afi][type],
-				       zvrf_id(zvrf));
-			zebra_redistribute(client, type, 0, zvrf_id(zvrf), afi);
-		}
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s: setting vrf %s(%u) redist bitmap",
+				   __func__, VRF_LOGNAME(zvrf->vrf),
+				   zvrf_id(zvrf));
+		vrf_bitmap_set(client->redist[afi][type], zvrf_id(zvrf));
+		zebra_redistribute(client, type, 0, zvrf_id(zvrf), afi);
 	}
 
 stream_failure:
