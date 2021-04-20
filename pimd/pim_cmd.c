@@ -3853,6 +3853,54 @@ static const char *pim_cli_get_vrf_name(struct vty *vty)
 	return yang_dnode_get_string(vrf_node, "./name");
 }
 
+/**
+ * Compatibility function to keep the legacy mesh group CLI behavior:
+ * Delete group when there are no more configurations in it.
+ *
+ * NOTE:
+ * Don't forget to call `nb_cli_apply_changes` after this.
+ */
+static void pim_cli_legacy_mesh_group_behavior(struct vty *vty,
+					       const char *gname)
+{
+	const char *vrfname;
+	char xpath_value[XPATH_MAXLEN];
+	char xpath_member_value[XPATH_MAXLEN];
+	const struct lyd_node *member_dnode;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return;
+
+	/* Get mesh group base XPath. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 FRR_PIM_AF_XPATH "/msdp-mesh-groups[name='%s']",
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+	/* Group must exists, otherwise just quit. */
+	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath_value))
+		return;
+
+	/* Group members check: */
+	strlcpy(xpath_member_value, xpath_value, sizeof(xpath_member_value));
+	strlcat(xpath_member_value, "/members", sizeof(xpath_member_value));
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      xpath_member_value)) {
+		member_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					      xpath_member_value);
+		if (!yang_is_last_list_dnode(member_dnode))
+			return;
+	}
+
+	/* Source address check: */
+	strlcpy(xpath_member_value, xpath_value, sizeof(xpath_member_value));
+	strlcat(xpath_member_value, "/source", sizeof(xpath_member_value));
+	if (yang_dnode_exists(vty->candidate_config->dnode, xpath_member_value))
+		return;
+
+	/* No configurations found: delete it. */
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+}
+
 DEFUN (clear_ip_interfaces,
        clear_ip_interfaces_cmd,
        "clear ip interfaces [vrf NAME]",
@@ -9683,305 +9731,199 @@ DEFUN (no_ip_msdp_peer,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ip_msdp_mesh_group_member,
-       ip_msdp_mesh_group_member_cmd,
-       "ip msdp mesh-group WORD member A.B.C.D",
-       IP_STR
-       CFG_MSDP_STR
-       "Configure MSDP mesh-group\n"
-       "mesh group name\n"
-       "mesh group member\n"
-       "peer ip address\n")
+DEFPY(ip_msdp_mesh_group_member,
+      ip_msdp_mesh_group_member_cmd,
+      "ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
+      IP_STR
+      CFG_MSDP_STR
+      "Configure MSDP mesh-group\n"
+      "Mesh group name\n"
+      "Mesh group member\n"
+      "Peer IP address\n")
 {
 	const char *vrfname;
-	char msdp_mesh_group_name_xpath[XPATH_MAXLEN];
-	char msdp_mesh_group_member_xpath[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN];
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(msdp_mesh_group_name_xpath, sizeof(msdp_mesh_group_name_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(msdp_mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
-		sizeof(msdp_mesh_group_name_xpath));
-	snprintf(msdp_mesh_group_member_xpath,
-		 sizeof(msdp_mesh_group_member_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(msdp_mesh_group_member_xpath, "/msdp-mesh-group/member-ip",
-		sizeof(msdp_mesh_group_member_xpath));
+	/* Create mesh group. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 FRR_PIM_AF_XPATH "/msdp-mesh-groups[name='%s']",
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
 
-	nb_cli_enqueue_change(vty, msdp_mesh_group_name_xpath, NB_OP_MODIFY,
-			      argv[3]->arg);
-	nb_cli_enqueue_change(vty, msdp_mesh_group_member_xpath, NB_OP_CREATE,
-			      argv[5]->arg);
+	/* Create mesh group member. */
+	strlcat(xpath_value, "/members[address='", sizeof(xpath_value));
+	strlcat(xpath_value, maddr_str, sizeof(xpath_value));
+	strlcat(xpath_value, "']", sizeof(xpath_value));
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ip_msdp_mesh_group_member,
-       no_ip_msdp_mesh_group_member_cmd,
-       "no ip msdp mesh-group WORD member A.B.C.D",
-       NO_STR
-       IP_STR
-       CFG_MSDP_STR
-       "Delete MSDP mesh-group member\n"
-       "mesh group name\n"
-       "mesh group member\n"
-       "peer ip address\n")
+DEFPY(no_ip_msdp_mesh_group_member,
+      no_ip_msdp_mesh_group_member_cmd,
+      "no ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
+      NO_STR
+      IP_STR
+      CFG_MSDP_STR
+      "Delete MSDP mesh-group member\n"
+      "Mesh group name\n"
+      "Mesh group member\n"
+      "Peer IP address\n")
 {
 	const char *vrfname;
-	char pim_af_xpath[XPATH_MAXLEN];
-	char mesh_group_xpath[XPATH_MAXLEN + 32];
-	char group_member_list_xpath[XPATH_MAXLEN + 64];
-	char group_member_xpath[XPATH_MAXLEN + 128];
-	char source_xpath[XPATH_MAXLEN + 64];
-	char mesh_group_name_xpath[XPATH_MAXLEN + 64];
-	const char *mesh_group_name;
-	const struct lyd_node *member_dnode;
+	char xpath_value[XPATH_MAXLEN];
+	char xpath_member_value[XPATH_MAXLEN];
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(pim_af_xpath, sizeof(pim_af_xpath), FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	/* Get mesh group base XPath. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 FRR_PIM_AF_XPATH "/msdp-mesh-groups[name='%s']",
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
 
-	snprintf(mesh_group_xpath, sizeof(mesh_group_xpath),
-		 "%s/msdp-mesh-group", pim_af_xpath);
-
-	snprintf(group_member_list_xpath, sizeof(group_member_list_xpath),
-		 "%s/msdp-mesh-group/member-ip", pim_af_xpath);
-
-	snprintf(group_member_xpath, sizeof(group_member_xpath), "%s[.='%s']",
-		 group_member_list_xpath, argv[6]->arg);
-
-	snprintf(source_xpath, sizeof(source_xpath),
-		 "%s/msdp-mesh-group/source-ip", pim_af_xpath);
-
-	snprintf(mesh_group_name_xpath, sizeof(mesh_group_name_xpath),
-		 "%s/msdp-mesh-group/mesh-group-name", pim_af_xpath);
-
-	if (yang_dnode_exists(running_config->dnode, mesh_group_name_xpath)
-	    == true) {
-		mesh_group_name = yang_dnode_get_string(running_config->dnode,
-							mesh_group_name_xpath);
-		if (strcmp(mesh_group_name, argv[4]->arg)) {
-			vty_out(vty, "%% mesh-group does not exist\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	if (yang_dnode_exists(vty->candidate_config->dnode,
-			      group_member_xpath)) {
-		if (!yang_dnode_exists(vty->candidate_config->dnode,
-				       source_xpath)) {
-			member_dnode = yang_dnode_get(
-				vty->candidate_config->dnode,
-				group_member_xpath);
-			if (yang_is_last_list_dnode(member_dnode)) {
-				nb_cli_enqueue_change(vty, mesh_group_xpath,
-						      NB_OP_DESTROY, NULL);
-				return nb_cli_apply_changes(vty, NULL);
-			}
-			nb_cli_enqueue_change(vty, group_member_list_xpath,
-					      NB_OP_DESTROY, argv[6]->arg);
-			return nb_cli_apply_changes(vty, NULL);
-		}
-		nb_cli_enqueue_change(vty, group_member_list_xpath,
-				      NB_OP_DESTROY, argv[6]->arg);
-		return nb_cli_apply_changes(vty, NULL);
-	}
-
-	vty_out(vty, "%% mesh-group member does not exist\n");
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ip_msdp_mesh_group_source,
-       ip_msdp_mesh_group_source_cmd,
-       "ip msdp mesh-group WORD source A.B.C.D",
-       IP_STR
-       CFG_MSDP_STR
-       "Configure MSDP mesh-group\n"
-       "mesh group name\n"
-       "mesh group local address\n"
-       "source ip address for the TCP connection\n")
-{
-	const char *vrfname;
-	char msdp_mesh_source_ip_xpath[XPATH_MAXLEN];
-	char msdp_mesh_group_name_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
+	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath_value)) {
+		vty_out(vty, "%% mesh-group does not exist\n");
 		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(msdp_mesh_group_name_xpath, sizeof(msdp_mesh_group_name_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(msdp_mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
-		sizeof(msdp_mesh_group_name_xpath));
-
-	snprintf(msdp_mesh_source_ip_xpath, sizeof(msdp_mesh_source_ip_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(msdp_mesh_source_ip_xpath, "/msdp-mesh-group/source-ip",
-		sizeof(msdp_mesh_source_ip_xpath));
-
-	nb_cli_enqueue_change(vty, msdp_mesh_group_name_xpath, NB_OP_MODIFY,
-			      argv[3]->arg);
-	nb_cli_enqueue_change(vty, msdp_mesh_source_ip_xpath, NB_OP_MODIFY,
-			      argv[5]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN (no_ip_msdp_mesh_group_source,
-       no_ip_msdp_mesh_group_source_cmd,
-       "no ip msdp mesh-group WORD source [A.B.C.D]",
-       NO_STR
-       IP_STR
-       CFG_MSDP_STR
-       "Delete MSDP mesh-group source\n"
-       "mesh group name\n"
-       "mesh group source\n"
-       "mesh group local address\n")
-{
-	const char *vrfname;
-	char msdp_mesh_xpath[XPATH_MAXLEN];
-	char source_xpath[XPATH_MAXLEN];
-	char group_member_xpath[XPATH_MAXLEN];
-	char mesh_group_name_xpath[XPATH_MAXLEN];
-	const char *mesh_group_name;
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(msdp_mesh_xpath, sizeof(msdp_mesh_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(msdp_mesh_xpath, "/msdp-mesh-group", sizeof(msdp_mesh_xpath));
-
-	snprintf(source_xpath, sizeof(source_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(source_xpath, "/msdp-mesh-group/source-ip",
-		sizeof(source_xpath));
-
-	snprintf(group_member_xpath,
-		 sizeof(group_member_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(group_member_xpath, "/msdp-mesh-group/member-ip",
-		sizeof(group_member_xpath));
-
-	snprintf(mesh_group_name_xpath, sizeof(mesh_group_name_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
-		sizeof(mesh_group_name_xpath));
-
-	if (yang_dnode_exists(running_config->dnode, mesh_group_name_xpath)
-	    == true) {
-		mesh_group_name = yang_dnode_get_string(running_config->dnode,
-							mesh_group_name_xpath);
-		if (strcmp(mesh_group_name, argv[4]->arg)) {
-			vty_out(vty, "%% mesh-group does not exist\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 	}
 
+	/* Remove mesh group member. */
+	strlcpy(xpath_member_value, xpath_value, sizeof(xpath_member_value));
+	strlcat(xpath_member_value, "/members[address='",
+		sizeof(xpath_member_value));
+	strlcat(xpath_member_value, maddr_str, sizeof(xpath_member_value));
+	strlcat(xpath_member_value, "']", sizeof(xpath_member_value));
 	if (!yang_dnode_exists(vty->candidate_config->dnode,
-			       group_member_xpath)) {
-		nb_cli_enqueue_change(vty, msdp_mesh_xpath, NB_OP_DESTROY,
-				      NULL);
-		return nb_cli_apply_changes(vty, NULL);
+			       xpath_member_value)) {
+		vty_out(vty, "%% mesh-group member does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
 	}
-	nb_cli_enqueue_change(vty, source_xpath, NB_OP_DESTROY, NULL);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+
+	/*
+	 * If this is the last member, then we must remove the group altogether
+	 * to not break legacy CLI behaviour.
+	 */
+	pim_cli_legacy_mesh_group_behavior(vty, gname);
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ip_msdp_mesh_group,
-       no_ip_msdp_mesh_group_cmd,
-       "no ip msdp mesh-group [WORD]",
-       NO_STR
-       IP_STR
-       CFG_MSDP_STR
-       "Delete MSDP mesh-group\n"
-       "mesh group name")
+DEFPY(ip_msdp_mesh_group_source,
+      ip_msdp_mesh_group_source_cmd,
+      "ip msdp mesh-group WORD$gname source A.B.C.D$saddr",
+      IP_STR
+      CFG_MSDP_STR
+      "Configure MSDP mesh-group\n"
+      "Mesh group name\n"
+      "Mesh group local address\n"
+      "Source IP address for the TCP connection\n")
 {
 	const char *vrfname;
-	const char *mesh_group_name;
-	char xpath[XPATH_MAXLEN];
-	char msdp_mesh_xpath[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN];
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (argc == 5) {
-		snprintf(xpath, sizeof(xpath), FRR_PIM_AF_XPATH, "frr-pim:pimd",
-			 "pim", vrfname, "frr-routing:ipv4");
-		strlcat(xpath, "/msdp-mesh-group/mesh-group-name",
-			sizeof(xpath));
+	/* Create mesh group. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 FRR_PIM_AF_XPATH "/msdp-mesh-groups[name='%s']",
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
 
-		if (yang_dnode_exists(running_config->dnode, xpath) == true) {
-			mesh_group_name =
-				yang_dnode_get_string(running_config->dnode,
-						      xpath);
+	/* Create mesh group member. */
+	strlcat(xpath_value, "/source", sizeof(xpath_value));
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, saddr_str);
 
-			if (strcmp(mesh_group_name, argv[4]->arg)) {
-				vty_out(vty, "%% mesh-group does not exist\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-		}
-	}
-
-	snprintf(msdp_mesh_xpath, sizeof(msdp_mesh_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(msdp_mesh_xpath, "/msdp-mesh-group", sizeof(msdp_mesh_xpath));
-
-	nb_cli_enqueue_change(vty, msdp_mesh_xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-static void print_empty_json_obj(struct vty *vty)
+DEFPY(no_ip_msdp_mesh_group_source,
+      no_ip_msdp_mesh_group_source_cmd,
+      "no ip msdp mesh-group WORD$gname source [A.B.C.D]",
+      NO_STR
+      IP_STR
+      CFG_MSDP_STR
+      "Delete MSDP mesh-group source\n"
+      "Mesh group name\n"
+      "Mesh group source\n"
+      "Mesh group local address\n")
 {
-	json_object *json;
-	json = json_object_new_object();
-	vty_out(vty, "%s\n",
-		json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-	json_object_free(json);
+	const char *vrfname;
+	char xpath_value[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/* Get mesh group base XPath. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 FRR_PIM_AF_XPATH "/msdp-mesh-groups[name='%s']",
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+
+	/* Create mesh group member. */
+	strlcat(xpath_value, "/source", sizeof(xpath_value));
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+
+	/*
+	 * If this is the last member, then we must remove the group altogether
+	 * to not break legacy CLI behaviour.
+	 */
+	pim_cli_legacy_mesh_group_behavior(vty, gname);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-static void ip_msdp_show_mesh_group(struct pim_instance *pim, struct vty *vty,
-				    bool uj)
+DEFPY(no_ip_msdp_mesh_group,
+      no_ip_msdp_mesh_group_cmd,
+      "no ip msdp mesh-group WORD$gname",
+      NO_STR
+      IP_STR
+      CFG_MSDP_STR
+      "Delete MSDP mesh-group\n"
+      "Mesh group name")
+{
+	const char *vrfname;
+	char xpath_value[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/* Get mesh group base XPath. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 FRR_PIM_AF_XPATH "/msdp-mesh-groups[name='%s']",
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath_value))
+		return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
+				    struct json_object *json)
 {
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
-	struct pim_msdp_mg *mg = pim->msdp.mg;
 	char mbr_str[INET_ADDRSTRLEN];
 	char src_str[INET_ADDRSTRLEN];
 	char state_str[PIM_MSDP_STATE_STRLEN];
 	enum pim_msdp_peer_state state;
-	json_object *json = NULL;
 	json_object *json_mg_row = NULL;
 	json_object *json_members = NULL;
 	json_object *json_row = NULL;
 
-	if (!mg) {
-		if (uj)
-			print_empty_json_obj(vty);
-		return;
-	}
-
 	pim_inet4_dump("<source?>", mg->src_ip, src_str, sizeof(src_str));
-	if (uj) {
-		json = json_object_new_object();
+	if (json) {
 		/* currently there is only one mesh group but we should still
 		 * make
 		 * it a dict with mg-name as key */
@@ -10003,7 +9945,7 @@ static void ip_msdp_show_mesh_group(struct pim_instance *pim, struct vty *vty,
 			state = PIM_MSDP_DISABLED;
 		}
 		pim_msdp_state_dump(state, state_str, sizeof(state_str));
-		if (uj) {
+		if (json) {
 			json_row = json_object_new_object();
 			json_object_string_add(json_row, "member", mbr_str);
 			json_object_string_add(json_row, "state", state_str);
@@ -10018,12 +9960,8 @@ static void ip_msdp_show_mesh_group(struct pim_instance *pim, struct vty *vty,
 		}
 	}
 
-	if (uj) {
+	if (json)
 		json_object_object_add(json, mg->mesh_group_name, json_mg_row);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
 }
 
 DEFUN (show_ip_msdp_mesh_group,
@@ -10038,12 +9976,34 @@ DEFUN (show_ip_msdp_mesh_group,
 {
 	bool uj = use_json(argc, argv);
 	int idx = 2;
+	struct pim_msdp_mg *mg;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct pim_instance *pim = vrf->info;
+	struct json_object *json = NULL;
 
 	if (!vrf)
 		return CMD_WARNING;
 
-	ip_msdp_show_mesh_group(vrf->info, vty, uj);
+	/* Quick case: list is empty. */
+	if (SLIST_EMPTY(&pim->msdp.mglist)) {
+		if (uj)
+			vty_out(vty, "{}\n");
+
+		return CMD_SUCCESS;
+	}
+
+	if (uj)
+		json = json_object_new_object();
+
+	SLIST_FOREACH (mg, &pim->msdp.mglist, mg_entry)
+		ip_msdp_show_mesh_group(vty, mg, json);
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -10059,23 +10019,32 @@ DEFUN (show_ip_msdp_mesh_group_vrf_all,
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
+	struct json_object *json = NULL, *vrf_json = NULL;
+	struct pim_instance *pim;
+	struct pim_msdp_mg *mg;
 	struct vrf *vrf;
-	bool first = true;
 
 	if (uj)
-		vty_out(vty, "{ ");
+		json = json_object_new_object();
+
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
+			vrf_json = json_object_new_object();
+			json_object_object_add(json, vrf->name, vrf_json);
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		ip_msdp_show_mesh_group(vrf->info, vty, uj);
+
+		pim = vrf->info;
+		SLIST_FOREACH (mg, &pim->msdp.mglist, mg_entry)
+			ip_msdp_show_mesh_group(vty, mg, vrf_json);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 
 	return CMD_SUCCESS;
 }
