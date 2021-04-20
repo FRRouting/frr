@@ -299,15 +299,11 @@ To start OSPF process you have to specify the OSPF router.
    command can be used when the neighbor state get stuck at some state and
    this can be used to recover it from that state.
 
-.. index:: maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM)
-.. clicmd:: maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM)
+.. clicmd:: maximum-paths (1-64)
 
-.. index:: maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM)
-.. clicmd:: no maximum-paths
-
-   CLI to control maximum number of equal cost paths to reach a specific
-   destination.(ECMP)
-   Reset CLI, resets the maximum supported multi path to the default value.
+   Use this command to control the maximum number of equal cost paths to reach
+   a specific destination. The upper limit may differ if you change the value
+   of MULTIPATH_NUM during compilation. The default is MULTIPATH_NUM (64).
 
 .. _ospf-area:
 
