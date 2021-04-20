@@ -470,6 +470,12 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 				       uint8_t flags, uint32_t seq,
 				       struct in_addr vtep_ip,
 				       const esi_t *esi);
+/* Enqueue VXLAN remote vtep update for processing */
+int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni,
+				      struct in_addr vtep_ip,
+				      int flood_control);
+int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
+				      struct in_addr vtep_ip);
 
 extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
