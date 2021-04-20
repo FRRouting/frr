@@ -174,26 +174,36 @@ module frr-pim {
         "Enable ssmpingd operation.";
     }
 
-    container msdp-mesh-group {
-      presence
-        "Configure MSDP mesh-group.";
+    list msdp-mesh-groups {
+      key "name";
+      description
+        "RFC 3618 Section 10.2. MSDP mesh-group semantics
 
-      leaf mesh-group-name {
-        type string;
+         Groups multiple MSDP peers to reduce SA flooding typically used
+         in intra-domain settings.";
+
+      leaf name {
+        type string {
+          length 1..64;
+        }
         description
-          "MSDP mesh group name.";
+          "The mesh group name.";
       }
 
-      leaf-list member-ip {
+      leaf source {
         type inet:ip-address;
         description
-          "Peer ip address.";
+          "Source IP address for the TCP connections.";
       }
 
-      leaf source-ip {
-        type inet:ip-address;
-        description
-          "Source ip address for the TCP connection.";
+      list members {
+        key "address";
+
+        leaf address {
+          type inet:ip-address;
+          description
+            "Peer member IP address.";
+        }
       }
     }
 
