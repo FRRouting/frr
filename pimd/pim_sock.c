@@ -112,17 +112,15 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 	}
 
 #ifdef SO_BINDTODEVICE
-	if (protocol == IPPROTO_PIM) {
-		int ret;
+	int ret;
 
-		ret = pim_socket_bind(fd, ifp);
-		if (ret) {
-			close(fd);
-			zlog_warn(
-				"Could not set fd: %d for interface: %s to device",
-				fd, ifp->name);
-			return PIM_SOCK_ERR_BIND;
-		}
+	ret = pim_socket_bind(fd, ifp);
+	if (ret) {
+		close(fd);
+		zlog_warn(
+			"Could not set fd: %d for interface: %s to device",
+			fd, ifp->name);
+		return PIM_SOCK_ERR_BIND;
 	}
 #else
 /* XXX: use IP_PKTINFO / IP_RECVIF to emulate behaviour?  Or change to
