@@ -9698,6 +9698,38 @@ DEFPY(ip_msdp_peer, ip_msdp_peer_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
+      "ip msdp timers (2-600)$keepalive (3-600)$holdtime [(1-600)$connretry]",
+      IP_STR
+      CFG_MSDP_STR
+      "MSDP timers configuration\n"
+      "Keep alive period (in seconds)\n"
+      "Hold time period (in seconds)\n"
+      "Connection retry period (in seconds)\n")
+{
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_MSDP_XPATH, "frr-pim:pimd",
+		 "pim", vrfname, "frr-routing:ipv4");
+	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_MODIFY, holdtime_str);
+	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_MODIFY, keepalive_str);
+	if (connretry_str)
+		nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_MODIFY,
+				      connretry_str);
+	else
+		nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY,
+				      NULL);
+
+	nb_cli_apply_changes(vty, xpath);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_ip_msdp_peer,
        no_ip_msdp_peer_cmd,
        "no ip msdp peer A.B.C.D",
@@ -11321,6 +11353,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_bsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
 
+	install_element(CONFIG_NODE, &ip_msdp_timers_cmd);
+	install_element(VRF_NODE, &ip_msdp_timers_cmd);
 	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);

@@ -125,6 +125,12 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_instance_mlag_init(pim);
 
 	pim->last_route_change_time = -1;
+
+	/* MSDP global timer defaults. */
+	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
+	pim->msdp.keep_alive = PIM_MSDP_PEER_KA_TIME;
+	pim->msdp.connection_retry = PIM_MSDP_PEER_CONNECT_RETRY_TIME;
+
 	return pim;
 }
 
