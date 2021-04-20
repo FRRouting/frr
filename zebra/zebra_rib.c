@@ -157,6 +157,7 @@ struct wq_evpn_wrapper {
 #define WQ_EVPN_WRAPPER_TYPE_VRFROUTE     0x01
 #define WQ_EVPN_WRAPPER_TYPE_REM_ES       0x02
 #define WQ_EVPN_WRAPPER_TYPE_REM_MACIP    0x03
+#define WQ_EVPN_WRAPPER_TYPE_REM_VTEP     0x04
 
 /* %pRN is already a printer for route_nodes that just prints the prefix */
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
@@ -2384,7 +2385,15 @@ static void process_subq_evpn(struct listnode *lnode)
 		else
 			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len,
 						 &w->ip, w->vtep_ip);
+	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_VTEP) {
+		if (w->add_p)
+			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni,
+						    w->vtep_ip, w->flags);
+		else
+			zebra_vxlan_remote_vtep_del(w->vrf_id, w->vni,
+						    w->vtep_ip);
 	}
+
 
 	XFREE(MTYPE_WQ_WRAPPER, w);
 }
@@ -2877,6 +2886,50 @@ int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("%s: mac %pEA, vtep %pI4 enqueued", __func__,
 			   macaddr, &vtep_ip);
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+/*
+ * Enqueue remote VTEP address for processing
+ */
+int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni,
+				      struct in_addr vtep_ip, int flood_control)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_VTEP;
+	w->add_p = true;
+	w->vrf_id = vrf_id;
+	w->vni = vni;
+	w->vtep_ip = vtep_ip;
+	w->flags = flood_control;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: vrf %u, vtep %pI4 enqueued", __func__, vrf_id,
+			   &vtep_ip);
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
+				      struct in_addr vtep_ip)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_VTEP;
+	w->add_p = false;
+	w->vrf_id = vrf_id;
+	w->vni = vni;
+	w->vtep_ip = vtep_ip;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: vrf %u, vtep %pI4 enqueued", __func__, vrf_id,
+			   &vtep_ip);
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }

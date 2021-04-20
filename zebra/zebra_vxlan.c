@@ -4199,27 +4199,23 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 /*
  * Handle message from client to delete a remote VTEP for an EVPN.
  */
-void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
+void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	unsigned short l = 0;
 	vni_t vni;
 	struct in_addr vtep_ip;
-	zebra_evpn_t *zevpn;
-	zebra_vtep_t *zvtep;
-	struct interface *ifp;
-	struct zebra_if *zif;
 
 	if (!is_evpn_enabled()) {
 		zlog_debug(
-			"%s: EVPN is not enabled yet we have received a vtep del command",
+			"%s: EVPN is not enabled yet we have received a VTEP DEL msg",
 			__func__);
 		return;
 	}
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Recv MACIP DEL for non-EVPN VRF %u",
-			  zvrf_id(zvrf));
+		zlog_debug("Recv VTEP DEL zapi for non-EVPN VRF %u",
+			   zvrf_id(zvrf));
 		return;
 	}
 
@@ -4239,45 +4235,12 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 		l += 4;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("Recv VTEP_DEL %pI4 VNI %u from %s",
+			zlog_debug("Recv VTEP DEL %pI4 VNI %u from %s",
 				   &vtep_ip, vni,
 				   zebra_route_string(client->proto));
 
-		/* Locate VNI hash entry - expected to exist. */
-		zevpn = zebra_evpn_lookup(vni);
-		if (!zevpn) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"Failed to locate VNI hash upon remote VTEP DEL, VNI %u",
-					vni);
-			continue;
-		}
-
-		ifp = zevpn->vxlan_if;
-		if (!ifp) {
-			zlog_debug(
-				"VNI %u hash %p doesn't have intf upon remote VTEP DEL",
-				zevpn->vni, zevpn);
-			continue;
-		}
-		zif = ifp->info;
-
-		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
-			continue;
-
-		/* If the remote VTEP does not exist, there's nothing more to
-		 * do.
-		 * Otherwise, uninstall any remote MACs pointing to this VTEP
-		 * and
-		 * then, the VTEP entry itself and remove it.
-		 */
-		zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
-		if (!zvtep)
-			continue;
-
-		zebra_evpn_vtep_uninstall(zevpn, &vtep_ip);
-		zebra_evpn_vtep_del(zevpn, zvtep);
+		/* Enqueue for processing */
+		zebra_rib_queue_evpn_rem_vtep_del(zvrf_id(zvrf), vni, vtep_ip);
 	}
 
 stream_failure:
@@ -4285,30 +4248,169 @@ stream_failure:
 }
 
 /*
+ * Handle message from client to delete a remote VTEP for an EVPN.
+ */
+void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
+				 struct in_addr vtep_ip)
+{
+	zebra_evpn_t *zevpn;
+	zebra_vtep_t *zvtep;
+	struct interface *ifp;
+	struct zebra_if *zif;
+	struct zebra_vrf *zvrf;
+
+	if (!is_evpn_enabled()) {
+		zlog_debug("%s: Can't process vtep del: EVPN is not enabled",
+			   __func__);
+		return;
+	}
+
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
+	if (!zvrf)
+		return;
+
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_debug("Can't process VTEP DEL for non-EVPN VRF %u",
+			   zvrf_id(zvrf));
+		return;
+	}
+
+	/* Locate VNI hash entry - expected to exist. */
+	zevpn = zebra_evpn_lookup(vni);
+	if (!zevpn) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"Failed to locate VNI hash for remote VTEP DEL, VNI %u",
+				vni);
+		return;
+	}
+
+	ifp = zevpn->vxlan_if;
+	if (!ifp) {
+		zlog_debug(
+			"VNI %u hash %p doesn't have intf upon remote VTEP DEL",
+			zevpn->vni, zevpn);
+		return;
+	}
+	zif = ifp->info;
+
+	/* If down or not mapped to a bridge, we're done. */
+	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		return;
+
+	/* If the remote VTEP does not exist, there's nothing more to
+	 * do.
+	 * Otherwise, uninstall any remote MACs pointing to this VTEP
+	 * and then, the VTEP entry itself and remove it.
+	 */
+	zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
+	if (!zvtep)
+		return;
+
+	zebra_evpn_vtep_uninstall(zevpn, &vtep_ip);
+	zebra_evpn_vtep_del(zevpn, zvtep);
+}
+
+/*
  * Handle message from client to add a remote VTEP for an EVPN.
  */
-void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
+void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
+				 struct in_addr vtep_ip, int flood_control)
+{
+	zebra_evpn_t *zevpn;
+	struct interface *ifp;
+	struct zebra_if *zif;
+	zebra_vtep_t *zvtep;
+	struct zebra_vrf *zvrf;
+
+	if (!is_evpn_enabled()) {
+		zlog_debug("%s: EVPN not enabled: can't process a VTEP ADD",
+			   __func__);
+		return;
+	}
+
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
+	if (!zvrf)
+		return;
+
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_debug("Can't process VTEP ADD for non-EVPN VRF %u",
+			   zvrf_id(zvrf));
+		return;
+	}
+
+	/* Locate VNI hash entry - expected to exist. */
+	zevpn = zebra_evpn_lookup(vni);
+	if (!zevpn) {
+		flog_err(
+			EC_ZEBRA_VTEP_ADD_FAILED,
+			"Failed to locate EVPN hash upon remote VTEP ADD, VNI %u",
+			vni);
+		return;
+	}
+
+	ifp = zevpn->vxlan_if;
+	if (!ifp) {
+		flog_err(
+			EC_ZEBRA_VTEP_ADD_FAILED,
+			"VNI %u hash %p doesn't have intf upon remote VTEP ADD",
+			zevpn->vni, zevpn);
+		return;
+	}
+
+	zif = ifp->info;
+
+	/* If down or not mapped to a bridge, we're done. */
+	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		return;
+
+	zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
+	if (zvtep) {
+		/* If the remote VTEP already exists check if
+		 * the flood mode has changed
+		 */
+		if (zvtep->flood_control != flood_control) {
+			if (zvtep->flood_control == VXLAN_FLOOD_DISABLED)
+				/* old mode was head-end-replication but
+				 * is no longer; get rid of the HER fdb
+				 * entry installed before
+				 */
+				zebra_evpn_vtep_uninstall(zevpn, &vtep_ip);
+			zvtep->flood_control = flood_control;
+			zebra_evpn_vtep_install(zevpn, zvtep);
+		}
+	} else {
+		zvtep = zebra_evpn_vtep_add(zevpn, &vtep_ip, flood_control);
+		if (zvtep)
+			zebra_evpn_vtep_install(zevpn, zvtep);
+		else
+			flog_err(EC_ZEBRA_VTEP_ADD_FAILED,
+				 "Failed to add remote VTEP, VNI %u zevpn %p",
+				 vni, zevpn);
+	}
+}
+
+/*
+ * Handle message from client to add a remote VTEP for an EVPN.
+ */
+void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	unsigned short l = 0;
 	vni_t vni;
 	struct in_addr vtep_ip;
-	zebra_evpn_t *zevpn;
-	struct interface *ifp;
-	struct zebra_if *zif;
 	int flood_control;
-	zebra_vtep_t *zvtep;
 
 	if (!is_evpn_enabled()) {
 		zlog_debug(
-			"%s: EVPN not enabled yet we received a vtep_add zapi call",
+			"%s: EVPN not enabled yet we received a VTEP ADD zapi msg",
 			__func__);
 		return;
 	}
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Recv MACIP ADD for non-EVPN VRF %u",
-			  zvrf_id(zvrf));
+		zlog_debug("Recv VTEP ADD zapi for non-EVPN VRF %u",
+			   zvrf_id(zvrf));
 		return;
 	}
 
@@ -4323,62 +4425,13 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 		l += IPV4_MAX_BYTELEN + 4;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("Recv VTEP_ADD %pI4 VNI %u flood %d from %s",
-					&vtep_ip, vni, flood_control,
-					zebra_route_string(client->proto));
+			zlog_debug("Recv VTEP ADD %pI4 VNI %u flood %d from %s",
+				   &vtep_ip, vni, flood_control,
+				   zebra_route_string(client->proto));
 
-		/* Locate VNI hash entry - expected to exist. */
-		zevpn = zebra_evpn_lookup(vni);
-		if (!zevpn) {
-			flog_err(
-				EC_ZEBRA_VTEP_ADD_FAILED,
-				"Failed to locate EVPN hash upon remote VTEP ADD, VNI %u",
-				vni);
-			continue;
-		}
-
-		ifp = zevpn->vxlan_if;
-		if (!ifp) {
-			flog_err(
-				EC_ZEBRA_VTEP_ADD_FAILED,
-				"VNI %u hash %p doesn't have intf upon remote VTEP ADD",
-				zevpn->vni, zevpn);
-			continue;
-		}
-
-		zif = ifp->info;
-
-		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
-			continue;
-
-		zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
-		if (zvtep) {
-			/* If the remote VTEP already exists check if
-			 * the flood mode has changed
-			 */
-			if (zvtep->flood_control != flood_control) {
-				if (zvtep->flood_control
-						== VXLAN_FLOOD_DISABLED)
-					/* old mode was head-end-replication but
-					 * is no longer; get rid of the HER fdb
-					 * entry installed before
-					 */
-					zebra_evpn_vtep_uninstall(zevpn,
-								  &vtep_ip);
-				zvtep->flood_control = flood_control;
-				zebra_evpn_vtep_install(zevpn, zvtep);
-			}
-		} else {
-			zvtep = zebra_evpn_vtep_add(zevpn, &vtep_ip,
-						    flood_control);
-			if (zvtep)
-				zebra_evpn_vtep_install(zevpn, zvtep);
-			else
-				flog_err(EC_ZEBRA_VTEP_ADD_FAILED,
-					"Failed to add remote VTEP, VNI %u zevpn %p",
-					vni, zevpn);
-		}
+		/* Enqueue for processing */
+		zebra_rib_queue_evpn_rem_vtep_add(zvrf_id(zvrf), vni, vtep_ip,
+						  flood_control);
 	}
 
 stream_failure:
@@ -4393,7 +4446,7 @@ stream_failure:
  *  3. vrr interface (MACVLAN) associated to a SVI
  * We advertise macip routes for an interface if it is associated to VxLan vlan
  */
-int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
+int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 				 int add)
 {
 	struct ipaddr ip;
