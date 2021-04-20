@@ -56,4 +56,4 @@ RUN apk add \
 		--allow-untrusted /pkgs/apk/*/*.apk \
 	&& rm -rf /pkgs
 COPY docker/alpine/docker-start /usr/lib/frr/docker-start
-ENTRYPOINT [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]
+CMD [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]
