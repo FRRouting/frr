@@ -1300,6 +1300,51 @@ DEFPY (clear_ipv6_prefix_list,
 	return vty_clear_prefix_list(vty, AFI_IP6, prefix_list, prefix_str);
 }
 
+DEFPY (debug_prefix_list_match,
+       debug_prefix_list_match_cmd,
+       "debug prefix-list WORD$prefix-list match <A.B.C.D/M|X:X::X:X/M>"
+       " [address-mode$addr_mode]",
+       DEBUG_STR
+       "Prefix-list test access\n"
+       "Name of a prefix list\n"
+       "Test prefix for prefix list result\n"
+       "Prefix to test in ip prefix-list\n"
+       "Prefix to test in ipv6 prefix-list\n"
+       "Use address matching mode (PIM RP)\n")
+{
+	struct prefix_list *plist;
+	const struct prefix_list_entry *entry = NULL;
+	enum prefix_list_type ret;
+
+	plist = prefix_list_lookup(family2afi(match->family), prefix_list);
+	if (!plist) {
+		vty_out(vty, "%% no prefix list named %s for AFI %s\n",
+			prefix_list, afi2str(family2afi(match->family)));
+		return CMD_WARNING;
+	}
+
+	ret = prefix_list_apply_ext(plist, &entry, match, !!addr_mode);
+
+	vty_out(vty, "%s prefix list %s yields %s for %pFX, ",
+		afi2str(family2afi(match->family)), prefix_list,
+		ret == PREFIX_DENY ? "DENY" : "PERMIT", match);
+
+	if (!entry)
+		vty_out(vty, "no match found\n");
+	else {
+		vty_out(vty, "matching entry #%"PRId64": %pFX", entry->seq,
+			&entry->prefix);
+		if (entry->ge)
+			vty_out(vty, " ge %d", entry->ge);
+		if (entry->le)
+			vty_out(vty, " le %d", entry->le);
+		vty_out(vty, "\n");
+	}
+
+	/* allow using this in scripts for quick prefix-list member tests */
+	return (ret == PREFIX_PERMIT) ? CMD_SUCCESS : CMD_WARNING;
+}
+
 struct stream *prefix_bgp_orf_entry(struct stream *s, struct prefix_list *plist,
 				    uint8_t init_flag, uint8_t permit_flag,
 				    uint8_t deny_flag)
@@ -1541,6 +1586,7 @@ static void prefix_list_init_ipv6(void)
 	install_element(VIEW_NODE, &show_ipv6_prefix_list_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_prefix_list_summary_cmd);
 	install_element(VIEW_NODE, &show_ipv6_prefix_list_detail_cmd);
+	install_element(VIEW_NODE, &debug_prefix_list_match_cmd);
 
 	install_element(ENABLE_NODE, &clear_ipv6_prefix_list_cmd);
 }
