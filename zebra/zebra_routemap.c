@@ -30,7 +30,7 @@
 #include "plist.h"
 #include "nexthop.h"
 #include "northbound_cli.h"
-#include "route_types.h"
+#include "lib/route_types.h"
 #include "vrf.h"
 #include "frrstr.h"
 

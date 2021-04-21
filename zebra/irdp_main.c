@@ -51,7 +51,7 @@
 #include "privs.h"
 #include "libfrr.h"
 #include "lib_errors.h"
-#include "version.h"
+#include "lib/version.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"

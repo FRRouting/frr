@@ -21,7 +21,7 @@
 
 #include "log.h"
 #include "privs.h"
-#include "version.h"
+#include "lib/version.h"
 #include <getopt.h>
 #include "command.h"
 #include "thread.h"
@@ -32,7 +32,7 @@
 #include "filter.h"
 #include "vty.h"
 #include "sigevent.h"
-#include "version.h"
+#include "lib/version.h"
 #include "prefix.h"
 #include "plist.h"
 #include "vrf.h"

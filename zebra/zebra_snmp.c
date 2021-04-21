@@ -36,7 +36,7 @@
 #include "vrf.h"
 #include "hook.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"

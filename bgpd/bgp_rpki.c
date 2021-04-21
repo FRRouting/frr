@@ -57,7 +57,7 @@
 #endif
 #include "hook.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_rpki_clippy.c"

@@ -25,7 +25,7 @@
 #include "command.h"
 #include "libfrr.h"
 #include "printfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "northbound.h"
 #include "frr_pthread.h"
 #include "jhash.h"

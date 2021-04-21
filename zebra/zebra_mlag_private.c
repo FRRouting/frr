@@ -28,7 +28,7 @@
 #include "thread.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "network.h"
 
 #include "lib/stream.h"

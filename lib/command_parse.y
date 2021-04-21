@@ -75,7 +75,7 @@
 
 %code provides {
   #ifndef FLEX_SCANNER
-  #include "command_lex.h"
+  #include "lib/command_lex.h"
   #endif
 
   extern void set_lexer_string (yyscan_t *scn, const char *string);

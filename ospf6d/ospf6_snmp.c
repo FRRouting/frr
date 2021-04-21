@@ -30,7 +30,7 @@
 #include "vrf.h"
 #include "smux.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"

@@ -22,7 +22,7 @@
 #include <zebra.h>
 #include <fcntl.h>
 #include <log.h>
-#include "version.h"
+#include "lib/version.h"
 #include "network.h"
 #include "lib_errors.h"
 

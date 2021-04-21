@@ -34,7 +34,7 @@
 #include "memory.h"
 #include "smux.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"

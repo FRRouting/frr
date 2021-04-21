@@ -29,7 +29,7 @@
 #include "thread.h"
 #include "network.h"
 #include "command.h"
-#include "version.h"
+#include "lib/version.h"
 #include "jhash.h"
 
 #include "zebra/rib.h"

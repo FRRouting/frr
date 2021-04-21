@@ -18,7 +18,7 @@
 #include "getopt.h"
 #include "thread.h"
 #include "sigevent.h"
-#include "version.h"
+#include "lib/version.h"
 #include "log.h"
 #include "memory.h"
 #include "command.h"
