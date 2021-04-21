@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in.
 
 AUTOMAKE_OPTIONS = subdir-objects 1.12
-ACLOCAL_AMFLAGS = -I m4
+ACLOCAL_AMFLAGS = -I m4 -Wall,no-override
 
 AM_CFLAGS = \
 	$(AC_CFLAGS) \
