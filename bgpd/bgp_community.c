@@ -28,6 +28,7 @@
 
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_community_alias.h"
 
 /* Hash of community attribute. */
 static struct hash *comhash;
@@ -292,7 +293,7 @@ static void set_community_string(struct community *com, bool make_json)
 			len += strlen(" no-peer");
 			break;
 		default:
-			len += strlen(" 65536:65535");
+			len = BUFSIZ;
 			break;
 		}
 	}
@@ -450,7 +451,7 @@ static void set_community_string(struct community *com, bool make_json)
 			val = comval & 0xFFFF;
 			char buf[32];
 			snprintf(buf, sizeof(buf), "%u:%d", as, val);
-			strlcat(str, buf, len);
+			strlcat(str, bgp_community2alias(buf), len);
 			if (make_json) {
 				json_string = json_object_new_string(buf);
 				json_object_array_add(json_community_list,

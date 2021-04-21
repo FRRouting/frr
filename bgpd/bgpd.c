@@ -55,6 +55,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_conditional_adv.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_regex.h"
@@ -7697,6 +7698,7 @@ void bgp_init(unsigned short instance)
 	/* BGP inits. */
 	bgp_attr_init();
 	bgp_debug_init();
+	bgp_community_alias_init();
 	bgp_dump_init();
 	bgp_route_init();
 	bgp_route_map_init();

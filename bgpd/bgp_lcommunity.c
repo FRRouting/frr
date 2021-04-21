@@ -30,6 +30,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_aspath.h"
 
 /* Hash of community attribute. */
@@ -213,7 +214,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 	}
 
 	/* 1 space + lcom->size lcom strings + null terminator */
-	size_t str_buf_sz = (LCOMMUNITY_STRLEN * lcom->size) + 2;
+	size_t str_buf_sz = BUFSIZ;
 	str_buf = XCALLOC(MTYPE_LCOMMUNITY_STR, str_buf_sz);
 
 	for (i = 0; i < lcom->size; i++) {
@@ -231,7 +232,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 		snprintf(lcsb, sizeof(lcsb), "%u:%u:%u", global, local1,
 			 local2);
 
-		len = strlcat(str_buf, lcsb, str_buf_sz);
+		len = strlcat(str_buf, bgp_community2alias(lcsb), str_buf_sz);
 		assert((unsigned int)len < str_buf_sz);
 
 		if (make_json) {
