@@ -18,6 +18,7 @@ AC_SUBST([CONFIG_ARGS])
 
 AC_CONFIG_SRCDIR([lib/zebra.h])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([m4/ac])
 
 dnl -----------------------------------
 dnl Get hostname and other information.
