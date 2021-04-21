@@ -336,7 +336,24 @@ static uint16_t bgp_write(struct peer *peer)
 				BGP_EVENT_ADD(peer, TCP_fatal_error);
 				SET_FLAG(status, BGP_IO_FATAL_ERR);
 			} else {
-				SET_FLAG(status, BGP_IO_TRANS_ERR);
+				uint32_t last_write;
+				uint32_t length;
+				uint32_t holdtime;
+
+				last_write = atomic_load_explicit(
+					&peer->last_write,
+					memory_order_relaxed);
+
+				length = bgp_clock();
+				length -= last_write;
+
+				holdtime = atomic_load_explicit(
+					&peer->holdtime, memory_order_relaxed);
+				if (length > holdtime) {
+					BGP_EVENT_ADD(peer, TCP_fatal_error);
+					SET_FLAG(status, BGP_IO_FATAL_ERR);
+				} else
+					SET_FLAG(status, BGP_IO_TRANS_ERR);
 			}
 
 			break;

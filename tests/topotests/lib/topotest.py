@@ -1503,7 +1503,8 @@ class Router(Node):
                 ) + "/var/run/{}/snmpd.pid -x /etc/frr/agentx".format(self.routertype)
             else:
                 binary = os.path.join(self.daemondir, daemon)
-                cmdenv = "ASAN_OPTIONS=log_path={0}.asan".format(daemon)
+                cmdenv = "ASAN_OPTIONS=log_path={0}.asan /usr/bin/valgrind --log-file={1}/{2}.valgrind.%p --leak-check=full --suppressions=/tmp/valgrind/suppressions ".format(daemon, self.logdir, self.name)
+                #cmdenv = "ASAN_OPTIONS=log_path={0}.asan".format(daemon)
                 cmdopt = "{} --log file:{}.log --log-level debug".format(
                     daemon_opts, daemon
                 )
