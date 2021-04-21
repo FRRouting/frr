@@ -148,6 +148,7 @@ TESTS_CPPFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_builddir)/tests/helpers/c \
 	# end
 TESTS_CFLAGS = \
+	$(AC_CFLAGS) \
 	$(LIBYANG_CFLAGS) \
 	$(SAN_FLAGS) \
 	# end

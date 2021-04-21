@@ -205,6 +205,7 @@ AC_SUBST([SED])
 dnl try and enable CFLAGS that are useful for FRR
 dnl - specifically, options to control warnings
 
+AC_SUBST([AC_CFLAGS])
 AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
     m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-+/{}$],[________])])
@@ -223,7 +224,7 @@ AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_POP([C])
     ])
     if test "$cachename" = "yes"; then
-	m4_if([$3], [], [CFLAGS="$CFLAGS $1"], [$3])
+	m4_if([$3], [], [AC_CFLAGS="$AC_CFLAGS $1"], [$3])
     else
 	:
 	$2
@@ -275,7 +276,7 @@ if test "$enable_gcov" = "yes"; then
       AC_C_FLAG([-O0])
    fi
 
-   LDFLAGS="${LDFLAGS} -lgcov"
+   AC_LDFLAGS="${AC_LDFLAGS} -lgcov"
 fi
 
 if test "$enable_clang_coverage" = "yes"; then
@@ -302,17 +303,19 @@ if test "$enable_scripting" = "yes"; then
    ])
 fi
 
+dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
+dnl sense to be overridden by the user
 if test "$enable_dev_build" = "yes"; then
    AC_DEFINE([DEV_BUILD], [1], [Build for development])
    if test "$orig_cflags" = ""; then
-      AC_C_FLAG([-g3])
-      AC_C_FLAG([-O0])
-      AC_C_FLAG([-ggdb3])
+      AC_C_FLAG([-O0],,[CFLAGS="$CFLAGS -O0"])
+      AC_C_FLAG([-g3],,[CFLAGS="$CFLAGS -g3"])
+      AC_C_FLAG([-ggdb3],,[CFLAGS="$CFLAGS -ggdb3"])
    fi
 else
    if test "$orig_cflags" = ""; then
-      AC_C_FLAG([-g])
-      AC_C_FLAG([-O2])
+      AC_C_FLAG([-g],,[CFLAGS="$CFLAGS -g"])
+      AC_C_FLAG([-O2],,[CFLAGS="$CFLAGS -O2"])
    fi
 fi
 
@@ -449,7 +452,7 @@ dnl ----------
 
 AX_PTHREAD([
   CC="$PTHREAD_CC"
-  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+  AC_CFLAGS="$AC_CFLAGS $PTHREAD_CFLAGS"
   LIBS="$PTHREAD_LIBS $LIBS"
 ], [
   AC_MSG_FAILURE([This FRR version needs pthreads])
@@ -2652,7 +2655,7 @@ FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
-compiler flags          : ${CFLAGS} ${SAN_FLAGS}
+compiler flags          : ${CFLAGS} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}

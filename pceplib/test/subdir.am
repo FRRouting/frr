@@ -36,7 +36,7 @@ noinst_HEADERS += pceplib/test/pcep_msg_messages_test.h \
 		pceplib/test/pcep_utils_ordered_list_test.h \
 		pceplib/test/pcep_utils_queue_test.h
 
-pceplib_test_pcep_msg_tests_CFLAGS =  -I$(top_srcdir)/pceplib
+pceplib_test_pcep_msg_tests_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/pceplib
 pceplib_test_pcep_msg_tests_LDADD = $(top_builddir)/pceplib/libpcep_pcc.la  lib/libfrr.la -lcunit -lpthread
 pceplib_test_pcep_msg_tests_SOURCES = pceplib/test/pcep_msg_messages_test.c \
 		pceplib/test/pcep_msg_messages_tests.c \
@@ -47,7 +47,7 @@ pceplib_test_pcep_msg_tests_SOURCES = pceplib/test/pcep_msg_messages_test.c \
 
 # The pcc_api_tests and pcep_session_logic_tests use the
 # socket_comm_mock, so the LDADD variable needs to be modified
-pceplib_test_pcep_pcc_api_tests_CFLAGS =  -I$(top_srcdir)/pceplib
+pceplib_test_pcep_pcc_api_tests_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/pceplib
 pceplib_test_pcep_pcc_api_tests_LDADD = $(top_builddir)/pceplib/libsocket_comm_mock.la $(top_builddir)/pceplib/libpcep_pcc.la  lib/libfrr.la -lcunit -lpthread
 pceplib_test_pcep_pcc_api_tests_SOURCES = pceplib/test/pcep_pcc_api_test.c pceplib/test/pcep_pcc_api_tests.c
 
