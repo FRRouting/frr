@@ -514,47 +514,24 @@ AC_DEFUN([AX_LUA_HEADERS],
     ])
 
   AS_IF([test "x$ac_cv_header_lua_h" = 'xyes'],
-    [ dnl Make a program to print LUA_VERSION defined in the header.
-      dnl TODO It would be really nice if we could do this without compiling a
-      dnl program, then it would work when cross compiling. But I'm not sure how
-      dnl to do this reliably. For now, assume versions match when cross compiling.
-
-      AS_IF([test "x$cross_compiling" != 'xyes'],
-        [ AC_CACHE_CHECK([for Lua header version],
-            [ax_cv_lua_header_version],
-            [ _ax_lua_saved_cppflags=$CPPFLAGS
-              CPPFLAGS="$CPPFLAGS $LUA_INCLUDE"
-              AC_RUN_IFELSE(
-                [ AC_LANG_SOURCE([[
-#include <lua.h>
-#include <stdlib.h>
-#include <stdio.h>
-int main(int argc, char ** argv)
-{
-  if(argc > 1) printf("%s", LUA_VERSION);
-  exit(EXIT_SUCCESS);
-}
-]])
-                ],
-                [ ax_cv_lua_header_version=`./conftest$EXEEXT p | \
+    [ AC_CACHE_CHECK([for Lua header version],
+        [ax_cv_lua_header_version],
+        [
+          ax_cv_lua_header_version=`echo LUA_VERSION | \
+            $CC -P -E $LUA_INCLUDE -imacros lua.h - | \
+                $SED -e 's%"\s*"%%g' -e 's%^\s*%%' | \
+                tr -d '"\n' | \
                     $SED -n "s|^Lua \(@<:@0-9@:>@\{1,\}\.@<:@0-9@:>@\{1,\}\).\{0,\}|\1|p"`
-                ],
-                [ax_cv_lua_header_version='unknown'])
-              CPPFLAGS=$_ax_lua_saved_cppflags
-            ])
+        ])
 
-          dnl Compare this to the previously found LUA_VERSION.
-          AC_MSG_CHECKING([if Lua header version matches $LUA_VERSION])
-          AS_IF([test "x$ax_cv_lua_header_version" = "x$LUA_VERSION"],
-            [ AC_MSG_RESULT([yes])
-              ax_header_version_match='yes'
-            ],
-            [ AC_MSG_RESULT([no])
-              ax_header_version_match='no'
-            ])
-        ],
-        [ AC_MSG_WARN([cross compiling so assuming header version number matches])
+      dnl Compare this to the previously found LUA_VERSION.
+      AC_MSG_CHECKING([if Lua header version matches $LUA_VERSION])
+      AS_IF([test "x$ax_cv_lua_header_version" = "x$LUA_VERSION"],
+        [ AC_MSG_RESULT([yes])
           ax_header_version_match='yes'
+        ],
+        [ AC_MSG_RESULT([no])
+          ax_header_version_match='no'
         ])
     ])
 
