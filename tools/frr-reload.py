@@ -188,17 +188,17 @@ class Vtysh(object):
 class Context(object):
 
     """
-    A Context object represents a section of frr configuration such as:
-!
-interface swp3
- description swp3 -> r8's swp1
- ipv6 nd suppress-ra
- link-detect
-!
+        A Context object represents a section of frr configuration such as:
+    !
+    interface swp3
+     description swp3 -> r8's swp1
+     ipv6 nd suppress-ra
+     link-detect
+    !
 
-or a single line context object such as this:
+    or a single line context object such as this:
 
-ip forwarding
+    ip forwarding
 
     """
 
@@ -1119,11 +1119,14 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         # in-place, to avoid requesting spurious label chunks which might fail
         if line and "segment-routing global-block" in line:
             for (add_key, add_line) in lines_to_add:
-                if ctx_keys[0] == add_key[0] and add_line and "segment-routing global-block" in add_line:
+                if (
+                    ctx_keys[0] == add_key[0]
+                    and add_line
+                    and "segment-routing global-block" in add_line
+                ):
                     lines_to_del_to_del.append((ctx_keys, line))
                     break
             continue
-
 
         if ctx_keys[0].startswith("router bgp") and line:
 
