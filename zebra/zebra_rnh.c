@@ -536,7 +536,16 @@ static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable)
 
 	*isreachable = 1;
 
+	inet_ntop(g_infovlay_prefix.family, &g_infovlay_prefix.u.prefix, via, PREFIX2STR_BUFFER);
+	zlog_debug("Overlay Prefix %s", via); 
+
 	if (prefix_match(&g_infovlay_prefix, pp) == 0) {
+		*isreachable = 0;
+		if (IS_ZEBRA_DEBUG_NHT) {
+			inet_ntop(pp->family, &pp->u.prefix, via, PREFIX2STR_BUFFER);
+			snprintf(cntrname, 256, "overlay.%s", via);
+			zlog_debug("Infiot via: %s, val %d", via, 0); 
+		}
 		return *isreachable;
 	}
 
@@ -630,7 +639,11 @@ zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid, int family,
 
 			hook_call(evaluate_custom_nexthop, &nrn->p, &isreachable);
 			if (isreachable == 0) {
-				return NULL;	
+				continue;	
+			}
+
+			if (isreachable) {
+				break;
 			}
 #endif
 			//if (!check_overlay(NULL, &nrn->p)) {

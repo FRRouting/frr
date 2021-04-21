@@ -211,7 +211,7 @@ void infnh_init(void);
 struct prefix g_infovlay_prefix;
 struct trkr_client *g_infovlay_trkr;
 uint8_t g_infovlay_cfgread = 0;
-#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH "/opt/infiot/etc/config/full.json"
+#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH "/infgw/inf_config.json"
 
 static int infnh_readcfg()
 {
@@ -221,8 +221,9 @@ static int infnh_readcfg()
 	char *rawdata = NULL;
 	struct json_object *jsondata = NULL, *dcfg_overlay = NULL;
 	struct json_object *json_ovlay_ipv4 = NULL, *json_ovlay_netmask = NULL;
+	struct json_object *device_config = NULL, *jsondatafull = NULL;
 
-	zlog_debug("reading infiot config");
+	fprintf(stdout, "reading infiot config\n");
 	fp = fopen(ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH, "rb");
 	if (fp == NULL) {
 		zlog_debug("error reading infiot config file");
@@ -246,24 +247,30 @@ static int infnh_readcfg()
 
 	fread(rawdata, 1, fsize, fp);
 	//zlog_debug("infiot rawdata %s", rawdata);
-	jsondata = json_tokener_parse(rawdata);
-	if (jsondata == NULL) {
+	jsondatafull = json_tokener_parse(rawdata);
+	if (jsondatafull == NULL) {
 		ok = 0;
-		zlog_debug("error parsing config file");
+		fprintf(stdout, "error parsing config file\n");
 		goto error;
+	}
+
+	jsondata = jsondatafull;
+	json_object_object_get_ex(jsondata, "device_config", &device_config);
+	if (device_config) {
+		jsondata = device_config;
 	}
 
 	json_object_object_get_ex(jsondata, "dcfg_overlay", &dcfg_overlay);
 	if (dcfg_overlay == NULL) {
 		ok = 0;
-		zlog_debug("error parsing dcfg_overlay");
+		fprintf(stdout, "error parsing dcfg_overlay\n");
 		goto error;
 	}
 
 	json_object_object_get_ex(dcfg_overlay, "ovlay_ipv4", &json_ovlay_ipv4);
 	if (json_ovlay_ipv4 == NULL) {
 		ok = 0;
-		zlog_debug("error parsing ovlay_ipv4");
+		fprintf(stdout, "error parsing ovlay_ipv4\n");
 		goto error;
 	}
 	const char *ovlay_ipv4_str = json_object_get_string(json_ovlay_ipv4);
@@ -271,7 +278,7 @@ static int infnh_readcfg()
 	json_object_object_get_ex(dcfg_overlay, "ovlay_netmask", &json_ovlay_netmask);
 	if (json_ovlay_netmask == NULL) {
 		ok = 0;
-		zlog_debug("error parsing ovlay_netmask");
+		fprintf(stdout, "error parsing ovlay_netmask\n");
 		goto error;
 	}
 	const char *ovlay_netmask_str = json_object_get_string(json_ovlay_netmask);
@@ -287,7 +294,7 @@ static int infnh_readcfg()
 	prefix2str(&g_infovlay_prefix, bufn, INET6_ADDRSTRLEN);
 	//inet_pton(AF_INET, ovlay_ipv4_str, &g_infovlay_prefix.u.prefix4);
 
-	zlog_debug("ovlay ipv4: %s netmask: %d", bufn, g_infovlay_prefix.prefixlen);
+	fprintf(stdout, "ovlay ipv4: %s netmask: %d\n", bufn, g_infovlay_prefix.prefixlen);
 	ok = 1;
 
 error:

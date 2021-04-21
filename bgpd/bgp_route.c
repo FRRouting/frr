@@ -7893,6 +7893,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", best");
 		}
 
+		vty_out(vty, ", type %d", binfo->type);
+
 		if (json_bestpath)
 			json_object_object_add(json_path, "bestpath",
 					       json_bestpath);
