@@ -2022,6 +2022,23 @@ expanded
    attribute in BGP updates. The expanded community is only used to filter,
    not `set` actions.
 
+.. clicmd:: bgp community alias NAME ALIAS
+
+   This command creates an alias name for a community that will be used
+   later in various CLI outputs in a human-readable format.
+
+   .. code-block:: frr
+       ~# show ip bgp 172.16.16.1/32
+       BGP routing table entry for 172.16.16.1/32, version 21
+       Paths: (2 available, best #2, table default)
+         Advertised to non peer-group peers:
+         65030
+           192.168.0.2 from 192.168.0.2 (172.16.16.1)
+             Origin incomplete, metric 0, valid, external, best (Neighbor IP)
+             Community: 65001:12 65001:13 community-1 65001:65534
+             Large Community: lcommunity-1 65001:123:2
+             Last update: Fri Apr 16 12:51:27 2021
+
 .. deprecated:: 5.0
    It is recommended to use the more explicit versions of this command.
 
