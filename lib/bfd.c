@@ -795,9 +795,33 @@ void bfd_sess_free(struct bfd_session_params **bsp)
 	XFREE(MTYPE_BFD_INFO, (*bsp));
 }
 
+static bool bfd_sess_address_changed(const struct bfd_session_params *bsp,
+				     uint32_t family,
+				     const struct in6_addr *src,
+				     const struct in6_addr *dst)
+{
+	size_t addrlen;
+
+	if (bsp->args.family != family)
+		return true;
+
+	addrlen = (family == AF_INET) ? sizeof(struct in_addr)
+				      : sizeof(struct in6_addr);
+	if ((src == NULL && memcmp(&bsp->args.src, &i6a_zero, addrlen))
+	    || (src && memcmp(src, &bsp->args.src, addrlen))
+	    || memcmp(dst, &bsp->args.dst, addrlen))
+		return true;
+
+	return false;
+}
+
 void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 			     struct in_addr *src, struct in_addr *dst)
 {
+	if (!bfd_sess_address_changed(bsp, AF_INET, (struct in6_addr *)src,
+				      (struct in6_addr *)dst))
+		return;
+
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
@@ -818,6 +842,10 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
 			     struct in6_addr *src, struct in6_addr *dst)
 {
+	if (!bfd_sess_address_changed(bsp, AF_INET, (struct in6_addr *)src,
+				      (struct in6_addr *)dst))
+		return;
+
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
@@ -835,6 +863,10 @@ void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
 
 void bfd_sess_set_interface(struct bfd_session_params *bsp, const char *ifname)
 {
+	if ((ifname == NULL && bsp->args.ifnamelen == 0)
+	    || (ifname && strcmp(bsp->args.ifname, ifname) == 0))
+		return;
+
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
@@ -868,6 +900,9 @@ void bfd_sess_set_profile(struct bfd_session_params *bsp, const char *profile)
 
 void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 {
+	if (bsp->args.vrf_id == vrf_id)
+		return;
+
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
@@ -877,6 +912,9 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl)
 {
 	assert(min_ttl != 0);
+
+	if (bsp->args.ttl == ((BFD_SINGLE_HOP_TTL + 1) - min_ttl))
+		return;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
@@ -889,6 +927,9 @@ void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl)
 
 void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl)
 {
+	if (bsp->args.ttl == min_ttl)
+		return;
+
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
