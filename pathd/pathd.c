@@ -189,13 +189,19 @@ void srte_segment_entry_del(struct srte_segment_entry *segment)
  * @param type The remote address of the adjacency
  * @param type The remote interface index of the unumbered adjacency
  */
-void srte_segment_entry_set_nai(struct srte_segment_entry *segment,
-				enum srte_segment_nai_type type,
-				struct ipaddr *local_ip, uint32_t local_iface,
-				struct ipaddr *remote_ip, uint32_t remote_iface)
+int srte_segment_entry_set_nai(struct srte_segment_entry *segment,
+			       enum srte_segment_nai_type type,
+			       struct ipaddr *local_ip, uint32_t local_iface,
+			       struct ipaddr *remote_ip, uint32_t remote_iface,
+			       uint8_t algo, uint8_t pref_len)
 {
+	int32_t status = 0;
+	struct prefix pre = {0};
 	segment->nai_type = type;
 	memcpy(&segment->nai_local_addr, local_ip, sizeof(struct ipaddr));
+
+	if (!segment || !local_ip || !remote_ip)
+		return 1;
 
 	switch (type) {
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
@@ -205,6 +211,7 @@ void srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
 		memcpy(&segment->nai_remote_addr, remote_ip,
 		       sizeof(struct ipaddr));
+		status = srte_ted_do_query_type_f(segment, local_ip, remote_ip);
 		break;
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
 		memcpy(&segment->nai_remote_addr, remote_ip,
@@ -212,11 +219,67 @@ void srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 		segment->nai_local_iface = local_iface;
 		segment->nai_remote_iface = remote_iface;
 		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
+		pre.family = AF_INET6;
+		pre.prefixlen = pref_len;
+		pre.u.prefix6 = local_ip->ip._v6_addr;
+		segment->nai_local_prefix_len = pref_len;
+		segment->nai_algorithm = algo;
+		status = srte_ted_do_query_type_c(segment, &pre, algo);
+		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+		pre.family = AF_INET;
+		pre.prefixlen = pref_len;
+		pre.u.prefix4 = local_ip->ip._v4_addr;
+		segment->nai_local_prefix_len = pref_len;
+		segment->nai_algorithm = algo;
+		status = srte_ted_do_query_type_c(segment, &pre, algo);
+		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+		pre.family = AF_INET6;
+		pre.prefixlen = pref_len;
+		pre.u.prefix6 = local_ip->ip._v6_addr;
+		segment->nai_local_prefix_len = pref_len;
+		segment->nai_local_iface = local_iface;
+		status = srte_ted_do_query_type_e(segment, &pre, local_iface);
+		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+		pre.family = AF_INET;
+		pre.prefixlen = pref_len;
+		pre.u.prefix4 = local_ip->ip._v4_addr;
+		segment->nai_local_prefix_len = pref_len;
+		segment->nai_local_iface = local_iface;
+		status = srte_ted_do_query_type_e(segment, &pre, local_iface);
+		break;
 	default:
 		segment->nai_local_addr.ipa_type = IPADDR_NONE;
 		segment->nai_local_iface = 0;
 		segment->nai_remote_addr.ipa_type = IPADDR_NONE;
 		segment->nai_remote_iface = 0;
+	}
+	return status;
+}
+
+/**
+ * Mark segment as modified depending in protocol and sid conditions
+ *
+ * @param protocol_origin Origin of the segment list
+ * @param s_list Ptr to segment list with flags,sid to modidy
+ * @param s_entry Ptr to segment entry with sid to modidy
+ * @param ted_sid The sid from ted query
+ * @return void
+ */
+void srte_segment_set_local_modification(struct srte_segment_list *s_list,
+					 struct srte_segment_entry *s_entry,
+					 uint32_t ted_sid)
+{
+	if (!s_list || !s_entry)
+		return;
+
+	if (s_list->protocol_origin == SRTE_ORIGIN_LOCAL
+	    && s_entry->sid_value != ted_sid) {
+		s_entry->sid_value = ted_sid;
+		SET_FLAG(s_list->flags, F_SEGMENT_LIST_MODIFIED);
 	}
 }
 
@@ -288,6 +351,105 @@ struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint)
 	return RB_FIND(srte_policy_head, &srte_policies, &search);
 }
 
+/*
+ * After new data from igp,local and pce the segment list :
+ *   Mark as invalid for origin pce if cannot be validated
+ *   Updated for origin local
+ */
+int srte_policy_update_ted_sid(void)
+{
+
+	int number_of_sid_clashed = 0;
+	struct srte_segment_list *s_list;
+	struct srte_segment_entry *s_entry;
+
+	if (!path_ted_is_initialized())
+		return 0;
+	if (RB_EMPTY(srte_segment_list_head, &srte_segment_lists))
+		return 0;
+
+	RB_FOREACH (s_list, srte_segment_list_head, &srte_segment_lists) {
+		if (CHECK_FLAG(s_list->flags, F_SEGMENT_LIST_DELETED))
+			continue;
+		RB_FOREACH (s_entry, srte_segment_entry_head,
+			    &s_list->segments) {
+			PATH_TED_DEBUG(
+				"%s:PATHD-TED: SL: Name: %s index:(%d) sid:(%d) prefix_len:(%d) local iface:(%d) algorithm:(%d)",
+				__func__, s_list->name, s_entry->index,
+				s_entry->sid_value,
+				s_entry->nai_local_prefix_len,
+				s_entry->nai_local_iface,
+				s_entry->nai_algorithm);
+			struct prefix prefix_cli = {0};
+
+			switch (s_entry->nai_type) {
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY:
+				number_of_sid_clashed +=
+					srte_ted_do_query_type_f(
+						s_entry,
+						&s_entry->nai_local_addr,
+						&s_entry->nai_remote_addr);
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+				prefix_cli.family = AF_INET6;
+				prefix_cli.prefixlen =
+					s_entry->nai_local_prefix_len;
+				prefix_cli.u.prefix6 =
+					s_entry->nai_local_addr.ip._v6_addr;
+				number_of_sid_clashed +=
+					srte_ted_do_query_type_e(
+						s_entry, &prefix_cli,
+						s_entry->nai_local_iface);
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+				prefix_cli.family = AF_INET;
+				prefix_cli.prefixlen =
+					s_entry->nai_local_prefix_len;
+				prefix_cli.u.prefix4 =
+					s_entry->nai_local_addr.ip._v4_addr;
+				number_of_sid_clashed +=
+					srte_ted_do_query_type_e(
+						s_entry, &prefix_cli,
+						s_entry->nai_local_iface);
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
+				prefix_cli.family = AF_INET6;
+				prefix_cli.prefixlen =
+					s_entry->nai_local_prefix_len;
+				prefix_cli.u.prefix6 =
+					s_entry->nai_local_addr.ip._v6_addr;
+				number_of_sid_clashed +=
+					srte_ted_do_query_type_c(
+						s_entry, &prefix_cli,
+						s_entry->nai_algorithm);
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+				prefix_cli.family = AF_INET;
+				prefix_cli.prefixlen =
+					s_entry->nai_local_prefix_len;
+				prefix_cli.u.prefix4 =
+					s_entry->nai_local_addr.ip._v4_addr;
+				number_of_sid_clashed +=
+					srte_ted_do_query_type_c(
+						s_entry, &prefix_cli,
+						s_entry->nai_algorithm);
+				break;
+			default:
+				break;
+			}
+		}
+		if (number_of_sid_clashed) {
+			SET_FLAG(s_list->flags, F_SEGMENT_LIST_SID_CONFLICT);
+			number_of_sid_clashed = 0;
+		} else
+			UNSET_FLAG(s_list->flags, F_SEGMENT_LIST_SID_CONFLICT);
+	}
+	srte_apply_changes();
+
+	return 0;
+}
+
 /**
  * Update a policy binding SID.
  *
@@ -323,7 +485,9 @@ srte_policy_best_candidate(const struct srte_policy *policy)
 			    &policy->candidate_paths) {
 		/* search for highest preference with existing segment list */
 		if (!CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)
-		    && candidate->lsp->segment_list)
+		    && candidate->lsp->segment_list
+		    && (!CHECK_FLAG(candidate->lsp->segment_list->flags,
+				    F_SEGMENT_LIST_SID_CONFLICT)))
 			return candidate;
 	}
 
@@ -535,6 +699,7 @@ void srte_candidate_set_bandwidth(struct srte_candidate *candidate,
 {
 	struct srte_policy *policy = candidate->policy;
 	char endpoint[46];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	zlog_debug(
 		"SR-TE(%s, %u): candidate %s %sconfig bandwidth set to %f B/s",
@@ -1138,4 +1303,92 @@ const char *srte_candidate_metric_name(enum srte_candidate_metric_type type)
 	default:
 		return "UNKNOWN";
 	}
+}
+
+int32_t srte_ted_do_query_type_c(struct srte_segment_entry *entry,
+				 struct prefix *prefix_cli, uint32_t algo)
+{
+	int32_t status = 0;
+	uint32_t ted_sid = MPLS_LABEL_NONE;
+
+	if (!entry || !prefix_cli)
+		return 0;
+
+	if (!path_ted_is_initialized())
+		return 0;
+
+	ted_sid = path_ted_query_type_c(prefix_cli, algo);
+	if (ted_sid == MPLS_LABEL_NONE) {
+		zlog_warn(" %s: PATHD-TED: SL: ERROR query C : ted-sid (%d)",
+			  __func__, ted_sid);
+	} else {
+		zlog_debug("%s: PATHD-TED: SL: Sucess query C : ted-sid (%d)",
+			   __func__, ted_sid);
+	}
+	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
+		      entry->sid_value)) {
+		status = PATH_SID_ERROR;
+	} else
+		srte_segment_set_local_modification(entry->segment_list, entry,
+						    ted_sid);
+	return status;
+}
+
+int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
+				 struct prefix *prefix_cli,
+				 uint32_t local_iface)
+{
+	int32_t status = 0;
+	uint32_t ted_sid = MPLS_LABEL_NONE;
+
+	if (!entry || !prefix_cli)
+		return 0;
+
+	if (!path_ted_is_initialized())
+		return 0;
+
+	ted_sid = path_ted_query_type_e(prefix_cli, local_iface);
+	if (ted_sid == MPLS_LABEL_NONE) {
+		zlog_warn(" %s: PATHD-TED: SL: ERROR query E : ted-sid (%d)",
+			  __func__, ted_sid);
+	} else {
+		zlog_debug("%s: PATHD-TED: SL: Sucess query E : ted-sid (%d)",
+			   __func__, ted_sid);
+	}
+	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
+		      entry->sid_value)) {
+		status = PATH_SID_ERROR;
+	} else
+		srte_segment_set_local_modification(entry->segment_list, entry,
+						    ted_sid);
+	return status;
+}
+
+int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
+				 struct ipaddr *local, struct ipaddr *remote)
+{
+	int32_t status = 0;
+	uint32_t ted_sid = MPLS_LABEL_NONE;
+
+	if (!entry || !local || !remote)
+		return 0;
+
+	if (!path_ted_is_initialized())
+		return status;
+
+	ted_sid = path_ted_query_type_f(local, remote);
+	if (ted_sid == MPLS_LABEL_NONE) {
+		zlog_warn("%s:SL:  ERROR query F : ted-sid (%d)", __func__,
+			  ted_sid);
+	} else {
+		zlog_debug("%s:SL: Sucess query F : ted-sid (%d)", __func__,
+			   ted_sid);
+	}
+	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
+		      entry->sid_value)) {
+		status = PATH_SID_ERROR;
+	} else
+		srte_segment_set_local_modification(entry->segment_list, entry,
+						    ted_sid);
+	return status;
 }

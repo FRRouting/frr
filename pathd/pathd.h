@@ -24,6 +24,13 @@
 #include "lib/ipaddr.h"
 #include "lib/srte.h"
 #include "lib/hook.h"
+#include "lib/prefix.h"
+
+#define PATH_SID_ERROR 1
+#define PATH_SID_NO_ERROR 0
+#define CHECK_SID(or, ts, es)                                                  \
+	((or == SRTE_ORIGIN_PCEP && (ts == MPLS_LABEL_NONE || es != ts))       \
+	 || (or == SRTE_ORIGIN_LOCAL && ts == MPLS_LABEL_NONE))
 
 DECLARE_MGROUP(PATHD);
 
@@ -100,7 +107,12 @@ enum srte_segment_nai_type {
 	SRTE_SEGMENT_NAI_TYPE_IPV6_NODE = 2,
 	SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY = 3,
 	SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY = 4,
-	SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY = 5
+	SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY = 5,
+	SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES = 6,
+	SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE = 7,
+	SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE = 8,
+	SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM = 9,
+	SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM = 10
 };
 
 enum objfun_type {
@@ -175,6 +187,9 @@ struct srte_segment_entry {
 	/* NAI remote interface when nai type is not IPv4 unnumbered adjacency
 	 */
 	uint32_t nai_remote_iface;
+	/* Support draft-ietf-spring-segment-routing-policy sl types queries*/
+	uint8_t nai_local_prefix_len;
+	uint8_t nai_algorithm;
 };
 RB_HEAD(srte_segment_entry_head, srte_segment_entry);
 RB_PROTOTYPE(srte_segment_entry_head, srte_segment_entry, entry,
@@ -200,6 +215,7 @@ struct srte_segment_list {
 #define F_SEGMENT_LIST_NEW 0x0002
 #define F_SEGMENT_LIST_MODIFIED 0x0004
 #define F_SEGMENT_LIST_DELETED 0x0008
+#define F_SEGMENT_LIST_SID_CONFLICT 0x0010
 };
 RB_HEAD(srte_segment_list_head, srte_segment_list);
 RB_PROTOTYPE(srte_segment_list_head, srte_segment_list, entry,
@@ -361,14 +377,18 @@ struct srte_segment_list *srte_segment_list_find(const char *name);
 struct srte_segment_entry *
 srte_segment_entry_add(struct srte_segment_list *segment_list, uint32_t index);
 void srte_segment_entry_del(struct srte_segment_entry *segment);
-void srte_segment_entry_set_nai(struct srte_segment_entry *segment,
-				enum srte_segment_nai_type type,
-				struct ipaddr *local_ip, uint32_t local_iface,
-				struct ipaddr *remote_ip,
-				uint32_t remote_iface);
+int srte_segment_entry_set_nai(struct srte_segment_entry *segment,
+			       enum srte_segment_nai_type type,
+			       struct ipaddr *local_ip, uint32_t local_iface,
+			       struct ipaddr *remote_ip, uint32_t remote_iface,
+			       uint8_t algo, uint8_t pref_len);
+void srte_segment_set_local_modification(struct srte_segment_list *s_list,
+					 struct srte_segment_entry *s_entry,
+					 uint32_t ted_sid);
 struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint);
 void srte_policy_del(struct srte_policy *policy);
 struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
+int srte_policy_update_ted_sid(void);
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid);
 void srte_apply_changes(void);
@@ -414,4 +434,40 @@ void pathd_shutdown(void);
 /* path_cli.c */
 void path_cli_init(void);
 
+
+/**
+ * Search for sid based in prefix and algorithm
+ *
+ * @param Prefix	The prefix to use
+ * @param algo		Algorithm we want to query for
+ * @param ted_sid	Sid to query
+ *
+ * @return		void
+ */
+int32_t srte_ted_do_query_type_c(struct srte_segment_entry *entry,
+				 struct prefix *prefix_cli, uint32_t algo);
+
+/**
+ * Search for sid based in prefix and interface id
+ *
+ * @param Prefix	The prefix to use
+ * @param local_iface	The id of interface
+ * @param ted_sid	Sid to query
+ *
+ * @return		void
+ */
+int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
+				 struct prefix *prefix_cli,
+				 uint32_t local_iface);
+/**
+ * Search for sid based in local and remote ip
+ *
+ * @param entry		entry to update
+ * @param local		Local addr for query
+ * @param remote	Local addr for query
+ *
+ * @return		void
+ */
+int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
+				 struct ipaddr *local, struct ipaddr *remote);
 #endif /* _FRR_PATHD_H_ */

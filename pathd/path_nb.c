@@ -90,6 +90,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/srte/segment-list/segment/sid-value",
 			.cbs = {
 				.modify = pathd_srte_segment_list_segment_sid_value_modify,
+				.destroy = pathd_srte_segment_list_segment_sid_value_destroy,
 			},
 			.priority = NB_DFLT_PRIORITY - 1
 		},
@@ -115,11 +116,19 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
 		},
 		{
+			.xpath = "/frr-pathd:pathd/srte/segment-list/segment/nai/local-prefix-len",
+			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+		},
+		{
 			.xpath = "/frr-pathd:pathd/srte/segment-list/segment/nai/remote-address",
 			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
 		},
 		{
 			.xpath = "/frr-pathd:pathd/srte/segment-list/segment/nai/remote-interface",
+			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/srte/segment-list/segment/nai/algorithm",
 			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
 		},
 		{
