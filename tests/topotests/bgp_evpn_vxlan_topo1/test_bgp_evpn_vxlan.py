@@ -365,6 +365,10 @@ def test_ip_pe1_learn():
     "run the IP learn test for PE1"
 
     tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     host1 = tgen.gears["host1"]
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
@@ -380,6 +384,10 @@ def test_ip_pe2_learn():
     "run the IP learn test for PE2"
 
     tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     host2 = tgen.gears["host2"]
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
