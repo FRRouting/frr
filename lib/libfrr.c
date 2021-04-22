@@ -46,6 +46,7 @@
 #include "frrscript.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
+DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
 DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
 DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
@@ -931,6 +932,8 @@ static void frr_daemonize(void)
  */
 static int frr_config_read_in(struct thread *t)
 {
+	hook_call(frr_config_pre, master);
+
 	if (!vty_read_config(vty_shared_candidate_config, di->config_file,
 			     config_default)
 	    && di->backup_config_file) {
