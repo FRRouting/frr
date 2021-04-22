@@ -128,7 +128,6 @@ from lib.common_config import (
     create_static_routes,
     create_prefix_lists,
     create_interface_in_kernel,
-    kill_mininet_routers_process,
     create_bgp_community_lists,
     check_router_status,
     apply_raw_config,
@@ -228,9 +227,6 @@ def setup_module(mod):
     # This function initiates the topology build with Topogen...
     tgen = Topogen(CreateTopo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
-
-    # Kill stale mininet routers and process
-    kill_mininet_routers_process(tgen)
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers

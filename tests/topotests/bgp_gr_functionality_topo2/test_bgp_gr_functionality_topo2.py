@@ -133,7 +133,6 @@ from lib.common_config import (
     check_router_status,
     shutdown_bringup_interface,
     step,
-    kill_mininet_routers_process,
     get_frr_ipv6_linklocal,
     create_route_maps,
     required_linux_kernel_version,
