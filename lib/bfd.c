@@ -619,8 +619,6 @@ struct bfd_session_params {
 
 	/** BFD session installation state. */
 	bool installed;
-	/** BFD session enabled. */
-	bool enabled;
 
 	/** Global BFD paramaters list. */
 	TAILQ_ENTRY(bfd_session_params) entry;
@@ -748,6 +746,21 @@ static int _bfd_sess_send(struct thread *t)
 			bsp->installed = false;
 		else if (bsp->args.command == ZEBRA_BFD_DEST_REGISTER)
 			bsp->installed = true;
+	} else {
+		struct ipaddr src, dst;
+
+		src.ipa_type = bsp->args.family;
+		src.ipaddr_v6 = bsp->args.src;
+		dst.ipa_type = bsp->args.family;
+		dst.ipaddr_v6 = bsp->args.dst;
+
+		zlog_err(
+			"%s: BFD session %pIA -> %pIA interface %s VRF %s(%u) was not %s",
+			__func__, &src, &dst,
+			bsp->args.ifnamelen ? bsp->args.ifname : "*",
+			vrf_id_to_name(bsp->args.vrf_id), bsp->args.vrf_id,
+			bsp->lastev == BSE_INSTALL ? "installed"
+						   : "uninstalled");
 	}
 
 	return 0;
@@ -780,15 +793,6 @@ void bfd_sess_free(struct bfd_session_params **bsp)
 
 	/* Free the memory and point to NULL. */
 	XFREE(MTYPE_BFD_INFO, (*bsp));
-}
-
-void bfd_sess_enable(struct bfd_session_params *bsp, bool enable)
-{
-	/* Remove the session when disabling. */
-	if (!enable)
-		_bfd_sess_remove(bsp);
-
-	bsp->enabled = enable;
 }
 
 void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
@@ -909,10 +913,6 @@ void bfd_sess_set_timers(struct bfd_session_params *bsp,
 
 void bfd_sess_install(struct bfd_session_params *bsp)
 {
-	/* Don't attempt to install/update when disabled. */
-	if (!bsp->enabled)
-		return;
-
 	bsp->lastev = BSE_INSTALL;
 	thread_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
 }
@@ -1060,8 +1060,8 @@ static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
 
 	/* Replay all activated peers. */
 	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
-		/* Skip disabled sessions. */
-		if (!bsp->enabled)
+		/* Skip not installed sessions. */
+		if (!bsp->installed)
 			continue;
 
 		/* We are reconnecting, so we must send installation. */
@@ -1138,8 +1138,8 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 
 	/* Notify all matching sessions about update. */
 	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
-		/* Skip disabled or not installed entries. */
-		if (!bsp->enabled || !bsp->installed)
+		/* Skip not installed entries. */
+		if (!bsp->installed)
 			continue;
 		/* Skip different VRFs. */
 		if (bsp->args.vrf_id != vrf_id)

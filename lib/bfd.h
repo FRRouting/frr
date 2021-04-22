@@ -185,14 +185,6 @@ struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *args);
 void bfd_sess_free(struct bfd_session_params **bsp);
 
 /**
- * Enable/disable session installation.
- *
- * \param bsp session parameters.
- * \param enable knob variable.
- */
-void bfd_sess_enable(struct bfd_session_params *bsp, bool enable);
-
-/**
  * Set the local and peer address of the BFD session.
  *
  * \param bsp BFD session parameters.
