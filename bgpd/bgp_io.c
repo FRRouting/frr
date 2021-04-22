@@ -298,6 +298,7 @@ static uint16_t bgp_write(struct peer *peer)
 	unsigned int iovsz;
 	unsigned int strmsz;
 	unsigned int total_written;
+	time_t now;
 
 	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
 					       memory_order_relaxed);
@@ -430,19 +431,22 @@ static uint16_t bgp_write(struct peer *peer)
 	}
 
 done : {
+	now = bgp_clock();
 	/*
 	 * Update last_update if UPDATEs were written.
 	 * Note: that these are only updated at end,
 	 *       not per message (i.e., per loop)
 	 */
 	if (uo)
-		atomic_store_explicit(&peer->last_update, bgp_clock(),
+		atomic_store_explicit(&peer->last_update, now,
 				      memory_order_relaxed);
 
 	/* If we TXed any flavor of packet */
-	if (update_last_write)
-		atomic_store_explicit(&peer->last_write, bgp_clock(),
+	if (update_last_write) {
+		atomic_store_explicit(&peer->last_write, now,
 				      memory_order_relaxed);
+		peer->last_sendq_ok = now;
+	}
 }
 
 	return status;
