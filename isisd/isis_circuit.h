@@ -31,6 +31,7 @@
 
 #include "isis_constants.h"
 #include "isis_common.h"
+#include "isis_csm.h"
 
 DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
 
@@ -77,7 +78,7 @@ struct isis_circuit_arg {
 };
 
 struct isis_circuit {
-	int state;
+	enum isis_circuit_state state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
 	time_t last_uptime;
 	struct isis *isis;

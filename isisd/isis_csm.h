@@ -27,10 +27,12 @@
 /*
  * Circuit states
  */
-#define C_STATE_NA   0
-#define C_STATE_INIT 1		/* Connected to interface */
-#define C_STATE_CONF 2		/* Configured for ISIS    */
-#define C_STATE_UP   3		/* CONN | CONF            */
+enum isis_circuit_state {
+	C_STATE_NA,
+	C_STATE_INIT, /* Connected to interface */
+	C_STATE_CONF, /* Configured for ISIS    */
+	C_STATE_UP,   /* CONN | CONF            */
+};
 
 /*
  * Circuit events

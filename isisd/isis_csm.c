@@ -63,7 +63,7 @@ static const char *const csm_eventstr[] = {
 struct isis_circuit *
 isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 {
-	int old_state;
+	enum isis_circuit_state old_state;
 	struct isis *isis = NULL;
 	struct isis_area *area = NULL;
 
@@ -197,9 +197,6 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			break;
 		}
 		break;
-
-	default:
-		zlog_warn("Invalid circuit state %d", old_state);
 	}
 
 	if (IS_DEBUG_EVENTS)
