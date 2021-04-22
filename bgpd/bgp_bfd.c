@@ -308,8 +308,6 @@ void bgp_peer_configure_bfd(struct peer *p, bool manual)
 	if (p->nexthop.ifp)
 		bfd_sess_set_interface(p->bfd_config->session,
 				       p->nexthop.ifp->name);
-
-	bfd_sess_enable(p->bfd_config->session, true);
 }
 
 static void bgp_peer_remove_bfd(struct peer *p)

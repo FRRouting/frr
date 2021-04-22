@@ -99,7 +99,6 @@ void ospf_neighbor_bfd_apply(struct ospf_neighbor *nbr)
 		bfd_sess_set_ipv4_addrs(nbr->bfd_session, NULL, &nbr->src);
 		bfd_sess_set_interface(nbr->bfd_session, oi->ifp->name);
 		bfd_sess_set_vrf(nbr->bfd_session, oi->ospf->vrf_id);
-		bfd_sess_enable(nbr->bfd_session, true);
 	}
 
 	/* Set new configuration. */
