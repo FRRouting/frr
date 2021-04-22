@@ -46,7 +46,7 @@
 #include "frrscript.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm));
+DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
 DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
 
@@ -964,7 +964,7 @@ static int frr_config_read_in(struct thread *t)
 				__func__, nb_err_name(ret), errmsg);
 	}
 
-	hook_call(frr_very_late_init, master);
+	hook_call(frr_config_post, master);
 
 	return 0;
 }
