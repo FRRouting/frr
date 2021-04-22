@@ -222,12 +222,6 @@ struct pim_msdp {
 struct pim_instance;
 void pim_msdp_init(struct pim_instance *pim, struct thread_master *master);
 void pim_msdp_exit(struct pim_instance *pim);
-enum pim_msdp_err pim_msdp_peer_add(struct pim_instance *pim,
-				    struct in_addr peer, struct in_addr local,
-				    const char *mesh_group_name,
-				    struct pim_msdp_peer **mp_p);
-enum pim_msdp_err pim_msdp_peer_del(struct pim_instance *pim,
-				    struct in_addr peer_addr);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
 struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
@@ -287,5 +281,35 @@ struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
  * Stops the connection and removes the peer data structures.
  */
 void pim_msdp_mg_mbr_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr);
+
+#define MSDP_SOLO_PEER_GROUP_NAME "default"
+
+/**
+ * Allocates MSDP peer data structure and starts state machine.
+ *
+ * \param pim PIM instance
+ * \param peer_addr peer address
+ * \param local_addr local listening address
+ * \param mesh_group_name mesh group name (or `MSDP_SOLO_PEER_GROUP_NAME` for
+ *                        peers without group).
+ */
+struct pim_msdp_peer *pim_msdp_peer_new(struct pim_instance *pim,
+					const struct in_addr *peer_addr,
+					const struct in_addr *local_addr,
+					const char *mesh_group_name);
+
+/**
+ * Stops peer state machine and free memory.
+ */
+void pim_msdp_peer_do_del(struct pim_msdp_peer **mp);
+
+/**
+ * Changes peer source address.
+ *
+ * NOTE:
+ * This will cause the connection to drop and start again.
+ */
+void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
+				 const struct in_addr *addr);
 
 #endif

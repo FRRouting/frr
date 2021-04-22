@@ -149,7 +149,6 @@ const struct frr_yang_module_info frr_pim_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/source-ip",
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify,
-				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_destroy,
 			}
 		},
 		{
