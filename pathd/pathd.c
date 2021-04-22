@@ -26,6 +26,7 @@
 #include "pathd/pathd.h"
 #include "pathd/path_zebra.h"
 #include "pathd/path_debug.h"
+#include "pathd/path_ted.h"
 
 #define HOOK_DELAY 3
 
@@ -327,6 +328,14 @@ srte_policy_best_candidate(const struct srte_policy *policy)
 	}
 
 	return NULL;
+}
+
+void srte_clean_zebra(void)
+{
+	struct srte_policy *policy, *safe_pol;
+
+	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol)
+		srte_policy_del(policy);
 }
 
 /**
@@ -1022,6 +1031,12 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 	default:
 		return "Unknown";
 	}
+}
+
+void pathd_shutdown(void)
+{
+	path_ted_teardown();
+	srte_clean_zebra();
 }
 
 void trigger_pathd_candidate_created(struct srte_candidate *candidate)
