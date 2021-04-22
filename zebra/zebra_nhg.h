@@ -51,6 +51,9 @@ struct nhg_hash_entry {
 	afi_t afi;
 	vrf_id_t vrf_id;
 
+	/* Time since last update */
+	time_t uptime;
+
 	/* Source protocol - zebra or another daemon */
 	int type;
 

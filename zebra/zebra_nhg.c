@@ -845,6 +845,8 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		SET_FLAG(backup_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
 
 done:
+	/* Reset time since last update */
+	(*nhe)->uptime = monotime(NULL);
 
 	return created;
 }
