@@ -3640,14 +3640,10 @@ enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
 	uint16_t state = 0;
 	uint32_t update_flags;
 
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf1[PREFIX_STRLEN], buf2[PREFIX_STRLEN];
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("%s: init link ctx %s: ifp %s, link_ip %pIA ip %pIA",
+			   __func__, dplane_op2str(op), ifp->name, link_ip, ip);
 
-		ipaddr2str(link_ip, buf1, sizeof(buf1));
-		ipaddr2str(ip, buf2, sizeof(buf2));
-		zlog_debug("init link ctx %s: ifp %s, ip %s link %s",
-			   dplane_op2str(op), ifp->name, buf1, buf2);
-	}
 	if (ndm_state == ZEBRA_NEIGH_STATE_REACHABLE)
 		state = DPLANE_NUD_REACHABLE;
 	else if (ndm_state == ZEBRA_NEIGH_STATE_FAILED)
