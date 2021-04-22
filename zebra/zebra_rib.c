@@ -2765,6 +2765,7 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	char backup_str[50];
 	char wgt_str[50];
 	char temp_str[10];
+	char label_str[MPLS_LABEL_STRLEN];
 	int i;
 	struct interface *ifp;
 	struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
@@ -2789,6 +2790,15 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 		break;
 	}
 
+	/* Label stack */
+	label_str[0] = '\0';
+	if (nexthop->nh_label && nexthop->nh_label->num_labels > 0) {
+		mpls_label2str(nexthop->nh_label->num_labels,
+			       nexthop->nh_label->label, label_str,
+			       sizeof(label_str), 0 /*pretty*/);
+		strlcat(label_str, ", ", sizeof(label_str));
+	}
+
 	backup_str[0] = '\0';
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 		snprintf(backup_str, sizeof(backup_str), "backup ");
@@ -2803,9 +2813,9 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s: %s %s[%u] vrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s",
+	zlog_debug("%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s",
 		   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
-		   nexthop->ifindex, vrf ? vrf->name : "Unknown",
+		   nexthop->ifindex, label_str, vrf ? vrf->name : "Unknown",
 		   nexthop->vrf_id,
 		   wgt_str, backup_str,
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
