@@ -372,6 +372,7 @@ struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid);
 void srte_apply_changes(void);
+void srte_clean_zebra(void);
 void srte_policy_apply_changes(struct srte_policy *policy);
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 					  uint32_t preference);
@@ -408,6 +409,7 @@ srte_segment_entry_find(struct srte_segment_list *segment_list, uint32_t index);
 void srte_candidate_status_update(struct srte_candidate *candidate, int status);
 void srte_candidate_unset_segment_list(const char *originator, bool force);
 const char *srte_origin2str(enum srte_protocol_origin origin);
+void pathd_shutdown(void);
 
 /* path_cli.c */
 void path_cli_init(void);
