@@ -219,6 +219,7 @@ module frr-pim {
       }
 
       leaf source-ip {
+        mandatory true;
         type inet:ip-address;
         description
           "MSDP source IP address.";
