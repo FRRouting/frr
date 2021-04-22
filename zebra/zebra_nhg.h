@@ -147,6 +147,8 @@ enum nhg_type {
 /* Is this an NHE owned by zebra and not an upper level protocol? */
 #define ZEBRA_OWNED(NHE) (NHE->type == ZEBRA_ROUTE_NHG)
 
+#define PROTO_OWNED(NHE) (NHE->id >= ZEBRA_NHG_PROTO_LOWER)
+
 /*
  * Backup nexthops: this is a group object itself, so
  * that the backup nexthops can use the same code as a normal object.
