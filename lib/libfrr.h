@@ -172,6 +172,8 @@ extern const char frr_scriptdir[];
 
 extern char frr_protoname[];
 extern char frr_protonameinst[];
+/* always set in the spot where we *would* fork even if we don't do so */
+extern bool frr_is_after_fork;
 
 extern bool debug_memstats_at_exit;
 

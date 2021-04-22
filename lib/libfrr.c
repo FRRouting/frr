@@ -70,6 +70,8 @@ static char dbfile_default[512];
 #endif
 static char vtypath_default[512];
 
+/* cleared in frr_preinit(), then re-set after daemonizing */
+bool frr_is_after_fork = true;
 bool debug_memstats_at_exit = false;
 static bool nodetach_term, nodetach_daemon;
 static uint64_t startup_fds;
@@ -308,6 +310,7 @@ void frr_init_vtydir(void)
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 {
 	di = daemon;
+	frr_is_after_fork = false;
 
 	/* basename(), opencoded. */
 	char *p = strrchr(argv[0], '/');
@@ -989,6 +992,8 @@ void frr_config_fork(void)
 
 	if (di->daemon_mode || di->terminal)
 		frr_daemonize();
+
+	frr_is_after_fork = true;
 
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;
