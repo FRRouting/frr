@@ -30,7 +30,7 @@
 #include "smux.h"
 #include "memory.h"
 #include "linklist.h"
-#include "version.h"
+#include "lib/version.h"
 #include "lib_errors.h"
 #include "xref.h"
 

@@ -25,7 +25,7 @@
 #include "debug.h"
 #include "memory.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "northbound.h"
 
 #include <sysrepo.h>

@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-AC_PREREQ([2.60])
+AC_PREREQ([2.69])
 
 AC_INIT([frr], [7.7-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
@@ -18,6 +18,7 @@ AC_SUBST([CONFIG_ARGS])
 
 AC_CONFIG_SRCDIR([lib/zebra.h])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([m4/ac])
 
 dnl -----------------------------------
 dnl Get hostname and other information.
@@ -205,6 +206,7 @@ AC_SUBST([SED])
 dnl try and enable CFLAGS that are useful for FRR
 dnl - specifically, options to control warnings
 
+AC_SUBST([AC_CFLAGS])
 AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
     m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-+/{}$],[________])])
@@ -223,7 +225,7 @@ AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_POP([C])
     ])
     if test "$cachename" = "yes"; then
-	m4_if([$3], [], [CFLAGS="$CFLAGS $1"], [$3])
+	m4_if([$3], [], [AC_CFLAGS="$AC_CFLAGS $1"], [$3])
     else
 	:
 	$2
@@ -275,7 +277,7 @@ if test "$enable_gcov" = "yes"; then
       AC_C_FLAG([-O0])
    fi
 
-   LDFLAGS="${LDFLAGS} -lgcov"
+   AC_LDFLAGS="${AC_LDFLAGS} -lgcov"
 fi
 
 if test "$enable_clang_coverage" = "yes"; then
@@ -302,17 +304,19 @@ if test "$enable_scripting" = "yes"; then
    ])
 fi
 
+dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
+dnl sense to be overridden by the user
 if test "$enable_dev_build" = "yes"; then
    AC_DEFINE([DEV_BUILD], [1], [Build for development])
    if test "$orig_cflags" = ""; then
-      AC_C_FLAG([-g3])
-      AC_C_FLAG([-O0])
-      AC_C_FLAG([-ggdb3])
+      AC_C_FLAG([-O0],,[CFLAGS="$CFLAGS -O0"])
+      AC_C_FLAG([-g3],,[CFLAGS="$CFLAGS -g3"])
+      AC_C_FLAG([-ggdb3],,[CFLAGS="$CFLAGS -ggdb3"])
    fi
 else
    if test "$orig_cflags" = ""; then
-      AC_C_FLAG([-g])
-      AC_C_FLAG([-O2])
+      AC_C_FLAG([-g],,[CFLAGS="$CFLAGS -g"])
+      AC_C_FLAG([-O2],,[CFLAGS="$CFLAGS -O2"])
    fi
 fi
 
@@ -449,7 +453,7 @@ dnl ----------
 
 AX_PTHREAD([
   CC="$PTHREAD_CC"
-  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+  AC_CFLAGS="$AC_CFLAGS $PTHREAD_CFLAGS"
   LIBS="$PTHREAD_LIBS $LIBS"
 ], [
   AC_MSG_FAILURE([This FRR version needs pthreads])
@@ -969,7 +973,7 @@ dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h])
+	linux/version.h asm/types.h endian.h sys/endian.h])
 
 ac_stdatomic_ok=false
 AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
@@ -1262,11 +1266,6 @@ if test "$enable_realms" = "yes"; then
     esac
 fi
 
-dnl -------------------------------
-dnl Endian-ness check
-dnl -------------------------------
-AC_WORDS_BIGENDIAN
-
 dnl ---------------
 dnl other functions
 dnl ---------------
@@ -1521,24 +1520,22 @@ FRR_INCLUDES
 #endif
 ])dnl
 
-AC_MSG_CHECKING([for BSD struct ip_mreq hack])
-AC_TRY_COMPILE([#include <sys/param.h>],
-[#if (defined(__FreeBSD__) && ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000) || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000))) || (defined(__NetBSD__) && defined(__NetBSD_Version__) && __NetBSD_Version__ >= 106010000) || defined(__OpenBSD__) || defined(__APPLE__) || defined(__DragonFly__) || defined(__sun)
-  return (0);
-#else
-  #error No support for BSD struct ip_mreq hack detected
-#endif],[AC_MSG_RESULT([yes])
-AC_DEFINE([HAVE_BSD_STRUCT_IP_MREQ_HACK], [1], [Can pass ifindex in struct ip_mreq])],
-AC_MSG_RESULT([no]))
-
 AC_MSG_CHECKING([for RFC3678 protocol-independed API])
-AC_TRY_COMPILE([
-#include <sys/types.h>
-#include <netinet/in.h>
-], [struct group_req gr; int sock; setsockopt(sock, IPPROTO_IP, MCAST_JOIN_GROUP, (void*)&gr, sizeof(gr));
-], [AC_MSG_RESULT([yes])
-AC_DEFINE([HAVE_RFC3678], [1], [Have RFC3678 protocol-independed API])],
-AC_MSG_RESULT([no]))
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+      #include <sys/types.h>
+      #include <netinet/in.h>
+  ]], [[
+      struct group_req gr;
+      int sock;
+      setsockopt(sock, IPPROTO_IP, MCAST_JOIN_GROUP, (void*)&gr, sizeof(gr));
+  ]])
+],[
+  AC_MSG_RESULT([yes])
+  AC_DEFINE([HAVE_RFC3678], [1], [Have RFC3678 protocol-independed API])
+],[
+  AC_MSG_RESULT(no)
+])
 
 dnl ---------------------------------------------------------------
 dnl figure out how to check link-state
@@ -2135,12 +2132,16 @@ dnl -----------------------
 dnl checking for IP_PKTINFO
 dnl -----------------------
 AC_MSG_CHECKING([for IP_PKTINFO])
-AC_TRY_COMPILE([#include <netdb.h>], [
-  int opt = IP_PKTINFO;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <netdb.h>
+   ]], [[
+        int opt = IP_PKTINFO;
+   ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_IP_PKTINFO], [1], [Have IP_PKTINFO])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
@@ -2148,12 +2149,16 @@ dnl ---------------------------
 dnl checking for IP_RECVDSTADDR
 dnl ---------------------------
 AC_MSG_CHECKING([for IP_RECVDSTADDR])
-AC_TRY_COMPILE([#include <netinet/in.h>], [
-  int opt = IP_RECVDSTADDR;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <netinet/in.h>
+  ]], [[
+        int opt = IP_RECVDSTADDR;
+  ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_IP_RECVDSTADDR], [1], [Have IP_RECVDSTADDR])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
@@ -2161,12 +2166,16 @@ dnl ----------------------
 dnl checking for IP_RECVIF
 dnl ----------------------
 AC_MSG_CHECKING([for IP_RECVIF])
-AC_TRY_COMPILE([#include <netinet/in.h>], [
-  int opt = IP_RECVIF;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <netinet/in.h>
+  ]], [[
+        int opt = IP_RECVIF;
+  ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_IP_RECVIF], [1], [Have IP_RECVIF])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
@@ -2174,12 +2183,16 @@ dnl ----------------------
 dnl checking for SO_BINDANY
 dnl ----------------------
 AC_MSG_CHECKING([for SO_BINDANY])
-AC_TRY_COMPILE([#include <sys/socket.h>], [
-  int opt = SO_BINDANY;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <sys/socket.h>
+  ]], [[
+        int opt = SO_BINDANY;
+  ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_SO_BINDANY], [1], [Have SO_BINDANY])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
@@ -2187,20 +2200,30 @@ dnl ----------------------
 dnl checking for IP_FREEBIND
 dnl ----------------------
 AC_MSG_CHECKING([for IP_FREEBIND])
-AC_TRY_COMPILE([#include <netinet/in.h>], [
-  int opt = IP_FREEBIND;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <netinet/in.h>
+  ]], [[
+        int opt = IP_FREEBIND;
+  ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_IP_FREEBIND], [1], [Have IP_FREEBIND])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
 dnl --------------------------------------
 dnl checking for be32dec existence or not
 dnl --------------------------------------
-AC_CHECK_DECLS([be32enc, be32dec], [], [],
-	       [#include <sys/endian.h>])
+AC_CHECK_DECLS([be32enc, be32dec], [], [], [
+        #ifdef HAVE_SYS_ENDIAN_H
+        #include <sys/endian.h>
+        #endif
+        #ifdef HAVE_ENDIAN_H
+        #include <endian.h>
+        #endif
+])
 
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
@@ -2288,12 +2311,17 @@ dnl capabilities checks
 dnl -------------------
 if test "$enable_capabilities" != "no"; then
   AC_MSG_CHECKING([whether prctl PR_SET_KEEPCAPS is available])
-  AC_TRY_COMPILE([#include <sys/prctl.h>], [prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
-    [AC_MSG_RESULT([yes])
+  AC_COMPILE_IFELSE(
+  [ AC_LANG_PROGRAM([[
+        #include <sys/prctl.h>
+    ]], [[
+        prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+    ]])
+  ],[AC_MSG_RESULT([yes])
      AC_DEFINE([HAVE_PR_SET_KEEPCAPS], [1], [prctl])
-     frr_ac_keepcaps="yes"],
-     AC_MSG_RESULT([no])
-  )
+     frr_ac_keepcaps="yes"
+  ],[AC_MSG_RESULT(no)
+  ])
   if test "$frr_ac_keepcaps" = "yes"; then
     AC_CHECK_HEADERS([sys/capability.h])
   fi
@@ -2652,7 +2680,7 @@ FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
-compiler flags          : ${CFLAGS} ${SAN_FLAGS}
+compiler flags          : ${CFLAGS} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}

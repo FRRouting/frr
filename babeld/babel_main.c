@@ -28,7 +28,7 @@ THE SOFTWARE.
 #include "thread.h"
 #include "privs.h"
 #include "sigevent.h"
-#include "version.h"
+#include "lib/version.h"
 #include "command.h"
 #include "vty.h"
 #include "memory.h"

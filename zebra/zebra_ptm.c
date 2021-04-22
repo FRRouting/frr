@@ -31,7 +31,7 @@
 #include "ptm_lib.h"
 #include "rib.h"
 #include "stream.h"
-#include "version.h"
+#include "lib/version.h"
 #include "vrf.h"
 #include "vty.h"
 #include "lib_errors.h"

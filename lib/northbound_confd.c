@@ -24,7 +24,7 @@
 #include "command.h"
 #include "debug.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "northbound.h"
 
 #include <confd_lib.h>

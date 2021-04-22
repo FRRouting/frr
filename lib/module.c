@@ -25,7 +25,7 @@
 
 #include "module.h"
 #include "memory.h"
-#include "version.h"
+#include "lib/version.h"
 
 DEFINE_MTYPE_STATIC(LIB, MODULE_LOADNAME, "Module loading name");
 DEFINE_MTYPE_STATIC(LIB, MODULE_LOADARGS, "Module loading arguments");

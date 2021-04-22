@@ -1,9 +1,10 @@
 ## Process this file with automake to produce Makefile.in.
 
 AUTOMAKE_OPTIONS = subdir-objects 1.12
-ACLOCAL_AMFLAGS = -I m4
+ACLOCAL_AMFLAGS = -I m4 -Wall,no-override
 
 AM_CFLAGS = \
+	$(AC_CFLAGS) \
 	$(LIBYANG_CFLAGS) \
 	$(SQLITE3_CFLAGS) \
 	$(UNWIND_CFLAGS) \
@@ -12,7 +13,7 @@ AM_CFLAGS = \
 	# end
 AM_CPPFLAGS = \
 	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
-	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib \
+	-I$(top_builddir) \
 	$(LUA_INCLUDE) \
 	# end
 AM_LDFLAGS = \

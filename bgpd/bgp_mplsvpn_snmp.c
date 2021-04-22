@@ -32,7 +32,7 @@
 #include "filter.h"
 #include "hook.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"

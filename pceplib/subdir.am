@@ -1,7 +1,7 @@
 if PATHD_PCEP
 
 noinst_LTLIBRARIES = pceplib/libpcep_pcc.la pceplib/libsocket_comm_mock.la
-pceplib_libpcep_pcc_la_CFLAGS = -fPIC
+pceplib_libpcep_pcc_la_CFLAGS = $(AM_CFLAGS) -fPIC
 pceplib_libpcep_pcc_la_SOURCES = pceplib/pcep_msg_messages.c \
 		pceplib/pcep_msg_objects.c \
 		pceplib/pcep_msg_tlvs.c \

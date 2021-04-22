@@ -35,7 +35,7 @@
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 
-#include "command_parse.h"
+#include "lib/command_parse.h"
 
 #define YY_USER_ACTION yylloc->last_column += yyleng;
 #define LOC_STEP do { if (yylloc) { \

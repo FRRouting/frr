@@ -23,7 +23,7 @@
 
 #include "log.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "command.h"
 #include "lib_errors.h"
 #include "northbound.h"

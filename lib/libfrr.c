@@ -29,7 +29,7 @@
 #include "privs.h"
 #include "vty.h"
 #include "command.h"
-#include "version.h"
+#include "lib/version.h"
 #include "lib_vty.h"
 #include "log_vty.h"
 #include "zclient.h"

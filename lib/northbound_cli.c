@@ -20,7 +20,7 @@
 #include <zebra.h>
 
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "defaults.h"
 #include "log.h"
 #include "lib_errors.h"

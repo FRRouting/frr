@@ -18,7 +18,7 @@
 #include <zebra.h>
 
 #include "defaults.h"
-#include "version.h"
+#include "lib/version.h"
 
 static char df_version[128] = FRR_VER_SHORT, df_profile[128] = DFLT_NAME;
 static struct frr_default *dflt_first = NULL, **dflt_next = &dflt_first;

@@ -25,6 +25,16 @@
 #include "sockunion.h"
 #include "lib_errors.h"
 
+#if (defined(__FreeBSD__)                                                      \
+     && ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000)           \
+	 || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000)))      \
+	|| (defined(__NetBSD__) && defined(__NetBSD_Version__)                 \
+	    && __NetBSD_Version__ >= 106010000)                                \
+	|| defined(__OpenBSD__) || defined(__APPLE__)                          \
+	|| defined(__DragonFly__) || defined(__sun)
+#define HAVE_BSD_STRUCT_IP_MREQ_HACK
+#endif
+
 void setsockopt_so_recvbuf(int sock, int size)
 {
 	int orig_req = size;
