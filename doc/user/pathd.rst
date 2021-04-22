@@ -28,25 +28,8 @@ documented elsewhere.
 PCEP Support
 ============
 
-To build the PCC for pathd, the externall library `pceplib 1.2 <https://github.com/volta-networks/pceplib/tree/devel-1.2>`_ is required.
+A pceplib is included in the frr source tree and build by default.
 
-To build FRR with support for PCEP the following steps must be followed:
-
- - Checkout and build pceplib:
-
-```
-$ git clone https://github.com/volta-networks/pceplib
-$ cd pceplib
-$ make
-$ make install
-$ export PCEPLIB_ROOT=$PWD
-```
-
- - Configure FRR with the extra parameters:
-
-```
---enable-pcep LDFLAGS="-L${PCEPLIB_ROOT}/install/lib" CPPFLAGS="-I${PCEPLIB_ROOT}/install/include"
-```
 
 To start pathd with pcep support the extra parameter `-M pathd_pcep` should be
 passed to the pathd daemon.
@@ -62,9 +45,17 @@ Example:
   debug pathd pcep basic
   segment-routing
    traffic-eng
+    mpls-te on
+    mpls-te import ospfv2
     segment-list SL1
      index 10 mpls label 16010
      index 20 mpls label 16030
+    !
+    segment-list SL2
+     index 10  nai prefix 10.1.2.1/32 iface 1
+     index 20  nai adjacency 10.1.20.1 10.1.20.2
+     index 30  nai prefix 10.10.10.5/32 algorithm 0
+     index 40  mpls label 18001
     !
     policy color 1 endpoint 1.1.1.1
      name default
@@ -113,11 +104,22 @@ Configuration Commands
 
    Configure segment routing traffic engineering.
 
+.. clicmd:: [no] mpls-te <on|off>
+
+   Activate/Deactivate use of internal Traffic Engineering Database
+
+.. clicmd:: [no] mpls-te import <ospfv2|ospfv3|isis>
+
+   Load data from the selected igp
+
 .. clicmd:: segment-list NAME
 
    Delete or start a segment list definition.
 
-.. clicmd:: index INDEX mpls label LABEL [nai node ADDRESS]
+.. clicmd:: index INDEX mpls label LABEL
+.. clicmd:: index INDEX nai adjacency A.B.C.D A.B.C.D
+.. clicmd:: index INDEX nai prefix A.B.C.D/M algorithm <0|1>
+.. clicmd:: index INDEX nai prefix A.B.C.D/M iface (0-65535)
 
    Delete or specify a segment in a segment list definition.
 
