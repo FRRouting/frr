@@ -2184,8 +2184,8 @@ module frr-zebra {
     + "/frr-route-map:match-condition"
     + "/frr-route-map:condition-value" {
     case ipv4-prefix-length {
-      when "./condition = 'ipv4-prefix-length' or
-            ./condition = 'ipv4-next-hop-prefix-length'";
+      when "./frr-route-map:condition = 'ipv4-prefix-length' or
+            ./frr-route-map:condition = 'ipv4-next-hop-prefix-length'";
       leaf ipv4-prefix-length {
         type uint8 {
           range "0..32";
@@ -2193,7 +2193,7 @@ module frr-zebra {
       }
     }
     case ipv6-prefix-length {
-      when "./condition = 'ipv6-prefix-length'";
+      when "./frr-route-map:condition = 'ipv6-prefix-length'";
       leaf ipv6-prefix-length {
         type uint8 {
           range "0..128";
@@ -2201,13 +2201,13 @@ module frr-zebra {
       }
     }
     case source-protocol {
-      when "./condition = 'source-protocol'";
+      when "./frr-route-map:condition = 'source-protocol'";
       leaf source-protocol {
         type frr-route-types:frr-route-types;
       }
     }
     case source-instance {
-      when "./condition = 'source-instance'";
+      when "./frr-route-map:condition = 'source-instance'";
       leaf source-instance {
         type uint8 {
           range "0..255";
@@ -2222,14 +2222,14 @@ module frr-zebra {
           + "/frr-route-map:set-action"
           + "/frr-route-map:action-value" {
     case source-v4 {
-      when "./action = 'source'";
+      when "./frr-route-map:action = 'source'";
       leaf source-v4 {
         description "IPv4 address";
         type inet:ipv4-address;
       }
     }
     case source-v6 {
-      when "./action = 'source'";
+      when "./frr-route-map:action = 'source'";
       leaf source-v6 {
         description "IPv6 address";
         type inet:ipv6-address;
