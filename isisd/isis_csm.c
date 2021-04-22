@@ -60,8 +60,9 @@ static const char *const csm_eventstr[] = {
 
 #define EVENT2STR(E) csm_eventstr[E]
 
-struct isis_circuit *
-isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
+struct isis_circuit *isis_csm_state_change(enum isis_circuit_event event,
+					   struct isis_circuit *circuit,
+					   void *arg)
 {
 	enum isis_circuit_state old_state;
 	struct isis *isis = NULL;
