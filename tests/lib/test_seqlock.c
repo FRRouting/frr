@@ -32,6 +32,7 @@
 
 #include "monotime.h"
 #include "seqlock.h"
+#include "printfrr.h"
 
 static struct seqlock sqlo;
 static pthread_t thr1;
@@ -43,7 +44,7 @@ static void writestr(const char *str)
 	char buf[32];
 	int64_t usec = monotime_since(&start, NULL);
 
-	snprintf(buf, sizeof(buf), "[%02"PRId64"] ", usec / 100000);
+	snprintfrr(buf, sizeof(buf), "[%02" PRId64 "] ", usec / 100000);
 
 	iov[0].iov_base = buf;
 	iov[0].iov_len = strlen(buf);
