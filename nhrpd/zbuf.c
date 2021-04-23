@@ -59,7 +59,7 @@ void zbuf_reset(struct zbuf *zb)
 
 void zbuf_reset_head(struct zbuf *zb, void *ptr)
 {
-	zassert((void *)zb->buf <= ptr && ptr <= (void *)zb->tail);
+	assert((void *)zb->buf <= ptr && ptr <= (void *)zb->tail);
 	zb->head = ptr;
 }
 

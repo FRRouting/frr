@@ -664,7 +664,7 @@ static int time_hhmmss(char *buf, int buf_size, long sec)
 	long mm;
 	int wr;
 
-	zassert(buf_size >= 8);
+	assert(buf_size >= 8);
 
 	hh = sec / 3600;
 	sec %= 3600;
