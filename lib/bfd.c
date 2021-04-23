@@ -1080,7 +1080,7 @@ static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
 
 static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 {
-	struct bfd_session_params *bsp;
+	struct bfd_session_params *bsp, *bspn;
 	size_t sessions_updated = 0;
 	struct interface *ifp;
 	int remote_cbit = false;
@@ -1137,7 +1137,7 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	now = monotime(NULL);
 
 	/* Notify all matching sessions about update. */
-	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
+	TAILQ_FOREACH_SAFE (bsp, &bsglobal.bsplist, entry, bspn) {
 		/* Skip not installed entries. */
 		if (!bsp->installed)
 			continue;

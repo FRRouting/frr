@@ -377,7 +377,7 @@ pim_neighbor_new(struct interface *ifp, struct in_addr source_addr,
 	}
 
 	// Register PIM Neighbor with BFD
-	pim_bfd_trigger_event(pim_ifp, neigh, 1);
+	pim_bfd_info_nbr_create(pim_ifp, neigh);
 
 	return neigh;
 }
@@ -419,8 +419,7 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
 	list_delete(&neigh->upstream_jp_agg);
 	THREAD_OFF(neigh->jp_timer);
 
-	if (neigh->bfd_info)
-		pim_bfd_info_free(&neigh->bfd_info);
+	bfd_sess_free(&neigh->bfd_session);
 
 	XFREE(MTYPE_PIM_NEIGHBOR, neigh);
 }
@@ -668,9 +667,6 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 		zlog_debug("%s: deleting PIM neighbor %s on interface %s",
 			   __func__, src_str, ifp->name);
 	}
-
-	// De-Register PIM Neighbor with BFD
-	pim_bfd_trigger_event(pim_ifp, neigh, 0);
 
 	listnode_delete(pim_ifp->pim_neighbor_list, neigh);
 

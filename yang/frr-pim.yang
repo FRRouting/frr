@@ -331,6 +331,12 @@ module frr-pim {
         description
           "Detect Multiplier";
       }
+
+      leaf profile {
+        type string;
+        description
+          "Use a preconfigure BFD profile.";
+      }
     }
 
     leaf bsm {

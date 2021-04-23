@@ -158,9 +158,16 @@ struct pim_interface {
 	uint32_t pim_ifstat_bsm_cfg_miss;
 	uint32_t pim_ifstat_ucast_bsm_cfg_miss;
 	uint32_t pim_ifstat_bsm_invalid_sz;
-	struct bfd_info *bfd_info;
 	bool bsm_enable; /* bsm processing enable */
 	bool ucast_bsm_accept; /* ucast bsm processing */
+
+	struct {
+		bool enabled;
+		uint32_t min_rx;
+		uint32_t min_tx;
+		uint8_t detection_multiplier;
+		char *profile;
+	} bfd_config;
 };
 
 /*

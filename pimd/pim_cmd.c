@@ -1955,8 +1955,8 @@ static void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 				vty_out(vty,
 					"    Hello Option - T-bit           : %s\n",
 					option_t_bit ? "yes" : "no");
-				pim_bfd_show_info(vty, neigh->bfd_info,
-						  json_ifp, uj, 0);
+				bfd_sess_show(vty, json_ifp,
+					      neigh->bfd_session);
 				vty_out(vty, "\n");
 			}
 		}
@@ -9676,19 +9676,16 @@ DEFUN (interface_no_pim_use_source,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (ip_pim_bfd,
+DEFPY (ip_pim_bfd,
        ip_pim_bfd_cmd,
-       "ip pim bfd",
+       "ip pim bfd [profile BFDPROF$prof]",
        IP_STR
        PIM_STR
-       "Enables BFD support\n")
+       "Enables BFD support\n"
+       "Use BFD profile\n"
+       "Use BFD profile name\n")
 {
-	struct bfd_info *bfd_info = NULL;
-	char default_rx_interval[5];
-	char default_tx_interval[5];
-	char default_detect_mult[3];
 	const struct lyd_node *igmp_enable_dnode;
-	char bfd_xpath[XPATH_MAXLEN + 20];
 
 	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
 					   "%s/frr-igmp:igmp/igmp-enable",
@@ -9702,31 +9699,25 @@ DEFUN (ip_pim_bfd,
 					      "true");
 	}
 
-	snprintf(default_rx_interval, sizeof(default_rx_interval), "%d",
-		 BFD_DEF_MIN_RX);
-	snprintf(default_tx_interval, sizeof(default_tx_interval), "%d",
-		 BFD_DEF_MIN_TX);
-	snprintf(default_detect_mult, sizeof(default_detect_mult), "%d",
-		 BFD_DEF_DETECT_MULT);
+	nb_cli_enqueue_change(vty, "./bfd", NB_OP_CREATE, NULL);
+	if (prof)
+		nb_cli_enqueue_change(vty, "./bfd/profile", NB_OP_MODIFY, prof);
 
-	snprintf(bfd_xpath, sizeof(bfd_xpath), "%s/frr-pim:pim/bfd",
-		 VTY_CURR_XPATH);
-	bfd_info = nb_running_get_entry(NULL, bfd_xpath, false);
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+}
 
-	if (!bfd_info ||
-	    !CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
-		nb_cli_enqueue_change(vty, "./bfd/min-rx-interval",
-				      NB_OP_MODIFY, default_rx_interval);
-		nb_cli_enqueue_change(vty, "./bfd/min-tx-interval",
-				      NB_OP_MODIFY, default_tx_interval);
-		nb_cli_enqueue_change(vty, "./bfd/detect_mult",
-				      NB_OP_MODIFY,
-				      default_detect_mult);
+DEFPY(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
+      "no ip pim bfd profile [BFDPROF]",
+      NO_STR
+      IP_STR
+      PIM_STR
+      "Enables BFD support\n"
+      "Disable BFD profile\n"
+      "BFD Profile name\n")
+{
+	nb_cli_enqueue_change(vty, "./bfd/profile", NB_OP_DESTROY, NULL);
 
-		return nb_cli_apply_changes(vty, "./frr-pim:pim");
-	}
-
-	return NB_OK;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (no_ip_pim_bfd,
@@ -9847,18 +9838,7 @@ DEFUN_HIDDEN(
 	int idx_number = 3;
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
-	uint32_t rx_val;
-	uint32_t tx_val;
-	uint8_t dm_val;
-	int ret;
 	const struct lyd_node *igmp_enable_dnode;
-
-	if ((ret = bfd_validate_param(vty, argv[idx_number]->arg,
-				      argv[idx_number_2]->arg,
-				      argv[idx_number_3]->arg, &dm_val, &rx_val,
-				      &tx_val))
-	    != CMD_SUCCESS)
-		return ret;
 
 	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
 					   "%s/frr-igmp:igmp/igmp-enable",
@@ -9872,6 +9852,7 @@ DEFUN_HIDDEN(
 					      "true");
 	}
 
+	nb_cli_enqueue_change(vty, "./bfd", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./bfd/min-rx-interval", NB_OP_MODIFY,
 			      argv[idx_number_2]->arg);
 	nb_cli_enqueue_change(vty, "./bfd/min-tx-interval", NB_OP_MODIFY,
@@ -11731,6 +11712,7 @@ void pim_cmd_init(void)
 	/* Install BFD command */
 	install_element(INTERFACE_NODE, &ip_pim_bfd_cmd);
 	install_element(INTERFACE_NODE, &ip_pim_bfd_param_cmd);
+	install_element(INTERFACE_NODE, &no_ip_pim_bfd_profile_cmd);
 	install_element(INTERFACE_NODE, &no_ip_pim_bfd_cmd);
 #if HAVE_BFDD == 0
 	install_element(INTERFACE_NODE, &no_ip_pim_bfd_param_cmd);
