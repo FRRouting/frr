@@ -169,7 +169,7 @@ typedef void (*bsp_status_update)(struct bfd_session_params *bsp,
 /**
  * Allocates and initializes the session parameters.
  *
- * \param updatedb status update notification callback.
+ * \param updatecb status update notification callback.
  * \param args application independent data.
  *
  * \returns pointer to configuration storage.
@@ -187,6 +187,10 @@ void bfd_sess_free(struct bfd_session_params **bsp);
 /**
  * Set the local and peer address of the BFD session.
  *
+ * NOTE:
+ * If the address changed the session is removed and must be installed again
+ * with `bfd_sess_install`.
+ *
  * \param bsp BFD session parameters.
  * \param src local address (optional, can be `NULL`).
  * \param dst remote address (mandatory).
@@ -196,6 +200,10 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 
 /**
  * Set the local and peer address of the BFD session.
+ *
+ * NOTE:
+ * If the address changed the session is removed and must be installed again
+ * with `bfd_sess_install`.
  *
  * \param bsp BFD session parameters.
  * \param src local address (optional, can be `NULL`).
@@ -207,6 +215,10 @@ void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
 /**
  * Configure the BFD session interface.
  *
+ * NOTE:
+ * If the interface changed the session is removed and must be installed again
+ * with `bfd_sess_install`.
+ *
  * \param bsp BFD session parameters.
  * \param ifname interface name (or `NULL` to remove it).
  */
@@ -214,6 +226,9 @@ void bfd_sess_set_interface(struct bfd_session_params *bsp, const char *ifname);
 
 /**
  * Configure the BFD session profile name.
+ *
+ * NOTE:
+ * Session profile will only change after a `bfd_sess_install`.
  *
  * \param bsp BFD session parameters.
  * \param profile profile name (or `NULL` to remove it).
@@ -223,6 +238,10 @@ void bfd_sess_set_profile(struct bfd_session_params *bsp, const char *profile);
 /**
  * Configure the BFD session VRF.
  *
+ * NOTE:
+ * If the VRF changed the session is removed and must be installed again
+ * with `bfd_sess_install`.
+ *
  * \param bsp BFD session parameters.
  * \param vrf_id the VRF identification number.
  */
@@ -230,6 +249,10 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id);
 
 /**
  * Configure the BFD session single/multi hop setting.
+ *
+ * NOTE:
+ * If the TTL changed the session is removed and must be installed again
+ * with `bfd_sess_install`.
  *
  * \param bsp BFD session parameters.
  * \param min_ttl minimum TTL value expected (255 for single hop, 254 for
@@ -252,6 +275,10 @@ void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl);
  * Instead of receiving the minimum expected TTL, it receives the amount of
  * hops the protocol will jump.
  *
+ * NOTE:
+ * If the TTL changed the session is removed and must be installed again
+ * with `bfd_sess_install`.
+ *
  * \param bsp BFD session parameters.
  * \param min_ttl minimum amount of hops expected (1 for single hop, 2 or
  *                more for multi hop).
@@ -260,6 +287,9 @@ void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl);
 
 /**
  * Configure the BFD session to set the Control Plane Independent bit.
+ *
+ * NOTE:
+ * Session CPI bit will only change after a `bfd_sess_install`.
  *
  * \param bsp BFD session parameters.
  * \param enable BFD Control Plane Independent state.
@@ -271,6 +301,11 @@ void bfd_sess_set_cbit(struct bfd_session_params *bsp, bool enable);
  *
  * Configures the BFD session timers to use. This is specially useful with
  * `ptm-bfd` which does not support timers.
+ *
+ * NOTE:
+ * Session timers will only apply if the session has not been created yet.
+ * If the session is already installed you must uninstall and install again
+ * to take effect.
  *
  * \param bsp BFD session parameters.
  * \param detection_multiplier the detection multiplier value.
@@ -284,12 +319,20 @@ void bfd_sess_set_timers(struct bfd_session_params *bsp,
 /**
  * Installs or updates the BFD session based on the saved session arguments.
  *
+ * NOTE:
+ * This function has a delayed effect: it will only install/update after
+ * all northbound/CLI command batch finishes.
+ *
  * \param bsp session parameters.
  */
 void bfd_sess_install(struct bfd_session_params *bsp);
 
 /**
  * Uninstall the BFD session based on the saved session arguments.
+ *
+ * NOTE:
+ * This function uninstalls the session immediately (if installed) and cancels
+ * any previous `bfd_sess_install` calls.
  *
  * \param bsp session parameters.
  */

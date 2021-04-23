@@ -26,6 +26,7 @@
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"
+#include "lib/bfd.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -149,7 +150,7 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	THREAD_OFF(on->thread_send_lsupdate);
 	THREAD_OFF(on->thread_send_lsack);
 
-	ospf6_bfd_reg_dereg_nbr(on, ZEBRA_BFD_DEST_DEREGISTER);
+	bfd_sess_free(&on->bfd_session);
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
 }
 
@@ -876,8 +877,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		json_object_object_add(json_neighbor, "pendingLsaLsAck",
 				       json_array);
 
-		ospf6_bfd_show_info(vty, on->bfd_info, 0, json_neighbor,
-				    use_json);
+		bfd_sess_show(vty, json_neighbor, on->bfd_session);
 
 		json_object_object_add(json, on->name, json_neighbor);
 
@@ -965,7 +965,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
-		ospf6_bfd_show_info(vty, on->bfd_info, 0, NULL, use_json);
+		bfd_sess_show(vty, NULL, on->bfd_session);
 	}
 }
 

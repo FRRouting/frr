@@ -326,11 +326,14 @@ OSPF6 BFD Configuration
 
 The following commands are available inside the interface configuration node.
 
-.. clicmd:: ipv6 ospf6 bfd
+.. clicmd:: ipv6 ospf6 bfd [profile BFDPROF]
 
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
+
+   Optionally uses the BFD profile ``BFDPROF`` in the created sessions under
+   that interface.
 
 
 .. _bfd-pim-peer-config:

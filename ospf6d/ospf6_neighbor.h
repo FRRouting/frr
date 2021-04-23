@@ -96,7 +96,7 @@ struct ospf6_neighbor {
 	struct thread *thread_send_lsack;
 
 	/* BFD information */
-	void *bfd_info;
+	struct bfd_session_params *bfd_session;
 };
 
 /* Neighbor state */
