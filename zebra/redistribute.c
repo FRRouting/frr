@@ -369,6 +369,14 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 	STREAM_GETC(msg, type);
 	STREAM_GETW(msg, instance);
 
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug(
+			"%s: client proto %s afi=%d, no longer wants %s, vrf %s(%u), instance=%d",
+			__func__, zebra_route_string(client->proto), afi,
+			zebra_route_string(type), VRF_LOGNAME(zvrf->vrf),
+			zvrf_id(zvrf), instance);
+
+
 	if (afi == 0 || afi >= AFI_MAX) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
 			  "%s: Specified afi %d does not exist", __func__, afi);
