@@ -261,10 +261,11 @@ ISIS interface
 
    Limit Remote LFA PQ node selection within the specified metric.
 
-.. clicmd:: isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
+.. clicmd:: isis fast-reroute ti-lfa [level-1|level-2] [node-protection [link-fallback]]
 
    Enable per-prefix TI-LFA fast reroute link or node protection.
-
+   When node protection is used, option link-fallback enables the computation and use of
+   link-protecting LFAs for destinations unprotected by node protection.
 
 .. _showing-isis-information:
 
