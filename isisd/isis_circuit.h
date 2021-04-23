@@ -152,6 +152,7 @@ struct isis_circuit {
 	struct hash *lfa_excluded_ifaces[ISIS_LEVELS];
 	bool tilfa_protection[ISIS_LEVELS];
 	bool tilfa_node_protection[ISIS_LEVELS];
+	bool tilfa_link_fallback[ISIS_LEVELS];
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */

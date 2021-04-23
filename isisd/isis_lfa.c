@@ -2258,6 +2258,11 @@ static void isis_spf_run_tilfa(struct isis_area *area,
 		spftree_pc_node = isis_tilfa_compute(area, spftree,
 						     spftree_reverse, resource);
 		isis_spftree_del(spftree_pc_node);
+
+		/* don't do link protection unless link-fallback is configured
+		 */
+		if (!circuit->tilfa_link_fallback[spftree->level - 1])
+			return;
 	}
 
 	/* Compute link protecting repair paths. */

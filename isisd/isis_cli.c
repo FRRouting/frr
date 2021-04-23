@@ -2647,6 +2647,7 @@ void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
 {
 	bool l1_enabled, l2_enabled;
 	bool l1_node_protection, l2_node_protection;
+	bool l1_link_fallback, l2_link_fallback;
 
 	/* Classic LFA */
 	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/lfa/enable");
@@ -2692,13 +2693,21 @@ void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_bool(dnode, "./level-1/ti-lfa/node-protection");
 	l2_node_protection =
 		yang_dnode_get_bool(dnode, "./level-2/ti-lfa/node-protection");
+	l1_link_fallback =
+		yang_dnode_get_bool(dnode, "./level-1/ti-lfa/link-fallback");
+	l2_link_fallback =
+		yang_dnode_get_bool(dnode, "./level-2/ti-lfa/link-fallback");
+
 
 	if (l1_enabled || l2_enabled) {
 		if (l1_enabled == l2_enabled
-		    && l1_node_protection == l2_node_protection) {
+		    && l1_node_protection == l2_node_protection
+		    && l1_link_fallback == l2_link_fallback) {
 			vty_out(vty, " isis fast-reroute ti-lfa");
 			if (l1_node_protection)
 				vty_out(vty, " node-protection");
+			if (l1_link_fallback)
+				vty_out(vty, " link-fallback");
 			vty_out(vty, "\n");
 		} else {
 			if (l1_enabled) {
@@ -2706,6 +2715,8 @@ void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
 					" isis fast-reroute ti-lfa level-1");
 				if (l1_node_protection)
 					vty_out(vty, " node-protection");
+				if (l1_link_fallback)
+					vty_out(vty, " link-fallback");
 				vty_out(vty, "\n");
 			}
 			if (l2_enabled) {
@@ -2713,6 +2724,8 @@ void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
 					" isis fast-reroute ti-lfa level-2");
 				if (l2_node_protection)
 					vty_out(vty, " node-protection");
+				if (l2_link_fallback)
+					vty_out(vty, " link-fallback");
 				vty_out(vty, "\n");
 			}
 		}
@@ -2917,14 +2930,15 @@ void cli_show_frr_remote_lfa_max_metric(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-{1,2}/ti-lfa/enable
  */
 DEFPY(isis_ti_lfa, isis_ti_lfa_cmd,
-      "[no] isis fast-reroute ti-lfa [level-1|level-2]$level [node-protection$node_protection]",
+      "[no] isis fast-reroute ti-lfa [level-1|level-2]$level [node-protection$node_protection [link-fallback$link_fallback]]",
       NO_STR
       "IS-IS routing protocol\n"
       "Interface IP Fast-reroute configuration\n"
       "Enable TI-LFA computation\n"
       "Enable TI-LFA computation for Level 1 only\n"
       "Enable TI-LFA computation for Level 2 only\n"
-      "Protect against node failures\n")
+      "Protect against node failures\n"
+      "Enable link-protection fallback\n")
 {
 	if (!level || strmatch(level, "level-1")) {
 		if (no) {
@@ -2936,6 +2950,10 @@ DEFPY(isis_ti_lfa, isis_ti_lfa_cmd,
 				vty,
 				"./frr-isisd:isis/fast-reroute/level-1/ti-lfa/node-protection",
 				NB_OP_MODIFY, "false");
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/ti-lfa/link-fallback",
+				NB_OP_MODIFY, "false");
 		} else {
 			nb_cli_enqueue_change(
 				vty,
@@ -2946,6 +2964,10 @@ DEFPY(isis_ti_lfa, isis_ti_lfa_cmd,
 				"./frr-isisd:isis/fast-reroute/level-1/ti-lfa/node-protection",
 				NB_OP_MODIFY,
 				node_protection ? "true" : "false");
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/ti-lfa/link-fallback",
+				NB_OP_MODIFY, link_fallback ? "true" : "false");
 		}
 	}
 	if (!level || strmatch(level, "level-2")) {
@@ -2958,6 +2980,10 @@ DEFPY(isis_ti_lfa, isis_ti_lfa_cmd,
 				vty,
 				"./frr-isisd:isis/fast-reroute/level-2/ti-lfa/node-protection",
 				NB_OP_MODIFY, "false");
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/ti-lfa/link-fallback",
+				NB_OP_MODIFY, "false");
 		} else {
 			nb_cli_enqueue_change(
 				vty,
@@ -2968,6 +2994,10 @@ DEFPY(isis_ti_lfa, isis_ti_lfa_cmd,
 				"./frr-isisd:isis/fast-reroute/level-2/ti-lfa/node-protection",
 				NB_OP_MODIFY,
 				node_protection ? "true" : "false");
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/ti-lfa/link-fallback",
+				NB_OP_MODIFY, link_fallback ? "true" : "false");
 		}
 	}
 

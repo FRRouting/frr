@@ -3518,6 +3518,30 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 
 /*
  * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/link-fallback
+ */
+int lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->tilfa_link_fallback[0] =
+		yang_dnode_get_bool(args->dnode, NULL);
+
+	area = circuit->area;
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/lfa/enable
  */
 int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
@@ -3712,6 +3736,30 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->tilfa_node_protection[1] =
+		yang_dnode_get_bool(args->dnode, NULL);
+
+	area = circuit->area;
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/link-fallback
+ */
+int lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->tilfa_link_fallback[1] =
 		yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
