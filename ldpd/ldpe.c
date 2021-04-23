@@ -111,6 +111,8 @@ ldpe(void)
 	log_procname = log_procnames[ldpd_process];
 
 	master = frr_init();
+	/* no frr_config_fork() here, allow frr_pthread to create threads */
+	frr_is_after_fork = true;
 
 	/* setup signal handler */
 	signal_init(master, array_size(ldpe_signals), ldpe_signals);

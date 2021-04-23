@@ -134,6 +134,8 @@ lde(void)
 	log_procname = log_procnames[PROC_LDE_ENGINE];
 
 	master = frr_init();
+	/* no frr_config_fork() here, allow frr_pthread to create threads */
+	frr_is_after_fork = true;
 
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);
