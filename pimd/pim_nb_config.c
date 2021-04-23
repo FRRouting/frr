@@ -763,8 +763,8 @@ int pim_register_suppress_time_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		router->register_suppress_time =
-			yang_dnode_get_uint16(args->dnode, NULL);
+		pim_update_suppress_timers(
+			yang_dnode_get_uint16(args->dnode, NULL));
 		break;
 	}
 
