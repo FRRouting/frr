@@ -36,6 +36,19 @@
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSDB, "OSPF6 LSA database");
 
+static void ospf6_lsdb_stats_init(struct ospf6_lsdb_stats *stats)
+{
+	stats->num_type1 = 0;
+	stats->num_type2 = 0;
+	stats->num_type3 = 0;
+	stats->num_type4 = 0;
+	stats->num_type5 = 0;
+	stats->num_type7 = 0;
+	stats->num_type8 = 0;
+	stats->num_type9 = 0;
+	stats->num_unknown = 0;
+}
+
 struct ospf6_lsdb *ospf6_lsdb_create(void *data)
 {
 	struct ospf6_lsdb *lsdb;
@@ -45,6 +58,7 @@ struct ospf6_lsdb *ospf6_lsdb_create(void *data)
 
 	lsdb->data = data;
 	lsdb->table = route_table_init();
+	ospf6_lsdb_stats_init(&lsdb->stats);
 	return lsdb;
 }
 
@@ -91,6 +105,52 @@ static void _lsdb_count_assert(struct ospf6_lsdb *lsdb)
 #define ospf6_lsdb_count_assert(t) ((void) 0)
 #endif /*DEBUG*/
 
+#define OSPF6_LSDB_STATS_NUM_INC 1
+#define OSPF6_LSDB_STATS_NUM_DEC 0
+
+/* Increment or decrement LSA-Type Count in Databases LSA Statistics */
+static inline void ospf6_lsdb_stats_num_incdec(struct ospf6_lsa *lsa,
+					       struct ospf6_lsdb *lsdb,
+					       uint8_t incdec)
+{
+	uint32_t *num = NULL;
+
+	switch (ntohs(lsa->header->type)) {
+	case OSPF6_LSTYPE_ROUTER:
+		num = &lsdb->stats.num_type1;
+		break;
+	case OSPF6_LSTYPE_NETWORK:
+		num = &lsdb->stats.num_type2;
+		break;
+	case OSPF6_LSTYPE_INTER_PREFIX:
+		num = &lsdb->stats.num_type3;
+		break;
+	case OSPF6_LSTYPE_INTER_ROUTER:
+		num = &lsdb->stats.num_type4;
+		break;
+	case OSPF6_LSTYPE_AS_EXTERNAL:
+		num = &lsdb->stats.num_type5;
+		break;
+	case OSPF6_LSTYPE_TYPE_7:
+		num = &lsdb->stats.num_type7;
+		break;
+	case OSPF6_LSTYPE_LINK:
+		num = &lsdb->stats.num_type8;
+		break;
+	case OSPF6_LSTYPE_INTRA_PREFIX:
+		num = &lsdb->stats.num_type9;
+		break;
+	default:
+		num = &lsdb->stats.num_unknown;
+		break;
+	}
+
+	if (incdec)
+		(*num)++;
+	else
+		(*num)--;
+}
+
 void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 {
 	struct prefix_ipv6 key;
@@ -111,6 +171,8 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
 	if (!old) {
 		lsdb->count++;
+		ospf6_lsdb_stats_num_incdec(lsa, lsdb,
+					    OSPF6_LSDB_STATS_NUM_INC);
 
 		if (OSPF6_LSA_IS_MAXAGE(lsa)) {
 			if (lsdb->hook_remove)
@@ -160,6 +222,7 @@ void ospf6_lsdb_remove(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
 	node->info = NULL;
 	lsdb->count--;
+	ospf6_lsdb_stats_num_incdec(lsa, lsdb, OSPF6_LSDB_STATS_NUM_DEC);
 
 	if (lsdb->hook_remove)
 		(*lsdb->hook_remove)(lsa);

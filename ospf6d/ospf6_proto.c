@@ -80,6 +80,22 @@ void ospf6_capability_printbuf(char capability, char *buf, int size)
 	snprintf(buf, size, "----%c%c%c%c", w, v, e, b);
 }
 
+void ospf6_capability_json(char capability, json_object *json)
+{
+	json_object *json_cap = json_object_new_object();
+
+	/* For some reason, the "x"-bit (RFC 5430, Appendix A.4.3) is called
+	 * "W"-bit in FRR. It is a reserved bit and should always be set to
+	 * zero. There is no need to displayed it (unless updated RFC specifies
+	 * different usage).
+	 */
+
+	json_object_boolean_add(json_cap, "V", capability & OSPF6_ROUTER_BIT_V);
+	json_object_boolean_add(json_cap, "E", capability & OSPF6_ROUTER_BIT_E);
+	json_object_boolean_add(json_cap, "B", capability & OSPF6_ROUTER_BIT_B);
+	json_object_object_add(json, "booleanRouterBits", json_cap);
+}
+
 void ospf6_options_printbuf(uint8_t *options, char *buf, int size)
 {
 	const char *dc, *r, *n, *mc, *e, *v6;
@@ -90,4 +106,22 @@ void ospf6_options_printbuf(uint8_t *options, char *buf, int size)
 	e = (OSPF6_OPT_ISSET(options, OSPF6_OPT_E) ? "E" : "-");
 	v6 = (OSPF6_OPT_ISSET(options, OSPF6_OPT_V6) ? "V6" : "--");
 	snprintf(buf, size, "%s|%s|%s|%s|%s|%s", dc, r, n, mc, e, v6);
+}
+
+void ospf6_options_json(uint8_t *options, json_object *json)
+{
+	json_object *json_opt = json_object_new_object();
+	json_object_boolean_add(json_opt, "DC",
+				OSPF6_OPT_ISSET(options, OSPF6_OPT_DC));
+	json_object_boolean_add(json_opt, "R",
+				OSPF6_OPT_ISSET(options, OSPF6_OPT_R));
+	json_object_boolean_add(json_opt, "N",
+				OSPF6_OPT_ISSET(options, OSPF6_OPT_N));
+	json_object_boolean_add(json_opt, "MC",
+				OSPF6_OPT_ISSET(options, OSPF6_OPT_MC));
+	json_object_boolean_add(json_opt, "E",
+				OSPF6_OPT_ISSET(options, OSPF6_OPT_E));
+	json_object_boolean_add(json_opt, "V6",
+				OSPF6_OPT_ISSET(options, OSPF6_OPT_V6));
+	json_object_object_add(json, "booleanOptionBits", json_opt);
 }
