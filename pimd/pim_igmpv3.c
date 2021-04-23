@@ -103,7 +103,7 @@ void igmp_group_reset_gmi(struct igmp_group *group)
 	  it represents the time for the *filter-mode* of the group to
 	  expire and switch to INCLUDE mode.
 	*/
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	igmp_group_timer_on(group, group_membership_interval_msec, ifp->name);
 }
@@ -314,7 +314,7 @@ static void group_exclude_fwd_anysrc_ifempty(struct igmp_group *group)
 {
 	struct pim_interface *pim_ifp = group->group_igmp_sock->interface->info;
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	if (listcount(group->group_source_list) < 1) {
 		igmp_anysource_forward_start(pim_ifp->pim, group);
@@ -324,7 +324,7 @@ static void group_exclude_fwd_anysrc_ifempty(struct igmp_group *group)
 void igmp_source_free(struct igmp_source *source)
 {
 	/* make sure there is no source timer running */
-	zassert(!source->t_source_timer);
+	assert(!source->t_source_timer);
 
 	XFREE(MTYPE_PIM_IGMP_GROUP_SOURCE, source);
 }
@@ -557,7 +557,7 @@ static void isex_excl(struct igmp_group *group, int num_sources,
 	int i;
 
 	/* EXCLUDE mode */
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	/* E.1: set deletion flag for known sources (X,Y) */
 	source_mark_delete_flag(group);
@@ -577,10 +577,10 @@ static void isex_excl(struct igmp_group *group, int num_sources,
 			/* E.4: if not found, create source with timer=GMI:
 			 * (A-X-Y) */
 			source = source_new(group, *src_addr);
-			zassert(!source->t_source_timer); /* timer == 0 */
+			assert(!source->t_source_timer); /* timer == 0 */
 			igmp_source_reset_gmi(group->group_igmp_sock, group,
 					      source);
-			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+			assert(source->t_source_timer); /* (A-X-Y) timer > 0 */
 		}
 
 	} /* scan received sources */
@@ -610,7 +610,7 @@ static void isex_incl(struct igmp_group *group, int num_sources,
 	int i;
 
 	/* INCLUDE mode */
-	zassert(!group->group_filtermode_isexcl);
+	assert(!group->group_filtermode_isexcl);
 
 	/* I.1: set deletion flag for known sources (A) */
 	source_mark_delete_flag(group);
@@ -631,7 +631,7 @@ static void isex_incl(struct igmp_group *group, int num_sources,
 			/* I.4: if not found, create source with timer=0 (B-A)
 			 */
 			source = source_new(group, *src_addr);
-			zassert(!source->t_source_timer); /* (B-A) timer=0 */
+			assert(!source->t_source_timer); /* (B-A) timer=0 */
 		}
 
 	} /* scan received sources */
@@ -641,7 +641,7 @@ static void isex_incl(struct igmp_group *group, int num_sources,
 
 	group->group_filtermode_isexcl = 1; /* boolean=true */
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	group_exclude_fwd_anysrc_ifempty(group);
 }
@@ -675,10 +675,10 @@ void igmpv3_report_isex(struct igmp_sock *igmp, struct in_addr from,
 	} else {
 		/* INCLUDE mode */
 		isex_incl(group, num_sources, sources);
-		zassert(group->group_filtermode_isexcl);
+		assert(group->group_filtermode_isexcl);
 	}
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	igmp_group_reset_gmi(group);
 }
@@ -807,7 +807,7 @@ static void toex_incl(struct igmp_group *group, int num_sources,
 	int num_sources_tosend = 0;
 	int i;
 
-	zassert(!group->group_filtermode_isexcl);
+	assert(!group->group_filtermode_isexcl);
 
 	/* Set DELETE flag for all known sources (A) */
 	source_mark_delete_flag(group);
@@ -834,7 +834,7 @@ static void toex_incl(struct igmp_group *group, int num_sources,
 			/* If source not found, create source with timer=0:
 			 * (B-A)=0 */
 			source = source_new(group, *src_addr);
-			zassert(!source->t_source_timer); /* (B-A) timer=0 */
+			assert(!source->t_source_timer); /* (B-A) timer=0 */
 		}
 
 	} /* Scan received sources (B) */
@@ -849,7 +849,7 @@ static void toex_incl(struct igmp_group *group, int num_sources,
 		source_query_send_by_flag(group, num_sources_tosend);
 	}
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	group_exclude_fwd_anysrc_ifempty(group);
 }
@@ -894,17 +894,17 @@ static void toex_excl(struct igmp_group *group, int num_sources,
 			long group_timer_msec;
 			source = source_new(group, *src_addr);
 
-			zassert(!source->t_source_timer); /* timer == 0 */
+			assert(!source->t_source_timer); /* timer == 0 */
 			group_timer_msec = igmp_group_timer_remain_msec(group);
 			igmp_source_timer_on(group, source, group_timer_msec);
-			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+			assert(source->t_source_timer); /* (A-X-Y) timer > 0 */
 
 			/* make sure source is created with DELETE flag unset */
-			zassert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
+			assert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
 		}
 
 		/* make sure reported source has DELETE flag unset */
-		zassert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
+		assert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
 
 		if (source->t_source_timer) {
 			/* if source timer>0 mark SEND flag: Q(G,A-Y) */
@@ -948,9 +948,9 @@ void igmpv3_report_toex(struct igmp_sock *igmp, struct in_addr from,
 	} else {
 		/* INCLUDE mode */
 		toex_incl(group, num_sources, sources);
-		zassert(group->group_filtermode_isexcl);
+		assert(group->group_filtermode_isexcl);
 	}
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	/* Group Timer=GMI */
 	igmp_group_reset_gmi(group);
@@ -1347,7 +1347,7 @@ static void source_query_send_by_flag(struct igmp_group *group,
 	long lmqi_msec; /* Last Member Query Interval */
 	long lmqt_msec; /* Last Member Query Time */
 
-	zassert(num_sources_tosend > 0);
+	assert(num_sources_tosend > 0);
 
 	igmp = group->group_igmp_sock;
 	pim_ifp = igmp->interface->info;
@@ -1408,10 +1408,10 @@ static void block_excl(struct igmp_group *group, int num_sources,
 			long group_timer_msec;
 			source = source_new(group, *src_addr);
 
-			zassert(!source->t_source_timer); /* timer == 0 */
+			assert(!source->t_source_timer); /* timer == 0 */
 			group_timer_msec = igmp_group_timer_remain_msec(group);
 			igmp_source_timer_on(group, source, group_timer_msec);
-			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+			assert(source->t_source_timer); /* (A-X-Y) timer > 0 */
 		}
 
 		if (source->t_source_timer) {
@@ -1523,7 +1523,7 @@ void igmp_group_timer_lower_to_lmqt(struct igmp_group *group)
 			lmqt_msec);
 	}
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	igmp_group_timer_on(group, lmqt_msec, ifname);
 }
@@ -1581,7 +1581,7 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 	socklen_t tolen;
 	uint16_t checksum;
 
-	zassert(num_sources >= 0);
+	assert(num_sources >= 0);
 
 	msg_size = IGMP_V3_SOURCES_OFFSET + (num_sources << 2);
 	if (msg_size > query_buf_size) {
@@ -1593,7 +1593,7 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 	}
 
 	s_flag = PIM_FORCE_BOOLEAN(s_flag);
-	zassert((s_flag == 0) || (s_flag == 1));
+	assert((s_flag == 0) || (s_flag == 1));
 
 	max_resp_code = igmp_msg_encode16to8(query_max_response_time_dsec);
 	qqic = igmp_msg_encode16to8(querier_query_interval);

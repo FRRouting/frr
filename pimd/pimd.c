@@ -126,7 +126,7 @@ void pim_init(void)
 			"%s %s: could not solve %s to group address: errno=%d: %s",
 			__FILE__, __func__, PIM_ALL_PIM_ROUTERS, errno,
 			safe_strerror(errno));
-		zassert(0);
+		assert(0);
 		return;
 	}
 

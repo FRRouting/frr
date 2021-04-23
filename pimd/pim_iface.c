@@ -115,8 +115,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
-	zassert(!ifp->info);
+	assert(ifp);
+	assert(!ifp->info);
 
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
 
@@ -145,8 +145,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	  The number of seconds represented by the [Query Response Interval]
 	  must be less than the [Query Interval].
 	 */
-	zassert(pim_ifp->igmp_query_max_response_time_dsec
-		< pim_ifp->igmp_default_query_interval);
+	assert(pim_ifp->igmp_query_max_response_time_dsec
+	       < pim_ifp->igmp_default_query_interval);
 
 	if (pim)
 		PIM_IF_DO_PIM(pim_ifp->options);
@@ -198,9 +198,9 @@ void pim_if_delete(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 
-	zassert(ifp);
+	assert(ifp);
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (pim_ifp->igmp_join_list) {
 		pim_if_igmp_join_del_all(ifp);
@@ -238,7 +238,7 @@ void pim_if_update_could_assert(struct interface *ifp)
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_could_assert(ch);
@@ -251,7 +251,7 @@ static void pim_if_update_my_assert_metric(struct interface *ifp)
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_my_assert_metric(ch);
@@ -263,7 +263,7 @@ static void pim_addr_change(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	pim_if_dr_election(ifp); /* router's own DR Priority (addr) changes --
 				    Done TODO T30 */
@@ -507,10 +507,10 @@ void pim_if_addr_add(struct connected *ifc)
 	struct in_addr ifaddr;
 	bool vxlan_term;
 
-	zassert(ifc);
+	assert(ifc);
 
 	ifp = ifc->ifp;
-	zassert(ifp);
+	assert(ifp);
 	pim_ifp = ifp->info;
 	if (!pim_ifp)
 		return;
@@ -708,9 +708,9 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 {
 	struct interface *ifp;
 
-	zassert(ifc);
+	assert(ifc);
 	ifp = ifc->ifp;
-	zassert(ifp);
+	assert(ifp);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%s: %s ifindex=%d disconnected IP address %pFX %s",
@@ -945,7 +945,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	struct in_addr ifaddr;
 	unsigned char flags = 0;
 
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (pim_ifp->mroute_vif_index > 0) {
 		zlog_warn("%s: vif_index=%d > 0 on interface %s ifindex=%d",
@@ -1063,8 +1063,8 @@ int pim_if_lan_delay_enabled(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
-	zassert(pim_ifp->pim_number_of_nonlandelay_neighbors >= 0);
+	assert(pim_ifp);
+	assert(pim_ifp->pim_number_of_nonlandelay_neighbors >= 0);
 
 	return pim_ifp->pim_number_of_nonlandelay_neighbors == 0;
 }
@@ -1128,7 +1128,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 	struct pim_interface *pim_ifp;
 	struct prefix p;
 
-	zassert(ifp);
+	assert(ifp);
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -1171,7 +1171,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 	uint32_t ramount = 0;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	/* join suppression disabled ? */
 	if (PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options))
@@ -1196,7 +1196,7 @@ static struct igmp_join *igmp_join_find(struct list *join_list,
 	struct listnode *node;
 	struct igmp_join *ij;
 
-	zassert(join_list);
+	assert(join_list);
 
 	for (ALL_LIST_ELEMENTS_RO(join_list, node, ij)) {
 		if ((group_addr.s_addr == ij->group_addr.s_addr)
@@ -1245,7 +1245,7 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 	int join_fd;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	join_fd = igmp_join_sock(ifp->name, ifp->ifindex, group_addr,
 				 source_addr);
@@ -1416,7 +1416,7 @@ void pim_if_assert_on_neighbor_down(struct interface *ifp,
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		/* Is (S,G,I) assert loser ? */
