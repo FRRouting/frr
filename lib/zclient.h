@@ -488,6 +488,8 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_LABEL		0x02
 #define ZAPI_NEXTHOP_FLAG_WEIGHT	0x04
 #define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
+#define ZAPI_NEXTHOP_FLAG_SEG6		0x10
+#define ZAPI_NEXTHOP_FLAG_SEG6LOCAL	0x20
 
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
@@ -572,16 +574,6 @@ struct zapi_route {
  * offload situation.
  */
 #define ZEBRA_FLAG_OFFLOAD_FAILED     0x200
-/*
- * This flag tells Zebra that the route is a seg6 route and should
- * be treated specially.
- */
-#define ZEBRA_FLAG_SEG6_ROUTE         0x400
-/*
- * This flag tells Zebra that the route is a seg6local route and
- * should be treated specially.
- */
-#define ZEBRA_FLAG_SEG6LOCAL_ROUTE    0x800
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;

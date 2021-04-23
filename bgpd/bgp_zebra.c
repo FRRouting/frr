@@ -1408,7 +1408,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	}
 
 	if (has_valid_sid && !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)))
-		SET_FLAG(api.flags, ZEBRA_FLAG_SEG6_ROUTE);
+		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
 

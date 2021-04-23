@@ -459,11 +459,11 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 		return zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
-	SET_FLAG(api.flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 	nh.type = NEXTHOP_TYPE_IFINDEX;
 	nh.ifindex = oif;
+	SET_FLAG(nh.flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
 	nexthop_add_srv6_seg6local(&nh, action, context);
 
 	zapi_nexthop_from_nexthop(&api.nexthops[0], &nh);
@@ -1053,13 +1053,13 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			stream_putc(s, api_nh->backup_idx[i]);
 	}
 
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE)) {
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL)) {
 		stream_putl(s, api_nh->seg6local_action);
 		stream_write(s, &api_nh->seg6local_ctx,
 			     sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_SEG6_ROUTE))
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6))
 		stream_write(s, &api_nh->seg6_segs,
 			     sizeof(struct in6_addr));
 
@@ -1382,13 +1382,13 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			STREAM_GETC(s, api_nh->backup_idx[i]);
 	}
 
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE)) {
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL)) {
 		STREAM_GETL(s, api_nh->seg6local_action);
 		STREAM_GET(&api_nh->seg6local_ctx, s,
 			   sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_SEG6_ROUTE))
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6))
 		STREAM_GET(&api_nh->seg6_segs, s,
 			   sizeof(struct in6_addr));
 
@@ -1810,15 +1810,18 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 	if (nh->nh_srv6) {
 		if (nh->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
 			znh->seg6local_action = nh->nh_srv6->seg6local_action;
 			memcpy(&znh->seg6local_ctx,
 			       &nh->nh_srv6->seg6local_ctx,
 			       sizeof(struct seg6local_context));
 		}
 
-		if (!sid_zero(&nh->nh_srv6->seg6_segs))
+		if (!sid_zero(&nh->nh_srv6->seg6_segs)) {
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 			memcpy(&znh->seg6_segs, &nh->nh_srv6->seg6_segs,
 			       sizeof(struct in6_addr));
+		}
 	}
 
 	return 0;

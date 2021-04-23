@@ -37,7 +37,7 @@
       "installed": true,
       "table": 20,
       "internalStatus": 16,
-      "internalFlags": 1032,
+      "internalFlags": 8,
       "internalNextHopNum": 1,
       "internalNextHopActiveNum": 1,
       "nexthops": [
