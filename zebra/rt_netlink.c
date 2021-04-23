@@ -1465,7 +1465,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 				zlog_err("%s: unsupport seg6local behaviour action=%u",
 					 __func__,
 					 nexthop->nh_srv6->seg6local_action);
-				break;
+				return false;
 			}
 			nl_attr_nest_end(nlmsg, nest);
 		}
@@ -2568,7 +2568,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					default:
 						zlog_err("%s: unsupport seg6local behaviour action=%u",
 							 __func__, action);
-						break;
+						return 0;
 					}
 					nl_attr_nest_end(&req->n, nest);
 				}
