@@ -219,8 +219,8 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(channel_oil);
-	zassert(oif);
+	assert(channel_oil);
+	assert(oif);
 
 	pim_ifp = oif->info;
 

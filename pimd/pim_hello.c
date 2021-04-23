@@ -141,14 +141,14 @@ int pim_hello_recv(struct interface *ifp, struct in_addr src_addr,
 		on_trace(__func__, ifp, src_addr);
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	++pim_ifp->pim_ifstat_hello_recv;
 
 	/*
 	  Parse PIM hello TLVs
 	 */
-	zassert(tlv_buf_size >= 0);
+	assert(tlv_buf_size >= 0);
 	tlv_curr = tlv_buf;
 	tlv_pastend = tlv_buf + tlv_buf_size;
 
@@ -539,11 +539,11 @@ void pim_hello_require(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
+	assert(ifp);
 
 	pim_ifp = ifp->info;
 
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (pim_ifp->pim_ifstat_hello_sent)
 		return;

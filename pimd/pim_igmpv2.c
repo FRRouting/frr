@@ -54,7 +54,7 @@ void igmp_v2_send_query(struct igmp_group *group, int fd, const char *ifname,
 	/* max_resp_code must be non-zero else this will look like an IGMP v1
 	 * query */
 	max_resp_code = igmp_msg_encode16to8(query_max_response_time_dsec);
-	zassert(max_resp_code > 0);
+	assert(max_resp_code > 0);
 
 	query_buf[0] = PIM_IGMP_MEMBERSHIP_QUERY;
 	query_buf[1] = max_resp_code;

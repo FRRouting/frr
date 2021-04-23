@@ -71,7 +71,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	}
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	++pim_ifp->pim_ifstat_join_recv;
 
@@ -134,7 +134,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 	}
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	++pim_ifp->pim_ifstat_prune_recv;
 

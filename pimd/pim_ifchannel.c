@@ -498,7 +498,7 @@ void pim_ifchannel_membership_clear(struct interface *ifp)
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb)
 		ifmembership_set(ch, PIM_IFMEMBERSHIP_NOINFO);
@@ -510,7 +510,7 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
 	struct pim_ifchannel *ch, *ch_tmp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch_tmp)
 		delete_on_noinfo(ch);
@@ -825,7 +825,7 @@ static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
 	int is_local; /* boolean */
 
 	recv_pim_ifp = recv_ifp->info;
-	zassert(recv_pim_ifp);
+	assert(recv_pim_ifp);
 
 	is_local = (upstream.s_addr == recv_pim_ifp->primary_address.s_addr);
 
@@ -913,7 +913,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 	}
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	switch (ch->ifjoin_state) {
 	case PIM_IFJOIN_NOINFO:
@@ -939,7 +939,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		}
 		break;
 	case PIM_IFJOIN_JOIN:
-		zassert(!ch->t_ifjoin_prune_pending_timer);
+		assert(!ch->t_ifjoin_prune_pending_timer);
 
 		/*
 		  In the JOIN state ch->t_ifjoin_expiry_timer may be NULL due to
