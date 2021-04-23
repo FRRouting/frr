@@ -1148,10 +1148,13 @@ static void lfa_calc_pq_spaces(struct isis_spftree *spftree_pc,
 
 			/*
 			 * Compute the reverse SPF in the behalf of the node
-			 * adjacent to the failure.
+			 * adjacent to the failure, if we haven't done that
+			 * before
 			 */
-			adj_node->lfa.spftree_reverse =
-				isis_spf_reverse_run(adj_node->lfa.spftree);
+			if (!adj_node->lfa.spftree_reverse)
+				adj_node->lfa.spftree_reverse =
+					isis_spf_reverse_run(
+						adj_node->lfa.spftree);
 
 			lfa_calc_reach_nodes(adj_node->lfa.spftree_reverse,
 					     spftree_reverse, adj_nodes, false,
