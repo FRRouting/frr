@@ -21,6 +21,10 @@
  */
 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <netdb.h> // gethostbyname
 #include <pthread.h>
 #include <stdlib.h>

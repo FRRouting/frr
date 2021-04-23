@@ -21,6 +21,10 @@
  */
 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>

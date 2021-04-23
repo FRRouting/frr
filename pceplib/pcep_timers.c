@@ -25,6 +25,10 @@
  *  Implementation of public API timer functions.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <limits.h>
 #include <pthread.h>
 #include <stddef.h>

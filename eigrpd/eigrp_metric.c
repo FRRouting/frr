@@ -21,6 +21,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <zebra.h>
+
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_types.h"
