@@ -294,7 +294,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
-		peer->af_flags[afi][safi] = from_peer->af_flags[afi][safi];
 		peer->af_sflags[afi][safi] = from_peer->af_sflags[afi][safi];
 		peer->af_cap[afi][safi] = from_peer->af_cap[afi][safi];
 		peer->afc_nego[afi][safi] = from_peer->afc_nego[afi][safi];
