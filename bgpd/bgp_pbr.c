@@ -1072,22 +1072,22 @@ static void *bgp_pbr_rule_alloc_intern(void *arg)
 	return new;
 }
 
+static void bgp_pbr_bpa_remove(struct bgp_pbr_action *bpa)
+{
+	if ((bpa->refcnt == 0) && bpa->installed && bpa->table_id != 0) {
+		bgp_send_pbr_rule_action(bpa, NULL, false);
+		bgp_zebra_announce_default(bpa->bgp, &bpa->nh, bpa->afi,
+					   bpa->table_id, false);
+		bpa->installed = false;
+	}
+}
+
 static void bgp_pbr_action_free(void *arg)
 {
-	struct bgp_pbr_action *bpa;
+	struct bgp_pbr_action *bpa = arg;
 
-	bpa = (struct bgp_pbr_action *)arg;
+	bgp_pbr_bpa_remove(bpa);
 
-	if (bpa->refcnt == 0) {
-		if (bpa->installed && bpa->table_id != 0) {
-			bgp_send_pbr_rule_action(bpa, NULL, false);
-			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
-						   AFI_IP,
-						   bpa->table_id,
-						   false);
-			bpa->installed = false;
-		}
-	}
 	XFREE(MTYPE_PBR_ACTION, bpa);
 }
 
@@ -1691,16 +1691,7 @@ static void bgp_pbr_flush_iprule(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		}
 	}
 	hash_release(bgp->pbr_rule_hash, bpr);
-	if (bpa->refcnt == 0) {
-		if (bpa->installed && bpa->table_id != 0) {
-			bgp_send_pbr_rule_action(bpa, NULL, false);
-			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
-						   AFI_IP,
-						   bpa->table_id,
-						   false);
-			bpa->installed = false;
-		}
-	}
+	bgp_pbr_bpa_remove(bpa);
 }
 
 static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
@@ -1748,16 +1739,7 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		 * note that drop does not need to call send_pbr_action
 		 */
 	}
-	if (bpa->refcnt == 0) {
-		if (bpa->installed && bpa->table_id != 0) {
-			bgp_send_pbr_rule_action(bpa, NULL, false);
-			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
-						   bpa->afi,
-						   bpa->table_id,
-						   false);
-			bpa->installed = false;
-		}
-	}
+	bgp_pbr_bpa_remove(bpa);
 }
 
 struct bgp_pbr_match_entry_remain {
