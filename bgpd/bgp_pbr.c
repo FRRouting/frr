@@ -1082,6 +1082,15 @@ static void bgp_pbr_bpa_remove(struct bgp_pbr_action *bpa)
 	}
 }
 
+static void bgp_pbr_bpa_add(struct bgp_pbr_action *bpa)
+{
+	if (!bpa->installed && !bpa->install_in_progress) {
+		bgp_send_pbr_rule_action(bpa, NULL, true);
+		bgp_zebra_announce_default(bpa->bgp, &bpa->nh, bpa->afi,
+					   bpa->table_id, true);
+	}
+}
+
 static void bgp_pbr_action_free(void *arg)
 {
 	struct bgp_pbr_action *bpa = arg;
@@ -2356,12 +2365,9 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 				return;
 			}
 		}
-		if (!bpa->installed && !bpa->install_in_progress) {
-			bgp_send_pbr_rule_action(bpa, NULL, true);
-			bgp_zebra_announce_default(bgp, nh,
-						   bpa->afi,
-						   bpa->table_id, true);
-		}
+
+		bgp_pbr_bpa_add(bpa);
+
 		/* ip rule add */
 		if (bpr && !bpr->installed)
 			bgp_send_pbr_rule_action(bpa, bpr, true);
@@ -2529,11 +2535,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	 * it will be suppressed subsequently
 	 */
 	/* ip rule add */
-	if (!bpa->installed && !bpa->install_in_progress) {
-		bgp_send_pbr_rule_action(bpa, NULL, true);
-		bgp_zebra_announce_default(bgp, nh,
-					   bpa->afi, bpa->table_id, true);
-	}
+	bgp_pbr_bpa_add(bpa);
 
 	/* ipset create */
 	if (!bpm->installed)
