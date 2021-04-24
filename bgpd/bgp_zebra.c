@@ -1180,7 +1180,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	route_tag_t tag;
 	mpls_label_t label;
 	int nh_othervrf = 0;
-	char buf_prefix[PREFIX_STRLEN];	/* filled in if we are debugging */
 	bool is_evpn;
 	bool nh_updated = false;
 	bool do_wt_ecmp;
@@ -1196,9 +1195,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 	if (bgp->main_zebra_update_hold)
 		return;
-
-	if (bgp_debug_zebra(p))
-		prefix2str(p, buf_prefix, sizeof(buf_prefix));
 
 	if (safi == SAFI_FLOWSPEC) {
 		bgp_pbr_update_entry(bgp, bgp_dest_get_prefix(dest), info, afi,
@@ -1312,13 +1308,14 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		if (bgp_debug_zebra(&api.prefix)) {
 			if (mpinfo->extra) {
-				zlog_debug("%s: p=%s, bgp_is_valid_label: %d",
-					   __func__, buf_prefix,
+				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
+					   __func__, p,
 					   bgp_is_valid_label(
 						   &mpinfo->extra->label[0]));
 			} else {
-				zlog_debug("%s: p=%s, extra is NULL, no label",
-					   __func__, buf_prefix);
+				zlog_debug(
+					"%s: p=%pFX, extra is NULL, no label",
+					__func__, p);
 			}
 		}
 
@@ -1500,9 +1497,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		if (CHECK_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION))
 			recursion_flag = 1;
 
-		zlog_debug("%s: %s: announcing to zebra (recursion %sset)",
-			__func__, buf_prefix,
-			(recursion_flag ? "" : "NOT "));
+		zlog_debug("%s: %pFX: announcing to zebra (recursion %sset)",
+			   __func__, p, (recursion_flag ? "" : "NOT "));
 	}
 	zclient_route_send(is_add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
