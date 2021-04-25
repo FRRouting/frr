@@ -2084,6 +2084,8 @@ void ospf_external_lsa_rid_change(struct ospf *ospf)
 {
 	struct external_info *ei;
 	struct ospf_external_aggr_rt *aggr;
+	struct ospf_lsa *lsa = NULL;
+	int force;
 	int type;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
@@ -2112,24 +2114,48 @@ void ospf_external_lsa_rid_change(struct ospf *ospf)
 					continue;
 
 				if (is_prefix_default(
-						(struct prefix_ipv4 *)&ei->p))
+					    (struct prefix_ipv4 *)&ei->p))
 					continue;
 
-				if (!ospf_redistribute_check(ospf, ei, NULL))
-					continue;
+				lsa = ospf_external_info_find_lsa(ospf, &ei->p);
 
 				aggr = ospf_external_aggr_match(ospf, &ei->p);
 				if (aggr) {
+
+					if (!ospf_redistribute_check(ospf, ei,
+								     NULL))
+						continue;
+
 					if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 						zlog_debug(
 							"Originate Summary LSA after reset/router-ID change");
+
 					/* Here the LSA is originated as new */
 					ospf_originate_summary_lsa(ospf, aggr,
 								   ei);
-				} else if (!ospf_external_lsa_originate(ospf,
-									ei))
-					flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
-						  "LSA: AS-external-LSA was not originated.");
+				} else if (lsa) {
+					/* LSA needs to be refreshed even if
+					 * there is no change in the route
+					 * params if the LSA is in maxage.
+					 */
+					if (IS_LSA_MAXAGE(lsa))
+						force = LSA_REFRESH_FORCE;
+					else
+						force = LSA_REFRESH_IF_CHANGED;
+
+					ospf_external_lsa_refresh(ospf, lsa,
+								ei, force, 0);
+				} else {
+					if (!ospf_redistribute_check(ospf, ei,
+								     NULL))
+						continue;
+
+					if (!ospf_external_lsa_originate(ospf,
+									 NULL))
+						flog_warn(
+							EC_OSPF_LSA_INSTALL_FAILURE,
+							"LSA: AS-external-LSA was not originated.");
+				}
 			}
 		}
 	}
