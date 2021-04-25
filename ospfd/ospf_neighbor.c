@@ -407,6 +407,9 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 		}
 	}
 
+	/* Refresh/Re-originate external LSAs (Type-7 and Type-5).*/
+	ospf_external_lsa_rid_change(top);
+
 	return;
 }
 
