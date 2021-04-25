@@ -1021,6 +1021,35 @@ For protocols requiring an IPv6 router-id, the following commands are available:
 
    Display the user configured IPv6 router-id.
 
+Expected sysctl settings
+========================
+
+The linux kernel has a variety of sysctl's that affect it's operation as a router.  This
+section is meant to act as a starting point for those sysctl's that must be used in
+order to provide FRR with smooth operation as a router.  This section is not meant
+as the full documentation for sysctl's.  The operator must use the sysctl documentation
+with the linux kernel for that.
+
+.. option:: net.ipv4.ip_forward = 1
+
+   This option allows the linux kernel to forward ipv4 packets incoming from one interface
+   to an outgoing interface.  Without this no forwarding will take place from off box packets.
+
+.. option:: net.ipv6.conf.all_forwarding=1
+
+   This option allows the linux kernel to forward ipv6 packets incoming from one interface
+   to an outgoing interface.  Without this no forwarding will take place from off box packets.
+
+.. option:: net.ipv6.conf.all.keep_addr_on_down=1
+
+   When an interface is taken down, do not remove the v6 addresses associated with the interface.
+   This option is recommended because this is the default behavior for v4 as well.
+
+.. option:: net.ipv6.route.skip_notify_on_dev_down=1
+
+   When an interface is taken down, the linux kernel will not notify, via netlink, about routes
+   that used that interface being removed from the FIB.  This option is recommended because this
+   is the default behavior for v4 as well.
 
 Debugging
 =========
