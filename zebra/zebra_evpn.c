@@ -1011,6 +1011,7 @@ zebra_evpn_t *zebra_evpn_lookup(vni_t vni)
  */
 zebra_evpn_t *zebra_evpn_add(vni_t vni)
 {
+	char buffer[80];
 	struct zebra_vrf *zvrf;
 	zebra_evpn_t tmp_zevpn;
 	zebra_evpn_t *zevpn = NULL;
@@ -1024,11 +1025,13 @@ zebra_evpn_t *zebra_evpn_add(vni_t vni)
 
 	zebra_evpn_es_evi_init(zevpn);
 
+	snprintf(buffer, sizeof(buffer), "Zebra EVPN MAC Table vni: %u", vni);
 	/* Create hash table for MAC */
-	zevpn->mac_table = zebra_mac_db_create("Zebra EVPN MAC Table");
+	zevpn->mac_table = zebra_mac_db_create(buffer);
 
+	snprintf(buffer, sizeof(buffer), "Zebra EVPN Neighbor Table vni: %u", vni);
 	/* Create hash table for neighbors */
-	zevpn->neigh_table = zebra_neigh_db_create("Zebra EVPN Neighbor Table");
+	zevpn->neigh_table = zebra_neigh_db_create(buffer);
 
 	return zevpn;
 }
