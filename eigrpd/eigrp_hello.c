@@ -125,6 +125,10 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 	struct eigrp *eigrp = nbr->ei->eigrp;
 	struct TLV_Parameter_Type *param = (struct TLV_Parameter_Type *)tlv;
 
+	/* First validate TLV length */
+	if (tlv->length < sizeof(struct TLV_Parameter_Type))
+		return NULL;
+
 	/* copy over the values passed in by the neighbor */
 	nbr->K1 = param->K1;
 	nbr->K2 = param->K2;
@@ -194,13 +198,22 @@ eigrp_hello_authentication_decode(struct stream *s,
 
 	md5 = (struct TLV_MD5_Authentication_Type *)tlv_header;
 
-	if (md5->auth_type == EIGRP_AUTH_TYPE_MD5)
+	if (md5->auth_type == EIGRP_AUTH_TYPE_MD5) {
+		/* Validate tlv length */
+		if (md5->length < sizeof(struct TLV_MD5_Authentication_Type))
+			return 0;
+
 		return eigrp_check_md5_digest(s, md5, nbr,
 					      EIGRP_AUTH_BASIC_HELLO_FLAG);
-	else if (md5->auth_type == EIGRP_AUTH_TYPE_SHA256)
+	} else if (md5->auth_type == EIGRP_AUTH_TYPE_SHA256) {
+		/* Validate tlv length */
+		if (md5->length < sizeof(struct TLV_SHA256_Authentication_Type))
+			return 0;
+
 		return eigrp_check_sha256_digest(
 			s, (struct TLV_SHA256_Authentication_Type *)tlv_header,
 			nbr, EIGRP_AUTH_BASIC_HELLO_FLAG);
+	}
 
 	return 0;
 }
@@ -222,6 +235,10 @@ static void eigrp_sw_version_decode(struct eigrp_neighbor *nbr,
 				    struct eigrp_tlv_hdr_type *tlv)
 {
 	struct TLV_Software_Type *version = (struct TLV_Software_Type *)tlv;
+
+	/* Validate TLV length */
+	if (tlv->length < sizeof(struct TLV_Software_Type))
+		return;
 
 	nbr->os_rel_major = version->vender_major;
 	nbr->os_rel_minor = version->vender_minor;
@@ -249,6 +266,10 @@ static void eigrp_peer_termination_decode(struct eigrp_neighbor *nbr,
 	struct eigrp *eigrp = nbr->ei->eigrp;
 	struct TLV_Peer_Termination_type *param =
 		(struct TLV_Peer_Termination_type *)tlv;
+
+	/* Validate TLV length */
+	if (tlv->length < sizeof(struct TLV_Peer_Termination_type))
+		return;
 
 	uint32_t my_ip = nbr->ei->address.u.prefix4.s_addr;
 	uint32_t received_ip = param->neighbor_ip;
@@ -345,6 +366,10 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 	do {
 		type = ntohs(tlv_header->type);
 		length = ntohs(tlv_header->length);
+
+		/* Validate length against packet size */
+		if (length > size)
+			return;
 
 		if ((length > 0) && (length <= size)) {
 			if (IS_DEBUG_EIGRP_PACKET(0, RECV))
