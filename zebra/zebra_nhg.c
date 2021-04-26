@@ -845,6 +845,8 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		SET_FLAG(backup_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
 
 done:
+	/* Reset time since last update */
+	(*nhe)->uptime = monotime(NULL);
 
 	return created;
 }
@@ -1190,6 +1192,13 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: nhe %p (%u) is new", __func__, nhe, nhe->id);
+
+	/*
+	 * If daemon nhg from the kernel, add a refcnt here to indicate the
+	 * daemon owns it.
+	 */
+	if (PROTO_OWNED(nhe))
+		zebra_nhg_increment_ref(nhe);
 
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
@@ -2559,7 +2568,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	struct nhg_hash_entry *curr_nhe;
 	uint32_t curr_active = 0, backup_active = 0;
 
-	if (re->nhe->id >= ZEBRA_NHG_PROTO_LOWER)
+	if (PROTO_OWNED(re->nhe))
 		return proto_nhg_nexthop_active_update(&re->nhe->nhg);
 
 	afi_t rt_afi = family2afi(rn->p.family);
@@ -2861,13 +2870,13 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 			zebra_nhg_handle_install(nhe);
 
 			/* If daemon nhg, send it an update */
-			if (nhe->id >= ZEBRA_NHG_PROTO_LOWER)
+			if (PROTO_OWNED(nhe))
 				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
 						 nhe->zapi_session, nhe->id,
 						 ZAPI_NHG_INSTALLED);
 		} else {
 			/* If daemon nhg, send it an update */
-			if (nhe->id >= ZEBRA_NHG_PROTO_LOWER)
+			if (PROTO_OWNED(nhe))
 				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
 						 nhe->zapi_session, nhe->id,
 						 ZAPI_NHG_FAIL_INSTALL);
@@ -2927,7 +2936,31 @@ static void zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 
 	nhe = (struct nhg_hash_entry *)bucket->data;
 
-	/* If its being ref'd, just let it be uninstalled via a route removal */
+	/*
+	 * same logic as with routes.
+	 *
+	 * If older than startup time, we know we read them in from the
+	 * kernel and have not gotten and update for them since startup
+	 * from an upper level proto.
+	 */
+	if (zrouter.startup_time < nhe->uptime)
+		return;
+
+	/*
+	 * If it's proto-owned and not being used by a route, remove it since
+	 * we haven't gotten an update about it from the proto since startup.
+	 * This means that either the config for it was removed or the daemon
+	 * didn't get started. This handles graceful restart & retain scenario.
+	 */
+	if (PROTO_OWNED(nhe) && nhe->refcnt == 1) {
+		zebra_nhg_decrement_ref(nhe);
+		return;
+	}
+
+	/*
+	 * If its being ref'd by routes, just let it be uninstalled via a route
+	 * removal.
+	 */
 	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0)
 		zebra_nhg_uninstall_kernel(nhe);
 }
@@ -3201,7 +3234,7 @@ static void zebra_nhg_score_proto_entry(struct hash_bucket *bucket, void *arg)
 	iter = arg;
 
 	/* Needs to match type and outside zebra ID space */
-	if (nhe->type == iter->type && nhe->id >= ZEBRA_NHG_PROTO_LOWER) {
+	if (nhe->type == iter->type && PROTO_OWNED(nhe)) {
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 			zlog_debug(
 				"%s: found nhe %p (%u), vrf %d, type %s after client disconnect",

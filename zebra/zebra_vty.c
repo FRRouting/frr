@@ -445,6 +445,16 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 	}
 }
 
+static void uptime2str(time_t uptime, char *buf, size_t bufsize)
+{
+	time_t cur;
+
+	cur = monotime(NULL);
+	cur -= uptime;
+
+	frrtime_to_interval(cur, buf, bufsize);
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng)
@@ -499,12 +509,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			vty_out(vty, ", best");
 		vty_out(vty, "\n");
 
-		time_t uptime;
-
-		uptime = monotime(NULL);
-		uptime -= re->uptime;
-
-		frrtime_to_interval(uptime, buf, sizeof(buf));
+		uptime2str(re->uptime, buf, sizeof(buf));
 
 		vty_out(vty, "  Last update %s ago\n", buf);
 
@@ -839,17 +844,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_nexthops = NULL;
 	json_object *json_nexthop = NULL;
 	json_object *json_route = NULL;
-	time_t uptime;
 	const rib_dest_t *dest = rib_dest_from_rnode(rn);
 	const struct nexthop_group *nhg;
 	char up_str[MONOTIME_STRLEN];
 	bool first_p = true;
 	bool nhg_from_backup = false;
 
-	uptime = monotime(NULL);
-	uptime -= re->uptime;
-
-	frrtime_to_interval(uptime, up_str, sizeof(up_str));
+	uptime2str(re->uptime, up_str, sizeof(up_str));
 
 	/* If showing fib information, use the fib view of the
 	 * nexthops.
@@ -1339,9 +1340,13 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop_group *backup_nhg;
+	char up_str[MONOTIME_STRLEN];
+
+	uptime2str(nhe->uptime, up_str, sizeof(up_str));
 
 	vty_out(vty, "ID: %u (%s)\n", nhe->id, zebra_route_string(nhe->type));
-	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
+	vty_out(vty, "     RefCnt: %u\n", nhe->refcnt);
+	vty_out(vty, "     Uptime: %s\n", up_str);
 	vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
