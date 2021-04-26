@@ -71,7 +71,6 @@ from lib.common_config import (
     shutdown_bringup_interface,
     addKernelRoute,
     delete_route_maps,
-    kill_mininet_routers_process,
 )
 from lib.topolog import logger
 from lib.bgp import (

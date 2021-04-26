@@ -134,7 +134,6 @@ from lib.common_config import (
     check_router_status,
     shutdown_bringup_interface,
     step,
-    kill_mininet_routers_process,
     get_frr_ipv6_linklocal,
     create_route_maps,
     required_linux_kernel_version,
@@ -203,9 +202,6 @@ def setup_module(mod):
     # This function initiates the topology build with Topogen...
     tgen = Topogen(GenerateTopo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
-
-    # Kill stale mininet routers and process
-    kill_mininet_routers_process(tgen)
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
