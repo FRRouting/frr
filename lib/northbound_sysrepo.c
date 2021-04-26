@@ -736,7 +736,7 @@ static int frr_sr_finish(void)
 	return 0;
 }
 
-static int frr_sr_module_very_late_init(struct thread_master *tm)
+static int frr_sr_module_config_loaded(struct thread_master *tm)
 {
 	master = tm;
 
@@ -761,7 +761,7 @@ static int frr_sr_module_late_init(struct thread_master *tm)
 static int frr_sr_module_init(void)
 {
 	hook_register(frr_late_init, frr_sr_module_late_init);
-	hook_register(frr_very_late_init, frr_sr_module_very_late_init);
+	hook_register(frr_config_post, frr_sr_module_config_loaded);
 
 	return 0;
 }

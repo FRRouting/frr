@@ -264,7 +264,11 @@ int pathd_candidate_removed_handler(struct srte_candidate *candidate)
 
 /* ------------ Module Functions ------------ */
 
-int pcep_module_late_init(struct thread_master *tm)
+/* this creates threads, therefore must run after fork().  but it must also
+ * run before config load, so the CLI commands don't try to touch things that
+ * aren't set up yet...
+ */
+static int pcep_module_config_pre(struct thread_master *tm)
 {
 	assert(pcep_g->fpt == NULL);
 	assert(pcep_g->master == NULL);
@@ -280,10 +284,16 @@ int pcep_module_late_init(struct thread_master *tm)
 	pcep_g->master = tm;
 	pcep_g->fpt = fpt;
 
+	return 0;
+}
+
+static int pcep_module_late_init(struct thread_master *tm)
+{
 	hook_register(pathd_candidate_created, pathd_candidate_created_handler);
 	hook_register(pathd_candidate_updated, pathd_candidate_updated_handler);
 	hook_register(pathd_candidate_removed, pathd_candidate_removed_handler);
 
+	hook_register(frr_config_pre, pcep_module_config_pre);
 	hook_register(frr_fini, pcep_module_finish);
 
 	pcep_cli_init();
