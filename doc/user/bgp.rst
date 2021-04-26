@@ -2567,6 +2567,24 @@ address-family:
 Ethernet Virtual Network - EVPN
 -------------------------------
 
+Note: When using EVPN features and if you have a large number of hosts, make
+sure to adjust the size of the arp  neighbor cache to avoid neighbor table
+overflow and/or excessive garbage collection. On Linux, the size of the table
+and garbage collection frequency can be controlled via the following
+sysctl configurations:
+
+.. code-block:: shell
+
+   net.ipv4.neigh.default.gc_thresh1
+   net.ipv4.neigh.default.gc_thresh2
+   net.ipv4.neigh.default.gc_thresh3
+
+   net.ipv6.neigh.default.gc_thresh1
+   net.ipv6.neigh.default.gc_thresh2
+   net.ipv6.neigh.default.gc_thresh3
+
+For more information, see ``man 7 arp``.
+
 .. _bgp-evpn-advertise-pip:
 
 EVPN advertise-PIP
@@ -2592,10 +2610,10 @@ other EVPN routes.
 To support this feature there needs to have ability to co-exist a
 (system-MAC, system-IP) pair with a (anycast-MAC, anycast-IP) pair with the
 ability to terminate VxLAN-encapsulated packets received for either pair on
-the same L3VNI (i.e associated VLAN). This capability is need per tenant
+the same L3VNI (i.e associated VLAN). This capability is needed per tenant
 VRF instance.
 
-To derive the system-MAC and the anycast MAC, there needs to have a
+To derive the system-MAC and the anycast MAC, there must be a
 separate/additional MAC-VLAN interface corresponding to L3VNI’s SVI.
 The SVI interface’s MAC address can be interpreted as system-MAC
 and MAC-VLAN interface's MAC as anycast MAC.
@@ -2607,7 +2625,7 @@ User has an option to configure the system-IP and/or system-MAC value if the
 auto derived value is not preferred.
 
 Note: By default, advertise-pip feature is enabled and user has an option to
-disable the feature via configuration CLI. Once the feature is disable under
+disable the feature via configuration CLI. Once the feature is disabled under
 bgp vrf instance or MAC-VLAN interface is not configured, all the routes follow
 the same behavior of using same next-hop and RMAC values.
 
@@ -2615,6 +2633,19 @@ the same behavior of using same next-hop and RMAC values.
 
 Enables or disables advertise-pip feature, specifiy system-IP and/or system-MAC
 parameters.
+
+EVPN advertise-svi
+^^^^^^^^^^^^^^^^^^
+Typically, the SVI IP address is reused on VTEPs across multiple racks. However,
+if you have unique SVI IP addresses want those to be reachable you can enable the
+advertise-svi-ip option. This option advertises the SVI IP/MAC address as a type-2
+route and eliminates the need for any flooding over VXLAN to reach the IP from a
+remote VTEP.
+
+.. clicmd:: advertise-svi
+
+Note that you should not enable both the advertise-svi-ip and the advertise-default-gw
+at the same time.
 
 EVPN Multihoming
 ^^^^^^^^^^^^^^^^
