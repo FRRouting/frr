@@ -103,9 +103,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
-	zvrf = zebra_vrf_alloc();
-	vrf->info = zvrf;
-	zvrf->vrf = vrf;
+	zvrf = zebra_vrf_alloc(vrf);
 	if (!vrf_is_backend_netns())
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 
@@ -427,11 +425,14 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 }
 
 /* Allocate new zebra VRF. */
-struct zebra_vrf *zebra_vrf_alloc(void)
+struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf;
 
 	zvrf = XCALLOC(MTYPE_ZEBRA_VRF, sizeof(struct zebra_vrf));
+
+	zvrf->vrf = vrf;
+	vrf->info = zvrf;
 
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
