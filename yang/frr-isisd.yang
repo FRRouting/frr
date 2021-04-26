@@ -506,13 +506,6 @@ module frr-isisd {
         "Area-tag associated to this circuit.";
     }
 
-    leaf vrf {
-      type frr-vrf:vrf-ref;
-      default "default";
-      description
-        "VRF NAME.";
-    }
-
     leaf ipv4-routing {
       type boolean;
       default "false";

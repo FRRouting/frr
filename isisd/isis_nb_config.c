@@ -2437,9 +2437,7 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 	struct isis_area *area = NULL;
 	struct interface *ifp;
 	struct isis_circuit *circuit = NULL;
-	struct vrf *vrf;
 	const char *area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
-	const char *vrf_name = yang_dnode_get_string(args->dnode, "./vrf");
 	uint32_t min_mtu, actual_mtu;
 
 	switch (args->event) {
@@ -2454,14 +2452,6 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 		/* zebra might not know yet about the MTU - nothing we can do */
 		if (!ifp || ifp->mtu == 0)
 			break;
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
-		if (ifp->vrf_id != VRF_DEFAULT && vrf
-		    && strcmp(vrf->name, vrf_name) != 0) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "interface %s not in vrf %s\n", ifp->name,
-				 vrf_name);
-			return NB_ERR_VALIDATION;
-		}
 		actual_mtu =
 			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
 
@@ -2537,44 +2527,6 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 			snprintf(args->errmsg, args->errmsg_len,
 				 "ISIS circuit is already defined on %s",
 				 circuit->area->area_tag);
-			return NB_ERR_VALIDATION;
-		}
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-interface:lib/interface/frr-isisd:isis/vrf
- */
-int lib_interface_isis_vrf_modify(struct nb_cb_modify_args *args)
-{
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *ifname, *vrfname, *vrf_name;
-	struct isis_circuit *circuit;
-
-	if (args->event == NB_EV_VALIDATE) {
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(args->dnode->parent->parent,
-					       "./name");
-		vrfname = yang_dnode_get_string(args->dnode->parent->parent,
-						"./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-
-		if (!ifp)
-			return NB_OK;
-
-		vrf_name = yang_dnode_get_string(args->dnode, NULL);
-		circuit = circuit_scan_by_ifp(ifp);
-		if (circuit && circuit->area && circuit->isis
-		    && strcmp(circuit->isis->name, vrf_name)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "ISIS circuit is already defined on vrf  %s",
-				 circuit->isis->name);
 			return NB_ERR_VALIDATION;
 		}
 	}

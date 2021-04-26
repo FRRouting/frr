@@ -153,15 +153,16 @@ void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance
  */
 DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
-	   "ip router isis WORD$tag [vrf NAME$vrf_name]",
+	   "ip router isis WORD$tag",
 	   "Interface Internet Protocol config commands\n"
 	   "IP router interface commands\n"
 	   "IS-IS routing protocol\n"
-	   "Routing process tag\n" VRF_CMD_HELP_STR)
+	   "Routing process tag\n")
 {
 	char inst_xpath[XPATH_MAXLEN];
 	struct lyd_node *if_dnode, *inst_dnode;
 	const char *circ_type = NULL;
+	const char *vrf_name;
 	struct interface *ifp;
 
 	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
@@ -186,8 +187,6 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY,
 			      tag);
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/vrf", NB_OP_MODIFY,
-			      vrf_name);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
 			      NB_OP_MODIFY, "true");
 	if (circ_type)
@@ -203,16 +202,24 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+ALIAS_HIDDEN(ip_router_isis, ip_router_isis_vrf_cmd,
+	     "ip router isis WORD$tag vrf NAME$vrf_name",
+	     "Interface Internet Protocol config commands\n"
+	     "IP router interface commands\n"
+	     "IS-IS routing protocol\n"
+	     "Routing process tag\n" VRF_CMD_HELP_STR)
+
 DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
-	   "ipv6 router isis WORD$tag [vrf NAME$vrf_name]",
+	   "ipv6 router isis WORD$tag",
 	   "Interface Internet Protocol config commands\n"
 	   "IP router interface commands\n"
 	   "IS-IS routing protocol\n"
-	   "Routing process tag\n" VRF_CMD_HELP_STR)
+	   "Routing process tag\n")
 {
 	char inst_xpath[XPATH_MAXLEN];
 	struct lyd_node *if_dnode, *inst_dnode;
 	const char *circ_type = NULL;
+	const char *vrf_name;
 	struct interface *ifp;
 
 	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
@@ -237,8 +244,6 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY,
 			      tag);
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/vrf", NB_OP_MODIFY,
-			      vrf_name);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
 			      NB_OP_MODIFY, "true");
 	if (circ_type)
@@ -254,15 +259,21 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+ALIAS_HIDDEN(ip6_router_isis, ip6_router_isis_vrf_cmd,
+	     "ipv6 router isis WORD$tag vrf NAME$vrf_name",
+	     "Interface Internet Protocol config commands\n"
+	     "IP router interface commands\n"
+	     "IS-IS routing protocol\n"
+	     "Routing process tag\n" VRF_CMD_HELP_STR)
+
 DEFPY_YANG(no_ip_router_isis, no_ip_router_isis_cmd,
-	   "no <ip|ipv6>$ip router isis [WORD]$tag [vrf NAME$vrf_name]",
+	   "no <ip|ipv6>$ip router isis [WORD]$tag",
 	   NO_STR
 	   "Interface Internet Protocol config commands\n"
 	   "IP router interface commands\n"
 	   "IP router interface commands\n"
 	   "IS-IS routing protocol\n"
-	   "Routing process tag\n"
-	   VRF_CMD_HELP_STR)
+	   "Routing process tag\n")
 {
 	const struct lyd_node *dnode;
 
@@ -295,36 +306,32 @@ DEFPY_YANG(no_ip_router_isis, no_ip_router_isis_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+ALIAS_HIDDEN(no_ip_router_isis, no_ip_router_isis_vrf_cmd,
+	     "no <ip|ipv6>$ip router isis WORD$tag vrf NAME$vrf_name",
+	     NO_STR
+	     "Interface Internet Protocol config commands\n"
+	     "IP router interface commands\n"
+	     "IP router interface commands\n"
+	     "IS-IS routing protocol\n"
+	     "Routing process tag\n"
+	     VRF_CMD_HELP_STR)
+
 void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	const char *vrf;
-
-	vrf = yang_dnode_get_string(dnode, "../vrf");
-
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
-	vty_out(vty, " ip router isis %s",
+	vty_out(vty, " ip router isis %s\n",
 		yang_dnode_get_string(dnode, "../area-tag"));
-	if (!strmatch(vrf, VRF_DEFAULT_NAME))
-		vty_out(vty, " vrf %s", vrf);
-	vty_out(vty, "\n");
 }
 
 void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	const char *vrf;
-
-	vrf = yang_dnode_get_string(dnode, "../vrf");
-
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
-	vty_out(vty, " ipv6 router isis %s",
+	vty_out(vty, " ipv6 router isis %s\n",
 		yang_dnode_get_string(dnode, "../area-tag"));
-	if (!strmatch(vrf, VRF_DEFAULT_NAME))
-		vty_out(vty, " vrf %s", vrf);
-	vty_out(vty, "\n");
 }
 
 /*
@@ -3174,8 +3181,11 @@ void isis_cli_init(void)
 	install_element(CONFIG_NODE, &no_router_isis_cmd);
 
 	install_element(INTERFACE_NODE, &ip_router_isis_cmd);
+	install_element(INTERFACE_NODE, &ip_router_isis_vrf_cmd);
 	install_element(INTERFACE_NODE, &ip6_router_isis_cmd);
+	install_element(INTERFACE_NODE, &ip6_router_isis_vrf_cmd);
 	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
+	install_element(INTERFACE_NODE, &no_ip_router_isis_vrf_cmd);
 	install_element(INTERFACE_NODE, &isis_bfd_cmd);
 	install_element(INTERFACE_NODE, &isis_bfd_profile_cmd);
 
