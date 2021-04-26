@@ -62,19 +62,7 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
 		 vrf_name);
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-	/* default value in yang for is-type is level-1, but in FRR
-	 * the first instance is assigned is-type level-1-2. We
-	 * need to make sure to set it in the yang model so that it
-	 * is consistent with what FRR sees.
-	 */
 
-	if (!im) {
-		return CMD_SUCCESS;
-	}
-
-	if (listcount(im->isis) == 0)
-		nb_cli_enqueue_change(vty, "./is-type", NB_OP_MODIFY,
-				      "level-1-2");
 	ret = nb_cli_apply_changes(vty, base_xpath);
 	if (ret == CMD_SUCCESS)
 		VTY_PUSH_XPATH(ISIS_NODE, base_xpath);
@@ -190,13 +178,6 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 			 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']",
 			 tag, vrf_name);
 		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_CREATE, tag);
-		snprintf(
-			temp_xpath, XPATH_MAXLEN,
-			"/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']/is-type",
-			tag, vrf_name);
-		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_MODIFY,
-				      listcount(im->isis) == 0 ? "level-1-2"
-							       : NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
 				      NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
@@ -206,9 +187,6 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 				      vrf_name);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
 				      NB_OP_MODIFY, "true");
-		nb_cli_enqueue_change(
-			vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
-			listcount(im->isis) == 0 ? "level-1-2" : "level-1");
 	} else {
 		/* area exists, circuit type defaults to its area's is_type */
 		switch (area->is_type) {
@@ -287,13 +265,6 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 			 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']",
 			 tag, vrf_name);
 		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_CREATE, tag);
-		snprintf(
-			temp_xpath, XPATH_MAXLEN,
-			"/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']/is-type",
-			tag, vrf_name);
-		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_MODIFY,
-				      listcount(im->isis) == 0 ? "level-1-2"
-							       : NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
 				      NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
@@ -303,9 +274,6 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
 				      NB_OP_MODIFY, "true");
-		nb_cli_enqueue_change(
-			vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
-			listcount(im->isis) == 0 ? "level-1-2" : "level-1");
 	} else {
 		/* area exists, circuit type defaults to its area's is_type */
 		switch (area->is_type) {
