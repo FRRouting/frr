@@ -785,9 +785,15 @@ int zebra_vxlan_if_vni_table_add_update(struct interface *ifp,
 
 	/* release kernel deleted vnis */
 	if (old_vni_table) {
-		if (hashcount(old_vni_table))
+		if (hashcount(old_vni_table)) {
+			/* UGLY HACK: Put back the old table so that delete of
+			 * MACs goes through and then flip back.
+			 */
+			vni_info->vni_table = old_vni_table;
 			hash_iterate(old_vni_table, zebra_vxlan_if_vni_clean,
 				     zif);
+			vni_info->vni_table = vni_table;
+		}
 		zebra_vxlan_vni_table_destroy(old_vni_table);
 	}
 
