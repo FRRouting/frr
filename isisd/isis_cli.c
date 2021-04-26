@@ -159,78 +159,43 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	   "IS-IS routing protocol\n"
 	   "Routing process tag\n" VRF_CMD_HELP_STR)
 {
-	char temp_xpath[XPATH_MAXLEN];
-	const char *circ_type;
-	struct isis_area *area = NULL;
+	char inst_xpath[XPATH_MAXLEN];
+	struct lyd_node *if_dnode, *inst_dnode;
+	const char *circ_type = NULL;
 	struct interface *ifp;
-	struct vrf *vrf;
 
-	/* area will be created if it is not present. make sure the yang model
-	 * is synced with FRR and call the appropriate NB cb.
-	 */
-
-	if (!im) {
-		return CMD_SUCCESS;
-	}
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (!vrf_name) {
-		if (ifp) {
-			if (ifp->vrf_id == VRF_DEFAULT)
-				vrf_name = VRF_DEFAULT_NAME;
-			else {
-				vrf = vrf_lookup_by_id(ifp->vrf_id);
-				if (vrf && !vrf_name)
-					vrf_name = vrf->name;
-			}
-		} else
-			vrf_name = VRF_DEFAULT_NAME;
+	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!if_dnode) {
+		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	area = isis_area_lookup_by_vrf(tag, vrf_name);
-	if (!area) {
-		snprintf(temp_xpath, XPATH_MAXLEN,
-			 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']",
-			 tag, vrf_name);
-		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_CREATE, tag);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
-				      NULL);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
-				      NB_OP_MODIFY, tag);
+	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
 
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/vrf", NB_OP_MODIFY,
-				      vrf_name);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
-				      NB_OP_MODIFY, "true");
-	} else {
-		/* area exists, circuit type defaults to its area's is_type */
-		switch (area->is_type) {
-		case IS_LEVEL_1:
-			circ_type = "level-1";
-			break;
-		case IS_LEVEL_2:
-			circ_type = "level-2";
-			break;
-		case IS_LEVEL_1_AND_2:
-			circ_type = "level-1-2";
-			break;
-		default:
-			/* just to silence compiler warnings */
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
-				      NULL);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
-				      NB_OP_MODIFY, tag);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/vrf", NB_OP_MODIFY,
-				      vrf_name);
+	snprintf(inst_xpath, XPATH_MAXLEN,
+		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
+		 vrf_name);
 
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
-				      NB_OP_MODIFY, "true");
+	/* if instance exists then inherit its type, create it otherwise */
+	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
+	if (inst_dnode)
+		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
+	else
+		nb_cli_enqueue_change(vty, inst_xpath, NB_OP_CREATE, NULL);
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY,
+			      tag);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/vrf", NB_OP_MODIFY,
+			      vrf_name);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
+			      NB_OP_MODIFY, "true");
+	if (circ_type)
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
 				      NB_OP_MODIFY, circ_type);
-	}
 
 	/* check if the interface is a loopback and if so set it as passive */
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
 	if (ifp && if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
@@ -245,77 +210,43 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	   "IS-IS routing protocol\n"
 	   "Routing process tag\n" VRF_CMD_HELP_STR)
 {
-	char temp_xpath[XPATH_MAXLEN];
-	const char *circ_type;
+	char inst_xpath[XPATH_MAXLEN];
+	struct lyd_node *if_dnode, *inst_dnode;
+	const char *circ_type = NULL;
 	struct interface *ifp;
-	struct isis_area *area;
-	struct vrf *vrf;
 
-	/* area will be created if it is not present. make sure the yang model
-	 * is synced with FRR and call the appropriate NB cb.
-	 */
-
-	if (!im)
-		return CMD_SUCCESS;
-
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (!vrf_name) {
-		if (ifp) {
-			if (ifp->vrf_id == VRF_DEFAULT)
-				vrf_name = VRF_DEFAULT_NAME;
-			else {
-				vrf = vrf_lookup_by_id(ifp->vrf_id);
-				if (vrf && !vrf_name)
-					vrf_name = vrf->name;
-			}
-		} else
-			vrf_name = VRF_DEFAULT_NAME;
+	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!if_dnode) {
+		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	area = isis_area_lookup_by_vrf(tag, vrf_name);
-	if (!area) {
-		snprintf(temp_xpath, XPATH_MAXLEN,
-			 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']",
-			 tag, vrf_name);
-		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_CREATE, tag);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
-				      NULL);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
-				      NB_OP_MODIFY, tag);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/vrf", NB_OP_MODIFY,
-				      vrf_name);
+	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
 
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
-				      NB_OP_MODIFY, "true");
-	} else {
-		/* area exists, circuit type defaults to its area's is_type */
-		switch (area->is_type) {
-		case IS_LEVEL_1:
-			circ_type = "level-1";
-			break;
-		case IS_LEVEL_2:
-			circ_type = "level-2";
-			break;
-		case IS_LEVEL_1_AND_2:
-			circ_type = "level-1-2";
-			break;
-		default:
-			/* just to silence compiler warnings */
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
-				      NULL);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
-				      NB_OP_MODIFY, tag);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/vrf", NB_OP_MODIFY,
-				      vrf_name);
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
-				      NB_OP_MODIFY, "true");
+	snprintf(inst_xpath, XPATH_MAXLEN,
+		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
+		 vrf_name);
+
+	/* if instance exists then inherit its type, create it otherwise */
+	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
+	if (inst_dnode)
+		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
+	else
+		nb_cli_enqueue_change(vty, inst_xpath, NB_OP_CREATE, NULL);
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY,
+			      tag);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/vrf", NB_OP_MODIFY,
+			      vrf_name);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
+			      NB_OP_MODIFY, "true");
+	if (circ_type)
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
 				      NB_OP_MODIFY, circ_type);
-	}
 
 	/* check if the interface is a loopback and if so set it as passive */
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
 	if (ifp && if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
