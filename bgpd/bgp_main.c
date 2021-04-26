@@ -536,7 +536,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	ringbuf_peek(p->ibuf_work, BGP_MARKER_SIZE, &pktsize, sizeof(pktsize));
 	pktsize = ntohs(pktsize);
 
-	assert(pktsize <= BGP_MAX_PACKET_SIZE);
+	assert(pktsize <= p->max_packet_size);
 
 	if (ringbuf_remain(p->ibuf_work) >= pktsize) {
 		struct stream *pkt = stream_new(pktsize);
