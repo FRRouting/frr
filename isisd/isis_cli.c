@@ -188,7 +188,6 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 
 	area = isis_area_lookup_by_vrf(tag, vrf_name);
 	if (!area) {
-		isis_global_instance_create(vrf_name);
 		snprintf(temp_xpath, XPATH_MAXLEN,
 			 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']",
 			 tag, vrf_name);
@@ -275,7 +274,6 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 
 	area = isis_area_lookup_by_vrf(tag, vrf_name);
 	if (!area) {
-		isis_global_instance_create(vrf_name);
 		snprintf(temp_xpath, XPATH_MAXLEN,
 			 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']",
 			 tag, vrf_name);
