@@ -4659,7 +4659,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 		max_iter = 0;
 	}
 
-	for (iter = 0, dest = bgp_table_top(table); (dest && iter <= max_iter);
+	for (iter = 0, dest = bgp_table_top(table); (dest && iter < max_iter);
 	     dest = bgp_route_next(dest)) {
 		if (!CHECK_FLAG(dest->flags, BGP_NODE_SOFT_RECONFIG))
 			continue;
