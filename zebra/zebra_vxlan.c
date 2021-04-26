@@ -5752,13 +5752,20 @@ stream_failure:
  */
 void zebra_vxlan_init_tables(struct zebra_vrf *zvrf)
 {
+	char buffer[80];
+
 	if (!zvrf)
 		return;
-	zvrf->evpn_table =
-		hash_create(zebra_evpn_hash_keymake, zebra_evpn_hash_cmp,
-			    "Zebra VRF EVPN Table");
-	zvrf->vxlan_sg_table = hash_create(zebra_vxlan_sg_hash_key_make,
-			zebra_vxlan_sg_hash_eq, "Zebra VxLAN SG Table");
+
+	snprintf(buffer, sizeof(buffer), "Zebra VRF EVPN Table: %s",
+		 zvrf->vrf->name);
+	zvrf->evpn_table = hash_create_size(8, zebra_evpn_hash_keymake,
+					    zebra_evpn_hash_cmp, buffer);
+
+	snprintf(buffer, sizeof(buffer), "Zebra VxLAN SG Table: %s",
+		 zvrf->vrf->name);
+	zvrf->vxlan_sg_table = hash_create_size(8, zebra_vxlan_sg_hash_key_make,
+			zebra_vxlan_sg_hash_eq, buffer);
 }
 
 /* Cleanup EVPN info, but don't free the table. */
