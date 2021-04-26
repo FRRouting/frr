@@ -77,7 +77,7 @@ writing, *isisd* does not support multiple ISIS processes.
    - transition
      Send and accept both styles of TLVs during transition
    - wide
-     Use new style of TLVs to carry wider metric
+     Use new style of TLVs to carry wider metric. FRR uses this as a default value
 
 .. clicmd:: set-overload-bit
 
