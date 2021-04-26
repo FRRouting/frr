@@ -3171,9 +3171,20 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	bool ldp_sync_enable;
+	struct interface *ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
+					   NULL, false);
+		if (ifp == NULL)
+			return NB_ERR_VALIDATION;
+		if (if_is_loopback(ifp)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync does not run on loopback interface");
+			return NB_ERR_VALIDATION;
+		}
+
 		circuit = nb_running_get_entry(args->dnode, NULL, false);
 		if (circuit == NULL || circuit->area == NULL)
 			break;
@@ -3215,9 +3226,20 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	uint16_t holddown;
+	struct interface *ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
+					   NULL, false);
+		if (ifp == NULL)
+			return NB_ERR_VALIDATION;
+		if (if_is_loopback(ifp)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync does not run on loopback interface");
+			return NB_ERR_VALIDATION;
+		}
+
 		circuit = nb_running_get_entry(args->dnode, NULL, false);
 		if (circuit == NULL || circuit->area == NULL)
 			break;
@@ -3248,9 +3270,20 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
+	struct interface *ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
+					   NULL, false);
+		if (ifp == NULL)
+			return NB_ERR_VALIDATION;
+		if (if_is_loopback(ifp)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync does not run on loopback interface");
+			return NB_ERR_VALIDATION;
+		}
+
 		circuit = nb_running_get_entry(args->dnode, NULL, false);
 		if (circuit == NULL || circuit->area == NULL)
 			break;

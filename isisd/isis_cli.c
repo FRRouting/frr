@@ -3057,23 +3057,11 @@ DEFPY(isis_mpls_if_ldp_sync, isis_mpls_if_ldp_sync_cmd,
       NO_STR "IS-IS routing protocol\n" MPLS_STR MPLS_LDP_SYNC_STR)
 {
 	const struct lyd_node *dnode;
-	struct interface *ifp;
 
 	dnode = yang_dnode_get(vty->candidate_config->dnode,
 			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
-		return CMD_SUCCESS;
-	}
-
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (if_is_loopback(ifp)) {
-		vty_out(vty, "ldp-sync does not run on loopback interface\n");
-		return CMD_SUCCESS;
-	}
-
-	if (ifp->vrf_id != VRF_DEFAULT) {
-		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_SUCCESS;
 	}
 
@@ -3100,23 +3088,11 @@ DEFPY(isis_mpls_if_ldp_sync_holddown, isis_mpls_if_ldp_sync_holddown_cmd,
       "Time in seconds\n")
 {
 	const struct lyd_node *dnode;
-	struct interface *ifp;
 
 	dnode = yang_dnode_get(vty->candidate_config->dnode,
 			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
-		return CMD_SUCCESS;
-	}
-
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (if_is_loopback(ifp)) {
-		vty_out(vty, "ldp-sync does not run on loopback interface\n");
-		return CMD_SUCCESS;
-	}
-
-	if (ifp->vrf_id != VRF_DEFAULT) {
-		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_SUCCESS;
 	}
 
@@ -3132,23 +3108,11 @@ DEFPY(no_isis_mpls_if_ldp_sync_holddown, no_isis_mpls_if_ldp_sync_holddown_cmd,
 	      NO_MPLS_LDP_SYNC_HOLDDOWN_STR "Time in seconds\n")
 {
 	const struct lyd_node *dnode;
-	struct interface *ifp;
 
 	dnode = yang_dnode_get(vty->candidate_config->dnode,
 			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
-		return CMD_SUCCESS;
-	}
-
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (if_is_loopback(ifp)) {
-		vty_out(vty, "ldp-sync does not run on loopback interface\n");
-		return CMD_SUCCESS;
-	}
-
-	if (ifp->vrf_id != VRF_DEFAULT) {
-		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_SUCCESS;
 	}
 
