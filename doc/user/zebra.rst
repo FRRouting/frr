@@ -463,6 +463,78 @@ be updated with the new name. To illustrate, if you want to recompile with
 
    ./configure --with-defaultvrfname=global
 
+.. _zebra-ecmp:
+
+ECMP
+====
+
+FRR supports ECMP as part of normal operations and is generally compiled
+with a limit of 64 way ECMP.  This of course can be modified via configure
+options on compilation if the end operator desires to do so.  Individual
+protocols each have their own way of dictating ECMP policy and their
+respective documentation should be read.
+
+ECMP can be inspected in zebra by doing a `show ip route X` command.
+
+.. code-block:: shell
+
+   eva# show ip route 4.4.4.4/32
+   Codes: K - kernel route, C - connected, S - static, R - RIP,
+          O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+          T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+          F - PBR, f - OpenFabric,
+          > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+          t - trapped, o - offload failure
+
+   D>* 4.4.4.4/32 [150/0] via 192.168.161.1, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.2, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.3, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.4, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.5, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.6, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.7, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.8, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.9, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.10, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.11, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.12, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.13, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.14, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.15, enp39s0, weight 1, 00:00:02
+     *                    via 192.168.161.16, enp39s0, weight 1, 00:00:02
+
+In this example we have 16 way ecmp for the 4.4.4.4/32 route.  The `*` character
+tells us that the route is installed in the Data Plane, or FIB.
+
+If you are using the Linux kernel as a Data Plane, this can be inspected
+via a `ip route show X` command:
+
+.. code-block:: shell
+
+   sharpd@eva ~/f/doc(ecmp_doc_change)> ip route show 4.4.4.4/32
+   4.4.4.4 nhid 185483868 proto sharp metric 20
+      nexthop via 192.168.161.1 dev enp39s0 weight 1
+      nexthop via 192.168.161.10 dev enp39s0 weight 1
+      nexthop via 192.168.161.11 dev enp39s0 weight 1
+      nexthop via 192.168.161.12 dev enp39s0 weight 1
+      nexthop via 192.168.161.13 dev enp39s0 weight 1
+      nexthop via 192.168.161.14 dev enp39s0 weight 1
+      nexthop via 192.168.161.15 dev enp39s0 weight 1
+      nexthop via 192.168.161.16 dev enp39s0 weight 1
+      nexthop via 192.168.161.2 dev enp39s0 weight 1
+      nexthop via 192.168.161.3 dev enp39s0 weight 1
+      nexthop via 192.168.161.4 dev enp39s0 weight 1
+      nexthop via 192.168.161.5 dev enp39s0 weight 1
+      nexthop via 192.168.161.6 dev enp39s0 weight 1
+      nexthop via 192.168.161.7 dev enp39s0 weight 1
+      nexthop via 192.168.161.8 dev enp39s0 weight 1
+      nexthop via 192.168.161.9 dev enp39s0 weight 1
+
+Once installed into the FIB, FRR currently has little control over what
+nexthops are choosen to forward packets on.  Currently the Linux kernel
+has a `fib_multipath_hash_policy` sysctl which dictates how the hashing
+algorithm is used to forward packets.
+
 .. _zebra-mpls:
 
 MPLS Commands
