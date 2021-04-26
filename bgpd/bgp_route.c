@@ -4682,7 +4682,8 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 					listnode_delete(
 						table->soft_reconfig_peers,
 						peer);
-					bgp_announce_route(peer, table->afi, table->safi);
+					bgp_announce_route(peer, table->afi,
+							   table->safi);
 					if (list_isempty(
 						    table->soft_reconfig_peers)) {
 						list_delete(
@@ -4702,8 +4703,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 	if (dest || table->soft_reconfig_init) {
 		table->soft_reconfig_init = false;
 		thread_add_timer_msec(bm->master, bgp_soft_reconfig_table_task,
-				      table,
-				      SOFT_RECONFIG_TASK_SPLIT_DELAY_MS,
+				      table, SOFT_RECONFIG_TASK_SPLIT_DELAY_MS,
 				      &table->soft_reconfig_thread);
 		return 0;
 	}
@@ -4808,9 +4808,9 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 					 bgp_soft_reconfig_table_task, table, 0,
 					 &table->soft_reconfig_thread);
 		/* cancel bgp_announce_route_timer_expired threads before
-		 * bgp_soft_reconfig_table_task jobs. Otherwise it blocks vtysh until
-		 * timers are over.
-		 * It will rescheduled at bgp_soft_reconfig_table_task jobs end.
+		 * bgp_soft_reconfig_table_task jobs. Otherwise it blocks vtysh
+		 * until timers are over. It will rescheduled at
+		 * bgp_soft_reconfig_table_task jobs end.
 		 */
 		paf = peer_af_find(peer, afi, safi);
 		if (paf)
