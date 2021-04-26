@@ -2503,50 +2503,41 @@ DEFPY_YANG(no_isis_circuit_type, no_isis_circuit_type_cmd,
       "Level-1-2 adjacencies are formed\n"
       "Level-2 only adjacencies are formed\n")
 {
-	struct interface *ifp;
-	struct isis_circuit *circuit;
-	int is_type;
-	const char *circ_type;
+	char inst_xpath[XPATH_MAXLEN];
+	struct lyd_node *if_dnode, *inst_dnode;
+	const char *vrf_name;
+	const char *tag;
+	const char *circ_type = NULL;
 
 	/*
 	 * Default value depends on whether the circuit is part of an area,
 	 * and the is-type of the area if there is one. So we need to do this
 	 * here.
 	 */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (!ifp)
-		goto def_val;
-
-	circuit = circuit_scan_by_ifp(ifp);
-	if (!circuit)
-		goto def_val;
-
-	if (circuit->state == C_STATE_UP)
-		is_type = circuit->area->is_type;
-	else
-		goto def_val;
-
-	switch (is_type) {
-	case IS_LEVEL_1:
-		circ_type = "level-1";
-		break;
-	case IS_LEVEL_2:
-		circ_type = "level-2";
-		break;
-	case IS_LEVEL_1_AND_2:
-		circ_type = "level-1-2";
-		break;
-	default:
-		return CMD_ERR_NO_MATCH;
+	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!if_dnode) {
+		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
+		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!yang_dnode_exists(if_dnode, "frr-isisd:isis/area-tag")) {
+		vty_out(vty, "%% ISIS is not configured on the interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
+	tag = yang_dnode_get_string(if_dnode, "frr-isisd:isis/area-tag");
+
+	snprintf(inst_xpath, XPATH_MAXLEN,
+		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
+		 vrf_name);
+
+	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
+	if (inst_dnode)
+		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
+
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
 			      NB_OP_MODIFY, circ_type);
-
-	return nb_cli_apply_changes(vty, NULL);
-
-def_val:
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
-			      NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
