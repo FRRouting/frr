@@ -44,6 +44,7 @@
 #include "bgp_addpath_types.h"
 #include "bgp_nexthop.h"
 #include "bgp_damp.h"
+#include "bgp_io.h"
 
 #include "lib/bfd.h"
 
@@ -1047,6 +1048,9 @@ struct peer {
 	struct stream_fifo *ibuf; // packets waiting to be processed
 	struct stream_fifo *obuf; // packets waiting to be written
 
+	/* used as a block to deposit raw wire data to */
+	uint8_t ibuf_scratch[BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE
+			     * BGP_READ_PACKET_MAX];
 	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
 	struct stream *obuf_work;  // WiP buffer used to construct packets
 
