@@ -299,7 +299,7 @@ static bool FuzzingInit(void)
 	/* Zebra related initialize. */
 	zrouter.master = frr_init_fast();
 
-	zebra_router_init();
+	zebra_router_init(false, true);
 	zserv_init();
 	rib_init();
 	zebra_if_init();
