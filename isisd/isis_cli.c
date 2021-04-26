@@ -70,16 +70,42 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 	return ret;
 }
 
+struct if_iter {
+	struct vty *vty;
+	const char *tag;
+};
+
+static int if_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct if_iter *iter = arg;
+	const char *tag;
+
+	if (!yang_dnode_exists(dnode, "frr-isisd:isis/area-tag"))
+		return YANG_ITER_CONTINUE;
+
+	tag = yang_dnode_get_string(dnode, "frr-isisd:isis/area-tag");
+	if (strmatch(tag, iter->tag)) {
+		char xpath[XPATH_MAXLEN];
+		const char *name = yang_dnode_get_string(dnode, "name");
+		const char *vrf = yang_dnode_get_string(dnode, "vrf");
+
+		snprintf(
+			xpath, XPATH_MAXLEN,
+			"/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis",
+			name, vrf);
+		nb_cli_enqueue_change(iter->vty, xpath, NB_OP_DESTROY, NULL);
+	}
+
+	return YANG_ITER_CONTINUE;
+}
+
 DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 	   "no router isis WORD$tag [vrf NAME$vrf_name]",
 	   NO_STR ROUTER_STR
 	   "ISO IS-IS\n"
 	   "ISO Routing area tag\n" VRF_CMD_HELP_STR)
 {
-	char temp_xpath[XPATH_MAXLEN];
-	struct listnode *node, *nnode;
-	struct isis_circuit *circuit = NULL;
-	struct isis_area *area = NULL;
+	struct if_iter iter;
 
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
@@ -92,24 +118,13 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
+	iter.vty = vty;
+	iter.tag = tag;
+
+	yang_dnode_iterate(if_iter_cb, &iter, vty->candidate_config->dnode,
+			   "/frr-interface:lib/interface[vrf='%s']", vrf_name);
+
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-	area = isis_area_lookup_by_vrf(tag, vrf_name);
-	if (area && area->circuit_list && listcount(area->circuit_list)) {
-		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
-				       circuit)) {
-			/* add callbacks to delete each of the circuits listed
-			 */
-			const char *vrf_name =
-				vrf_lookup_by_id(circuit->interface->vrf_id)
-					->name;
-			snprintf(
-				temp_xpath, XPATH_MAXLEN,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis",
-				circuit->interface->name, vrf_name);
-			nb_cli_enqueue_change(vty, temp_xpath, NB_OP_DESTROY,
-					      NULL);
-		}
-	}
 
 	return nb_cli_apply_changes(
 		vty, "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
