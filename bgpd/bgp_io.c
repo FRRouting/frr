@@ -465,10 +465,10 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 	size_t readsize; // how many bytes we want to read
 	ssize_t nbytes;  // how many bytes we actually read
 	uint16_t status = 0;
-	uint8_t ibw[peer->max_packet_size * BGP_READ_PACKET_MAX];
 
-	readsize = MIN(ringbuf_space(peer->ibuf_work), sizeof(ibw));
-	nbytes = read(peer->fd, ibw, readsize);
+	readsize =
+		MIN(ringbuf_space(peer->ibuf_work), sizeof(peer->ibuf_scratch));
+	nbytes = read(peer->fd, peer->ibuf_scratch, readsize);
 
 	/* EAGAIN or EWOULDBLOCK; come back later */
 	if (nbytes < 0 && ERRNO_IO_RETRY(errno)) {
@@ -497,7 +497,7 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
 	} else {
-		assert(ringbuf_put(peer->ibuf_work, ibw, nbytes)
+		assert(ringbuf_put(peer->ibuf_work, peer->ibuf_scratch, nbytes)
 		       == (size_t)nbytes);
 	}
 
