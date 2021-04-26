@@ -126,17 +126,6 @@ void ringbuf_reset(struct ringbuf *buf);
  */
 void ringbuf_wipe(struct ringbuf *buf);
 
-/**
- * Perform a socket/file `read()` in to the ring buffer.
- *
- * \param buf the ring buffer pointer.
- * \param sock the file descriptor.
- * \returns the number of bytes read, `0` on connection close or `-1` with
- *          `errno` pointing the error (see `readv()` man page for more
- *          information.)
- */
-ssize_t ringbuf_read(struct ringbuf *buf, int sock);
-
 #ifdef __cplusplus
 }
 #endif
