@@ -241,6 +241,16 @@ DEFPY  (ldp_wait_for_sync,
 
 }
 
+DEFPY  (ldp_allow_broken_lsps,
+	ldp_allow_broken_lsps_cmd,
+	"[no] install allow-broken-lsps",
+	NO_STR
+	"install lsps\n"
+	"if no remote-label install with imp-null")
+{
+	return (ldp_vty_allow_broken_lsp(vty, no));
+}
+
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
 	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
@@ -844,6 +854,7 @@ ldp_vty_init (void)
 	install_element(LDP_NODE, &ldp_router_id_cmd);
 	install_element(LDP_NODE, &ldp_ordered_control_cmd);
 	install_element(LDP_NODE, &ldp_wait_for_sync_cmd);
+	install_element(LDP_NODE, &ldp_allow_broken_lsps_cmd);
 
 	install_element(LDP_IPV4_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_holdtime_cmd);
