@@ -96,6 +96,8 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
+	zlog_debug("%s %s", __func__, c->ifp->name);
+
 #ifdef EXTREME_DEBUG
 	if (c->address->family == AF_INET)
 		zlog_debug("connected IP address %pFX", c->address);
@@ -122,6 +124,8 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 
 	if (c == NULL)
 		return 0;
+
+	zlog_debug("%s %s", __func__, c->ifp->name);
 
 #ifdef EXTREME_DEBUG
 	if (c->address->family == AF_INET)

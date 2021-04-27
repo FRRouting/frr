@@ -2544,24 +2544,9 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 		}
 		break;
 	case NB_EV_APPLY:
-		area = isis_area_lookup_by_vrf(area_tag, vrf_name);
-		/* The area should have already be created. We are
-		 * setting the priority of the global isis area creation
-		 * slightly lower, so it should be executed first, but I
-		 * cannot rely on that so here I have to check.
-		 */
-		if (!area) {
-			flog_err(
-				EC_LIB_NB_CB_CONFIG_APPLY,
-				"%s: attempt to create circuit for area %s before the area has been created",
-				__func__, area_tag);
-			abort();
-		}
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		circuit = isis_circuit_create(area, ifp);
-		assert(circuit
-		       && (circuit->state == C_STATE_CONF
-			   || circuit->state == C_STATE_UP));
+		circuit = ifp->info;
+		isis_circuit_tag_set(circuit, area_tag);
 		nb_running_set_entry(args->dnode, circuit);
 		break;
 	}
@@ -2577,18 +2562,15 @@ int lib_interface_isis_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	circuit = nb_running_unset_entry(args->dnode);
-	if (!circuit)
-		return NB_ERR_INCONSISTENCY;
 
 	/* remove ldp-sync config */
 	isis_ldp_sync_if_remove(circuit, true);
 
-	/* disable both AFs for this circuit. this will also update the
-	 * CSM state by sending an ISIS_DISABLED signal. If there is no
-	 * area associated to the circuit there is nothing to do
-	 */
-	if (circuit->area)
-		isis_circuit_af_set(circuit, false, false);
+	/* disable both AFs for this circuit */
+	isis_circuit_af_set(circuit, false, false);
+
+	isis_circuit_tag_unset(circuit);
+		
 	return NB_OK;
 }
 
@@ -2678,7 +2660,6 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	struct vrf *vrf;
 	const char *ifname, *vrfname;
-	struct isis *isis = NULL;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2693,12 +2674,8 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
 		if (!ifp)
 			break;
-
-		isis = isis_lookup_by_vrfid(ifp->vrf_id);
-		if (isis == NULL)
-			return NB_ERR_VALIDATION;
-
-		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);
+		
+		circuit = circuit_scan_by_ifp(ifp);
 		if (circuit && circuit->state == C_STATE_UP
 		    && circuit->area->is_type != IS_LEVEL_1_AND_2
 		    && circuit->area->is_type != circ_type) {
@@ -3085,7 +3062,6 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct isis_area *area;
 	struct interface *ifp;
 	bool passive = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -3108,14 +3084,7 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	if (circuit->state != C_STATE_UP) {
-		circuit->is_passive = passive;
-	} else {
-		area = circuit->area;
-		isis_csm_state_change(ISIS_DISABLE, circuit, area);
-		circuit->is_passive = passive;
-		isis_csm_state_change(ISIS_ENABLE, circuit, area);
-	}
+	isis_circuit_passive_set(circuit, passive);
 
 	return NB_OK;
 }
@@ -3473,15 +3442,18 @@ int lib_interface_isis_fast_reroute_level_1_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->lfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->lfa_protection[0])
-		circuit->area->lfa_protected_links[0]++;
-	else {
-		assert(circuit->area->lfa_protected_links[0] > 0);
-		circuit->area->lfa_protected_links[0]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->lfa_protection[0])
+			area->lfa_protected_links[0]++;
+		else {
+			assert(area->lfa_protected_links[0] > 0);
+			area->lfa_protected_links[0]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3505,7 +3477,8 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_create(
 
 	isis_lfa_excluded_iface_add(circuit, ISIS_LEVEL1, exclude_ifname);
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3525,7 +3498,8 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy(
 
 	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL1, exclude_ifname);
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3545,15 +3519,18 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->rlfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->rlfa_protection[0])
-		circuit->area->rlfa_protected_links[0]++;
-	else {
-		assert(circuit->area->rlfa_protected_links[0] > 0);
-		circuit->area->rlfa_protected_links[0]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->rlfa_protection[0])
+			area->rlfa_protected_links[0]++;
+		else {
+			assert(area->rlfa_protected_links[0] > 0);
+			area->rlfa_protected_links[0]--;
+		}
+		
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3575,7 +3552,8 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify(
 	circuit->rlfa_max_metric[0] = yang_dnode_get_uint32(args->dnode, NULL);
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3593,7 +3571,8 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy(
 	circuit->rlfa_max_metric[0] = 0;
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3613,15 +3592,18 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->tilfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->tilfa_protection[0])
-		circuit->area->tilfa_protected_links[0]++;
-	else {
-		assert(circuit->area->tilfa_protected_links[0] > 0);
-		circuit->area->tilfa_protected_links[0]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->tilfa_protection[0])
+			area->tilfa_protected_links[0]++;
+		else {
+			assert(area->tilfa_protected_links[0] > 0);
+			area->tilfa_protected_links[0]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3644,7 +3626,8 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 		yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3664,15 +3647,18 @@ int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->lfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->lfa_protection[1])
-		circuit->area->lfa_protected_links[1]++;
-	else {
-		assert(circuit->area->lfa_protected_links[1] > 0);
-		circuit->area->lfa_protected_links[1]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->lfa_protection[1])
+			area->lfa_protected_links[1]++;
+		else {
+			assert(area->lfa_protected_links[1] > 0);
+			area->lfa_protected_links[1]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3696,7 +3682,8 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
 
 	isis_lfa_excluded_iface_add(circuit, ISIS_LEVEL2, exclude_ifname);
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3716,7 +3703,8 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy(
 
 	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL2, exclude_ifname);
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3736,15 +3724,18 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->rlfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->rlfa_protection[1])
-		circuit->area->rlfa_protected_links[1]++;
-	else {
-		assert(circuit->area->rlfa_protected_links[1] > 0);
-		circuit->area->rlfa_protected_links[1]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->rlfa_protection[1])
+			area->rlfa_protected_links[1]++;
+		else {
+			assert(area->rlfa_protected_links[1] > 0);
+			area->rlfa_protected_links[1]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3766,7 +3757,8 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify(
 	circuit->rlfa_max_metric[1] = yang_dnode_get_uint32(args->dnode, NULL);
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3784,7 +3776,8 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
 	circuit->rlfa_max_metric[1] = 0;
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3804,15 +3797,18 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->tilfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->tilfa_protection[1])
-		circuit->area->tilfa_protected_links[1]++;
-	else {
-		assert(circuit->area->tilfa_protected_links[1] > 0);
-		circuit->area->tilfa_protected_links[1]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->tilfa_protection[1])
+			area->tilfa_protected_links[1]++;
+		else {
+			assert(area->tilfa_protected_links[1] > 0);
+			area->tilfa_protected_links[1]--;
+		}
+		
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3835,7 +3831,8 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
 		yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }

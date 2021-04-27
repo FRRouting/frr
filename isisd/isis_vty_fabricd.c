@@ -219,7 +219,7 @@ DEFUN (ip_router_isis,
 
 	/* Prevent more than one area per circuit */
 	circuit = circuit_scan_by_ifp(ifp);
-	if (circuit && circuit->area) {
+	if (circuit->area) {
 		if (strcmp(circuit->area->area_tag, area_tag)) {
 			vty_out(vty, "ISIS circuit is already defined on %s\n",
 				circuit->area->area_tag);
@@ -231,8 +231,8 @@ DEFUN (ip_router_isis,
 	if (!area)
 		area = isis_area_create(area_tag, VRF_DEFAULT_NAME);
 
-	if (!circuit || !circuit->area) {
-		circuit = isis_circuit_create(area, ifp);
+	if (!circuit->area) {
+		isis_circuit_tag_set(circuit, area_tag);
 
 		if (circuit->state != C_STATE_CONF
 		    && circuit->state != C_STATE_UP) {
@@ -288,8 +288,8 @@ DEFUN (no_ip_router_isis,
 		return CMD_ERR_NO_MATCH;
 	}
 
-	circuit = circuit_lookup_by_ifp(ifp, area->circuit_list);
-	if (!circuit) {
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit->area) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
 		return CMD_ERR_NO_MATCH;
 	}
@@ -301,6 +301,10 @@ DEFUN (no_ip_router_isis,
 		ip = false;
 
 	isis_circuit_af_set(circuit, ip, ipv6);
+
+	if (!ip && !ipv6)
+		isis_circuit_tag_unset(circuit);
+
 	return CMD_SUCCESS;
 }
 
