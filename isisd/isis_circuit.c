@@ -735,6 +735,9 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 	circuit->last_uptime = time(NULL);
 
+	if (circuit->area->mta && circuit->area->mta->status)
+		isis_link_params_update(circuit, circuit->interface);
+
 #ifndef FABRICD
 	/* send northbound notification */
 	isis_notif_if_state_change(circuit, false);
@@ -1302,8 +1305,6 @@ struct isis_circuit *isis_circuit_create(struct isis_area *area,
 	if (circuit->state != C_STATE_CONF && circuit->state != C_STATE_UP)
 		return circuit;
 	isis_circuit_if_bind(circuit, ifp);
-	if (circuit->area->mta && circuit->area->mta->status)
-		isis_link_params_update(circuit, ifp);
 
 	return circuit;
 }
