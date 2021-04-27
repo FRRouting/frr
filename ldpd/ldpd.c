@@ -1365,6 +1365,16 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 			ldpe_reset_ds_nbrs();
 	}
 
+	/*
+	 * Configuration of allow-broken-lsp requires reprograming all
+	 * labeled routes
+	 */
+	if ((conf->flags & F_LDPD_ALLOW_BROKEN_LSP) !=
+	    (xconf->flags & F_LDPD_ALLOW_BROKEN_LSP)) {
+		if (ldpd_process == PROC_LDE_ENGINE)
+			lde_allow_broken_lsp_update(xconf->flags);
+	}
+
 	if (ldpd_process == PROC_LDP_ENGINE)
 		ldpe_set_config_change_time();
 
