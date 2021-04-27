@@ -1349,7 +1349,7 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
 	peer->password = NULL;
-	peer->max_packet_size = BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE;
+	peer->max_packet_size = BGP_MAX_PACKET_SIZE;
 
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -1384,7 +1384,7 @@ struct peer *peer_new(struct bgp *bgp)
 
 	/* We use a larger buffer for peer->obuf_work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just
-	 *   under BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE.
+	 *   under BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE.
 	 * - The user configures an outbound route-map that does many as-path
 	 *   prepends or adds many communities. At most they can have
 	 *   CMD_ARGC_MAX args in a route-map so there is a finite limit on how
@@ -1394,12 +1394,12 @@ struct peer *peer_new(struct bgp *bgp)
 	 * bounds checking for every single attribute as we construct an
 	 * UPDATE.
 	 */
-	peer->obuf_work = stream_new(BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE
-				     + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work = ringbuf_new(BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE
-				      * BGP_READ_PACKET_MAX);
+	peer->obuf_work =
+		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
+	peer->ibuf_work =
+		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
 
-	peer->scratch = stream_new(BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE);
+	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bgp_sync_init(peer);
 
