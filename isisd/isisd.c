@@ -114,16 +114,6 @@ int show_isis_neighbor_common(struct vty *, const char *id, char,
 int clear_isis_neighbor_common(struct vty *, const char *id, const char *vrf_name,
 			       bool all_vrf);
 
-static void isis_add(struct isis *isis)
-{
-	listnode_add(im->isis, isis);
-}
-
-static void isis_delete(struct isis *isis)
-{
-	listnode_delete(im->isis, isis);
-}
-
 /* Link ISIS instance to VRF. */
 void isis_vrf_link(struct isis *isis, struct vrf *vrf)
 {
@@ -189,10 +179,8 @@ void isis_global_instance_create(const char *vrf_name)
 	struct isis *isis;
 
 	isis = isis_lookup_by_vrfname(vrf_name);
-	if (isis == NULL) {
-		isis = isis_new(vrf_name);
-		isis_add(isis);
-	}
+	if (isis == NULL)
+		isis_new(vrf_name);
 }
 
 struct isis *isis_new(const char *vrf_name)
@@ -201,16 +189,15 @@ struct isis *isis_new(const char *vrf_name)
 	struct isis *isis;
 
 	isis = XCALLOC(MTYPE_ISIS, sizeof(struct isis));
+
+	isis->name = XSTRDUP(MTYPE_ISIS_NAME, vrf_name);
+
 	vrf = vrf_lookup_by_name(vrf_name);
 
-	if (vrf) {
-		isis->vrf_id = vrf->vrf_id;
+	if (vrf)
 		isis_vrf_link(isis, vrf);
-		isis->name = XSTRDUP(MTYPE_ISIS_NAME, vrf->name);
-	} else {
+	else
 		isis->vrf_id = VRF_UNKNOWN;
-		isis->name = XSTRDUP(MTYPE_ISIS_NAME, vrf_name);
-	}
 
 	if (IS_DEBUG_EVENTS)
 		zlog_debug(
@@ -224,12 +211,61 @@ struct isis *isis_new(const char *vrf_name)
 	isis->process_id = getpid();
 	isis->router_id = 0;
 	isis->area_list = list_new();
-	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
 	isis->snmp_notifications = 1;
 	dyn_cache_init(isis);
 
+	listnode_add(im->isis, isis);
+
 	return isis;
+}
+
+void isis_finish(struct isis *isis)
+{
+	struct vrf *vrf = NULL;
+
+	listnode_delete(im->isis, isis);
+
+	vrf = vrf_lookup_by_name(isis->name);
+	if (vrf)
+		isis_vrf_unlink(isis, vrf);
+	XFREE(MTYPE_ISIS_NAME, isis->name);
+
+	isis_redist_free(isis);
+	list_delete(&isis->area_list);
+	XFREE(MTYPE_ISIS, isis);
+}
+
+void isis_area_add_circuit(struct isis_area *area, struct isis_circuit *circuit)
+{
+	isis_csm_state_change(ISIS_ENABLE, circuit, area);
+
+	area->ip_circuits += circuit->ip_router;
+	area->ipv6_circuits += circuit->ipv6_router;
+
+	area->lfa_protected_links[0] += circuit->lfa_protection[0];
+	area->rlfa_protected_links[0] += circuit->rlfa_protection[0];
+	area->tilfa_protected_links[0] += circuit->tilfa_protection[0];
+
+	area->lfa_protected_links[1] += circuit->lfa_protection[1];
+	area->rlfa_protected_links[1] += circuit->rlfa_protection[1];
+	area->tilfa_protected_links[1] += circuit->tilfa_protection[1];
+}
+
+void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
+{
+	area->ip_circuits -= circuit->ip_router;
+	area->ipv6_circuits -= circuit->ipv6_router;
+
+	area->lfa_protected_links[0] -= circuit->lfa_protection[0];
+	area->rlfa_protected_links[0] -= circuit->rlfa_protection[0];
+	area->tilfa_protected_links[0] -= circuit->tilfa_protection[0];
+
+	area->lfa_protected_links[1] -= circuit->lfa_protection[1];
+	area->rlfa_protected_links[1] -= circuit->rlfa_protection[1];
+	area->tilfa_protected_links[1] -= circuit->tilfa_protection[1];
+
+	isis_csm_state_change(ISIS_DISABLE, circuit, area);
 }
 
 struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
@@ -237,30 +273,19 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	struct isis_area *area;
 	struct isis *isis = NULL;
 	struct vrf *vrf = NULL;
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
 	area = XCALLOC(MTYPE_ISIS_AREA, sizeof(struct isis_area));
 
-	if (vrf_name) {
-		vrf = vrf_lookup_by_name(vrf_name);
-		if (vrf) {
-			isis = isis_lookup_by_vrfid(vrf->vrf_id);
-			if (isis == NULL) {
-				isis = isis_new(vrf_name);
-				isis_add(isis);
-			}
-		} else {
-			isis = isis_lookup_by_vrfid(VRF_UNKNOWN);
-			if (isis == NULL) {
-				isis = isis_new(vrf_name);
-				isis_add(isis);
-			}
-		}
-	} else {
-		isis = isis_lookup_by_vrfid(VRF_DEFAULT);
-		if (isis == NULL) {
-			isis = isis_new(VRF_DEFAULT_NAME);
-			isis_add(isis);
-		}
-	}
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+
+	vrf = vrf_lookup_by_name(vrf_name);
+	isis = isis_lookup_by_vrfname(vrf_name);
+
+	if (isis == NULL)
+		isis = isis_new(vrf_name);
 
 	listnode_add(isis->area_list, area);
 	area->isis = isis;
@@ -373,8 +398,18 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->bfd_signalled_down = false;
 	area->bfd_force_spf_refresh = false;
 
-
 	QOBJ_REG(area, isis_area);
+
+	if (vrf) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->ifindex == IFINDEX_INTERNAL)
+				continue;
+
+			circuit = ifp->info;
+			if (circuit)
+				isis_area_add_circuit(area, circuit);
+		}
+	}
 
 	return area;
 }
@@ -470,11 +505,9 @@ void isis_area_destroy(struct isis_area *area)
 
 	if (area->circuit_list) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
-				       circuit)) {
-			circuit->ip_router = 0;
-			circuit->ipv6_router = 0;
-			isis_csm_state_change(ISIS_DISABLE, circuit, area);
-		}
+				       circuit))
+			isis_area_del_circuit(area, circuit);
+
 		list_delete(&area->circuit_list);
 	}
 	list_delete(&area->adjacency_list);
@@ -572,10 +605,6 @@ static int isis_vrf_enable(struct vrf *vrf)
 
 	isis = isis_lookup_by_vrfname(vrf->name);
 	if (isis) {
-		if (isis->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_ISIS_NAME, isis->name);
-			isis->name = NULL;
-		}
 		old_vrf_id = isis->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		isis_vrf_link(isis, vrf);
@@ -628,28 +657,6 @@ void isis_vrf_init(void)
 {
 	vrf_init(isis_vrf_new, isis_vrf_enable, isis_vrf_disable,
 		 isis_vrf_delete, isis_vrf_enable);
-}
-
-void isis_finish(struct isis *isis)
-{
-	struct vrf *vrf = NULL;
-
-	isis_delete(isis);
-	if (isis->name) {
-		vrf = vrf_lookup_by_name(isis->name);
-		if (vrf)
-			isis_vrf_unlink(isis, vrf);
-		XFREE(MTYPE_ISIS_NAME, isis->name);
-	} else {
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-		if (vrf)
-			isis_vrf_unlink(isis, vrf);
-	}
-
-	isis_redist_free(isis);
-	list_delete(&isis->area_list);
-	list_delete(&isis->init_circ_list);
-	XFREE(MTYPE_ISIS, isis);
 }
 
 void isis_terminate()

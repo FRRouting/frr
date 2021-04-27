@@ -89,7 +89,6 @@ struct isis {
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
 	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
-	struct list *init_circ_list;
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
@@ -244,7 +243,6 @@ DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
-void isis_finish(struct isis *isis);
 void isis_master_init(struct thread_master *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
@@ -257,6 +255,13 @@ void isis_init(void);
 void isis_vrf_init(void);
 
 struct isis *isis_new(const char *vrf_name);
+void isis_finish(struct isis *isis);
+
+void isis_area_add_circuit(struct isis_area *area,
+			   struct isis_circuit *circuit);
+void isis_area_del_circuit(struct isis_area *area,
+			   struct isis_circuit *circuit);
+
 struct isis_area *isis_area_create(const char *, const char *);
 struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,

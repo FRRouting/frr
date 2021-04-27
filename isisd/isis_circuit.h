@@ -122,6 +122,7 @@ struct isis_circuit {
 	/*
 	 * Configurables
 	 */
+	char *tag;		       /* area tag */
 	struct isis_passwd passwd;     /* Circuit rx/tx password */
 	int is_type;		       /* circuit is type == level of circuit
 					* differentiated from circuit type (media) */
@@ -180,7 +181,7 @@ struct isis_circuit {
 DECLARE_QOBJ_TYPE(isis_circuit);
 
 void isis_circuit_init(void);
-struct isis_circuit *isis_circuit_new(struct isis *isis);
+struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag);
 void isis_circuit_del(struct isis_circuit *circuit);
 struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
 					   struct list *list);
@@ -207,8 +208,6 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
 
-struct isis_circuit *isis_circuit_create(struct isis_area *area,
-					 struct interface *ifp);
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 			 bool ipv6_router);
 ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);

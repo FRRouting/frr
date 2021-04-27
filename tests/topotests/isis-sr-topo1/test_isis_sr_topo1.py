@@ -1002,6 +1002,12 @@ def test_isis_adjacencies_step12():
     tgen.net["rt4"].cmd(
         'vtysh -c "conf t" -c "interface eth-rt5" -c "ipv6 router isis 1"'
     )
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "interface eth-rt5" -c "isis network point-to-point"'
+    )
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "interface eth-rt5" -c "isis hello-multiplier 3"'
+    )
     tgen.net["rt6"].cmd(
         'vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 23999"'
     )

@@ -243,15 +243,15 @@ def test_r1_scalar_snmp():
 
 
 circtable_test = {
-    "isisCircAdminState": ["on(1)", "on(1)", "on(1)"],
-    "isisCircExistState": ["active(1)", "active(1)", "active(1)"],
-    "isisCircType": ["broadcast(1)", "ptToPt(2)", "staticIn(3)"],
-    "isisCircExtDomain": ["false(2)", "false(2)", "false(2)"],
-    "isisCircLevelType": ["level1(1)", "level1(1)", "level1and2(3)"],
-    "isisCircPassiveCircuit": ["false(2)", "false(2)", "true(1)"],
-    "isisCircMeshGroupEnabled": ["inactive(1)", "inactive(1)", "inactive(1)"],
-    "isisCircSmallHellos": ["false(2)", "false(2)", "false(2)"],
-    "isisCirc3WayEnabled": ["false(2)", "false(2)", "false(2)"],
+    "isisCircAdminState": ["on(1)", "on(1)"],
+    "isisCircExistState": ["active(1)", "active(1)"],
+    "isisCircType": ["broadcast(1)", "ptToPt(2)"],
+    "isisCircExtDomain": ["false(2)", "false(2)"],
+    "isisCircLevelType": ["level1(1)", "level1(1)"],
+    "isisCircPassiveCircuit": ["false(2)", "false(2)"],
+    "isisCircMeshGroupEnabled": ["inactive(1)", "inactive(1)"],
+    "isisCircSmallHellos": ["false(2)", "false(2)"],
+    "isisCirc3WayEnabled": ["false(2)", "false(2)"],
 }
 
 
@@ -266,7 +266,6 @@ def test_r1_isisCircTable():
     oids = []
     oids.append(generate_oid(1, 1, 0))
     oids.append(generate_oid(1, 2, 0))
-    oids.append(generate_oid(1, 3, 0))
 
     # check items
     for item in circtable_test.keys():
@@ -277,21 +276,17 @@ def test_r1_isisCircTable():
 
 
 circleveltable_test = {
-    "isisCircLevelMetric": ["10", "10", "10", "10"],
-    "isisCircLevelWideMetric": ["10", "10", "0", "0"],
-    "isisCircLevelISPriority": ["64", "64", "64", "64"],
-    "isisCircLevelHelloMultiplier": ["10", "10", "10", "10"],
+    "isisCircLevelMetric": ["10", "10"],
+    "isisCircLevelWideMetric": ["10", "10"],
+    "isisCircLevelISPriority": ["64", "64"],
+    "isisCircLevelHelloMultiplier": ["10", "10"],
     "isisCircLevelHelloTimer": [
-        "3000 milliseconds",
-        "3000 milliseconds",
         "3000 milliseconds",
         "3000 milliseconds",
     ],
     "isisCircLevelMinLSPRetransInt": [
         "1 seconds",
         "1 seconds",
-        "0 seconds",
-        "0 seconds",
     ],
 }
 
@@ -307,8 +302,6 @@ def test_r1_isislevelCircTable():
     oids = []
     oids.append(generate_oid(2, 1, "area"))
     oids.append(generate_oid(2, 2, "area"))
-    oids.append(generate_oid(2, 3, "area"))
-    oids.append(generate_oid(2, 3, "domain"))
 
     # check items
     for item in circleveltable_test.keys():
