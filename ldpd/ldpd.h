@@ -906,6 +906,8 @@ int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
 int		 ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *
 		    rlfa_labels);
 
+void ldp_zebra_regdereg_zebra_info(bool want_register);
+
 /* compatibility */
 #ifndef __OpenBSD__
 #define __IPV6_ADDR_MC_SCOPE(a)		((a)->s6_addr[1] & 0x0f)
