@@ -992,7 +992,7 @@ static struct nhg_ctx *nhg_ctx_new(void)
 	return new;
 }
 
-static void nhg_ctx_free(struct nhg_ctx **ctx)
+void nhg_ctx_free(struct nhg_ctx **ctx)
 {
 	struct nexthop *nh;
 
@@ -1242,7 +1242,7 @@ static int queue_add(struct nhg_ctx *ctx)
 	if (nhg_ctx_get_status(ctx) == NHG_CTX_QUEUED)
 		return 0;
 
-	if (rib_queue_nhg_add(ctx)) {
+	if (rib_queue_nhg_ctx_add(ctx)) {
 		nhg_ctx_set_status(ctx, NHG_CTX_FAILURE);
 		return -1;
 	}

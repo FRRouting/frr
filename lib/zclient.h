@@ -754,6 +754,29 @@ enum zclient_send_status {
 };
 
 static inline const char *
+zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
+{
+	const char *ret = "UNKNOWN";
+
+	switch (note) {
+	case ZAPI_NHG_FAIL_INSTALL:
+		ret = "ZAPI_NHG_FAIL_INSTALL";
+		break;
+	case ZAPI_NHG_INSTALLED:
+		ret = "ZAPI_NHG_INSTALLED";
+		break;
+	case ZAPI_NHG_REMOVE_FAIL:
+		ret = "ZAPI_NHG_REMOVE_FAIL";
+		break;
+	case ZAPI_NHG_REMOVED:
+		ret = "ZAPI_NHG_REMOVED";
+		break;
+	}
+
+	return ret;
+}
+
+static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 {
 	const char *ret = "UNKNOWN";

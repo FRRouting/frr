@@ -727,8 +727,8 @@ int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 	}
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: type %d, id %d, note %d",
-			   __func__, type, id, note);
+		zlog_debug("%s: type %d, id %d, note %s",
+			   __func__, type, id, zapi_nhg_notify_owner2str(note));
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
@@ -1921,27 +1921,35 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	/*
-	 * Create the nhg
-	 */
-	nhe = zebra_nhg_proto_add(api_nhg.id, api_nhg.proto, client->instance,
-				  client->session_id, nhg, 0);
+	/* Create a temporary nhe */
+	nhe = zebra_nhg_alloc();
+	nhe->id = api_nhg.id;
+	nhe->type = api_nhg.proto;
+	nhe->zapi_instance = client->instance;
+	nhe->zapi_session = client->session_id;
 
-	nexthop_group_delete(&nhg);
-	zebra_nhg_backup_free(&bnhg);
+	/* Take over the list(s) of nexthops */
+	nhe->nhg.nexthop = nhg->nexthop;
+	nhg->nexthop = NULL;
+
+	if (bnhg) {
+		nhe->backup_info = bnhg;
+		bnhg = NULL;
+	}
 
 	/*
 	 * TODO:
 	 * Assume fully resolved for now and install.
-	 *
 	 * Resolution is going to need some more work.
 	 */
 
-	/* If there's a failure, notify sender immediately */
-	if (nhe == NULL)
-		zsend_nhg_notify(api_nhg.proto, client->instance,
-				 client->session_id, api_nhg.id,
-				 ZAPI_NHG_FAIL_INSTALL);
+	/* Enqueue to workqueue for processing */
+	rib_queue_nhe_add(nhe);
+
+	/* Free any local allocations */
+	nexthop_group_delete(&nhg);
+	zebra_nhg_backup_free(&bnhg);
+
 }
 
 static void zread_route_add(ZAPI_HANDLER_ARGS)

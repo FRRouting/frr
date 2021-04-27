@@ -426,7 +426,11 @@ extern int rib_queue_add(struct route_node *rn);
 
 struct nhg_ctx; /* Forward declaration */
 
-extern int rib_queue_nhg_add(struct nhg_ctx *ctx);
+/* Enqueue incoming nhg from OS for processing */
+extern int rib_queue_nhg_ctx_add(struct nhg_ctx *ctx);
+
+/* Enqueue incoming nhg from proto daemon for processing */
+extern int rib_queue_nhe_add(struct nhg_hash_entry *nhe);
 
 extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);

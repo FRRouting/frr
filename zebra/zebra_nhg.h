@@ -274,6 +274,7 @@ extern bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2);
  * the rib meta queue.
  */
 extern int nhg_ctx_process(struct nhg_ctx *ctx);
+void nhg_ctx_free(struct nhg_ctx **ctx);
 
 /* Find via kernel nh creation */
 extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
