@@ -1820,11 +1820,10 @@ static int resolve_backup_nexthops(const struct nexthop *nexthop,
 	int i, j, idx;
 	const struct nexthop *bnh;
 	struct nexthop *nh, *newnh;
+	mpls_label_t labels[MPLS_MAX_LABELS];
+	uint8_t num_labels;
 
 	assert(nexthop->backup_num <= NEXTHOP_MAX_BACKUPS);
-
-	if (resolve_nhe->backup_info->nhe == NULL)
-		resolve_nhe->backup_info->nhe = zebra_nhg_alloc();
 
 	/* Locate backups from the original nexthop's backup index and nhe */
 	for (i = 0; i < nexthop->backup_num; i++) {
@@ -1840,6 +1839,8 @@ static int resolve_backup_nexthops(const struct nexthop *nexthop,
 			resolved->backup_idx[resolved->backup_num] =
 				map->map[j].new_idx;
 			resolved->backup_num++;
+
+			SET_FLAG(resolved->flags, NEXTHOP_FLAG_HAS_BACKUP);
 
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("%s: found map idx orig %d, new %d",
@@ -1865,8 +1866,45 @@ static int resolve_backup_nexthops(const struct nexthop *nexthop,
 		if (bnh == NULL)
 			continue;
 
+		if (resolve_nhe->backup_info == NULL)
+			resolve_nhe->backup_info = zebra_nhg_backup_alloc();
+
 		/* Update backup info in the resolving nexthop and its nhe */
 		newnh = nexthop_dup_no_recurse(bnh, NULL);
+
+		/* We may need some special handling for mpls labels: the new
+		 * backup needs to carry the recursive nexthop's labels,
+		 * if any: they may be vrf labels e.g.
+		 * The original/inner labels are in the stack of 'resolve_nhe',
+		 * if that is longer than the stack in 'nexthop'.
+		 */
+		if (newnh->nh_label && resolved->nh_label &&
+		    nexthop->nh_label) {
+			if (resolved->nh_label->num_labels >
+			    nexthop->nh_label->num_labels) {
+				/* Prepare new label stack */
+				num_labels = 0;
+				for (j = 0; j < newnh->nh_label->num_labels;
+				     j++) {
+					labels[j] = newnh->nh_label->label[j];
+					num_labels++;
+				}
+
+				/* Include inner labels */
+				for (j = nexthop->nh_label->num_labels;
+				     j < resolved->nh_label->num_labels;
+				     j++) {
+					labels[num_labels] =
+						resolved->nh_label->label[j];
+					num_labels++;
+				}
+
+				/* Replace existing label stack in the backup */
+				nexthop_del_labels(newnh);
+				nexthop_add_labels(newnh, bnh->nh_label_type,
+						   num_labels, labels);
+			}
+		}
 
 		/* Need to compute the new backup index in the new
 		 * backup list, and add to map struct.
@@ -1880,6 +1918,7 @@ static int resolve_backup_nexthops(const struct nexthop *nexthop,
 			}
 
 			nh->next = newnh;
+			j++;
 
 		} else	/* First one */
 			resolve_nhe->backup_info->nhe->nhg.nexthop = newnh;
@@ -1887,6 +1926,8 @@ static int resolve_backup_nexthops(const struct nexthop *nexthop,
 		/* Capture index */
 		resolved->backup_idx[resolved->backup_num] = j;
 		resolved->backup_num++;
+
+		SET_FLAG(resolved->flags, NEXTHOP_FLAG_HAS_BACKUP);
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("%s: added idx orig %d, new %d",
