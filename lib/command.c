@@ -900,13 +900,31 @@ enum node_type node_parent(enum node_type node)
 /* Execute command by argument vline vector. */
 static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 				    struct vty *vty,
-				    const struct cmd_element **cmd)
+				    const struct cmd_element **cmd,
+				    unsigned int up_level)
 {
 	struct list *argv_list;
 	enum matcher_rv status;
 	const struct cmd_element *matched_element = NULL;
+	unsigned int i;
+	int xpath_index = vty->xpath_index;
+	int node = vty->node;
 
-	struct graph *cmdgraph = cmd_node_graph(cmdvec, vty->node);
+	/* only happens for legacy split config file load;  need to check for
+	 * a match before calling node_exit handlers below
+	 */
+	for (i = 0; i < up_level; i++) {
+		if (node <= CONFIG_NODE)
+			return CMD_NO_LEVEL_UP;
+
+		node = node_parent(node);
+
+		if (xpath_index > 0
+		    && vty_check_node_for_xpath_decrement(node, vty->node))
+			xpath_index--;
+	}
+
+	struct graph *cmdgraph = cmd_node_graph(cmdvec, node);
 	status = command_match(cmdgraph, vline, &argv_list, &matched_element);
 
 	if (cmd)
@@ -926,12 +944,16 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 		}
 	}
 
+	for (i = 0; i < up_level; i++)
+		cmd_exit(vty);
+
 	// build argv array from argv list
 	struct cmd_token **argv = XMALLOC(
 		MTYPE_TMP, argv_list->count * sizeof(struct cmd_token *));
 	struct listnode *ln;
 	struct cmd_token *token;
-	unsigned int i = 0;
+
+	i = 0;
 	for (ALL_LIST_ELEMENTS_RO(argv_list, ln, token))
 		argv[i++] = token;
 
@@ -1012,7 +1034,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 					 vector_lookup(vline, index));
 
 		ret = cmd_execute_command_real(shifted_vline, FILTER_RELAXED,
-					       vty, cmd);
+					       vty, cmd, 0);
 
 		vector_free(shifted_vline);
 		vty->node = onode;
@@ -1021,7 +1043,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 	}
 
 	saved_ret = ret =
-		cmd_execute_command_real(vline, FILTER_RELAXED, vty, cmd);
+		cmd_execute_command_real(vline, FILTER_RELAXED, vty, cmd, 0);
 
 	if (vtysh)
 		return saved_ret;
@@ -1038,7 +1060,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 								  onode))
 				vty->xpath_index--;
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
-						       vty, cmd);
+						       vty, cmd, 0);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
 			    || ret == CMD_NOT_MY_INSTANCE
 			    || ret == CMD_WARNING_CONFIG_FAILED)
@@ -1069,7 +1091,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 int cmd_execute_command_strict(vector vline, struct vty *vty,
 			       const struct cmd_element **cmd)
 {
-	return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd);
+	return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd, 0);
 }
 
 /*
@@ -1220,6 +1242,7 @@ int command_config_read_one_line(struct vty *vty,
 {
 	vector vline;
 	int ret;
+	unsigned up_level = 0;
 
 	vline = cmd_make_strvec(vty->buf);
 
@@ -1230,36 +1253,20 @@ int command_config_read_one_line(struct vty *vty,
 	/* Execute configuration command : this is strict match */
 	ret = cmd_execute_command_strict(vline, vty, cmd);
 
-	// Climb the tree and try the command again at each node
-	if (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
-	    && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
-	    && ret != CMD_SUCCESS && ret != CMD_WARNING
-	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
-	    && vty->node != CONFIG_NODE) {
-		int saved_node = vty->node;
-		int saved_xpath_index = vty->xpath_index;
+	/* The logic for trying parent nodes is in cmd_execute_command_real()
+	 * since calling ->node_exit() correctly is a bit involved.  This is
+	 * also the only reason CMD_NO_LEVEL_UP exists.
+	 */
+	while (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
+	       && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
+	       && ret != CMD_SUCCESS && ret != CMD_WARNING
+	       && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
+	       && ret != CMD_NO_LEVEL_UP)
+		ret = cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd,
+					       ++up_level);
 
-		while (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
-		       && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
-		       && ret != CMD_SUCCESS && ret != CMD_WARNING
-		       && vty->node > CONFIG_NODE) {
-			vty->node = node_parent(vty->node);
-			if (vty->xpath_index > 0
-			    && vty_check_node_for_xpath_decrement(vty->node,
-								  saved_node))
-				vty->xpath_index--;
-			ret = cmd_execute_command_strict(vline, vty, cmd);
-		}
-
-		// If climbing the tree did not work then ignore the command and
-		// stay at the same node
-		if (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
-		    && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
-		    && ret != CMD_SUCCESS && ret != CMD_WARNING) {
-			vty->node = saved_node;
-			vty->xpath_index = saved_xpath_index;
-		}
-	}
+	if (ret == CMD_NO_LEVEL_UP)
+		ret = CMD_ERR_NO_MATCH;
 
 	if (ret != CMD_SUCCESS &&
 	    ret != CMD_WARNING &&
