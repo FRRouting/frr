@@ -1119,6 +1119,80 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 	}
 }
 
+DEFUN(show_ipv6_ospf6_vrfs, show_ipv6_ospf6_vrfs_cmd,
+      "show ipv6 ospf6 vrfs [json]",
+      SHOW_STR IP6_STR OSPF6_STR "Show OSPF6 VRFs \n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+	json_object *json_vrfs = NULL;
+	struct ospf6 *ospf6 = NULL;
+	struct listnode *node = NULL;
+	int count = 0;
+	char buf[PREFIX_STRLEN];
+	static const char header[] =
+		"Name                       Id     RouterId  ";
+
+	if (uj) {
+		json = json_object_new_object();
+		json_vrfs = json_object_new_object();
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		json_object *json_vrf = NULL;
+		const char *name = NULL;
+		int64_t vrf_id_ui = 0;
+		struct in_addr router_id;
+
+		router_id.s_addr = ospf6->router_id;
+		count++;
+
+		if (!uj && count == 1)
+			vty_out(vty, "%s\n", header);
+		if (uj)
+			json_vrf = json_object_new_object();
+
+		if (ospf6->vrf_id == VRF_DEFAULT)
+			name = VRF_DEFAULT_NAME;
+		else
+			name = ospf6->name;
+
+		vrf_id_ui = (ospf6->vrf_id == VRF_UNKNOWN)
+				    ? -1
+				    : (int64_t)ospf6->vrf_id;
+
+		if (uj) {
+			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
+			json_object_string_add(json_vrf, "routerId",
+					       inet_ntop(AF_INET, &router_id,
+							 buf, sizeof(buf)));
+			json_object_object_add(json_vrfs, name, json_vrf);
+
+		} else {
+			vty_out(vty, "%-25s  %-5d  %-16s  \n", name,
+				ospf6->vrf_id,
+				inet_ntop(AF_INET, &router_id, buf,
+					  sizeof(buf)));
+		}
+	}
+
+	if (uj) {
+		json_object_object_add(json, "vrfs", json_vrfs);
+		json_object_int_add(json, "totalVrfs", count);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		if (count)
+			vty_out(vty, "\nTotal number of OSPF VRFs: %d\n",
+				count);
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* show top level structures */
 DEFUN(show_ipv6_ospf6,
       show_ipv6_ospf6_cmd,
@@ -1359,6 +1433,7 @@ void ospf6_top_init(void)
 	install_node(&ospf6_node);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_vrfs_cmd);
 	install_element(CONFIG_NODE, &router_ospf6_cmd);
 	install_element(CONFIG_NODE, &no_router_ospf6_cmd);
 
