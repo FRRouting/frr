@@ -65,8 +65,6 @@ extern void isis_cli_init(void);
 		all_vrf = strmatch(vrf_name, "all");                           \
 	}
 
-#define SNMP_CIRCUITS_MAX (512)
-
 extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
@@ -97,8 +95,6 @@ struct isis {
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
-	struct isis_circuit *snmp_circuits[SNMP_CIRCUITS_MAX];
-	uint32_t snmp_circuit_id_last;
 	int snmp_notifications;
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
