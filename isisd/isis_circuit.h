@@ -238,4 +238,7 @@ DECLARE_HOOK(isis_circuit_config_write,
 DECLARE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
 	     (circuit));
 
+DECLARE_HOOK(isis_circuit_new_hook, (struct isis_circuit *circuit), (circuit));
+DECLARE_HOOK(isis_circuit_del_hook, (struct isis_circuit *circuit), (circuit));
+
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

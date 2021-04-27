@@ -73,47 +73,8 @@ DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
 int isis_if_new_hook(struct interface *);
 int isis_if_delete_hook(struct interface *);
 
-static int isis_circuit_smmp_id_gen(struct isis_circuit *circuit)
-{
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct isis *isis = NULL;
-	uint32_t id;
-	uint32_t i;
-
-	isis = isis_lookup_by_vrfid(vrf->vrf_id);
-	if (isis == NULL)
-		return 0;
-
-	id = isis->snmp_circuit_id_last;
-	id++;
-
-	/* find next unused entry */
-	for (i = 0; i < SNMP_CIRCUITS_MAX; i++) {
-		if (id >= SNMP_CIRCUITS_MAX) {
-			id = 0;
-			continue;
-		}
-
-		if (id == 0)
-			continue;
-
-		if (isis->snmp_circuits[id] == NULL)
-			break;
-
-		id++;
-	}
-
-	if (i == SNMP_CIRCUITS_MAX) {
-		zlog_warn("Could not allocate a smmp-circuit-id");
-		return 0;
-	}
-
-	isis->snmp_circuits[id] = circuit;
-	isis->snmp_circuit_id_last = id;
-	circuit->snmp_id = id;
-
-	return 1;
-}
+DEFINE_HOOK(isis_circuit_new_hook, (struct isis_circuit *circuit), (circuit));
+DEFINE_HOOK(isis_circuit_del_hook, (struct isis_circuit *circuit), (circuit));
 
 struct isis_circuit *isis_circuit_new(struct isis *isis)
 {
@@ -123,11 +84,6 @@ struct isis_circuit *isis_circuit_new(struct isis *isis)
 	circuit = XCALLOC(MTYPE_ISIS_CIRCUIT, sizeof(struct isis_circuit));
 
 	circuit->isis = isis;
-	/*
-	 * Note: if snmp-id generation failed circuit will fail
-	 * up operation
-	 */
-	isis_circuit_smmp_id_gen(circuit);
 
 	/*
 	 * Default values
@@ -193,6 +149,8 @@ struct isis_circuit *isis_circuit_new(struct isis *isis)
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL2);
 
+	hook_call(isis_circuit_new_hook, circuit);
+
 	QOBJ_REG(circuit, isis_circuit);
 
 	return circuit;
@@ -200,17 +158,12 @@ struct isis_circuit *isis_circuit_new(struct isis *isis)
 
 void isis_circuit_del(struct isis_circuit *circuit)
 {
-	struct isis *isis = NULL;
-
 	if (!circuit)
 		return;
 
 	QOBJ_UNREG(circuit);
 
-	if (circuit->interface) {
-		isis = isis_lookup_by_vrfid(circuit->interface->vrf_id);
-		isis->snmp_circuits[circuit->snmp_id] = NULL;
-	}
+	hook_call(isis_circuit_del_hook, circuit);
 
 	isis_circuit_if_unbind(circuit, circuit->interface);
 
@@ -679,13 +632,6 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			circuit->u.p2p.neighbor = NULL;
 		}
 		return ISIS_OK;
-	}
-
-	if (circuit->snmp_id == 0) {
-		/* We cannot bring circuit up if does not have snmp-id */
-		flog_err(EC_ISIS_CONFIG,
-			 "No snnmp-id: there are too many circuits:");
-		return ISIS_ERROR;
 	}
 
 	if (circuit->area->lsp_mtu > isis_circuit_pdu_size(circuit)) {
