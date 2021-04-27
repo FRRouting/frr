@@ -556,7 +556,6 @@ int main(int argc, char **argv)
 	/* IS-IS inits. */
 	yang_module_load("frr-isisd");
 	isis = isis_new(VRF_DEFAULT_NAME);
-	listnode_add(im->isis, isis);
 	SET_FLAG(im->options, F_ISIS_UNIT_TEST);
 	debug_spf_events |= DEBUG_SPF_EVENTS;
 	debug_lfa |= DEBUG_LFA;
