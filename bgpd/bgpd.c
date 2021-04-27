@@ -3376,7 +3376,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 	if (bgp) {
 		if (bgp->as != *as) {
 			*as = bgp->as;
-			return BGP_ERR_INSTANCE_MISMATCH;
+			return BGP_ERR_AS_MISMATCH;
 		}
 		if (bgp->inst_type != inst_type)
 			return BGP_ERR_INSTANCE_MISMATCH;
@@ -3397,13 +3397,8 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	int ret = 0;
 
 	ret = bgp_lookup_by_as_name_type(bgp_val, as, name, inst_type);
-	switch (ret) {
-	case BGP_ERR_INSTANCE_MISMATCH:
+	if (ret || *bgp_val)
 		return ret;
-	case BGP_SUCCESS:
-		if (*bgp_val)
-			return BGP_INSTANCE_EXISTS;
-	}
 
 	bgp = bgp_create(as, name, inst_type);
 	if (bgp_option_check(BGP_OPT_NO_ZEBRA) && name)
