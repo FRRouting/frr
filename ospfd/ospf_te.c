@@ -2153,6 +2153,13 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	/* Initialize TLV browsing */
 	tlvh = TLV_HDR_TOP(lsa->data);
 
+	uint32_t total_len = TLV_BODY_SIZE(lsa->data) - OSPF_LSA_HEADER_SIZE;
+
+	/* If TE Router-ID is only TLV we are done */
+	if (ntohs(tlvh->type) == TE_TLV_ROUTER_ADDR
+	    && total_len == sizeof(struct te_tlv_router_addr))
+		return 0;
+
 	/* Skip TE Router-ID if present */
 	if (ntohs(tlvh->type) == TE_TLV_ROUTER_ADDR)
 		tlvh = TLV_HDR_NEXT(tlvh);
@@ -2756,7 +2763,7 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 		  &lsa->data->id, &edge->attributes->standard.local);
 
 	/* Initialize TLV browsing */
-	len = TLV_BODY_SIZE(&ext->header);
+	len = TLV_BODY_SIZE(&ext->header) - EXT_TLV_LINK_SIZE;
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_LINK_SIZE);
 	for (; sum < len; tlvh = TLV_HDR_NEXT(tlvh)) {
