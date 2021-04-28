@@ -28,6 +28,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_tc.h"
 #include "zebra/rt_netlink.h"
+#include "zebra/if_netlink.h"
 #include "zebra/rule_netlink.h"
 #include "zebra/tc_netlink.h"
 
@@ -82,6 +83,11 @@ void kernel_read_pbr_rules(struct zebra_ns *zns)
 void kernel_read_tc_qdisc(struct zebra_ns *zns)
 {
 	netlink_qdisc_read(zns);
+}
+
+void vlan_read(struct zebra_ns *zns)
+{
+	netlink_vlan_read(zns);
 }
 
 #endif /* GNU_LINUX */

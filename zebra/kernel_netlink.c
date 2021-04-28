@@ -124,6 +124,9 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWTFILTER, "RTM_NEWTFILTER"},
 					   {RTM_DELTFILTER, "RTM_DELTFILTER"},
 					   {RTM_GETTFILTER, "RTM_GETTFILTER"},
+					   {RTM_NEWVLAN, "RTM_NEWVLAN"},
+					   {RTM_DELVLAN, "RTM_DELVLAN"},
+					   {RTM_GETVLAN, "RTM_GETVLAN"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -432,6 +435,10 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
 		return netlink_tfilter_change(h, ns_id, startup);
+	case RTM_NEWVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
+	case RTM_DELVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
 
 	/* Messages handled in the dplane thread */
 	case RTM_NEWADDR:

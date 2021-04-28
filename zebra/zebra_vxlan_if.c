@@ -672,6 +672,36 @@ struct zebra_vxlan_vni *zebra_vxlan_if_vni_find(const struct zebra_if *zif,
 	return vnip;
 }
 
+static int zif_vlanid_vni_walker(struct zebra_if *zif,
+				 struct zebra_vxlan_vni *vnip, void *arg)
+{
+	struct zebra_vxlan_if_vlan_ctx *ctx;
+
+	ctx = (struct zebra_vxlan_if_vlan_ctx *)arg;
+
+	if (vnip->access_vlan == ctx->vid) {
+		ctx->vni = vnip;
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
+struct zebra_vxlan_vni *zebra_vxlan_if_vlanid_vni_find(struct zebra_if *zif,
+						       vlanid_t vid)
+{
+	struct zebra_vxlan_if_vlan_ctx ctx = {};
+
+	if (!IS_ZEBRA_VXLAN_IF_SVD(zif))
+		return NULL;
+
+	ctx.vid = vid;
+
+	zebra_vxlan_if_vni_walk(zif, zif_vlanid_vni_walker, &ctx);
+
+	return ctx.vni;
+}
+
 void zebra_vxlan_if_vni_iterate(struct zebra_if *zif,
 				int (*func)(struct zebra_if *zif,
 					    struct zebra_vxlan_vni *, void *),

@@ -118,4 +118,8 @@ void kernel_read_tc_qdisc(struct zebra_ns *zns)
 {
 }
 
+void vlan_read(struct zebra_ns *zns)
+{
+}
+
 #endif /* !defined(GNU_LINUX) */
