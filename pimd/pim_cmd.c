@@ -6853,12 +6853,14 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
 #endif /* !HAVE_BFDD */
 
 DEFPY_YANG(pim_msdp_peer, pim_msdp_peer_cmd,
-      "msdp peer A.B.C.D$peer source A.B.C.D$source",
+      "msdp peer A.B.C.D$peer source A.B.C.D$source [as (1-4294967295)$asn]",
       CFG_MSDP_STR
       "Configure MSDP peer\n"
       "Peer IP address\n"
       "Source address for TCP connection\n"
-      "Local IP address\n")
+      "Local IP address\n"
+      "BGP Autonomous System peer information\n"
+      "BGP Autonomous System peer number\n")
 {
 	char msdp_peer_source_xpath[XPATH_MAXLEN];
 
@@ -6866,6 +6868,11 @@ DEFPY_YANG(pim_msdp_peer, pim_msdp_peer_cmd,
 		 "./msdp-peer[peer-ip='%s']/source-ip", peer_str);
 	nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY,
 			      source_str);
+	if (asn_str) {
+		snprintf(msdp_peer_source_xpath, sizeof(msdp_peer_source_xpath),
+			 "./msdp-peer[peer-ip='%s']/as", peer_str);
+		nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY, asn_str);
+	}
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -7870,7 +7877,7 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	} else {
 		vty_out(vty,
-			"Peer                       Local        State    Uptime   SaCnt\n");
+			"Peer                       Local        State    Uptime   SaCnt    AS\n");
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, mpnode, mp)) {
@@ -7892,10 +7899,17 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "upTime", timebuf);
 			json_object_int_add(json_row, "saCount", mp->sa_cnt);
+			if (mp->asn)
+				json_object_int_add(json_row, "asn", mp->asn);
+
 			json_object_object_add(json, peer_str, json_row);
 		} else {
-			vty_out(vty, "%-15s  %15s  %11s  %8s  %6d\n", peer_str,
-				local_str, state_str, timebuf, mp->sa_cnt);
+			vty_out(vty, "%-15s  %15s  %11s  %8s  %6d", peer_str, local_str, state_str,
+				timebuf, mp->sa_cnt);
+			if (mp->asn)
+				vty_out(vty, " %5d\n", mp->asn);
+			else
+				vty_out(vty, " %5s\n", "-");
 		}
 	}
 
@@ -8168,6 +8182,7 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 	char spt_str[8];
 	char local_str[8];
 	char statetimer[PIM_MSDP_TIMER_STRLEN];
+	uint32_t asn = pim_msdp_sa_asn(sa);
 	int64_t now;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
@@ -8210,6 +8225,9 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 		json_object_string_add(json_row, "sptSetup", spt_str);
 		json_object_string_add(json_row, "upTime", timebuf);
 		json_object_string_add(json_row, "stateTimer", statetimer);
+		if (asn)
+			json_object_int_add(json_row, "asn", asn);
+
 		json_object_object_add(json_group, src_str, json_row);
 	} else {
 		vty_out(vty, "SA : %s\n", sa->sg_str);
@@ -8219,6 +8237,9 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 		vty_out(vty, "  SPT Setup   : %s\n", spt_str);
 		vty_out(vty, "  Uptime      : %s\n", timebuf);
 		vty_out(vty, "  State Timer : %s\n", statetimer);
+		if (asn)
+			vty_out(vty, "  BGP/AS      : %u\n", asn);
+
 		vty_out(vty, "\n");
 	}
 }

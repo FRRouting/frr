@@ -155,6 +155,9 @@ struct pim_msdp_peer {
 
 	/** SA maximum amount. */
 	uint32_t sa_limit;
+
+	/** BGP AS number for RPF check. */
+	uint32_t asn;
 };
 
 struct pim_msdp_mg_mbr {
@@ -253,6 +256,7 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     pim_sgaddr *sg, struct in_addr rp);
 void pim_msdp_sa_local_update(struct pim_upstream *up);
 void pim_msdp_sa_local_del(struct pim_instance *pim, pim_sgaddr *sg);
+uint32_t pim_msdp_sa_asn(const struct pim_msdp_sa *sa);
 void pim_msdp_i_am_rp_changed(struct pim_instance *pim);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_instance *pim,

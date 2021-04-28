@@ -65,6 +65,16 @@ void pim_msdp_originator_id(struct pim_instance *pim, const struct prefix *group
 	}
 }
 
+uint32_t pim_msdp_sa_asn(const struct pim_msdp_sa *sa)
+{
+	struct pim_msdp_peer *peer = pim_msdp_peer_find(sa->pim, sa->peer);
+
+	if (peer == NULL)
+		return 0;
+
+	return peer->asn;
+}
+
 /************************ SA cache management ******************************/
 /* RFC-3618:Sec-5.1 - global active source advertisement timer */
 static void pim_msdp_sa_adv_timer_cb(struct event *t)
@@ -700,14 +710,18 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 {
 	struct pim_nexthop nexthop = {0};
+	uint32_t asn = 0;
 
 	if (mp->peer.s_addr == rp.s_addr) {
 		return true;
 	}
 
 	/* check if the MSDP peer is the nexthop for the RP */
-	if (pim_nht_lookup(mp->pim, &nexthop, rp, PIMADDR_ANY, false) &&
+	if (pim_bgp_nht_lookup(mp->pim, &nexthop, rp, PIMADDR_ANY, &asn) &&
 	    nexthop.mrib_nexthop_addr.s_addr == mp->peer.s_addr) {
+		if (mp->asn && mp->asn != asn)
+			return false;
+
 		return true;
 	}
 
@@ -1335,8 +1349,10 @@ bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim)
 		if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
 			continue;
 
-		vty_out(vty, " msdp peer %pI4 source %pI4\n", &mp->peer,
-			&mp->local);
+		vty_out(vty, " msdp peer %pI4 source %pI4", &mp->peer, &mp->local);
+		if (mp->asn)
+			vty_out(vty, " as %u", mp->asn);
+		vty_out(vty, "\n");
 
 		if (mp->auth_type == MSDP_AUTH_MD5)
 			vty_out(vty, " msdp peer %pI4 password %s\n", &mp->peer,
