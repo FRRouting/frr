@@ -1376,6 +1376,9 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_BFD, 1);
 	if (IS_DEBUG_LDP_SYNC)
 		print_debug(vty, DEBUG_LDP_SYNC, 1);
+	if (IS_DEBUG_LFA)
+		print_debug(vty, DEBUG_LFA, 1);
+
 	return CMD_SUCCESS;
 }
 
