@@ -384,50 +384,6 @@ def _enable_disable_pim(tgen, topo, input_dict, router, build=False):
     return result
 
 
-def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
-    """
-    Add physical interfaces tp RP for all the RPs
-
-    Parameters
-    ----------
-    * `tgen` : Topogen object
-    * `topo` : json file data
-    * `interface` : RP interface
-    * `rp` : rp for given topology
-    * `rp_mapping` : dictionary of all groups and RPs
-
-    Returns
-    -------
-    True or False
-    """
-    result = False
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
-    try:
-        config_data = []
-
-        for group, rp_list in rp_mapping.items():
-            for _rp in rp_list:
-                config_data.append("interface {}".format(interface))
-                config_data.append("ip address {}".format(_rp))
-                config_data.append("ip pim")
-
-            result = create_common_configuration(
-                tgen, rp, config_data, "interface_config"
-            )
-            if result is not True:
-                return False
-
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
-
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return result
-
-
 def find_rp_details(tgen, topo):
     """
     Find who is RP in topology and returns list of RPs
@@ -1444,14 +1400,10 @@ def verify_pim_state(
                     errormsg = (
                         "[DUT %s]: Verifying pim state for group"
                         " %s, [FAILED]!! Expected: "
-                        "(iif: %s, oil: %s, installed: %s) ",
+                        "(iif: %s, oil: %s, installed: %s) "
+                        % (dut, grp_addr, iif, oil, "1"),
                         "Found: (iif: %s, oil: %s, installed: %s)"
                         % (
-                            dut,
-                            grp_addr,
-                            iif,
-                            oil,
-                            "1",
                             data["inboundInterface"],
                             data["outboundInterface"],
                             data["installed"],
@@ -2080,7 +2032,7 @@ def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: add_rp_interfaces_and_pim_config()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
@@ -2425,8 +2377,7 @@ def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=N
                 if rp is None:
                     rp_details = find_rp_details(tgen, topo)
                 else:
-                    rp_details = {dut: ip}
-                    rp_details[dut] = rp
+                    rp_details = {dut: rp}
 
                 if dut in rp_details:
                     pim_nh_intf_ip = topo["routers"][dut]["links"]["lo"]["ipv4"].split(
@@ -2732,7 +2683,7 @@ def verify_igmp_config(tgen, input_dict, stats_return=False):
 
             if statistics and report:
                 show_ip_igmp_intf_json = run_frr_cmd(
-                    rnode, "{} json".format(cmd, interface), isjson=True
+                    rnode, "{} json".format(cmd), isjson=True
                 )
                 intf_detail_json = show_ip_igmp_intf_json["global"]
             else:
@@ -2808,7 +2759,6 @@ def verify_igmp_config(tgen, input_dict, stats_return=False):
                                         dut,
                                         interface,
                                         value,
-                                        intf_detail_json["reportV2"],
                                     )
                                 )
                                 return errormsg
