@@ -38,7 +38,6 @@ DEFINE_MTYPE_STATIC(LIB, ACCESS_FILTER, "Access Filter");
 /* Static structure for mac access_list's master. */
 static struct access_master access_master_mac = {
 	{NULL, NULL},
-	{NULL, NULL},
 	NULL,
 	NULL,
 };
@@ -46,14 +45,12 @@ static struct access_master access_master_mac = {
 /* Static structure for IPv4 access_list's master. */
 static struct access_master access_master_ipv4 = {
 	{NULL, NULL},
-	{NULL, NULL},
 	NULL,
 	NULL,
 };
 
 /* Static structure for IPv6 access_list's master. */
 static struct access_master access_master_ipv6 = {
-	{NULL, NULL},
 	{NULL, NULL},
 	NULL,
 	NULL,
@@ -166,10 +163,7 @@ void access_list_delete(struct access_list *access)
 
 	master = access->master;
 
-	if (access->type == ACCESS_TYPE_NUMBER)
-		list = &master->num;
-	else
-		list = &master->str;
+	list = &master->str;
 
 	if (access->next)
 		access->next->prev = access->prev;
@@ -197,8 +191,6 @@ void access_list_delete(struct access_list *access)
    is sorted by the name. */
 static struct access_list *access_list_insert(afi_t afi, const char *name)
 {
-	unsigned int i;
-	long number;
 	struct access_list *access;
 	struct access_list *point;
 	struct access_list_list *alist;
@@ -213,36 +205,13 @@ static struct access_list *access_list_insert(afi_t afi, const char *name)
 	access->name = XSTRDUP(MTYPE_ACCESS_LIST_STR, name);
 	access->master = master;
 
-	/* If name is made by all digit character.  We treat it as
-	   number. */
-	for (number = 0, i = 0; i < strlen(name); i++) {
-		if (isdigit((unsigned char)name[i]))
-			number = (number * 10) + (name[i] - '0');
-		else
+	/* Set access_list to string list. */
+	alist = &master->str;
+
+	/* Set point to insertion point. */
+	for (point = alist->head; point; point = point->next)
+		if (strcmp(point->name, name) >= 0)
 			break;
-	}
-
-	/* In case of name is all digit character */
-	if (i == strlen(name)) {
-		access->type = ACCESS_TYPE_NUMBER;
-
-		/* Set access_list to number list. */
-		alist = &master->num;
-
-		for (point = alist->head; point; point = point->next)
-			if (atol(point->name) >= number)
-				break;
-	} else {
-		access->type = ACCESS_TYPE_STRING;
-
-		/* Set access_list to string list. */
-		alist = &master->str;
-
-		/* Set point to insertion point. */
-		for (point = alist->head; point; point = point->next)
-			if (strcmp(point->name, name) >= 0)
-				break;
-	}
 
 	/* In case of this is the first element of master. */
 	if (alist->head == NULL) {
@@ -289,10 +258,6 @@ struct access_list *access_list_lookup(afi_t afi, const char *name)
 	master = access_master_get(afi);
 	if (master == NULL)
 		return NULL;
-
-	for (access = master->num.head; access; access = access->next)
-		if (strcmp(access->name, name) == 0)
-			return access;
 
 	for (access = master->str.head; access; access = access->next)
 		if (strcmp(access->name, name) == 0)
@@ -493,53 +458,6 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 	/* Print the name of the protocol */
 	vty_out(vty, "%s:\n", frr_protoname);
 
-	for (access = master->num.head; access; access = access->next) {
-		if (name && strcmp(access->name, name) != 0)
-			continue;
-
-		write = 1;
-
-		for (mfilter = access->head; mfilter; mfilter = mfilter->next) {
-			filter = &mfilter->u.cfilter;
-
-			if (write) {
-				vty_out(vty, "%s %s access list %s\n",
-					mfilter->cisco ? (filter->extended
-								  ? "Extended"
-								  : "Standard")
-						       : "Zebra",
-					(afi == AFI_IP)
-						? ("IP")
-						: ((afi == AFI_IP6) ? ("IPv6 ")
-								    : ("MAC ")),
-					access->name);
-				write = 0;
-			}
-
-			vty_out(vty, "    seq %" PRId64, mfilter->seq);
-			vty_out(vty, " %s%s", filter_type_str(mfilter),
-				mfilter->type == FILTER_DENY ? "  " : "");
-
-			if (!mfilter->cisco)
-				config_write_access_zebra(vty, mfilter);
-			else if (filter->extended)
-				config_write_access_cisco(vty, mfilter);
-			else {
-				if (filter->addr_mask.s_addr == 0xffffffff)
-					vty_out(vty, " any\n");
-				else {
-					vty_out(vty, " %pI4", &filter->addr);
-					if (filter->addr_mask.s_addr
-					    != INADDR_ANY)
-						vty_out(vty,
-							", wildcard bits %pI4",
-							&filter->addr_mask);
-					vty_out(vty, "\n");
-				}
-			}
-		}
-	}
-
 	for (access = master->str.head; access; access = access->next) {
 		if (name && strcmp(access->name, name) != 0)
 			continue;
@@ -739,17 +657,10 @@ static void access_list_reset_mac(void)
 	if (master == NULL)
 		return;
 
-	for (access = master->num.head; access; access = next) {
-		next = access->next;
-		access_list_delete(access);
-	}
 	for (access = master->str.head; access; access = next) {
 		next = access->next;
 		access_list_delete(access);
 	}
-
-	assert(master->num.head == NULL);
-	assert(master->num.tail == NULL);
 
 	assert(master->str.head == NULL);
 	assert(master->str.tail == NULL);
@@ -797,17 +708,10 @@ static void access_list_reset_ipv4(void)
 	if (master == NULL)
 		return;
 
-	for (access = master->num.head; access; access = next) {
-		next = access->next;
-		access_list_delete(access);
-	}
 	for (access = master->str.head; access; access = next) {
 		next = access->next;
 		access_list_delete(access);
 	}
-
-	assert(master->num.head == NULL);
-	assert(master->num.tail == NULL);
 
 	assert(master->str.head == NULL);
 	assert(master->str.tail == NULL);
@@ -838,17 +742,10 @@ static void access_list_reset_ipv6(void)
 	if (master == NULL)
 		return;
 
-	for (access = master->num.head; access; access = next) {
-		next = access->next;
-		access_list_delete(access);
-	}
 	for (access = master->str.head; access; access = next) {
 		next = access->next;
 		access_list_delete(access);
 	}
-
-	assert(master->num.head == NULL);
-	assert(master->num.tail == NULL);
 
 	assert(master->str.head == NULL);
 	assert(master->str.tail == NULL);

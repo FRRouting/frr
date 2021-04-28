@@ -66,9 +66,6 @@ struct prefix_list_list {
 
 /* Master structure of prefix_list. */
 struct prefix_master {
-	/* List of prefix_list which name is number. */
-	struct prefix_list_list num;
-
 	/* List of prefix_list which name is string. */
 	struct prefix_list_list str;
 
@@ -87,22 +84,22 @@ struct prefix_master {
 
 /* Static structure of IPv4 prefix_list's master. */
 static struct prefix_master prefix_master_ipv4 = {
-	{NULL, NULL}, {NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV4,
+	{NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV4,
 };
 
 /* Static structure of IPv6 prefix-list's master. */
 static struct prefix_master prefix_master_ipv6 = {
-	{NULL, NULL}, {NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV6,
+	{NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV6,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v4 = {
-	{NULL, NULL}, {NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV4,
+	{NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV4,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v6 = {
-	{NULL, NULL}, {NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV6,
+	{NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV6,
 };
 
 static struct prefix_master *prefix_master_get(afi_t afi, int orf)
@@ -140,10 +137,6 @@ static struct prefix_list *prefix_list_lookup_do(afi_t afi, int orf,
 	master = prefix_master_get(afi, orf);
 	if (master == NULL)
 		return NULL;
-
-	for (plist = master->num.head; plist; plist = plist->next)
-		if (strcmp(plist->name, name) == 0)
-			return plist;
 
 	for (plist = master->str.head; plist; plist = plist->next)
 		if (strcmp(plist->name, name) == 0)
@@ -194,8 +187,6 @@ void prefix_list_entry_free(struct prefix_list_entry *pentry)
 static struct prefix_list *prefix_list_insert(afi_t afi, int orf,
 					      const char *name)
 {
-	unsigned int i;
-	long number;
 	struct prefix_list *plist;
 	struct prefix_list *point;
 	struct prefix_list_list *list;
@@ -212,36 +203,13 @@ static struct prefix_list *prefix_list_insert(afi_t afi, int orf,
 	plist->trie =
 		XCALLOC(MTYPE_PREFIX_LIST_TRIE, sizeof(struct pltrie_table));
 
-	/* If name is made by all digit character.  We treat it as
-	   number. */
-	for (number = 0, i = 0; i < strlen(name); i++) {
-		if (isdigit((unsigned char)name[i]))
-			number = (number * 10) + (name[i] - '0');
-		else
+	/* Set prefix_list to string list. */
+	list = &master->str;
+
+	/* Set point to insertion point. */
+	for (point = list->head; point; point = point->next)
+		if (strcmp(point->name, name) >= 0)
 			break;
-	}
-
-	/* In case of name is all digit character */
-	if (i == strlen(name)) {
-		plist->type = PREFIX_TYPE_NUMBER;
-
-		/* Set prefix_list to number list. */
-		list = &master->num;
-
-		for (point = list->head; point; point = point->next)
-			if (atol(point->name) >= number)
-				break;
-	} else {
-		plist->type = PREFIX_TYPE_STRING;
-
-		/* Set prefix_list to string list. */
-		list = &master->str;
-
-		/* Set point to insertion point. */
-		for (point = list->head; point; point = point->next)
-			if (strcmp(point->name, name) >= 0)
-				break;
-	}
 
 	/* In case of this is the first element of master. */
 	if (list->head == NULL) {
@@ -310,10 +278,7 @@ void prefix_list_delete(struct prefix_list *plist)
 
 	master = plist->master;
 
-	if (plist->type == PREFIX_TYPE_NUMBER)
-		list = &master->num;
-	else
-		list = &master->str;
+	list = &master->str;
 
 	if (plist->next)
 		plist->next->prev = plist->prev;
@@ -1056,10 +1021,6 @@ static int vty_show_prefix_list(struct vty *vty, afi_t afi, const char *name,
 					master->recent->name);
 		}
 
-		for (plist = master->num.head; plist; plist = plist->next)
-			vty_show_prefix_entry(vty, afi, plist, master, dtype,
-					      seqnum);
-
 		for (plist = master->str.head; plist; plist = plist->next)
 			vty_show_prefix_entry(vty, afi, plist, master, dtype,
 					      seqnum);
@@ -1148,11 +1109,6 @@ static int vty_clear_prefix_list(struct vty *vty, afi_t afi, const char *name,
 		return CMD_WARNING;
 
 	if (name == NULL && prefix == NULL) {
-		for (plist = master->num.head; plist; plist = plist->next)
-			for (pentry = plist->head; pentry;
-			     pentry = pentry->next)
-				pentry->hitcnt = 0;
-
 		for (plist = master->str.head; plist; plist = plist->next)
 			for (pentry = plist->head; pentry;
 			     pentry = pentry->next)
@@ -1509,17 +1465,10 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 	if (master == NULL)
 		return;
 
-	for (plist = master->num.head; plist; plist = next) {
-		next = plist->next;
-		prefix_list_delete(plist);
-	}
 	for (plist = master->str.head; plist; plist = next) {
 		next = plist->next;
 		prefix_list_delete(plist);
 	}
-
-	assert(master->num.head == NULL);
-	assert(master->num.tail == NULL);
 
 	assert(master->str.head == NULL);
 	assert(master->str.tail == NULL);
@@ -1545,8 +1494,6 @@ static void plist_autocomplete_afi(afi_t afi, vector comps,
 		return;
 
 	for (plist = master->str.head; plist; plist = plist->next)
-		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, plist->name));
-	for (plist = master->num.head; plist; plist = plist->next)
 		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, plist->name));
 }
 

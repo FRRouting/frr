@@ -174,7 +174,6 @@ struct ldpd_init {
 
 struct ldp_access {
 	char			 name[ACL_NAMSIZ];
-	enum access_type	 type;
 };
 
 union ldpd_addr {

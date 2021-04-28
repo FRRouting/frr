@@ -679,9 +679,8 @@ ldp_zebra_filter_update(struct access_list *access)
 
 	if (access && access->name[0] != '\0') {
 		strlcpy(laccess.name, access->name, sizeof(laccess.name));
-		laccess.type = access->type;
-		debug_evt("%s ACL update filter name %s type %d", __func__,
-		    access->name, access->type);
+		debug_evt("%s ACL update filter name %s", __func__,
+			  access->name);
 
 		main_imsg_compose_both(IMSG_FILTER_UPDATE, &laccess,
 			sizeof(laccess));
