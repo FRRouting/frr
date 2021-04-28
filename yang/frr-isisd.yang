@@ -791,10 +791,10 @@ module frr-isisd {
       leaf holddown {
         type uint16 {
           range "0..10000";
-      }
-      units "seconds";
-      description
-        "Time to wait for LDP-Sync to occur before restoring interface metric.";
+        }
+        units "seconds";
+        description
+          "Time to wait for LDP-Sync to occur before restoring interface metric.";
       }
     }
 

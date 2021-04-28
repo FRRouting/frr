@@ -174,6 +174,9 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL2);
 
+	circuit->ldp_sync_info = ldp_sync_info_create();
+	circuit->ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
+
 	QOBJ_REG(circuit, isis_circuit);
 
 	isis_circuit_if_bind(circuit, ifp);
@@ -195,6 +198,8 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	isis_circuit_if_unbind(circuit, circuit->interface);
 
 	QOBJ_UNREG(circuit);
+
+	ldp_sync_info_free(&circuit->ldp_sync_info);
 
 	circuit_mt_finish(circuit);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
@@ -751,6 +756,8 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	if (circuit->area->mta && circuit->area->mta->status)
 		isis_link_params_update(circuit, circuit->interface);
 
+	isis_if_ldp_sync_enable(circuit);
+
 #ifndef FABRICD
 	/* send northbound notification */
 	isis_notif_if_state_change(circuit, false);
@@ -765,6 +772,8 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	/* send northbound notification */
 	isis_notif_if_state_change(circuit, true);
 #endif /* ifndef FABRICD */
+
+	isis_if_ldp_sync_disable(circuit);
 
 	/* log adjacency changes if configured to do so */
 	if (circuit->area->log_adj_changes) {

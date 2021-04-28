@@ -65,28 +65,20 @@ int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state state)
 	struct interface *ifp;
 	struct isis_circuit *circuit = NULL;
 	struct isis_area *area;
-	struct listnode *node;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
-
-	/* if isis is not enabled or LDP-SYNC is not configured ignore */
-	if (!isis ||
-	    !CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
-		return 0;
 
 	/* lookup circuit */
 	ifp = if_lookup_by_index(state.ifindex, VRF_DEFAULT);
 	if (ifp == NULL)
 		return 0;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		circuit = circuit_lookup_by_ifp(ifp, area->circuit_list);
-		if (circuit != NULL)
-			break;
-	}
+	circuit = ifp->info;
+	if (circuit == NULL)
+		return 0;
 
 	/* if isis is not enabled or LDP-SYNC is not configured ignore */
-	if (circuit == NULL ||
-	    !CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+	area = circuit->area;
+	if (area == NULL
+	    || !CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 		return 0;
 
 	/* received ldp-sync interface state from LDP */
@@ -103,15 +95,12 @@ int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state state)
 int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 {
 	struct isis_area *area;
-	struct listnode *node;
-	struct vrf *vrf;
-	struct interface *ifp;
+	struct listnode *anode, *cnode;
 	struct isis_circuit *circuit;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
-	/* if isis is not enabled or LDP-SYNC is not configured ignore */
-	if (!isis ||
-	    !CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+	/* if isis is not enabled ignore */
+	if (!isis)
 		return 0;
 
 	if (announce.proto != ZEBRA_ROUTE_LDP)
@@ -123,15 +112,12 @@ int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 	 *  set cost to LSInfinity
 	 *  send request to LDP for LDP-SYNC state for each interface
 	 */
-	vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-			circuit = circuit_lookup_by_ifp(ifp,
-				area->circuit_list);
-			if (circuit == NULL)
-				continue;
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
 			isis_ldp_sync_if_start(circuit, true);
-		}
 	}
 
 	return 0;
@@ -157,32 +143,6 @@ void isis_ldp_sync_state_req_msg(struct isis_circuit *circuit)
 /*
  * LDP-SYNC general interface routines
  */
-void isis_ldp_sync_if_init(struct isis_circuit *circuit, struct isis *isis)
-{
-	struct ldp_sync_info *ldp_sync_info;
-	struct interface *ifp = circuit->interface;
-
-	/* called when ISIS is configured on an interface
-	 *  if LDP-IGP Sync is configured globally set state
-	 *  and if ptop interface LDP LDP-SYNC is enabled
-	 */
-	ils_debug("ldp_sync: init if %s ", ifp->name);
-	if (circuit->ldp_sync_info == NULL)
-		circuit->ldp_sync_info = ldp_sync_info_create();
-	ldp_sync_info = circuit->ldp_sync_info;
-
-	/* specifed on interface overrides global config. */
-	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN))
-		ldp_sync_info->holddown = isis->ldp_sync_cmd.holddown;
-
-	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
-		ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
-
-	if ((circuit->circ_type == CIRCUIT_T_P2P || if_is_pointopoint(ifp)) &&
-	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED)
-		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
-}
-
 void isis_ldp_sync_if_start(struct isis_circuit *circuit,
 	bool send_state_req)
 {
@@ -251,48 +211,16 @@ void isis_ldp_sync_ldp_fail(struct isis_circuit *circuit)
 	}
 }
 
-void isis_ldp_sync_if_remove(struct isis_circuit *circuit, bool remove)
-{
-	struct ldp_sync_info *ldp_sync_info;
-
-	if (circuit->ldp_sync_info == NULL)
-		return;
-
-	ldp_sync_info = circuit->ldp_sync_info;
-
-	/* Stop LDP-SYNC on this interface:
-	 *  if holddown timer is running stop it
-	 *  delete ldp instance on interface
-	 *  restore metric
-	 */
-	ils_debug("ldp_sync: remove if %s", circuit->interface
-		  ? circuit->interface->name : "");
-
-	THREAD_OFF(ldp_sync_info->t_holddown);
-	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-	isis_ldp_sync_set_if_metric(circuit, true);
-	if (remove) {
-		/* ISIS instance being removed free ldp-sync info */
-		ldp_sync_info_free((struct ldp_sync_info **)&(ldp_sync_info));
-		circuit->ldp_sync_info = NULL;
-	}
-}
-
 static int isis_ldp_sync_adj_state_change(struct isis_adjacency *adj)
 {
 	struct isis_circuit *circuit = adj->circuit;
-	struct ldp_sync_info *ldp_sync_info;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct ldp_sync_info *ldp_sync_info = circuit->ldp_sync_info;
+	struct isis_area *area = circuit->area;
 
-	if (!isis ||
-	    !CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE) ||
-	    circuit->interface->vrf_id != VRF_DEFAULT ||
-	    if_is_loopback(circuit->interface))
+	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)
+	    || circuit->interface->vrf_id != VRF_DEFAULT
+	    || if_is_loopback(circuit->interface))
 		return 0;
-
-	if (circuit->ldp_sync_info == NULL)
-		isis_ldp_sync_if_init(circuit, isis);
-	ldp_sync_info = circuit->ldp_sync_info;
 
 	if (ldp_sync_info->enabled != LDP_IGP_SYNC_ENABLED)
 		return 0;
@@ -329,16 +257,15 @@ bool isis_ldp_sync_if_metric_config(struct isis_circuit *circuit, int level,
 				    int metric)
 {
 	struct ldp_sync_info *ldp_sync_info = circuit->ldp_sync_info;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct isis_area *area = circuit->area;
 
 	/* configured interface metric has been changed:
 	 *   if LDP-IGP Sync is running and metric has been set to LSInfinity
 	 *   change saved value so when ldp-sync completes proper metric is
 	 *   restored
 	 */
-	if (isis &&
-	    CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE) &&
-	    ldp_sync_info != NULL) {
+	if (area && CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)
+	    && ldp_sync_info != NULL) {
 
 		if (CHECK_FLAG(ldp_sync_info->flags,
 			       LDP_SYNC_FLAG_SET_METRIC)) {
@@ -471,15 +398,12 @@ void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit)
 void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 {
 	struct isis_area *area;
-	struct listnode *node;
+	struct listnode *anode, *cnode;
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
-	/* if isis is not enabled or LDP-SYNC is not configured ignore */
-	if (!isis
-	    || !CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+	/* if isis is not enabled ignore */
+	if (!isis)
 		return;
 
 	/* Check if the LDP main client session closed */
@@ -492,14 +416,12 @@ void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 	 */
 	zlog_err("ldp_sync: LDP down");
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-			circuit =
-				circuit_lookup_by_ifp(ifp, area->circuit_list);
-			if (circuit == NULL)
-				continue;
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
 			isis_ldp_sync_ldp_fail(circuit);
-		}
 	}
 }
 
@@ -507,108 +429,128 @@ void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
  * LDP-SYNC routes used by set commands.
  */
 
-void isis_if_set_ldp_sync_enable(struct isis_circuit *circuit)
+void isis_area_ldp_sync_enable(struct isis_area *area)
 {
-	struct ldp_sync_info *ldp_sync_info;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct isis_circuit *circuit;
+	struct listnode *node;
+
+	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
+		SET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
+
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+			isis_if_ldp_sync_enable(circuit);
+	}
+}
+
+void isis_area_ldp_sync_disable(struct isis_area *area)
+{
+	struct isis_circuit *circuit;
+	struct listnode *node;
+
+	if (CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+			isis_if_ldp_sync_disable(circuit);
+
+		UNSET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
+
+		UNSET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
+		area->ldp_sync_cmd.holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
+	}
+}
+
+void isis_area_ldp_sync_set_holddown(struct isis_area *area, uint16_t holddown)
+{
+	struct isis_circuit *circuit;
+	struct listnode *node;
+
+	if (holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
+		UNSET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
+	else
+		SET_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
+
+	area->ldp_sync_cmd.holddown = holddown;
+
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		isis_if_set_ldp_sync_holddown(circuit);
+}
+
+void isis_if_ldp_sync_enable(struct isis_circuit *circuit)
+{
+	struct ldp_sync_info *ldp_sync_info = circuit->ldp_sync_info;
+	struct isis_area *area = circuit->area;
 
 	/* called when setting LDP-SYNC at the global level:
 	 *  specifed on interface overrides global config
 	 *  if ptop link send msg to LDP indicating ldp-sync enabled
  	 */
-	if (!isis || if_is_loopback(circuit->interface))
+	if (if_is_loopback(circuit->interface))
 		return;
 
-	if (CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		if (circuit->ldp_sync_info == NULL)
-			isis_ldp_sync_if_init(circuit, isis);
-		ldp_sync_info = circuit->ldp_sync_info;
+	ils_debug("ldp_sync: enable if %s", circuit->interface->name);
 
-		/* config on interface, overrides global config. */
-		if (CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
-			if (ldp_sync_info->enabled != LDP_IGP_SYNC_ENABLED)
-			    return;
+	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+		return;
 
-		ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
-		ils_debug("ldp_sync: enable if %s", circuit->interface->name);
+	/* config on interface, overrides global config. */
+	if (CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
+		if (ldp_sync_info->enabled != LDP_IGP_SYNC_ENABLED)
+			return;
 
-		/* send message to LDP if ptop link */
-		if (circuit->circ_type == CIRCUIT_T_P2P ||
-		    if_is_pointopoint(circuit->interface)) {
-			ldp_sync_info->state =
-				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
-			isis_ldp_sync_state_req_msg(circuit);
-		} else {
-			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-			zlog_debug("ldp_sync: Sync only runs on P2P links %s",
-				   circuit->interface->name);
-		}
-	} else
-		/* delete LDP sync even if configured on an interface */
-		isis_ldp_sync_if_remove(circuit, false);
+	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN))
+		ldp_sync_info->holddown = area->ldp_sync_cmd.holddown;
+
+	if (circuit->circ_type == CIRCUIT_T_P2P
+	    || if_is_pointopoint(circuit->interface)) {
+		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
+		isis_ldp_sync_state_req_msg(circuit);
+	} else {
+		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+		ils_debug("ldp_sync: Sync only runs on P2P links %s",
+			  circuit->interface->name);
+	}
+}
+
+void isis_if_ldp_sync_disable(struct isis_circuit *circuit)
+{
+	struct ldp_sync_info *ldp_sync_info = circuit->ldp_sync_info;
+	struct isis_area *area = circuit->area;
+
+	/* Stop LDP-SYNC on this interface:
+	 *  if holddown timer is running stop it
+	 *  delete ldp instance on interface
+	 *  restore metric
+	 */
+	if (if_is_loopback(circuit->interface))
+		return;
+
+	ils_debug("ldp_sync: remove if %s", circuit->interface->name);
+
+	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+		return;
+
+	THREAD_OFF(ldp_sync_info->t_holddown);
+	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+	isis_ldp_sync_set_if_metric(circuit, true);
 }
 
 void isis_if_set_ldp_sync_holddown(struct isis_circuit *circuit)
 {
-	struct ldp_sync_info *ldp_sync_info;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct ldp_sync_info *ldp_sync_info = circuit->ldp_sync_info;
+	struct isis_area *area = circuit->area;
 
 	/* called when setting LDP-SYNC at the global level:
 	 *  specifed on interface overrides global config.
 	 */
-	if (!isis || if_is_loopback(circuit->interface))
+	if (if_is_loopback(circuit->interface))
 		return;
-
-	if (circuit->ldp_sync_info == NULL)
-		isis_ldp_sync_if_init(circuit, isis);
-	ldp_sync_info = circuit->ldp_sync_info;
 
 	/* config on interface, overrides global config. */
 	if (CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN))
 		return;
-	if (CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN))
-		ldp_sync_info->holddown = isis->ldp_sync_cmd.holddown;
+	if (CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN))
+		ldp_sync_info->holddown = area->ldp_sync_cmd.holddown;
 	else
 		ldp_sync_info->holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-}
-
-void isis_ldp_sync_gbl_exit(bool remove)
-{
-	struct isis_area *area;
-	struct listnode *node;
-	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
-
-	/* if you delete LDP-SYNC at a gobal level is clears all LDP-SYNC
-	 * configuration, even interface configuration
-	 */
-	if (isis &&
-	    CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		/* register with opaque client to recv LDP-IGP Sync msgs */
-		zclient_unregister_opaque(zclient,
-					  LDP_IGP_SYNC_IF_STATE_UPDATE);
-		zclient_unregister_opaque(zclient,
-					  LDP_IGP_SYNC_ANNOUNCE_UPDATE);
-
-		/* disable LDP-SYNC globally */
-		UNSET_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
-		UNSET_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
-		isis->ldp_sync_cmd.holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-
-		/* remove LDP-SYNC on all ISIS interfaces */
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
-						  area)) {
-				circuit = circuit_lookup_by_ifp(ifp,
-					area->circuit_list);
-				if (circuit == NULL)
-					continue;
-				isis_ldp_sync_if_remove(circuit, remove);
-			}
-		}
-	}
 }
 
 /*
@@ -690,11 +632,6 @@ DEFUN (show_isis_mpls_ldp_interface,
 
 	if (!isis) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		vty_out(vty, "LDP-sync is disabled\n");
 		return CMD_SUCCESS;
 	}
 

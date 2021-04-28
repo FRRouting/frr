@@ -97,7 +97,6 @@ struct isis {
 	int snmp_notifications;
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
-	struct ldp_sync_info_cmd ldp_sync_cmd; 	/* MPLS LDP-IGP Sync */
 };
 
 extern struct isis_master *im;
@@ -209,6 +208,8 @@ struct isis_area {
 	struct prefix_list *rlfa_plist[ISIS_LEVELS];
 	size_t rlfa_protected_links[ISIS_LEVELS];
 	size_t tilfa_protected_links[ISIS_LEVELS];
+	/* MPLS LDP-IGP Sync */
+	struct ldp_sync_info_cmd ldp_sync_cmd;
 	/* Counters */
 	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
