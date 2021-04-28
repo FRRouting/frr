@@ -1767,7 +1767,7 @@ void kernel_init(struct zebra_ns *zns)
 {
 	uint32_t groups, dplane_groups, ext_groups;
 #if defined SOL_NETLINK
-	int one, ret;
+	int one, ret, grp;
 #endif
 
 	/*
@@ -1778,6 +1778,11 @@ void kernel_init(struct zebra_ns *zns)
 	 * keeping track of all the different values would
 	 * lead to confusion, so we need to convert the
 	 * RTNLGRP_XXX to a bit position for ourself
+	 *
+	 *
+	 * NOTE: If the bit is >= 32, you must use setsockopt(). Those
+	 * groups are added further below after SOL_NETLINK is verified to
+	 * exist.
 	 */
 	groups = RTMGRP_LINK                   |
 			RTMGRP_IPV4_ROUTE              |
@@ -1857,6 +1862,14 @@ void kernel_init(struct zebra_ns *zns)
 	 * sure that we want to pull into our build system.
 	 */
 #if defined SOL_NETLINK
+
+	/*
+	 * setsockopt multicast group subscriptions that don't fit in nl_groups
+	 */
+	grp = RTNLGRP_BRVLAN;
+	ret = setsockopt(zns->netlink.sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
+			 &grp, sizeof(grp));
+
 	/*
 	 * Let's tell the kernel that we want to receive extended
 	 * ACKS over our command socket(s)
