@@ -3935,7 +3935,7 @@ def test_BGP_GR_TC_45_p1(request):
     write_test_footer(tc_name)
 
 
-def test_BGP_GR_TC_46_p1(request):
+def BGP_GR_TC_46_p1(request):
     """
     Test Objective : transition from Peer-level helper to Global Restarting
     Global Mode : GR Restarting
