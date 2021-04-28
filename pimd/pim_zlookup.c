@@ -559,6 +559,27 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 	return -2;
 }
 
+struct zroute_info *zclient_route_lookup(struct pim_instance *pim, const pim_addr *addr)
+{
+	if (zlookup->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient lookup socket is not connected", __func__);
+		zclient_lookup_failed(zlookup);
+		return NULL;
+	}
+
+	if (pim->vrf->vrf_id == VRF_UNKNOWN) {
+		zlog_notice("%s: VRF: %s does not fully exist yet, delaying lookup", __func__,
+			    pim->vrf->name);
+		return NULL;
+	}
+
+#if PIM_IPV == 4
+	return zapi_route_lookup(zlookup, pim->vrf->vrf_id, AF_INET, addr);
+#else
+	return zapi_route_lookup(zlookup, pim->vrf->vrf_id, AF_INET6, addr);
+#endif
+}
+
 void pim_zlookup_show_ip_multicast(struct vty *vty)
 {
 	vty_out(vty, "Zclient lookup socket: ");
