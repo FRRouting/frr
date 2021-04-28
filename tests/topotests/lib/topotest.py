@@ -351,8 +351,8 @@ def run_and_expect(func, what, count=20, wait=3):
         func_name = func.__name__
 
     logger.info(
-        "'{}' polling started (interval {} secs, maximum wait {} secs)".format(
-            func_name, wait, int(wait * count)
+        "'{}' polling started (interval {} secs, maximum {} tries)".format(
+            func_name, wait, count
         )
     )
 
