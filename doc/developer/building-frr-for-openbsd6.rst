@@ -14,6 +14,7 @@ Add packages:
 
 ::
 
+    pkg_add clang libcares python3
     pkg_add git autoconf-2.69p2 automake-1.15.1 libtool bison
     pkg_add gmake json-c py-test py-sphinx libexecinfo
 
@@ -47,6 +48,19 @@ Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just
 an example)
 
+.. warning::
+
+   In openbsd the proper links for the libyang library may not have been created.
+
+::
+
+    ln -s /usr/lib/libyang.so.1.10.17 /usr/lib/libyang.so
+
+.. warning::
+
+   ``openbsd`` since version 6.2 has ``clang`` as the default compiler so to 
+   build frr, clang must be used (the included gcc version is very old).
+
 ::
 
     git clone https://github.com/frrouting/frr.git frr
@@ -67,7 +81,8 @@ an example)
         --enable-logfile-mask=0640 \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion
+        --with-pkg-extra-version=-MyOwnFRRVersion \
+        CC=clang
     gmake
     gmake check
     doas gmake install
