@@ -1063,22 +1063,13 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 	ifindex_t ifindex;
 	struct interface *ifp;
 	struct zebra_if *zif;
-	int ra_interval_rxd;
+	uint32_t ra_interval;
 
 	s = msg;
 
 	/* Get interface index and RA interval. */
 	STREAM_GETL(s, ifindex);
-	STREAM_GETL(s, ra_interval_rxd);
-
-	if (ra_interval_rxd < 0) {
-		zlog_warn(
-			"Requested RA interval %d is garbage; ignoring request",
-			ra_interval_rxd);
-		return;
-	}
-
-	unsigned int ra_interval = ra_interval_rxd;
+	STREAM_GETL(s, ra_interval);
 
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		struct vrf *vrf = zvrf->vrf;

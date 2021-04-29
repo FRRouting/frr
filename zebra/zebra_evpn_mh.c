@@ -2484,8 +2484,8 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 	memset(&esi, 0, sizeof(esi_t));
 	s = msg;
 
-	stream_get(&esi, s, sizeof(esi_t));
-	vtep_ip.s_addr = stream_get_ipv4(s);
+	STREAM_GET(&esi, s, sizeof(esi_t));
+	STREAM_GET(&vtep_ip.s_addr, s, sizeof(vtep_ip.s_addr));
 
 	if (hdr->command == ZEBRA_REMOTE_ES_VTEP_ADD) {
 		uint32_t zapi_flags;
@@ -2493,16 +2493,19 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 		uint16_t df_pref;
 		bool esr_rxed;
 
-		zapi_flags = stream_getl(s);
+		STREAM_GETL(s, zapi_flags);
 		esr_rxed = (zapi_flags & ZAPI_ES_VTEP_FLAG_ESR_RXED) ? true
 								     : false;
-		df_alg = stream_getc(s);
-		df_pref = stream_getw(s);
+		STREAM_GETC(s, df_alg);
+		STREAM_GETW(s, df_pref);
 		zebra_evpn_remote_es_add(&esi, vtep_ip, esr_rxed, df_alg,
 					 df_pref);
 	} else {
 		zebra_evpn_remote_es_del(&esi, vtep_ip);
 	}
+
+stream_failure:
+	return;
 }
 
 void zebra_evpn_es_mac_deref_entry(zebra_mac_t *mac)

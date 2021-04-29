@@ -1975,7 +1975,7 @@ void bgp_zebra_instance_deregister(struct bgp *bgp)
 
 void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
 {
-	int ra_interval = BGP_UNNUM_DEFAULT_RA_INTERVAL;
+	uint32_t ra_interval = BGP_UNNUM_DEFAULT_RA_INTERVAL;
 
 	/* Don't try to initiate if we're not connected to Zebra */
 	if (zclient->sock < 0)
