@@ -305,8 +305,8 @@ struct va_format {
 
 #define FMT_NSTD(expr)                                                         \
 	({                                                                     \
-		typeof(expr) _v;                                               \
 		FMT_NSTD_BEGIN                                                 \
+		typeof(expr) _v;                                               \
 		_v = expr;                                                     \
 		FMT_NSTD_END                                                   \
 		_v;                                                            \
