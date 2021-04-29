@@ -241,12 +241,6 @@ DEFUN (debug_zebra_kernel,
 {
 	SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
 
-	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
-		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-
-	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-
 	return CMD_SUCCESS;
 }
 
@@ -262,21 +256,11 @@ DEFUN (debug_zebra_kernel_msgdump,
 {
 	int idx = 0;
 
-	if (argv_find(argv, argc, "recv", &idx)) {
+	if (argv_find(argv, argc, "recv", &idx))
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-
-		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-			UNSET_FLAG(zebra_debug_kernel,
-				   ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-
-	} else if (argv_find(argv, argc, "send", &idx)) {
+	else if (argv_find(argv, argc, "send", &idx))
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-
-		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
-			UNSET_FLAG(zebra_debug_kernel,
-				   ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-
-	} else {
+	else {
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
 	}
@@ -476,7 +460,8 @@ DEFUN (no_debug_zebra_kernel,
        "Zebra configuration\n"
        "Debug option set for zebra between kernel interface\n")
 {
-	zebra_debug_kernel = 0;
+	UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
+
 	return CMD_SUCCESS;
 }
 
@@ -491,7 +476,17 @@ DEFUN (no_debug_zebra_kernel_msgdump,
        "Dump raw netlink messages received\n"
        "Dump raw netlink messages sent\n")
 {
-	zebra_debug_kernel = 0;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "recv", &idx))
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+	else if (argv_find(argv, argc, "send", &idx))
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+	else {
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -599,21 +594,21 @@ static int config_write_debug(struct vty *vty)
 		}
 	}
 
+	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND
+	    && IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
+		vty_out(vty, "debug zebra kernel msgdump\n");
+		write++;
+	} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
+		vty_out(vty, "debug zebra kernel msgdump recv\n");
+		write++;
+	} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
+		vty_out(vty, "debug zebra kernel msgdump send\n");
+		write++;
+	}
+
 	if (IS_ZEBRA_DEBUG_KERNEL) {
-		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND
-		    && IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
-			vty_out(vty, "debug zebra kernel msgdump\n");
-			write++;
-		} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
-			vty_out(vty, "debug zebra kernel msgdump recv\n");
-			write++;
-		} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
-			vty_out(vty, "debug zebra kernel msgdump send\n");
-			write++;
-		} else {
-			vty_out(vty, "debug zebra kernel\n");
-			write++;
-		}
+		vty_out(vty, "debug zebra kernel\n");
+		write++;
 	}
 
 	if (CHECK_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED)) {
