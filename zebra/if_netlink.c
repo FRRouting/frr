@@ -974,7 +974,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 		return ret;
 
 	/* fixup linkages */
-	zebra_if_update_all_links();
+	zebra_if_update_all_links(zns);
 	return 0;
 }
 
