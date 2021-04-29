@@ -485,7 +485,7 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
         (0-100000)$inlabel\
         [nexthop-group NHGNAME$nhgname] \
         [prefix A.B.C.D/M$pfx\
-       " FRR_IP_REDIST_STR_SHARPD "$type_str [instance (0-255)$instance]]",
+       " FRR_IP_REDIST_STR_ZEBRA "$type_str [instance (0-255)$instance]]",
       "Sharp Routing Protocol\n"
       "Remove data\n"
       "Remove an LSP\n"
@@ -494,7 +494,7 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
       "The nexthop-group name\n"
       "Specify a v4 prefix\n"
       "The v4 prefix to label\n"
-      FRR_IP_REDIST_HELP_STR_SHARPD
+      FRR_IP_REDIST_HELP_STR_ZEBRA
       "Routing instance\n"
       "Instance to use\n")
 {
