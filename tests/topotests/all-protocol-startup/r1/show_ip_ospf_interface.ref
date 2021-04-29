@@ -4,6 +4,7 @@ r1-eth0 is up
   MTU mismatch detection: enabled
   Router ID 192.168.0.1, Network Type BROADCAST, Cost: 10
   Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 192.168.0.1 Interface Address 192.168.0.1/24
   No backup designated router on this network
   Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
   Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
@@ -15,6 +16,7 @@ r1-eth3 is up
   MTU mismatch detection: enabled
   Router ID 192.168.0.1, Network Type BROADCAST, Cost: 10
   Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 192.168.0.1 Interface Address 192.168.3.1/26
   No backup designated router on this network
   Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
   Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
