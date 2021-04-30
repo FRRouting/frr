@@ -1121,6 +1121,8 @@ struct llgr_info {
 };
 
 struct peer_connection {
+	struct peer *peer;
+
 	int fd;
 
 	/* Packet receive and send buffer. */

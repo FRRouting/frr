@@ -1140,8 +1140,10 @@ static void bgp_peer_connection_free(struct peer_connection *connection)
 	pthread_mutex_destroy(&connection->io_mtx);
 }
 
-static void bgp_peer_connection_new(struct peer_connection *connection)
+static void bgp_peer_connection_new(struct peer *peer,
+				    struct peer_connection *connection)
 {
+	connection->peer = peer;
 	connection->fd = -1;
 
 	connection->ibuf = stream_fifo_new();
@@ -1464,7 +1466,7 @@ struct peer *peer_new(struct bgp *bgp)
 	bgp_peer_gr_init(peer);
 
 	/* Create buffers.  */
-	bgp_peer_connection_new(&peer->connection);
+	bgp_peer_connection_new(peer, &peer->connection);
 
 	/* Get service port number.  */
 	sp = getservbyname("bgp", "tcp");
