@@ -2634,15 +2634,15 @@ the same behavior of using same next-hop and RMAC values.
 Enables or disables advertise-pip feature, specifiy system-IP and/or system-MAC
 parameters.
 
-EVPN advertise-svi
-^^^^^^^^^^^^^^^^^^
+EVPN advertise-svi-ip
+^^^^^^^^^^^^^^^^^^^^^
 Typically, the SVI IP address is reused on VTEPs across multiple racks. However,
-if you have unique SVI IP addresses want those to be reachable you can enable the
+if you have unique SVI IP addresses that you want to be reachable you can use the
 advertise-svi-ip option. This option advertises the SVI IP/MAC address as a type-2
 route and eliminates the need for any flooding over VXLAN to reach the IP from a
 remote VTEP.
 
-.. clicmd:: advertise-svi
+.. clicmd:: advertise-svi-ip
 
 Note that you should not enable both the advertise-svi-ip and the advertise-default-gw
 at the same time.
