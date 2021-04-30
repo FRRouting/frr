@@ -974,7 +974,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 		return ret;
 
 	/* fixup linkages */
-	zebra_if_update_all_links();
+	zebra_if_update_all_links(zns);
 	return 0;
 }
 
@@ -1549,6 +1549,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
 
 			memcpy(old_hw_addr, ifp->hw_addr, INTERFACE_HWADDR_MAX);
+
+			/* Update link. */
+			zebra_if_update_link(ifp, link_ifindex, ns_id);
 
 			netlink_interface_update_hw_addr(tb, ifp);
 

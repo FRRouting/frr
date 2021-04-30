@@ -1148,18 +1148,16 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
  * during initial link dump kernel does not order lower devices before
  * upper devices so we need to fixup link dependencies at the end of dump
  */
-void zebra_if_update_all_links(void)
+void zebra_if_update_all_links(struct zebra_ns *zns)
 {
 	struct route_node *rn;
 	struct interface *ifp;
 	struct zebra_if *zif;
-	struct zebra_ns *ns;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_info("fixup link dependencies");
 
-	ns = zebra_ns_lookup(NS_DEFAULT);
-	for (rn = route_top(ns->if_table); rn; rn = route_next(rn)) {
+	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		ifp = (struct interface *)rn->info;
 		if (!ifp)
 			continue;
@@ -1177,8 +1175,8 @@ void zebra_if_update_all_links(void)
 
 		/* update SVI linkages */
 		if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
-			zif->link = if_lookup_by_index_per_ns(ns,
-							 zif->link_ifindex);
+			zif->link = if_lookup_by_index_per_ns(
+				zns, zif->link_ifindex);
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("interface %s/%d's lower fixup to %s/%d",
 						ifp->name, ifp->ifindex,
