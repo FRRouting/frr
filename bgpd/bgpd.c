@@ -1140,6 +1140,30 @@ static void bgp_peer_connection_free(struct peer_connection *connection)
 	pthread_mutex_destroy(&connection->io_mtx);
 }
 
+static void bgp_peer_connection_new(struct peer_connection *connection)
+{
+	connection->fd = -1;
+
+	connection->ibuf = stream_fifo_new();
+	connection->obuf = stream_fifo_new();
+	pthread_mutex_init(&connection->io_mtx, NULL);
+
+	/* We use a larger buffer for peer->obuf_work in the event that:
+	 * - We RX a BGP_UPDATE where the attributes alone are just
+	 *   under BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE.
+	 * - The user configures an outbound route-map that does many as-path
+	 *   prepends or adds many communities. At most they can have
+	 *   CMD_ARGC_MAX args in a route-map so there is a finite limit on how
+	 *   large they can make the attributes.
+	 *
+	 * Having a buffer with BGP_MAX_PACKET_SIZE_OVERFLOW allows us to avoid
+	 * bounds checking for every single attribute as we construct an
+	 * UPDATE.
+	 */
+	connection->ibuf_work =
+		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+}
+
 static void peer_free(struct peer *peer)
 {
 	afi_t afi;
@@ -1399,7 +1423,6 @@ struct peer *peer_new(struct bgp *bgp)
 	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));
 
 	/* Set default value. */
-	peer->connection.fd = -1;
 	peer->v_start = BGP_INIT_START_TIMER;
 	peer->v_connect = bgp->default_connect_retry;
 	peer->status = Idle;
@@ -1441,12 +1464,7 @@ struct peer *peer_new(struct bgp *bgp)
 	bgp_peer_gr_init(peer);
 
 	/* Create buffers.  */
-	peer->connection.ibuf = stream_fifo_new();
-	peer->connection.obuf = stream_fifo_new();
-	pthread_mutex_init(&peer->connection.io_mtx, NULL);
-
-	peer->connection.ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE / 2);
+	bgp_peer_connection_new(&peer->connection);
 
 	/* Get service port number.  */
 	sp = getservbyname("bgp", "tcp");
