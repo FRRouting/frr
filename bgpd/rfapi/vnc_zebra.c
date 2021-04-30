@@ -179,19 +179,22 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 			 * is not strictly necessary, but serves as a reminder
 			 * to those who may meddle...
 			 */
-			frr_with_mutex (&vncHD1VR.peer->io_mtx) {
+			frr_with_mutex (&vncHD1VR.peer->connection.io_mtx) {
 				// we don't need any I/O related facilities
-				if (vncHD1VR.peer->ibuf)
-					stream_fifo_free(vncHD1VR.peer->ibuf);
-				if (vncHD1VR.peer->obuf)
-					stream_fifo_free(vncHD1VR.peer->obuf);
+				if (vncHD1VR.peer->connection.ibuf)
+					stream_fifo_free(
+						vncHD1VR.peer->connection.ibuf);
+				if (vncHD1VR.peer->connection.obuf)
+					stream_fifo_free(
+						vncHD1VR.peer->connection.obuf);
 
-				if (vncHD1VR.peer->ibuf_work)
-					ringbuf_del(vncHD1VR.peer->ibuf_work);
+				if (vncHD1VR.peer->connection.ibuf_work)
+					ringbuf_del(vncHD1VR.peer->connection
+							    .ibuf_work);
 
-				vncHD1VR.peer->ibuf = NULL;
-				vncHD1VR.peer->obuf = NULL;
-				vncHD1VR.peer->ibuf_work = NULL;
+				vncHD1VR.peer->connection.ibuf = NULL;
+				vncHD1VR.peer->connection.obuf = NULL;
+				vncHD1VR.peer->connection.ibuf_work = NULL;
 			}
 
 			/* base code assumes have valid host pointer */
