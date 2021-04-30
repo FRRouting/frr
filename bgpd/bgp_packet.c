@@ -1261,9 +1261,6 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 	}
 
-	/* Set remote router-id */
-	peer->remote_id = remote_id;
-
 	/* Peer BGP version check. */
 	if (version != BGP_VERSION_4) {
 		uint16_t maxver = htons(BGP_VERSION_4);
@@ -1322,6 +1319,25 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 					  notify_data_remote_as, 2);
 		return BGP_Stop;
 	}
+
+	/*
+	 * When collision is detected and this peer is closed.
+	 * Return immediately.
+	 */
+	ret = bgp_collision_detect(peer, remote_id);
+	if (ret < 0)
+		return BGP_Stop;
+
+	/* Get sockname. */
+	if (bgp_getsockname(peer) < 0) {
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: bgp_getsockname() failed for peer: %s",
+			     __func__, peer->host);
+		return BGP_Stop;
+	}
+
+	/* Set remote router-id */
+	peer->remote_id = remote_id;
 
 	/* From the rfc: Upon receipt of an OPEN message, a BGP speaker MUST
 	   calculate the value of the Hold Timer by using the smaller of its
@@ -1401,21 +1417,6 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 			peer->afc[AFI_L2VPN][SAFI_EVPN];
 		peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC] =
 			peer->afc[AFI_IP6][SAFI_FLOWSPEC];
-	}
-
-	/* When collision is detected and this peer is closed.
-	 * Return immediately.
-	 */
-	ret = bgp_collision_detect(peer, remote_id);
-	if (ret < 0)
-		return BGP_Stop;
-
-	/* Get sockname. */
-	if (bgp_getsockname(peer) < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "%s: bgp_getsockname() failed for peer: %s",
-			     __func__, peer->host);
-		return BGP_Stop;
 	}
 
 	/* Verify valid local address present based on negotiated
