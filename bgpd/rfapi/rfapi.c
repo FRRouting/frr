@@ -1238,24 +1238,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	rfd->peer = peer_new(bgp);
 	rfd->peer->status = Established; /* keep bgp core happy */
 
-	/*
-	 * since this peer is not on the I/O thread, this lock is not strictly
-	 * necessary, but serves as a reminder to those who may meddle...
-	 */
-	frr_with_mutex (&rfd->peer->connection.io_mtx) {
-		// we don't need any I/O related facilities
-		if (rfd->peer->connection.ibuf)
-			stream_fifo_free(rfd->peer->connection.ibuf);
-		if (rfd->peer->connection.obuf)
-			stream_fifo_free(rfd->peer->connection.obuf);
-
-		if (rfd->peer->connection.ibuf_work)
-			ringbuf_del(rfd->peer->connection.ibuf_work);
-
-		rfd->peer->connection.ibuf = NULL;
-		rfd->peer->connection.obuf = NULL;
-		rfd->peer->connection.ibuf_work = NULL;
-	}
+	bgp_peer_connection_buffers_free(&rfd->peer->connection);
 
 	{ /* base code assumes have valid host pointer */
 		char buf[INET6_ADDRSTRLEN];
