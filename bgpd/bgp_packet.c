@@ -608,7 +608,7 @@ void bgp_generate_updgrp_packets(struct event *thread)
 		 (peer->connection.obuf->count <= bm->outq_limit));
 
 	if (generated)
-		bgp_writes_on(peer);
+		bgp_writes_on(&peer->connection);
 
 	bgp_write_proceed_actions(peer);
 }
@@ -637,7 +637,7 @@ void bgp_keepalive_send(struct peer *peer)
 	/* Add packet to the peer. */
 	bgp_packet_add(peer, s);
 
-	bgp_writes_on(peer);
+	bgp_writes_on(&peer->connection);
 }
 
 /*
@@ -706,7 +706,7 @@ void bgp_open_send(struct peer *peer)
 	/* Add packet to the peer. */
 	bgp_packet_add(peer, s);
 
-	bgp_writes_on(peer);
+	bgp_writes_on(&peer->connection);
 }
 
 /*
@@ -1181,7 +1181,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Add packet to the peer. */
 	bgp_packet_add(peer, s);
 
-	bgp_writes_on(peer);
+	bgp_writes_on(&peer->connection);
 }
 
 /*
@@ -1299,7 +1299,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Add packet to the peer. */
 	bgp_packet_add(peer, s);
 
-	bgp_writes_on(peer);
+	bgp_writes_on(&peer->connection);
 }
 
 /* RFC1771 6.8 Connection collision detection. */
@@ -2989,11 +2989,13 @@ void bgp_process_packet(struct event *thread)
 {
 	/* Yes first of all get peer pointer. */
 	struct peer *peer;	// peer
+	struct peer_connection *connection;
 	uint32_t rpkt_quanta_old; // how many packets to read
 	int fsm_update_result;    // return code of bgp_event_update()
 	int mprc;		  // message processing return code
 
-	peer = EVENT_ARG(thread);
+	connection = EVENT_ARG(thread);
+	peer = connection->peer;
 	rpkt_quanta_old = atomic_load_explicit(&peer->bgp->rpkt_quanta,
 					       memory_order_relaxed);
 	fsm_update_result = 0;
@@ -3009,8 +3011,8 @@ void bgp_process_packet(struct event *thread)
 		bgp_size_t size;
 		char notify_data_length[2];
 
-		frr_with_mutex (&peer->connection.io_mtx) {
-			peer->curr = stream_fifo_pop(peer->connection.ibuf);
+		frr_with_mutex (&connection->io_mtx) {
+			peer->curr = stream_fifo_pop(connection->ibuf);
 		}
 
 		if (peer->curr == NULL) // no packets to process, hmm...
@@ -3136,11 +3138,11 @@ void bgp_process_packet(struct event *thread)
 
 	if (fsm_update_result != FSM_PEER_TRANSFERRED
 	    && fsm_update_result != FSM_PEER_STOPPED) {
-		frr_with_mutex (&peer->connection.io_mtx) {
+		frr_with_mutex (&connection->io_mtx) {
 			// more work to do, come back later
-			if (peer->connection.ibuf->count > 0)
+			if (connection->ibuf->count > 0)
 				event_add_event(bm->master, bgp_process_packet,
-						peer, 0,
+						connection, 0,
 						&peer->t_process_packet);
 		}
 	}
@@ -3164,15 +3166,17 @@ void bgp_send_delayed_eor(struct bgp *bgp)
  */
 void bgp_packet_process_error(struct event *thread)
 {
+	struct peer_connection *connection;
 	struct peer *peer;
 	int code;
 
-	peer = EVENT_ARG(thread);
+	connection = EVENT_ARG(thread);
+	peer = connection->peer;
 	code = EVENT_VAL(thread);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [Event] BGP error %d on fd %d", peer->host, code,
-			   peer->connection.fd);
+			   connection->fd);
 
 	/* Closed connection or error on the socket */
 	if (peer_established(peer)) {

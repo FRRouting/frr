@@ -149,10 +149,10 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 			   from_peer->host, from_peer, from_peer->connection.fd,
 			   peer, peer->connection.fd);
 
-	bgp_writes_off(peer);
-	bgp_reads_off(peer);
-	bgp_writes_off(from_peer);
-	bgp_reads_off(from_peer);
+	bgp_writes_off(&peer->connection);
+	bgp_reads_off(&peer->connection);
+	bgp_writes_off(&from_peer->connection);
+	bgp_reads_off(&from_peer->connection);
 
 	/*
 	 * Before exchanging FD remove doppelganger from
@@ -338,9 +338,9 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	if (from_peer)
 		bgp_replace_nexthop_by_peer(from_peer, peer);
 
-	bgp_reads_on(peer);
-	bgp_writes_on(peer);
-	event_add_event(bm->master, bgp_process_packet, peer, 0,
+	bgp_reads_on(&peer->connection);
+	bgp_writes_on(&peer->connection);
+	event_add_event(bm->master, bgp_process_packet, &peer->connection, 0,
 			&peer->t_process_packet);
 
 	return (peer);
@@ -1500,8 +1500,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 	bgp_keepalives_off(peer);
 
 	/* Stop read and write threads. */
-	bgp_writes_off(peer);
-	bgp_reads_off(peer);
+	bgp_writes_off(&peer->connection);
+	bgp_reads_off(&peer->connection);
 
 	EVENT_OFF(peer->t_connect_check_r);
 	EVENT_OFF(peer->t_connect_check_w);
@@ -1710,7 +1710,7 @@ static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
 			     __func__, peer->host, peer->connection.fd);
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
 				bgp_fsm_error_subcode(peer->status));
-		bgp_writes_on(peer);
+		bgp_writes_on(&peer->connection);
 		return BGP_FSM_FAILURE;
 	}
 
@@ -1720,7 +1720,7 @@ static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
 	 */
 	bgp_nht_interface_events(peer);
 
-	bgp_reads_on(peer);
+	bgp_reads_on(&peer->connection);
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
@@ -1754,7 +1754,7 @@ bgp_connect_success_w_delayopen(struct peer *peer)
 			     __func__, peer->host, peer->connection.fd);
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
 				bgp_fsm_error_subcode(peer->status));
-		bgp_writes_on(peer);
+		bgp_writes_on(&peer->connection);
 		return BGP_FSM_FAILURE;
 	}
 
@@ -1764,7 +1764,7 @@ bgp_connect_success_w_delayopen(struct peer *peer)
 	 */
 	bgp_nht_interface_events(peer);
 
-	bgp_reads_on(peer);
+	bgp_reads_on(&peer->connection);
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
