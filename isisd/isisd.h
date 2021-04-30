@@ -65,8 +65,6 @@ extern void isis_cli_init(void);
 		all_vrf = strmatch(vrf_name, "all");                           \
 	}
 
-#define SNMP_CIRCUITS_MAX (512)
-
 extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
@@ -91,18 +89,14 @@ struct isis {
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
 	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
-	struct list *init_circ_list;
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
-	struct isis_circuit *snmp_circuits[SNMP_CIRCUITS_MAX];
-	uint32_t snmp_circuit_id_last;
 	int snmp_notifications;
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
-	struct ldp_sync_info_cmd ldp_sync_cmd; 	/* MPLS LDP-IGP Sync */
 };
 
 extern struct isis_master *im;
@@ -214,6 +208,8 @@ struct isis_area {
 	struct prefix_list *rlfa_plist[ISIS_LEVELS];
 	size_t rlfa_protected_links[ISIS_LEVELS];
 	size_t tilfa_protected_links[ISIS_LEVELS];
+	/* MPLS LDP-IGP Sync */
+	struct ldp_sync_info_cmd ldp_sync_cmd;
 	/* Counters */
 	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
@@ -248,7 +244,6 @@ DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
-void isis_finish(struct isis *isis);
 void isis_master_init(struct thread_master *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
@@ -261,6 +256,13 @@ void isis_init(void);
 void isis_vrf_init(void);
 
 struct isis *isis_new(const char *vrf_name);
+void isis_finish(struct isis *isis);
+
+void isis_area_add_circuit(struct isis_area *area,
+			   struct isis_circuit *circuit);
+void isis_area_del_circuit(struct isis_area *area,
+			   struct isis_circuit *circuit);
+
 struct isis_area *isis_area_create(const char *, const char *);
 struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,

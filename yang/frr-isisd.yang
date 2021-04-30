@@ -506,13 +506,6 @@ module frr-isisd {
         "Area-tag associated to this circuit.";
     }
 
-    leaf vrf {
-      type frr-vrf:vrf-ref;
-      default "default";
-      description
-        "VRF NAME.";
-    }
-
     leaf ipv4-routing {
       type boolean;
       default "false";
@@ -791,10 +784,10 @@ module frr-isisd {
       leaf holddown {
         type uint16 {
           range "0..10000";
-      }
-      units "seconds";
-      description
-        "Time to wait for LDP-Sync to occur before restoring interface metric.";
+        }
+        units "seconds";
+        description
+          "Time to wait for LDP-Sync to occur before restoring interface metric.";
       }
     }
 

@@ -172,7 +172,7 @@ ISIS interface
 
 .. _ip-router-isis-word:
 
-.. clicmd:: <ip|ipv6> router isis WORD [vrf NAME]
+.. clicmd:: <ip|ipv6> router isis WORD
 
    Activate ISIS adjacency on this interface. Note that the name of ISIS
    instance must be the same as the one used to configure the ISIS process (see

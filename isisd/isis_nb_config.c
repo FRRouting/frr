@@ -32,7 +32,6 @@
 #include "spf_backoff.h"
 #include "lib_errors.h"
 #include "vrf.h"
-#include "zclient.h"
 #include "ldp_sync.h"
 
 #include "isisd/isisd.h"
@@ -55,8 +54,6 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
-
-extern struct zclient *zclient;
 
 /*
  * XPath: /frr-isisd:isis/instance
@@ -87,16 +84,10 @@ int isis_instance_create(struct nb_cb_create_args *args)
 int isis_instance_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
-	vrf_id_t vrf_id;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	area = nb_running_unset_entry(args->dnode);
-	vrf_id = area->isis->vrf_id;
-
-	/* remove ldp-sync config */
-	if (vrf_id == VRF_DEFAULT)
-		isis_ldp_sync_gbl_exit(true);
 
 	isis_area_destroy(area);
 	return NB_OK;
@@ -2369,11 +2360,6 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
-	struct listnode *node;
-	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	struct isis *isis;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2392,30 +2378,7 @@ int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 		break;
 	case NB_EV_APPLY:
 		area = nb_running_get_entry(args->dnode, NULL, true);
-		isis = area->isis;
-		vrf = vrf_lookup_by_id(isis->vrf_id);
-
-		/* register with opaque client to recv LDP-IGP Sync msgs */
-		zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
-		zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
-
-		if (!CHECK_FLAG(isis->ldp_sync_cmd.flags,
-				LDP_SYNC_FLAG_ENABLE)) {
-			SET_FLAG(isis->ldp_sync_cmd.flags,
-				 LDP_SYNC_FLAG_ENABLE);
-
-			/* turn on LDP-IGP Sync on all ptop ISIS interfaces */
-			FOR_ALL_INTERFACES (vrf, ifp) {
-				for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
-							  area)) {
-					circuit = circuit_lookup_by_ifp(
-						ifp, area->circuit_list);
-					if (circuit == NULL)
-						continue;
-					isis_if_set_ldp_sync_enable(circuit);
-				}
-			}
-		}
+		isis_area_ldp_sync_enable(area);
 		break;
 	}
 	return NB_OK;
@@ -2423,11 +2386,13 @@ int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args)
 {
+	struct isis_area *area;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	/* remove ldp-sync config */
-	isis_ldp_sync_gbl_exit(false);
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	isis_area_ldp_sync_disable(area);
 
 	return NB_OK;
 }
@@ -2438,12 +2403,7 @@ int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args)
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
-	struct listnode *node;
-	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	uint16_t holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-	struct isis *isis;
+	uint16_t holddown;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2462,29 +2422,8 @@ int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		area = nb_running_get_entry(args->dnode, NULL, true);
-		isis = area->isis;
-		vrf = vrf_lookup_by_id(isis->vrf_id);
 		holddown = yang_dnode_get_uint16(args->dnode, NULL);
-
-		if (holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
-			UNSET_FLAG(isis->ldp_sync_cmd.flags,
-				   LDP_SYNC_FLAG_HOLDDOWN);
-		else
-			SET_FLAG(isis->ldp_sync_cmd.flags,
-				 LDP_SYNC_FLAG_HOLDDOWN);
-		isis->ldp_sync_cmd.holddown = holddown;
-
-		/* set holddown time on all ISIS interfaces */
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
-						  area)) {
-				circuit = circuit_lookup_by_ifp(ifp,
-							area->circuit_list);
-				if (circuit == NULL)
-					continue;
-				isis_if_set_ldp_sync_holddown(circuit);
-			}
-		}
+		isis_area_ldp_sync_set_holddown(area, holddown);
 		break;
 	}
 	return NB_OK;
@@ -2498,9 +2437,7 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 	struct isis_area *area = NULL;
 	struct interface *ifp;
 	struct isis_circuit *circuit = NULL;
-	struct vrf *vrf;
 	const char *area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
-	const char *vrf_name = yang_dnode_get_string(args->dnode, "./vrf");
 	uint32_t min_mtu, actual_mtu;
 
 	switch (args->event) {
@@ -2515,14 +2452,6 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 		/* zebra might not know yet about the MTU - nothing we can do */
 		if (!ifp || ifp->mtu == 0)
 			break;
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
-		if (ifp->vrf_id != VRF_DEFAULT && vrf
-		    && strcmp(vrf->name, vrf_name) != 0) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "interface %s not in vrf %s\n", ifp->name,
-				 vrf_name);
-			return NB_ERR_VALIDATION;
-		}
 		actual_mtu =
 			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
 
@@ -2544,24 +2473,8 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 		}
 		break;
 	case NB_EV_APPLY:
-		area = isis_area_lookup_by_vrf(area_tag, vrf_name);
-		/* The area should have already be created. We are
-		 * setting the priority of the global isis area creation
-		 * slightly lower, so it should be executed first, but I
-		 * cannot rely on that so here I have to check.
-		 */
-		if (!area) {
-			flog_err(
-				EC_LIB_NB_CB_CONFIG_APPLY,
-				"%s: attempt to create circuit for area %s before the area has been created",
-				__func__, area_tag);
-			abort();
-		}
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		circuit = isis_circuit_create(area, ifp);
-		assert(circuit
-		       && (circuit->state == C_STATE_CONF
-			   || circuit->state == C_STATE_UP));
+		circuit = isis_circuit_new(ifp, area_tag);
 		nb_running_set_entry(args->dnode, circuit);
 		break;
 	}
@@ -2577,18 +2490,9 @@ int lib_interface_isis_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	circuit = nb_running_unset_entry(args->dnode);
-	if (!circuit)
-		return NB_ERR_INCONSISTENCY;
 
-	/* remove ldp-sync config */
-	isis_ldp_sync_if_remove(circuit, true);
+	isis_circuit_del(circuit);
 
-	/* disable both AFs for this circuit. this will also update the
-	 * CSM state by sending an ISIS_DISABLED signal. If there is no
-	 * area associated to the circuit there is nothing to do
-	 */
-	if (circuit->area)
-		isis_circuit_af_set(circuit, false, false);
 	return NB_OK;
 }
 
@@ -2631,44 +2535,6 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-isisd:isis/vrf
- */
-int lib_interface_isis_vrf_modify(struct nb_cb_modify_args *args)
-{
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *ifname, *vrfname, *vrf_name;
-	struct isis_circuit *circuit;
-
-	if (args->event == NB_EV_VALIDATE) {
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(args->dnode->parent->parent,
-					       "./name");
-		vrfname = yang_dnode_get_string(args->dnode->parent->parent,
-						"./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-
-		if (!ifp)
-			return NB_OK;
-
-		vrf_name = yang_dnode_get_string(args->dnode, NULL);
-		circuit = circuit_scan_by_ifp(ifp);
-		if (circuit && circuit->area && circuit->isis
-		    && strcmp(circuit->isis->name, vrf_name)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "ISIS circuit is already defined on vrf  %s",
-				 circuit->isis->name);
-			return NB_ERR_VALIDATION;
-		}
-	}
-
-	return NB_OK;
-}
-
-/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/circuit-type
  */
 int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
@@ -2678,7 +2544,6 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	struct vrf *vrf;
 	const char *ifname, *vrfname;
-	struct isis *isis = NULL;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2694,11 +2559,7 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 		if (!ifp)
 			break;
 
-		isis = isis_lookup_by_vrfid(ifp->vrf_id);
-		if (isis == NULL)
-			return NB_ERR_VALIDATION;
-
-		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);
+		circuit = circuit_scan_by_ifp(ifp);
 		if (circuit && circuit->state == C_STATE_UP
 		    && circuit->area->is_type != IS_LEVEL_1_AND_2
 		    && circuit->area->is_type != circ_type) {
@@ -3085,7 +2946,6 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct isis_area *area;
 	struct interface *ifp;
 	bool passive = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -3108,14 +2968,7 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	if (circuit->state != C_STATE_UP) {
-		circuit->is_passive = passive;
-	} else {
-		area = circuit->area;
-		isis_csm_state_change(ISIS_DISABLE, circuit, area);
-		circuit->is_passive = passive;
-		isis_csm_state_change(ISIS_ENABLE, circuit, area);
-	}
+	isis_circuit_passive_set(circuit, passive);
 
 	return NB_OK;
 }
@@ -3318,13 +3171,23 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	bool ldp_sync_enable;
-	struct isis *isis;
+	struct interface *ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
+					   NULL, false);
+		if (ifp == NULL)
+			return NB_ERR_VALIDATION;
+		if (if_is_loopback(ifp)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync does not run on loopback interface");
+			return NB_ERR_VALIDATION;
+		}
+
 		circuit = nb_running_get_entry(args->dnode, NULL, false);
 		if (circuit == NULL || circuit->area == NULL)
-			return NB_ERR_VALIDATION;
+			break;
 
 		if (circuit->isis->vrf_id != VRF_DEFAULT) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3338,39 +3201,17 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
 		ldp_sync_enable = yang_dnode_get_bool(args->dnode, NULL);
-		isis = circuit->isis;
 
-		if (circuit->ldp_sync_info == NULL)
-			isis_ldp_sync_if_init(circuit, isis);
-		assert(circuit->ldp_sync_info != NULL);
 		ldp_sync_info = circuit->ldp_sync_info;
 
-		if (ldp_sync_enable) {
-			/* enable LDP-SYNC on an interface
-			 *  if ptop interface send message to LDP to get state
-			 */
-			SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
-			ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
-			if (circuit->circ_type == CIRCUIT_T_P2P) {
-				ldp_sync_info->state =
-					LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
-				isis_ldp_sync_state_req_msg(circuit);
-			} else {
-				zlog_debug("ldp_sync: only runs on P2P links %s",
-					   circuit->interface->name);
-				ldp_sync_info->state =
-					LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-			}
-		} else {
-			/* disable LDP-SYNC on an interface
-			 *  stop holddown timer if running
-			 *  restore isis metric
-			 */
-			SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
-			ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
-			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-			THREAD_OFF(ldp_sync_info->t_holddown);
-			isis_ldp_sync_set_if_metric(circuit, true);
+		SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
+		ldp_sync_info->enabled = ldp_sync_enable;
+
+		if (circuit->area) {
+			if (ldp_sync_enable)
+				isis_if_ldp_sync_enable(circuit);
+			else
+				isis_if_ldp_sync_disable(circuit);
 		}
 		break;
 	}
@@ -3385,13 +3226,23 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	uint16_t holddown;
-	struct isis *isis;
+	struct interface *ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
+					   NULL, false);
+		if (ifp == NULL)
+			return NB_ERR_VALIDATION;
+		if (if_is_loopback(ifp)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync does not run on loopback interface");
+			return NB_ERR_VALIDATION;
+		}
+
 		circuit = nb_running_get_entry(args->dnode, NULL, false);
 		if (circuit == NULL || circuit->area == NULL)
-			return NB_ERR_VALIDATION;
+			break;
 
 		if (circuit->isis->vrf_id != VRF_DEFAULT) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3405,11 +3256,7 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
 		holddown = yang_dnode_get_uint16(args->dnode, NULL);
-		isis = circuit->isis;
 
-		if (circuit->ldp_sync_info == NULL)
-			isis_ldp_sync_if_init(circuit, isis);
-		assert(circuit->ldp_sync_info != NULL);
 		ldp_sync_info = circuit->ldp_sync_info;
 
 		SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
@@ -3423,14 +3270,23 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
-	struct isis *isis;
+	struct interface *ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		circuit = nb_running_get_entry(args->dnode, NULL, false);
-		if (circuit == NULL || circuit->ldp_sync_info == NULL
-		    || circuit->area == NULL)
+		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
+					   NULL, false);
+		if (ifp == NULL)
 			return NB_ERR_VALIDATION;
+		if (if_is_loopback(ifp)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync does not run on loopback interface");
+			return NB_ERR_VALIDATION;
+		}
+
+		circuit = nb_running_get_entry(args->dnode, NULL, false);
+		if (circuit == NULL || circuit->area == NULL)
+			break;
 
 		if (circuit->isis->vrf_id != VRF_DEFAULT) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3443,15 +3299,12 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
-		isis = circuit->isis;
 		ldp_sync_info = circuit->ldp_sync_info;
+
 		UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
 
-		if (CHECK_FLAG(isis->ldp_sync_cmd.flags,
-			       LDP_SYNC_FLAG_HOLDDOWN))
-			ldp_sync_info->holddown = isis->ldp_sync_cmd.holddown;
-		else
-			ldp_sync_info->holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
+		if (circuit->area)
+			isis_if_set_ldp_sync_holddown(circuit);
 		break;
 	}
 
@@ -3473,15 +3326,18 @@ int lib_interface_isis_fast_reroute_level_1_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->lfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->lfa_protection[0])
-		circuit->area->lfa_protected_links[0]++;
-	else {
-		assert(circuit->area->lfa_protected_links[0] > 0);
-		circuit->area->lfa_protected_links[0]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->lfa_protection[0])
+			area->lfa_protected_links[0]++;
+		else {
+			assert(area->lfa_protected_links[0] > 0);
+			area->lfa_protected_links[0]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3505,7 +3361,8 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_create(
 
 	isis_lfa_excluded_iface_add(circuit, ISIS_LEVEL1, exclude_ifname);
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3525,7 +3382,8 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy(
 
 	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL1, exclude_ifname);
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3545,15 +3403,18 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->rlfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->rlfa_protection[0])
-		circuit->area->rlfa_protected_links[0]++;
-	else {
-		assert(circuit->area->rlfa_protected_links[0] > 0);
-		circuit->area->rlfa_protected_links[0]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->rlfa_protection[0])
+			area->rlfa_protected_links[0]++;
+		else {
+			assert(area->rlfa_protected_links[0] > 0);
+			area->rlfa_protected_links[0]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3575,7 +3436,8 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify(
 	circuit->rlfa_max_metric[0] = yang_dnode_get_uint32(args->dnode, NULL);
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3593,7 +3455,8 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy(
 	circuit->rlfa_max_metric[0] = 0;
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3613,15 +3476,18 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->tilfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->tilfa_protection[0])
-		circuit->area->tilfa_protected_links[0]++;
-	else {
-		assert(circuit->area->tilfa_protected_links[0] > 0);
-		circuit->area->tilfa_protected_links[0]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->tilfa_protection[0])
+			area->tilfa_protected_links[0]++;
+		else {
+			assert(area->tilfa_protected_links[0] > 0);
+			area->tilfa_protected_links[0]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3644,7 +3510,8 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 		yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3664,15 +3531,18 @@ int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->lfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->lfa_protection[1])
-		circuit->area->lfa_protected_links[1]++;
-	else {
-		assert(circuit->area->lfa_protected_links[1] > 0);
-		circuit->area->lfa_protected_links[1]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->lfa_protection[1])
+			area->lfa_protected_links[1]++;
+		else {
+			assert(area->lfa_protected_links[1] > 0);
+			area->lfa_protected_links[1]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3696,7 +3566,8 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
 
 	isis_lfa_excluded_iface_add(circuit, ISIS_LEVEL2, exclude_ifname);
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3716,7 +3587,8 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy(
 
 	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL2, exclude_ifname);
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3736,15 +3608,18 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->rlfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->rlfa_protection[1])
-		circuit->area->rlfa_protected_links[1]++;
-	else {
-		assert(circuit->area->rlfa_protected_links[1] > 0);
-		circuit->area->rlfa_protected_links[1]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->rlfa_protection[1])
+			area->rlfa_protected_links[1]++;
+		else {
+			assert(area->rlfa_protected_links[1] > 0);
+			area->rlfa_protected_links[1]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3766,7 +3641,8 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify(
 	circuit->rlfa_max_metric[1] = yang_dnode_get_uint32(args->dnode, NULL);
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3784,7 +3660,8 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
 	circuit->rlfa_max_metric[1] = 0;
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3804,15 +3681,18 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->tilfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
-	if (circuit->tilfa_protection[1])
-		circuit->area->tilfa_protected_links[1]++;
-	else {
-		assert(circuit->area->tilfa_protected_links[1] > 0);
-		circuit->area->tilfa_protected_links[1]--;
-	}
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area) {
+		if (circuit->tilfa_protection[1])
+			area->tilfa_protected_links[1]++;
+		else {
+			assert(area->tilfa_protected_links[1] > 0);
+			area->tilfa_protected_links[1]--;
+		}
+
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 
 	return NB_OK;
 }
@@ -3835,7 +3715,8 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
 		yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
-	lsp_regenerate_schedule(area, area->is_type, 0);
+	if (area)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
