@@ -1184,8 +1184,8 @@ static void peer_free(struct peer *peer)
 	event_cancel_event_ready(bm->master, peer);
 	FOREACH_AFI_SAFI (afi, safi)
 		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
-	assert(!peer->t_write);
-	assert(!peer->t_read);
+	assert(!peer->connection.t_write);
+	assert(!peer->connection.t_read);
 	BGP_EVENT_FLUSH(peer);
 
 	bgp_peer_connection_free(&peer->connection);

@@ -58,7 +58,7 @@ void bgp_writes_on(struct peer_connection *connection)
 	assert(connection->fd);
 
 	event_add_write(fpt->master, bgp_process_writes, connection,
-			connection->fd, &peer->t_write);
+			connection->fd, &connection->t_write);
 	SET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 }
 
@@ -68,7 +68,7 @@ void bgp_writes_off(struct peer_connection *connection)
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
-	event_cancel_async(fpt->master, &peer->t_write, NULL);
+	event_cancel_async(fpt->master, &connection->t_write, NULL);
 	EVENT_OFF(peer->t_generate_updgrp_packets);
 
 	UNSET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
@@ -90,7 +90,7 @@ void bgp_reads_on(struct peer_connection *connection)
 	assert(connection->fd);
 
 	event_add_read(fpt->master, bgp_process_reads, connection,
-		       connection->fd, &peer->t_read);
+		       connection->fd, &connection->t_read);
 
 	SET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
 }
@@ -101,7 +101,7 @@ void bgp_reads_off(struct peer_connection *connection)
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
-	event_cancel_async(fpt->master, &peer->t_read, NULL);
+	event_cancel_async(fpt->master, &connection->t_read, NULL);
 	EVENT_OFF(peer->t_process_packet);
 	EVENT_OFF(peer->t_process_packet_error);
 
@@ -150,7 +150,7 @@ static void bgp_process_writes(struct event *thread)
 	 */
 	if (reschedule) {
 		event_add_write(fpt->master, bgp_process_writes, connection,
-				connection->fd, &peer->t_write);
+				connection->fd, &connection->t_write);
 	} else if (!fatal) {
 		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
 					  bgp_generate_updgrp_packets);
@@ -296,7 +296,7 @@ done:
 	}
 
 	event_add_read(fpt->master, bgp_process_reads, peer, connection->fd,
-		       &peer->t_read);
+		       &connection->t_read);
 	if (added_pkt)
 		event_add_event(bm->master, bgp_process_packet, connection, 0,
 				&peer->t_process_packet);
