@@ -438,7 +438,7 @@ void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 	}
 	if (external)
 		SET_FLAG(psid->flags, ISIS_PREFIX_SID_READVERTISED);
-	if (pcfg->node_sid)
+	if (pcfg->node_sid && !pcfg->n_flag_clear)
 		SET_FLAG(psid->flags, ISIS_PREFIX_SID_NODE);
 
 	/* Set SID value. */
