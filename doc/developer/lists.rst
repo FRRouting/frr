@@ -108,6 +108,8 @@ Functions provided:
 | _first, _next, _next_safe,         | yes  | yes  | yes  | yes     | yes        |
 | _const_first, _const_next          |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
+| _swap_all                          | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
 | _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
 +------------------------------------+------+------+------+---------+------------+
 | _add                               | --   | yes  | yes  | yes     | yes        |
@@ -321,6 +323,14 @@ The following documentation assumes that a list has been defined using
       on the list.  Some structures return ``NULL`` in this case while others
       return ``item``.  The function may also call ``assert()`` (but most
       don't.)
+
+.. c:function:: itemtype *Z_swap_all(struct Z_head *, struct Z_head *)
+
+   Swap the contents of 2 containers (of identical type).  This exchanges the
+   contents of the two head structures and updates pointers if necessary for
+   the particular data structure.  Fast for all structures.
+
+   (Not currently available on atomic containers.)
 
 .. todo::
 
