@@ -50,8 +50,8 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 {
 	struct pbr_interface *pbr_ifp;
 
-	zassert(ifp);
-	zassert(!ifp->info);
+	assert(ifp);
+	assert(!ifp->info);
 
 	pbr_ifp = XCALLOC(MTYPE_PBR_INTERFACE, sizeof(*pbr_ifp));
 

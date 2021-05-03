@@ -159,7 +159,7 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 
 	igmp = THREAD_ARG(t);
 
-	zassert(!igmp->t_igmp_query_timer);
+	assert(!igmp->t_igmp_query_timer);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char ifaddr_str[INET_ADDRSTRLEN];
@@ -185,9 +185,9 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 	long other_querier_present_interval_msec;
 	struct pim_interface *pim_ifp;
 
-	zassert(igmp);
-	zassert(igmp->interface);
-	zassert(igmp->interface->info);
+	assert(igmp);
+	assert(igmp->interface);
+	assert(igmp->interface->info);
 
 	pim_ifp = igmp->interface->info;
 
@@ -218,7 +218,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 	  Since this socket is starting the other-querier-present timer,
 	  there should not be periodic query timer for this socket.
 	 */
-	zassert(!igmp->t_igmp_query_timer);
+	assert(!igmp->t_igmp_query_timer);
 
 	/*
 	  RFC 3376: 8.5. Other Querier Present Interval
@@ -255,7 +255,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 
 void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp)
 {
-	zassert(igmp);
+	assert(igmp);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		if (igmp->t_other_querier_timer) {
@@ -589,9 +589,9 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 	  Since this socket is starting as querier,
 	  there should not exist a timer for other-querier-present.
 	 */
-	zassert(!igmp->t_other_querier_timer);
+	assert(!igmp->t_other_querier_timer);
 	pim_ifp = igmp->interface->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	/*
 	  RFC 3376: 8.6. Startup Query Interval
@@ -638,7 +638,7 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 
 void pim_igmp_general_query_off(struct igmp_sock *igmp)
 {
-	zassert(igmp);
+	assert(igmp);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		if (igmp->t_igmp_query_timer) {
@@ -664,8 +664,8 @@ static int pim_igmp_general_query(struct thread *t)
 
 	igmp = THREAD_ARG(t);
 
-	zassert(igmp->interface);
-	zassert(igmp->interface->info);
+	assert(igmp->interface);
+	assert(igmp->interface->info);
 
 	pim_ifp = igmp->interface->info;
 
@@ -835,19 +835,19 @@ void igmp_group_delete(struct igmp_group *group)
 
 void igmp_group_delete_empty_include(struct igmp_group *group)
 {
-	zassert(!group->group_filtermode_isexcl);
-	zassert(!listcount(group->group_source_list));
+	assert(!group->group_filtermode_isexcl);
+	assert(!listcount(group->group_source_list));
 
 	igmp_group_delete(group);
 }
 
 void igmp_sock_free(struct igmp_sock *igmp)
 {
-	zassert(!igmp->t_igmp_read);
-	zassert(!igmp->t_igmp_query_timer);
-	zassert(!igmp->t_other_querier_timer);
-	zassert(igmp->igmp_group_list);
-	zassert(!listcount(igmp->igmp_group_list));
+	assert(!igmp->t_igmp_read);
+	assert(!igmp->t_igmp_query_timer);
+	assert(!igmp->t_other_querier_timer);
+	assert(igmp->igmp_group_list);
+	assert(!listcount(igmp->igmp_group_list));
 
 	list_delete(&igmp->igmp_group_list);
 	hash_free(igmp->igmp_group_hash);
@@ -1076,7 +1076,7 @@ static int igmp_group_timer(struct thread *t)
 			   group_str, group->group_igmp_sock->interface->name);
 	}
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	group->group_filtermode_isexcl = 0;
 
@@ -1085,7 +1085,7 @@ static int igmp_group_timer(struct thread *t)
 
 	igmp_source_delete_expired(group->group_source_list);
 
-	zassert(!group->group_filtermode_isexcl);
+	assert(!group->group_filtermode_isexcl);
 
 	/*
 	  RFC 3376: 6.2.2. Definition of Group Timers
@@ -1137,7 +1137,7 @@ void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
 	  it represents the time for the *filter-mode* of the group to
 	  expire and switch to INCLUDE mode.
 	*/
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	thread_add_timer_msec(router->master, igmp_group_timer, group,
 			      interval_msec, &group->t_group_timer);
@@ -1228,8 +1228,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	  it represents the time for the *filter-mode* of the group to
 	  expire and switch to INCLUDE mode.
 	*/
-	zassert(!group->group_filtermode_isexcl); /* INCLUDE mode */
-	zassert(!group->t_group_timer);		  /* group timer == 0 */
+	assert(!group->group_filtermode_isexcl); /* INCLUDE mode */
+	assert(!group->t_group_timer);		 /* group timer == 0 */
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);

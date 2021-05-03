@@ -19,6 +19,10 @@
  * Author : Brady Johnson <brady@voltanet.io>
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdlib.h>
 
 #include "pcep_msg_object_error_types.h"

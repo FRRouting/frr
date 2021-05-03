@@ -18,6 +18,8 @@
  */
 
 
+#include <zebra.h>
+
 #include "lib/command.h"
 #include "lib/log.h"
 #include "lib/northbound.h"

@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <zebra.h>
+
 #include "pimd.h"
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
@@ -36,7 +38,7 @@ static void pim_if_membership_clear(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (PIM_IF_TEST_PIM(pim_ifp->options)
 	    && PIM_IF_TEST_IGMP(pim_ifp->options)) {
@@ -62,7 +64,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	struct igmp_sock *igmp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (!PIM_IF_TEST_PIM(pim_ifp->options))
 		return;
@@ -576,7 +578,7 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 
-	zassert(igmp);
+	assert(igmp);
 
 	/* other querier present? */
 
@@ -585,8 +587,8 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 
 	/* this is the querier */
 
-	zassert(igmp->interface);
-	zassert(igmp->interface->info);
+	assert(igmp->interface);
+	assert(igmp->interface->info);
 
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
@@ -616,25 +618,25 @@ static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
 
 	if (igmp->t_igmp_query_timer) {
 		/* other querier present */
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
+		assert(igmp->t_igmp_query_timer);
+		assert(!igmp->t_other_querier_timer);
 
 		pim_igmp_general_query_off(igmp);
 		pim_igmp_general_query_on(igmp);
 
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
+		assert(igmp->t_igmp_query_timer);
+		assert(!igmp->t_other_querier_timer);
 	} else {
 		/* this is the querier */
 
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
+		assert(!igmp->t_igmp_query_timer);
+		assert(igmp->t_other_querier_timer);
 
 		pim_igmp_other_querier_timer_off(igmp);
 		pim_igmp_other_querier_timer_on(igmp);
 
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
+		assert(!igmp->t_igmp_query_timer);
+		assert(igmp->t_other_querier_timer);
 	}
 }
 

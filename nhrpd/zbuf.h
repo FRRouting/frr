@@ -15,7 +15,6 @@
 #include <endian.h>
 #include <sys/types.h>
 
-#include "zassert.h"
 #include "list.h"
 
 struct zbuf {

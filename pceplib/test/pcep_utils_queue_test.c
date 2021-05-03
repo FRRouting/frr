@@ -21,6 +21,10 @@
  */
 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <CUnit/CUnit.h>
 
 #include "pcep_utils_queue.h"

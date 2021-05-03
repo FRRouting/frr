@@ -21,6 +21,10 @@
  */
 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <netinet/in.h>
 
 #include <CUnit/CUnit.h>

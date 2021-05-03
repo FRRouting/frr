@@ -278,13 +278,14 @@ pkginclude_HEADERS += \
 	lib/yang.h \
 	lib/yang_translator.h \
 	lib/yang_wrappers.h \
-	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/zlog.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/routing_nb.h \
+	\
+	lib/assert/assert.h \
 	# end
 
 
@@ -413,7 +414,7 @@ lib_grammar_sandbox_SOURCES = \
 lib_grammar_sandbox_LDADD = \
 	lib/libfrr.la
 
-lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
+lib_clippy_CPPFLAGS = $(CPPFLAGS_BASE) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_clippy_CFLAGS = $(AC_CFLAGS) $(PYTHON_CFLAGS)
 lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS) -lelf
 lib_clippy_LDFLAGS = -export-dynamic

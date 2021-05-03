@@ -25,6 +25,10 @@
  * This is the implementation of a High Level PCEP message object TLV API.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>

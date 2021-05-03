@@ -25,6 +25,8 @@
 #include <unistd.h>
 #include <sys/uio.h>
 
+#include <assert.h>
+
 #include "atomlist.h"
 #include "frrcu.h"
 #include "memory.h"

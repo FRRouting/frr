@@ -662,7 +662,7 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 	const uint8_t *addr;
 	const uint8_t *pastend;
 
-	zassert(hello_option_addr_list);
+	assert(hello_option_addr_list);
 
 	/*
 	  Scan addr list

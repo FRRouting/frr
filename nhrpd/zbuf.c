@@ -14,7 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include "zassert.h"
+#include <assert.h>
 #include "zbuf.h"
 #include "memory.h"
 #include "nhrpd.h"
@@ -59,7 +59,7 @@ void zbuf_reset(struct zbuf *zb)
 
 void zbuf_reset_head(struct zbuf *zb, void *ptr)
 {
-	zassert((void *)zb->buf <= ptr && ptr <= (void *)zb->tail);
+	assert((void *)zb->buf <= ptr && ptr <= (void *)zb->tail);
 	zb->head = ptr;
 }
 

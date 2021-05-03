@@ -72,7 +72,7 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	debugf(NHRP_DEBUG_COMMON, "Deleting cache entry");
 	nhrp_cache_counts[c->cur.type]--;
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
-	zassert(!notifier_active(&c->notifier_list));
+	assert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
 	THREAD_OFF(c->t_timeout);
 	THREAD_OFF(c->t_auth);

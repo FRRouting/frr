@@ -106,27 +106,13 @@ int main(int argc, char **argv)
 /* and now for the ugly part... provide simplified logging functions so we
  * don't need to link libzebra (which would be a circular build dep) */
 
-#ifdef __ASSERT_FUNCTION
-#undef __ASSERT_FUNCTION
-#endif
-
 #include "log.h"
-#include "zassert.h"
 
 void vzlogx(const struct xref_logmsg *xref, int prio,
 	    const char *format, va_list args)
 {
 	vfprintf(stderr, format, args);
 	fputs("\n", stderr);
-}
-
-void _zlog_assert_failed(const char *assertion, const char *file,
-			 unsigned int line, const char *function)
-{
-	fprintf(stderr,
-		"Assertion `%s' failed in file %s, line %u, function %s",
-		assertion, file, line, (function ? function : "?"));
-	abort();
 }
 
 void memory_oom(size_t size, const char *name)
