@@ -596,6 +596,7 @@ static int bgp_accept(struct thread *thread)
 				  PEER_FLAG_GRACEFUL_RESTART_HELPER))
 			SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
 
+		zlog_err (" VMW: TCP connection closed for peer fd %d\n", peer1->fd);
 		bgp_event_update(peer1, TCP_connection_closed);
 	}
 

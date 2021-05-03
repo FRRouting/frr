@@ -137,6 +137,7 @@ from lib.common_config import (
     get_frr_ipv6_linklocal,
     create_route_maps,
     required_linux_kernel_version,
+    create_debug_log_config
 )
 
 # Reading the data from JSON File for topology and configuration creation
@@ -283,7 +284,7 @@ def next_hop_per_address_family(
     return next_hop
 
 
-def BGP_GR_TC_50_p1(request):
+def test_BGP_GR_TC_50_p1(request):
     """
     Test Objective : Transition from Peer-level helper to Global inherit helper
     Global Mode : None
@@ -305,6 +306,26 @@ def BGP_GR_TC_50_p1(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    logger.info("Enable debug logs")
+    input_dict = {
+        "r1": {
+            "debug":{
+                "log_file" : "TC_50_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        },
+        "r2": {
+            "debug":{
+                "log_file" : "TC_50_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        }
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".\
+        format(tc_name, result)
 
     step(
         "Configure R1 as GR helper node at per Peer-level for R2"
@@ -3958,6 +3979,26 @@ def test_BGP_GR_TC_46_p1(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    logger.info("Enable debug logs")
+    input_dict = {
+        "r1": {
+            "debug":{
+                "log_file" : "tc_46_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        },
+        "r2": {
+            "debug":{
+                "log_file" : "tc_46_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        }
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".\
+        format(tc_name, result)
+
     step(
         "Configure R1 and R2 as GR restarting node in global"
         " and helper in per-Peer-level"
@@ -4829,7 +4870,7 @@ def test_BGP_GR_TC_49_p1(request):
     write_test_footer(tc_name)
 
 
-def BGP_GR_TC_52_p1(request):
+def test_BGP_GR_TC_52_p1(request):
     """
     Test Objective : Transition from Peer-level disbale to Global inherit helper
     Global Mode : None
@@ -4851,6 +4892,26 @@ def BGP_GR_TC_52_p1(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    logger.info("Enable debug logs")
+    input_dict = {
+        "r1": {
+            "debug":{
+                "log_file" : "tc_52_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        },
+        "r2": {
+            "debug":{
+                "log_file" : "tc_52_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        }
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".\
+        format(tc_name, result)
 
     step(
         "Configure R1 as GR disabled node at per Peer-level for R2"

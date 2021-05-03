@@ -136,6 +136,7 @@ from lib.common_config import (
     get_frr_ipv6_linklocal,
     create_route_maps,
     required_linux_kernel_version,
+    create_debug_log_config
 )
 
 # Reading the data from JSON File for topology and configuration creation
@@ -934,7 +935,7 @@ def test_BGP_GR_10_p2(request):
     write_test_footer(tc_name)
 
 
-def BGP_GR_16_p2(request):
+def test_BGP_GR_16_p2(request):
     """
     Test Objective : Verify BGP-GR feature when restarting node
     is a transit router for it's iBGP peers.
@@ -953,6 +954,26 @@ def BGP_GR_16_p2(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    logger.info("Enable debug logs")
+    input_dict = {
+        "r1": {
+            "debug":{
+                "log_file" : "tc_16_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        },
+        "r2": {
+            "debug":{
+                "log_file" : "tc_16_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        }
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".\
+        format(tc_name, result)
 
     logger.info(
         "[Step 1] : Test Setup " "[Helper Mode]R3-----R1[Restart Mode] initialized"
@@ -3015,6 +3036,26 @@ def test_BGP_GR_chaos_30_p1(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    logger.info("Enable debug logs")
+    input_dict = {
+        "r1": {
+            "debug":{
+                "log_file" : "tc_c30_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        },
+        "r2": {
+            "debug":{
+                "log_file" : "tc_c30_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        }
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".\
+        format(tc_name, result)
+
     logger.info(
         " Test Case : test_BGP_GR_chaos_30  "
         "BGP GR [Helper Mode]R3-----R1[Restart Mode] "
@@ -3401,6 +3442,26 @@ def BGP_GR_TC_7_p1(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
+
+    logger.info("Enable debug logs")
+    input_dict = {
+        "r1": {
+            "debug":{
+                "log_file" : "tc_7_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        },
+        "r2": {
+            "debug":{
+                "log_file" : "tc_7_debug.log",
+                "enable": ["bgpd", "zebra"]
+            }
+        }
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".\
+        format(tc_name, result)
 
     logger.info(
         " Verify route download to RIB: BGP_GR_TC_7 >> "

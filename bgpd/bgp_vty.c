@@ -3066,7 +3066,7 @@ DEFUN (bgp_neighbor_graceful_restart_helper_set,
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
-			"[BGP_GR] bgp_neighbor_graceful_restart_helper_set_cmd : END ");
+			"[BGP_GR] bgp_neighbor_graceful_restart_helper_set_cmd %d: END ", peer->fd);
 	vty_out(vty,
 		"Graceful restart configuration changed, reset this peer to take effect\n");
 
@@ -3103,7 +3103,7 @@ DEFUN (no_bgp_neighbor_graceful_restart_helper,
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
-			"[BGP_GR] no_bgp_neighbor_graceful_restart_helper_set_cmd : END ");
+			"[BGP_GR] no_bgp_neighbor_graceful_restart_helper_set_cmd %d : END ", peer->fd);
 	vty_out(vty,
 		"Graceful restart configuration changed, reset this peer to take effect\n");
 

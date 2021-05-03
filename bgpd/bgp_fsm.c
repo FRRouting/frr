@@ -257,6 +257,9 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->remote_id = from_peer->remote_id;
 	peer->last_reset = from_peer->last_reset;
 
+	zlog_err ("VMW: %s GR status changed from %d --> %d\n", __func__,
+				peer->peer_gr_present_state,
+				from_peer->peer_gr_present_state);
 	peer->peer_gr_present_state = from_peer->peer_gr_present_state;
 	peer->peer_gr_new_status_flag = from_peer->peer_gr_new_status_flag;
 	bgp_peer_gr_flags_update(peer);
