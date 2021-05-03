@@ -319,6 +319,8 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
@@ -334,6 +336,8 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
 int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify(
 	struct nb_cb_modify_args *args);
 struct yang_data *
 lib_interface_state_isis_get_elem(struct nb_cb_get_elem_args *args);

@@ -493,6 +493,13 @@ module frr-isisd {
         description
           "Node protection is provided by the alternate.";
       }
+      leaf link-fallback {
+        type boolean;
+        must ". = 'false' or ../enable = 'true'";
+        default false;
+        description
+          "Fallback to link protection.";
+      }
     }
   }
 

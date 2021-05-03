@@ -978,6 +978,12 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/link-fallback",
+			.cbs = {
+				.modify = lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/lfa/enable",
 			.cbs = {
 				.modify = lib_interface_isis_fast_reroute_level_2_lfa_enable_modify,
@@ -1015,6 +1021,12 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/node-protection",
 			.cbs = {
 				.modify = lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/link-fallback",
+			.cbs = {
+				.modify = lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify,
 			}
 		},
 		{
