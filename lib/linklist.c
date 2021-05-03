@@ -320,23 +320,6 @@ void list_delete_all_node(struct list *list)
 	list->count = 0;
 }
 
-void list_filter_out_nodes(struct list *list, bool (*cond)(void *data))
-{
-	struct listnode *node;
-	struct listnode *next;
-	void *data;
-
-	assert(list);
-
-	for (ALL_LIST_ELEMENTS(list, node, next, data)) {
-		if ((cond && cond(data)) || (!cond)) {
-			if (*list->del)
-				(*list->del)(data);
-			list_delete_node(list, node);
-		}
-	}
-}
-
 void list_delete(struct list **list)
 {
 	assert(*list);
