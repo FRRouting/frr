@@ -69,7 +69,6 @@ struct bsm_scope {
 	struct list *bsm_list;		/* list of bsm frag for frowarding */
 	struct route_table *bsrp_table; /* group2rp mapping rcvd from BSR */
 	struct thread *bs_timer;	/* Boot strap timer */
-	struct thread *sz_timer;
 };
 
 /* BSM packet - this is stored as list in bsm_list inside scope
