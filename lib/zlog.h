@@ -249,6 +249,9 @@ extern void zlog_tls_buffer_init(void);
 extern void zlog_tls_buffer_flush(void);
 extern void zlog_tls_buffer_fini(void);
 
+/* Enable or disable 'immediate' output - default is to buffer messages. */
+extern void zlog_set_immediate(bool set_p);
+
 #ifdef __cplusplus
 }
 #endif
