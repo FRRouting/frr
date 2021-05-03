@@ -25,6 +25,7 @@
 
 #include "if.h"
 #include "vty.h"
+#include "typesafe.h"
 #include "linklist.h"
 #include "table.h"
 #include "pim_rp.h"
@@ -54,6 +55,8 @@ enum ncbsr_state {
 	ACCEPT_PREFERRED
 };
 
+PREDECL_DLIST(bsm_frags);
+
 /* BSM scope - bsm processing is per scope */
 struct bsm_scope {
 	int sz_id;			/* scope zone id */
@@ -66,18 +69,25 @@ struct bsm_scope {
 	uint16_t bsm_frag_tag;		/* Last received frag tag from E-BSR */
 	uint8_t hashMasklen;		/* Mask in hash calc RFC 7761 4.7.2 */
 	struct pim_instance *pim;       /* Back pointer to pim instance */
-	struct list *bsm_list;		/* list of bsm frag for frowarding */
+
+	/* current set of fragments for forwarding */
+	struct bsm_frags_head bsm_frags[1];
+
 	struct route_table *bsrp_table; /* group2rp mapping rcvd from BSR */
 	struct thread *bs_timer;	/* Boot strap timer */
 };
 
-/* BSM packet - this is stored as list in bsm_list inside scope
+/* BSM packet (= fragment) - this is stored as list in bsm_frags inside scope
  * This is used for forwarding to new neighbors or restarting mcast routers
  */
-struct bsm_info {
-	uint32_t size;      /* size of the packet */
-	unsigned char *bsm; /* Actual packet */
+struct bsm_frag {
+	struct bsm_frags_item item;
+
+	uint32_t size;	 /* size of the packet */
+	uint8_t data[0]; /* Actual packet (dyn size) */
 };
+
+DECLARE_DLIST(bsm_frags, struct bsm_frag, item);
 
 /* This is the group node of the bsrp table in scope.
  * this node maintains the list of rp for the group.
@@ -195,6 +205,7 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
 void pim_bs_timer_stop(struct bsm_scope *scope);
+void pim_bsm_frags_free(struct bsm_scope *scope);
 void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node);
 void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp);
 #endif

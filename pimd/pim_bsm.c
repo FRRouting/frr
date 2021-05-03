@@ -44,7 +44,7 @@ static inline void pim_g2rp_timer_restart(struct bsm_rpinfo *bsrp,
 /* Memory Types */
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSGRP_NODE, "PIM BSR advertised grp info");
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSRP_NODE, "PIM BSR advertised RP info");
-DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_INFO, "PIM BSM Info");
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_FRAG, "PIM BSM fragment");
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_PKT_VAR_MEM, "PIM BSM Packet");
 
 /* All bsm packets forwarded shall be fit within ip mtu less iphdr(max) */
@@ -84,10 +84,17 @@ void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp)
 	}
 }
 
-static void pim_bsm_node_free(struct bsm_info *bsm)
+static void pim_bsm_frag_free(struct bsm_frag *bsfrag)
 {
-	XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, bsm->bsm);
-	XFREE(MTYPE_PIM_BSM_INFO, bsm);
+	XFREE(MTYPE_PIM_BSM_FRAG, bsfrag);
+}
+
+void pim_bsm_frags_free(struct bsm_scope *scope)
+{
+	struct bsm_frag *bsfrag;
+
+	while ((bsfrag = bsm_frags_pop(scope->bsm_frags)))
+		pim_bsm_frag_free(bsfrag);
 }
 
 static int pim_g2rp_list_compare(struct bsm_rpinfo *node1,
@@ -197,7 +204,7 @@ static int pim_on_bs_timer(struct thread *t)
 	scope->current_bsr_first_ts = 0;
 	scope->current_bsr_last_ts = 0;
 	scope->bsm_frag_tag = 0;
-	list_delete_all_node(scope->bsm_list);
+	pim_bsm_frags_free(scope);
 
 	for (rn = route_top(scope->bsrp_table); rn; rn = route_next(rn)) {
 
@@ -260,8 +267,7 @@ void pim_bsm_proc_init(struct pim_instance *pim)
 	pim->global_scope.accept_nofwd_bsm = true;
 	pim->global_scope.state = NO_INFO;
 	pim->global_scope.pim = pim;
-	pim->global_scope.bsm_list = list_new();
-	pim->global_scope.bsm_list->del = (void (*)(void *))pim_bsm_node_free;
+	bsm_frags_init(pim->global_scope.bsm_frags);
 	pim_bs_timer_start(&pim->global_scope, PIM_BS_TIME);
 }
 
@@ -271,9 +277,7 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 	struct bsgrp_node *bsgrp;
 
 	pim_bs_timer_stop(&pim->global_scope);
-
-	if (pim->global_scope.bsm_list)
-		list_delete(&pim->global_scope.bsm_list);
+	pim_bsm_frags_free(&pim->global_scope);
 
 	for (rn = route_top(pim->global_scope.bsrp_table); rn;
 	     rn = route_next(rn)) {
@@ -896,8 +900,7 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	struct in_addr dst_addr;
 	struct pim_interface *pim_ifp;
 	struct bsm_scope *scope;
-	struct listnode *bsm_ln;
-	struct bsm_info *bsminfo;
+	struct bsm_frag *bsfrag;
 	char neigh_src_str[INET_ADDRSTRLEN];
 	uint32_t pim_mtu;
 	bool no_fwd = true;
@@ -929,7 +932,7 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 
 	scope = &pim_ifp->pim->global_scope;
 
-	if (!scope->bsm_list->count) {
+	if (!bsm_frags_count(scope->bsm_frags)) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: BSM list for the scope is empty",
 				   __func__);
@@ -950,10 +953,10 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	pim_mtu = ifp->mtu - MAX_IP_HDR_LEN;
 	pim_hello_require(ifp);
 
-	for (ALL_LIST_ELEMENTS_RO(scope->bsm_list, bsm_ln, bsminfo)) {
-		if (pim_mtu < bsminfo->size) {
-			ret = pim_bsm_frag_send(bsminfo->bsm, bsminfo->size,
-						ifp, pim_mtu, dst_addr, no_fwd);
+	frr_each (bsm_frags, scope->bsm_frags, bsfrag) {
+		if (pim_mtu < bsfrag->size) {
+			ret = pim_bsm_frag_send(bsfrag->data, bsfrag->size, ifp,
+						pim_mtu, dst_addr, no_fwd);
 			if (!ret) {
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
@@ -962,10 +965,10 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 			}
 		} else {
 			/* Pim header needs to be constructed */
-			pim_msg_build_header(bsminfo->bsm, bsminfo->size,
+			pim_msg_build_header(bsfrag->data, bsfrag->size,
 					     PIM_MSG_TYPE_BOOTSTRAP, no_fwd);
-			ret = pim_bsm_send_intf(bsminfo->bsm, bsminfo->size,
-						ifp, dst_addr);
+			ret = pim_bsm_send_intf(bsfrag->data, bsfrag->size, ifp,
+						dst_addr);
 			if (!ret) {
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
@@ -1227,7 +1230,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	int sz = PIM_GBL_SZ_ID;
 	struct bsmmsg_grpinfo *msg_grp;
 	struct pim_interface *pim_ifp = NULL;
-	struct bsm_info *bsminfo;
+	struct bsm_frag *bsfrag;
 	struct pim_instance *pim;
 	char bsr_str[INET_ADDRSTRLEN];
 	uint16_t frag_tag;
@@ -1383,7 +1386,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 				   pim_ifp->pim->global_scope.bsm_frag_tag,
 				   frag_tag);
 		}
-		list_delete_all_node(pim_ifp->pim->global_scope.bsm_list);
+		pim_bsm_frags_free(&pim_ifp->pim->global_scope);
 		pim_ifp->pim->global_scope.bsm_frag_tag = frag_tag;
 	}
 
@@ -1392,13 +1395,13 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 
 	if (!no_fwd) {
 		pim_bsm_fwd_whole_sz(pim_ifp->pim, buf, buf_size, sz);
-		bsminfo = XCALLOC(MTYPE_PIM_BSM_INFO, sizeof(struct bsm_info));
+		bsfrag = XCALLOC(MTYPE_PIM_BSM_FRAG,
+				 sizeof(struct bsm_frag) + buf_size);
 
-		bsminfo->bsm = XCALLOC(MTYPE_PIM_BSM_PKT_VAR_MEM, buf_size);
-
-		bsminfo->size = buf_size;
-		memcpy(bsminfo->bsm, buf, buf_size);
-		listnode_add(pim_ifp->pim->global_scope.bsm_list, bsminfo);
+		bsfrag->size = buf_size;
+		memcpy(bsfrag->data, buf, buf_size);
+		bsm_frags_add_tail(pim_ifp->pim->global_scope.bsm_frags,
+				   bsfrag);
 	}
 
 	return 0;
