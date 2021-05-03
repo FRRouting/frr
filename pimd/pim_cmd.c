@@ -7276,7 +7276,8 @@ DEFUN (no_ip_pim_rp_keep_alive,
 	char rp_ka_timer[5];
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 
-	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
+	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%d",
+				PIM_RP_KEEPALIVE_PERIOD);
 
 	if (vty->xpath_index) {
 		vrf_dnode =
@@ -11412,9 +11413,7 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &ip_pim_ssm_prefix_list_cmd);
 	install_element(VRF_NODE, &ip_pim_ssm_prefix_list_cmd);
 	install_element(CONFIG_NODE, &ip_pim_register_suppress_cmd);
-	install_element(VRF_NODE, &ip_pim_register_suppress_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_register_suppress_cmd);
-	install_element(VRF_NODE, &no_ip_pim_register_suppress_cmd);
 	install_element(CONFIG_NODE, &ip_pim_spt_switchover_infinity_cmd);
 	install_element(VRF_NODE, &ip_pim_spt_switchover_infinity_cmd);
 	install_element(CONFIG_NODE, &ip_pim_spt_switchover_infinity_plist_cmd);
@@ -11427,9 +11426,7 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &pim_register_accept_list_cmd);
 	install_element(VRF_NODE, &pim_register_accept_list_cmd);
 	install_element(CONFIG_NODE, &ip_pim_joinprune_time_cmd);
-	install_element(VRF_NODE, &ip_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_joinprune_time_cmd);
-	install_element(VRF_NODE, &no_ip_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &ip_pim_keep_alive_cmd);
 	install_element(VRF_NODE, &ip_pim_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ip_pim_rp_keep_alive_cmd);
@@ -11439,9 +11436,7 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ip_pim_rp_keep_alive_cmd);
 	install_element(VRF_NODE, &no_ip_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ip_pim_packets_cmd);
-	install_element(VRF_NODE, &ip_pim_packets_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_packets_cmd);
-	install_element(VRF_NODE, &no_ip_pim_packets_cmd);
 	install_element(CONFIG_NODE, &ip_pim_v6_secondary_cmd);
 	install_element(VRF_NODE, &ip_pim_v6_secondary_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_v6_secondary_cmd);
