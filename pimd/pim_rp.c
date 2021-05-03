@@ -702,7 +702,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		bsgrp = pim_bsm_get_bsgrp_node(&pim->global_scope, &group);
 
 		if (bsgrp) {
-			bsrp = listnode_head(bsgrp->bsrp_list);
+			bsrp = bsm_rpinfos_first(bsgrp->bsrp_list);
 			if (bsrp) {
 				if (PIM_DEBUG_PIM_TRACE) {
 					char bsrp_str[INET_ADDRSTRLEN];

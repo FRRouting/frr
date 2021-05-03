@@ -26,7 +26,6 @@
 #include "if.h"
 #include "vty.h"
 #include "typesafe.h"
-#include "linklist.h"
 #include "table.h"
 #include "pim_rp.h"
 #include "pim_msg.h"
@@ -89,22 +88,29 @@ struct bsm_frag {
 
 DECLARE_DLIST(bsm_frags, struct bsm_frag, item);
 
+PREDECL_SORTLIST_UNIQ(bsm_rpinfos);
+
 /* This is the group node of the bsrp table in scope.
  * this node maintains the list of rp for the group.
  */
 struct bsgrp_node {
 	struct prefix group;		/* Group range */
 	struct bsm_scope *scope;	/* Back ptr to scope */
-	struct list *bsrp_list;		/* list of RPs adv by BSR */
-	struct list *partial_bsrp_list; /* maintained until all RPs received */
+
+	/* RPs advertised by BSR, and temporary list while receiving new set */
+	struct bsm_rpinfos_head bsrp_list[1];
+	struct bsm_rpinfos_head partial_bsrp_list[1];
+
 	int pend_rp_cnt;		/* Total RP - Received RP */
 	uint16_t frag_tag;		/* frag tag to identify the fragment */
 };
 
-/* This is the list node of bsrp_list and partial bsrp list in
- * bsgrp_node. Hold info of each RP received for the group
+/* Items on [partial_]bsrp_list above.
+ * Holds info of each candidate RP received for the bsgrp_node's prefix.
  */
 struct bsm_rpinfo {
+	struct bsm_rpinfos_item item;
+
 	uint32_t hash;                  /* Hash Value as per RFC 7761 4.7.2 */
 	uint32_t elapse_time;           /* upd at expiry of elected RP node */
 	uint16_t rp_prio;               /* RP priority */
@@ -113,6 +119,10 @@ struct bsm_rpinfo {
 	struct bsgrp_node *bsgrp_node;  /* Back ptr to bsgrp_node */
 	struct thread *g2rp_timer;      /* Run only for elected RP node */
 };
+
+extern int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *a,
+			      const struct bsm_rpinfo *b);
+DECLARE_SORTLIST_UNIQ(bsm_rpinfos, struct bsm_rpinfo, item, pim_bsm_rpinfo_cmp);
 
 /*  Structures to extract Bootstrap Message header and Grp to RP Mappings
  *  =====================================================================
@@ -206,6 +216,7 @@ struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
 void pim_bs_timer_stop(struct bsm_scope *scope);
 void pim_bsm_frags_free(struct bsm_scope *scope);
+void pim_bsm_rpinfos_free(struct bsm_rpinfos_head *head);
 void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node);
 void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp);
 #endif
