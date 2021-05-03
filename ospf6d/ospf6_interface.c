@@ -2671,7 +2671,7 @@ void ospf6_interface_init(void)
 }
 
 /* Clear the specified interface structure */
-static void ospf6_interface_clear(struct vty *vty, struct interface *ifp)
+void ospf6_interface_clear(struct interface *ifp)
 {
 	struct ospf6_interface *oi;
 
@@ -2709,7 +2709,7 @@ DEFUN (clear_ipv6_ospf6_interface,
 	if (argc == 4) /* Clear all the ospfv3 interfaces. */
 	{
 		FOR_ALL_INTERFACES (vrf, ifp)
-			ospf6_interface_clear(vty, ifp);
+			ospf6_interface_clear(ifp);
 	} else /* Interface name is specified. */
 	{
 		if ((ifp = if_lookup_by_name(argv[idx_ifname]->arg,
@@ -2719,7 +2719,7 @@ DEFUN (clear_ipv6_ospf6_interface,
 				argv[idx_ifname]->arg);
 			return CMD_WARNING;
 		}
-		ospf6_interface_clear(vty, ifp);
+		ospf6_interface_clear(ifp);
 	}
 
 	return CMD_SUCCESS;

@@ -166,6 +166,7 @@ extern struct ospf6_master *om6;
 
 /* prototypes */
 extern void ospf6_master_init(struct thread_master *master);
+extern void install_element_ospf6_clear_process(void);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);
 extern void ospf6_router_id_update(struct ospf6 *ospf6);

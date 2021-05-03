@@ -62,6 +62,10 @@ FRR_CFG_DEFAULT_BOOL(OSPF6_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = false },
 );
 
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_top_clippy.c"
+#endif
+
 /* global ospf6d variable */
 static struct ospf6_master ospf6_master;
 struct ospf6_master *om6;
@@ -496,7 +500,7 @@ static void ospf6_disable(struct ospf6 *o)
 
 		/* XXX: This also changes persistent settings */
 		/* Unregister redistribution */
-		ospf6_asbr_redistribute_reset(o);
+		ospf6_asbr_redistribute_disable(o);
 
 		ospf6_lsdb_remove_all(o->lsdb);
 		ospf6_route_remove_all(o->route_table);
@@ -633,6 +637,78 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
 	return CMD_SUCCESS;
 }
 
+static void ospf6_db_clear(struct ospf6 *ospf6)
+{
+	struct ospf6_interface *oi;
+	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(ospf6->vrf_id);
+	struct listnode *node, *nnode;
+	struct ospf6_area *oa;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		if (if_is_operative(ifp) && ifp->info != NULL) {
+			oi = (struct ospf6_interface *)ifp->info;
+			ospf6_lsdb_remove_all(oi->lsdb);
+			ospf6_lsdb_remove_all(oi->lsdb_self);
+			ospf6_lsdb_remove_all(oi->lsupdate_list);
+			ospf6_lsdb_remove_all(oi->lsack_list);
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa)) {
+		ospf6_lsdb_remove_all(oa->lsdb);
+		ospf6_lsdb_remove_all(oa->lsdb_self);
+
+		ospf6_spf_table_finish(oa->spf_table);
+		ospf6_route_remove_all(oa->route_table);
+	}
+
+	ospf6_lsdb_remove_all(ospf6->lsdb);
+	ospf6_lsdb_remove_all(ospf6->lsdb_self);
+	ospf6_route_remove_all(ospf6->route_table);
+	ospf6_route_remove_all(ospf6->brouter_table);
+}
+
+static void ospf6_process_reset(struct ospf6 *ospf6)
+{
+	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(ospf6->vrf_id);
+
+	ospf6_flush_self_originated_lsas_now(ospf6);
+	ospf6->inst_shutdown = 0;
+	ospf6_db_clear(ospf6);
+
+	ospf6_router_id_update(ospf6);
+
+	ospf6_asbr_redistribute_reset(ospf6);
+	FOR_ALL_INTERFACES (vrf, ifp)
+		ospf6_interface_clear(ifp);
+}
+
+DEFPY (clear_router_ospf6,
+       clear_router_ospf6_cmd,
+       "clear ipv6 ospf6 process [vrf NAME$name]",
+       CLEAR_STR
+       IP6_STR
+       OSPF6_STR
+       "Reset OSPF Process\n"
+       VRF_CMD_HELP_STR)
+{
+	struct ospf6 *ospf6;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+
+	if (name != NULL)
+		vrf_name = name;
+
+	ospf6 = ospf6_lookup_by_vrf_name(vrf_name);
+	if (ospf6 == NULL)
+		vty_out(vty, "OSPFv3 is not configured\n");
+	else
+		ospf6_process_reset(ospf6);
+
+	return CMD_SUCCESS;
+}
+
 /* change Router_ID commands. */
 DEFUN(ospf6_router_id,
       ospf6_router_id_cmd,
@@ -663,7 +739,7 @@ DEFUN(ospf6_router_id,
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
 		if (oa->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, save config and restart ospf6d\n");
+				"For this router-id change to take effect, run the \"clear ipv6 ospf6 process\" command\n");
 			return CMD_SUCCESS;
 		}
 	}
@@ -689,7 +765,7 @@ DEFUN(no_ospf6_router_id,
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
 		if (oa->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, save config and restart ospf6d\n");
+				"For this router-id change to take effect, run the \"clear ipv6 ospf6 process\" command\n");
 			return CMD_SUCCESS;
 		}
 	}
@@ -1691,6 +1767,11 @@ static struct cmd_node ospf6_node = {
 	.prompt = "%s(config-ospf6)# ",
 	.config_write = config_write_ospf6,
 };
+
+void install_element_ospf6_clear_process(void)
+{
+	install_element(ENABLE_NODE, &clear_router_ospf6_cmd);
+}
 
 /* Install ospf related commands. */
 void ospf6_top_init(void)

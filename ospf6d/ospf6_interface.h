@@ -203,6 +203,7 @@ extern int backup_seen(struct thread *);
 extern int neighbor_change(struct thread *);
 
 extern void ospf6_interface_init(void);
+extern void ospf6_interface_clear(struct interface *ifp);
 
 extern void install_element_ospf6_clear_interface(void);
 

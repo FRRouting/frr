@@ -2303,7 +2303,7 @@ void ospf6_asbr_init(void)
 	install_element(OSPF6_NODE, &no_ospf6_redistribute_cmd);
 }
 
-void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
+void ospf6_asbr_redistribute_disable(struct ospf6 *ospf6)
 {
 	int type;
 	struct ospf6_redist *red;
@@ -2322,6 +2322,35 @@ void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
 		ospf6_asbr_routemap_unset(red);
 		ospf6_redist_del(ospf6, red, type);
 		ospf6_redistribute_default_set(ospf6, DEFAULT_ORIGINATE_NONE);
+	}
+}
+
+void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
+{
+	int type;
+	struct ospf6_redist *red;
+	char buf[RMAP_NAME_MAXLEN];
+
+	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
+		buf[0] = '\0';
+		if (type == ZEBRA_ROUTE_OSPF6)
+			continue;
+		red = ospf6_redist_lookup(ospf6, type, 0);
+		if (!red)
+			continue;
+
+		if (type == DEFAULT_ROUTE) {
+			ospf6_redistribute_default_set(
+				ospf6, ospf6->default_originate);
+			continue;
+		}
+		if (ROUTEMAP_NAME(red))
+			strlcpy(buf, ROUTEMAP_NAME(red), sizeof(buf));
+
+		ospf6_asbr_redistribute_unset(ospf6, red, type);
+		if (buf[0])
+			ospf6_asbr_routemap_set(red, buf);
+		ospf6_asbr_redistribute_set(type, ospf6->vrf_id);
 	}
 }
 
