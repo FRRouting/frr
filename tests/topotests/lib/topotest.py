@@ -1223,25 +1223,28 @@ class Router(Node):
             dmns = rundaemons.split("\n")
             # Exclude empty string at end of list
             for d in dmns[:-1]:
-                daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
-                if daemonpid.isdigit() and pid_exists(int(daemonpid)):
-                    daemonname = os.path.basename(d.rstrip().rsplit(".", 1)[0])
-                    logger.info("{}: stopping {}".format(self.name, daemonname))
-                    try:
-                        os.kill(int(daemonpid), signal.SIGTERM)
-                    except OSError as err:
-                        if err.errno == errno.ESRCH:
-                            logger.error(
-                                "{}: {} left a dead pidfile (pid={})".format(
-                                    self.name, daemonname, daemonpid
+                # Only check if daemonfilepath starts with /
+                # Avoids hang on "-> Connection closed" in above self.cmd()
+                if d[0] == '/':
+                    daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                    if daemonpid.isdigit() and pid_exists(int(daemonpid)):
+                        daemonname = os.path.basename(d.rstrip().rsplit(".", 1)[0])
+                        logger.info("{}: stopping {}".format(self.name, daemonname))
+                        try:
+                            os.kill(int(daemonpid), signal.SIGTERM)
+                        except OSError as err:
+                            if err.errno == errno.ESRCH:
+                                logger.error(
+                                    "{}: {} left a dead pidfile (pid={})".format(
+                                        self.name, daemonname, daemonpid
+                                    )
                                 )
-                            )
-                        else:
-                            logger.info(
-                                "{}: {} could not kill pid {}: {}".format(
-                                    self.name, daemonname, daemonpid, str(err)
+                            else:
+                                logger.info(
+                                    "{}: {} could not kill pid {}: {}".format(
+                                        self.name, daemonname, daemonpid, str(err)
+                                    )
                                 )
-                            )
 
             if not wait:
                 return errors
