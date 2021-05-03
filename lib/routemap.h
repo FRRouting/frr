@@ -194,6 +194,11 @@ struct route_map_index {
 };
 DECLARE_QOBJ_TYPE(route_map_index);
 
+/* route map maximum length. Not strictly the maximum xpath length but cannot be
+ * greater
+ */
+#define RMAP_NAME_MAXLEN XPATH_MAXLEN
+
 /* Route map list structure. */
 struct route_map {
 	/* Name of route map. */

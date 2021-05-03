@@ -77,6 +77,13 @@ OSPF6 router
    of packets to process before returning. The default value of this parameter
    is 20.
 
+.. clicmd:: clear ipv6 ospf6 process [vrf NAME]
+
+   This command clears up the database and routing tables and resets the
+   neighborship by restarting the interface state machine. This will be
+   helpful when there is a change in router-id and if user wants the router-id
+   change to take effect, user can use this cli instead of restarting the
+   ospf6d daemon.
 
 .. _ospf6-area:
 
