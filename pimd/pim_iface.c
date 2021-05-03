@@ -1566,6 +1566,16 @@ int pim_ifp_create(struct interface *ifp)
 		if (pim_ifp)
 			pim_ifp->pim = pim;
 		pim_if_addr_add_all(ifp);
+
+		/*
+		 * Due to ordering issues based upon when
+		 * a command is entered we should ensure that
+		 * the pim reg is created for this vrf if we
+		 * have configuration for it already.
+		 *
+		 * this is a no-op if it's already been done.
+		 */
+		pim_if_create_pimreg(pim);
 	}
 
 	/*

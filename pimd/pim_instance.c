@@ -175,8 +175,17 @@ static int pim_vrf_delete(struct vrf *vrf)
 static int pim_vrf_enable(struct vrf *vrf)
 {
 	struct pim_instance *pim = (struct pim_instance *)vrf->info;
+	struct interface *ifp;
 
 	zlog_debug("%s: for %s", __func__, vrf->name);
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		if (!ifp->info)
+			continue;
+
+		pim_if_create_pimreg(pim);
+		break;
+	}
 
 	pim_mroute_socket_enable(pim);
 
