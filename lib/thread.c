@@ -862,7 +862,10 @@ struct thread *_thread_add_read_write(const struct xref_threadsched *xref,
 			 xref->funcname, xref->xref.file, xref->xref.line,
 			 t_ptr, fd, 0, arg, 0);
 
-	assert(fd >= 0 && fd < m->fd_limit);
+	assert(fd >= 0);
+	if (fd >= m->fd_limit)
+		assert(!"Number of FD's open is greater than FRR currently configured to handle, aborting");
+
 	frr_with_mutex(&m->mtx) {
 		if (t_ptr && *t_ptr)
 			// thread is already scheduled; don't reschedule
