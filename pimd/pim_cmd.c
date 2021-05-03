@@ -6486,6 +6486,69 @@ DEFPY_ATTR(no_ip_pim_msdp_peer,
 	return ret;
 }
 
+DEFPY(msdp_peer_sa_filter, msdp_peer_sa_filter_cmd,
+      "msdp peer A.B.C.D$peer sa-filter ACL_NAME$acl_name <in|out>$dir",
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "SA access-list filter\n"
+      "SA access-list name\n"
+      "Filter incoming SAs\n"
+      "Filter outgoing SAs\n")
+{
+	const struct lyd_node *peer_node;
+	char xpath[XPATH_MAXLEN + 24];
+
+	snprintf(xpath, sizeof(xpath), "%s/msdp-peer[peer-ip='%s']",
+		 VTY_CURR_XPATH, peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	if (strcmp(dir, "in") == 0)
+		nb_cli_enqueue_change(vty, "./sa-filter-in", NB_OP_MODIFY,
+				      acl_name);
+	else
+		nb_cli_enqueue_change(vty, "./sa-filter-out", NB_OP_MODIFY,
+				      acl_name);
+
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
+DEFPY(no_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
+      "no msdp peer A.B.C.D$peer sa-filter ACL_NAME <in|out>$dir",
+      NO_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "SA access-list filter\n"
+      "SA access-list name\n"
+      "Filter incoming SAs\n"
+      "Filter outgoing SAs\n")
+{
+	const struct lyd_node *peer_node;
+	char xpath[XPATH_MAXLEN + 24];
+
+	snprintf(xpath, sizeof(xpath), "%s/msdp-peer[peer-ip='%s']",
+		 VTY_CURR_XPATH, peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	if (strcmp(dir, "in") == 0)
+		nb_cli_enqueue_change(vty, "./sa-filter-in", NB_OP_DESTROY,
+				      NULL);
+	else
+		nb_cli_enqueue_change(vty, "./sa-filter-out", NB_OP_DESTROY,
+				      NULL);
+
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
 DEFPY(pim_msdp_mesh_group_member,
       pim_msdp_mesh_group_member_cmd,
       "msdp mesh-group WORD$gname member A.B.C.D$maddr",
@@ -8259,6 +8322,8 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &no_pim_msdp_peer_cmd);
 	install_element(PIM_NODE, &pim_msdp_timers_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_timers_cmd);
+	install_element(PIM_NODE, &msdp_peer_sa_filter_cmd);
+	install_element(PIM_NODE, &no_ip_msdp_peer_sa_filter_cmd);
 	install_element(PIM_NODE, &pim_msdp_mesh_group_member_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_member_cmd);
 	install_element(PIM_NODE, &pim_msdp_mesh_group_source_cmd);
