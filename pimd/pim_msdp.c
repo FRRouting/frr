@@ -1321,6 +1321,15 @@ bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
 
 		vty_out(vty, "%sip msdp peer %pI4 source %pI4\n", spaces,
 			&mp->peer, &mp->local);
+
+		if (mp->acl_in)
+			vty_out(vty, "%sip msdp peer %pI4 sa-filter %s in\n",
+				spaces, &mp->peer, mp->acl_in);
+
+		if (mp->acl_out)
+			vty_out(vty, "%sip msdp peer %pI4 sa-filter %s out\n",
+				spaces, &mp->peer, mp->acl_out);
+
 		written = true;
 	}
 

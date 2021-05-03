@@ -65,6 +65,10 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify(
 	struct nb_cb_modify_args *args);
+int pim_msdp_peer_sa_filter_in_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_sa_filter_in_destroy(struct nb_cb_destroy_args *args);
+int pim_msdp_peer_sa_filter_out_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_sa_filter_out_destroy(struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_destroy(
