@@ -590,7 +590,7 @@ DECLARE_QOBJ_TYPE(ldpd_conf);
 #define	F_LDPD_DS_CISCO_INTEROP	0x0002
 #define	F_LDPD_ENABLED		0x0004
 #define	F_LDPD_ORDERED_CONTROL  0x0008
-
+#define	F_LDPD_ALLOW_BROKEN_LSP 0x0010
 
 struct ldpd_af_global {
 	struct thread		*disc_ev;

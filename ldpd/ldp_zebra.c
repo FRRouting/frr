@@ -246,12 +246,17 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 		zl.route.instance = kr->route_instance;
 	}
 
-	/*
-	 * For broken LSPs, instruct the forwarding plane to pop the top-level
+	/* If allow-broken-lsps is enabled then if an lsp is received with
+	 * no remote label, instruct the forwarding plane to pop the top-level
 	 * label and forward packets normally. This is a best-effort attempt
 	 * to deliver labeled IP packets to their final destination (instead of
 	 * dropping them).
 	 */
+	if (kr->remote_label == NO_LABEL
+	    && !(ldpd_conf->flags & F_LDPD_ALLOW_BROKEN_LSP)
+	    && cmd == ZEBRA_MPLS_LABELS_ADD)
+		return 0;
+
 	if (kr->remote_label == NO_LABEL)
 		kr->remote_label = MPLS_LABEL_IMPLICIT_NULL;
 
