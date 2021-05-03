@@ -3000,15 +3000,14 @@ static void pim_show_nexthop(struct pim_instance *pim, struct vty *vty)
 /* Display the bsm database details */
 static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 {
-	struct listnode *bsmnode;
 	int count = 0;
 	int fragment = 1;
-	struct bsm_info *bsm;
+	struct bsm_frag *bsfrag;
 	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
-	count = pim->global_scope.bsm_list->count;
+	count = bsm_frags_count(pim->global_scope.bsm_frags);
 
 	if (uj) {
 		json = json_object_new_object();
@@ -3019,7 +3018,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		vty_out(vty, "\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->global_scope.bsm_list, bsmnode, bsm)) {
+	frr_each (bsm_frags, pim->global_scope.bsm_frags, bsfrag) {
 		char grp_str[PREFIX_STRLEN];
 		char rp_str[INET_ADDRSTRLEN];
 		char bsr_str[INET_ADDRSTRLEN];
@@ -3032,8 +3031,8 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		uint32_t len = 0;
 		uint32_t frag_rp_cnt = 0;
 
-		buf = bsm->bsm;
-		len = bsm->size;
+		buf = bsfrag->data;
+		len = bsfrag->size;
 
 		/* skip pim header */
 		buf += PIM_MSG_HEADER_LEN;
@@ -4083,7 +4082,7 @@ static void clear_pim_bsr_db(struct pim_instance *pim)
 	pim->global_scope.current_bsr_first_ts = 0;
 	pim->global_scope.current_bsr_last_ts = 0;
 	pim->global_scope.bsm_frag_tag = 0;
-	list_delete_all_node(pim->global_scope.bsm_list);
+	pim_bsm_frags_free(&pim->global_scope);
 
 	pim_bs_timer_stop(&pim->global_scope);
 
