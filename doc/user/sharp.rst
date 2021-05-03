@@ -83,6 +83,11 @@ keyword. At present, no sharp commands will be preserved in the config.
    Allow end user to dump associated data with the nexthop tracking that
    may have been turned on.
 
+.. clicmd:: sharp watch [vrf NAME] redistribute ROUTETYPE
+
+   Allow end user to monitor redistributed routes of ROUTETYPE
+   origin.
+
 .. clicmd:: sharp lsp [update] (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
 
    Install an LSP using the specified in-label, with nexthops as
