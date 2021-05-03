@@ -1074,6 +1074,9 @@ void if_up(struct interface *ifp)
 
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
 		zebra_evpn_mh_uplink_oper_update(zif);
+
+	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
+			 &zif->speed_update);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
