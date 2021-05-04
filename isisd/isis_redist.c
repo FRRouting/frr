@@ -56,7 +56,7 @@ static int redist_protocol(int family)
 	return 0;
 }
 
-static afi_t afi_for_redist_protocol(int protocol)
+afi_t afi_for_redist_protocol(int protocol)
 {
 	if (protocol == 0)
 		return AFI_IP;
@@ -350,6 +350,9 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 	int level;
 	int protocol;
 
+	if (isis->vrf_id == VRF_UNKNOWN)
+		return;
+
 	char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
 
 	memset(do_subscribe, 0, sizeof(do_subscribe));
@@ -378,9 +381,11 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 			afi_t afi = afi_for_redist_protocol(protocol);
 
 			if (do_subscribe[protocol][type])
-				isis_zebra_redistribute_set(afi, type);
+				isis_zebra_redistribute_set(afi, type,
+							    isis->vrf_id);
 			else
-				isis_zebra_redistribute_unset(afi, type);
+				isis_zebra_redistribute_unset(afi, type,
+							      isis->vrf_id);
 		}
 }
 
