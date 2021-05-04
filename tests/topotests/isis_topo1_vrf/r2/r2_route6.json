@@ -18,7 +18,7 @@
   "2001:db8:2:2::/64": [
     {
       "distance": 115, 
-      "metric": 20, 
+      "metric": 10, 
       "nexthops": [
         {
           "active": true, 

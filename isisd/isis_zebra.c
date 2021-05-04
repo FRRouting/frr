@@ -523,24 +523,24 @@ int isis_distribute_list_update(int routetype)
 	return 0;
 }
 
-void isis_zebra_redistribute_set(afi_t afi, int type)
+void isis_zebra_redistribute_set(afi_t afi, int type, vrf_id_t vrf_id)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					     zclient, afi, VRF_DEFAULT);
+					     zclient, afi, vrf_id);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
-				     0, VRF_DEFAULT);
+				     0, vrf_id);
 }
 
-void isis_zebra_redistribute_unset(afi_t afi, int type)
+void isis_zebra_redistribute_unset(afi_t afi, int type, vrf_id_t vrf_id)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					     zclient, afi, VRF_DEFAULT);
+					     zclient, afi, vrf_id);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
-				     type, 0, VRF_DEFAULT);
+				     type, 0, vrf_id);
 }
 
 /**
