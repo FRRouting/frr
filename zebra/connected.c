@@ -208,6 +208,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
 	uint32_t flags = 0;
+	uint32_t count = 0;
+	struct listnode *cnode;
+	struct connected *c;
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
@@ -262,6 +265,27 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	 */
 	if (zrouter.asic_offloaded)
 		flags |= ZEBRA_FLAG_OFFLOADED;
+
+	/*
+	 * It's possible to add the same network and mask
+	 * to an interface over and over.  This would
+	 * result in an equivalent number of connected
+	 * routes.  Just add one connected route in
+	 * for all the addresses on an interface that
+	 * resolve to the same network and mask
+	 */
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		struct prefix cp;
+
+		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
+		apply_mask(&cp);
+
+		if (prefix_same(&cp, &p))
+			count++;
+
+		if (count >= 2)
+			return;
+	}
 
 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
 		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
@@ -358,6 +382,9 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		.vrf_id = ifp->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
+	uint32_t count = 0;
+	struct listnode *cnode;
+	struct connected *c;
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
@@ -394,6 +421,26 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	default:
 		zlog_warn("Unknown AFI: %s", afi2str(afi));
 		break;
+	}
+
+	/*
+	 * It's possible to have X number of addresses
+	 * on a interface that all resolve to the same
+	 * network and mask.  Find them and just
+	 * allow the deletion when are removing the last
+	 * one.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		struct prefix cp;
+
+		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
+		apply_mask(&cp);
+
+		if (prefix_same(&p, &cp))
+			count++;
+
+		if (count >= 2)
+			return;
 	}
 
 	/*
