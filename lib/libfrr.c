@@ -765,15 +765,13 @@ struct thread_master *frr_init(void)
 	log_ref_vty_init();
 	lib_error_init();
 
-	yang_init(true);
-
-	debug_init_cli();
-
 	nb_init(master, di->yang_modules, di->n_yang_modules, true);
 	if (nb_db_init() != NB_OK)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
+
+	debug_init_cli();
 
 	return master;
 }

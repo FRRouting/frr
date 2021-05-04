@@ -783,6 +783,8 @@ static void test_execute(struct test *test, const char *fmt, ...)
 			cmd, ret);
 	}
 
+	nb_cli_pending_commit_check(test->vty);
+
 	/* Free memory. */
 	cmd_free_strvec(vline);
 	XFREE(MTYPE_TMP, cmd);
@@ -1397,7 +1399,6 @@ static void bgp_startup(void)
 	zprivs_init(&bgpd_privs);
 
 	master = thread_master_create(NULL);
-	yang_init(true);
 	nb_init(master, bgpd_yang_modules, array_size(bgpd_yang_modules), false);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	bgp_option_set(BGP_OPT_NO_LISTEN);

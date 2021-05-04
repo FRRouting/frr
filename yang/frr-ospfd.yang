@@ -682,8 +682,8 @@ module frr-ospfd {
       container global-block {
         description
           "Segment Routing Global Block label range.";
-        must "./upper-bound > ./lower-bound";
         leaf lower-bound {
+          must "../upper-bound > .";
           type uint32 {
             range "0..1048575";
           }
@@ -691,6 +691,7 @@ module frr-ospfd {
         }
 
         leaf upper-bound {
+          must ". > ../lower-bound";
           type uint32 {
             range "0..1048575";
           }
@@ -701,14 +702,15 @@ module frr-ospfd {
       container srlb {
         description
           "Local blocks to be advertised.";
-        must "./upper-bound > ./lower-bound";
         leaf lower-bound {
+          must "../upper-bound > .";
           type uint32;
           default "15000";
           description
             "Lower value in the label range.";
         }
         leaf upper-bound {
+          must ". > ../lower-bound";
           type uint32;
           default "15999";
           description

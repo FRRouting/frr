@@ -239,8 +239,8 @@ int bgp_global_local_as_modify(struct nb_cb_modify_args *args)
 		 * If the instance already exists - return the validation
 		 * error.
 		 */
-		bgp = nb_running_get_entry_non_rec(args->dnode->parent->parent,
-						   NULL, false);
+		bgp = nb_running_get_entry_non_rec(
+			lyd_parent(lyd_parent(args->dnode)), NULL, false);
 		if (bgp) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Changing AS number is not allowed");
@@ -580,16 +580,11 @@ int bgp_global_route_reflector_route_reflector_cluster_id_modify(
 
 	struct bgp *bgp;
 	struct in_addr cluster_id;
-	const struct lyd_node_leaf_list *dleaf;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 
-	dleaf = (const struct lyd_node_leaf_list *)args->dnode;
-	if (dleaf->value_type == LY_TYPE_STRING)
-		yang_dnode_get_ipv4(&cluster_id, args->dnode, NULL);
-	else
-		(void)inet_aton(dleaf->value_str, &cluster_id);
-
+	/* cluster-id is either dotted-quad or a uint32 */
+	(void)inet_aton(lyd_get_value(args->dnode), &cluster_id);
 	bgp_cluster_id_set(bgp, &cluster_id);
 
 	if (bgp_clear_star_soft_out(bgp->name, args->errmsg, args->errmsg_len))
@@ -1495,8 +1490,8 @@ int bgp_global_instance_type_view_modify(struct nb_cb_modify_args *args)
 		 * If the instance already exists - return the validation
 		 * error.
 		 */
-		bgp = nb_running_get_entry_non_rec(args->dnode->parent->parent,
-						   NULL, false);
+		bgp = nb_running_get_entry_non_rec(
+			lyd_parent(lyd_parent(args->dnode)), NULL, false);
 		if (bgp) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Changing instance type is not allowed");
@@ -3560,21 +3555,6 @@ int bgp_neighbors_neighbor_local_as_no_prepend_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/no-replace-as
@@ -5576,21 +5556,6 @@ int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/no-replace-as
@@ -7480,21 +7445,6 @@ int bgp_peer_groups_peer_group_local_as_local_as_destroy(
  */
 int bgp_peer_groups_peer_group_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:

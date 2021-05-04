@@ -537,7 +537,7 @@ struct nb_dependency_callbacks {
  */
 struct nb_node {
 	/* Back pointer to the libyang schema node. */
-	const struct lys_node *snode;
+	const struct lysc_node *snode;
 
 	/* Data path of this YANG node. */
 	char xpath[XPATH_MAXLEN];
@@ -685,7 +685,7 @@ struct nb_transaction {
 };
 
 /* Callback function used by nb_oper_data_iterate(). */
-typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
+typedef int (*nb_oper_data_cb)(const struct lysc_node *snode,
 			       struct yang_translator *translator,
 			       struct yang_data *data, void *arg);
 
@@ -1114,7 +1114,7 @@ extern int nb_oper_data_iterate(const char *xpath,
  *    true if the operation is valid, false otherwise.
  */
 extern bool nb_operation_is_valid(enum nb_operation operation,
-				  const struct lys_node *snode);
+				  const struct lysc_node *snode);
 
 /*
  * Send a YANG notification. This is a no-op unless the 'nb_notification_send'
@@ -1283,15 +1283,6 @@ extern const char *nb_client_name(enum nb_client client);
  * module, making mandatory the implementation of additional callbacks.
  */
 void nb_validate_callbacks(void);
-
-/*
- * Load a YANG module with its corresponding northbound callbacks.
- *
- * module_info
- *    Pointer to structure containing the module name and its northbound
- *    callbacks.
- */
-void nb_load_module(const struct frr_yang_module_info *module_info);
 
 /*
  * Initialize the northbound layer. Should be called only once during the

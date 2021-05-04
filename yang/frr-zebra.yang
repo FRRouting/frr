@@ -1953,7 +1953,7 @@ module frr-zebra {
         }
 
         leaf ip4-peer {
-          when "derived-from-or-self(../address-family, 'ipv4')";
+          when "derived-from-or-self(../address-family, 'frr-rt:ipv4')";
           type inet:ipv4-prefix;
           description
             "Peer prefix, for peer-to-peer interfaces.";

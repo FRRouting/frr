@@ -341,14 +341,14 @@ module frr-pim {
 
     leaf bsm {
       type boolean;
-      default "false";
+      default "true";
       description
         "Enables BSM support on the interface.";
     }
 
     leaf unicast-bsm {
       type boolean;
-      default "false";
+      default "true";
       description
         "Accept/Send unicast BSM on the interface.";
     }

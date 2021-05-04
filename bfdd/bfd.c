@@ -2195,13 +2195,13 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']/vrf",
 			 bs->key.vrfname);
 
-		bfd_dnode = yang_dnode_get(running_config->dnode, xpath,
-					   bs->key.vrfname);
+		bfd_dnode = yang_dnode_getf(running_config->dnode, xpath,
+					    bs->key.vrfname);
 		if (bfd_dnode) {
-			yang_dnode_get_path(bfd_dnode->parent, oldpath,
+			yang_dnode_get_path(lyd_parent(bfd_dnode), oldpath,
 					    sizeof(oldpath));
 			yang_dnode_change_leaf(bfd_dnode, vrf->name);
-			yang_dnode_get_path(bfd_dnode->parent, newpath,
+			yang_dnode_get_path(lyd_parent(bfd_dnode), newpath,
 					    sizeof(newpath));
 			nb_running_move_tree(oldpath, newpath);
 			running_config->version++;

@@ -903,9 +903,9 @@ DEFPY_YANG (ip_rip_authentication_string,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-			      VTY_CURR_XPATH,
-			      "/frr-ripd:rip/authentication-key-chain")) {
+	if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+			       VTY_CURR_XPATH,
+			       "/frr-ripd:rip/authentication-key-chain")) {
 		vty_out(vty, "%% key-chain configuration exists\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -952,9 +952,9 @@ DEFPY_YANG (ip_rip_authentication_key_chain,
        "Authentication key-chain\n"
        "name of key-chain\n")
 {
-	if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-			      VTY_CURR_XPATH,
-			      "/frr-ripd:rip/authentication-password")) {
+	if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+			       VTY_CURR_XPATH,
+			       "/frr-ripd:rip/authentication-password")) {
 		vty_out(vty, "%% authentication string configuration exists\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
