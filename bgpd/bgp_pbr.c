@@ -2684,6 +2684,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	struct bgp_pbr_or_filter bpof;
 	struct bgp_pbr_val_mask bpvm;
 
+	memset(&range, 0, sizeof(range));
 	memset(&nh, 0, sizeof(struct nexthop));
 	memset(&bpf, 0, sizeof(struct bgp_pbr_filter));
 	memset(&bpof, 0, sizeof(struct bgp_pbr_or_filter));
