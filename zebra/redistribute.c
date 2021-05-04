@@ -91,8 +91,7 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 			continue;
 
 		RNODE_FOREACH_RE (rn, newre) {
-			if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED)
-			    && newre->distance != DISTANCE_INFINITY)
+			if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED))
 				zsend_redistribute_route(
 					ZEBRA_REDISTRIBUTE_ROUTE_ADD, client,
 					&rn->p, NULL, newre);
@@ -137,8 +136,6 @@ static void zebra_redistribute(struct zserv *client, int type,
 			if ((type != ZEBRA_ROUTE_ALL
 			     && (newre->type != type
 				 || newre->instance != instance)))
-				continue;
-			if (newre->distance == DISTANCE_INFINITY)
 				continue;
 			if (!zebra_check_addr(dst_p))
 				continue;
@@ -263,13 +260,6 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 			   old_re ? zebra_route_string(old_re->type) : "None",
 			   new_re,
 			   new_re ? zebra_route_string(new_re->type) : "None");
-	}
-
-	/* Add DISTANCE_INFINITY check. */
-	if (old_re && (old_re->distance == DISTANCE_INFINITY)) {
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("        Skipping due to Infinite Distance");
-		return;
 	}
 
 	afi = family2afi(p->family);
