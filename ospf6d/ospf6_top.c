@@ -850,6 +850,7 @@ DEFUN (ospf6_interface_area,
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 	vrf_id_t vrf_id = VRF_DEFAULT;
+	int ipv6_count = 0;
 
 	if (ospf6->vrf_id != VRF_UNKNOWN)
 		vrf_id = ospf6->vrf_id;
@@ -863,6 +864,23 @@ DEFUN (ospf6_interface_area,
 		vty_out(vty, "%s already attached to Area %s\n",
 			oi->interface->name, oi->area->name);
 		return CMD_SUCCESS;
+	}
+
+	/* if more than OSPF6_MAX_IF_ADDRS are configured on this interface
+	 * then don't allow ospfv3 to be configured
+	 */
+	ipv6_count = connected_count_by_family(ifp, AF_INET6);
+	if (oi->ifmtu == OSPF6_DEFAULT_MTU && ipv6_count > OSPF6_MAX_IF_ADDRS) {
+		vty_out(vty,
+			"can not configure OSPFv3 on if %s, must have less than %d interface addresses but has %d addresses\n",
+			ifp->name, OSPF6_MAX_IF_ADDRS, ipv6_count);
+		return CMD_WARNING_CONFIG_FAILED;
+	} else if (oi->ifmtu >= OSPF6_JUMBO_MTU
+		   && ipv6_count > OSPF6_MAX_IF_ADDRS_JUMBO) {
+		vty_out(vty,
+			"can not configure OSPFv3 on if %s, must have less than %d interface addresses but has %d addresses\n",
+			ifp->name, OSPF6_MAX_IF_ADDRS_JUMBO, ipv6_count);
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* parse Area-ID */
