@@ -1,0 +1,14 @@
+{
+  "pimreg12":{
+    "name":"pimreg12",
+    "state":"up",
+    "address":"0.0.0.0",
+    "flagAllMulticast":true,
+    "lanDelayEnabled":true,
+    "drAddress":"*",
+    "drPriority":1,
+    "drUptime":"--:--:--",
+    "drElections":0,
+    "drChanges":0
+  }
+}
