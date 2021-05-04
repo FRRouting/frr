@@ -474,8 +474,8 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
 }
 
-static void ospf6_interface_state_change(uint8_t next_state,
-					 struct ospf6_interface *oi)
+static int ospf6_interface_state_change(uint8_t next_state,
+					struct ospf6_interface *oi)
 {
 	uint8_t prev_state;
 	struct ospf6 *ospf6;
@@ -484,7 +484,7 @@ static void ospf6_interface_state_change(uint8_t next_state,
 	oi->state = next_state;
 
 	if (prev_state == next_state)
-		return;
+		return -1;
 
 	/* log */
 	if (IS_OSPF6_DEBUG_INTERFACE) {
@@ -525,6 +525,8 @@ static void ospf6_interface_state_change(uint8_t next_state,
 	}
 
 	hook_call(ospf6_interface_change, oi, next_state, prev_state);
+
+	return 0;
 }
 
 
@@ -1902,10 +1904,13 @@ DEFUN (ipv6_ospf6_priority,
 			       ? OSPF6_INTERFACE_PRIORITY
 			       : strtoul(argv[idx_number]->arg, NULL, 10);
 
-	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER
-			 || oi->state == OSPF6_INTERFACE_BDR
-			 || oi->state == OSPF6_INTERFACE_DR))
-		ospf6_interface_state_change(dr_election(oi), oi);
+	if (oi->area
+	    && (oi->state == OSPF6_INTERFACE_DROTHER
+		|| oi->state == OSPF6_INTERFACE_BDR
+		|| oi->state == OSPF6_INTERFACE_DR)) {
+		if (ospf6_interface_state_change(dr_election(oi), oi) == -1)
+			OSPF6_LINK_LSA_SCHEDULE(oi);
+	}
 
 	return CMD_SUCCESS;
 }
