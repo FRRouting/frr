@@ -1117,9 +1117,6 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	}
 
 	if (str) {
-		if (!lcommunity_list_valid(str, style))
-			return COMMUNITY_LIST_ERR_MALFORMED_VAL;
-
 		if (style == LARGE_COMMUNITY_LIST_STANDARD)
 			lcom = lcommunity_str2com(str);
 		else
