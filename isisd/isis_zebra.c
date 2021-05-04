@@ -724,6 +724,18 @@ void isis_zebra_vrf_register(struct isis *isis)
 	}
 }
 
+void isis_zebra_vrf_deregister(struct isis *isis)
+{
+	if (!zclient || zclient->sock < 0 || !isis)
+		return;
+
+	if (isis->vrf_id != VRF_UNKNOWN) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("%s: Deregister VRF %s id %u", __func__,
+				   isis->name, isis->vrf_id);
+		zclient_send_dereg_requests(zclient, isis->vrf_id);
+	}
+}
 
 static void isis_zebra_connected(struct zclient *zclient)
 {
