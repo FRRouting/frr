@@ -74,6 +74,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/netconf_netlink.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -1001,6 +1002,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* Hardware type and address. */
 	ifp->ll_type = netlink_to_zebra_link_type(ifi->ifi_type);
+
 	netlink_interface_update_hw_addr(tb, ifp);
 
 	if_add_update(ifp);
@@ -2078,6 +2080,10 @@ void interface_list(struct zebra_ns *zns)
 	netlink_nexthop_read(zns);
 
 	interface_addr_lookup_netlink(zns);
+
+	/* Read some other properties via the 'netconf' apis */
+	netconf_lookup_netlink(zns);
+
 }
 
 #endif /* GNU_LINUX */
