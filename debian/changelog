@@ -1,8 +1,8 @@
-frr (7.6~dev-1) UNRELEASED; urgency=medium
+frr (7.7~dev-1) UNRELEASED; urgency=medium
 
-  * Update tools/build-debian-package.sh to use git-buildpackage
+  * New upstream release...
 
- -- Ondřej Surý <ondrej@debian.org>  Sun, 27 Sep 2020 11:33:44 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 04 May 2021 22:52:47 +0200
 
 frr (7.4-1) unstable; urgency=medium
 
