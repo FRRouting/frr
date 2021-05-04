@@ -2,7 +2,7 @@
   "10.0.11.0/24": [
     {
       "distance": 115, 
-      "metric": 20, 
+      "metric": 10, 
       "nexthops": [
         {
           "active": true, 

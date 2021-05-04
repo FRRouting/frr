@@ -2,7 +2,7 @@
   "2001:db8:1:1::/64": [
     {
       "distance": 115, 
-      "metric": 30, 
+      "metric": 20, 
       "nexthops": [
         {
           "active": true, 
@@ -36,7 +36,7 @@
   "2001:db8:2:1::/64": [
     {
       "distance": 115, 
-      "metric": 20, 
+      "metric": 10, 
       "nexthops": [
         {
           "active": true, 

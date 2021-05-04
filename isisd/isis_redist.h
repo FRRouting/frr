@@ -47,6 +47,8 @@ struct prefix;
 struct prefix_ipv6;
 struct vty;
 
+afi_t afi_for_redist_protocol(int protocol);
+
 struct route_table *get_ext_reach(struct isis_area *area, int family,
 				  int level);
 void isis_redist_add(struct isis *isis, int type, struct prefix *p,
