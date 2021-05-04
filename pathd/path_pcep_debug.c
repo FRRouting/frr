@@ -980,7 +980,7 @@ const char *format_yang_dnode(struct lyd_node *dnode)
 	char *buff;
 	int len;
 
-	lyd_print_mem(&buff, dnode, LYD_JSON, LYP_FORMAT);
+	lyd_print_mem(&buff, dnode, LYD_JSON, LYD_PRINT_WD_ALL);
 	len = strlen(buff);
 	memcpy(_debug_buff, buff, len);
 	free(buff);

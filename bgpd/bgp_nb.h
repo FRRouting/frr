@@ -233,8 +233,6 @@ int bgp_neighbors_neighbor_local_as_local_as_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_neighbors_neighbor_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_neighbor_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_neighbor_local_as_no_replace_as_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_neighbor_bfd_options_enable_modify(
@@ -367,8 +365,6 @@ int bgp_neighbors_unnumbered_neighbor_local_as_local_as_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_local_as_no_replace_as_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_unnumbered_neighbor_bfd_options_enable_modify(
@@ -501,8 +497,6 @@ int bgp_peer_groups_peer_group_local_as_local_as_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args);
-int bgp_peer_groups_peer_group_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_local_as_no_replace_as_modify(
 	struct nb_cb_modify_args *args);
 int bgp_peer_groups_peer_group_bfd_options_enable_modify(

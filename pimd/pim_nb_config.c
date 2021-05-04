@@ -524,11 +524,10 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	const struct lyd_node *igmp_enable_dnode;
 
 	yang_dnode_get_path(dnode, if_xpath, sizeof(if_xpath));
-	pim_enable_dnode = yang_dnode_get(dnode, "%s/frr-pim:pim/pim-enable",
-					  if_xpath);
-	igmp_enable_dnode = yang_dnode_get(dnode,
-					   "%s/frr-igmp:igmp/igmp-enable",
-					   if_xpath);
+	pim_enable_dnode =
+		yang_dnode_getf(dnode, "%s/frr-pim:pim/pim-enable", if_xpath);
+	igmp_enable_dnode = yang_dnode_getf(
+		dnode, "%s/frr-igmp:igmp/igmp-enable", if_xpath);
 
 	if (((pim_enable_dnode) &&
 	     (yang_dnode_get_bool(pim_enable_dnode, "."))) ||

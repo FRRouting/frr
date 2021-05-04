@@ -2509,10 +2509,10 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 	if (args->event == NB_EV_VALIDATE) {
 		/* libyang doesn't like relative paths across module boundaries
 		 */
-		ifname = yang_dnode_get_string(args->dnode->parent->parent,
-					       "./name");
-		vrfname = yang_dnode_get_string(args->dnode->parent->parent,
-						"./vrf");
+		ifname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(args->dnode)), "./name");
+		vrfname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(args->dnode)), "./vrf");
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
 		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
@@ -2549,10 +2549,10 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 		/* libyang doesn't like relative paths across module boundaries
 		 */
-		ifname = yang_dnode_get_string(args->dnode->parent->parent,
-					       "./name");
-		vrfname = yang_dnode_get_string(args->dnode->parent->parent,
-						"./vrf");
+		ifname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(args->dnode)), "./name");
+		vrfname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(args->dnode)), "./vrf");
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
 		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
@@ -3184,8 +3184,9 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
-					   NULL, false);
+		ifp = nb_running_get_entry(
+			lyd_parent(lyd_parent(lyd_parent(args->dnode))), NULL,
+			false);
 		if (ifp == NULL)
 			return NB_ERR_VALIDATION;
 		if (if_is_loopback(ifp)) {
@@ -3239,8 +3240,10 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
-					   NULL, false);
+
+		ifp = nb_running_get_entry(
+			lyd_parent(lyd_parent(lyd_parent(args->dnode))), NULL,
+			false);
 		if (ifp == NULL)
 			return NB_ERR_VALIDATION;
 		if (if_is_loopback(ifp)) {
@@ -3283,8 +3286,9 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode->parent->parent->parent,
-					   NULL, false);
+		ifp = nb_running_get_entry(
+			lyd_parent(lyd_parent(lyd_parent(args->dnode))), NULL,
+			false);
 		if (ifp == NULL)
 			return NB_ERR_VALIDATION;
 		if (if_is_loopback(ifp)) {

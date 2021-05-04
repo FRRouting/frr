@@ -1109,7 +1109,7 @@ class NorthboundImpl
 		}
 	}
 
-	static int get_oper_data_cb(const struct lys_node *snode,
+	static int get_oper_data_cb(const struct lysc_node *snode,
 				    struct yang_translator *translator,
 				    struct yang_data *data, void *arg)
 	{

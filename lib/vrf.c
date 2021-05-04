@@ -1214,7 +1214,8 @@ const struct frr_yang_module_info frr_vrf_info = {
 				.get_next = lib_vrf_get_next,
 				.get_keys = lib_vrf_get_keys,
 				.lookup_entry = lib_vrf_lookup_entry,
-			}
+			},
+			.priority = NB_DFLT_PRIORITY - 2,
 		},
 		{
 			.xpath = "/frr-vrf:lib/vrf/state/id",
