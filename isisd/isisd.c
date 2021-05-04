@@ -614,13 +614,8 @@ static int isis_vrf_enable(struct vrf *vrf)
 				"%s: isis linked to vrf %s vrf_id %u (old id %u)",
 				__func__, vrf->name, isis->vrf_id, old_vrf_id);
 		if (old_vrf_id != isis->vrf_id) {
-			frr_with_privs (&isisd_privs) {
-				/* stop zebra redist to us for old vrf */
-				zclient_send_dereg_requests(zclient,
-							    old_vrf_id);
-				/* start zebra redist to us for new vrf */
-				isis_zebra_vrf_register(isis);
-			}
+			/* start zebra redist to us for new vrf */
+			isis_zebra_vrf_register(isis);
 		}
 	}
 
@@ -641,6 +636,8 @@ static int isis_vrf_disable(struct vrf *vrf)
 	isis = isis_lookup_by_vrfname(vrf->name);
 	if (isis) {
 		old_vrf_id = isis->vrf_id;
+
+		isis_zebra_vrf_deregister(isis);
 
 		/* We have instance configured, unlink
 		 * from VRF and make it "down".
