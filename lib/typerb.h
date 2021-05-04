@@ -117,6 +117,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	typed_rb_remove(&h->rr, re);                                           \
 	return container_of(re, type, field.re);                               \
 }                                                                              \
+TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	const struct typed_rb_entry *re;                                       \

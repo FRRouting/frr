@@ -3000,15 +3000,14 @@ static void pim_show_nexthop(struct pim_instance *pim, struct vty *vty)
 /* Display the bsm database details */
 static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 {
-	struct listnode *bsmnode;
 	int count = 0;
 	int fragment = 1;
-	struct bsm_info *bsm;
+	struct bsm_frag *bsfrag;
 	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
-	count = pim->global_scope.bsm_list->count;
+	count = bsm_frags_count(pim->global_scope.bsm_frags);
 
 	if (uj) {
 		json = json_object_new_object();
@@ -3019,7 +3018,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		vty_out(vty, "\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->global_scope.bsm_list, bsmnode, bsm)) {
+	frr_each (bsm_frags, pim->global_scope.bsm_frags, bsfrag) {
 		char grp_str[PREFIX_STRLEN];
 		char rp_str[INET_ADDRSTRLEN];
 		char bsr_str[INET_ADDRSTRLEN];
@@ -3032,8 +3031,8 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		uint32_t len = 0;
 		uint32_t frag_rp_cnt = 0;
 
-		buf = bsm->bsm;
-		len = bsm->size;
+		buf = bsfrag->data;
+		len = bsfrag->size;
 
 		/* skip pim header */
 		buf += PIM_MSG_HEADER_LEN;
@@ -3160,7 +3159,6 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 					    struct vty *vty, bool uj)
 {
 	struct bsgrp_node *bsgrp;
-	struct listnode *rpnode;
 	struct bsm_rpinfo *bsm_rp;
 	struct route_node *rn;
 	char bsr_str[INET_ADDRSTRLEN];
@@ -3209,42 +3207,33 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 			vty_out(vty, "(ACTIVE)\n");
 		}
 
-		if (bsgrp->bsrp_list) {
-			for (ALL_LIST_ELEMENTS_RO(bsgrp->bsrp_list, rpnode,
-						  bsm_rp)) {
-				char rp_str[INET_ADDRSTRLEN];
+		frr_each (bsm_rpinfos, bsgrp->bsrp_list, bsm_rp) {
+			char rp_str[INET_ADDRSTRLEN];
 
-				pim_inet4_dump("<Rp Address?>",
-					       bsm_rp->rp_address, rp_str,
-					       sizeof(rp_str));
+			pim_inet4_dump("<Rp Address?>", bsm_rp->rp_address,
+				       rp_str, sizeof(rp_str));
 
-				if (uj) {
-					json_row = json_object_new_object();
-					json_object_string_add(
-						json_row, "Rp Address", rp_str);
-					json_object_int_add(
-						json_row, "Rp HoldTime",
-						bsm_rp->rp_holdtime);
-					json_object_int_add(json_row,
-							    "Rp Priority",
-							    bsm_rp->rp_prio);
-					json_object_int_add(json_row,
-							    "Hash Val",
-							    bsm_rp->hash);
-					json_object_object_add(
-						json_group, rp_str, json_row);
+			if (uj) {
+				json_row = json_object_new_object();
+				json_object_string_add(json_row, "Rp Address",
+						       rp_str);
+				json_object_int_add(json_row, "Rp HoldTime",
+						    bsm_rp->rp_holdtime);
+				json_object_int_add(json_row, "Rp Priority",
+						    bsm_rp->rp_prio);
+				json_object_int_add(json_row, "Hash Val",
+						    bsm_rp->hash);
+				json_object_object_add(json_group, rp_str,
+						       json_row);
 
-				} else {
-					vty_out(vty,
-						"%-15s %-15u %-15u %-15u\n",
-						rp_str, bsm_rp->rp_prio,
-						bsm_rp->rp_holdtime,
-						bsm_rp->hash);
-				}
+			} else {
+				vty_out(vty, "%-15s %-15u %-15u %-15u\n",
+					rp_str, bsm_rp->rp_prio,
+					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
-			if (!bsgrp->bsrp_list->count && !uj)
-				vty_out(vty, "Active List is empty.\n");
 		}
+		if (!bsm_rpinfos_count(bsgrp->bsrp_list) && !uj)
+			vty_out(vty, "Active List is empty.\n");
 
 		if (uj) {
 			json_object_int_add(json_group, "Pending RP count",
@@ -3259,40 +3248,32 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 					"Hash");
 		}
 
-		if (bsgrp->partial_bsrp_list) {
-			for (ALL_LIST_ELEMENTS_RO(bsgrp->partial_bsrp_list,
-						  rpnode, bsm_rp)) {
-				char rp_str[INET_ADDRSTRLEN];
+		frr_each (bsm_rpinfos, bsgrp->partial_bsrp_list, bsm_rp) {
+			char rp_str[INET_ADDRSTRLEN];
 
-				pim_inet4_dump("<Rp Addr?>", bsm_rp->rp_address,
-					       rp_str, sizeof(rp_str));
+			pim_inet4_dump("<Rp Addr?>", bsm_rp->rp_address, rp_str,
+				       sizeof(rp_str));
 
-				if (uj) {
-					json_row = json_object_new_object();
-					json_object_string_add(
-						json_row, "Rp Address", rp_str);
-					json_object_int_add(
-						json_row, "Rp HoldTime",
-						bsm_rp->rp_holdtime);
-					json_object_int_add(json_row,
-							    "Rp Priority",
-							    bsm_rp->rp_prio);
-					json_object_int_add(json_row,
-							    "Hash Val",
-							    bsm_rp->hash);
-					json_object_object_add(
-						json_group, rp_str, json_row);
-				} else {
-					vty_out(vty,
-						"%-15s %-15u %-15u %-15u\n",
-						rp_str, bsm_rp->rp_prio,
-						bsm_rp->rp_holdtime,
-						bsm_rp->hash);
-				}
+			if (uj) {
+				json_row = json_object_new_object();
+				json_object_string_add(json_row, "Rp Address",
+						       rp_str);
+				json_object_int_add(json_row, "Rp HoldTime",
+						    bsm_rp->rp_holdtime);
+				json_object_int_add(json_row, "Rp Priority",
+						    bsm_rp->rp_prio);
+				json_object_int_add(json_row, "Hash Val",
+						    bsm_rp->hash);
+				json_object_object_add(json_group, rp_str,
+						       json_row);
+			} else {
+				vty_out(vty, "%-15s %-15u %-15u %-15u\n",
+					rp_str, bsm_rp->rp_prio,
+					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
-			if (!bsgrp->partial_bsrp_list->count && !uj)
-				vty_out(vty, "Partial List is empty\n");
 		}
+		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
+			vty_out(vty, "Partial List is empty\n");
 
 		if (!uj)
 			vty_out(vty, "\n");
@@ -4083,7 +4064,7 @@ static void clear_pim_bsr_db(struct pim_instance *pim)
 	pim->global_scope.current_bsr_first_ts = 0;
 	pim->global_scope.current_bsr_last_ts = 0;
 	pim->global_scope.bsm_frag_tag = 0;
-	list_delete_all_node(pim->global_scope.bsm_list);
+	pim_bsm_frags_free(&pim->global_scope);
 
 	pim_bs_timer_stop(&pim->global_scope);
 

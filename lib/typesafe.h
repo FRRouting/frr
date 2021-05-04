@@ -78,6 +78,19 @@ macro_inline type *prefix ## _find_gteq(struct prefix##_head *h,               \
 }                                                                              \
 /* ... */
 
+/* SWAP_ALL_SIMPLE = for containers where the items don't point back to the
+ * head *AND* the head doesn'T points to itself (= everything except LIST,
+ * DLIST and SKIPLIST), just switch out the entire head
+ */
+#define TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                       \
+macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
+				      struct prefix##_head *b)                 \
+{                                                                              \
+	struct prefix##_head tmp = *a;                                         \
+	*a = *b;                                                               \
+	*b = tmp;                                                              \
+}                                                                              \
+/* ... */
 
 /* single-linked list, unsorted/arbitrary.
  * can be used as queue with add_tail / pop
@@ -169,6 +182,17 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 		h->sh.last_next = &h->sh.first;                                \
 	return container_of(sitem, type, field.si);                            \
 }                                                                              \
+macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
+				      struct prefix##_head *b)                 \
+{                                                                              \
+	struct prefix##_head tmp = *a;                                         \
+	*a = *b;                                                               \
+	*b = tmp;                                                              \
+	if (a->sh.last_next == &b->sh.first)                                   \
+		a->sh.last_next = &a->sh.first;                                \
+	if (b->sh.last_next == &a->sh.first)                                   \
+		b->sh.last_next = &b->sh.first;                                \
+}                                                                              \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	return container_of_null(h->sh.first, type, field.si);                 \
@@ -213,6 +237,34 @@ static inline void typesafe_dlist_add(struct dlist_head *head,
 	item->prev = prev;
 	prev->next = item;
 	head->count++;
+}
+
+static inline void typesafe_dlist_swap_all(struct dlist_head *a,
+					   struct dlist_head *b)
+{
+	struct dlist_head tmp = *a;
+
+	a->count = b->count;
+	if (a->count) {
+		a->hitem.next = b->hitem.next;
+		a->hitem.prev = b->hitem.prev;
+		a->hitem.next->prev = &a->hitem;
+		a->hitem.prev->next = &a->hitem;
+	} else {
+		a->hitem.next = &a->hitem;
+		a->hitem.prev = &a->hitem;
+	}
+
+	b->count = tmp.count;
+	if (b->count) {
+		b->hitem.next = tmp.hitem.next;
+		b->hitem.prev = tmp.hitem.prev;
+		b->hitem.next->prev = &b->hitem;
+		b->hitem.prev->next = &b->hitem;
+	} else {
+		b->hitem.next = &b->hitem;
+		b->hitem.prev = &b->hitem;
+	}
 }
 
 /* double-linked list, for fast item deletion
@@ -270,6 +322,11 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	ditem->next->prev = ditem->prev;                                       \
 	h->dh.count--;                                                         \
 	return container_of(ditem, type, field.di);                            \
+}                                                                              \
+macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
+				      struct prefix##_head *b)                 \
+{                                                                              \
+	typesafe_dlist_swap_all(&a->dh, &b->dh);                               \
 }                                                                              \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
@@ -380,6 +437,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 		typesafe_heap_resize(&h->hh, false);                           \
 	return container_of(hitem, type, field.hi);                            \
 }                                                                              \
+TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	if (h->hh.count == 0)                                                  \
@@ -518,6 +576,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	h->sh.first = sitem->next;                                             \
 	return container_of(sitem, type, field.si);                            \
 }                                                                              \
+TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	return container_of_null(h->sh.first, type, field.si);                 \
@@ -708,6 +767,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 		}                                                              \
 	return NULL;                                                           \
 }                                                                              \
+TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	uint32_t i;                                                            \
@@ -823,6 +883,17 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
 	struct sskip_item *sitem = typesafe_skiplist_pop(&h->sh);              \
 	return container_of_null(sitem, type, field.si);                       \
+}                                                                              \
+macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
+				      struct prefix##_head *b)                 \
+{                                                                              \
+	struct prefix##_head tmp = *a;                                         \
+	*a = *b;                                                               \
+	*b = tmp;                                                              \
+	a->sh.hitem.next[SKIPLIST_OVERFLOW] = (struct sskip_item *)            \
+		((uintptr_t)a->sh.overflow | 1);                               \
+	b->sh.hitem.next[SKIPLIST_OVERFLOW] = (struct sskip_item *)            \
+		((uintptr_t)b->sh.overflow | 1);                               \
 }                                                                              \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
