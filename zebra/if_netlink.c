@@ -297,9 +297,6 @@ static void netlink_determine_zebra_iftype(const char *kind,
 		*zif_type = ZEBRA_IF_GRE;
 }
 
-#define parse_rtattr_nested(tb, max, rta)                                      \
-	netlink_parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta))
-
 static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			       uint32_t ns_id, const char *name)
 {
@@ -312,7 +309,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 
 	ifi = NLMSG_DATA(h);
 
-	parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
+	netlink_parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
 
 	if (!linkinfo[IFLA_INFO_DATA]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -322,7 +319,8 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		return;
 	}
 
-	parse_rtattr_nested(attr, IFLA_VRF_MAX, linkinfo[IFLA_INFO_DATA]);
+	netlink_parse_rtattr_nested(attr, IFLA_VRF_MAX,
+				    linkinfo[IFLA_INFO_DATA]);
 	if (!attr[IFLA_VRF_TABLE]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -542,7 +540,7 @@ static int netlink_extract_bridge_info(struct rtattr *link_data,
 	struct rtattr *attr[IFLA_BR_MAX + 1];
 
 	memset(bridge_info, 0, sizeof(*bridge_info));
-	parse_rtattr_nested(attr, IFLA_BR_MAX, link_data);
+	netlink_parse_rtattr_nested(attr, IFLA_BR_MAX, link_data);
 	if (attr[IFLA_BR_VLAN_FILTERING])
 		bridge_info->vlan_aware =
 			*(uint8_t *)RTA_DATA(attr[IFLA_BR_VLAN_FILTERING]);
@@ -556,7 +554,7 @@ static int netlink_extract_vlan_info(struct rtattr *link_data,
 	vlanid_t vid_in_msg;
 
 	memset(vlan_info, 0, sizeof(*vlan_info));
-	parse_rtattr_nested(attr, IFLA_VLAN_MAX, link_data);
+	netlink_parse_rtattr_nested(attr, IFLA_VLAN_MAX, link_data);
 	if (!attr[IFLA_VLAN_ID]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_VLAN_ID missing from VLAN IF message");
@@ -618,7 +616,7 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	ifindex_t ifindex_link;
 
 	memset(vxl_info, 0, sizeof(*vxl_info));
-	parse_rtattr_nested(attr, IFLA_VXLAN_MAX, link_data);
+	netlink_parse_rtattr_nested(attr, IFLA_VXLAN_MAX, link_data);
 	if (!attr[IFLA_VXLAN_ID]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -711,7 +709,7 @@ static int netlink_bridge_vxlan_update(struct interface *ifp,
 	/* There is a 1-to-1 mapping of VLAN to VxLAN - hence
 	 * only 1 access VLAN is accepted.
 	 */
-	parse_rtattr_nested(aftb, IFLA_BRIDGE_MAX, af_spec);
+	netlink_parse_rtattr_nested(aftb, IFLA_BRIDGE_MAX, af_spec);
 	if (!aftb[IFLA_BRIDGE_VLAN_INFO])
 		return 0;
 
@@ -847,8 +845,8 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 	uint8_t bypass = 0;
 	struct rtattr *mbrinfo[IFLA_BOND_SLAVE_MAX + 1];
 
-	parse_rtattr_nested(mbrinfo, IFLA_BOND_SLAVE_MAX,
-			    linkinfo[IFLA_INFO_SLAVE_DATA]);
+	netlink_parse_rtattr_nested(mbrinfo, IFLA_BOND_SLAVE_MAX,
+				    linkinfo[IFLA_INFO_SLAVE_DATA]);
 	if (mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS])
 		bypass = *(uint8_t *)RTA_DATA(
 			mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS]);
@@ -921,7 +919,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 
 	if (tb[IFLA_LINKINFO]) {
-		parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+		netlink_parse_rtattr_nested(linkinfo, IFLA_INFO_MAX,
+					    tb[IFLA_LINKINFO]);
 
 		if (linkinfo[IFLA_INFO_KIND])
 			kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
@@ -1525,7 +1524,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
 
 	if (tb[IFLA_LINKINFO]) {
-		parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+		netlink_parse_rtattr_nested(linkinfo, IFLA_INFO_MAX,
+					    tb[IFLA_LINKINFO]);
 
 		if (linkinfo[IFLA_INFO_KIND])
 			kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
