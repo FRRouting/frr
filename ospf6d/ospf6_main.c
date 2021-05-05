@@ -225,7 +225,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = om6->master;
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	ospf6_vrf_init();
 	access_list_init();
 	prefix_list_init();
 

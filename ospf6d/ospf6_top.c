@@ -124,6 +124,104 @@ struct ospf6 *ospf6_lookup_by_vrf_name(const char *name)
 	return NULL;
 }
 
+/* This is hook function for vrf create called as part of vrf_init */
+static int ospf6_vrf_new(struct vrf *vrf)
+{
+	return 0;
+}
+
+/* This is hook function for vrf delete call as part of vrf_init */
+static int ospf6_vrf_delete(struct vrf *vrf)
+{
+	return 0;
+}
+
+static void ospf6_set_redist_vrf_bitmaps(struct ospf6 *ospf6, bool set)
+{
+	int type;
+	struct list *red_list;
+
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		red_list = ospf6->redist[type];
+		if (!red_list)
+			continue;
+		if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+			zlog_debug(
+				"%s: setting redist vrf %d bitmap for type %d",
+				__func__, ospf6->vrf_id, type);
+		if (set)
+			vrf_bitmap_set(zclient->redist[AFI_IP6][type],
+				       ospf6->vrf_id);
+		else
+			vrf_bitmap_unset(zclient->redist[AFI_IP6][type],
+					 ospf6->vrf_id);
+	}
+}
+
+/* Disable OSPF6 VRF instance */
+static int ospf6_vrf_disable(struct vrf *vrf)
+{
+	struct ospf6 *ospf6 = NULL;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+
+	ospf6 = ospf6_lookup_by_vrf_name(vrf->name);
+	if (ospf6) {
+		ospf6_zebra_vrf_deregister(ospf6);
+
+		ospf6_set_redist_vrf_bitmaps(ospf6, false);
+
+		/* We have instance configured, unlink
+		 * from VRF and make it "down".
+		 */
+		ospf6_vrf_unlink(ospf6, vrf);
+		thread_cancel(&ospf6->t_ospf6_receive);
+		close(ospf6->fd);
+		ospf6->fd = -1;
+	}
+
+	/* Note: This is a callback, the VRF will be deleted by the caller. */
+	return 0;
+}
+
+/* Enable OSPF6 VRF instance */
+static int ospf6_vrf_enable(struct vrf *vrf)
+{
+	struct ospf6 *ospf6 = NULL;
+	vrf_id_t old_vrf_id;
+	int ret = 0;
+
+	ospf6 = ospf6_lookup_by_vrf_name(vrf->name);
+	if (ospf6) {
+		old_vrf_id = ospf6->vrf_id;
+		/* We have instance configured, link to VRF and make it "up". */
+		ospf6_vrf_link(ospf6, vrf);
+
+		if (old_vrf_id != ospf6->vrf_id) {
+			ospf6_set_redist_vrf_bitmaps(ospf6, true);
+
+			/* start zebra redist to us for new vrf */
+			ospf6_zebra_vrf_register(ospf6);
+
+			ret = ospf6_serv_sock(ospf6);
+			if (ret < 0 || ospf6->fd <= 0)
+				return 0;
+			thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
+					&ospf6->t_ospf6_receive);
+
+			ospf6_router_id_update(ospf6);
+		}
+	}
+
+	return 0;
+}
+
+void ospf6_vrf_init(void)
+{
+	vrf_init(ospf6_vrf_new, ospf6_vrf_enable, ospf6_vrf_disable,
+		 ospf6_vrf_delete, ospf6_vrf_enable);
+}
 
 static void ospf6_top_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
@@ -292,6 +390,9 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	if (ospf6->router_id == 0)
 		ospf6_router_id_update(ospf6);
 	ospf6_add(ospf6);
+	if (ospf6->fd < 0)
+		return ospf6;
+
 	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 			&ospf6->t_ospf6_receive);
 
@@ -308,6 +409,8 @@ void ospf6_delete(struct ospf6 *o)
 	ospf6_flush_self_originated_lsas_now(o);
 	ospf6_disable(o);
 	ospf6_del(o);
+
+	ospf6_zebra_vrf_deregister(o);
 
 	ospf6_serv_close(&o->fd);
 
