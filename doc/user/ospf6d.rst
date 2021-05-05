@@ -12,7 +12,7 @@ described in :rfc:`2740`.
 OSPF6 router
 ============
 
-.. clicmd:: router ospf6
+.. clicmd:: router ospf6 [vrf NAME]
 
 .. clicmd:: ospf6 router-id A.B.C.D
 
@@ -151,56 +151,52 @@ Redistribute routes to OSPF6
 Showing OSPF6 information
 =========================
 
-.. clicmd:: show ipv6 ospf6 [INSTANCE_ID] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] [json]
 
-   INSTANCE_ID is an optional OSPF instance ID. To see router ID and OSPF
-   instance ID, simply type "show ipv6 ospf6 <cr>". JSON output can be
-   obtained by appending 'json' to the end of command.
+   Show information on a variety of general OSPFv3 and area state and
+   configuration information. JSON output can be obtained by appending 'json'
+   to the end of command.
 
-.. clicmd:: show ipv6 ospf6 database [<detail|dump|internal>] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database [<detail|dump|internal>] [json]
 
    This command shows LSAs present in the LSDB. There are three view options.
    These options helps in viewing all the parameters of the LSAs. JSON output
    can be obtained by appending 'json' to the end of command. JSON option is
    not applicable with 'dump' option.
 
-.. clicmd:: show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [json]
 
    These options filters out the LSA based on its type. The three views options
    works here as well. JSON output can be obtained by appending 'json' to the
    end of command.
 
-.. clicmd:: show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database adv-router A.B.C.D linkstate-id A.B.C.D [json]
 
    The LSAs additinally can also be filtered with the linkstate-id and
    advertising-router fields. We can use the LSA type filter and views with
    this command as well and visa-versa. JSON output can be obtained by
    appending 'json' to the end of command.
 
-.. clicmd:: show ipv6 ospf6 database self-originated [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database self-originated [json]
 
    This command is used to filter the LSAs which are originated by the present
    router. All the other filters are applicable here as well.
 
-.. clicmd:: show ipv6 ospf6 interface [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] interface [json]
 
    To see OSPF interface configuration like costs. JSON output can be
    obtained by appending "json" in the end.
 
-.. clicmd:: show ipv6 ospf6 neighbor [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] neighbor [json]
 
    Shows state and chosen (Backup) DR of neighbor. JSON output can be
    obtained by appending 'json' at the end.
 
-.. clicmd:: show ipv6 ospf6 interface traffic [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] interface traffic [json]
 
    Shows counts of different packets that have been recieved and transmitted
    by the interfaces. JSON output can be obtained by appending "json" at the
    end.
-
-.. clicmd:: show ipv6 ospf6 request-list A.B.C.D
-
-   Shows requestlist of neighbor.
 
 .. clicmd:: show ipv6 route ospf6
 
@@ -211,12 +207,12 @@ Showing OSPF6 information
    Shows state about what is being redistributed between zebra and OSPF6.
    JSON output can be obtained by appending "json" at the end.
 
-.. clicmd:: show ipv6 ospf6 redistribute [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] redistribute [json]
 
    Shows the routes which are redistributed by the router. JSON output can
    be obtained by appending 'json' at the end.
 
-.. clicmd:: show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
 
    This command displays the ospfv3 routing table as determined by the most
    recent SPF calculations. Options are provided to view the different types
@@ -224,18 +220,18 @@ Showing OSPF6 information
    and summary. JSON output can be obtained by appending 'json' to the end of
    command.
 
-.. clicmd:: show ipv6 ospf6 route X:X::X:X/M match [detail] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] route X:X::X:X/M match [detail] [json]
 
    The additional match option will match the given address to the destination
    of the routes, and return the result accordingly.
 
-.. clicmd:: show ipv6 ospf6 interface [IFNAME] prefix [detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] interface [IFNAME] prefix [detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]] [json]
 
    This command shows the prefixes present in the interface routing table.
    Interface name can also be given. JSON output can be obtained by appending
    'json' to the end of command.
 
-.. clicmd:: show ipv6 ospf6 spf tree [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] spf tree [json]
 
    This commands shows the spf tree from the recent spf calculation with the
    calling router as the root. If json is appended in the end, we can get the
