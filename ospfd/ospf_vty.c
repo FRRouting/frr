@@ -9111,13 +9111,12 @@ DEFUN (ospf_redistribute_source,
 	int metric = -1;
 	struct ospf_redist *red;
 	int idx = 0;
+	bool update = false;
 
 	/* Get distribute source. */
 	source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (source < 0)
 		return CMD_WARNING_CONFIG_FAILED;
-
-	red = ospf_redist_add(ospf, source, 0);
 
 	/* Get metric value. */
 	if (argv_find(argv, argc, "(0-16777214)", &idx)) {
@@ -9131,13 +9130,25 @@ DEFUN (ospf_redistribute_source,
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 	idx = 1;
+
+	red = ospf_redist_lookup(ospf, source, 0);
+	if (!red)
+		red = ospf_redist_add(ospf, source, 0);
+	else
+		update = true;
+
 	/* Get route-map */
 	if (argv_find(argv, argc, "WORD", &idx)) {
 		ospf_routemap_set(red, argv[idx]->arg);
 	} else
 		ospf_routemap_unset(red);
 
-	return ospf_redistribute_set(ospf, source, 0, type, metric);
+	if (update)
+		return ospf_redistribute_update(ospf, red, source, 0, type,
+						metric);
+	else
+		return ospf_redistribute_set(ospf, red, source, 0, type,
+					     metric);
 }
 
 DEFUN (no_ospf_redistribute_source,
@@ -9195,6 +9206,7 @@ DEFUN (ospf_redistribute_instance_source,
 	int metric = -1;
 	unsigned short instance;
 	struct ospf_redist *red;
+	bool update = false;
 
 	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
@@ -9227,7 +9239,11 @@ DEFUN (ospf_redistribute_instance_source,
 		if (!str2metric_type(argv[idx + 1]->arg, &type))
 			return CMD_WARNING_CONFIG_FAILED;
 
-	red = ospf_redist_add(ospf, source, instance);
+	red = ospf_redist_lookup(ospf, source, instance);
+	if (!red)
+		red = ospf_redist_add(ospf, source, instance);
+	else
+		update = true;
 
 	idx = 3;
 	if (argv_find(argv, argc, "route-map", &idx))
@@ -9235,7 +9251,12 @@ DEFUN (ospf_redistribute_instance_source,
 	else
 		ospf_routemap_unset(red);
 
-	return ospf_redistribute_set(ospf, source, instance, type, metric);
+	if (update)
+		return ospf_redistribute_update(ospf, red, source, instance,
+						type, metric);
+	else
+		return ospf_redistribute_set(ospf, red, source, instance, type,
+					     metric);
 }
 
 DEFUN (no_ospf_redistribute_instance_source,
