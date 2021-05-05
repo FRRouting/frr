@@ -236,11 +236,13 @@ Filtering RIP Routes
 
 RIP routes can be filtered by a distribute-list.
 
-.. clicmd:: distribute-list ACCESS_LIST DIRECT IFNAME
+.. clicmd:: distribute-list [prefix] LIST <in|out> IFNAME
 
    You can apply access lists to the interface with a `distribute-list` command.
-   ACCESS_LIST is the access list name. DIRECT is ``in`` or ``out``. If DIRECT
-   is ``in`` the access list is applied to input packets.
+   If prefix is specified LIST is a prefix-list.  If prefix is not specified
+   then LIST is the access list name.  `in` specifies packets being received,
+   and `out` specifies outgoing packets.  Finally if an interface is specified
+   it will be applied against a specific interface.
 
    The `distribute-list` command can be used to filter the RIP path.
    `distribute-list` can apply access-lists to a chosen interface.  First, one
@@ -260,13 +262,6 @@ RIP routes can be filtered by a distribute-list.
 
 
    `distribute-list` can be applied to both incoming and outgoing data.
-
-.. clicmd:: distribute-list prefix PREFIX_LIST (in|out) IFNAME
-
-   You can apply prefix lists to the interface with a `distribute-list`
-   command. PREFIX_LIST is the prefix list name. Next is the direction of
-   ``in`` or ``out``. If DIRECT is ``in`` the access list is applied to input
-   packets.
 
 .. _rip-metric-manipulation:
 

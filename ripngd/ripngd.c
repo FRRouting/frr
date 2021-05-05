@@ -2723,9 +2723,6 @@ void ripng_init(void)
 	prefix_list_add_hook(ripng_distribute_update_all);
 	prefix_list_delete_hook(ripng_distribute_update_all);
 
-	/* Distribute list install. */
-	distribute_list_init(RIPNG_NODE);
-
 	/* Route-map for interface. */
 	ripng_route_map_init();
 

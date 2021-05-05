@@ -62,14 +62,34 @@ ripngd Terminal Mode Commands
 ripngd Filtering Commands
 =========================
 
-.. clicmd:: distribute-list ACCESS_LIST (in|out) IFNAME
+RIPng routes can be filtered by a distribute-list.
 
-   You can apply an access-list to the interface using the `distribute-list`
-   command. ACCESS_LIST is an access-list name. `direct` is ``in`` or
-   ``out``. If `direct` is ``in``, the access-list is applied only to incoming
-   packets.::
+.. clicmd:: distribute-list [prefix] LIST <in|out> IFNAME
 
-      distribute-list local-only out sit1
+   You can apply access lists to the interface with a `distribute-list` command.
+   If prefix is specified LIST is a prefix-list.  If prefix is not specified
+   then LIST is the access list name.  `in` specifies packets being received,
+   and `out` specifies outgoing packets.  Finally if an interface is specified
+   it will be applied against a specific interface.
+
+   The ``distribute-list`` command can be used to filter the RIPNG path.
+   ``distribute-list`` can apply access-lists to a chosen interface.  First, one
+   should specify the access-list. Next, the name of the access-list is used in
+   the distribute-list command. For example, in the following configuration
+   ``eth0`` will permit only the paths that match the route 10.0.0.0/8
+
+   .. code-block:: frr
+
+      !
+      router ripng
+       distribute-list private in eth0
+      !
+      access-list private permit 10 10.0.0.0/8
+      access-list private deny any
+      !
+
+
+   `distribute-list` can be applied to both incoming and outgoing data.
 
 
 Sample configuration

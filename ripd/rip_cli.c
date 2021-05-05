@@ -1019,10 +1019,55 @@ DEFPY_YANG (clear_ip_rip,
 	return ret;
 }
 
+DEFUN (rip_distribute_list,
+       rip_distribute_list_cmd,
+       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
+				      argv[1 + prefix]->arg, ifname);
+}
+
+DEFUN (rip_no_distribute_list,
+       rip_no_distribute_list_cmd,
+       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_no_parser(vty, prefix, true,
+					 argv[3 + prefix]->text,
+					 argv[2 + prefix]->arg, ifname);
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
 	install_element(CONFIG_NODE, &no_router_rip_cmd);
+
+	install_element(RIP_NODE, &rip_distribute_list_cmd);
+	install_element(RIP_NODE, &rip_no_distribute_list_cmd);
 
 	install_element(RIP_NODE, &rip_allow_ecmp_cmd);
 	install_element(RIP_NODE, &rip_default_information_originate_cmd);

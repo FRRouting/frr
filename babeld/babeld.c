@@ -712,6 +712,92 @@ DEFUN (babel_set_smoothing_half_life,
     return CMD_SUCCESS;
 }
 
+DEFUN (babel_distribute_list,
+       babel_distribute_list_cmd,
+       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
+				      argv[1 + prefix]->arg, ifname);
+}
+
+DEFUN (babel_no_distribute_list,
+       babel_no_distribute_list_cmd,
+       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_no_parser(vty, prefix, true,
+					 argv[3 + prefix]->text,
+					 argv[2 + prefix]->arg, ifname);
+}
+
+DEFUN (babel_ipv6_distribute_list,
+       babel_ipv6_distribute_list_cmd,
+       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "IPv6\n"
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_parser(prefix, false, argv[3 + prefix]->text,
+				      argv[2 + prefix]->arg, ifname);
+}
+
+DEFUN (babel_no_ipv6_distribute_list,
+       babel_no_ipv6_distribute_list_cmd,
+       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       NO_STR
+       "IPv6\n"
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_no_parser(vty, prefix, false,
+					 argv[4 + prefix]->text,
+					 argv[3 + prefix]->arg, ifname);
+}
+
 void
 babeld_quagga_init(void)
 {
@@ -728,6 +814,11 @@ babeld_quagga_init(void)
     install_element(BABEL_NODE, &babel_set_resend_delay_cmd);
     install_element(BABEL_NODE, &babel_set_smoothing_half_life_cmd);
 
+    install_element(BABEL_NODE, &babel_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_no_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_ipv6_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_no_ipv6_distribute_list_cmd);
+
     babel_if_init();
 
     /* Access list install. */
@@ -739,9 +830,6 @@ babeld_quagga_init(void)
     prefix_list_init ();
     prefix_list_add_hook (babel_distribute_update_all);
     prefix_list_delete_hook (babel_distribute_update_all);
-
-    /* Distribute list install. */
-    distribute_list_init(BABEL_NODE);
 }
 
 /* Stubs to adapt Babel's filtering calls to Quagga's infrastructure. */
