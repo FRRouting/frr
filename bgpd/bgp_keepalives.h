@@ -37,6 +37,7 @@ extern void bgp_keepalives_on(struct peer_connection *connection);
  * If the peer is already unregistered for keepalives, nothing happens.
  */
 extern void bgp_keepalives_off(struct peer_connection *connection);
+extern void bgp_keepalives_group_off(struct peer_group *group);
 
 /**
  * Pre-run initialization function for keepalives pthread.
