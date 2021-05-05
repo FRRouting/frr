@@ -1177,19 +1177,13 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	return 0;
 }
 
-/* show interface */
-DEFUN(show_ipv6_ospf6_interface,
-      show_ipv6_ospf6_interface_ifname_cmd,
-      "show ipv6 ospf6 interface [IFNAME] [json]",
-      SHOW_STR
-      IP6_STR
-      OSPF6_STR
-      INTERFACE_STR
-      IFNAME_STR
-      JSON_STR)
+static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
+				       int argc, struct cmd_token **argv,
+				       int idx_ifname, int intf_idx,
+				       int json_idx)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	int idx_ifname = 4;
+
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 	json_object *json;
 	json_object *json_int;
@@ -1197,9 +1191,8 @@ DEFUN(show_ipv6_ospf6_interface,
 
 	if (uj) {
 		json = json_object_new_object();
-		if (argc == 6) {
-			ifp = if_lookup_by_name(argv[idx_ifname]->arg,
-						VRF_DEFAULT);
+		if (argc == json_idx) {
+			ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
 			json_int = json_object_new_object();
 			if (ifp == NULL) {
 				json_object_string_add(json, "noSuchInterface",
@@ -1226,9 +1219,8 @@ DEFUN(show_ipv6_ospf6_interface,
 				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
-		if (argc == 5) {
-			ifp = if_lookup_by_name(argv[idx_ifname]->arg,
-						VRF_DEFAULT);
+		if (argc == intf_idx) {
+			ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
 			if (ifp == NULL) {
 				vty_out(vty, "No such Interface: %s\n",
 					argv[idx_ifname]->arg);
@@ -1240,6 +1232,42 @@ DEFUN(show_ipv6_ospf6_interface,
 				ospf6_interface_show(vty, ifp, NULL, uj);
 		}
 	}
+	return CMD_SUCCESS;
+}
+
+/* show interface */
+DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface [IFNAME] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" INTERFACE_STR IFNAME_STR JSON_STR)
+{
+	int idx_ifname = 4;
+	int intf_idx = 5;
+	int json_idx = 6;
+	struct listnode *node;
+	struct ospf6 *ospf6;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0) {
+		idx_ifname += 2;
+		intf_idx += 2;
+		json_idx += 2;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			show_ospf6_interface_common(vty, ospf6->vrf_id, argc,
+						    argv, idx_ifname, intf_idx,
+						    json_idx);
+
+			if (!all_vrf)
+				break;
+		}
+	}
 
 	return CMD_SUCCESS;
 }
@@ -1247,7 +1275,7 @@ DEFUN(show_ipv6_ospf6_interface,
 static int ospf6_interface_show_traffic(struct vty *vty,
 					struct interface *intf_ifp,
 					int display_once, json_object *json,
-					bool use_json)
+					bool use_json, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct vrf *vrf = NULL;
@@ -1257,7 +1285,7 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 	if (intf_ifp)
 		vrf = vrf_lookup_by_id(intf_ifp->vrf_id);
 	else
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		vrf = vrf_lookup_by_id(vrf_id);
 
 	if (!display_once && !use_json) {
 		vty_out(vty, "\n");
@@ -1358,17 +1386,9 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-/* show interface */
-DEFUN(show_ipv6_ospf6_interface_traffic,
-      show_ipv6_ospf6_interface_traffic_cmd,
-      "show ipv6 ospf6 interface traffic [IFNAME] [json]",
-      SHOW_STR
-      IP6_STR
-      OSPF6_STR
-      INTERFACE_STR
-      "Protocol Packet counters\n"
-      IFNAME_STR
-      JSON_STR)
+static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
+					       struct cmd_token **argv,
+					       vrf_id_t vrf_id)
 {
 	int idx_ifname = 0;
 	int display_once = 0;
@@ -1382,7 +1402,7 @@ DEFUN(show_ipv6_ospf6_interface_traffic,
 
 	if (argv_find(argv, argc, "IFNAME", &idx_ifname)) {
 		intf_name = argv[idx_ifname]->arg;
-		ifp = if_lookup_by_name(intf_name, VRF_DEFAULT);
+		ifp = if_lookup_by_name(intf_name, vrf_id);
 		if (uj) {
 			if (ifp == NULL) {
 				json_object_string_add(json, "status",
@@ -1422,7 +1442,7 @@ DEFUN(show_ipv6_ospf6_interface_traffic,
 		}
 	}
 
-	ospf6_interface_show_traffic(vty, ifp, display_once, json, uj);
+	ospf6_interface_show_traffic(vty, ifp, display_once, json, uj, vrf_id);
 
 	if (uj) {
 		vty_out(vty, "%s\n",
@@ -1431,94 +1451,148 @@ DEFUN(show_ipv6_ospf6_interface_traffic,
 		json_object_free(json);
 	}
 
+	return CMD_SUCCESS;
+}
+
+/* show interface */
+DEFUN(show_ipv6_ospf6_interface_traffic, show_ipv6_ospf6_interface_traffic_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface traffic [IFNAME] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" INTERFACE_STR
+      "Protocol Packet counters\n" IFNAME_STR JSON_STR)
+{
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ospf6_interface_show_traffic_common(vty, argc, argv,
+							    ospf6->vrf_id);
+
+			if (!all_vrf)
+				break;
+		}
+	}
 
 	return CMD_SUCCESS;
 }
 
 
-DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
-       show_ipv6_ospf6_interface_ifname_prefix_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix\
+DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
+      show_ipv6_ospf6_interface_ifname_prefix_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface IFNAME prefix\
           [<\
 	    detail\
 	    |<X:X::X:X|X:X::X:X/M> [<match|detail>]\
 	  >] [json]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       IFNAME_STR
-       "Display connected prefixes to advertise\n"
-       "Display details of the prefixes\n"
-       OSPF6_ROUTE_ADDRESS_STR
-       OSPF6_ROUTE_PREFIX_STR
-       OSPF6_ROUTE_MATCH_STR
-       "Display details of the prefixes\n"
-       JSON_STR)
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" INTERFACE_STR IFNAME_STR
+      "Display connected prefixes to advertise\n"
+      "Display details of the prefixes\n" OSPF6_ROUTE_ADDRESS_STR
+	      OSPF6_ROUTE_PREFIX_STR OSPF6_ROUTE_MATCH_STR
+      "Display details of the prefixes\n" JSON_STR)
 {
 	int idx_ifname = 4;
 	int idx_prefix = 6;
-	struct interface *ifp;
 	struct ospf6_interface *oi;
 	bool uj = use_json(argc, argv);
 
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
-	if (ifp == NULL) {
-		vty_out(vty, "No such Interface: %s\n", argv[idx_ifname]->arg);
-		return CMD_WARNING;
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	struct interface *ifp;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0) {
+		idx_ifname += 2;
+		idx_prefix += 2;
 	}
 
-	oi = ifp->info;
-	if (oi == NULL) {
-		vty_out(vty, "OSPFv3 is not enabled on %s\n",
-			argv[idx_ifname]->arg);
-		return CMD_WARNING;
-	}
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ifp = if_lookup_by_name(argv[idx_ifname]->arg,
+						ospf6->vrf_id);
+			if (ifp == NULL) {
+				vty_out(vty, "No such Interface: %s\n",
+					argv[idx_ifname]->arg);
+				return CMD_WARNING;
+			}
 
-	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
-		vty_out(vty, "Interface %s not attached to area\n",
-			argv[idx_ifname]->arg);
-		return CMD_WARNING;
-	}
+			oi = ifp->info;
+			if (oi == NULL
+			    || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
+				vty_out(vty,
+					"Interface %s not attached to area\n",
+					argv[idx_ifname]->arg);
+				return CMD_WARNING;
+			}
 
-	ospf6_route_table_show(vty, idx_prefix, argc, argv, oi->route_connected,
-			       uj);
+			ospf6_route_table_show(vty, idx_prefix, argc, argv,
+					       oi->route_connected, uj);
+
+			if (!all_vrf)
+				break;
+		}
+	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_interface_prefix,
-       show_ipv6_ospf6_interface_prefix_cmd,
-       "show ipv6 ospf6 interface prefix\
+DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface prefix\
           [<\
 	    detail\
 	    |<X:X::X:X|X:X::X:X/M> [<match|detail>]\
 	  >] [json]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       "Display connected prefixes to advertise\n"
-       "Display details of the prefixes\n"
-       OSPF6_ROUTE_ADDRESS_STR
-       OSPF6_ROUTE_PREFIX_STR
-       OSPF6_ROUTE_MATCH_STR
-       "Display details of the prefixes\n"
-       JSON_STR)
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" INTERFACE_STR
+      "Display connected prefixes to advertise\n"
+      "Display details of the prefixes\n" OSPF6_ROUTE_ADDRESS_STR
+	      OSPF6_ROUTE_PREFIX_STR OSPF6_ROUTE_MATCH_STR
+      "Display details of the prefixes\n" JSON_STR)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = NULL;
 	int idx_prefix = 5;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 	bool uj = use_json(argc, argv);
+	struct listnode *node;
+	struct ospf6 *ospf6;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		oi = (struct ospf6_interface *)ifp->info;
-		if (oi == NULL || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
-			continue;
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0)
+		idx_prefix += 2;
 
-		ospf6_route_table_show(vty, idx_prefix, argc, argv,
-				       oi->route_connected, uj);
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			vrf = vrf_lookup_by_id(ospf6->vrf_id);
+			FOR_ALL_INTERFACES (vrf, ifp) {
+				oi = (struct ospf6_interface *)ifp->info;
+				if (oi == NULL
+				    || CHECK_FLAG(oi->flag,
+						  OSPF6_INTERFACE_DISABLE))
+					continue;
+
+				ospf6_route_table_show(vty, idx_prefix, argc,
+						       argv,
+						       oi->route_connected, uj);
+			}
+			if (!all_vrf)
+				break;
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -2216,9 +2290,8 @@ DEFUN (no_ipv6_ospf6_network,
 	return CMD_SUCCESS;
 }
 
-static int config_write_ospf6_interface(struct vty *vty)
+static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
@@ -2227,7 +2300,11 @@ static int config_write_ospf6_interface(struct vty *vty)
 		if (oi == NULL)
 			continue;
 
-		vty_frame(vty, "interface %s\n", oi->interface->name);
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vty_frame(vty, "interface %s\n", oi->interface->name);
+		else
+			vty_frame(vty, "interface %s vrf %s\n",
+				  oi->interface->name, vrf->name);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
@@ -2282,13 +2359,27 @@ static int config_write_ospf6_interface(struct vty *vty)
 	return 0;
 }
 
-static int config_write_ospf6_interface(struct vty *vty);
+/* Configuration write function for ospfd. */
+static int config_write_interface(struct vty *vty)
+{
+	int write = 0;
+	struct vrf *vrf = NULL;
+
+	/* Display all VRF aware OSPF interface configuration */
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		write += config_write_ospf6_interface(vty, vrf);
+	}
+
+	return write;
+}
+
+static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf);
 static struct cmd_node interface_node = {
 	.name = "interface",
 	.node = INTERFACE_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
-	.config_write = config_write_ospf6_interface,
+	.config_write = config_write_interface,
 };
 
 static int ospf6_ifp_create(struct interface *ifp)
