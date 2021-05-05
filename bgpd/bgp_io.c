@@ -67,6 +67,9 @@ void bgp_writes_off(struct peer_connection *connection)
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
+	if (!CHECK_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON))
+		return;
+
 	event_cancel_async(fpt->master, &connection->t_write, NULL);
 	EVENT_OFF(connection->t_generate_updgrp_packets);
 
@@ -97,6 +100,9 @@ void bgp_reads_off(struct peer_connection *connection)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
+
+	if (!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON))
+		return;
 
 	event_cancel_async(fpt->master, &connection->t_read, NULL);
 	EVENT_OFF(connection->t_process_packet);
