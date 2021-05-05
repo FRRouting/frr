@@ -6,9 +6,9 @@
           "vertex": "r4"
         },
         {
-          "metric": "internal",
-          "parent": "0",
-          "type": "IP",
+          "metric": "0",
+          "parent": "r4(4)",
+          "type": "IP internal",
           "vertex": "10.0.11.0/24"
         },
         {
@@ -20,27 +20,27 @@
           "vertex": "r5"
         },
         {
-          "interface": "r5",
-          "metric": "TE",
-          "next-hop": "10",
-          "parent": "r4-eth1",
-          "type": "IP",
+          "interface": "r4-eth1",
+          "metric": "10",
+          "next-hop": "r5",
+          "parent": "r5(4)",
+          "type": "IP TE",
           "vertex": "10.0.10.0/24"
         },
         {
-          "interface": "r5",
-          "metric": "TE",
-          "next-hop": "10",
-          "parent": "r4-eth1",
-          "type": "IP",
+          "interface": "r4-eth1",
+          "metric": "10",
+          "next-hop": "r5",
+          "parent": "r5(4)",
+          "type": "IP TE",
           "vertex": "10.0.11.0/24"
         },
         {
-          "interface": "r5",
-          "metric": "TE",
-          "next-hop": "10",
-          "parent": "r4-eth1",
-          "type": "IP",
+          "interface": "r4-eth1",
+          "metric": "10",
+          "next-hop": "r5",
+          "parent": "r5(4)",
+          "type": "IP TE",
           "vertex": "10.254.0.5/32"
         },
         {
@@ -51,19 +51,19 @@
           "vertex": "r3"
         },
         {
-          "interface": "r5",
-          "metric": "TE",
-          "next-hop": "20",
-          "parent": "r4-eth1",
-          "type": "IP",
+          "interface": "r4-eth1",
+          "metric": "20",
+          "next-hop": "r5",
+          "parent": "r3(4)",
+          "type": "IP TE",
           "vertex": "10.0.20.0/24"
         },
         {
-          "interface": "r5",
-          "metric": "TE",
-          "next-hop": "20",
-          "parent": "r4-eth1",
-          "type": "IP",
+          "interface": "r4-eth1",
+          "metric": "20",
+          "next-hop": "r5",
+          "parent": "r3(4)",
+          "type": "IP TE",
           "vertex": "10.254.0.3/32"
         }
       ],
@@ -72,9 +72,9 @@
           "vertex": "r4"
         },
         {
-          "metric": "internal",
-          "parent": "0",
-          "type": "IP6",
+          "metric": "0",
+          "parent": "r4(4)",
+          "type": "IP6 internal",
           "vertex": "2001:db8:2:2::/64"
         },
         {
@@ -86,17 +86,19 @@
           "vertex": "r5"
         },
         {
-          "interface": "r5",
-          "next-hop": "10",
-          "parent": "r4-eth1",
-          "type": "IP6",
+          "metric": "10",
+          "interface": "r4-eth1",
+          "next-hop": "r5",
+          "parent": "r5(4)",
+          "type": "IP6 internal",
           "vertex": "2001:db8:2:1::/64"
         },
         {
-          "interface": "r5",
-          "next-hop": "10",
-          "parent": "r4-eth1",
-          "type": "IP6",
+          "metric": "10",
+          "interface": "r4-eth1",
+          "next-hop": "r5",
+          "parent": "r5(4)",
+          "type": "IP6 internal",
           "vertex": "2001:db8:f::5/128"
         },
         {
@@ -107,17 +109,19 @@
           "vertex": "r3"
         },
         {
-          "interface": "r5",
-          "next-hop": "20",
-          "parent": "r4-eth1",
-          "type": "IP6",
+          "metric": "20",
+          "interface": "r4-eth1",
+          "next-hop": "r5",
+          "parent": "r3(4)",
+          "type": "IP6 internal",
           "vertex": "2001:db8:1:1::/64"
         },
         {
-          "interface": "r5",
-          "next-hop": "20",
-          "parent": "r4-eth1",
-          "type": "IP6",
+          "metric": "20",
+          "interface": "r4-eth1",
+          "next-hop": "r5",
+          "parent": "r3(4)",
+          "type": "IP6 internal",
           "vertex": "2001:db8:f::3/128"
         }
       ]
@@ -128,9 +132,9 @@
           "vertex": "r4"
         },
         {
-          "metric": "internal",
-          "parent": "0",
-          "type": "IP",
+          "metric": "0",
+          "parent": "r4(4)",
+          "type": "IP internal",
           "vertex": "10.0.21.0/24"
         },
         {
@@ -142,19 +146,19 @@
           "vertex": "r2"
         },
         {
-          "interface": "r2",
-          "metric": "TE",
-          "next-hop": "10",
-          "parent": "r4-eth0",
-          "type": "IP",
+          "interface": "r4-eth0",
+          "metric": "10",
+          "next-hop": "r2",
+          "parent": "r2(4)",
+          "type": "IP TE",
           "vertex": "10.0.21.0/24"
         },
         {
-          "interface": "r2",
-          "metric": "TE",
-          "next-hop": "10",
-          "parent": "r4-eth0",
-          "type": "IP",
+          "interface": "r4-eth0",
+          "metric": "10",
+          "next-hop": "r2",
+          "parent": "r2(4)",
+          "type": "IP TE",
           "vertex": "10.254.0.2/32"
         }
       ],
@@ -163,9 +167,9 @@
           "vertex": "r4"
         },
         {
-          "metric": "internal",
-          "parent": "0",
-          "type": "IP6",
+          "metric": "0",
+          "parent": "r4(4)",
+          "type": "IP6 internal",
           "vertex": "2001:db8:1:2::/64"
         },
         {
@@ -177,10 +181,11 @@
           "vertex": "r2"
         },
         {
-          "interface": "r2",
-          "next-hop": "10",
-          "parent": "r4-eth0",
-          "type": "IP6",
+          "metric": "10",
+          "interface": "r4-eth0",
+          "next-hop": "r2",
+          "parent": "r2(4)",
+          "type": "IP6 internal",
           "vertex": "2001:db8:f::2/128"
         }
       ]
