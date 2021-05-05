@@ -46,6 +46,9 @@ void bgp_writes_on(struct peer_connection *connection)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
 
+	if (CHECK_FLAG(connection->peer->flags, PEER_FLAG_IO_STOPPED))
+		return;
+
 	assert(fpt->running);
 
 	assert(connection->status != Deleted);
@@ -79,6 +82,10 @@ void bgp_writes_off(struct peer_connection *connection)
 void bgp_reads_on(struct peer_connection *connection)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
+
+	if (CHECK_FLAG(connection->peer->flags, PEER_FLAG_IO_STOPPED))
+		return;
+
 	assert(fpt->running);
 
 	assert(connection->status != Deleted);

@@ -3052,6 +3052,19 @@ void peer_group_notify_unconfig(struct peer_group *group)
 	}
 }
 
+int peer_group_pre_delete(struct peer_group *group)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		SET_FLAG(peer->flags, PEER_FLAG_IO_STOPPED);
+		bgp_reads_off(peer->connection);
+		bgp_writes_off(peer->connection);
+	}
+	return 0;
+}
+
 int peer_group_delete(struct peer_group *group)
 {
 	struct bgp *bgp;
@@ -3959,6 +3972,10 @@ int bgp_delete(struct bgp *bgp)
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval)
 		EVENT_OFF(bgp->t_rmap_def_originate_eval);
+
+	/* Free peers and peer-groups. */
+	for (ALL_LIST_ELEMENTS(bgp->group, node, next, group))
+		peer_group_pre_delete(group);
 
 	/* Inform peers we're going down. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))

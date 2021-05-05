@@ -5210,6 +5210,7 @@ DEFUN (no_neighbor,
 
 		group = peer_group_lookup(bgp, argv[idx_peer]->arg);
 		if (group) {
+			peer_group_pre_delete(group);
 			peer_group_notify_unconfig(group);
 			peer_group_delete(group);
 		} else {
