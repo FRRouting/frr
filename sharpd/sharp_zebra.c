@@ -714,6 +714,12 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+void sharp_redistribute_vrf(struct vrf *vrf, int type)
+{
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
+				0, vrf->vrf_id);
+}
+
 /* Add a zclient with a specified session id, for testing. */
 int sharp_zclient_create(uint32_t session_id)
 {

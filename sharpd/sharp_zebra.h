@@ -63,4 +63,6 @@ extern void sharp_zebra_send_arp(const struct interface *ifp,
 /* Register Link State Opaque messages */
 extern void sharp_zebra_register_te(void);
 
+extern void sharp_redistribute_vrf(struct vrf *vrf, int source);
+
 #endif

@@ -39,6 +39,33 @@
 #include "sharpd/sharp_vty_clippy.c"
 #endif
 
+DEFPY(watch_redistribute, watch_redistribute_cmd,
+      "sharp watch [vrf NAME$vrf_name] redistribute " FRR_REDIST_STR_SHARPD,
+      "Sharp routing Protocol\n"
+      "Watch for changes\n"
+      "The vrf we would like to watch if non-default\n"
+      "The NAME of the vrf\n"
+      "Redistribute into Sharp\n"
+      FRR_REDIST_HELP_STR_SHARPD)
+{
+	struct vrf *vrf;
+	int source;
+
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			vrf_name);
+		return CMD_WARNING;
+	}
+
+	source = proto_redistnum(AFI_IP, argv[argc-1]->text);
+	sharp_redistribute_vrf(vrf, source);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
       "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
       "Sharp routing Protocol\n"
@@ -844,6 +871,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &remove_routes_cmd);
 	install_element(ENABLE_NODE, &vrf_label_cmd);
 	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
+	install_element(ENABLE_NODE, &watch_redistribute_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
 	install_element(ENABLE_NODE, &sharp_lsp_prefix_v4_cmd);
