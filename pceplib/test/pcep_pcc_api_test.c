@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <netdb.h> // gethostbyname
 #include <pthread.h>
 #include <stdlib.h>
@@ -108,6 +109,8 @@ void test_connect_pce()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *open_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
+	assert(open_msg != NULL);
+	assert(open_msg->msg_header != NULL);
 	CU_ASSERT_EQUAL(open_msg->msg_header->type, PCEP_TYPE_OPEN);
 
 	pcep_msg_free_message(open_msg);
@@ -134,6 +137,7 @@ void test_connect_pce_ipv6()
 	pcep_session *session = connect_pce_ipv6(config, &dest_address);
 
 	CU_ASSERT_PTR_NOT_NULL(session);
+	assert(session != NULL);
 	CU_ASSERT_TRUE(session->socket_comm_session->is_ipv6);
 	CU_ASSERT_EQUAL(mock_info->sent_message_list->num_entries, 1);
 	/* What gets saved in the mock is the msg byte buffer. The msg struct
@@ -144,6 +148,7 @@ void test_connect_pce_ipv6()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *open_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
+	assert(open_msg != NULL);
 	CU_ASSERT_EQUAL(open_msg->msg_header->type, PCEP_TYPE_OPEN);
 
 	pcep_msg_free_message(open_msg);
@@ -175,6 +180,8 @@ void test_connect_pce_with_src_ip()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *open_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
+	assert(open_msg != NULL);
+	assert(open_msg->msg_header != NULL);
 	CU_ASSERT_EQUAL(open_msg->msg_header->type, PCEP_TYPE_OPEN);
 
 	pcep_msg_free_message(open_msg);
@@ -207,6 +214,7 @@ void test_disconnect_pce()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(msg);
+	assert(msg != NULL);
 	CU_ASSERT_EQUAL(msg->msg_header->type, PCEP_TYPE_OPEN);
 	pcep_msg_free_message(msg);
 	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
@@ -216,6 +224,8 @@ void test_disconnect_pce()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(msg);
+	assert(msg != NULL);
+	assert(msg->msg_header != NULL);
 	CU_ASSERT_EQUAL(msg->msg_header->type, PCEP_TYPE_CLOSE);
 
 	pcep_msg_free_message(msg);

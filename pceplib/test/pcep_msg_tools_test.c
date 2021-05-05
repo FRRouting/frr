@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -213,6 +214,7 @@ void test_pcep_msg_read_pcep_initiate()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -274,6 +276,7 @@ void test_pcep_msg_read_pcep_initiate()
 	double_linked_list *ero_subobj_list =
 		((struct pcep_object_ro *)obj_hdr)->sub_objects;
 	CU_ASSERT_PTR_NOT_NULL(ero_subobj_list);
+	assert(ero_subobj_list != NULL);
 	CU_ASSERT_EQUAL(ero_subobj_list->num_entries, 2);
 	double_linked_list_node *subobj_node = ero_subobj_list->head;
 	struct pcep_object_ro_subobj *subobj_hdr =
@@ -312,6 +315,7 @@ void test_pcep_msg_read_pcep_initiate2()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -367,6 +371,7 @@ void test_pcep_msg_read_pcep_initiate2()
 	double_linked_list *ero_subobj_list =
 		((struct pcep_object_ro *)obj_hdr)->sub_objects;
 	CU_ASSERT_PTR_NOT_NULL(ero_subobj_list);
+	assert(ero_subobj_list != NULL);
 	CU_ASSERT_EQUAL(ero_subobj_list->num_entries, 0);
 	double_linked_list_node *subobj_node = ero_subobj_list->head;
 	CU_ASSERT_PTR_NULL(subobj_node);
@@ -399,6 +404,7 @@ void test_pcep_msg_read_pcep_open()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -443,6 +449,7 @@ void test_pcep_msg_read_pcep_update()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -492,6 +499,7 @@ void test_pcep_msg_read_pcep_update()
 	double_linked_list *ero_subobj_list =
 		((struct pcep_object_ro *)obj_hdr)->sub_objects;
 	CU_ASSERT_PTR_NOT_NULL(ero_subobj_list);
+	assert(ero_subobj_list != NULL);
 	CU_ASSERT_EQUAL(ero_subobj_list->num_entries, 0);
 	double_linked_list_node *subobj_node = ero_subobj_list->head;
 	CU_ASSERT_PTR_NULL(subobj_node);
@@ -525,6 +533,7 @@ void test_pcep_msg_read_pcep_open_initiate()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 2);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -554,6 +563,7 @@ void test_pcep_msg_read_pcep_open_cisco_pce()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -573,6 +583,7 @@ void test_pcep_msg_read_pcep_open_cisco_pce()
 	CU_ASSERT_EQUAL(open->open_sid, 0);
 	CU_ASSERT_EQUAL(open->open_version, 1);
 	CU_ASSERT_PTR_NOT_NULL(open->header.tlv_list);
+	assert(open->header.tlv_list != NULL);
 	CU_ASSERT_EQUAL(open->header.tlv_list->num_entries, 2);
 
 	/* Stateful PCE Capability TLV */
@@ -616,6 +627,7 @@ void test_pcep_msg_read_pcep_update_cisco_pce()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -631,6 +643,7 @@ void test_pcep_msg_read_pcep_update_cisco_pce()
 	CU_ASSERT_EQUAL(srp->header.object_type, PCEP_OBJ_TYPE_SRP);
 	CU_ASSERT_EQUAL(srp->header.encoded_object_length, 20);
 	CU_ASSERT_PTR_NOT_NULL(srp->header.tlv_list);
+	assert(srp->header.tlv_list != NULL);
 	CU_ASSERT_EQUAL(srp->header.tlv_list->num_entries, 1);
 	CU_ASSERT_EQUAL(srp->srp_id_number, 1);
 	CU_ASSERT_FALSE(srp->flag_lsp_remove);
@@ -651,6 +664,7 @@ void test_pcep_msg_read_pcep_update_cisco_pce()
 	CU_ASSERT_EQUAL(lsp->header.object_type, PCEP_OBJ_TYPE_LSP);
 	CU_ASSERT_EQUAL(lsp->header.encoded_object_length, 24);
 	CU_ASSERT_PTR_NOT_NULL(lsp->header.tlv_list);
+	assert(lsp->header.tlv_list != NULL);
 	CU_ASSERT_EQUAL(lsp->header.tlv_list->num_entries, 1);
 	CU_ASSERT_EQUAL(lsp->plsp_id, 524303);
 	CU_ASSERT_EQUAL(lsp->operational_status, PCEP_LSP_OPERATIONAL_DOWN);
@@ -677,6 +691,7 @@ void test_pcep_msg_read_pcep_update_cisco_pce()
 	CU_ASSERT_EQUAL(ero->header.encoded_object_length, 40);
 	CU_ASSERT_PTR_NULL(ero->header.tlv_list);
 	CU_ASSERT_PTR_NOT_NULL(ero->sub_objects);
+	assert(ero->sub_objects != NULL);
 	CU_ASSERT_EQUAL(ero->sub_objects->num_entries, 3);
 
 	/* ERO Subobjects */
@@ -757,6 +772,7 @@ void test_pcep_msg_read_pcep_report_cisco_pcc()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -772,6 +788,7 @@ void test_pcep_msg_read_pcep_report_cisco_pcc()
 	CU_ASSERT_EQUAL(srp->header.object_type, PCEP_OBJ_TYPE_SRP);
 	CU_ASSERT_EQUAL(srp->header.encoded_object_length, 20);
 	CU_ASSERT_PTR_NOT_NULL(srp->header.tlv_list);
+	assert(srp->header.tlv_list != NULL);
 	CU_ASSERT_EQUAL(srp->header.tlv_list->num_entries, 1);
 	CU_ASSERT_EQUAL(srp->srp_id_number, 0);
 	CU_ASSERT_FALSE(srp->flag_lsp_remove);
@@ -838,6 +855,7 @@ void test_pcep_msg_read_pcep_report_cisco_pcc()
 	CU_ASSERT_EQUAL(ero->header.encoded_object_length, 4);
 	CU_ASSERT_PTR_NULL(ero->header.tlv_list);
 	CU_ASSERT_PTR_NOT_NULL(ero->sub_objects);
+	assert(ero->sub_objects != NULL);
 	CU_ASSERT_EQUAL(ero->sub_objects->num_entries, 0);
 
 	/* LSPA object */
@@ -916,6 +934,7 @@ void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
 	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
 	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
 
 	struct pcep_message *msg = (struct pcep_message *)msg_list->head->data;
@@ -931,6 +950,7 @@ void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 	CU_ASSERT_EQUAL(srp->header.object_type, PCEP_OBJ_TYPE_SRP);
 	CU_ASSERT_EQUAL(srp->header.encoded_object_length, 20);
 	CU_ASSERT_PTR_NOT_NULL(srp->header.tlv_list);
+	assert(srp->header.tlv_list != NULL);
 	CU_ASSERT_EQUAL(srp->header.tlv_list->num_entries, 1);
 	CU_ASSERT_EQUAL(srp->srp_id_number, 1);
 	CU_ASSERT_FALSE(srp->flag_lsp_remove);
@@ -942,6 +962,7 @@ void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 	CU_ASSERT_EQUAL(lsp->header.object_type, PCEP_OBJ_TYPE_LSP);
 	CU_ASSERT_EQUAL(lsp->header.encoded_object_length, 48);
 	CU_ASSERT_PTR_NOT_NULL(lsp->header.tlv_list);
+	assert(lsp->header.tlv_list != NULL);
 	CU_ASSERT_EQUAL(lsp->header.tlv_list->num_entries, 2);
 	CU_ASSERT_EQUAL(lsp->plsp_id, 0);
 	CU_ASSERT_EQUAL(lsp->operational_status, PCEP_LSP_OPERATIONAL_DOWN);
@@ -988,7 +1009,9 @@ void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 			PCEP_OBJ_TYPE_SWITCH_LAYER);
 	CU_ASSERT_EQUAL(switch_layer->header.encoded_object_length, 8);
 	CU_ASSERT_PTR_NULL(switch_layer->header.tlv_list);
+	assert(switch_layer->header.tlv_list == NULL);
 	CU_ASSERT_PTR_NOT_NULL(switch_layer->switch_layer_rows);
+	assert(switch_layer->switch_layer_rows != NULL);
 	CU_ASSERT_EQUAL(switch_layer->switch_layer_rows->num_entries, 1);
 	struct pcep_object_switch_layer_row *switch_layer_row =
 		(struct pcep_object_switch_layer_row *)

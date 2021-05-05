@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -161,6 +162,7 @@ void test_session_logic_msg_ready_handler()
 	pcep_session_event *socket_event = (pcep_session_event *)queue_dequeue(
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL(socket_event);
+	assert(socket_event != NULL);
 	CU_ASSERT_TRUE(socket_event->socket_closed);
 	pceplib_free(PCEPLIB_INFRA, socket_event);
 
@@ -179,6 +181,7 @@ void test_session_logic_msg_ready_handler()
 	socket_event = (pcep_session_event *)queue_dequeue(
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL(socket_event);
+	assert(socket_event != NULL);
 	CU_ASSERT_FALSE(socket_event->socket_closed);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, TIMER_ID_NOT_SET);
@@ -206,6 +209,7 @@ void test_session_logic_conn_except_notifier()
 	pcep_session_event *socket_event = (pcep_session_event *)queue_dequeue(
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(socket_event);
+	assert(socket_event != NULL);
 	CU_ASSERT_TRUE(socket_event->socket_closed);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, TIMER_ID_NOT_SET);
@@ -230,6 +234,7 @@ void test_session_logic_timer_expire_handler()
 	pcep_session_event *socket_event = (pcep_session_event *)queue_dequeue(
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(socket_event);
+	assert(socket_event != NULL);
 	CU_ASSERT_FALSE(socket_event->socket_closed);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, 42);

@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include <CUnit/CUnit.h>
@@ -128,6 +129,7 @@ static void verify_pcep_obj_header2(uint8_t obj_class, uint8_t obj_type,
 static void verify_pcep_obj_header(uint8_t obj_class, uint8_t obj_type,
 				   struct pcep_object_header *obj_hdr)
 {
+	assert(obj_hdr != NULL);
 	verify_pcep_obj_header2(obj_class, obj_type,
 				pcep_object_get_length_by_hdr(obj_hdr),
 				obj_hdr->encoded_object);
@@ -172,12 +174,14 @@ void test_pcep_obj_create_open_with_tlvs()
 		pcep_obj_create_open(keepalive, deadtimer, sid, tlv_list);
 
 	CU_ASSERT_PTR_NOT_NULL(open);
+	assert(open != NULL);
 	pcep_encode_object(&open->header, versioning, object_buf);
 	verify_pcep_obj_header2(PCEP_OBJ_CLASS_OPEN, PCEP_OBJ_TYPE_OPEN,
 				pcep_object_get_length_by_hdr(&open->header)
 					+ sizeof(uint32_t) * 2,
 				open->header.encoded_object);
 	CU_ASSERT_PTR_NOT_NULL(open->header.tlv_list);
+	assert(open->header.tlv_list != NULL);
 	CU_ASSERT_EQUAL(open->header.tlv_list->num_entries, 1);
 
 	CU_ASSERT_EQUAL(open->header.encoded_object[4],
@@ -240,6 +244,8 @@ void test_pcep_obj_create_nopath()
 	CU_ASSERT_EQUAL(nopath->header.encoded_object[7], 0);
 
 	/* Verify the TLV */
+	assert(nopath != NULL);
+	assert(nopath->header.tlv_list != NULL);
 	CU_ASSERT_PTR_NOT_NULL(nopath->header.tlv_list);
 	struct pcep_object_tlv_nopath_vector *tlv =
 		(struct pcep_object_tlv_nopath_vector *)
@@ -269,6 +275,7 @@ void test_pcep_obj_create_association_ipv4()
 			false, PCEP_ASSOCIATION_TYPE_SR_POLICY_ASSOCIATION_TYPE,
 			all_assoc_groups, src);
 	CU_ASSERT_PTR_NOT_NULL(assoc);
+	assert(assoc != NULL);
 	CU_ASSERT_EQUAL(assoc->association_type,
 			PCEP_ASSOCIATION_TYPE_SR_POLICY_ASSOCIATION_TYPE);
 	CU_ASSERT_EQUAL(assoc->association_id, all_assoc_groups);
@@ -291,6 +298,7 @@ void test_pcep_obj_create_association_ipv6()
 			false, PCEP_ASSOCIATION_TYPE_SR_POLICY_ASSOCIATION_TYPE,
 			all_assoc_groups, src);
 	CU_ASSERT_PTR_NOT_NULL(assoc);
+	assert(assoc != NULL);
 	CU_ASSERT_EQUAL(assoc->association_type,
 			PCEP_ASSOCIATION_TYPE_SR_POLICY_ASSOCIATION_TYPE);
 	CU_ASSERT_EQUAL(assoc->association_id, all_assoc_groups);
@@ -466,6 +474,7 @@ void test_pcep_obj_create_svec()
 
 	svec = pcep_obj_create_svec(true, true, true, id_list);
 	CU_ASSERT_PTR_NOT_NULL(svec);
+	assert(svec != NULL);
 	pcep_encode_object(&svec->header, versioning, object_buf);
 	verify_pcep_obj_header2(PCEP_OBJ_CLASS_SVEC, PCEP_OBJ_TYPE_SVEC,
 				(OBJECT_HEADER_LENGTH + sizeof(uint32_t) * 2),
@@ -614,6 +623,7 @@ static void test_pcep_obj_create_object_common(ro_func func_to_test,
 
 	struct pcep_object_ro *ero = func_to_test(NULL);
 	CU_ASSERT_PTR_NOT_NULL(ero);
+	assert(ero != NULL);
 	pcep_encode_object(&ero->header, versioning, object_buf);
 	verify_pcep_obj_header2(object_class, object_type, OBJECT_HEADER_LENGTH,
 				ero->header.encoded_object);
@@ -622,6 +632,7 @@ static void test_pcep_obj_create_object_common(ro_func func_to_test,
 	reset_objects_buffer();
 	ero = func_to_test(ero_list);
 	CU_ASSERT_PTR_NOT_NULL(ero);
+	assert(ero != NULL);
 	pcep_encode_object(&ero->header, versioning, object_buf);
 	verify_pcep_obj_header2(object_class, object_type, OBJECT_HEADER_LENGTH,
 				ero->header.encoded_object);
@@ -634,6 +645,7 @@ static void test_pcep_obj_create_object_common(ro_func func_to_test,
 	dll_append(ero_list, ro_subobj);
 	ero = func_to_test(ero_list);
 	CU_ASSERT_PTR_NOT_NULL(ero);
+	assert(ero != NULL);
 	pcep_encode_object(&ero->header, versioning, object_buf);
 	/* 4 bytes for obj header +
 	 * 2 bytes for ro_subobj header +
@@ -917,6 +929,7 @@ void test_pcep_obj_create_ro_subobj_sr_ipv4_node()
 	sr = pcep_obj_create_ro_subobj_sr_ipv4_node(true, true, false, false,
 						    sid, &ipv4_node_id);
 	CU_ASSERT_PTR_NOT_NULL(sr);
+	assert(sr != NULL);
 	struct pcep_object_ro *ro = encode_ro_subobj(&sr->ro_subobj);
 	verify_pcep_obj_ro_sr_header(ro, &sr->ro_subobj,
 				     PCEP_SR_SUBOBJ_NAI_IPV4_NODE, true,
@@ -936,10 +949,12 @@ void test_pcep_obj_create_ro_subobj_sr_ipv4_node()
 	sr = pcep_obj_create_ro_subobj_sr_ipv4_node(false, false, true, true,
 						    sid, &ipv4_node_id);
 	CU_ASSERT_PTR_NOT_NULL(sr);
+	assert(sr != NULL);
 	ro = encode_ro_subobj(&sr->ro_subobj);
 	verify_pcep_obj_ro_sr_header(ro, &sr->ro_subobj,
 				     PCEP_SR_SUBOBJ_NAI_IPV4_NODE, false,
 				     sizeof(uint32_t) * 4);
+	assert(ro != NULL);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & OBJECT_SUBOBJ_SR_FLAG_C);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & OBJECT_SUBOBJ_SR_FLAG_M);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_S);
@@ -1040,6 +1055,7 @@ void test_pcep_obj_create_ro_subobj_sr_ipv4_adj()
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_F);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_C);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_M);
+	assert(sr != NULL);
 	CU_ASSERT_EQUAL(sr->sid, 0);
 	uint32_t *uint32_ptr = (uint32_t *)(ro->header.encoded_object + 8);
 	CU_ASSERT_EQUAL(uint32_ptr[0], local_ipv4.s_addr);
@@ -1094,6 +1110,7 @@ void test_pcep_obj_create_ro_subobj_sr_ipv6_adj()
 	sr = pcep_obj_create_ro_subobj_sr_ipv6_adj(true, true, true, true, sid,
 						   &local_ipv6, &remote_ipv6);
 	CU_ASSERT_PTR_NOT_NULL(sr);
+	assert(sr != NULL);
 	struct pcep_object_ro *ro = encode_ro_subobj(&sr->ro_subobj);
 	verify_pcep_obj_ro_sr_header(ro, &sr->ro_subobj,
 				     PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY, true,
@@ -1168,6 +1185,7 @@ void test_pcep_obj_create_ro_subobj_sr_unnumbered_ipv4_adj()
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_F);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_C);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_M);
+	assert(sr != NULL);
 	CU_ASSERT_EQUAL(sr->sid, 0);
 	uint32_t *uint32_ptr = (uint32_t *)(ro->header.encoded_object + 8);
 	CU_ASSERT_EQUAL(uint32_ptr[0], local_node_id);
@@ -1244,6 +1262,7 @@ void test_pcep_obj_create_ro_subobj_sr_linklocal_ipv6_adj()
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_F);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_C);
 	CU_ASSERT_TRUE(ro->header.encoded_object[7] & ~OBJECT_SUBOBJ_SR_FLAG_M);
+	assert(sr != NULL);
 	CU_ASSERT_EQUAL(sr->sid, 0);
 	uint32_t *uint32_ptr = (uint32_t *)(ro->header.encoded_object + 8);
 	CU_ASSERT_EQUAL(uint32_ptr[0], local_ipv6.__in6_u.__u6_addr32[0]);
