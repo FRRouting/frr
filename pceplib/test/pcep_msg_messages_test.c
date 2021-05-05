@@ -26,6 +26,7 @@
 #endif
 
 #include <stdlib.h>
+#include <assert.h>
 
 #include <CUnit/CUnit.h>
 
@@ -79,13 +80,16 @@ void test_pcep_msg_create_open()
 		pcep_msg_create_open(keepalive, deadtimer, sid);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 1);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH
 				+ pcep_object_get_length(PCEP_OBJ_CLASS_OPEN,
 							 PCEP_OBJ_TYPE_OPEN));
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_OPEN);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -122,6 +126,7 @@ void test_pcep_msg_create_request()
 
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 2);
@@ -130,6 +135,7 @@ void test_pcep_msg_create_request()
 		MESSAGE_HEADER_LENGTH
 			+ pcep_object_get_length_by_hdr(&rp_obj->header)
 			+ pcep_object_get_length_by_hdr(&ipv4_obj->header));
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_PCREQ);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -144,14 +150,17 @@ void test_pcep_msg_create_request()
 
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 2);
 	CU_ASSERT_EQUAL(
 		message->encoded_message_length,
 		MESSAGE_HEADER_LENGTH
 			+ pcep_object_get_length_by_hdr(&rp_obj->header)
 			+ pcep_object_get_length_by_hdr(&ipv6_obj->header));
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_PCREQ);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -169,8 +178,10 @@ void test_pcep_msg_create_request()
 
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 3);
 	CU_ASSERT_EQUAL(
 		message->encoded_message_length,
@@ -179,6 +190,7 @@ void test_pcep_msg_create_request()
 			+ pcep_object_get_length_by_hdr(&ipv4_obj->header)
 			+ pcep_object_get_length_by_hdr(
 				&bandwidth_obj->header));
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_PCREQ);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -203,13 +215,16 @@ void test_pcep_msg_create_reply_nopath()
 	struct pcep_message *message = pcep_msg_create_reply(rp_obj, obj_list);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 2);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			(MESSAGE_HEADER_LENGTH
 			 + pcep_object_get_length_by_hdr(&rp_obj->header)
 			 + pcep_object_get_length_by_hdr(&nopath_obj->header)));
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_PCREP);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -224,10 +239,12 @@ void test_pcep_msg_create_reply()
 
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 0);
 	CU_ASSERT_EQUAL(message->encoded_message_length, MESSAGE_HEADER_LENGTH);
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_PCREP);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -249,6 +266,7 @@ void test_pcep_msg_create_reply()
 	pcep_encode_message(message, versioning);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 2);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH
@@ -270,13 +288,16 @@ void test_pcep_msg_create_close()
 	struct pcep_message *message = pcep_msg_create_close(reason);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 1);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH
 				+ pcep_object_get_length(PCEP_OBJ_CLASS_CLOSE,
 							 PCEP_OBJ_TYPE_CLOSE));
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_CLOSE);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -285,6 +306,7 @@ void test_pcep_msg_create_close()
 	 * are verified in pcep-objects-test.c */
 	struct pcep_object_close *close_obj =
 		(struct pcep_object_close *)message->obj_list->head->data;
+	assert(close_obj != NULL);
 	CU_ASSERT_EQUAL(close_obj->header.object_class, PCEP_OBJ_CLASS_CLOSE);
 	CU_ASSERT_EQUAL(close_obj->header.object_type, PCEP_OBJ_TYPE_CLOSE);
 	CU_ASSERT_EQUAL(close_obj->reason, reason);
@@ -301,13 +323,16 @@ void test_pcep_msg_create_error()
 		pcep_msg_create_error(error_type, error_value);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 1);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH
 				+ pcep_object_get_length(PCEP_OBJ_CLASS_ERROR,
 							 PCEP_OBJ_TYPE_ERROR));
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_ERROR);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -330,10 +355,13 @@ void test_pcep_msg_create_keepalive()
 	struct pcep_message *message = pcep_msg_create_keepalive();
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 0);
 	CU_ASSERT_EQUAL(message->encoded_message_length, MESSAGE_HEADER_LENGTH);
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_KEEPALIVE);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -355,12 +383,15 @@ void test_pcep_msg_create_report()
 	message = pcep_msg_create_report(obj_list);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 1);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH
 				+ lsp->header.encoded_object_length);
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_REPORT);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -405,14 +436,17 @@ void test_pcep_msg_create_update()
 	message = pcep_msg_create_update(obj_list);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 3);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH
 				+ srp->header.encoded_object_length
 				+ lsp->header.encoded_object_length
 				+ ero->header.encoded_object_length);
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_UPDATE);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -454,14 +488,17 @@ void test_pcep_msg_create_initiate()
 	message = pcep_msg_create_initiate(obj_list);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->msg_header);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 3);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH
 				+ srp->header.encoded_object_length
 				+ lsp->header.encoded_object_length
 				+ ero->header.encoded_object_length);
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_INITIATE);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -482,11 +519,14 @@ void test_pcep_msg_create_notify(void)
 	message = pcep_msg_create_notify(notify_obj, NULL);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 1);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH
 				+ notify_obj->header.encoded_object_length);
+	assert(message->msg_header != NULL);
 	CU_ASSERT_EQUAL(message->msg_header->type, PCEP_TYPE_PCNOTF);
 	CU_ASSERT_EQUAL(message->msg_header->pcep_version,
 			PCEP_MESSAGE_HEADER_VERSION);
@@ -504,7 +544,9 @@ void test_pcep_msg_create_notify(void)
 	message = pcep_msg_create_notify(notify_obj, obj_list);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
+	assert(message != NULL);
 	CU_ASSERT_PTR_NOT_NULL(message->obj_list);
+	assert(message->obj_list != NULL);
 	CU_ASSERT_EQUAL(message->obj_list->num_entries, 2);
 	CU_ASSERT_EQUAL(message->encoded_message_length,
 			MESSAGE_HEADER_LENGTH

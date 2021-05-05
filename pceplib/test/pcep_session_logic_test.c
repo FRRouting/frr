@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -134,6 +135,7 @@ void test_create_destroy_pcep_session()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *open_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
+	assert(open_msg != NULL);
 	/* Should be an Open, with no TLVs: length = 12 */
 	CU_ASSERT_EQUAL(open_msg->msg_header->type, PCEP_TYPE_OPEN);
 	CU_ASSERT_EQUAL(open_msg->encoded_message_length, 12);
@@ -166,6 +168,7 @@ void test_create_destroy_pcep_session_ipv6()
 	mock_info->send_message_save_message = true;
 	session = create_pcep_session_ipv6(&config, &pce_ip);
 	CU_ASSERT_PTR_NOT_NULL(session);
+	assert(session != NULL);
 	CU_ASSERT_TRUE(session->socket_comm_session->is_ipv6);
 	/* What gets saved in the mock is the msg byte buffer. The msg struct
 	 * was deleted when it was sent. Instead of inspecting the msg byte
@@ -175,6 +178,7 @@ void test_create_destroy_pcep_session_ipv6()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *open_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
+	assert(open_msg != NULL);
 	/* Should be an Open, with no TLVs: length = 12 */
 	CU_ASSERT_EQUAL(open_msg->msg_header->type, PCEP_TYPE_OPEN);
 	CU_ASSERT_EQUAL(open_msg->encoded_message_length, 12);
@@ -215,14 +219,17 @@ void test_create_pcep_session_open_tlvs()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	open_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
+	assert(open_msg != NULL);
 	/* Get and verify the Open Message objects */
 	CU_ASSERT_PTR_NOT_NULL(open_msg->obj_list);
+	assert(open_msg->obj_list != NULL);
 	CU_ASSERT_TRUE(open_msg->obj_list->num_entries > 0);
 	/* Get and verify the Open object */
 	open_obj = pcep_obj_get(open_msg->obj_list, PCEP_OBJ_CLASS_OPEN);
 	CU_ASSERT_PTR_NOT_NULL(open_obj);
 	/* Get and verify the Open object TLVs */
 	CU_ASSERT_PTR_NOT_NULL(open_obj->tlv_list);
+	assert(open_obj->tlv_list != NULL);
 	CU_ASSERT_EQUAL(open_obj->tlv_list->num_entries, 1);
 	CU_ASSERT_EQUAL(((struct pcep_object_tlv_header *)
 				 open_obj->tlv_list->head->data)
@@ -250,12 +257,14 @@ void test_create_pcep_session_open_tlvs()
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
 	/* Get and verify the Open Message objects */
 	CU_ASSERT_PTR_NOT_NULL(open_msg->obj_list);
+	assert(open_msg != NULL);
 	CU_ASSERT_TRUE(open_msg->obj_list->num_entries > 0);
 	/* Get and verify the Open object */
 	open_obj = pcep_obj_get(open_msg->obj_list, PCEP_OBJ_CLASS_OPEN);
 	CU_ASSERT_PTR_NOT_NULL(open_obj);
 	/* Get and verify the Open object TLVs */
 	CU_ASSERT_PTR_NOT_NULL(open_obj->tlv_list);
+	assert(open_obj->tlv_list != NULL);
 	CU_ASSERT_EQUAL(open_obj->tlv_list->num_entries, 2);
 	CU_ASSERT_EQUAL(((struct pcep_object_tlv_header *)
 				 open_obj->tlv_list->head->data)
@@ -287,14 +296,17 @@ void test_create_pcep_session_open_tlvs()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	open_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
+	assert(open_msg != NULL);
 	/* Get and verify the Open Message objects */
 	CU_ASSERT_PTR_NOT_NULL(open_msg->obj_list);
+	assert(open_msg->obj_list != NULL);
 	CU_ASSERT_TRUE(open_msg->obj_list->num_entries > 0);
 	/* Get and verify the Open object */
 	open_obj = pcep_obj_get(open_msg->obj_list, PCEP_OBJ_CLASS_OPEN);
 	CU_ASSERT_PTR_NOT_NULL(open_obj);
 	/* Get and verify the Open object TLVs */
 	CU_ASSERT_PTR_NOT_NULL(open_obj->tlv_list);
+	assert(open_obj->tlv_list != NULL);
 	CU_ASSERT_EQUAL(open_obj->tlv_list->num_entries, 3);
 	double_linked_list_node *tlv_node = open_obj->tlv_list->head;
 	CU_ASSERT_EQUAL(((struct pcep_object_tlv_header *)tlv_node->data)->type,
@@ -324,16 +336,21 @@ void test_create_pcep_session_open_tlvs()
 	/* Get and verify the Open Message */
 	encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
+	assert(encoded_msg != NULL);
 	open_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg);
+	assert(open_msg != NULL);
 	/* Get and verify the Open Message objects */
 	CU_ASSERT_PTR_NOT_NULL(open_msg->obj_list);
+	assert(open_msg->obj_list != NULL);
 	CU_ASSERT_TRUE(open_msg->obj_list->num_entries > 0);
 	/* Get and verify the Open object */
 	open_obj = pcep_obj_get(open_msg->obj_list, PCEP_OBJ_CLASS_OPEN);
 	CU_ASSERT_PTR_NOT_NULL(open_obj);
+	assert(open_obj != NULL);
 	/* Get and verify the Open object TLVs */
 	CU_ASSERT_PTR_NOT_NULL(open_obj->tlv_list);
+	assert(open_obj->tlv_list != NULL);
 	CU_ASSERT_EQUAL(open_obj->tlv_list->num_entries, 4);
 	tlv_node = open_obj->tlv_list->head;
 	CU_ASSERT_EQUAL(((struct pcep_object_tlv_header *)tlv_node->data)->type,

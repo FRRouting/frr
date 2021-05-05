@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <netinet/in.h>
 
 #include <CUnit/CUnit.h>
@@ -112,6 +113,7 @@ void test_pcep_socket_comm_initialize()
 		test_connection_except_notifier, &test_host_ip, test_port,
 		connect_timeout_millis, NULL, false, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_FALSE(test_session->is_ipv6);
 }
 
@@ -123,6 +125,7 @@ void test_pcep_socket_comm_initialize_ipv6()
 		test_connection_except_notifier, &test_host_ipv6, test_port,
 		connect_timeout_millis, NULL, false, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_TRUE(test_session->is_ipv6);
 }
 
@@ -135,6 +138,7 @@ void test_pcep_socket_comm_initialize_with_src()
 		test_connection_except_notifier, NULL, 0, &test_host_ip,
 		test_port, connect_timeout_millis, NULL, false, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_EQUAL(
 		test_session->src_sock_addr.src_sock_addr_ipv4.sin_addr.s_addr,
 		INADDR_ANY);
@@ -147,6 +151,7 @@ void test_pcep_socket_comm_initialize_with_src()
 		&test_host_ip, test_port, connect_timeout_millis, NULL, false,
 		NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_EQUAL(
 		test_session->src_sock_addr.src_sock_addr_ipv4.sin_addr.s_addr,
 		test_src_ip.s_addr);
@@ -164,6 +169,7 @@ void test_pcep_socket_comm_initialize_with_src_ipv6()
 		test_connection_except_notifier, NULL, 0, &test_host_ipv6,
 		test_port, connect_timeout_millis, NULL, false, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_EQUAL(memcmp(&test_session->src_sock_addr.src_sock_addr_ipv6
 					.sin6_addr,
 			       &in6addr_any, sizeof(struct in6_addr)),
@@ -177,6 +183,7 @@ void test_pcep_socket_comm_initialize_with_src_ipv6()
 		&test_host_ipv6, test_port, connect_timeout_millis, NULL, false,
 		NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_EQUAL(memcmp(&test_session->src_sock_addr.src_sock_addr_ipv6
 					.sin6_addr,
 			       &test_src_ipv6, sizeof(struct in6_addr)),
@@ -198,6 +205,7 @@ void test_pcep_socket_comm_initialize_tcpmd5()
 		test_connection_except_notifier, &test_host_ip, test_port, 1,
 		tcp_md5_str, true, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_EQUAL(0, strncmp(tcp_md5_str,
 				   test_session->tcp_authentication_str,
 				   tcp_md5_strlen));
@@ -213,6 +221,7 @@ void test_pcep_socket_comm_initialize_tcpmd5()
 		test_connection_except_notifier, &test_host_ip, test_port, 1,
 		tcp_md5_str, false, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_EQUAL(0, strncmp(tcp_md5_str,
 				   test_session->tcp_authentication_str,
 				   tcp_md5_strlen));
@@ -231,6 +240,7 @@ void test_pcep_socket_comm_initialize_ipv6_tcpmd5()
 		test_connection_except_notifier, &test_host_ipv6, test_port, 1,
 		tcp_md5_str, true, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_EQUAL(0, strncmp(tcp_md5_str,
 				   test_session->tcp_authentication_str,
 				   tcp_md5_strlen));
@@ -246,6 +256,7 @@ void test_pcep_socket_comm_initialize_ipv6_tcpmd5()
 		test_connection_except_notifier, &test_host_ipv6, test_port, 1,
 		tcp_md5_str, false, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_EQUAL(0, strncmp(tcp_md5_str,
 				   test_session->tcp_authentication_str,
 				   tcp_md5_strlen));
@@ -300,7 +311,9 @@ void test_pcep_socket_comm_session_destroy()
 		test_connection_except_notifier, &test_host_ip, test_port,
 		connect_timeout_millis, NULL, false, NULL);
 	CU_ASSERT_PTR_NOT_NULL(test_session);
+	assert(test_session != NULL);
 	CU_ASSERT_PTR_NOT_NULL(socket_comm_handle_);
+	assert(socket_comm_handle_ != NULL);
 	CU_ASSERT_EQUAL(socket_comm_handle_->num_active_sessions, 1);
 
 	CU_ASSERT_TRUE(socket_comm_session_teardown(test_session));
