@@ -312,7 +312,6 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 
 	ifi = NLMSG_DATA(h);
 
-	memset(linkinfo, 0, sizeof(linkinfo));
 	parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
 
 	if (!linkinfo[IFLA_INFO_DATA]) {
@@ -323,7 +322,6 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		return;
 	}
 
-	memset(attr, 0, sizeof(attr));
 	parse_rtattr_nested(attr, IFLA_VRF_MAX, linkinfo[IFLA_INFO_DATA]);
 	if (!attr[IFLA_VRF_TABLE]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -544,7 +542,6 @@ static int netlink_extract_bridge_info(struct rtattr *link_data,
 	struct rtattr *attr[IFLA_BR_MAX + 1];
 
 	memset(bridge_info, 0, sizeof(*bridge_info));
-	memset(attr, 0, sizeof(attr));
 	parse_rtattr_nested(attr, IFLA_BR_MAX, link_data);
 	if (attr[IFLA_BR_VLAN_FILTERING])
 		bridge_info->vlan_aware =
@@ -559,7 +556,6 @@ static int netlink_extract_vlan_info(struct rtattr *link_data,
 	vlanid_t vid_in_msg;
 
 	memset(vlan_info, 0, sizeof(*vlan_info));
-	memset(attr, 0, sizeof(attr));
 	parse_rtattr_nested(attr, IFLA_VLAN_MAX, link_data);
 	if (!attr[IFLA_VLAN_ID]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -579,7 +575,7 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 
 	memset(gre_info, 0, sizeof(*gre_info));
 	memset(attr, 0, sizeof(attr));
-	parse_rtattr_nested(attr, IFLA_GRE_MAX, link_data);
+	netlink_parse_rtattr_nested(attr, IFLA_GRE_MAX, link_data);
 
 	if (!attr[IFLA_GRE_LOCAL]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -622,7 +618,6 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	ifindex_t ifindex_link;
 
 	memset(vxl_info, 0, sizeof(*vxl_info));
-	memset(attr, 0, sizeof(attr));
 	parse_rtattr_nested(attr, IFLA_VXLAN_MAX, link_data);
 	if (!attr[IFLA_VXLAN_ID]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -716,7 +711,6 @@ static int netlink_bridge_vxlan_update(struct interface *ifp,
 	/* There is a 1-to-1 mapping of VLAN to VxLAN - hence
 	 * only 1 access VLAN is accepted.
 	 */
-	memset(aftb, 0, sizeof(aftb));
 	parse_rtattr_nested(aftb, IFLA_BRIDGE_MAX, af_spec);
 	if (!aftb[IFLA_BRIDGE_VLAN_INFO])
 		return 0;
@@ -786,7 +780,6 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 
 	/* Fetch name and ifindex */
 	ifi = NLMSG_DATA(h);
-	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
 
 	if (tb[IFLA_IFNAME] == NULL)
@@ -854,7 +847,6 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 	uint8_t bypass = 0;
 	struct rtattr *mbrinfo[IFLA_BOND_SLAVE_MAX + 1];
 
-	memset(mbrinfo, 0, sizeof(mbrinfo));
 	parse_rtattr_nested(mbrinfo, IFLA_BOND_SLAVE_MAX,
 			    linkinfo[IFLA_INFO_SLAVE_DATA]);
 	if (mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS])
@@ -910,7 +902,6 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return netlink_bridge_interface(h, len, ns_id, startup);
 
 	/* Looking up interface name. */
-	memset(tb, 0, sizeof(tb));
 	memset(linkinfo, 0, sizeof(linkinfo));
 	netlink_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
 
@@ -1303,7 +1294,6 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	}
 
-	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, IFA_MAX, IFA_RTA(ifa), len);
 
 	ifp = if_lookup_by_index_per_ns(zns, ifa->ifa_index);
@@ -1519,7 +1509,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return netlink_bridge_interface(h, len, ns_id, startup);
 
 	/* Looking up interface name. */
-	memset(tb, 0, sizeof(tb));
 	memset(linkinfo, 0, sizeof(linkinfo));
 	netlink_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
 
