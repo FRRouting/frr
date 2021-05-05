@@ -66,11 +66,8 @@ extern void sharp_zebra_register_te(void);
 
 extern void sharp_redistribute_vrf(struct vrf *vrf, int source);
 
-extern int sharp_zebra_srv6_manager_get_locator_chunk(const char* locator_name);
-extern int sharp_zebra_srv6_manager_release_locator_chunk(const char *locator_name);
-extern int sharp_zebra_srv6_manager_get_locator_chunk(const char *locator_name);
-extern int sharp_zebra_srv6_manager_release_locator_chunk(
-		const char *locator_name);
+extern int sharp_zebra_srv6_manager_get_locator_chunk(const char *lname);
+extern int sharp_zebra_srv6_manager_release_locator_chunk(const char *lname);
 extern void sharp_install_seg6local_route_helper(struct prefix *p,
 						 uint8_t instance,
 						 enum seg6local_action_t act,

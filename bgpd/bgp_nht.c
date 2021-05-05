@@ -79,7 +79,7 @@ static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
 	return (bgp_zebra_num_connects() == 0
 		|| (bnc && bnc->nexthop_num > 0
 		    && (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)
-		        || bnc->bgp->srv6_enabled)));
+			|| bnc->bgp->srv6_enabled)));
 }
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
