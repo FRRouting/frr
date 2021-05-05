@@ -1045,7 +1045,7 @@ static int isis_snmp_circuit_level_lookup_next(
 {
 	oid off;
 	oid start;
-	struct isis_circuit *circuit;
+	struct isis_circuit *circuit = NULL;
 	int level;
 
 	start = 0;
@@ -1951,8 +1951,6 @@ static uint8_t *isis_snmp_find_system_counter(struct variable *v, oid *name,
 		/* If level does not match all counters are zeros */
 		return SNMP_INTEGER(0);
 
-	val = 0;
-
 	switch (v->magic) {
 	case ISIS_SYSSTAT_CORRLSPS:
 		val = 0;
@@ -2512,7 +2510,6 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 
 	switch (v->magic) {
 	case ISIS_ISADJ_STATE:
-		val = ISIS_SNMP_ADJ_STATE_DOWN;
 
 		switch (adj->adj_state) {
 		case ISIS_ADJ_UNKNOWN:
@@ -2541,7 +2538,6 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 	}
 
 	case ISIS_ISADJ_NEIGHSYSTYPE:
-		val = ISIS_SNMP_ADJ_NEIGHTYPE_UNKNOWN;
 
 		switch (adj->sys_type) {
 		case ISIS_SYSTYPE_UNKNOWN:
