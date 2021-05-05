@@ -1247,6 +1247,7 @@ struct peer {
 #define PEER_FLAG_TIMER_DELAYOPEN (1U << 27) /* delayopen timer */
 #define PEER_FLAG_TCP_MSS (1U << 28)	 /* tcp-mss */
 
+#define PEER_FLAG_IO_STOPPED                (1 << 29) /* stopped I/O */
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
 	 *& PEER_FLAG_GRACEFUL_RESTART_HELPER
@@ -2034,6 +2035,7 @@ extern int peer_group_delete(struct peer_group *);
 extern int peer_group_remote_as_delete(struct peer_group *);
 extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);
 extern void peer_group_notify_unconfig(struct peer_group *group);
+extern int peer_group_pre_delete(struct peer_group *group);
 
 extern int peer_activate(struct peer *, afi_t, safi_t);
 extern int peer_deactivate(struct peer *, afi_t, safi_t);

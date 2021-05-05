@@ -2738,6 +2738,19 @@ void peer_group_notify_unconfig(struct peer_group *group)
 	}
 }
 
+int peer_group_pre_delete(struct peer_group *group)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		SET_FLAG(peer->flags, PEER_FLAG_IO_STOPPED);
+		bgp_reads_off(peer);
+		bgp_writes_off(peer);
+	}
+	return 0;
+}
+
 int peer_group_delete(struct peer_group *group)
 {
 	struct bgp *bgp;
@@ -3623,6 +3636,10 @@ int bgp_delete(struct bgp *bgp)
 		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
 				    why? */
 	}
+
+	/* Free peers and peer-groups. */
+	for (ALL_LIST_ELEMENTS(bgp->group, node, next, group))
+		peer_group_pre_delete(group);
 
 	/* Inform peers we're going down. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {

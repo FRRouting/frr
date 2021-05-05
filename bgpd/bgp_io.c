@@ -58,6 +58,10 @@ static bool validate_header(struct peer *);
 void bgp_writes_on(struct peer *peer)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_IO_STOPPED))
+		return;
+
 	assert(fpt->running);
 
 	assert(peer->status != Deleted);
@@ -90,6 +94,10 @@ void bgp_writes_off(struct peer *peer)
 void bgp_reads_on(struct peer *peer)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_IO_STOPPED))
+		return;
+
 	assert(fpt->running);
 
 	assert(peer->status != Deleted);
