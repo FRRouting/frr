@@ -232,6 +232,9 @@ typedef enum {
 	ZEBRA_NEIGH_IP_ADD,
 	ZEBRA_NEIGH_IP_DEL,
 	ZEBRA_CONFIGURE_ARP,
+	ZEBRA_GRE_GET,
+	ZEBRA_GRE_UPDATE,
+	ZEBRA_GRE_SOURCE_SET,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -393,6 +396,7 @@ struct zclient {
 	void (*neighbor_added)(ZAPI_CALLBACK_ARGS);
 	void (*neighbor_removed)(ZAPI_CALLBACK_ARGS);
 	void (*neighbor_get)(ZAPI_CALLBACK_ARGS);
+	void (*gre_update)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -1228,6 +1232,8 @@ struct zapi_client_close_info {
 extern int zapi_client_close_notify_decode(struct stream *s,
 					   struct zapi_client_close_info *info);
 
+extern int zclient_send_zebra_gre_request(struct zclient *client,
+					  struct interface *ifp);
 #ifdef __cplusplus
 }
 #endif

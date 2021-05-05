@@ -1066,8 +1066,9 @@ void if_up(struct interface *ifp)
 						    zif->link_ifindex);
 		if (link_if)
 			zebra_vxlan_svi_up(ifp, link_if);
-	} else if (IS_ZEBRA_IF_MACVLAN(ifp))
+	} else if (IS_ZEBRA_IF_MACVLAN(ifp)) {
 		zebra_vxlan_macvlan_up(ifp);
+	}
 
 	if (zif->es_info.es)
 		zebra_evpn_es_if_oper_state_change(zif, true /*up*/);
@@ -1108,8 +1109,9 @@ void if_down(struct interface *ifp)
 						    zif->link_ifindex);
 		if (link_if)
 			zebra_vxlan_svi_down(ifp, link_if);
-	} else if (IS_ZEBRA_IF_MACVLAN(ifp))
+	} else if (IS_ZEBRA_IF_MACVLAN(ifp)) {
 		zebra_vxlan_macvlan_down(ifp);
+	}
 
 	if (zif->es_info.es)
 		zebra_evpn_es_if_oper_state_change(zif, false /*up*/);
@@ -1304,6 +1306,9 @@ static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 
 	case ZEBRA_IF_MACVLAN:
 		return "macvlan";
+
+	case ZEBRA_IF_GRE:
+		return "GRE";
 
 	default:
 		return "Unknown";
@@ -1577,6 +1582,28 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 					ifp->name);
 		}
 		vty_out(vty, "\n");
+	} else if (IS_ZEBRA_IF_GRE(ifp)) {
+		struct zebra_l2info_gre *gre_info;
+
+		gre_info = &zebra_if->l2info.gre;
+		if (gre_info->vtep_ip.s_addr != INADDR_ANY) {
+			vty_out(vty, "  VTEP IP: %pI4", &gre_info->vtep_ip);
+			if (gre_info->vtep_ip_remote.s_addr != INADDR_ANY)
+				vty_out(vty, " , remote %pI4",
+					&gre_info->vtep_ip_remote);
+			vty_out(vty, "\n");
+		}
+		if (gre_info->ifindex_link &&
+		    (gre_info->link_nsid != NS_UNKNOWN)) {
+			struct interface *ifp;
+
+			ifp = if_lookup_by_index_per_ns(
+					zebra_ns_lookup(gre_info->link_nsid),
+					gre_info->ifindex_link);
+			vty_out(vty, "  Link Interface %s\n",
+				ifp == NULL ? "Unknown" :
+				ifp->name);
+		}
 	}
 
 	if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)) {
