@@ -299,35 +299,48 @@ def configure(conf_file):
                     raise InvalidCLIError("%s" % output)
 
 
-def clear_bgp(vrf=""):
-    " clear bgp configuration for a vrf"
+def clear_bgp():
+    "clear bgp configuration for a vrf"
 
     tgen = get_topogen()
     r1 = tgen.gears["R1"]
     r2 = tgen.gears["R2"]
     r3 = tgen.gears["R3"]
 
-    router_list = tgen.routers()
-    if vrf == "":
-        r1.vtysh_cmd("conf t\nno router bgp 65001")
-        r2.vtysh_cmd("conf t\nno router bgp 65002")
-        r2.vtysh_cmd("conf t\nno router bgp 65003")
-    else:
-        r1.vtysh_cmd("conf t\nno router bgp 65001 vrf {}".format(vrf))
-        r2.vtysh_cmd("conf t\nno router bgp 65002 vrf {}".format(vrf))
-        r3.vtysh_cmd("conf t\nno router bgp 65003 vrf {}".format(vrf))
+    r1.vtysh_cmd("conf t\nno router bgp 65001")
+    r2.vtysh_cmd("conf t\nno router bgp 65002")
+    r3.vtysh_cmd("conf t\nno router bgp 65003")
+    r1.vtysh_cmd("conf t\nno router bgp 65001 vrf blue")
+    r2.vtysh_cmd("conf t\nno router bgp 65002 vrf blue")
+    r3.vtysh_cmd("conf t\nno router bgp 65003 vrf blue")
+    r1.vtysh_cmd("conf t\nno router bgp 65001 vrf red")
+    r2.vtysh_cmd("conf t\nno router bgp 65002 vrf red")
+    r3.vtysh_cmd("conf t\nno router bgp 65003 vrf red")
 
 
-def clear_ospf(vrf=""):
+def configure_bgp(conf_file):
+    "configure bgp from file"
+
+    clear_bgp()
+    configure(conf_file)
+
+
+def clear_ospf():
     "clear ospf configuration for a vrf"
 
     tgen = get_topogen()
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        if vrf == "":
-            router.vtysh_cmd("conf t\nno router ospf")
-        else:
-            router.vtysh_cmd("conf t\nno router ospf vrf {}".format(vrf))
+        router.vtysh_cmd("conf t\nno router ospf")
+        router.vtysh_cmd("conf t\nno router ospf vrf blue")
+        router.vtysh_cmd("conf t\nno router ospf vrf red")
+
+
+def configure_ospf(conf_file):
+    "configure bgp from file"
+
+    clear_ospf()
+    configure(conf_file)
 
 
 def check_neigh_state(router, peer, state, vrf=""):
@@ -381,6 +394,8 @@ def check_vrf_peer_remove_passwords(vrf="", prefix="no"):
     r1 = tgen.gears["R1"]
     r2 = tgen.gears["R2"]
     r3 = tgen.gears["R3"]
+
+    check_all_peers_established(vrf)
 
     r1.vtysh_cmd(
         "conf t\nrouter bgp 65001 {}\nno neighbor {} password".format(
@@ -511,25 +526,26 @@ def check_vrf_peer_change_passwords(vrf="", prefix="no"):
 def test_default_peer_established():
     "default vrf 3 peers same password"
 
+    configure_bgp("bgpd.conf")
+    configure_ospf("ospfd.conf")
     check_all_peers_established()
-    clear_bgp()
     # tgen.mininet_cli()
 
 
 def test_default_peer_remove_passwords():
     "selectively remove passwords checking state"
 
-    configure("bgpd.conf")
+    configure_bgp("bgpd.conf")
+    configure_ospf("ospfd.conf")
     check_vrf_peer_remove_passwords()
-    clear_bgp()
 
 
 def test_default_peer_change_passwords():
     "selectively change passwords checking state"
 
-    configure("bgpd.conf")
+    configure_bgp("bgpd.conf")
+    configure_ospf("ospfd.conf")
     check_vrf_peer_change_passwords()
-    clear_bgp()
 
 
 def test_default_prefix_peer_established():
@@ -539,9 +555,9 @@ def test_default_prefix_peer_established():
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure("bgpd_prefix.conf")
+    configure_bgp("bgpd_prefix.conf")
+    configure_ospf("ospfd.conf")
     check_all_peers_established()
-    clear_bgp()
     # tgen.mininet_cli()
 
 
@@ -551,9 +567,10 @@ def test_prefix_peer_remove_passwords():
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
-    configure("bgpd_prefix.conf")
+
+    configure_bgp("bgpd_prefix.conf")
+    configure_ospf("ospfd.conf")
     check_vrf_peer_remove_passwords(prefix="yes")
-    clear_bgp()
 
 
 def test_prefix_peer_change_passwords():
@@ -562,38 +579,36 @@ def test_prefix_peer_change_passwords():
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
-    configure("bgpd_prefix.conf")
+
+    configure_bgp("bgpd_prefix.conf")
+    configure_ospf("ospfd.conf")
     check_vrf_peer_change_passwords(prefix="yes")
-    clear_bgp()
-    clear_ospf()
 
 
 def test_vrf_peer_established():
     "default vrf 3 peers same password with VRF config"
 
     # clean routers and load vrf config
-    configure("bgpd_vrf.conf")
-    configure("ospfd_vrf.conf")
-
+    configure_bgp("bgpd_vrf.conf")
+    configure_ospf("ospfd_vrf.conf")
     check_all_peers_established("blue")
-    clear_bgp("blue")
     # tgen.mininet_cli()
 
 
 def test_vrf_peer_remove_passwords():
     "selectively remove passwords checking state with VRF config"
 
-    configure("bgpd_vrf.conf")
+    configure_bgp("bgpd_vrf.conf")
+    configure_ospf("ospfd_vrf.conf")
     check_vrf_peer_remove_passwords(vrf="blue")
-    clear_bgp("blue")
 
 
 def test_vrf_peer_change_passwords():
     "selectively change passwords checking state with VRF config"
 
-    configure("bgpd_vrf.conf")
+    configure_bgp("bgpd_vrf.conf")
+    configure_ospf("ospfd_vrf.conf")
     check_vrf_peer_change_passwords(vrf="blue")
-    clear_bgp("blue")
 
 
 def test_vrf_prefix_peer_established():
@@ -601,12 +616,11 @@ def test_vrf_prefix_peer_established():
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
-        clear_bgp("blue")
         return
 
-    configure("bgpd_vrf_prefix.conf")
+    configure_bgp("bgpd_vrf_prefix.conf")
+    configure_ospf("ospfd_vrf.conf")
     check_all_peers_established("blue")
-    clear_bgp("blue")
 
 
 def test_vrf_prefix_peer_remove_passwords():
@@ -616,65 +630,54 @@ def test_vrf_prefix_peer_remove_passwords():
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure("bgpd_vrf_prefix.conf")
+    configure_bgp("bgpd_vrf_prefix.conf")
+    configure_ospf("ospfd_vrf.conf")
     check_vrf_peer_remove_passwords(vrf="blue", prefix="yes")
-    clear_bgp("blue")
 
 
 def test_vrf_prefix_peer_change_passwords():
     "selectively change passwords checking state with VRF prefix config"
 
-    tgen = get_topogen()
-    r1 = tgen.gears["R1"]
-    r2 = tgen.gears["R2"]
-    r3 = tgen.gears["R3"]
-
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
-        clear_ospf("blue")
         return
 
-    configure("bgpd_vrf_prefix.conf")
+    configure_bgp("bgpd_vrf_prefix.conf")
+    configure_ospf("ospfd_vrf.conf")
     check_vrf_peer_change_passwords(vrf="blue", prefix="yes")
-    clear_bgp("blue")
-    clear_ospf("blue")
 
 
 def test_multiple_vrf_peer_established():
     "default vrf 3 peers same password with multiple VRFs"
 
-    configure("bgpd_multi_vrf.conf")
-    configure("ospfd_multi_vrf.conf")
+    configure_bgp("bgpd_multi_vrf.conf")
+    configure_ospf("ospfd_multi_vrf.conf")
     check_all_peers_established("blue")
     check_all_peers_established("red")
-    clear_bgp("blue")
-    clear_bgp("red")
     # tgen.mininet_cli()
 
 
 def test_multiple_vrf_peer_remove_passwords():
     "selectively remove passwords checking state with multiple VRFs"
 
-    configure("bgpd_multi_vrf.conf")
+    configure_bgp("bgpd_multi_vrf.conf")
+    configure_ospf("ospfd_multi_vrf.conf")
     check_vrf_peer_remove_passwords("blue")
     check_all_peers_established("red")
     check_vrf_peer_remove_passwords("red")
     check_all_peers_established("blue")
-    clear_bgp("blue")
-    clear_bgp("red")
     # tgen.mininet_cli()
 
 
 def test_multiple_vrf_peer_change_passwords():
     "selectively change passwords checking state with multiple VRFs"
 
-    configure("bgpd_multi_vrf.conf")
+    configure_bgp("bgpd_multi_vrf.conf")
+    configure_ospf("ospfd_multi_vrf.conf")
     check_vrf_peer_change_passwords("blue")
     check_all_peers_established("red")
     check_vrf_peer_change_passwords("red")
     check_all_peers_established("blue")
-    clear_bgp("blue")
-    clear_bgp("red")
     # tgen.mininet_cli()
 
 
@@ -685,12 +688,10 @@ def test_multiple_vrf_prefix_peer_established():
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure("bgpd_multi_vrf.conf")
-    configure("ospfd_multi_vrf.conf")
+    configure_bgp("bgpd_multi_vrf_prefix.conf")
+    configure_ospf("ospfd_multi_vrf.conf")
     check_all_peers_established("blue")
     check_all_peers_established("red")
-    clear_bgp("blue")
-    clear_bgp("red")
     # tgen.mininet_cli()
 
 
@@ -701,14 +702,12 @@ def test_multiple_vrf_prefix_peer_remove_passwords():
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure("bgpd_multi_vrf_prefix.conf")
-    tgen = get_topogen()
+    configure_bgp("bgpd_multi_vrf_prefix.conf")
+    configure_ospf("ospfd_multi_vrf.conf")
     check_vrf_peer_remove_passwords(vrf="blue", prefix="yes")
     check_all_peers_established("red")
     check_vrf_peer_remove_passwords(vrf="red", prefix="yes")
     check_all_peers_established("blue")
-    clear_bgp("blue")
-    clear_bgp("red")
     # tgen.mininet_cli()
 
 
@@ -717,21 +716,14 @@ def test_multiple_vrf_prefix_peer_change_passwords():
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
-        clear_bgp("blue")
-        clear_bgp("red")
-        clear_ospf("blue")
-        clear_ospf("red")
         return
 
-    configure("bgpd_multi_vrf_prefix.conf")
+    configure_bgp("bgpd_multi_vrf_prefix.conf")
+    configure_ospf("ospfd_multi_vrf.conf")
     check_vrf_peer_change_passwords(vrf="blue", prefix="yes")
     check_all_peers_established("red")
     check_vrf_peer_change_passwords(vrf="red", prefix="yes")
     check_all_peers_established("blue")
-    clear_bgp("blue")
-    clear_bgp("red")
-    clear_ospf("blue")
-    clear_ospf("red")
     # tgen.mininet_cli()
 
 
