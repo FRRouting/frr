@@ -2762,6 +2762,7 @@ int peer_group_delete(struct peer_group *group)
 
 	bgp = group->bgp;
 
+	bgp_keepalives_group_off(group);
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 		other = peer->doppelganger;
 

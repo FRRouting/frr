@@ -264,6 +264,41 @@ void bgp_keepalives_on(struct peer *peer)
 	bgp_keepalives_wake();
 }
 
+static void bgp_keepalives_off_unprotected(struct peer *peer)
+{
+	/* placeholder bucket data to use for fast key lookups */
+	static struct pkat holder = {0};
+
+	holder.peer = peer;
+	struct pkat *res = hash_release(peerhash, &holder);
+	if (res) {
+		pkat_del(res);
+		peer_unlock(peer);
+	}
+	UNSET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
+}
+
+void bgp_keepalives_group_off(struct peer_group *group)
+{
+	struct peer *peer;
+	struct peer *other;
+	struct listnode *node, *nnode;
+
+	/*
+	 * We need to ensure that bgp_keepalives_init was called first
+	 */
+	assert(peerhash_mtx);
+
+	frr_with_mutex(peerhash_mtx) {
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+			other = peer->doppelganger;
+			bgp_keepalives_off_unprotected(peer);
+			if (other && other->status != Deleted)
+				bgp_keepalives_off_unprotected(other);
+		}
+	}
+}
+
 void bgp_keepalives_off(struct peer *peer)
 {
 	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
@@ -272,22 +307,13 @@ void bgp_keepalives_off(struct peer *peer)
 	struct frr_pthread *fpt = bgp_pth_ka;
 	assert(fpt->running);
 
-	/* placeholder bucket data to use for fast key lookups */
-	static struct pkat holder = {0};
-
 	/*
 	 * We need to ensure that bgp_keepalives_init was called first
 	 */
 	assert(peerhash_mtx);
 
 	frr_with_mutex(peerhash_mtx) {
-		holder.peer = peer;
-		struct pkat *res = hash_release(peerhash, &holder);
-		if (res) {
-			pkat_del(res);
-			peer_unlock(peer);
-		}
-		UNSET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
+		bgp_keepalives_off_unprotected(peer);
 	}
 }
 
