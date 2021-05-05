@@ -2034,6 +2034,9 @@ static void bgp_pbr_icmp_action(struct bgp *bgp, struct bgp_path_info *path,
 		return;
 	if (bpf->protocol != IPPROTO_ICMP)
 		return;
+
+	memset(&srcp, 0, sizeof(srcp));
+	memset(&dstp, 0, sizeof(dstp));
 	bpf->src_port = &srcp;
 	bpf->dst_port = &dstp;
 	/* parse icmp type and lookup appropriate icmp code
