@@ -2158,7 +2158,7 @@ static int ospf_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
-static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf)
+static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf, bool set)
 {
 	int type;
 	struct list *red_list;
@@ -2171,7 +2171,12 @@ static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf)
 			zlog_debug(
 				"%s: setting redist vrf %d bitmap for type %d",
 				__func__, ospf->vrf_id, type);
-		vrf_bitmap_set(zclient->redist[AFI_IP][type], ospf->vrf_id);
+		if (set)
+			vrf_bitmap_set(zclient->redist[AFI_IP][type],
+				       ospf->vrf_id);
+		else
+			vrf_bitmap_unset(zclient->redist[AFI_IP][type],
+					 ospf->vrf_id);
 	}
 }
 
@@ -2201,18 +2206,12 @@ static int ospf_vrf_enable(struct vrf *vrf)
 				__func__, vrf->name, ospf->vrf_id, old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
-			frr_with_privs(&ospfd_privs) {
-				/* stop zebra redist to us for old vrf */
-				zclient_send_dereg_requests(zclient,
-							    old_vrf_id);
+			ospf_set_redist_vrf_bitmaps(ospf, true);
 
-				ospf_set_redist_vrf_bitmaps(ospf);
+			/* start zebra redist to us for new vrf */
+			ospf_zebra_vrf_register(ospf);
 
-				/* start zebra redist to us for new vrf */
-				ospf_zebra_vrf_register(ospf);
-
-				ret = ospf_sock_init(ospf);
-			}
+			ret = ospf_sock_init(ospf);
 			if (ret < 0 || ospf->fd <= 0)
 				return 0;
 			thread_add_read(master, ospf_read, ospf, ospf->fd,
@@ -2241,6 +2240,10 @@ static int ospf_vrf_disable(struct vrf *vrf)
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
 		old_vrf_id = ospf->vrf_id;
+
+		ospf_zebra_vrf_deregister(ospf);
+
+		ospf_set_redist_vrf_bitmaps(ospf, false);
 
 		/* We have instance configured, unlink
 		 * from VRF and make it "down".
