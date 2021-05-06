@@ -97,7 +97,9 @@ enum pim_msdp_peer_flags {
 	PIM_MSDP_PEERF_NONE = 0,
 	PIM_MSDP_PEERF_LISTENER = (1 << 0),
 #define PIM_MSDP_PEER_IS_LISTENER(mp) (mp->flags & PIM_MSDP_PEERF_LISTENER)
-	PIM_MSDP_PEERF_SA_JUST_SENT = (1 << 1)
+	PIM_MSDP_PEERF_SA_JUST_SENT = (1 << 1),
+	/** Flag to signalize that peer belongs to a group. */
+	PIM_MSDP_PEERF_IN_GROUP = (1 << 2),
 };
 
 struct pim_msdp_peer {
@@ -231,8 +233,6 @@ void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
 int pim_msdp_write(struct thread *thread);
-char *pim_msdp_peer_key_dump(struct pim_msdp_peer *mp, char *buf, int buf_size,
-			     bool long_format);
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 			  const char *spaces);
 bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
@@ -282,16 +282,13 @@ struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
  */
 void pim_msdp_mg_mbr_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr);
 
-#define MSDP_SOLO_PEER_GROUP_NAME "default"
-
 /**
  * Allocates MSDP peer data structure and starts state machine.
  *
  * \param pim PIM instance
  * \param peer_addr peer address
  * \param local_addr local listening address
- * \param mesh_group_name mesh group name (or `MSDP_SOLO_PEER_GROUP_NAME` for
- *                        peers without group).
+ * \param mesh_group_name mesh group name (or `NULL` for peers without group).
  */
 struct pim_msdp_peer *pim_msdp_peer_new(struct pim_instance *pim,
 					const struct in_addr *peer_addr,
