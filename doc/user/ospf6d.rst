@@ -70,6 +70,13 @@ OSPF6 router
    Use this command to control the maximum number of parallel routes that
    OSPFv3 can support. The default is 64.
 
+.. clicmd:: write-multiplier (1-100)
+
+   Use this command to tune the amount of work done in the packet read and
+   write threads before relinquishing control. The parameter is the number
+   of packets to process before returning. The default value of this parameter
+   is 20.
+
 
 .. _ospf6-area:
 
