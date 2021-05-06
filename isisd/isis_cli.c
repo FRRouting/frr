@@ -378,8 +378,14 @@ DEFPY_YANG(isis_bfd_profile,
 		return CMD_SUCCESS;
 	}
 
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/bfd-monitoring/profile",
-			      NB_OP_MODIFY, no ? NULL : profile);
+	if (no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/bfd-monitoring/profile",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/bfd-monitoring/profile",
+				      NB_OP_MODIFY, profile);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -387,18 +393,14 @@ DEFPY_YANG(isis_bfd_profile,
 void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	const char *profile;
-
 	if (!yang_dnode_get_bool(dnode, "./enabled"))
 		vty_out(vty, " no");
 
 	vty_out(vty, " isis bfd\n");
 
-	if (yang_dnode_exists(dnode, "./profile")) {
-		profile = yang_dnode_get_string(dnode, "./profile");
-		if (profile[0] != '\0')
-			vty_out(vty, " isis bfd profile %s\n", profile);
-	}
+	if (yang_dnode_exists(dnode, "./profile"))
+		vty_out(vty, " isis bfd profile %s\n",
+			yang_dnode_get_string(dnode, "./profile"));
 }
 
 /*
