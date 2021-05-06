@@ -1788,7 +1788,7 @@ int ospf6_receive(struct thread *thread)
 	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 			&ospf6->t_ospf6_receive);
 
-	while (count < OSPF6_WRITE_INTERFACE_COUNT_DEFAULT) {
+	while (count < ospf6->write_oi_count) {
 		count++;
 		switch (ospf6_read_helper(sockfd, ospf6)) {
 		case OSPF6_READ_ERROR:
@@ -1906,7 +1906,7 @@ static int ospf6_write(struct thread *thread)
 	assert(node);
 	oi = listgetdata(node);
 
-	while ((pkt_count < OSPF6_WRITE_INTERFACE_COUNT_DEFAULT) && oi
+	while ((pkt_count < ospf6->write_oi_count) && oi
 	       && (last_serviced_oi != oi)) {
 
 		op = ospf6_fifo_head(oi->obuf);

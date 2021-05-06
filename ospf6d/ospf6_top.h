@@ -131,6 +131,7 @@ struct ospf6 {
 #define OSPF6_WRITE_INTERFACE_COUNT_DEFAULT 20
 	struct thread *t_write;
 
+	int write_oi_count; /* Num of packets sent per thread invocation */
 	uint32_t ref_bandwidth;
 
 	/* Distance parameters */
