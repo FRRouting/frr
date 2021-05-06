@@ -761,25 +761,6 @@ char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 	return buf;
 }
 
-char *pim_msdp_peer_key_dump(struct pim_msdp_peer *mp, char *buf, int buf_size,
-			     bool long_format)
-{
-	char peer_str[INET_ADDRSTRLEN];
-	char local_str[INET_ADDRSTRLEN];
-
-	pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
-	if (long_format) {
-		pim_inet4_dump("<local?>", mp->local, local_str,
-			       sizeof(local_str));
-		snprintf(buf, buf_size, "MSDP peer %s local %s mg %s", peer_str,
-			 local_str, mp->mesh_group_name);
-	} else {
-		snprintf(buf, buf_size, "MSDP peer %s", peer_str);
-	}
-
-	return buf;
-}
-
 static void pim_msdp_peer_state_chg_log(struct pim_msdp_peer *mp)
 {
 	char state_str[PIM_MSDP_STATE_STRLEN];
@@ -1082,7 +1063,10 @@ struct pim_msdp_peer *pim_msdp_peer_new(struct pim_instance *pim,
 	/* XXX: originator_id setting needs to move to the mesh group */
 	pim->msdp.originator_id = *local;
 	pim_msdp_addr2su(&mp->su_local, mp->local);
-	mp->mesh_group_name = XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);
+	if (mesh_group_name)
+		mp->mesh_group_name =
+			XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);
+
 	mp->state = PIM_MSDP_INACTIVE;
 	mp->fd = -1;
 	strlcpy(mp->last_reset, "-", sizeof(mp->last_reset));
@@ -1355,8 +1339,8 @@ bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
 	bool written = false;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
-		/* Non meshed peers have the group name set to 'default'. */
-		if (strcmp(mp->mesh_group_name, MSDP_SOLO_PEER_GROUP_NAME))
+		/* Skip meshed group peers. */
+		if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
 			continue;
 
 		vty_out(vty, "%sip msdp peer %pI4 source %pI4\n", spaces,

@@ -10147,8 +10147,10 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 			json_row = json_object_new_object();
 			json_object_string_add(json_row, "peer", peer_str);
 			json_object_string_add(json_row, "local", local_str);
-			json_object_string_add(json_row, "meshGroupName",
-					       mp->mesh_group_name);
+			if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
+				json_object_string_add(json_row,
+						       "meshGroupName",
+						       mp->mesh_group_name);
 			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "upTime", timebuf);
 			json_object_string_add(json_row, "keepAliveTimer",
@@ -10172,8 +10174,9 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 		} else {
 			vty_out(vty, "Peer : %s\n", peer_str);
 			vty_out(vty, "  Local               : %s\n", local_str);
-			vty_out(vty, "  Mesh Group          : %s\n",
-				mp->mesh_group_name);
+			if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
+				vty_out(vty, "  Mesh Group          : %s\n",
+					mp->mesh_group_name);
 			vty_out(vty, "  State               : %s\n", state_str);
 			vty_out(vty, "  Uptime              : %s\n", timebuf);
 
