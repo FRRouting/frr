@@ -545,7 +545,7 @@ void bgp_keepalive_send(struct peer *peer)
 {
 	struct stream *s;
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 
 	/* Make keepalive packet. */
 	bgp_packet_set_marker(s, BGP_MSG_KEEPALIVE);
@@ -586,7 +586,7 @@ void bgp_open_send(struct peer *peer)
 	else
 		local_as = peer->local_as;
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 
 	/* Make open packet. */
 	bgp_packet_set_marker(s, BGP_MSG_OPEN);
@@ -752,7 +752,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	 */
 	if (peer->curr) {
 		size_t packetsize = stream_get_endp(peer->curr);
-		assert(packetsize <= sizeof(peer->last_reset_cause));
+		assert(packetsize <= peer->max_packet_size);
 		memcpy(peer->last_reset_cause, peer->curr->data, packetsize);
 		peer->last_reset_cause_size = packetsize;
 	}

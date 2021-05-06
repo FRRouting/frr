@@ -935,7 +935,7 @@ int main(void)
 			peer->afc_adv[i][j] = 1;
 		}
 
-	peer->curr = stream_new(BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE);
+	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	i = 0;
 	while (mp_segments[i].name)
