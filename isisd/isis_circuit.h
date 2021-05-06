@@ -70,8 +70,6 @@ struct isis_p2p_info {
 	struct thread *t_send_p2p_hello; /* send P2P IIHs in this thread  */
 };
 
-struct bfd_info;
-
 struct isis_circuit_arg {
 	int level;
 	struct isis_circuit *circuit;
@@ -144,7 +142,10 @@ struct isis_circuit {
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 	uint8_t flags;
 	bool disable_threeway_adj;
-	struct bfd_info *bfd_info;
+	struct {
+		bool enabled;
+		char *profile;
+	} bfd_config;
 	struct ldp_sync_info *ldp_sync_info;
 	bool lfa_protection[ISIS_LEVELS];
 	bool rlfa_protection[ISIS_LEVELS];

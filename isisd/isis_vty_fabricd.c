@@ -319,13 +319,11 @@ DEFUN (isis_bfd,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	if (circuit->bfd_info
-	    && CHECK_FLAG(circuit->bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+	if (circuit->bfd_config.enabled)
 		return CMD_SUCCESS;
-	}
 
-	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-				   BFD_DEF_DETECT_MULT, NULL, true);
+	circuit->bfd_config.enabled = true;
+	isis_bfd_circuit_cmd(circuit);
 
 	return CMD_SUCCESS;
 }
@@ -343,11 +341,12 @@ DEFUN (no_isis_bfd,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	if (!circuit->bfd_info)
+	if (!circuit->bfd_config.enabled)
 		return CMD_SUCCESS;
 
-	isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
-	bfd_info_free(&circuit->bfd_info);
+	circuit->bfd_config.enabled = false;
+	isis_bfd_circuit_cmd(circuit);
+
 	return CMD_SUCCESS;
 }
 

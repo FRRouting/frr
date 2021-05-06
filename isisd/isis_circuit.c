@@ -205,6 +205,7 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
 
+	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
 
 	/* and lastly the circuit itself */
@@ -1280,6 +1281,10 @@ static int isis_interface_config_write(struct vty *vty)
 				   == ISIS_PASSWD_TYPE_CLEARTXT) {
 				vty_out(vty, " " PROTO_NAME " password clear %s\n",
 					circuit->passwd.passwd);
+				write++;
+			}
+			if (circuit->bfd_config.enabled) {
+				vty_out(vty, " " PROTO_NAME " bfd\n");
 				write++;
 			}
 			write += hook_call(isis_circuit_config_write,

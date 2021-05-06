@@ -34,319 +34,32 @@
 
 DEFINE_MTYPE_STATIC(ISISD, BFD_SESSION, "ISIS BFD Session");
 
-struct bfd_session {
-	int family;
-	union g_addr dst_ip;
-	union g_addr src_ip;
-	int status;
-};
-
-static struct bfd_session *bfd_session_new(int family, union g_addr *dst_ip,
-					   union g_addr *src_ip)
+static void adj_bfd_cb(struct bfd_session_params *bsp,
+		       const struct bfd_session_status *bss, void *arg)
 {
-	struct bfd_session *rv;
-
-	rv = XCALLOC(MTYPE_BFD_SESSION, sizeof(*rv));
-	rv->family = family;
-	rv->dst_ip = *dst_ip;
-	rv->src_ip = *src_ip;
-	return rv;
-}
-
-static void bfd_session_free(struct bfd_session **session)
-{
-	if (!*session)
-		return;
-
-	XFREE(MTYPE_BFD_SESSION, *session);
-}
-
-static bool bfd_session_same(const struct bfd_session *session, int family,
-			     const union g_addr *src, const union g_addr *dst)
-{
-	if (session->family != family)
-		return false;
-
-	switch (session->family) {
-	case AF_INET:
-		if (!IPV4_ADDR_SAME(&session->dst_ip.ipv4, &dst->ipv4))
-			return false;
-		if (!IPV4_ADDR_SAME(&session->src_ip.ipv4, &src->ipv4))
-			return false;
-		break;
-	case AF_INET6:
-		if (!IPV6_ADDR_SAME(&session->dst_ip.ipv6, &dst->ipv6))
-			return false;
-		if (!IPV6_ADDR_SAME(&session->src_ip.ipv6, &src->ipv6))
-			return false;
-		break;
-	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: unknown address-family: %u",
-			 __func__, session->family);
-		exit(1);
-	}
-
-	return true;
-}
-
-static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
-			  int new_status)
-{
-	if (!adj->bfd_session) {
-		if (IS_DEBUG_BFD)
-			zlog_debug(
-				"ISIS-BFD: Ignoring update for adjacency with %s, could not find bfd session on the adjacency",
-				isis_adj_name(adj));
-		return;
-	}
-
-	if (adj->bfd_session->family != dst->family) {
-		if (IS_DEBUG_BFD)
-			zlog_debug(
-				"ISIS-BFD: Ignoring update for adjacency with %s, address family does not match the family on the adjacency",
-				isis_adj_name(adj));
-		return;
-	}
-
-	switch (adj->bfd_session->family) {
-	case AF_INET:
-		if (!IPV4_ADDR_SAME(&adj->bfd_session->dst_ip.ipv4,
-				    &dst->u.prefix4)) {
-			if (IS_DEBUG_BFD)
-				zlog_debug(
-					"ISIS-BFD: Ignoring update for adjacency with %s, IPv4 address does not match",
-					isis_adj_name(adj));
-			return;
-		}
-		break;
-	case AF_INET6:
-		if (!IPV6_ADDR_SAME(&adj->bfd_session->dst_ip.ipv6,
-				    &dst->u.prefix6)) {
-			if (IS_DEBUG_BFD)
-				zlog_debug(
-					"ISIS-BFD: Ignoring update for adjacency with %s, IPv6 address does not match",
-					isis_adj_name(adj));
-			return;
-		}
-		break;
-	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: unknown address-family: %u",
-			 __func__, adj->bfd_session->family);
-		exit(1);
-	}
-
-	int old_status = adj->bfd_session->status;
-
-	BFD_SET_CLIENT_STATUS(adj->bfd_session->status, new_status);
-
-	if (old_status == new_status) {
-		if (IS_DEBUG_BFD)
-			zlog_debug(
-				"ISIS-BFD: Ignoring update for adjacency with %s, new status matches current known status",
-				isis_adj_name(adj));
-		return;
-	}
-
-	if (IS_DEBUG_BFD) {
-		char dst_str[INET6_ADDRSTRLEN];
-
-		inet_ntop(adj->bfd_session->family, &adj->bfd_session->dst_ip,
-			  dst_str, sizeof(dst_str));
-		zlog_debug("ISIS-BFD: Peer %s on %s changed from %s to %s",
-			   dst_str, adj->circuit->interface->name,
-			   bfd_get_status_str(old_status),
-			   bfd_get_status_str(new_status));
-	}
-
-	if (old_status != BFD_STATUS_UP
-	    || new_status != BFD_STATUS_DOWN) {
-		return;
-	}
-
-	adj->circuit->area->bfd_signalled_down = true;
-
-	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "bfd session went down");
-}
-
-static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct prefix dst_ip, src_ip;
-	int status;
-
-	ifp = bfd_get_peer_info(zclient->ibuf, &dst_ip, &src_ip, &status, NULL,
-				vrf_id);
-	if (!ifp || (dst_ip.family != AF_INET && dst_ip.family != AF_INET6))
-		return 0;
-
-	if (IS_DEBUG_BFD) {
-		char dst_buf[INET6_ADDRSTRLEN];
-
-		inet_ntop(dst_ip.family, &dst_ip.u.prefix, dst_buf,
-			  sizeof(dst_buf));
-
-		zlog_debug("ISIS-BFD: Received update for %s on %s: Changed state to %s",
-			   dst_buf, ifp->name, bfd_get_status_str(status));
-	}
-
-	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
-
-	if (!circuit) {
-		if (IS_DEBUG_BFD)
-			zlog_debug(
-				"ISIS-BFD: Ignoring update, could not find circuit");
-		return 0;
-	}
-
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-			struct list *adjdb = circuit->u.bc.adjdb[level - 1];
-
-			struct listnode *node, *nnode;
-			struct isis_adjacency *adj;
-
-			for (ALL_LIST_ELEMENTS(adjdb, node, nnode, adj))
-				bfd_adj_event(adj, &dst_ip, status);
-		}
-	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
-		if (circuit->u.p2p.neighbor) {
-			bfd_adj_event(circuit->u.p2p.neighbor,
-				      &dst_ip, status);
-		}
-	}
-
-	return 0;
-}
-
-static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
-{
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
-
-	struct listnode *anode;
-	struct isis_area *area;
-	struct isis *isis = NULL;
-
-	isis = isis_lookup_by_vrfid(vrf_id);
-
-	if (isis == NULL) {
-		zlog_warn(" %s : ISIS routing instance not found", __func__);
-		return -1;
-	}
+	struct isis_adjacency *adj = arg;
 
 	if (IS_DEBUG_BFD)
-		zlog_debug("ISIS-BFD: Got neighbor replay request, resending neighbors.");
+		zlog_debug(
+			"ISIS-BFD: BFD changed status for adjacency %s old %s new %s",
+			isis_adj_name(adj),
+			bfd_get_status_str(bss->previous_state),
+			bfd_get_status_str(bss->state));
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
-		struct listnode *cnode;
-		struct isis_circuit *circuit;
-
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
-			isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_UPDATE);
+	if (bss->state == BFD_STATUS_DOWN
+	    && bss->previous_state == BFD_STATUS_UP) {
+		adj->circuit->area->bfd_signalled_down = true;
+		isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
+				      "bfd session went down");
 	}
-
-	if (IS_DEBUG_BFD)
-		zlog_debug("ISIS-BFD: Done with replay.");
-
-	return 0;
-}
-
-static void (*orig_zebra_connected)(struct zclient *);
-static void isis_bfd_zebra_connected(struct zclient *zclient)
-{
-	if (orig_zebra_connected)
-		orig_zebra_connected(zclient);
-
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
-}
-
-static void bfd_debug(int family, union g_addr *dst, union g_addr *src,
-		      const char *interface, int command)
-{
-	if (!(IS_DEBUG_BFD))
-		return;
-
-	char dst_str[INET6_ADDRSTRLEN];
-	char src_str[INET6_ADDRSTRLEN];
-
-	inet_ntop(family, dst, dst_str, sizeof(dst_str));
-	inet_ntop(family, src, src_str, sizeof(src_str));
-
-	const char *command_str;
-
-	switch (command) {
-	case ZEBRA_BFD_DEST_REGISTER:
-		command_str = "Register";
-		break;
-	case ZEBRA_BFD_DEST_DEREGISTER:
-		command_str = "Deregister";
-		break;
-	case ZEBRA_BFD_DEST_UPDATE:
-		command_str = "Update";
-		break;
-	default:
-		command_str = "Unknown-Cmd";
-		break;
-	}
-
-	zlog_debug("ISIS-BFD: %s peer %s on %s (src %s)",
-		   command_str, dst_str, interface, src_str);
-}
-
-static void bfd_command(int command, struct bfd_info *bfd_info, int family,
-			const void *dst_ip, const void *src_ip,
-			const char *if_name)
-{
-	struct bfd_session_arg args = {};
-	size_t addrlen;
-
-	args.cbit = 1;
-	args.family = family;
-	args.vrf_id = VRF_DEFAULT;
-	args.command = command;
-	args.bfd_info = bfd_info;
-	if (args.bfd_info) {
-		args.min_rx = bfd_info->required_min_rx;
-		args.min_tx = bfd_info->desired_min_tx;
-		args.detection_multiplier = bfd_info->detect_mult;
-		if (bfd_info->profile[0]) {
-			args.profilelen = strlen(bfd_info->profile);
-			strlcpy(args.profile, bfd_info->profile,
-				sizeof(args.profile));
-		}
-	}
-
-	addrlen = family == AF_INET ? sizeof(struct in_addr)
-				    : sizeof(struct in6_addr);
-	memcpy(&args.dst, dst_ip, addrlen);
-	if (src_ip)
-		memcpy(&args.src, src_ip, addrlen);
-
-	if (if_name) {
-		strlcpy(args.ifname, if_name, sizeof(args.ifname));
-		args.ifnamelen = strlen(args.ifname);
-	}
-
-	zclient_bfd_command(zclient, &args);
 }
 
 static void bfd_handle_adj_down(struct isis_adjacency *adj)
 {
-	if (!adj->bfd_session)
-		return;
-
-	bfd_debug(adj->bfd_session->family, &adj->bfd_session->dst_ip,
-		  &adj->bfd_session->src_ip, adj->circuit->interface->name,
-		  ZEBRA_BFD_DEST_DEREGISTER);
-
-	bfd_command(ZEBRA_BFD_DEST_DEREGISTER, NULL, adj->bfd_session->family,
-		    &adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
-		    (adj->circuit->interface) ? adj->circuit->interface->name
-					      : NULL);
-
-	bfd_session_free(&adj->bfd_session);
+	bfd_sess_free(&adj->bfd_session);
 }
 
-static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
+static void bfd_handle_adj_up(struct isis_adjacency *adj)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	int family;
@@ -355,10 +68,10 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 	struct list *local_ips;
 	struct prefix *local_ip;
 
-	if (!circuit->bfd_info) {
+	if (!circuit->bfd_config.enabled) {
 		if (IS_DEBUG_BFD)
 			zlog_debug(
-				"ISIS-BFD: skipping BFD initialization on adjacency with %s because there is no bfd_info in the circuit",
+				"ISIS-BFD: skipping BFD initialization on adjacency with %s because BFD is not enabled for the circuit",
 				isis_adj_name(adj));
 		goto out;
 	}
@@ -407,28 +120,20 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 	} else
 		goto out;
 
-	if (adj->bfd_session) {
-		if (bfd_session_same(adj->bfd_session, family, &src_ip,
-				     &dst_ip))
-			bfd_handle_adj_down(adj);
-	}
+	if (adj->bfd_session == NULL)
+		adj->bfd_session = bfd_sess_new(adj_bfd_cb, adj);
 
-	if (!adj->bfd_session) {
-		if (IS_DEBUG_BFD)
-			zlog_debug(
-				"ISIS-BFD: creating BFD session for adjacency with %s",
-				isis_adj_name(adj));
-		adj->bfd_session = bfd_session_new(family, &dst_ip, &src_ip);
-	}
-
-	bfd_debug(adj->bfd_session->family, &adj->bfd_session->dst_ip,
-		  &adj->bfd_session->src_ip, circuit->interface->name, command);
-
-	bfd_command(command, circuit->bfd_info, family,
-		    &adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
-		    (adj->circuit->interface) ? adj->circuit->interface->name
-					      : NULL);
-
+	bfd_sess_set_timers(adj->bfd_session, BFD_DEF_DETECT_MULT,
+			    BFD_DEF_MIN_RX, BFD_DEF_MIN_TX);
+	if (family == AF_INET)
+		bfd_sess_set_ipv4_addrs(adj->bfd_session, &src_ip.ipv4,
+					&dst_ip.ipv4);
+	else
+		bfd_sess_set_ipv6_addrs(adj->bfd_session, &src_ip.ipv6,
+					&dst_ip.ipv6);
+	bfd_sess_set_interface(adj->bfd_session, adj->circuit->interface->name);
+	bfd_sess_set_profile(adj->bfd_session, circuit->bfd_config.profile);
+	bfd_sess_install(adj->bfd_session);
 	return;
 out:
 	bfd_handle_adj_down(adj);
@@ -437,23 +142,21 @@ out:
 static int bfd_handle_adj_state_change(struct isis_adjacency *adj)
 {
 	if (adj->adj_state == ISIS_ADJ_UP)
-		bfd_handle_adj_up(adj, ZEBRA_BFD_DEST_REGISTER);
+		bfd_handle_adj_up(adj);
 	else
 		bfd_handle_adj_down(adj);
 	return 0;
 }
 
-static void bfd_adj_cmd(struct isis_adjacency *adj, int command)
+static void bfd_adj_cmd(struct isis_adjacency *adj)
 {
-	if (adj->adj_state == ISIS_ADJ_UP
-	    && command != ZEBRA_BFD_DEST_DEREGISTER) {
-		bfd_handle_adj_up(adj, command);
-	} else {
+	if (adj->adj_state == ISIS_ADJ_UP && adj->circuit->bfd_config.enabled)
+		bfd_handle_adj_up(adj);
+	else
 		bfd_handle_adj_down(adj);
-	}
 }
 
-void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command)
+void isis_bfd_circuit_cmd(struct isis_circuit *circuit)
 {
 	switch (circuit->circ_type) {
 	case CIRCUIT_T_BROADCAST:
@@ -464,44 +167,17 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command)
 			struct isis_adjacency *adj;
 
 			for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
-				bfd_adj_cmd(adj, command);
+				bfd_adj_cmd(adj);
 		}
 		break;
 	case CIRCUIT_T_P2P:
 		if (circuit->u.p2p.neighbor)
-			bfd_adj_cmd(circuit->u.p2p.neighbor, command);
+			bfd_adj_cmd(circuit->u.p2p.neighbor);
 		break;
 	default:
 		break;
 	}
 }
-
-void isis_bfd_circuit_param_set(struct isis_circuit *circuit, uint32_t min_rx,
-				uint32_t min_tx, uint32_t detect_mult,
-				const char *profile, int defaults)
-{
-	int command = 0;
-
-	bfd_set_param(&circuit->bfd_info, min_rx, min_tx, detect_mult, profile,
-		      defaults, &command);
-
-	if (command)
-		isis_bfd_circuit_cmd(circuit, command);
-}
-
-#ifdef FABRICD
-static int bfd_circuit_write_settings(struct isis_circuit *circuit,
-				      struct vty *vty)
-{
-	struct bfd_info *bfd_info = circuit->bfd_info;
-
-	if (!bfd_info)
-		return 0;
-
-	vty_out(vty, " %s bfd\n", PROTO_NAME);
-	return 1;
-}
-#endif
 
 static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family)
 {
@@ -515,7 +191,7 @@ static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family)
 	if (adj->adj_state != ISIS_ADJ_UP)
 		return 0;
 
-	bfd_handle_adj_up(adj, ZEBRA_BFD_DEST_REGISTER);
+	bfd_handle_adj_up(adj);
 
 	return 0;
 }
@@ -535,26 +211,17 @@ static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit)
 		if (adj->adj_state != ISIS_ADJ_UP)
 			continue;
 
-		bfd_handle_adj_up(adj, ZEBRA_BFD_DEST_REGISTER);
+		bfd_handle_adj_up(adj);
 	}
 
 	return 0;
 }
 
-void isis_bfd_init(void)
+void isis_bfd_init(struct thread_master *tm)
 {
-	bfd_gbl_init();
+	bfd_protocol_integration_init(zclient, tm);
 
-	orig_zebra_connected = zclient->zebra_connected;
-	zclient->zebra_connected = isis_bfd_zebra_connected;
-	zclient->interface_bfd_dest_update = isis_bfd_interface_dest_update;
-	zclient->bfd_dest_replay = isis_bfd_nbr_replay;
-	hook_register(isis_adj_state_change_hook,
-		      bfd_handle_adj_state_change);
-#ifdef FABRICD
-	hook_register(isis_circuit_config_write,
-		      bfd_circuit_write_settings);
-#endif
+	hook_register(isis_adj_state_change_hook, bfd_handle_adj_state_change);
 	hook_register(isis_adj_ip_enabled_hook, bfd_handle_adj_ip_enabled);
 	hook_register(isis_circuit_add_addr_hook, bfd_handle_circuit_add_addr);
 }
