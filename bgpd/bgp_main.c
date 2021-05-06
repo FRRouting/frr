@@ -197,8 +197,6 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	frr_early_fini();
 
-	bfd_gbl_exit();
-
 	bgp_close();
 
 	bgp_default = bgp_get_default();

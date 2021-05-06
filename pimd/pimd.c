@@ -29,6 +29,7 @@
 #include "jhash.h"
 #include "vrf.h"
 #include "lib_errors.h"
+#include "bfd.h"
 
 #include "pimd.h"
 #include "pim_cmd.h"
@@ -136,6 +137,8 @@ void pim_init(void)
 void pim_terminate(void)
 {
 	struct zclient *zclient;
+
+	bfd_protocol_integration_set_shutdown(true);
 
 	/* reverse prefix_list_init */
 	prefix_list_add_hook(NULL);

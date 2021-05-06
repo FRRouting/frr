@@ -35,190 +35,88 @@
 
 DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
 
-static int bfd_debug = 0;
-static struct bfd_gbl bfd_gbl;
-
-/*
- * bfd_gbl_init - Initialize the BFD global structure
+/**
+ * BFD protocol integration configuration.
  */
-void bfd_gbl_init(void)
-{
-	memset(&bfd_gbl, 0, sizeof(struct bfd_gbl));
-}
 
-/*
- * bfd_gbl_exit - Called when daemon exits
+/** Events definitions. */
+enum bfd_session_event {
+	/** Remove the BFD session configuration. */
+	BSE_UNINSTALL,
+	/** Install the BFD session configuration. */
+	BSE_INSTALL,
+};
+
+/**
+ * Data structure to do the necessary tricks to hide the BFD protocol
+ * integration internals.
  */
-void bfd_gbl_exit(void)
-{
-	SET_FLAG(bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN);
-}
+struct bfd_session_params {
+	/** Contains the session parameters and more. */
+	struct bfd_session_arg args;
+	/** Contains the session state. */
+	struct bfd_session_status bss;
+	/** Protocol implementation status update callback. */
+	bsp_status_update updatecb;
+	/** Protocol implementation custom data pointer. */
+	void *arg;
 
-/*
- * bfd_info_create - Allocate the BFD information
- */
-struct bfd_info *bfd_info_create(void)
-{
-	struct bfd_info *bfd_info;
+	/**
+	 * Next event.
+	 *
+	 * This variable controls what action to execute when the command batch
+	 * finishes. Normally we'd use `thread_add_event` value, however since
+	 * that function is going to be called multiple times and the value
+	 * might be different we'll use this variable to keep track of it.
+	 */
+	enum bfd_session_event lastev;
+	/**
+	 * BFD session configuration event.
+	 *
+	 * Multiple actions might be asked during a command batch (either via
+	 * configuration load or northbound batch), so we'll use this to
+	 * install/uninstall the BFD session parameters only once.
+	 */
+	struct thread *installev;
 
-	bfd_info = XCALLOC(MTYPE_BFD_INFO, sizeof(struct bfd_info));
-	assert(bfd_info);
+	/** BFD session installation state. */
+	bool installed;
 
-	bfd_info->status = BFD_STATUS_UNKNOWN;
-	bfd_info->type = BFD_TYPE_NOT_CONFIGURED;
-	bfd_info->last_update = 0;
-	return bfd_info;
-}
+	/** Global BFD paramaters list. */
+	TAILQ_ENTRY(bfd_session_params) entry;
+};
 
-/*
- * bfd_info_free - Free the BFD information.
- */
-void bfd_info_free(struct bfd_info **bfd_info)
-{
-	XFREE(MTYPE_BFD_INFO, *bfd_info);
-}
+struct bfd_sessions_global {
+	/**
+	 * Global BFD session parameters list for (re)installation and update
+	 * without code duplication among daemons.
+	 */
+	TAILQ_HEAD(bsplist, bfd_session_params) bsplist;
 
-/*
- * bfd_validate_param - Validate the BFD paramter information.
- */
-int bfd_validate_param(struct vty *vty, const char *dm_str, const char *rx_str,
-		       const char *tx_str, uint8_t *dm_val, uint32_t *rx_val,
-		       uint32_t *tx_val)
-{
-	*dm_val = strtoul(dm_str, NULL, 10);
-	*rx_val = strtoul(rx_str, NULL, 10);
-	*tx_val = strtoul(tx_str, NULL, 10);
-	return CMD_SUCCESS;
-}
+	/** Pointer to FRR's event manager. */
+	struct thread_master *tm;
+	/** Pointer to zebra client data structure. */
+	struct zclient *zc;
 
-/*
- * bfd_set_param - Set the configured BFD paramter values
- */
-void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
-		   uint8_t detect_mult, const char *profile, int defaults,
-		   int *command)
-{
-	if (!*bfd_info) {
-		*bfd_info = bfd_info_create();
-		*command = ZEBRA_BFD_DEST_REGISTER;
-	} else {
-		if (((*bfd_info)->required_min_rx != min_rx)
-		    || ((*bfd_info)->desired_min_tx != min_tx)
-		    || ((*bfd_info)->detect_mult != detect_mult)
-		    || ((*bfd_info)->profile[0] == 0 && profile)
-		    || ((*bfd_info)->profile[0] && profile == NULL)
-		    || (profile && (*bfd_info)->profile[0]
-			&& strcmp((*bfd_info)->profile, profile)))
-			*command = ZEBRA_BFD_DEST_UPDATE;
-	}
+	/** Debugging state. */
+	bool debugging;
+	/** Is shutting down? */
+	bool shutting_down;
+};
 
-	if (*command) {
-		(*bfd_info)->required_min_rx = min_rx;
-		(*bfd_info)->desired_min_tx = min_tx;
-		(*bfd_info)->detect_mult = detect_mult;
-		if (profile)
-			strlcpy((*bfd_info)->profile, profile,
-				BFD_PROFILE_NAME_LEN);
-		else
-			(*bfd_info)->profile[0] = '\0';
-	}
+/** Global configuration variable. */
+static struct bfd_sessions_global bsglobal;
 
-	if (!defaults)
-		SET_FLAG((*bfd_info)->flags, BFD_FLAG_PARAM_CFG);
-	else
-		UNSET_FLAG((*bfd_info)->flags, BFD_FLAG_PARAM_CFG);
-}
-
-/*
- * bfd_peer_sendmsg - Format and send a peer register/Unregister
- *                    command to Zebra to be forwarded to BFD
- *
- * DEPRECATED: use zclient_bfd_command instead
- */
-void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
-		      int family, void *dst_ip, void *src_ip, char *if_name,
-		      int ttl, int multihop, int cbit, int command,
-		      int set_flag, vrf_id_t vrf_id)
-{
-	struct bfd_session_arg args = {};
-	size_t addrlen;
-
-	/* Individual reg/dereg messages are suppressed during shutdown. */
-	if (CHECK_FLAG(bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN)) {
-		if (bfd_debug)
-			zlog_debug(
-				"%s: Suppressing BFD peer reg/dereg messages",
-				__func__);
-		return;
-	}
-
-	/* Check socket. */
-	if (!zclient || zclient->sock < 0) {
-		if (bfd_debug)
-			zlog_debug(
-				"%s: Can't send BFD peer register, Zebra client not established",
-				__func__);
-		return;
-	}
-
-	/* Fill in all arguments. */
-	args.ttl = ttl;
-	args.cbit = cbit;
-	args.family = family;
-	args.mhop = multihop;
-	args.vrf_id = vrf_id;
-	args.command = command;
-	args.set_flag = set_flag;
-	args.bfd_info = bfd_info;
-	if (args.bfd_info) {
-		args.min_rx = bfd_info->required_min_rx;
-		args.min_tx = bfd_info->desired_min_tx;
-		args.detection_multiplier = bfd_info->detect_mult;
-		if (bfd_info->profile[0]) {
-			args.profilelen = strlen(bfd_info->profile);
-			strlcpy(args.profile, bfd_info->profile,
-				sizeof(args.profile));
-		}
-	}
-
-	addrlen = family == AF_INET ? sizeof(struct in_addr)
-				    : sizeof(struct in6_addr);
-	memcpy(&args.dst, dst_ip, addrlen);
-	if (src_ip)
-		memcpy(&args.src, src_ip, addrlen);
-
-	if (if_name)
-		args.ifnamelen =
-			strlcpy(args.ifname, if_name, sizeof(args.ifname));
-
-	zclient_bfd_command(zclient, &args);
-}
-
-/*
- * bfd_get_command_dbg_str - Convert command to a debug string.
- */
-const char *bfd_get_command_dbg_str(int command)
-{
-	switch (command) {
-	case ZEBRA_BFD_DEST_REGISTER:
-		return "Register";
-	case ZEBRA_BFD_DEST_DEREGISTER:
-		return "Deregister";
-	case ZEBRA_BFD_DEST_UPDATE:
-		return "Update";
-	default:
-		return "Unknown";
-	}
-}
+/** Global empty address for IPv4/IPv6. */
+static const struct in6_addr i6a_zero;
 
 /*
  * bfd_get_peer_info - Extract the Peer information for which the BFD session
  *                     went down from the message sent from Zebra to clients.
  */
-struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
-				    struct prefix *sp, int *status,
-				    int *remote_cbit,
-				    vrf_id_t vrf_id)
+static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
+					   struct prefix *sp, int *status,
+					   int *remote_cbit, vrf_id_t vrf_id)
 {
 	unsigned int ifindex;
 	struct interface *ifp = NULL;
@@ -243,7 +141,7 @@ struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	if (ifindex != 0) {
 		ifp = if_lookup_by_index(ifindex, vrf_id);
 		if (ifp == NULL) {
-			if (bfd_debug)
+			if (bsglobal.debugging)
 				zlog_debug(
 					"zebra_interface_bfd_read: Can't find interface by ifindex: %d ",
 					ifindex);
@@ -322,96 +220,6 @@ static void bfd_last_update(time_t last_update, char *buf, size_t len)
 }
 
 /*
- * bfd_show_param - Show the BFD parameter information.
- */
-void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
-		    int extra_space, bool use_json, json_object *json_obj)
-{
-	json_object *json_bfd = NULL;
-
-	if (!bfd_info)
-		return;
-
-	if (use_json) {
-		if (bfd_tag)
-			json_bfd = json_object_new_object();
-		else
-			json_bfd = json_obj;
-
-		json_object_int_add(json_bfd, "detectMultiplier",
-				    bfd_info->detect_mult);
-		json_object_int_add(json_bfd, "rxMinInterval",
-				    bfd_info->required_min_rx);
-		json_object_int_add(json_bfd, "txMinInterval",
-				    bfd_info->desired_min_tx);
-		if (bfd_tag)
-			json_object_object_add(json_obj, "peerBfdInfo",
-					       json_bfd);
-	} else {
-		vty_out(vty,
-			"  %s%sDetect Multiplier: %d, Min Rx interval: %d, Min Tx interval: %d\n",
-			(extra_space) ? "  " : "", (bfd_tag) ? "BFD: " : "  ",
-			bfd_info->detect_mult, bfd_info->required_min_rx,
-			bfd_info->desired_min_tx);
-	}
-}
-
-/*
- * bfd_show_status - Show the BFD status information.
- */
-static void bfd_show_status(struct vty *vty, struct bfd_info *bfd_info,
-			    int bfd_tag, int extra_space, bool use_json,
-			    json_object *json_bfd)
-{
-	char time_buf[32];
-
-	if (!bfd_info)
-		return;
-
-	bfd_last_update(bfd_info->last_update, time_buf, 32);
-	if (use_json) {
-		json_object_string_add(json_bfd, "status",
-				       bfd_get_status_str(bfd_info->status));
-		json_object_string_add(json_bfd, "lastUpdate", time_buf);
-	} else {
-		vty_out(vty, "  %s%sStatus: %s, Last update: %s\n",
-			(extra_space) ? "  " : "", (bfd_tag) ? "BFD: " : "  ",
-			bfd_get_status_str(bfd_info->status), time_buf);
-	}
-}
-
-/*
- * bfd_show_info - Show the BFD information.
- */
-void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
-		   int extra_space, bool use_json, json_object *json_obj)
-{
-	json_object *json_bfd = NULL;
-
-	if (!bfd_info)
-		return;
-
-	if (use_json) {
-		json_bfd = json_object_new_object();
-		if (multihop)
-			json_object_string_add(json_bfd, "type", "multi hop");
-		else
-			json_object_string_add(json_bfd, "type", "single hop");
-	} else {
-		vty_out(vty, "  %sBFD: Type: %s\n", (extra_space) ? "  " : "",
-			(multihop) ? "multi hop" : "single hop");
-	}
-
-	bfd_show_param(vty, bfd_info, 0, extra_space, use_json, json_bfd);
-	bfd_show_status(vty, bfd_info, 0, extra_space, use_json, json_bfd);
-
-	if (use_json)
-		json_object_object_add(json_obj, "peerBfdInfo", json_bfd);
-	else
-		vty_out(vty, "\n");
-}
-
-/*
  * bfd_client_sendmsg - Format and send a client register
  *                    command to Zebra to be forwarded to BFD
  */
@@ -423,7 +231,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 
 	/* Check socket. */
 	if (!zclient || zclient->sock < 0) {
-		if (bfd_debug)
+		if (bsglobal.debugging)
 			zlog_debug(
 				"%s: Can't send BFD client register, Zebra client not established",
 				__func__);
@@ -441,7 +249,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 	ret = zclient_send_message(zclient);
 
 	if (ret == ZCLIENT_SEND_FAILURE) {
-		if (bfd_debug)
+		if (bsglobal.debugging)
 			zlog_debug(
 				"bfd_client_sendmsg %ld: zclient_send_message() failed",
 				(long)getpid());
@@ -457,8 +265,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	size_t addrlen;
 
 	/* Individual reg/dereg messages are suppressed during shutdown. */
-	if (CHECK_FLAG(bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN)) {
-		if (bfd_debug)
+	if (bsglobal.shutting_down) {
+		if (bsglobal.debugging)
 			zlog_debug(
 				"%s: Suppressing BFD peer reg/dereg messages",
 				__func__);
@@ -467,7 +275,7 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 
 	/* Check socket. */
 	if (!zc || zc->sock < 0) {
-		if (bfd_debug)
+		if (bsglobal.debugging)
 			zlog_debug("%s: zclient unavailable", __func__);
 		return -1;
 	}
@@ -557,96 +365,13 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 
 	/* Send message to zebra. */
 	if (zclient_send_message(zc) == ZCLIENT_SEND_FAILURE) {
-		if (bfd_debug)
+		if (bsglobal.debugging)
 			zlog_debug("%s: zclient_send_message failed", __func__);
 		return -1;
 	}
 
-	/* Write registration indicator into data structure. */
-	if (args->bfd_info && args->set_flag) {
-		if (args->command == ZEBRA_BFD_DEST_REGISTER)
-			SET_FLAG(args->bfd_info->flags, BFD_FLAG_BFD_REG);
-		else if (args->command == ZEBRA_BFD_DEST_DEREGISTER)
-			UNSET_FLAG(args->bfd_info->flags, BFD_FLAG_BFD_REG);
-	}
-
 	return 0;
 }
-
-/**
- * BFD protocol integration configuration.
- */
-
-/** Events definitions. */
-enum bfd_session_event {
-	/** Remove the BFD session configuration. */
-	BSE_UNINSTALL,
-	/** Install the BFD session configuration. */
-	BSE_INSTALL,
-};
-
-/**
- * Data structure to do the necessary tricks to hide the BFD protocol
- * integration internals.
- */
-struct bfd_session_params {
-	/** Contains the session parameters and more. */
-	struct bfd_session_arg args;
-	/** Contains the session state. */
-	struct bfd_session_status bss;
-	/** Protocol implementation status update callback. */
-	bsp_status_update updatecb;
-	/** Protocol implementation custom data pointer. */
-	void *arg;
-
-	/**
-	 * Next event.
-	 *
-	 * This variable controls what action to execute when the command batch
-	 * finishes. Normally we'd use `thread_add_event` value, however since
-	 * that function is going to be called multiple times and the value
-	 * might be different we'll use this variable to keep track of it.
-	 */
-	enum bfd_session_event lastev;
-	/**
-	 * BFD session configuration event.
-	 *
-	 * Multiple actions might be asked during a command batch (either via
-	 * configuration load or northbound batch), so we'll use this to
-	 * install/uninstall the BFD session parameters only once.
-	 */
-	struct thread *installev;
-
-	/** BFD session installation state. */
-	bool installed;
-
-	/** Global BFD paramaters list. */
-	TAILQ_ENTRY(bfd_session_params) entry;
-};
-
-struct bfd_sessions_global {
-	/**
-	 * Global BFD session parameters list for (re)installation and update
-	 * without code duplication among daemons.
-	 */
-	TAILQ_HEAD(bsplist, bfd_session_params) bsplist;
-
-	/** Pointer to FRR's event manager. */
-	struct thread_master *tm;
-	/** Pointer to zebra client data structure. */
-	struct zclient *zc;
-
-	/** Debugging state. */
-	bool debugging;
-	/** Is shutting down? */
-	bool shutting_down;
-};
-
-/** Global configuration variable. */
-static struct bfd_sessions_global bsglobal;
-
-/** Global empty address for IPv4/IPv6. */
-static const struct in6_addr i6a_zero;
 
 struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
 {
