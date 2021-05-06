@@ -851,34 +851,21 @@ DEFUN (no_area_export_list,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_spf_tree,
-       show_ipv6_ospf6_spf_tree_cmd,
-       "show ipv6 ospf6 spf tree [json]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Shortest Path First calculation\n"
-       "Show SPF tree\n"
-        JSON_STR)
+static int ipv6_ospf6_spf_tree_common(struct vty *vty, struct ospf6 *ospf6,
+				      bool uj)
 {
 	struct listnode *node;
 	struct ospf6_area *oa;
+	struct prefix prefix;
 	struct ospf6_vertex *root;
 	struct ospf6_route *route;
-	struct prefix prefix;
-	struct ospf6 *ospf6;
 	json_object *json = NULL;
 	json_object *json_area = NULL;
 	json_object *json_head = NULL;
-	bool uj = use_json(argc, argv);
-
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
 
 	if (uj)
 		json = json_object_new_object();
 	ospf6_linkstate_prefix(ospf6->router_id, htonl(0), &prefix);
-
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 		if (uj) {
 			json_area = json_object_new_object();
@@ -918,35 +905,47 @@ DEFUN (show_ipv6_ospf6_spf_tree,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_area_spf_tree,
-       show_ipv6_ospf6_area_spf_tree_cmd,
-       "show ipv6 ospf6 area A.B.C.D spf tree",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       OSPF6_AREA_STR
-       OSPF6_AREA_ID_STR
-       "Shortest Path First calculation\n"
-       "Show SPF tree\n")
+DEFUN(show_ipv6_ospf6_spf_tree, show_ipv6_ospf6_spf_tree_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] spf tree [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "Shortest Path First calculation\n"
+      "Show SPF tree\n" JSON_STR)
 {
-	int idx_ipv4 = 4;
-	uint32_t area_id;
+	struct listnode *node;
+	struct ospf6 *ospf6;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ipv6_ospf6_spf_tree_common(vty, ospf6, uj);
+			if (!all_vrf)
+				break;
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+static int show_ospf6_area_spf_tree_common(struct vty *vty,
+					   struct cmd_token **argv,
+					   struct ospf6 *ospf6,
+					   uint32_t area_id, int idx_ipv4)
+{
+
 	struct ospf6_area *oa;
+	struct prefix prefix;
 	struct ospf6_vertex *root;
 	struct ospf6_route *route;
-	struct prefix prefix;
-	struct ospf6 *ospf6;
-
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
 
 	ospf6_linkstate_prefix(ospf6->router_id, htonl(0), &prefix);
 
-	if (inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id) != 1) {
-		vty_out(vty, "Malformed Area-ID: %s\n", argv[idx_ipv4]->arg);
-		return CMD_SUCCESS;
-	}
 	oa = ospf6_area_lookup(area_id, ospf6);
 	if (oa == NULL) {
 		vty_out(vty, "No such Area: %s\n", argv[idx_ipv4]->arg);
@@ -965,41 +964,55 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
-       show_ipv6_ospf6_simulate_spf_tree_root_cmd,
-       "show ipv6 ospf6 simulate spf-tree A.B.C.D area A.B.C.D",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Shortest Path First calculation\n"
-       "Show SPF tree\n"
-       "Specify root's router-id to calculate another router's SPF tree\n"
-       "OSPF6 area parameters\n"
-       OSPF6_AREA_ID_STR)
+DEFUN(show_ipv6_ospf6_area_spf_tree, show_ipv6_ospf6_area_spf_tree_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] area A.B.C.D spf tree",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" OSPF6_AREA_STR OSPF6_AREA_ID_STR
+      "Shortest Path First calculation\n"
+      "Show SPF tree\n")
 {
-	int idx_ipv4 = 5;
-	int idx_ipv4_2 = 7;
+	int idx_ipv4 = 4;
 	uint32_t area_id;
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0)
+		idx_ipv4 += 2;
+
+	if (inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id) != 1) {
+		vty_out(vty, "Malformed Area-ID: %s\n", argv[idx_ipv4]->arg);
+		return CMD_SUCCESS;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			show_ospf6_area_spf_tree_common(vty, argv, ospf6,
+							area_id, idx_ipv4);
+			if (!all_vrf)
+				break;
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+static int
+show_ospf6_simulate_spf_tree_commen(struct vty *vty, struct cmd_token **argv,
+				    struct ospf6 *ospf6, uint32_t router_id,
+				    uint32_t area_id, struct prefix prefix,
+				    int idx_ipv4, int idx_ipv4_2)
+{
 	struct ospf6_area *oa;
 	struct ospf6_vertex *root;
 	struct ospf6_route *route;
-	struct prefix prefix;
-	uint32_t router_id;
 	struct ospf6_route_table *spf_table;
 	unsigned char tmp_debug_ospf6_spf = 0;
-	struct ospf6 *ospf6;
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
-
-	inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id);
-	ospf6_linkstate_prefix(router_id, htonl(0), &prefix);
-
-	if (inet_pton(AF_INET, argv[idx_ipv4_2]->arg, &area_id) != 1) {
-		vty_out(vty, "Malformed Area-ID: %s\n", argv[idx_ipv4_2]->arg);
-		return CMD_SUCCESS;
-	}
 	oa = ospf6_area_lookup(area_id, ospf6);
 	if (oa == NULL) {
 		vty_out(vty, "No such Area: %s\n", argv[idx_ipv4_2]->arg);
@@ -1025,6 +1038,54 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 
 	ospf6_spf_table_finish(spf_table);
 	ospf6_route_table_delete(spf_table);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_ipv6_ospf6_simulate_spf_tree_root,
+      show_ipv6_ospf6_simulate_spf_tree_root_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] simulate spf-tree A.B.C.D area A.B.C.D",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "Shortest Path First calculation\n"
+      "Show SPF tree\n"
+      "Specify root's router-id to calculate another router's SPF tree\n"
+      "OSPF6 area parameters\n" OSPF6_AREA_ID_STR)
+{
+	int idx_ipv4 = 5;
+	int idx_ipv4_2 = 7;
+	uint32_t area_id;
+	struct prefix prefix;
+	uint32_t router_id;
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0) {
+		idx_ipv4 += 2;
+		idx_ipv4_2 += 2;
+	}
+	inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id);
+	ospf6_linkstate_prefix(router_id, htonl(0), &prefix);
+
+	if (inet_pton(AF_INET, argv[idx_ipv4_2]->arg, &area_id) != 1) {
+		vty_out(vty, "Malformed Area-ID: %s\n", argv[idx_ipv4_2]->arg);
+		return CMD_SUCCESS;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			show_ospf6_simulate_spf_tree_commen(
+				vty, argv, ospf6, router_id, area_id, prefix,
+				idx_ipv4, idx_ipv4_2);
+			if (!all_vrf)
+				break;
+		}
+	}
 
 	return CMD_SUCCESS;
 }
@@ -1158,8 +1219,9 @@ void ospf6_area_interface_delete(struct ospf6_interface *oi)
 
 	if (!om6->ospf6)
 		return;
-	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6))
+	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa))
 			if (listnode_lookup(oa->if_list, oi))
 				listnode_delete(oa->if_list, oi);
+	}
 }
