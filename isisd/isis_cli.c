@@ -363,7 +363,7 @@ DEFPY_YANG(isis_bfd,
  */
 DEFPY_YANG(isis_bfd_profile,
       isis_bfd_profile_cmd,
-      "[no] isis bfd profile WORD",
+      "[no] isis bfd profile BFDPROF$profile",
       NO_STR PROTO_HELP
       "Enable BFD support\n"
       "Use a pre-configured profile\n"
