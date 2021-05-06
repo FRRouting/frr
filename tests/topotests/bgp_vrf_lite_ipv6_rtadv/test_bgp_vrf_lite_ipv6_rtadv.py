@@ -42,7 +42,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import adjust_router_l3mdev
+from lib.common_config import required_linux_kernel_version
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -66,6 +66,12 @@ class BGPIPV6RTADVVRFTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("5.0")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
     tgen = Topogen(BGPIPV6RTADVVRFTopo, mod.__name__)
     tgen.start_topology()
 
@@ -83,9 +89,6 @@ def setup_module(mod):
     for rname, router in router_list.items():
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
-
-        # adjust handling of vrf traffic
-        adjust_router_l3mdev(tgen, rname)
 
     for rname, router in router_list.items():
         router.load_config(
