@@ -154,6 +154,7 @@ struct bgp;
 	} while (0)
 
 extern void bgp_vty_init(void);
+extern void community_alias_vty(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
 extern int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		       enum bgp_instance_type inst_type);
