@@ -1985,6 +1985,38 @@ DEFUN (no_auto_cost_reference_bandwidth,
 }
 
 
+DEFUN (ospf6_write_multiplier,
+       ospf6_write_multiplier_cmd,
+       "write-multiplier (1-100)",
+       "Write multiplier\n"
+       "Maximum number of interface serviced per write\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	uint32_t write_oi_count;
+
+	write_oi_count = strtol(argv[1]->arg, NULL, 10);
+	if (write_oi_count < 1 || write_oi_count > 100) {
+		vty_out(vty, "write-multiplier value is invalid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	o->write_oi_count = write_oi_count;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_write_multiplier,
+       no_ospf6_write_multiplier_cmd,
+       "no write-multiplier (1-100)",
+       NO_STR
+       "Write multiplier\n"
+       "Maximum number of interface serviced per write\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+
+	o->write_oi_count = OSPF6_WRITE_INTERFACE_COUNT_DEFAULT;
+	return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
        "ipv6 ospf6 hello-interval (1-65535)",
@@ -2657,6 +2689,9 @@ void ospf6_interface_init(void)
 	/* reference bandwidth commands */
 	install_element(OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);
 	install_element(OSPF6_NODE, &no_auto_cost_reference_bandwidth_cmd);
+	/* write-multiplier commands */
+	install_element(OSPF6_NODE, &ospf6_write_multiplier_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_write_multiplier_cmd);
 }
 
 /* Clear the specified interface structure */
