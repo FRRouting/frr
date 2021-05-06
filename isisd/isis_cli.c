@@ -393,10 +393,12 @@ DEFPY_YANG(isis_bfd_profile,
 void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, "./enabled"))
-		vty_out(vty, " no");
-
-	vty_out(vty, " isis bfd\n");
+	if (!yang_dnode_get_bool(dnode, "./enabled")) {
+		if (show_defaults)
+			vty_out(vty, " no isis bfd\n");
+	} else {
+		vty_out(vty, " isis bfd\n");
+	}
 
 	if (yang_dnode_exists(dnode, "./profile"))
 		vty_out(vty, " isis bfd profile %s\n",
