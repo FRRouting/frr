@@ -2028,16 +2028,17 @@ expanded
    later in various CLI outputs in a human-readable format.
 
    .. code-block:: frr
-       ~# show ip bgp 172.16.16.1/32
-       BGP routing table entry for 172.16.16.1/32, version 21
-       Paths: (2 available, best #2, table default)
-         Advertised to non peer-group peers:
-         65030
-           192.168.0.2 from 192.168.0.2 (172.16.16.1)
-             Origin incomplete, metric 0, valid, external, best (Neighbor IP)
-             Community: 65001:12 65001:13 community-1 65001:65534
-             Large Community: lcommunity-1 65001:123:2
-             Last update: Fri Apr 16 12:51:27 2021
+
+      ~# show ip bgp 172.16.16.1/32
+      BGP routing table entry for 172.16.16.1/32, version 21
+      Paths: (2 available, best #2, table default)
+        Advertised to non peer-group peers:
+        65030
+          192.168.0.2 from 192.168.0.2 (172.16.16.1)
+            Origin incomplete, metric 0, valid, external, best (Neighbor IP)
+            Community: 65001:12 65001:13 community-1 65001:65534
+            Large Community: lcommunity-1 65001:123:2
+            Last update: Fri Apr 16 12:51:27 2021
 
 .. deprecated:: 5.0
    It is recommended to use the more explicit versions of this command.
@@ -3939,11 +3940,11 @@ on TCP paths is one method of avoiding BGP packet fragmentation.
 
 TCP negotiates a maximum segment size (MSS) value during session connection
 establishment between two peers. The MSS value negotiated is primarily based
-on the maximum transmission unit (MTU) of the interfaces to which the 
-communicating peers are directly connected. However, due to variations in 
-link MTU on the path taken by the TCP packets, some packets in the network 
+on the maximum transmission unit (MTU) of the interfaces to which the
+communicating peers are directly connected. However, due to variations in
+link MTU on the path taken by the TCP packets, some packets in the network
 that are well within the MSS value might be fragmented when the packet size
-exceeds the link's MTU. 
+exceeds the link's MTU.
 
 This feature is supported with TCP over IPv4 and TCP over IPv6.
 
@@ -3963,7 +3964,7 @@ size + ethernet header). For IPv4 its MTU – (20 bytes IP header + 20 bytes TCP
 header + 12 bytes ethernet header) and for IPv6 its MTU – (40 bytes IPv6 header
 + 20 bytes TCP header + 12 bytes ethernet header).
 
-If the config is done then it reduces 12-14 bytes for the ether header and 
+If the config is done then it reduces 12-14 bytes for the ether header and
 uses it after synchronizing in TCP handshake.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> tcp-mss (1-65535)
@@ -3979,7 +3980,7 @@ Running config:
 
 .. code-block:: frr
 
-   frr# show running-config 
+   frr# show running-config
    Building configuration...
 
    Current configuration:
@@ -3996,7 +3997,7 @@ Show command:
 
 .. code-block:: frr
 
-   frr# show bgp neighbors 198.51.100.2 
+   frr# show bgp neighbors 198.51.100.2
    BGP neighbor is 198.51.100.2, remote AS 100, local AS 100, internal link
    Hostname: frr
      BGP version 4, remote router ID 192.0.2.2, local router ID 192.0.2.1
@@ -4007,7 +4008,7 @@ Show command:
 
 .. code-block:: frr
 
-   frr# show bgp neighbors 2001:DB8::2 
+   frr# show bgp neighbors 2001:DB8::2
    BGP neighbor is 2001:DB8::2, remote AS 100, local AS 100, internal link
    Hostname: frr
      BGP version 4, remote router ID 192.0.2.2, local router ID 192.0.2.1
@@ -4021,7 +4022,7 @@ Show command json output:
 
 .. code-block:: frr
 
-   frr# show bgp neighbors 2001:DB8::2 json 
+   frr# show bgp neighbors 2001:DB8::2 json
    {
      "2001:DB8::2":{
        "remoteAs":100,
@@ -4045,7 +4046,7 @@ Show command json output:
 
 .. code-block:: frr
 
-   frr# show bgp neighbors 198.51.100.2 json 
+   frr# show bgp neighbors 198.51.100.2 json
    {
      "198.51.100.2":{
        "remoteAs":100,
