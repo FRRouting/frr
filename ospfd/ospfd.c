@@ -648,7 +648,6 @@ void ospf_terminate(void)
 	if (listcount(om->ospf) == 0)
 		goto done;
 
-	bfd_gbl_exit();
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
 
