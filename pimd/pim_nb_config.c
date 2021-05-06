@@ -1121,8 +1121,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 		yang_dnode_get_ip(&peer_ip, args->dnode, "./peer-ip");
 		yang_dnode_get_ip(&source_ip, args->dnode, "./source-ip");
 		mp = pim_msdp_peer_new(pim, &peer_ip.ipaddr_v4,
-				       &source_ip.ipaddr_v4,
-				       MSDP_SOLO_PEER_GROUP_NAME);
+				       &source_ip.ipaddr_v4, NULL);
 		nb_running_set_entry(args->dnode, mp);
 		break;
 	}
