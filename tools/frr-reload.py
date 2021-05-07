@@ -423,17 +423,6 @@ class Config(object):
                     re_lege.group(2),
                     re_lege.group(4),
                 )
-            re_lege = re.search(r"(.*)ge\s+(\d+)\s+le\s+(\d+)(.*)", legestr)
-
-            if re_lege and (
-                (re_key_rt.group(1) == "ip" and re_lege.group(3) == "32")
-                or (re_key_rt.group(1) == "ipv6" and re_lege.group(3) == "128")
-            ):
-                legestr = "%sge %s%s" % (
-                    re_lege.group(1),
-                    re_lege.group(2),
-                    re_lege.group(4),
-                )
 
             key[0] = "%s prefix-list%s%s %s%s" % (
                 re_key_rt.group(1),
