@@ -2305,6 +2305,12 @@ void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
 		ospf6_asbr_redistribute_unset(ospf6, red, type);
 		ospf6_redist_del(ospf6, red, type);
 	}
+	red = ospf6_redist_lookup(ospf6, DEFAULT_ROUTE, 0);
+	if (red) {
+		ospf6_asbr_routemap_unset(red);
+		ospf6_redist_del(ospf6, red, type);
+		ospf6_redistribute_default_set(ospf6, DEFAULT_ORIGINATE_NONE);
+	}
 }
 
 void ospf6_asbr_terminate(void)
