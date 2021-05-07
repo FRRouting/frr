@@ -42,7 +42,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import adjust_router_l3mdev
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -130,7 +129,6 @@ def setup_module(mod):
         logger.info("result: " + output)
 
     router = tgen.gears["r2"]
-    adjust_router_l3mdev(tgen, "r2")
     for cmd in cmds_vrflite:
         logger.info("cmd to r2: " + cmd.format("r2"))
         output = router.run(cmd.format("r2"))
