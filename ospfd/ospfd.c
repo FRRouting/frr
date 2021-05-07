@@ -697,6 +697,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	struct ospf_area *area;
 	struct ospf_vl_data *vl_data;
 	struct listnode *node, *nnode;
+	struct ospf_redist *red;
 	int i;
 
 	QOBJ_UNREG(ospf);
@@ -710,7 +711,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* Unregister redistribution */
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		struct list *red_list;
-		struct ospf_redist *red;
 
 		red_list = ospf->redist[i];
 		if (!red_list)
@@ -721,7 +721,12 @@ static void ospf_finish_final(struct ospf *ospf)
 			ospf_redist_del(ospf, i, red->instance);
 		}
 	}
-	ospf_redistribute_default_set(ospf, DEFAULT_ORIGINATE_NONE, 0, 0);
+	red = ospf_redist_lookup(ospf, DEFAULT_ROUTE, 0);
+	if (red) {
+		ospf_routemap_unset(red);
+		ospf_redist_del(ospf, DEFAULT_ROUTE, 0);
+		ospf_redistribute_default_set(ospf, DEFAULT_ORIGINATE_NONE, 0, 0);
+	}
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 		ospf_remove_vls_through_area(ospf, area);
