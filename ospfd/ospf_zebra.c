@@ -774,45 +774,36 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 				       ospf->vrf_id))));
 }
 
-int ospf_redistribute_set(struct ospf *ospf, int type, unsigned short instance,
-			  int mtype, int mvalue)
+int ospf_redistribute_update(struct ospf *ospf, struct ospf_redist *red,
+			     int type, unsigned short instance, int mtype,
+			     int mvalue)
 {
 	int force = 0;
-	struct ospf_redist *red;
 
-	red = ospf_redist_lookup(ospf, type, instance);
-
-	if (red == NULL) {
-		zlog_err(
-			 "Redistribute[%s][%d]: Lookup failed  Type[%d] , Metric[%d]",
-			 ospf_redist_string(type), instance,
-			 metric_type(ospf, type, instance),
-			 metric_value(ospf, type, instance));
-		return CMD_WARNING_CONFIG_FAILED;
+	if (mtype != red->dmetric.type) {
+		red->dmetric.type = mtype;
+		force = LSA_REFRESH_FORCE;
+	}
+	if (mvalue != red->dmetric.value) {
+		red->dmetric.value = mvalue;
+		force = LSA_REFRESH_FORCE;
 	}
 
-	if (ospf_is_type_redistributed(ospf, type, instance)) {
-		if (mtype != red->dmetric.type) {
-			red->dmetric.type = mtype;
-			force = LSA_REFRESH_FORCE;
-		}
-		if (mvalue != red->dmetric.value) {
-			red->dmetric.value = mvalue;
-			force = LSA_REFRESH_FORCE;
-		}
+	ospf_external_lsa_refresh_type(ospf, type, instance, force);
 
-		ospf_external_lsa_refresh_type(ospf, type, instance, force);
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+		zlog_debug(
+			"Redistribute[%s][%d]: Refresh  Type[%d], Metric[%d]",
+			ospf_redist_string(type), instance,
+			metric_type(ospf, type, instance),
+			metric_value(ospf, type, instance));
 
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-			zlog_debug(
-				"Redistribute[%s][%d]: Refresh  Type[%d], Metric[%d]",
-				ospf_redist_string(type), instance,
-				metric_type(ospf, type, instance),
-				metric_value(ospf, type, instance));
+	return CMD_SUCCESS;
+}
 
-		return CMD_SUCCESS;
-	}
-
+int ospf_redistribute_set(struct ospf *ospf, struct ospf_redist *red, int type,
+			  unsigned short instance, int mtype, int mvalue)
+{
 	red->dmetric.type = mtype;
 	red->dmetric.value = mvalue;
 
@@ -837,9 +828,6 @@ int ospf_redistribute_unset(struct ospf *ospf, int type,
 			    unsigned short instance)
 {
 	if (type == zclient->redist_default && instance == zclient->instance)
-		return CMD_SUCCESS;
-
-	if (!ospf_is_type_redistributed(ospf, type, instance))
 		return CMD_SUCCESS;
 
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type,
