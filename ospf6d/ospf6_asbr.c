@@ -2302,10 +2302,8 @@ void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
 			continue;
 		if (type == ZEBRA_ROUTE_OSPF6)
 			continue;
-		if (ospf6_zebra_is_redistribute(type, ospf6->vrf_id)) {
-			ospf6_asbr_redistribute_unset(ospf6, red, type);
-			ospf6_redist_del(ospf6, red, type);
-		}
+		ospf6_asbr_redistribute_unset(ospf6, red, type);
+		ospf6_redist_del(ospf6, red, type);
 	}
 }
 
