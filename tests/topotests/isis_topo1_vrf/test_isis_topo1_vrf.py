@@ -41,10 +41,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import (
-    required_linux_kernel_version,
-    adjust_router_l3mdev,
-)
+from lib.common_config import required_linux_kernel_version
 
 from mininet.topo import Topo
 
@@ -123,9 +120,6 @@ def setup_module(mod):
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
-
-        # adjust handling of vrf traffic
-        adjust_router_l3mdev(tgen, rname)
 
     for rname, router in tgen.routers().items():
         router.load_config(
