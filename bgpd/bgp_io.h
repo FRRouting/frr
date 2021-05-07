@@ -24,8 +24,8 @@
 
 #define BGP_WRITE_PACKET_DEFAULT 64U
 #define BGP_READ_PACKET_DEFAULT  10U
-#define BGP_WRITE_PACKET_MAX 10000U
-#define BGP_READ_PACKET_MAX  1000U
+#define BGP_WRITE_PACKET_MAX 255U
+#define BGP_READ_PACKET_MAX  255U
 
 #include "bgpd/bgpd.h"
 #include "frr_pthread.h"

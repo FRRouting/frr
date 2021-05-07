@@ -2046,7 +2046,7 @@ void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
  */
 DEFPY (bgp_wpkt_quanta,
        bgp_wpkt_quanta_cmd,
-       "[no] write-quanta (1-10000)$quanta",
+       "[no] write-quanta (1-255)$quanta",
        NO_STR
        "How many packets to write to peer socket per run\n"
        "Number of packets\n")
@@ -2056,7 +2056,7 @@ DEFPY (bgp_wpkt_quanta,
 
 DEFPY (bgp_rpkt_quanta,
        bgp_rpkt_quanta_cmd,
-       "[no] read-quanta (1-1000)$quanta",
+       "[no] read-quanta (1-255)$quanta",
        NO_STR
        "How many packets to read from peer socket per I/O cycle\n"
        "Number of packets\n")
