@@ -102,6 +102,11 @@ enum pim_msdp_peer_flags {
 	PIM_MSDP_PEERF_IN_GROUP = (1 << 2),
 };
 
+enum msdp_auth_type {
+	MSDP_AUTH_NONE = 0,
+	MSDP_AUTH_MD5 = 1,
+};
+
 struct pim_msdp_peer {
 	struct pim_instance *pim;
 
@@ -110,6 +115,13 @@ struct pim_msdp_peer {
 	struct in_addr peer;
 	char *mesh_group_name;
 	char key_str[INET_ADDRSTRLEN];
+
+	/* Authentication data. */
+	enum msdp_auth_type auth_type;
+	char *auth_key;
+
+	int auth_listen_sock;
+	struct thread *auth_listen_ev;
 
 	/* state */
 	enum pim_msdp_peer_state state;
@@ -317,5 +329,14 @@ void pim_msdp_peer_del(struct pim_msdp_peer **mp);
  */
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr);
+
+/**
+ * Restart peer's connection.
+ *
+ * This is used internally in MSDP and should be used by northbound
+ * when wanting to immediately apply connections settings such as
+ * authentication.
+ */
+void pim_msdp_peer_restart(struct pim_msdp_peer *mp);
 
 #endif

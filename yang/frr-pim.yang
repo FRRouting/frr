@@ -156,6 +156,37 @@ module frr-pim {
     }
   }
 
+  grouping msdp-authentication {
+    description
+      "MSDP authentication options.";
+
+    leaf authentication-type {
+      type enumeration {
+        enum None {
+          value 0;
+          description
+            "No authentication.";
+        }
+        enum MD5 {
+          value 1;
+          description
+            "Use MD5 digest.";
+        }
+      }
+      default None;
+      description
+        "Authentication method.";
+    }
+
+    leaf authentication-key {
+      when "../authentication-type = 'MD5'";
+      mandatory true;
+      type string;
+      description
+        "Authentication key.";
+    }
+  }
+
   grouping per-af-global-pim-config-attributes {
     description
       "A grouping defining per address family pim global attributes";
@@ -273,6 +304,8 @@ module frr-pim {
         description
           "MSDP source IP address.";
       }
+
+      uses msdp-authentication;
     }
 
     container mlag {
