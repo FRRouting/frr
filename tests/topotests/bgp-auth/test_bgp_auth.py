@@ -357,9 +357,10 @@ def check_neigh_state(router, peer, state, vrf=""):
                 "show bgp vrf {} neighbors {} json".format(vrf, peer)
             )
         neigh_output_json = json.loads(neigh_output)
-        if neigh_output_json[peer]["bgpState"] == state:
-            matched = True
-            break
+        if peer in neigh_output_json.keys():
+            if neigh_output_json[peer]["bgpState"] == state:
+                matched = True
+                break
         count += 1
         sleep(1)
 
