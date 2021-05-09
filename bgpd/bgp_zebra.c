@@ -1700,6 +1700,9 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 
 		redist_add_instance(&zclient->mi_redist[afi][type], instance);
 	} else {
+		if (vrf_bitmap_check(zclient->redist[afi][type], bgp->vrf_id))
+			return CMD_WARNING;
+
 #ifdef ENABLE_BGP_VNC
 		if (EVPN_ENABLED(bgp) && type == ZEBRA_ROUTE_VNC_DIRECT) {
 			vnc_export_bgp_enable(
