@@ -359,8 +359,9 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 			for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
 				for (level = 0; level < ISIS_LEVELS; level++)
 					if (area->redist_settings[protocol]
-								 [type]
-								 [level].redist)
+								 [type][level]
+									 .redist
+					    == 1)
 						do_subscribe[protocol][type] =
 							1;
 
