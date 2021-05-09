@@ -132,10 +132,6 @@ DEFINE_HOOK(bgp_inst_config_write,
 		(bgp, vty));
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 
-#define GR_NO_OPER                                                             \
-	"The Graceful Restart No Operation was executed as cmd same as previous one."
-#define GR_INVALID                                                             \
-	"The Graceful Restart command used is not valid at this moment."
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
 
@@ -749,9 +745,6 @@ int bgp_nb_errmsg_return(char *errmsg, size_t errmsg_len, int ret)
 		break;
 	case BGP_ERR_GR_OPERATION_FAILED:
 		str = "The Graceful Restart Operation failed due to an err.";
-		break;
-	case BGP_GR_NO_OPERATION:
-		str = GR_NO_OPER;
 		break;
 	case BGP_ERR_PEER_GROUP_MEMBER:
 		str = "Peer-group member cannot override remote-as of peer-group";
