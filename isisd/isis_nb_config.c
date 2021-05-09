@@ -2626,23 +2626,9 @@ void lib_interface_isis_bfd_monitoring_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
 	struct isis_circuit *circuit;
-	bool enabled;
-	const char *profile = NULL;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	enabled = yang_dnode_get_bool(args->dnode, "./enabled");
-
-	if (yang_dnode_exists(args->dnode, "./profile"))
-		profile = yang_dnode_get_string(args->dnode, "./profile");
-
-	if (enabled) {
-		isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
-					   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT,
-					   profile, true);
-	} else {
-		isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
-		bfd_info_free(&circuit->bfd_info);
-	}
+	isis_bfd_circuit_cmd(circuit);
 }
 
 /*
@@ -2651,7 +2637,14 @@ void lib_interface_isis_bfd_monitoring_apply_finish(
 int lib_interface_isis_bfd_monitoring_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
-	/* Everything done in apply_finish */
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->bfd_config.enabled = yang_dnode_get_bool(args->dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -2661,14 +2654,30 @@ int lib_interface_isis_bfd_monitoring_enabled_modify(
 int lib_interface_isis_bfd_monitoring_profile_modify(
 	struct nb_cb_modify_args *args)
 {
-	/* Everything done in apply_finish */
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
+	circuit->bfd_config.profile =
+		XSTRDUP(MTYPE_TMP, yang_dnode_get_string(args->dnode, NULL));
+
 	return NB_OK;
 }
 
 int lib_interface_isis_bfd_monitoring_profile_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	/* Everything done in apply_finish */
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
+
 	return NB_OK;
 }
 

@@ -41,6 +41,7 @@
 #include "vrf.h"
 #include "spf_backoff.h"
 #include "lib/northbound_cli.h"
+#include "bfd.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -663,6 +664,8 @@ void isis_terminate()
 {
 	struct isis *isis;
 	struct listnode *node, *nnode;
+
+	bfd_protocol_integration_set_shutdown(true);
 
 	if (listcount(im->isis) == 0)
 		return;

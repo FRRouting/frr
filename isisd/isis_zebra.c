@@ -37,6 +37,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "libfrr.h"
+#include "bfd.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -730,6 +731,7 @@ static void isis_zebra_connected(struct zclient *zclient)
 	zclient_register_opaque(zclient, LDP_RLFA_LABELS);
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 }
 
 /*
