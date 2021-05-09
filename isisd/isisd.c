@@ -175,15 +175,6 @@ void isis_master_init(struct thread_master *master)
 	im->master = master;
 }
 
-void isis_global_instance_create(const char *vrf_name)
-{
-	struct isis *isis;
-
-	isis = isis_lookup_by_vrfname(vrf_name);
-	if (isis == NULL)
-		isis_new(vrf_name);
-}
-
 struct isis *isis_new(const char *vrf_name)
 {
 	struct vrf *vrf;
@@ -571,8 +562,7 @@ void isis_area_destroy(struct isis_area *area)
 	area_mt_finish(area);
 
 	if (listcount(area->isis->area_list) == 0) {
-		memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
-		area->isis->sysid_set = 0;
+		isis_finish(area->isis);
 	}
 
 	XFREE(MTYPE_ISIS_AREA, area);
