@@ -30,6 +30,7 @@
 #else
 #include <endian.h>
 #endif /* __FreeBSD__ */
+#include <assert.h>
 #include <stdlib.h>
 
 #include <CUnit/CUnit.h>
@@ -88,6 +89,7 @@ void test_pcep_tlv_create_stateful_pce_capability()
 		pcep_tlv_create_stateful_pce_capability(true, true, true, true,
 							true, true);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
@@ -126,11 +128,13 @@ void test_pcep_tlv_create_speaker_entity_id()
 	dll_append(list, speaker_entity);
 	tlv = pcep_tlv_create_speaker_entity_id(list);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID);
 	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, sizeof(uint32_t));
 	CU_ASSERT_PTR_NOT_NULL(tlv->speaker_entity_id_list);
+	assert(tlv->speaker_entity_id_list != NULL);
 	CU_ASSERT_EQUAL(tlv->speaker_entity_id_list->num_entries, 1);
 	uint32_t *uint32_ptr = (uint32_t *)tlv->header.encoded_tlv;
 	CU_ASSERT_EQUAL(uint32_ptr[1], htonl(*speaker_entity));
@@ -144,6 +148,7 @@ void test_pcep_tlv_create_lsp_db_version()
 	struct pcep_object_tlv_lsp_db_version *tlv =
 		pcep_tlv_create_lsp_db_version(lsp_db_version);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION);
@@ -162,6 +167,7 @@ void test_pcep_tlv_create_path_setup_type()
 	struct pcep_object_tlv_path_setup_type *tlv =
 		pcep_tlv_create_path_setup_type(pst);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE);
 	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, sizeof(uint32_t));
@@ -231,6 +237,7 @@ void test_pcep_tlv_create_path_setup_type_capability()
 			PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY);
 	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, sizeof(uint32_t) * 2);
 	CU_ASSERT_PTR_NOT_NULL(tlv->pst_list);
+	assert(tlv != NULL);
 	CU_ASSERT_EQUAL(tlv->pst_list->num_entries, 3);
 	uint32_t *uint32_ptr = (uint32_t *)tlv->header.encoded_tlv;
 	CU_ASSERT_EQUAL(uint32_ptr[1], htonl(0x00000003));
@@ -251,6 +258,7 @@ void test_pcep_tlv_create_path_setup_type_capability()
 	tlv = pcep_tlv_create_path_setup_type_capability(pst_list,
 							 sub_tlv_list);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
@@ -283,6 +291,7 @@ void test_pcep_tlv_create_sr_pce_capability()
 	struct pcep_object_tlv_sr_pce_capability *tlv =
 		pcep_tlv_create_sr_pce_capability(true, true, 8);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY);
@@ -305,6 +314,7 @@ void test_pcep_tlv_create_symbolic_path_name()
 	struct pcep_object_tlv_symbolic_path_name *tlv =
 		pcep_tlv_create_symbolic_path_name(path_name, path_name_length);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME);
@@ -325,6 +335,8 @@ void test_pcep_tlv_create_symbolic_path_name()
 	reset_tlv_buffer();
 	tlv = pcep_tlv_create_symbolic_path_name(path_name, 3);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	printf("El tlv es %p", tlv);
+	assert(tlv != NULL); // crash si FALSE
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME);
 	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, 3);
@@ -359,6 +371,7 @@ void test_pcep_tlv_create_ipv4_lsp_identifiers()
 	tlv = pcep_tlv_create_ipv4_lsp_identifiers(
 		NULL, NULL, lsp_id, tunnel_id, &extended_tunnel_id);
 	CU_ASSERT_PTR_NULL(tlv);
+	assert(tlv == NULL);
 
 	tlv = pcep_tlv_create_ipv4_lsp_identifiers(&sender_ip, &endpoint_ip,
 						   lsp_id, tunnel_id,
@@ -381,6 +394,7 @@ void test_pcep_tlv_create_ipv4_lsp_identifiers()
 	tlv = pcep_tlv_create_ipv4_lsp_identifiers(&sender_ip, &endpoint_ip,
 						   lsp_id, tunnel_id, NULL);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
@@ -424,11 +438,13 @@ void test_pcep_tlv_create_ipv6_lsp_identifiers()
 		NULL, NULL, lsp_id, tunnel_id,
 		(struct in6_addr *)&extended_tunnel_id);
 	CU_ASSERT_PTR_NULL(tlv);
+	assert(tlv == NULL);
 
 	tlv = pcep_tlv_create_ipv6_lsp_identifiers(
 		&sender_ip, &endpoint_ip, lsp_id, tunnel_id,
 		(struct in6_addr *)&extended_tunnel_id);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
@@ -449,6 +465,7 @@ void test_pcep_tlv_create_srpag_pol_id_ipv4()
 	struct pcep_object_tlv_srpag_pol_id *tlv =
 		pcep_tlv_create_srpag_pol_id_ipv4(color, (void *)&src);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, (PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID));
@@ -506,6 +523,7 @@ void test_pcep_tlv_create_srpag_pol_name()
 	struct pcep_object_tlv_srpag_pol_name *tlv =
 		pcep_tlv_create_srpag_pol_name(pol_name, strlen(pol_name));
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
@@ -559,6 +577,7 @@ void test_pcep_tlv_create_srpag_cp_pref()
 	struct pcep_object_tlv_srpag_cp_pref *tlv =
 		pcep_tlv_create_srpag_cp_pref(preference_default);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
@@ -586,6 +605,7 @@ void test_pcep_tlv_create_lsp_error_code()
 		pcep_tlv_create_lsp_error_code(
 			PCEP_TLV_LSP_ERROR_CODE_RSVP_SIGNALING_ERROR);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE);
@@ -612,6 +632,7 @@ void test_pcep_tlv_create_rsvp_ipv4_error_spec()
 	tlv = pcep_tlv_create_rsvp_ipv4_error_spec(&error_node_ip, error_code,
 						   error_value);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC);
@@ -635,6 +656,7 @@ void test_pcep_tlv_create_rsvp_ipv6_error_spec()
 	tlv = pcep_tlv_create_rsvp_ipv6_error_spec(&error_node_ip, error_code,
 						   error_value);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC);
@@ -651,6 +673,7 @@ void test_pcep_tlv_create_nopath_vector()
 	struct pcep_object_tlv_vendor_info *tlv = pcep_tlv_create_vendor_info(
 		enterprise_number, enterprise_specific_info);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_VENDOR_INFO);
@@ -670,6 +693,7 @@ void test_pcep_tlv_create_arbitrary()
 	struct pcep_object_tlv_arbitrary *tlv = pcep_tlv_create_tlv_arbitrary(
 		data, data_length, tlv_id_unknown);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, tlv_id_unknown);
@@ -688,6 +712,7 @@ void test_pcep_tlv_create_arbitrary()
 	reset_tlv_buffer();
 	tlv = pcep_tlv_create_tlv_arbitrary(data, 3, tlv_id_unknown);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type, tlv_id_unknown);
 	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, 3);

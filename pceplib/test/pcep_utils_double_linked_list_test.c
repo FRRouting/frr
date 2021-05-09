@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <CUnit/CUnit.h>
 
 #include "pcep_utils_double_linked_list.h"
@@ -72,16 +73,22 @@ void test_dll_prepend_data()
 	CU_ASSERT_EQUAL(handle->num_entries, 3);
 
 	double_linked_list_node *node = handle->head;
+	CU_ASSERT_PTR_NOT_NULL(node);
+	assert(node != NULL);
 	CU_ASSERT_PTR_EQUAL(node->data, &data1);
 	CU_ASSERT_PTR_NULL(node->prev_node);
 	CU_ASSERT_PTR_NOT_NULL(node->next_node);
 
 	node = node->next_node;
+	CU_ASSERT_PTR_NOT_NULL(node);
+	assert(node != NULL);
 	CU_ASSERT_PTR_EQUAL(node->data, &data2);
 	CU_ASSERT_PTR_NOT_NULL(node->prev_node);
 	CU_ASSERT_PTR_NOT_NULL(node->next_node);
 
 	node = node->next_node;
+	CU_ASSERT_PTR_NOT_NULL(node);
+	assert(node != NULL);
 	CU_ASSERT_PTR_EQUAL(node->data, &data3);
 	CU_ASSERT_PTR_NOT_NULL(node->prev_node);
 	CU_ASSERT_PTR_NULL(node->next_node);
@@ -112,11 +119,15 @@ void test_dll_append_data()
 	CU_ASSERT_PTR_NOT_NULL(node->next_node);
 
 	node = node->next_node;
+	CU_ASSERT_PTR_NOT_NULL(node);
+	assert(node != NULL);
 	CU_ASSERT_PTR_EQUAL(node->data, &data2);
 	CU_ASSERT_PTR_NOT_NULL(node->prev_node);
 	CU_ASSERT_PTR_NOT_NULL(node->next_node);
 
 	node = node->next_node;
+	CU_ASSERT_PTR_NOT_NULL(node);
+	assert(node != NULL);
 	CU_ASSERT_PTR_EQUAL(node->data, &data3);
 	CU_ASSERT_PTR_NOT_NULL(node->prev_node);
 	CU_ASSERT_PTR_NULL(node->next_node);
@@ -278,8 +289,11 @@ void test_dll_delete_node()
 	node2 = dll_append(handle, &data2);
 	node3 = dll_append(handle, &data3);
 	CU_ASSERT_PTR_NOT_NULL(node1);
+	assert(node1 != NULL);
 	CU_ASSERT_PTR_NOT_NULL(node2);
+	assert(node2 != NULL);
 	CU_ASSERT_PTR_NOT_NULL(node3);
+	assert(node3 != NULL);
 	CU_ASSERT_EQUAL(handle->num_entries, 3);
 
 	/* Delete the middle entry */
