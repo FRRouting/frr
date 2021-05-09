@@ -27,7 +27,7 @@
 #include <assert.h>
 
 __attribute__((noinline))
-void func_for_bt(int number)
+static void func_for_bt(int number)
 {
 	assert(number > 2);
 	assertf(number > 3, "(A) the number was %d", number);
