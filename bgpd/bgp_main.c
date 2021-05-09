@@ -314,9 +314,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		bgp_vrf_link(bgp, vrf);
 
 		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
-		/* Update any redistribution if vrf_id changed */
-		if (old_vrf_id != bgp->vrf_id)
-			bgp_redistribute_redo(bgp);
 		bgp_instance_up(bgp);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
@@ -336,7 +333,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 static int bgp_vrf_disable(struct vrf *vrf)
 {
 	struct bgp *bgp;
-	vrf_id_t old_vrf_id;
 
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return 0;
@@ -358,15 +354,11 @@ static int bgp_vrf_disable(struct vrf *vrf)
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
 				   bgp_get_default(), bgp);
 
-		old_vrf_id = bgp->vrf_id;
 		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 		/* We have instance configured, unlink from VRF and make it
 		 * "down". */
-		bgp_vrf_unlink(bgp, vrf);
-		/* Delete any redistribute vrf bitmaps if the vrf_id changed */
-		if (old_vrf_id != bgp->vrf_id)
-			bgp_unset_redist_vrf_bitmaps(bgp, old_vrf_id);
 		bgp_instance_down(bgp);
+		bgp_vrf_unlink(bgp, vrf);
 	}
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
