@@ -1029,7 +1029,8 @@ zebra_evpn_t *zebra_evpn_add(vni_t vni)
 	/* Create hash table for MAC */
 	zevpn->mac_table = zebra_mac_db_create(buffer);
 
-	snprintf(buffer, sizeof(buffer), "Zebra EVPN Neighbor Table vni: %u", vni);
+	snprintf(buffer, sizeof(buffer), "Zebra EVPN Neighbor Table vni: %u",
+		 vni);
 	/* Create hash table for neighbors */
 	zevpn->neigh_table = zebra_neigh_db_create(buffer);
 
