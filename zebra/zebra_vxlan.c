@@ -5765,7 +5765,7 @@ void zebra_vxlan_init_tables(struct zebra_vrf *zvrf)
 	snprintf(buffer, sizeof(buffer), "Zebra VxLAN SG Table: %s",
 		 zvrf->vrf->name);
 	zvrf->vxlan_sg_table = hash_create_size(8, zebra_vxlan_sg_hash_key_make,
-			zebra_vxlan_sg_hash_eq, buffer);
+						zebra_vxlan_sg_hash_eq, buffer);
 }
 
 /* Cleanup EVPN info, but don't free the table. */

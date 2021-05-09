@@ -3959,8 +3959,7 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 
 	snprintf(buffer, sizeof(buffer), "ZEBRA SLSP table: %s",
 		 zvrf->vrf->name);
-	zvrf->slsp_table =
-		hash_create_size(8, label_hash, label_cmp, buffer);
+	zvrf->slsp_table = hash_create_size(8, label_hash, label_cmp, buffer);
 
 	snprintf(buffer, sizeof(buffer), "ZEBRA LSP table: %s",
 		 zvrf->vrf->name);
