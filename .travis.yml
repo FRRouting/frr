@@ -22,7 +22,7 @@ jobs:
        - docker ps
        - docker exec frr-ubuntu18 bash -c 'cd ~/frr ; make check'
        - docker exec frr-ubuntu18 bash -c 'ps agxu ; lsmod | grep mpls || true'
-       - docker exec frr-ubuntu18 bash -c 'cd ~/frr/tests/topotests/ospf-topo1 ; sudo pytest test_ospf_topo1.py'
+       - docker exec frr-ubuntu18 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
        - docker exec frr-ubuntu18 bash -c 'cd ~/frr/tests/topotests/bgp_l3vpn_to_bgp_vrf ; sudo pytest test_bgp_l3vpn_to_bgp_vrf.py'
      name: ubuntu18+minimalCI
    - script:
@@ -34,7 +34,7 @@ jobs:
        - docker ps
        - docker exec frr-ubuntu20 bash -c 'cd ~/frr ; make check'
        - docker exec frr-ubuntu20 bash -c 'ps agxu ; lsmod | grep mpls || true'
-       - docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf-topo1 ; sudo pytest test_ospf_topo1.py'
+       - docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
        - docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/bgp_l3vpn_to_bgp_vrf ; sudo pytest test_bgp_l3vpn_to_bgp_vrf.py'
      name: ubuntu20+minimalCI
 
