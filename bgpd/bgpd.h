@@ -1165,6 +1165,7 @@ struct peer_connection {
 	struct stream_fifo *ibuf; // packets waiting to be processed
 	struct stream_fifo *obuf; // packets waiting to be written
 
+	uint32_t rpkt_quanta;	   // max # packets to read per i/o cycle
 	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
 
 	struct event *t_read;

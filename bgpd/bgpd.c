@@ -1218,6 +1218,9 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer)
 	connection->obuf = stream_fifo_new();
 	pthread_mutex_init(&connection->io_mtx, NULL);
 
+	connection->rpkt_quanta = atomic_load_explicit(&peer->bgp->rpkt_quanta,
+						       memory_order_relaxed);
+
 	/* We use a larger buffer for peer->obuf_work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just
 	 *   under BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE.
@@ -1231,7 +1234,7 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer)
 	 * UPDATE.
 	 */
 	connection->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_DEFAULT);
+		ringbuf_new(BGP_MAX_PACKET_SIZE * connection->rpkt_quanta);
 
 	connection->status = Idle;
 	connection->ostatus = Idle;
@@ -1523,6 +1526,8 @@ struct peer *peer_new(struct bgp *bgp)
 	/* Allocate new peer. */
 	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));
 
+	peer->bgp = bgp_lock(bgp);
+
 	/* Create buffers. */
 	peer->connection = bgp_peer_connection_new(peer);
 
@@ -1530,7 +1535,6 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->v_start = BGP_INIT_START_TIMER;
 	peer->v_connect = bgp->default_connect_retry;
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
-	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
 	peer->local_role = ROLE_UNDEFINED;
 	peer->remote_role = ROLE_UNDEFINED;
@@ -3412,6 +3416,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->inst_type = inst_type;
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
 							       : VRF_UNKNOWN;
+
+	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_DEFAULT,
+			      memory_order_relaxed);
+	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_DEFAULT,
+			      memory_order_relaxed);
+
 	bgp->peer_self = peer_new(bgp);
 	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
@@ -3534,10 +3544,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			n);
 	}
 
-	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_DEFAULT,
-			      memory_order_relaxed);
-	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_DEFAULT,
-			      memory_order_relaxed);
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	bgp->default_af[AFI_IP][SAFI_UNICAST] = true;
 
