@@ -3302,6 +3302,28 @@ static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 	bgp_evpn_cleanup_on_disable(bgp);
 }
 
+/* Set resolve overlay index flag */
+static void bgp_evpn_set_unset_resolve_overlay_index(struct bgp *bgp, bool set)
+{
+	if (set == bgp->resolve_overlay_index)
+		return;
+
+	if (set) {
+		bgp->resolve_overlay_index = true;
+		hash_iterate(bgp->vnihash,
+			     (void (*)(struct hash_bucket *, void *))
+				     bgp_evpn_handle_resolve_overlay_index_set,
+			     NULL);
+	} else {
+		hash_iterate(
+			bgp->vnihash,
+			(void (*)(struct hash_bucket *, void *))
+				bgp_evpn_handle_resolve_overlay_index_unset,
+			NULL);
+		bgp->resolve_overlay_index = false;
+	}
+}
+
 /*
  * EVPN - use RFC8365 to auto-derive RT
  */
@@ -4114,6 +4136,23 @@ DEFPY (bgp_evpn_ead_evi_tx_disable,
        "Don't advertise EAD-EVI for local ESs\n")
 {
 	bgp_mh_info->ead_evi_tx = no? true :false;
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_evpn_enable_resolve_overlay_index,
+       bgp_evpn_enable_resolve_overlay_index_cmd,
+       "[no$no] enable-resolve-overlay-index",
+       NO_STR
+       "Enable Recursive Resolution of type-5 route overlay index\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	if (bgp != bgp_get_evpn()) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING;
+	}
+
+	bgp_evpn_set_unset_resolve_overlay_index(bgp, no ? false : true);
 	return CMD_SUCCESS;
 }
 
@@ -6252,6 +6291,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->evpn_info->advertise_svi_macip)
 		vty_out(vty, "  advertise-svi-ip\n");
 
+	if (bgp->resolve_overlay_index)
+		vty_out(vty, "  enable-resolve-overlay-index\n");
+
 	if (bgp_mh_info->host_routes_use_l3nhg !=
 			BGP_EVPN_MH_USE_ES_L3NHG_DEF) {
 		if (bgp_mh_info->host_routes_use_l3nhg)
@@ -6440,6 +6482,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_use_es_l3nhg_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_evi_rx_disable_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_evi_tx_disable_cmd);
+	install_element(BGP_EVPN_NODE,
+			&bgp_evpn_enable_resolve_overlay_index_cmd);
 
 	/* test commands */
 	install_element(BGP_EVPN_NODE, &test_es_add_cmd);

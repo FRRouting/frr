@@ -693,6 +693,15 @@ struct bgp {
 	/* Hash table of EVPN nexthops maintained per-tenant-VRF */
 	struct hash *evpn_nh_table;
 
+	/*
+	 * Flag resolve_overlay_index is used for recursive resolution
+	 * procedures for EVPN type-5 route's gateway IP overlay index.
+	 * When this flag is set, we build remote-ip-hash for
+	 * all L2VNIs and resolve overlay index nexthops using this hash.
+	 * Overlay index nexthops remain unresolved if this flag is not set.
+	 */
+	bool resolve_overlay_index;
+
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)

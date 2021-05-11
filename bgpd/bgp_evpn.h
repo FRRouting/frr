@@ -156,6 +156,14 @@ static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 	return true;
 }
 
+static inline bool evpn_resolve_overlay_index(void)
+{
+	struct bgp *bgp = NULL;
+
+	bgp = bgp_get_evpn();
+	return bgp ? bgp->resolve_overlay_index : false;
+}
+
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
 					   const struct prefix *p,
 					   struct attr *src_attr, afi_t afi,
@@ -215,5 +223,11 @@ extern void bgp_evpn_show_remote_ip_hash(struct hash_bucket *bucket,
 					 void *args);
 extern void bgp_evpn_show_vni_svi_hash(struct hash_bucket *bucket, void *args);
 extern bool bgp_evpn_is_gateway_ip_resolved(struct bgp_nexthop_cache *bnc);
+extern void
+bgp_evpn_handle_resolve_overlay_index_set(struct hash_bucket *bucket,
+					  void *arg);
+extern void
+bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
+					    void *arg);
 
 #endif /* _QUAGGA_BGP_EVPN_H */
