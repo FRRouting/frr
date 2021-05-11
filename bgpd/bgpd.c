@@ -3438,6 +3438,46 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	return BGP_CREATED;
 }
 
+static void bgp_zclient_set_redist(afi_t afi, int type, unsigned short instance,
+				   vrf_id_t vrf_id, bool set)
+{
+	if (instance) {
+		if (set)
+			redist_add_instance(&zclient->mi_redist[afi][type],
+					    instance);
+		else
+			redist_del_instance(&zclient->mi_redist[afi][type],
+					    instance);
+	} else {
+		if (set)
+			vrf_bitmap_set(zclient->redist[afi][type], vrf_id);
+		else
+			vrf_bitmap_unset(zclient->redist[afi][type], vrf_id);
+	}
+}
+
+static void bgp_set_redist_vrf_bitmaps(struct bgp *bgp, bool set)
+{
+	afi_t afi;
+	int i;
+	struct list *red_list;
+	struct listnode *node;
+	struct bgp_redist *red;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+
+			red_list = bgp->redist[afi][i];
+			if (!red_list)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+				bgp_zclient_set_redist(afi, i, red->instance,
+						       bgp->vrf_id, set);
+		}
+	}
+}
+
 /*
  * Make BGP instance "up". Applies only to VRFs (non-default) and
  * implies the VRF has been learnt from Zebra.
@@ -3446,6 +3486,8 @@ void bgp_instance_up(struct bgp *bgp)
 {
 	struct peer *peer;
 	struct listnode *node, *next;
+
+	bgp_set_redist_vrf_bitmaps(bgp, true);
 
 	/* Register with zebra. */
 	bgp_zebra_instance_register(bgp);
@@ -3491,6 +3533,10 @@ void bgp_instance_down(struct bgp *bgp)
 
 	/* Cleanup registered nexthops (flags) */
 	bgp_cleanup_nexthops(bgp);
+
+	bgp_zebra_instance_deregister(bgp);
+
+	bgp_set_redist_vrf_bitmaps(bgp, false);
 }
 
 /* Delete BGP instance. */

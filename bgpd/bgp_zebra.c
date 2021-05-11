@@ -1700,6 +1700,9 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 
 		redist_add_instance(&zclient->mi_redist[afi][type], instance);
 	} else {
+		if (vrf_bitmap_check(zclient->redist[afi][type], bgp->vrf_id))
+			return CMD_WARNING;
+
 #ifdef ENABLE_BGP_VNC
 		if (EVPN_ENABLED(bgp) && type == ZEBRA_ROUTE_VNC_DIRECT) {
 			vnc_export_bgp_enable(
@@ -1907,22 +1910,6 @@ void bgp_redistribute_redo(struct bgp *bgp)
 			}
 		}
 	}
-}
-
-/* Unset redistribute vrf bitmap during triggers like
-   restart networking or delete VRFs */
-void bgp_unset_redist_vrf_bitmaps(struct bgp *bgp, vrf_id_t old_vrf_id)
-{
-	int i;
-	afi_t afi;
-
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (vrf_bitmap_check(zclient->redist[afi][i],
-					     old_vrf_id))
-				vrf_bitmap_unset(zclient->redist[afi][i],
-						 old_vrf_id);
-	return;
 }
 
 void bgp_zclient_reset(void)

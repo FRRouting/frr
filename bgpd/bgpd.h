@@ -2386,8 +2386,6 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
-extern void bgp_unset_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
-
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
 
