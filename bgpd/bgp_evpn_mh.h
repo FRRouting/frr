@@ -310,6 +310,11 @@ struct bgp_evpn_mh_info {
 	bool suppress_l3_ecomm_on_inactive_es;
 	/* Setup EVPN PE nexthops and their RMAC in bgpd */
 	bool bgp_evpn_nh_setup;
+
+	/* If global export-rts are configured that is used for sending
+	 * sending the ead-per-es route instead of the L2-VNI(s) RTs
+	 */
+	struct list *ead_es_export_rtl;
 };
 
 /****************************************************************************/
@@ -434,5 +439,7 @@ extern void bgp_evpn_nh_finish(struct bgp *bgp_vrf);
 extern void bgp_evpn_nh_show(struct vty *vty, bool uj);
 extern void bgp_evpn_path_nh_add(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_path_nh_del(struct bgp *bgp_vrf, struct bgp_path_info *pi);
+extern void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
+					     struct ecommunity *ecom, bool del);
 
 #endif /* _FRR_BGP_EVPN_MH_H */

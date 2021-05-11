@@ -880,16 +880,21 @@ static void bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es *es,
 	/* XXX - suppress EAD-ES advertisment if there are no EVIs associated
 	 * with it.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(es->es_evi_list,
-				evi_node, es_evi)) {
-		if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
-			continue;
-		for (ALL_LIST_ELEMENTS_RO(es_evi->vpn->export_rtl,
-					rt_node, ecom))
+	if (listcount(bgp_mh_info->ead_es_export_rtl)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->ead_es_export_rtl,
+					  rt_node, ecom))
 			bgp_attr_set_ecommunity(
-				attr,
-				ecommunity_merge(bgp_attr_get_ecommunity(attr),
-						 ecom));
+				attr, ecommunity_merge(attr->ecommunity, ecom));
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(es->es_evi_list, evi_node, es_evi)) {
+			if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+				continue;
+			for (ALL_LIST_ELEMENTS_RO(es_evi->vpn->export_rtl,
+						  rt_node, ecom))
+				bgp_attr_set_ecommunity(
+					attr, ecommunity_merge(attr->ecommunity,
+							       ecom));
+		}
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
@@ -1197,6 +1202,76 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 				&prd, NULL, 0, NULL);
 	}
 	return ret;
+}
+
+void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
+				      struct ecommunity *ecomcfg, bool del)
+{
+	struct listnode *node, *nnode, *node_to_del;
+	struct ecommunity *ecom;
+	struct prefix_evpn p;
+	struct bgp_evpn_es *es;
+
+	if (del) {
+		if (ecomcfg == NULL) {
+			/* Reset to default and process all routes. */
+			for (ALL_LIST_ELEMENTS(bgp_mh_info->ead_es_export_rtl,
+					       node, nnode, ecom)) {
+				ecommunity_free(&ecom);
+				list_delete_node(bgp_mh_info->ead_es_export_rtl,
+						 node);
+			}
+		}
+
+		/* Delete a specific export RT */
+		else {
+			node_to_del = NULL;
+
+			for (ALL_LIST_ELEMENTS(bgp_mh_info->ead_es_export_rtl,
+					       node, nnode, ecom)) {
+				if (ecommunity_match(ecom, ecomcfg)) {
+					ecommunity_free(&ecom);
+					node_to_del = node;
+					break;
+				}
+			}
+
+			if (node_to_del)
+				list_delete_node(bgp_mh_info->ead_es_export_rtl,
+						 node_to_del);
+		}
+	} else {
+		listnode_add_sort(bgp_mh_info->ead_es_export_rtl, ecomcfg);
+	}
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+		zlog_debug("local ES del/re-add EAD route on export RT change");
+	/*
+	 * walk through all active ESs withdraw the old EAD and
+	 * generate a new one
+	 */
+	RB_FOREACH (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree) {
+		if (!bgp_evpn_is_es_local(es) ||
+		    !bgp_evpn_local_es_is_active(es))
+			continue;
+
+		build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi,
+					es->originator_ip);
+
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+			zlog_debug(
+				"local ES %s del/re-add EAD route on export RT change",
+				es->esi_str);
+
+		/*
+		 * withdraw EAD-ES. XXX - this should technically not be
+		 * needed; can be removed after testing
+		 */
+		bgp_evpn_type1_es_route_delete(bgp, es, &p);
+
+		/* generate EAD-ES */
+		bgp_evpn_type1_route_update(bgp, es, NULL, &p);
+	}
 }
 
 /*****************************************************************************/
@@ -4664,6 +4739,10 @@ void bgp_evpn_mh_init(void)
 
 	bgp_mh_info->ead_evi_rx = BGP_EVPN_MH_EAD_EVI_RX_DEF;
 	bgp_mh_info->ead_evi_tx = BGP_EVPN_MH_EAD_EVI_TX_DEF;
+	bgp_mh_info->ead_es_export_rtl = list_new();
+	bgp_mh_info->ead_es_export_rtl->cmp =
+		(int (*)(void *, void *))bgp_evpn_route_target_cmp;
+	bgp_mh_info->ead_es_export_rtl->del = bgp_evpn_xxport_delete_ecomm;
 
 	/* config knobs - XXX add cli to control it */
 	bgp_mh_info->ead_evi_adv_for_down_links = true;
@@ -4692,6 +4771,7 @@ void bgp_evpn_mh_finish(void)
 		thread_cancel(&bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
+	list_delete(&bgp_mh_info->ead_es_export_rtl);
 
 	XFREE(MTYPE_BGP_EVPN_MH_INFO, bgp_mh_info);
 }
