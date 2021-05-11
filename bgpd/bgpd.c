@@ -3378,13 +3378,13 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 		bgp = bgp_get_default();
 
 	if (bgp) {
+		*bgp_val = bgp;
 		if (bgp->as != *as) {
 			*as = bgp->as;
 			return BGP_ERR_AS_MISMATCH;
 		}
 		if (bgp->inst_type != inst_type)
 			return BGP_ERR_INSTANCE_MISMATCH;
-		*bgp_val = bgp;
 		return BGP_SUCCESS;
 	}
 	*bgp_val = NULL;
