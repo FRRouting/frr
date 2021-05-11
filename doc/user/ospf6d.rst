@@ -305,3 +305,13 @@ Larger example with policy and various options set:
     ipv6 access-class access6
     exec-timeout 0 0
    !
+
+
+Configuration Limits
+====================
+
+Ospf6d currently supports 100 interfaces addresses if MTU is set to
+default value, and 200 interface addresses if MTU is set to jumbo
+packet size or larger.
+
+  
