@@ -6937,7 +6937,7 @@ static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,
 
 	/* Removed advertise-map configuration */
 	if (!set) {
-		memset(filter, 0, sizeof(struct bgp_filter));
+		memset(&filter->advmap, 0, sizeof(filter->advmap));
 
 		/* decrement condition_filter_count delete timer if
 		 * this is the last advertise-map to be removed.
