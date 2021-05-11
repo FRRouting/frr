@@ -38,7 +38,6 @@
 #include "zebra/connected.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_mpls.h"
-#include "zebra/debug.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
 
@@ -223,6 +222,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
 
+	/* Ensure 'down' flag is cleared */
+	UNSET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
+
 	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
 
 	/* Apply mask to the network. */
@@ -280,7 +282,8 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
 
-		if (prefix_same(&cp, &p))
+		if (prefix_same(&cp, &p) &&
+		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
 			count++;
 
 		if (count >= 2)
@@ -390,13 +393,24 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	if (!zvrf) {
 		flog_err(
 			EC_ZEBRA_VRF_NOT_FOUND,
-			"%s: Received Up for interface but no associated zvrf: %d",
+			"%s: Received Down for interface but no associated zvrf: %d",
 			__func__, ifp->vrf_id);
 		return;
 	}
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
+
+	/* Skip if we've already done this; this can happen if we have a
+	 * config change that takes an interface down, then we receive kernel
+	 * notifications about the downed interface and its addresses.
+	 */
+	if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_DOWN)) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%s: ifc %p, %pFX already DOWN",
+				   __func__, ifc, ifc->address);
+		return;
+	}
 
 	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
 
@@ -423,6 +437,9 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		break;
 	}
 
+	/* Mark the address as 'down' */
+	SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
+
 	/*
 	 * It's possible to have X number of addresses
 	 * on a interface that all resolve to the same
@@ -436,10 +453,11 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
 
-		if (prefix_same(&p, &cp))
+		if (prefix_same(&p, &cp) &&
+		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
 			count++;
 
-		if (count >= 2)
+		if (count >= 1)
 			return;
 	}
 

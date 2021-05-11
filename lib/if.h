@@ -393,6 +393,7 @@ struct connected {
 #define ZEBRA_IFC_REAL         (1 << 0)
 #define ZEBRA_IFC_CONFIGURED   (1 << 1)
 #define ZEBRA_IFC_QUEUED       (1 << 2)
+#define ZEBRA_IFC_DOWN         (1 << 3)
 	/*
 	   The ZEBRA_IFC_REAL flag should be set if and only if this address
 	   exists in the kernel and is actually usable. (A case where it exists
@@ -406,6 +407,8 @@ struct connected {
 	   in the kernel. It may and should be set although the address might
 	   not be
 	   usable yet. (compare with ZEBRA_IFC_REAL)
+	   The ZEBRA_IFC_DOWN flag is used to record that an address is
+	   present, but down/unavailable.
 	 */
 
 	/* Flags for connected address. */
