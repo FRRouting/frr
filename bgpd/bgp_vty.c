@@ -2146,11 +2146,26 @@ static int bgp_wpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
 static int bgp_rpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
 				      bool set)
 {
+	uint32_t quanta_current;
+	uint32_t count;
+	struct peer_group *group;
+	struct listnode *node;
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	quanta = set ? quanta : BGP_READ_PACKET_DEFAULT;
+	quanta_current =
+		atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed);
+	if (quanta == quanta_current)
+		return CMD_SUCCESS;
 	atomic_store_explicit(&bgp->rpkt_quanta, quanta, memory_order_relaxed);
+	count = listcount(bgp->peer);
 
+	for (ALL_LIST_ELEMENTS_RO(bgp->group, node, group))
+		count += listcount(group->peer);
+	if (count)
+		vty_out(vty,
+			"%% BGP %s, updated read-quanta value will be applied to newly created peers %%\n",
+			bgp->name_pretty);
 	return CMD_SUCCESS;
 }
 
