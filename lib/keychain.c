@@ -1051,10 +1051,28 @@ static int keychain_config_write(struct vty *vty)
 	return 0;
 }
 
+static void keychain_active_config(vector comps, struct cmd_token *token)
+{
+	struct keychain *keychain;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(keychain_list, node, keychain))
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, keychain->name));
+}
+
+static const struct cmd_variable_handler keychain_var_handlers[] = {
+	{.varname = "key_chain", .completions = keychain_active_config},
+	{.tokenname = "KEYCHAIN_NAME", .completions = keychain_active_config},
+	{.tokenname = "KCHAIN_NAME", .completions = keychain_active_config},
+	{.completions = NULL}
+};
+
 void keychain_init(void)
 {
 	keychain_list = list_new();
 
+	/* Register handler for keychain auto config support */
+	cmd_variable_handler_register(keychain_var_handlers);
 	install_node(&keychain_node);
 	install_node(&keychain_key_node);
 
