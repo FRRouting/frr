@@ -1402,8 +1402,10 @@ struct peer *peer_new(struct bgp *bgp)
 	 */
 	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
+	peer->rpkt_quanta =
+		atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed);
 	peer->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_DEFAULT);
+		ringbuf_new(BGP_MAX_PACKET_SIZE * peer->rpkt_quanta);
 
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
 
@@ -3100,6 +3102,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->inst_type = inst_type;
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
 							       : VRF_UNKNOWN;
+
+	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_DEFAULT,
+			      memory_order_relaxed);
+	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_DEFAULT,
+			      memory_order_relaxed);
+
 	bgp->peer_self = peer_new(bgp);
 	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
@@ -3209,10 +3217,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			n);
 	}
 
-	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_DEFAULT,
-			      memory_order_relaxed);
-	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_DEFAULT,
-			      memory_order_relaxed);
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 
 	QOBJ_REG(bgp, bgp);
