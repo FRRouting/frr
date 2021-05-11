@@ -72,6 +72,10 @@ static void bgp_evpn_remote_ip_hash_add(struct bgpevpn *vpn,
 					struct bgp_path_info *pi);
 static void bgp_evpn_remote_ip_hash_del(struct bgpevpn *vpn,
 					struct bgp_path_info *pi);
+static void bgp_evpn_remote_ip_hash_iterate(struct bgpevpn *vpn,
+					    void (*func)(struct hash_bucket *,
+							 void *),
+					    void *arg);
 static void bgp_evpn_link_to_vni_svi_hash(struct bgp *bgp, struct bgpevpn *vpn);
 static void bgp_evpn_unlink_from_vni_svi_hash(struct bgp *bgp,
 					      struct bgpevpn *vpn);
@@ -5780,9 +5784,10 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 			 * Unresolve all the gateway IP nexthops for this VNI
 			 * for old SVI
 			 */
-			hash_iterate(vpn->remote_ip_hash,
-				(void (*)(struct hash_bucket *,
-				void *))bgp_evpn_remote_ip_hash_unlink_nexthop,
+			bgp_evpn_remote_ip_hash_iterate(
+				vpn,
+				(void (*)(struct hash_bucket *, void *))
+					bgp_evpn_remote_ip_hash_unlink_nexthop,
 				vpn);
 			bgp_evpn_unlink_from_vni_svi_hash(bgp, vpn);
 			vpn->svi_ifindex = svi_ifindex;
@@ -5792,9 +5797,10 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 			 * Resolve all the gateway IP nexthops for this VNI
 			 * for new SVI
 			 */
-			hash_iterate(vpn->remote_ip_hash,
-				(void (*)(struct hash_bucket *,
-				void *))bgp_evpn_remote_ip_hash_link_nexthop,
+			bgp_evpn_remote_ip_hash_iterate(
+				vpn,
+				(void (*)(struct hash_bucket *, void *))
+					bgp_evpn_remote_ip_hash_link_nexthop,
 				vpn);
 		}
 
@@ -5805,9 +5811,10 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 			 * Unresolve all the gateway IP nexthops for this VNI
 			 * in old tenant vrf
 			 */
-			hash_iterate(vpn->remote_ip_hash,
-				(void (*)(struct hash_bucket *,
-				void *))bgp_evpn_remote_ip_hash_unlink_nexthop,
+			bgp_evpn_remote_ip_hash_iterate(
+				vpn,
+				(void (*)(struct hash_bucket *, void *))
+					bgp_evpn_remote_ip_hash_unlink_nexthop,
 				vpn);
 			bgpevpn_unlink_from_l3vni(vpn);
 			vpn->tenant_vrf_id = tenant_vrf_id;
@@ -5817,9 +5824,10 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 			 * Resolve all the gateway IP nexthops for this VNI
 			 * in new tenant vrf
 			 */
-			hash_iterate(vpn->remote_ip_hash,
-				(void (*)(struct hash_bucket *,
-				void *))bgp_evpn_remote_ip_hash_link_nexthop,
+			bgp_evpn_remote_ip_hash_iterate(
+				vpn,
+				(void (*)(struct hash_bucket *, void *))
+					bgp_evpn_remote_ip_hash_link_nexthop,
 				vpn);
 		}
 
@@ -6091,6 +6099,9 @@ static bool bgp_evpn_remote_ip_hash_cmp(const void *p1, const void *p2)
 
 static void bgp_evpn_remote_ip_hash_init(struct bgpevpn *vpn)
 {
+	if (!evpn_resolve_overlay_index())
+		return;
+
 	vpn->remote_ip_hash = hash_create(bgp_evpn_remote_ip_hash_key_make,
 					  bgp_evpn_remote_ip_hash_cmp,
 					  "BGP EVPN remote IP hash");
@@ -6111,7 +6122,7 @@ static void bgp_evpn_remote_ip_hash_free(struct hash_bucket *bucket, void *args)
 
 static void bgp_evpn_remote_ip_hash_destroy(struct bgpevpn *vpn)
 {
-	if (vpn->remote_ip_hash == NULL)
+	if (!evpn_resolve_overlay_index() || vpn->remote_ip_hash == NULL)
 		return;
 
 	hash_iterate(vpn->remote_ip_hash,
@@ -6129,6 +6140,13 @@ static void bgp_evpn_remote_ip_hash_add(struct bgpevpn *vpn,
 	struct evpn_remote_ip tmp;
 	struct evpn_remote_ip *ip;
 	struct prefix_evpn *evp;
+
+	if (!evpn_resolve_overlay_index())
+		return;
+
+	if (pi->type != ZEBRA_ROUTE_BGP || pi->sub_type != BGP_ROUTE_IMPORTED
+	    || !CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+		return;
 
 	evp = (struct prefix_evpn *)&pi->net->p;
 
@@ -6163,6 +6181,9 @@ static void bgp_evpn_remote_ip_hash_del(struct bgpevpn *vpn,
 	struct evpn_remote_ip *ip;
 	struct prefix_evpn *evp;
 
+	if (!evpn_resolve_overlay_index())
+		return;
+
 	evp = (struct prefix_evpn *)&pi->net->p;
 
 	if (evp->family != AF_EVPN
@@ -6182,6 +6203,17 @@ static void bgp_evpn_remote_ip_hash_del(struct bgpevpn *vpn,
 		hash_release(vpn->remote_ip_hash, ip);
 		XFREE(MTYPE_EVPN_REMOTE_IP, ip);
 	}
+}
+
+static void bgp_evpn_remote_ip_hash_iterate(struct bgpevpn *vpn,
+					    void (*func)(struct hash_bucket *,
+							 void *),
+					    void *arg)
+{
+	if (!evpn_resolve_overlay_index())
+		return;
+
+	hash_iterate(vpn->remote_ip_hash, func, arg);
 }
 
 static void show_remote_ip_entry(struct hash_bucket *bucket, void *args)
@@ -6211,7 +6243,8 @@ void bgp_evpn_show_remote_ip_hash(struct hash_bucket *bucket, void *args)
 	struct vty *vty = (struct vty *)args;
 
 	vty_out(vty, "VNI: %u\n", vpn->vni);
-	hash_iterate(vpn->remote_ip_hash,
+	bgp_evpn_remote_ip_hash_iterate(
+		vpn,
 		(void (*)(struct hash_bucket *, void *))show_remote_ip_entry,
 		vty);
 	vty_out(vty, "\n");
@@ -6299,6 +6332,9 @@ bool bgp_evpn_is_gateway_ip_resolved(struct bgp_nexthop_cache *bnc)
 	struct bgpevpn *vpn = NULL;
 	struct evpn_remote_ip tmp;
 	struct prefix *p;
+
+	if (!evpn_resolve_overlay_index())
+		return false;
 
 	if (!bnc->nexthop || bnc->nexthop->ifindex == 0)
 		return false;
@@ -6411,3 +6447,25 @@ static void bgp_evpn_remote_ip_process_nexthops(struct bgpevpn *vpn,
 	}
 }
 
+void bgp_evpn_handle_resolve_overlay_index_set(struct hash_bucket *bucket,
+					       void *arg)
+{
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+
+	bgp_evpn_remote_ip_hash_init(vpn);
+
+	for (dest = bgp_table_top(vpn->route_table); dest;
+	     dest = bgp_route_next(dest))
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+			bgp_evpn_remote_ip_hash_add(vpn, pi);
+}
+
+void bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
+						 void *arg)
+{
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+
+	bgp_evpn_remote_ip_hash_destroy(vpn);
+}
