@@ -11607,10 +11607,12 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 									 safi,
 									 true));
 					} else {
-						vty_out(vty, "\n%s Summary:\n",
+						vty_out(vty,
+							"\n%s Summary (%s):\n",
 							get_afi_safi_str(afi,
 									 safi,
-									 false));
+									 false),
+							bgp->name_pretty);
 					}
 				}
 				bgp_show_summary(vty, bgp, afi, safi, fpeer,
@@ -11631,7 +11633,8 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 		if (use_json)
 			vty_out(vty, "{}\n");
 		else
-			vty_out(vty, "%% No BGP neighbors found\n");
+			vty_out(vty, "%% No BGP neighbors found in %s\n",
+				bgp->name_pretty);
 	}
 }
 
@@ -11660,11 +11663,6 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 				is_first = 0;
 
 			vty_out(vty, "\"%s\":",
-				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? VRF_DEFAULT_NAME
-					: bgp->name);
-		} else {
-			vty_out(vty, "\nInstance %s:\n",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 					? VRF_DEFAULT_NAME
 					: bgp->name);
