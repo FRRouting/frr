@@ -1815,7 +1815,24 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 	struct route_map_index *index = NULL, *best_index = NULL;
 	struct route_map_index *head_index = NULL;
 	struct route_table *table = NULL;
-	unsigned char family = prefix->family;
+	struct prefix conv;
+	unsigned char family;
+
+	/*
+	 * Handling for matching evpn_routes in the prefix table.
+	 *
+	 * We convert type2/5 prefix to ipv4/6 prefix to do longest
+	 * prefix matching on.
+	 */
+	if (prefix->family == AF_EVPN) {
+		if (evpn_prefix2prefix(prefix, &conv) != 0)
+			return NULL;
+
+		prefix = &conv;
+	}
+
+
+	family = prefix->family;
 
 	if (family == AF_INET)
 		table = map->ipv4_prefix_table;
