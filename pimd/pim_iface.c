@@ -1050,7 +1050,7 @@ int pim_if_find_vifindex_by_ifindex(struct pim_instance *pim, ifindex_t ifindex)
 	struct pim_interface *pim_ifp;
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index(ifindex, pim->vrf_id);
+	ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
 	if (!ifp || !ifp->info)
 		return -1;
 	pim_ifp = ifp->info;
@@ -1477,13 +1477,13 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 	char pimreg_name[INTERFACE_NAMSIZ];
 
 	if (!pim->regiface) {
-		if (pim->vrf_id == VRF_DEFAULT)
+		if (pim->vrf->vrf_id == VRF_DEFAULT)
 			strlcpy(pimreg_name, "pimreg", sizeof(pimreg_name));
 		else
 			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",
 				 pim->vrf->data.l.table_id);
 
-		pim->regiface = if_create_name(pimreg_name, pim->vrf_id);
+		pim->regiface = if_create_name(pimreg_name, pim->vrf->vrf_id);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
 		pim_if_new(pim->regiface, false, false, true,

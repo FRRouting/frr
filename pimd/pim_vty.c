@@ -171,7 +171,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	struct pim_ssm *ssm = pim->ssm_info;
 	char spaces[10];
 
-	if (pim->vrf_id == VRF_DEFAULT)
+	if (pim->vrf->vrf_id == VRF_DEFAULT)
 		snprintf(spaces, sizeof(spaces), "%s", "");
 	else
 		snprintf(spaces, sizeof(spaces), "%s", " ");
@@ -186,7 +186,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 
 	writes += pim_rp_config_write(pim, vty, spaces);
 
-	if (pim->vrf_id == VRF_DEFAULT) {
+	if (pim->vrf->vrf_id == VRF_DEFAULT) {
 		if (router->register_suppress_time
 		    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
 			vty_out(vty, "%sip pim register-suppress-time %d\n",

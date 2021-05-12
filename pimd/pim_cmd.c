@@ -810,7 +810,7 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 	if (uj) {
 		json = json_object_new_object();
 		json_object_string_add(json, "vrf",
-				       vrf_id_to_name(pim->vrf_id));
+				       vrf_id_to_name(pim->vrf->vrf_id));
 	} else {
 		vty_out(vty,
 			"Interface        Address         Source          Group           Socket Uptime  \n");
@@ -2971,7 +2971,7 @@ static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 
 		vty_out(vty, "%-15s ", inet_ntop(AF_INET,
 						 &pnc->rpf.rpf_addr.u.prefix4,
