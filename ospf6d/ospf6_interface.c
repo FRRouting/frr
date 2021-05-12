@@ -405,6 +405,7 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	struct connected *c;
 	struct listnode *node, *nnode;
 	struct in6_addr nh_addr;
+	int count = 0, max_addr_count;
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
@@ -423,9 +424,21 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	/* update "route to advertise" interface route table */
 	ospf6_route_remove_all(oi->route_connected);
 
+	if (oi->ifmtu >= OSPF6_JUMBO_MTU)
+		max_addr_count = OSPF6_MAX_IF_ADDRS_JUMBO;
+	else
+		max_addr_count = OSPF6_MAX_IF_ADDRS;
+
 	for (ALL_LIST_ELEMENTS(oi->interface->connected, node, nnode, c)) {
 		if (c->address->family != AF_INET6)
 			continue;
+
+		/* number of interface addresses supported is based on MTU
+		 * size of OSPFv3 packet
+		 */
+		count++;
+		if (count >= max_addr_count)
+			break;
 
 		CONTINUE_IF_ADDRESS_LINKLOCAL(IS_OSPF6_DEBUG_INTERFACE,
 					      c->address);
