@@ -985,8 +985,7 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	union sockunion ip;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying Neighbor entry (%u)",
-			   __PRETTY_FUNCTION__, cmd);
+		zlog_debug("%s: Notifying Neighbor entry (%u)", __func__, cmd);
 
 	sockunion_family(&ip) = ipaddr_family(ipaddr);
 	afi = family2afi(sockunion_family(&ip));
@@ -2509,7 +2508,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	if (zapi_sr_policy_decode(s, &zp) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return;
 	}
 	zt = &zp.segment_list;
@@ -2517,7 +2516,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug(
 				"%s: SR-TE tunnel must contain at least one label",
-				__PRETTY_FUNCTION__);
+				__func__);
 		return;
 	}
 
@@ -2544,7 +2543,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	if (zapi_sr_policy_decode(s, &zp) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return;
 	}
 
@@ -2554,8 +2553,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
 	if (!policy) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to find SR-TE policy",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("%s: Unable to find SR-TE policy", __func__);
 		return;
 	}
 
