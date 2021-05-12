@@ -1994,7 +1994,7 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 void ospf_restart_spf(struct ospf *ospf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Restart SPF.", __PRETTY_FUNCTION__);
+		zlog_debug("%s: Restart SPF.", __func__);
 
 	/* Handling inter area and intra area routes*/
 	if (ospf->new_table) {
