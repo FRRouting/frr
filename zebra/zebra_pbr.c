@@ -512,7 +512,7 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 		if (pbr_rule_release(found))
 			zlog_debug(
 				"%s: Rule being updated we know nothing about",
-				__PRETTY_FUNCTION__);
+				__func__);
 
 	} else {
 		if (IS_ZEBRA_DEBUG_PBR)
