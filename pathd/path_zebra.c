@@ -32,9 +32,14 @@
 #include "typesafe.h"
 
 #include "pathd/pathd.h"
+#include "pathd/path_ted.h"
 #include "pathd/path_zebra.h"
+#include "lib/command.h"
+#include "lib/link_state.h"
 
-static struct zclient *zclient;
+static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+
+struct zclient *zclient;
 static struct zclient *zclient_sync;
 
 /* Global Variables */
@@ -267,6 +272,54 @@ static void path_zebra_label_manager_connect(void)
 	}
 }
 
+static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	int ret = 0;
+	struct stream *s;
+	struct zapi_opaque_msg info;
+
+	s = zclient->ibuf;
+
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
+
+	switch (info.type) {
+	case LINK_STATE_UPDATE:
+	case LINK_STATE_SYNC:
+		/* Start receiving ls data so cancel request sync timer */
+		path_ted_timer_sync_cancel();
+
+		struct ls_message *msg = ls_parse_msg(s);
+
+		if (msg) {
+			zlog_debug("%s: [rcv ted] ls (%s) msg (%s)-(%s) !",
+				   __func__,
+				   info.type == LINK_STATE_UPDATE
+					   ? "LINK_STATE_UPDATE"
+					   : "LINK_STATE_SYNC",
+				   LS_MSG_TYPE_PRINT(msg->type),
+				   LS_MSG_EVENT_PRINT(msg->event));
+		} else {
+			zlog_err(
+				"%s: [rcv ted] Could not parse LinkState stream message.",
+				__func__);
+			return -1;
+		}
+
+		ret = path_ted_rcvd_message(msg);
+		ls_delete_msg(msg);
+		/* Update local configuration after process update. */
+		path_ted_segment_list_refresh();
+		break;
+	default:
+		zlog_debug("%s: [rcv ted] unknown opaque event (%d) !",
+			   __func__, info.type);
+		break;
+	}
+
+	return ret;
+}
+
 /**
  * Initializes Zebra asynchronous connection.
  *
@@ -283,6 +336,7 @@ void path_zebra_init(struct thread_master *master)
 	zclient->zebra_connected = path_zebra_connected;
 	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
 	zclient->router_id_update = path_zebra_router_id_update;
+	zclient->opaque_msg_handler = path_zebra_opaque_msg_handler;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	zclient_sync = zclient_new(master, &options);

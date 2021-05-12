@@ -33,6 +33,7 @@
 #include "path_nb.h"
 #include "path_zebra.h"
 #include "path_errors.h"
+#include "path_ted.h"
 
 char backup_config_file[256];
 
@@ -70,6 +71,8 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+	zlog_notice("Unregisterfrom opaque,etc ");
+	pathd_shutdown();
 
 	exit(0);
 }
@@ -146,6 +149,7 @@ int main(int argc, char **argv, char **envp)
 	path_error_init();
 	path_zebra_init(master);
 	path_cli_init();
+	path_ted_init(master);
 
 	frr_config_fork();
 	frr_run(master);
