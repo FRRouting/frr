@@ -261,8 +261,6 @@ Link Parameters Commands
    Allows nexthop tracking to resolve via the default route. This is useful
    when e.g. you want to allow BGP to peer across the default route.
 
-.. _zebra-vrf:
-
 Administrative Distance
 =======================
 
@@ -337,6 +335,8 @@ the linux kernel offers.  In order for Route Replacement semantics to
 work FRR must use the same metric when issuing the replace command.
 Currently FRR only supports Route Replace semantics using the Linux
 Kernel.
+
+.. _zebra-vrf:
 
 Virtual Routing and Forwarding
 ==============================
