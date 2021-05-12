@@ -152,6 +152,6 @@ extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
 					   safi_t safi, bool use_json,
 					   json_object *json);
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t,
-					 uint8_t);
+					 uint16_t);
 
 #endif /* _QUAGGA_BGP_DAMP_H */

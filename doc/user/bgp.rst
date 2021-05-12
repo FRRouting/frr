@@ -3274,6 +3274,13 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    address-family. The remote-as filter can be used in combination with the
    failed, established filters.
 
+.. clicmd:: show bgp [afi] [safi] [all] summary terse [json]
+
+   Shorten the output. Do not show the following information about the BGP
+   instances: the number of RIB entries, the table version and the used memory.
+   The ``terse`` option can be used in combination with the remote-as, neighbor,
+   failed and established filters, and with the ``wide`` option as well.
+
 .. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [json]
 
    This command shows information on a specific BGP peer of the relevant

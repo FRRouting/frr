@@ -9693,7 +9693,7 @@ static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
 /* Show BGP peer's summary information. */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			    struct peer *fpeer, int as_type, as_t as,
-			    uint8_t show_flags)
+			    uint16_t show_flags)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -9715,6 +9715,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	bool show_established =
 		CHECK_FLAG(show_flags, BGP_SHOW_OPT_ESTABLISHED);
 	bool show_wide = CHECK_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
+	bool show_terse = CHECK_FLAG(show_flags, BGP_SHOW_OPT_TERSE);
 
 	/* labeled-unicast routes are installed in the unicast table so in order
 	 * to
@@ -9813,7 +9814,6 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			json_object_free(json);
 		} else {
 			vty_out(vty, "%% No failed BGP neighbors found\n");
-			vty_out(vty, "\nTotal number of neighbors %d\n", count);
 		}
 		return CMD_SUCCESS;
 	}
@@ -9977,63 +9977,75 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json_object_boolean_true_add(
 						json, "dampeningEnabled");
 			} else {
-				if (bgp_maxmed_onstartup_configured(bgp)
-				    && bgp->maxmed_active)
+				if (!show_terse) {
+					if (bgp_maxmed_onstartup_configured(bgp)
+					    && bgp->maxmed_active)
+						vty_out(vty,
+							"Max-med on-startup active\n");
+					if (bgp->v_maxmed_admin)
+						vty_out(vty,
+							"Max-med administrative active\n");
+
 					vty_out(vty,
-						"Max-med on-startup active\n");
-				if (bgp->v_maxmed_admin)
+						"BGP table version %" PRIu64
+						"\n",
+						bgp_table_version(
+							bgp->rib[afi][safi]));
+
+					ents = bgp_table_count(
+						bgp->rib[afi][safi]);
 					vty_out(vty,
-						"Max-med administrative active\n");
-
-				vty_out(vty, "BGP table version %" PRIu64 "\n",
-					bgp_table_version(bgp->rib[afi][safi]));
-
-				ents = bgp_table_count(bgp->rib[afi][safi]);
-				vty_out(vty,
-					"RIB entries %ld, using %s of memory\n",
-					ents,
-					mtype_memstr(
-						memstrbuf, sizeof(memstrbuf),
-						ents
-							* sizeof(struct
-								 bgp_dest)));
-
-				/* Peer related usage */
-				ents = bgp->af_peer_count[afi][safi];
-				vty_out(vty, "Peers %ld, using %s of memory\n",
-					ents,
-					mtype_memstr(
-						memstrbuf, sizeof(memstrbuf),
-						ents * sizeof(struct peer)));
-
-				if ((ents = listcount(bgp->group)))
-					vty_out(vty,
-						"Peer groups %ld, using %s of memory\n",
+						"RIB entries %ld, using %s of memory\n",
 						ents,
 						mtype_memstr(
 							memstrbuf,
 							sizeof(memstrbuf),
-							ents * sizeof(struct
-								      peer_group)));
+							ents
+								* sizeof(
+									struct
+									bgp_dest)));
 
-				if (CHECK_FLAG(bgp->af_flags[afi][safi],
-					       BGP_CONFIG_DAMPENING))
-					vty_out(vty, "Dampening enabled.\n");
-				vty_out(vty, "\n");
+					/* Peer related usage */
+					ents = bgp->af_peer_count[afi][safi];
+					vty_out(vty,
+						"Peers %ld, using %s of memory\n",
+						ents,
+						mtype_memstr(
+							memstrbuf,
+							sizeof(memstrbuf),
+							ents
+								* sizeof(
+									struct
+									peer)));
 
-				/* Subtract 8 here because 'Neighbor' is
-				 * 8 characters */
-				vty_out(vty, "Neighbor");
-				vty_out(vty, "%*s", max_neighbor_width - 8,
-					" ");
-				if (show_failed)
+					if ((ents = listcount(bgp->group)))
+						vty_out(vty,
+							"Peer groups %ld, using %s of memory\n",
+							ents,
+							mtype_memstr(
+								memstrbuf,
+								sizeof(memstrbuf),
+								ents
+									* sizeof(
+										struct
+										peer_group)));
+
+					if (CHECK_FLAG(bgp->af_flags[afi][safi],
+						       BGP_CONFIG_DAMPENING))
+						vty_out(vty,
+							"Dampening enabled.\n");
+				}
+				if (show_failed) {
+					vty_out(vty, "\n");
+
+					/* Subtract 8 here because 'Neighbor' is
+					 * 8 characters */
+					vty_out(vty, "Neighbor");
+					vty_out(vty, "%*s",
+						max_neighbor_width - 8, " ");
 					vty_out(vty,
 						BGP_SHOW_SUMMARY_HEADER_FAILED);
-				else
-					vty_out(vty,
-						show_wide
-							? BGP_SHOW_SUMMARY_HEADER_ALL_WIDE
-							: BGP_SHOW_SUMMARY_HEADER_ALL);
+				}
 			}
 		}
 
@@ -10219,6 +10231,23 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					filtered_count++;
 					continue;
 				}
+
+				if ((count - filtered_count) == 1) {
+					/* display headline before the first
+					 * neighbor line */
+					vty_out(vty, "\n");
+
+					/* Subtract 8 here because 'Neighbor' is
+					 * 8 characters */
+					vty_out(vty, "Neighbor");
+					vty_out(vty, "%*s",
+						max_neighbor_width - 8, " ");
+					vty_out(vty,
+						show_wide
+							? BGP_SHOW_SUMMARY_HEADER_ALL_WIDE
+							: BGP_SHOW_SUMMARY_HEADER_ALL);
+				}
+
 				memset(dn_flag, '\0', sizeof(dn_flag));
 				if (peer_dynamic_neighbor(peer)) {
 					dn_flag[0] = '*';
@@ -10356,19 +10385,20 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		json_object_free(json);
 	} else {
 		if (count) {
-			if (show_failed)
-				vty_out(vty, "\nDisplayed neighbors %d",
-					failed_count);
-			else if (as_type != AS_UNSPECIFIED || as || fpeer
-				 || show_established) {
-				if (filtered_count == count)
-					vty_out(vty,
-						"%% No matching neighbor\n");
-				else
+			if (filtered_count == count)
+				vty_out(vty, "\n%% No matching neighbor\n");
+			else {
+				if (show_failed)
+					vty_out(vty, "\nDisplayed neighbors %d",
+						failed_count);
+				else if (as_type != AS_UNSPECIFIED || as
+					 || fpeer || show_established)
 					vty_out(vty, "\nDisplayed neighbors %d",
 						count - filtered_count);
+
+				vty_out(vty, "\nTotal number of neighbors %d\n",
+					count);
 			}
-			vty_out(vty, "\nTotal number of neighbors %d\n", count);
 		} else {
 			vty_out(vty, "No %s neighbor is configured\n",
 				get_afi_safi_str(afi, safi, false));
@@ -10386,7 +10416,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 				      int safi, struct peer *fpeer, int as_type,
-				      as_t as, uint8_t show_flags)
+				      as_t as, uint16_t show_flags)
 {
 	int is_first = 1;
 	int afi_wildcard = (afi == AFI_MAX);
@@ -10459,7 +10489,7 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 					       safi_t safi,
 					       const char *neighbor,
 					       int as_type, as_t as,
-					       uint8_t show_flags)
+					       uint16_t show_flags)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -10502,7 +10532,7 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 
 int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 			 safi_t safi, const char *neighbor, int as_type,
-			 as_t as, uint8_t show_flags)
+			 as_t as, uint16_t show_flags)
 {
 	struct bgp *bgp;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
@@ -10564,7 +10594,7 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
       " [" BGP_SAFI_WITH_LABEL_CMD_STR
-      "]] [all$all] summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <(1-4294967295)|internal|external>>] [wide] [json$uj]",
+      "]] [all$all] summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <(1-4294967295)|internal|external>>] [terse] [wide] [json$uj]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
       "Display the entries for all address families\n"
@@ -10579,6 +10609,7 @@ DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
       "AS number\n"
       "Internal (iBGP) AS sessions\n"
       "External (eBGP) AS sessions\n"
+      "Shorten the information on BGP instances\n"
       "Increase table width for longer output\n" JSON_STR)
 {
 	char *vrf = NULL;
@@ -10586,7 +10617,7 @@ DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
 	safi_t safi = SAFI_MAX;
 	as_t as = 0; /* 0 means AS filter not set */
 	int as_type = AS_UNSPECIFIED;
-	uint8_t show_flags = 0;
+	uint16_t show_flags = 0;
 
 	int idx = 0;
 
@@ -10620,6 +10651,9 @@ DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
 		else
 			as = (as_t)atoi(argv[idx + 1]->arg);
 	}
+
+	if (argv_find(argv, argc, "terse", &idx))
+		SET_FLAG(show_flags, BGP_SHOW_OPT_TERSE);
 
 	if (argv_find(argv, argc, "wide", &idx))
 		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);

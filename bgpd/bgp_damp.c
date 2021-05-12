@@ -675,7 +675,7 @@ static int bgp_print_dampening_parameters(struct bgp *bgp, struct vty *vty,
 }
 
 int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi,
-				  uint8_t show_flags)
+				  uint16_t show_flags)
 {
 	struct bgp *bgp;
 	bgp = bgp_get_default();

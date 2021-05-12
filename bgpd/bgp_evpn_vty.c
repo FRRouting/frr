@@ -4334,7 +4334,7 @@ DEFPY(show_bgp_l2vpn_evpn_nh,
  * Display EVPN neighbor summary.
  */
 DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
-      "show bgp [vrf VRFNAME] l2vpn evpn summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <(1-4294967295)|internal|external>>] [wide] [json]",
+      "show bgp [vrf VRFNAME] l2vpn evpn summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <(1-4294967295)|internal|external>>] [terse] [wide] [json]",
       SHOW_STR BGP_STR
       "bgp vrf\n"
       "vrf name\n" L2VPN_HELP_STR EVPN_HELP_STR
@@ -4349,6 +4349,7 @@ DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
       "AS number\n"
       "Internal (iBGP) AS sessions\n"
       "External (eBGP) AS sessions\n"
+      "Shorten the information on BGP instances\n"
       "Increase table width for longer output\n" JSON_STR)
 {
 	int idx_vrf = 0;
@@ -4357,7 +4358,7 @@ DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
 	char *neighbor = NULL;
 	as_t as = 0; /* 0 means AS filter not set */
 	int as_type = AS_UNSPECIFIED;
-	uint8_t show_flags = 0;
+	uint16_t show_flags = 0;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf))
 		vrf = argv[++idx_vrf]->arg;
@@ -4380,6 +4381,9 @@ DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
 		else
 			as = (as_t)atoi(argv[idx + 1]->arg);
 	}
+
+	if (argv_find(argv, argc, "terse", &idx))
+		SET_FLAG(show_flags, BGP_SHOW_OPT_TERSE);
 
 	if (argv_find(argv, argc, "wide", &idx))
 		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
