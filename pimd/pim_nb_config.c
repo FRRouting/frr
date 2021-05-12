@@ -220,7 +220,7 @@ static int pim_cmd_spt_switchover(struct pim_instance *pim,
 static int pim_ssm_cmd_worker(struct pim_instance *pim, const char *plist,
 		char *errmsg, size_t errmsg_len)
 {
-	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
+	int result = pim_ssm_range_set(pim, pim->vrf->vrf_id, plist);
 	int ret = NB_ERR;
 
 	if (result == PIM_SSM_ERR_NONE)
@@ -2398,7 +2398,7 @@ int lib_interface_pim_address_family_mroute_destroy(
 		pim = pim_iifp->pim;
 
 		oifname = yang_dnode_get_string(args->dnode, "./oif");
-		oif = if_lookup_by_name(oifname, pim->vrf_id);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 
 		if (!oif) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -2457,7 +2457,7 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 		pim = pim_iifp->pim;
 
 		oifname = yang_dnode_get_string(args->dnode, NULL);
-		oif = if_lookup_by_name(oifname, pim->vrf_id);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 
 		if (oif && (iif->ifindex == oif->ifindex)) {
 			strlcpy(args->errmsg,
@@ -2476,7 +2476,7 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 		pim = pim_iifp->pim;
 
 		oifname = yang_dnode_get_string(args->dnode, NULL);
-		oif = if_lookup_by_name(oifname, pim->vrf_id);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 		if (!oif) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "No such interface name %s",
