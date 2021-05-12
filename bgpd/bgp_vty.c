@@ -9702,6 +9702,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	char neighbor_buf[VTY_BUFSIZ];
 	int neighbor_col_default_width = 16;
 	int len, failed_count = 0;
+	unsigned int filtered_count = 0;
 	int max_neighbor_width = 0;
 	int pfx_rcd_safi;
 	json_object *json = NULL;
@@ -9731,6 +9732,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (bgp_show_summary_is_peer_filtered(peer, fpeer,
 							      as_type, as)) {
+				filtered_count++;
 				count++;
 				continue;
 			}
@@ -9756,6 +9758,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (bgp_show_summary_is_peer_filtered(peer, fpeer,
 							      as_type, as)) {
+				filtered_count++;
 				count++;
 				continue;
 			}
@@ -9817,6 +9820,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 	count = 0;		/* Reset the value as its used again */
 	dn_count = 0;
+	filtered_count = 0;
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
@@ -10043,11 +10047,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 		if (use_json) {
 			json_peer = NULL;
-
 			if (bgp_show_summary_is_peer_filtered(peer, fpeer,
-							      as_type, as))
+							      as_type, as)) {
+				filtered_count++;
 				continue;
-
+			}
 			if (show_failed &&
 			    bgp_has_peer_failed(peer, afi, safi)) {
 				json_peer = json_object_new_object();
@@ -10055,8 +10059,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							json_peer, 0, use_json);
 			} else if (!show_failed) {
 				if (show_established
-				    && bgp_has_peer_failed(peer, afi, safi))
+				    && bgp_has_peer_failed(peer, afi, safi)) {
+					filtered_count++;
 					continue;
+				}
 
 				json_peer = json_object_new_object();
 				if (peer_dynamic_neighbor(peer)) {
@@ -10198,8 +10204,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					       json_peer);
 		} else {
 			if (bgp_show_summary_is_peer_filtered(peer, fpeer,
-							      as_type, as))
+							      as_type, as)) {
+				filtered_count++;
 				continue;
+			}
 			if (show_failed &&
 			    bgp_has_peer_failed(peer, afi, safi)) {
 				bgp_show_failed_summary(vty, bgp, peer, NULL,
@@ -10207,8 +10215,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							use_json);
 			} else if (!show_failed) {
 				if (show_established
-				    && bgp_has_peer_failed(peer, afi, safi))
+				    && bgp_has_peer_failed(peer, afi, safi)) {
+					filtered_count++;
 					continue;
+				}
 				memset(dn_flag, '\0', sizeof(dn_flag));
 				if (peer_dynamic_neighbor(peer)) {
 					dn_flag[0] = '*';
@@ -10333,6 +10343,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	if (use_json) {
 		json_object_object_add(json, "peers", json_peers);
 		json_object_int_add(json, "failedPeers", failed_count);
+		json_object_int_add(json, "displayedPeers",
+				    count - filtered_count);
 		json_object_int_add(json, "totalPeers", count);
 		json_object_int_add(json, "dynamicPeers", dn_count);
 
@@ -10343,9 +10355,21 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
-		if (count)
+		if (count) {
+			if (show_failed)
+				vty_out(vty, "\nDisplayed neighbors %d",
+					failed_count);
+			else if (as_type != AS_UNSPECIFIED || as || fpeer
+				 || show_established) {
+				if (filtered_count == count)
+					vty_out(vty,
+						"%% No matching neighbor\n");
+				else
+					vty_out(vty, "\nDisplayed neighbors %d",
+						count - filtered_count);
+			}
 			vty_out(vty, "\nTotal number of neighbors %d\n", count);
-		else {
+		} else {
 			vty_out(vty, "No %s neighbor is configured\n",
 				get_afi_safi_str(afi, safi, false));
 		}
