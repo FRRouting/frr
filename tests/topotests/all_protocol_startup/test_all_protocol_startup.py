@@ -906,17 +906,25 @@ def test_bgp_summary():
             # Read expected result from file
             expected_original = open(refTableFile).read().rstrip()
 
-            for filter in ["", "remote-as internal", "remote-as external",
+            for arguments in ["", "remote-as internal", "remote-as external",
                            "remote-as 100", "remote-as 123",
                            "neighbor 192.168.7.10", "neighbor 192.168.7.10",
                            "neighbor fc00:0:0:8::1000",
-                           "neighbor 10.0.0.1"]:
+                           "neighbor 10.0.0.1",
+                           "terse",
+                           "remote-as internal terse",
+                           "remote-as external terse",
+                           "remote-as 100 terse", "remote-as 123 terse",
+                           "neighbor 192.168.7.10 terse", "neighbor 192.168.7.10 terse",
+                           "neighbor fc00:0:0:8::1000 terse",
+                           "neighbor 10.0.0.1 terse"]:
                 # Actual output from router
                 actual = (
                     net["r%s" % i]
-                    .cmd('vtysh -c "show ip bgp summary ' + filter + '" 2> /dev/null')
+                    .cmd('vtysh -c "show ip bgp summary ' + arguments + '" 2> /dev/null')
                     .rstrip()
                 )
+
                 # Mask out "using XXiXX bytes" portion. They are random...
                 actual = re.sub(r"using [0-9]+ bytes", "using XXXX bytes", actual)
                 # Mask out "using XiXXX KiB" portion. They are random...
@@ -948,29 +956,35 @@ def test_bgp_summary():
                 )
 
                 expected = expected_original
-                # apply filters on expected output
-                if "internal" in filter or "remote-as 100" in filter:
+                # apply argumentss on expected output
+                if "internal" in arguments or "remote-as 100" in arguments:
                     expected = re.sub(r".+\s+200\s+.+", "", expected)
-                elif "external" in filter:
+                elif "external" in arguments:
                     expected = re.sub(r".+\s+100\s+.+Active.+", "", expected)
-                elif "remote-as 123" in filter:
+                elif "remote-as 123" in arguments:
                     expected = re.sub(
                         r"(192.168.7.(1|2)0|fc00:0:0:8::(1|2)000).+Active.+",
                         "", expected
                     )
+                    expected = re.sub(r"\nNeighbor.+Desc", "", expected)
                     expected = expected + "% No matching neighbor\n"
-                elif "192.168.7.10" in filter:
+                elif "192.168.7.10" in arguments:
                     expected = re.sub(
                         r"(192.168.7.20|fc00:0:0:8::(1|2)000).+Active.+",
                         "", expected
                     )
-                elif "fc00:0:0:8::1000" in filter:
+                elif "fc00:0:0:8::1000" in arguments:
                     expected = re.sub(
                         r"(192.168.7.(1|2)0|fc00:0:0:8::2000).+Active.+",
                         "", expected
                     )
-                elif "10.0.0.1" in filter:
+                elif "10.0.0.1" in arguments:
                     expected = "No such neighbor in VRF default"
+
+                if "terse" in arguments:
+                    expected = re.sub(r"BGP table version .+", "", expected)
+                    expected = re.sub(r"RIB entries .+", "", expected)
+                    expected = re.sub(r"Peers [0-9]+, using .+", "", expected)
 
                 # Strip empty lines
                 actual = actual.lstrip().rstrip()
@@ -979,13 +993,17 @@ def test_bgp_summary():
                 expected = re.sub(r"\n+", "\n", expected)
 
                 # reapply initial formatting
-                actual = re.sub(r"KiB of memory\n", "KiB of memory\n\n", actual)
-                expected = re.sub(r"KiB of memory\n", "KiB of memory\n\n", expected)
+                if "terse" in arguments:
+                    actual = re.sub(r" vrf-id 0\n", " vrf-id 0\n\n", actual)
+                    expected = re.sub(r" vrf-id 0\n", " vrf-id 0\n\n", expected)
+                else:
+                    actual = re.sub(r"KiB of memory\n", "KiB of memory\n\n", actual)
+                    expected = re.sub(r"KiB of memory\n", "KiB of memory\n\n", expected)
 
                 # realign expected neighbor columns if needed
                 try:
-                    idx_actual = re.search(r"\n(Neighbor\s+V\s+)", actual).group(1).find("V")
-                    idx_expected = re.search(r"\n(Neighbor\s+V\s+)", expected).group(1).find("V")
+                    idx_actual = re.search(r"(Neighbor\s+V\s+)", actual).group(1).find("V")
+                    idx_expected = re.search(r"(Neighbor\s+V\s+)", expected).group(1).find("V")
                     idx_diff = idx_expected - idx_actual
                     if idx_diff > 0:
                         # Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd
@@ -1003,8 +1021,8 @@ def test_bgp_summary():
                 diff = topotest.get_textdiff(
                     actual,
                     expected,
-                    title1="actual SHOW IP BGP SUMMARY " + filter.upper() ,
-                    title2="expected SHOW IP BGP SUMMARY " + filter.upper(),
+                    title1="actual SHOW IP BGP SUMMARY " + arguments.upper() ,
+                    title2="expected SHOW IP BGP SUMMARY " + arguments.upper(),
                 )
 
                 # Empty string if it matches, otherwise diff contains unified diff
