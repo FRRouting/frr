@@ -7961,7 +7961,8 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					json_no, JSON_C_TO_STRING_PRETTY));
 			json_object_free(json_no);
 		} else
-			vty_out(vty, "No such neighbor in this view/vrf\n");
+			vty_out(vty, "No such neighbor in %s\n",
+				bgp->name_pretty);
 		return NULL;
 	}
 

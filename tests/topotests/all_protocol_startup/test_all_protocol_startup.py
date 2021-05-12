@@ -969,7 +969,7 @@ def test_bgp_summary():
                         "", expected
                     )
                 elif "10.0.0.1" in filter:
-                    expected = "No such neighbor in this view/vrf"
+                    expected = "No such neighbor in VRF default"
 
                 # Strip empty lines
                 actual = actual.lstrip().rstrip()
