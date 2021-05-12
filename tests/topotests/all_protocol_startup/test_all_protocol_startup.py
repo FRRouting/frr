@@ -958,6 +958,7 @@ def test_bgp_summary():
                         r"(192.168.7.(1|2)0|fc00:0:0:8::(1|2)000).+Active.+",
                         "", expected
                     )
+                    expected = expected + "% No matching neighbor\n"
                 elif "192.168.7.10" in filter:
                     expected = re.sub(
                         r"(192.168.7.20|fc00:0:0:8::(1|2)000).+Active.+",
