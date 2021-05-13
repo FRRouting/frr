@@ -15076,66 +15076,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_bo
 	return NB_OK;
 }
 
-static int bgp_neighbor_afi_safi_rmap_modify(struct nb_cb_modify_args *args,
-					     int direct)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	const char *name_str;
-	struct route_map *route_map;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-
-	name_str = yang_dnode_get_string(args->dnode, NULL);
-	route_map = route_map_lookup_by_name(name_str);
-	ret = peer_route_map_set(peer, afi, safi, direct, name_str, route_map);
-
-	return bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-}
-
-static int bgp_neighbor_afi_safi_rmap_destroy(struct nb_cb_destroy_args *args,
-					      int direct)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-
-	ret = peer_route_map_unset(peer, afi, safi, direct);
-
-	return bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-import
@@ -15147,9 +15087,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_im
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -15162,9 +15102,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_im
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -15181,9 +15121,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_ex
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -15196,9 +15136,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_ex
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -16522,9 +16462,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_im
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -16537,9 +16477,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_im
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -16556,9 +16496,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_ex
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -16571,9 +16511,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_ex
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -17821,9 +17761,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -17836,9 +17776,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -17855,9 +17795,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -17870,9 +17810,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -19119,9 +19059,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_filter_config_rmap_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -19134,9 +19074,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_filter_config_rmap_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -19153,9 +19093,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_filter_config_rmap_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -19168,9 +19108,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_filter_config_rmap_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -20417,9 +20357,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_filter_config
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -20432,9 +20372,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_filter_config
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -20451,9 +20391,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_filter_config
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -20466,9 +20406,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_filter_config
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -21715,9 +21655,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_filter_config
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -21730,9 +21670,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_filter_config
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -21749,9 +21689,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_filter_config
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -21764,9 +21704,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_filter_config
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -22858,9 +22798,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -22873,9 +22813,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -22892,9 +22832,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -22907,9 +22847,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24001,9 +23941,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24016,9 +23956,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24035,9 +23975,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24050,9 +23990,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24616,9 +24556,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_filter_config_rmap_impo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24631,9 +24571,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_filter_config_rmap_impo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24650,9 +24590,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_filter_config_rmap_expo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24665,9 +24605,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_filter_config_rmap_expo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25025,9 +24965,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_filter_config_rmap_i
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25040,9 +24980,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_filter_config_rmap_i
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25059,9 +24999,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_filter_config_rmap_e
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25074,9 +25014,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_filter_config_rmap_e
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25434,9 +25374,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_filter_config_rmap_i
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25449,9 +25389,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_filter_config_rmap_i
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25468,9 +25408,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_filter_config_rmap_e
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25483,9 +25423,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_filter_config_rmap_e
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -26913,68 +26853,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capabi
 	return NB_OK;
 }
 
-static int
-bgp_unnumbered_neighbor_afi_safi_rmap_modify(struct nb_cb_modify_args *args,
-					     int direct)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	const char *name_str;
-	struct route_map *route_map;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-
-	name_str = yang_dnode_get_string(args->dnode, NULL);
-	route_map = route_map_lookup_by_name(name_str);
-	ret = peer_route_map_set(peer, afi, safi, direct, name_str, route_map);
-
-	return bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-}
-
-static int
-bgp_unnumbered_neighbor_afi_safi_rmap_destroy(struct nb_cb_destroy_args *args,
-					      int direct)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-
-	ret = peer_route_map_unset(peer, afi, safi, direct);
-
-	return bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-import
@@ -26986,10 +26864,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -27002,10 +26879,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -27022,10 +26898,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -27038,10 +26913,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -28371,10 +28245,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_filter_con
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -28387,10 +28260,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_filter_con
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -28407,10 +28279,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_filter_con
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -28423,10 +28294,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_filter_con
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -29678,10 +29548,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_filter_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -29694,10 +29563,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_filter_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -29714,10 +29582,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_filter_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -29730,10 +29597,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_filter_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -30985,10 +30851,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_filter_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -31001,10 +30866,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_filter_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -31021,10 +30885,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_filter_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -31037,10 +30900,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_filter_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -32293,10 +32155,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_fi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -32309,10 +32170,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_fi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -32329,10 +32189,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_fi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -32345,10 +32204,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_fi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -35552,10 +35410,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -35568,10 +35425,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -35588,10 +35444,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -35604,10 +35459,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -35969,10 +35823,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -35985,10 +35838,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -36005,10 +35857,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_modify(args,
-								    RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -36021,10 +35872,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_rmap_destroy(args,
-								     RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -37444,62 +37294,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_or
 	return NB_OK;
 }
 
-static int bgp_peer_group_afi_safi_rmap_modify(struct nb_cb_modify_args *args,
-					       int direct)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	const char *name_str;
-	struct route_map *route_map;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-	name_str = yang_dnode_get_string(args->dnode, NULL);
-	route_map = route_map_lookup_by_name(name_str);
-	ret = peer_route_map_set(peer, afi, safi, direct, name_str, route_map);
-
-	return bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-}
-
-static int bgp_peer_group_afi_safi_rmap_destroy(struct nb_cb_destroy_args *args,
-						int direct)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-	ret = peer_route_map_unset(peer, afi, safi, direct);
-
-	return bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-import
@@ -37511,9 +37305,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rma
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -37526,9 +37320,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rma
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -37545,9 +37339,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rma
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -37560,9 +37354,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rma
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -38883,9 +38677,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_filter_config_rma
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -38898,9 +38692,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_filter_config_rma
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -38917,9 +38711,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_filter_config_rma
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -38932,9 +38726,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_filter_config_rma
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -40181,9 +39975,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -40196,9 +39990,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -40215,9 +40009,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -40230,9 +40024,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -41479,9 +41273,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -41494,9 +41288,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -41513,9 +41307,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -41528,9 +41322,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_filter_config_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -42777,9 +42571,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -42792,9 +42586,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -42811,9 +42605,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -42826,9 +42620,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -42881,7 +42675,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_filter_co
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_plist_modify(args, FILTER_OUT);
+		return bgp_peer_group_afi_safi_plist_destroy(args, FILTER_OUT);
 	}
 
 	return NB_OK;
@@ -44075,9 +43869,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -44090,9 +43884,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -44109,9 +43903,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -44124,9 +43918,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_filter_co
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -45218,9 +45012,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_conf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -45233,9 +45027,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_conf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -45252,9 +45046,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_conf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -45267,9 +45061,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_conf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -46361,9 +46155,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_filter_conf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -46376,9 +46170,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_filter_conf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -46395,9 +46189,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_filter_conf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -46410,9 +46204,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_filter_conf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -47045,9 +46839,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_filter_config_rm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -47060,9 +46854,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_filter_config_rm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -47079,9 +46873,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_filter_config_rm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -47094,9 +46888,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_filter_config_rm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -47454,9 +47248,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_filter_config_rm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -47469,9 +47263,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_filter_config_rm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -47488,9 +47282,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_filter_config_rm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_modify(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -47503,7 +47297,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_filter_config_rm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
 		return bgp_peer_group_afi_safi_plist_destroy(args, FILTER_IN);
 	}
@@ -47537,9 +47330,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_filter_config_pl
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
