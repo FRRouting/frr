@@ -111,24 +111,15 @@ int bgp_router_create(struct nb_cb_create_args *args)
 			is_new_bgp = (bgp_lookup_by_name(name) == NULL);
 
 		ret = bgp_get_vty(&bgp, &as, name, inst_type);
-		if (ret) {
-			switch (ret) {
-			case BGP_ERR_AS_MISMATCH:
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"BGP instance is already running; AS is %u",
-					as);
-				break;
-			case BGP_ERR_INSTANCE_MISMATCH:
-				snprintf(args->errmsg, args->errmsg_len,
-					 "BGP instance type mismatch");
-				break;
-			}
-
-			UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
-
-			nb_running_set_entry(args->dnode, bgp);
-
+		switch (ret) {
+		case BGP_ERR_AS_MISMATCH:
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP instance is already running; AS is %u",
+				 as);
+			return NB_ERR_INCONSISTENCY;
+		case BGP_ERR_INSTANCE_MISMATCH:
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP instance type mismatch");
 			return NB_ERR_INCONSISTENCY;
 		}
 
