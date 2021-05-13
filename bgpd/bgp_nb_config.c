@@ -13895,46 +13895,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_opt
 	return NB_OK;
 }
 
-static int
-bgp_neighbor_afi_safi_prefix_limit_list_destroy(struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int direction;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-	if (!peer)
-		return NB_ERR_INCONSISTENCY;
-
-	direction = yang_dnode_get_enum(args->dnode, "./direction");
-
-	switch (direction) {
-	case 1:
-		peer_maximum_prefix_unset(peer, afi, safi);
-		break;
-	case 2:
-		UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
-		peer->pmax_out[afi][safi] = 0;
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list
@@ -13961,99 +13921,12 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
-}
-
-static void
-bgp_peer_afi_safi_maximum_prefix_set(struct nb_cb_apply_finish_args *args,
-				     struct peer *peer, afi_t afi, safi_t safi)
-{
-	int direction;
-	uint32_t max;
-	uint8_t threshold = MAXIMUM_PREFIX_THRESHOLD_DEFAULT;
-	uint16_t restart = 0;
-	bool warning = false;
-	bool force;
-
-	max = yang_dnode_get_uint32(args->dnode, "./max-prefixes");
-	direction = yang_dnode_get_enum(args->dnode, "./direction");
-	switch (direction) {
-	case 1:
-		force = yang_dnode_get_bool(args->dnode, "./force-check");
-
-		if (yang_dnode_exists(args->dnode,
-				      "./options/shutdown-threshold-pct"))
-			threshold = yang_dnode_get_uint8(
-				args->dnode,
-				"./options/shutdown-threshold-pct");
-		if (yang_dnode_exists(args->dnode,
-				      "./options/tw-shutdown-threshold-pct"))
-			threshold = yang_dnode_get_uint8(
-				args->dnode,
-				"./options/tw-shutdown-threshold-pct");
-		if (yang_dnode_exists(args->dnode,
-				      "./options/tr-shutdown-threshold-pct"))
-			threshold = yang_dnode_get_uint8(
-				args->dnode,
-				"./options/tr-shutdown-threshold-pct");
-
-		if (yang_dnode_exists(args->dnode, "./options/warning-only"))
-			warning = yang_dnode_get_bool(args->dnode,
-						      "./options/warning-only");
-		if (yang_dnode_exists(args->dnode, "./options/tw-warning-only"))
-			warning = yang_dnode_get_bool(
-				args->dnode, "./options/tw-warning-only");
-
-		if (yang_dnode_exists(args->dnode, "./options/restart-timer"))
-			restart = yang_dnode_get_uint16(
-				args->dnode, "./options/restart-timer");
-		if (yang_dnode_exists(args->dnode,
-				      "./options/tr-restart-timer"))
-			restart = yang_dnode_get_uint16(
-				args->dnode, "./options/tr-restart-timer");
-
-		peer_maximum_prefix_set(peer, afi, safi, max, threshold,
-					warning, restart, force);
-
-		break;
-	case 2:
-		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
-		peer->pmax_out[afi][safi] = max;
-
-		break;
-	}
-}
-
-void bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-	if (!peer)
-		return;
-
-	bgp_peer_afi_safi_maximum_prefix_set(args, peer, afi, safi);
 }
 
 /*
@@ -15544,9 +15417,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -16449,9 +16322,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -17354,9 +17227,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -18259,9 +18132,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -19164,9 +19037,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -19967,9 +19840,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -20770,9 +20643,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -21975,46 +21848,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
 	return NB_OK;
 }
 
-static int bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int direction;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-	if (!peer)
-		return NB_ERR_INCONSISTENCY;
-
-	direction = yang_dnode_get_enum(args->dnode, "./direction");
-
-	switch (direction) {
-	case 1:
-		peer_maximum_prefix_unset(peer, afi, safi);
-		break;
-	case 2:
-		UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
-		peer->pmax_out[afi][safi] = 0;
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list
@@ -22041,40 +21874,12 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-			args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
-}
-
-void bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-	if (!peer)
-		return;
-
-	bgp_peer_afi_safi_maximum_prefix_set(args, peer, afi, safi);
 }
 
 /*
@@ -23566,10 +23371,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-			args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -24472,10 +24276,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-			args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -25378,10 +25181,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-			args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -26284,10 +26086,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-			args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -27190,10 +26991,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-			args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -27994,10 +27794,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-			args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -28798,10 +28597,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_prefix_limit_list_destroy(
-			args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -30001,44 +29799,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
 	return NB_OK;
 }
 
-static int bgp_peer_group_afi_safi_prefix_limit_list_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int direction;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-	if (!peer)
-		return NB_ERR_INCONSISTENCY;
-
-	direction = yang_dnode_get_enum(args->dnode, "./direction");
-
-	switch (direction) {
-	case 1:
-		peer_maximum_prefix_unset(peer, afi, safi);
-		break;
-	case 2:
-		UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
-		peer->pmax_out[afi][safi] = 0;
-		break;
-	}
-
-	return NB_OK;
-}
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list
@@ -30065,39 +29825,14 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
 }
 
-void bgp_peer_group_afi_safi_prefix_limit_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-	if (!peer)
-		return;
-
-	bgp_peer_afi_safi_maximum_prefix_set(args, peer, afi, safi);
-}
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/max-prefixes
@@ -31584,9 +31319,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -32489,9 +32224,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -33394,9 +33129,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -34299,9 +34034,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -35204,9 +34939,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -36007,9 +35742,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -36810,9 +36545,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_prefix_limit_list_destroy(args);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
