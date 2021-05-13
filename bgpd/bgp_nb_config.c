@@ -1508,27 +1508,12 @@ int bgp_global_global_config_timers_keepalive_modify(
  */
 int bgp_global_instance_type_view_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		/*
-		 * Changing instance type is not allowed, but we must allow it
-		 * once, when the BGP instance is created the first time.
-		 * If the instance already exists - return the validation
-		 * error.
-		 */
-		bgp = nb_running_get_entry_non_rec(
-			lyd_parent(lyd_parent(args->dnode)), NULL, false);
-		if (bgp) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Changing instance type is not allowed");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		/* TODO: implement me. */
 		break;
 	}
 
