@@ -792,32 +792,5 @@ extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 					    struct bgp *bgp,
 					    const struct prefix *p, afi_t afi,
 					    safi_t safi, bool suppress);
-extern int bgp_static_set(struct bgp *bgp, const char *negate,
-			  struct prefix *pfx, afi_t afi, safi_t safi,
-			  const char *rmap, int backdoor, uint32_t label_index,
-			  char *errmsg, size_t errmsg_len);
-
-extern int bgp_aggregate_set(struct bgp *bgp, struct prefix *prefix, afi_t afi,
-			     safi_t safi, const char *rmap,
-			     uint8_t summary_only, uint8_t as_set,
-			     uint8_t origin, bool match_med,
-			     const char *suppress_map, char *errmsg,
-			     size_t errmsg_len);
-
-extern int bgp_aggregate_unset(struct bgp *bgp, struct prefix *prefix,
-			       afi_t afi, safi_t safi, char *errmsg,
-			       size_t errmsg_len);
-
-extern void bgp_announce_routes_distance_update(struct bgp *bgp,
-						afi_t update_afi,
-						safi_t update_safi);
-
-extern int bgp_distance_set(uint8_t distance, const char *ip_str,
-			    const char *access_list_str, afi_t afi, safi_t safi,
-			    char *errmsg, size_t errmsg_len);
-
-extern int bgp_distance_unset(uint8_t distance, const char *ip_str,
-			      const char *access_list_str, afi_t afi,
-			      safi_t safi, char *errmsg, size_t errmsg_len);
 extern void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
 #endif /* _QUAGGA_BGP_ROUTE_H */
