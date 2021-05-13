@@ -1383,10 +1383,6 @@ DEFUN_YANG_NOSH(router_bgp,
 			nb_cli_enqueue_change(vty,
 					      "./global/instance-type-view",
 					      NB_OP_MODIFY, "true");
-		} else {
-			nb_cli_enqueue_change(vty,
-					      "./global/instance-type-view",
-					      NB_OP_MODIFY, "false");
 		}
 
 		ret = nb_cli_apply_changes(vty, base_xpath);
