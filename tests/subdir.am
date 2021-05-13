@@ -157,7 +157,7 @@ TESTS_CFLAGS = \
 # note no -Werror
 
 ALL_TESTS_LDADD = lib/libfrr.la $(LIBCAP)
-BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) -lm
+BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) -lm
 ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
 OSPFD_TEST_LDADD = ospfd/libfrrospf.a $(ALL_TESTS_LDADD)
 OSPF6_TEST_LDADD = ospf6d/libospf6.a $(ALL_TESTS_LDADD)

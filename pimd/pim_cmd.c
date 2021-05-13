@@ -7986,8 +7986,8 @@ DEFUN (interface_no_ip_igmp,
 	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
 		 "%s/frr-pim:pim", VTY_CURR_XPATH);
 
-	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					  "%s/pim-enable", pim_if_xpath);
+	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   "%s/pim-enable", pim_if_xpath);
 	if (!pim_enable_dnode) {
 		nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY, NULL);
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
@@ -8081,9 +8081,9 @@ DEFUN (interface_ip_igmp_query_interval,
 {
 	const struct lyd_node *pim_enable_dnode;
 
-	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					  "%s/frr-pim:pim/pim-enable",
-					  VTY_CURR_XPATH);
+	pim_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
 	if (!pim_enable_dnode) {
 		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
 				      "true");
@@ -8157,9 +8157,9 @@ DEFUN (interface_ip_igmp_query_max_response_time,
 {
 	const struct lyd_node *pim_enable_dnode;
 
-	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					  "%s/frr-pim:pim/pim-enable",
-					  VTY_CURR_XPATH);
+	pim_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
 
 	if (!pim_enable_dnode) {
 		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
@@ -8206,9 +8206,9 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 {
 	const struct lyd_node *pim_enable_dnode;
 
-	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					  "%s/frr-pim:pim/pim-enable",
-					  VTY_CURR_XPATH);
+	pim_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
 	if (!pim_enable_dnode) {
 		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
 				      "true");
@@ -8254,9 +8254,9 @@ DEFUN (interface_ip_igmp_last_member_query_count,
 {
 	const struct lyd_node *pim_enable_dnode;
 
-	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					  "%s/frr-pim:pim/pim-enable",
-					  VTY_CURR_XPATH);
+	pim_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
 	if (!pim_enable_dnode) {
 		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
 				      "true");
@@ -8301,9 +8301,9 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
 {
 	const struct lyd_node *pim_enable_dnode;
 
-	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					  "%s/frr-pim:pim/pim-enable",
-					  VTY_CURR_XPATH);
+	pim_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
 	if (!pim_enable_dnode) {
 		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
 				      "true");
@@ -8531,8 +8531,8 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
-	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					   "%s/igmp-enable", igmp_if_xpath);
+	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					    "%s/igmp-enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8563,8 +8563,8 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
-	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					   "%s/igmp-enable", igmp_if_xpath);
+	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					    "%s/igmp-enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8594,8 +8594,8 @@ DEFUN (interface_no_ip_pim,
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
-	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					   "%s/igmp-enable", igmp_if_xpath);
+	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					    "%s/igmp-enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8716,9 +8716,9 @@ DEFUN (interface_ip_pim_hello,
 	int idx_hold = 4;
 	const struct lyd_node *igmp_enable_dnode;
 
-	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					   "%s/frr-igmp:igmp/igmp-enable",
-					   VTY_CURR_XPATH);
+	igmp_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9436,9 +9436,9 @@ DEFPY (ip_pim_bfd,
 {
 	const struct lyd_node *igmp_enable_dnode;
 
-	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					   "%s/frr-igmp:igmp/igmp-enable",
-					   VTY_CURR_XPATH);
+	igmp_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9491,9 +9491,9 @@ DEFUN (ip_pim_bsm,
 {
 	const struct lyd_node *igmp_enable_dnode;
 
-	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					   "%s/frr-igmp:igmp/igmp-enable",
-					   VTY_CURR_XPATH);
+	igmp_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9530,9 +9530,9 @@ DEFUN (ip_pim_ucast_bsm,
 {
 	const struct lyd_node *igmp_enable_dnode;
 
-	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					   "%s/frr-igmp:igmp/igmp-enable",
-					   VTY_CURR_XPATH);
+	igmp_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9589,9 +9589,9 @@ DEFUN_HIDDEN(
 	int idx_number_3 = 5;
 	const struct lyd_node *igmp_enable_dnode;
 
-	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					   "%s/frr-igmp:igmp/igmp-enable",
-					   VTY_CURR_XPATH);
+	igmp_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");

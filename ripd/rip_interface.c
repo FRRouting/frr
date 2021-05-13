@@ -1113,7 +1113,7 @@ static int rip_interface_config_write(struct vty *vty)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct lyd_node *dnode;
 
-			dnode = yang_dnode_get(
+			dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
 				ifp->name, vrf->name);

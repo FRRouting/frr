@@ -13,9 +13,6 @@ submodule frr-bgp-peer-group {
     prefix frr-bt;
   }
 
-  include frr-bgp-common-structure;
-  include frr-bgp-neighbor;
-
   organization
     "FRRouting";
   contact

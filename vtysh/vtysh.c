@@ -2890,6 +2890,37 @@ DEFUN (show_yang_operational_data,
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
 
+DEFUN(show_yang_module, show_yang_module_cmd,
+      "show yang module [module-translator WORD] " DAEMONS_LIST,
+      SHOW_STR
+      "YANG information\n"
+      "Show loaded modules\n"
+      "YANG module translator\n"
+      "YANG module translator\n" DAEMONS_STR)
+{
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+}
+
+DEFUN(show_yang_module_detail, show_yang_module_detail_cmd,
+      "show yang module\
+          [module-translator WORD]\
+          WORD <compiled|summary|tree|yang|yin> " DAEMONS_LIST,
+      SHOW_STR
+      "YANG information\n"
+      "Show loaded modules\n"
+      "YANG module translator\n"
+      "YANG module translator\n"
+      "Module name\n"
+      "Display compiled module in YANG format\n"
+      "Display summary information about the module\n"
+      "Display module in the tree (RFC 8340) format\n"
+      "Display module in the YANG format\n"
+      "Display module in the YIN format\n" DAEMONS_STR)
+{
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+}
+
+
 DEFUNSH(VTYSH_ALL, debug_nb,
 	debug_nb_cmd,
 	"[no] debug northbound\
@@ -4449,6 +4480,8 @@ void vtysh_init_vty(void)
 	/* northbound */
 	install_element(ENABLE_NODE, &show_config_running_cmd);
 	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
+	install_element(ENABLE_NODE, &show_yang_module_cmd);
+	install_element(ENABLE_NODE, &show_yang_module_detail_cmd);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
 

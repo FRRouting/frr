@@ -48,10 +48,10 @@ static int frr_sr_finish(void);
 static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 {
 	struct nb_node *nb_node;
-	const struct lys_node *snode;
-	struct lys_node_container *scontainer;
-	struct lys_node_leaf *sleaf;
-	struct lys_node_leaflist *sleaflist;
+	const struct lysc_node *snode;
+	struct lysc_node_container *scontainer;
+	struct lysc_node_leaf *sleaf;
+	struct lysc_node_leaflist *sleaflist;
 	LY_DATA_TYPE type;
 
 	sr_val_set_xpath(sr_data, frr_data->xpath);
@@ -67,8 +67,8 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 	snode = nb_node->snode;
 	switch (snode->nodetype) {
 	case LYS_CONTAINER:
-		scontainer = (struct lys_node_container *)snode;
-		if (!scontainer->presence)
+		scontainer = (struct lysc_node_container *)snode;
+		if (!CHECK_FLAG(scontainer->flags, LYS_PRESENCE))
 			return -1;
 		sr_data->type = SR_CONTAINER_PRESENCE_T;
 		return 0;
@@ -76,11 +76,11 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		sr_data->type = SR_LIST_T;
 		return 0;
 	case LYS_LEAF:
-		sleaf = (struct lys_node_leaf *)snode;
+		sleaf = (struct lysc_node_leaf *)snode;
 		type = sleaf->type.base;
 		break;
 	case LYS_LEAFLIST:
-		sleaflist = (struct lys_node_leaflist *)snode;
+		sleaflist = (struct lysc_node_leaflist *)snode;
 		type = sleaflist->type.base;
 		break;
 	default:
@@ -359,7 +359,7 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session,
 	}
 }
 
-static int frr_sr_state_data_iter_cb(const struct lys_node *snode,
+static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
 				     struct yang_translator *translator,
 				     struct yang_data *data, void *arg)
 {
@@ -562,7 +562,7 @@ static void frr_sr_subscribe_config(struct yang_module *module)
 			 sr_strerror(ret));
 }
 
-static int frr_sr_subscribe_state(const struct lys_node *snode, void *arg)
+static int frr_sr_subscribe_state(const struct lysc_node *snode, void *arg)
 {
 	struct yang_module *module = arg;
 	struct nb_node *nb_node;
@@ -591,7 +591,7 @@ static int frr_sr_subscribe_state(const struct lys_node *snode, void *arg)
 	return YANG_ITER_CONTINUE;
 }
 
-static int frr_sr_subscribe_rpc(const struct lys_node *snode, void *arg)
+static int frr_sr_subscribe_rpc(const struct lysc_node *snode, void *arg)
 {
 	struct yang_module *module = arg;
 	struct nb_node *nb_node;

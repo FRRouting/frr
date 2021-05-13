@@ -547,7 +547,7 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	cmd_hostname_set("test");
 	vty_init(master, false);
-	yang_init(true);
+	yang_init(true, false);
 	if (debug)
 		zlog_aux_init("NONE: ", LOG_DEBUG);
 	else

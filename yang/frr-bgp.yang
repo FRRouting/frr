@@ -23,9 +23,9 @@ module frr-bgp {
     prefix frr-bt;
   }
 
-  include "frr-bgp-common-structure";
-
   include "frr-bgp-common";
+
+  include "frr-bgp-common-structure";
 
   include "frr-bgp-common-multiprotocol";
 

@@ -9,8 +9,6 @@ submodule frr-bgp-common-multiprotocol {
     prefix frr-rt;
   }
 
-  include frr-bgp-common;
-
   organization
     "FRRouting";
   contact
@@ -67,7 +65,7 @@ submodule frr-bgp-common-multiprotocol {
       "A common grouping used for contents of the list that is used
        for AFI-SAFI entries.";
     container ipv4-unicast {
-      when "derived-from-or-self(../afi-safi-name, 'ipv4-unicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-unicast')" {
         description
           "Include this container for IPv4 Unicast specific
            configuration.";
@@ -77,7 +75,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container ipv6-unicast {
-      when "derived-from-or-self(../afi-safi-name, 'ipv6-unicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv6-unicast')" {
         description
           "Include this container for IPv6 Unicast specific
            configuration.";
@@ -87,7 +85,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container ipv4-labeled-unicast {
-      when "derived-from-or-self(../afi-safi-name, 'ipv4-labeled-unicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-labeled-unicast')" {
         description
           "Include this container for IPv4 Labeled Unicast specific
            configuration.";
@@ -97,7 +95,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container ipv6-labeled-unicast {
-      when "derived-from-or-self(../afi-safi-name, 'ipv6-labeled-unicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv6-labeled-unicast')" {
         description
           "Include this container for IPv6 Labeled Unicast specific
            configuration.";
@@ -107,7 +105,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container l3vpn-ipv4-unicast {
-      when "derived-from-or-self(../afi-safi-name, 'l3vpn-ipv4-unicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l3vpn-ipv4-unicast')" {
         description
           "Include this container for IPv4 Unicast L3VPN specific
            configuration.";
@@ -117,7 +115,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container l3vpn-ipv6-unicast {
-      when "derived-from-or-self(../afi-safi-name, 'l3vpn-ipv6-unicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l3vpn-ipv6-unicast')" {
         description
           "Include this container for unicast IPv6 L3VPN specific
            configuration.";
@@ -127,7 +125,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container l3vpn-ipv4-multicast {
-      when "derived-from-or-self(../afi-safi-name, 'l3vpn-ipv4-multicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l3vpn-ipv4-multicast')" {
         description
           "Include this container for multicast IPv4 L3VPN specific
            configuration.";
@@ -137,7 +135,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container l3vpn-ipv6-multicast {
-      when "derived-from-or-self(../afi-safi-name, 'l3vpn-ipv6-multicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l3vpn-ipv6-multicast')" {
         description
           "Include this container for multicast IPv6 L3VPN specific
            configuration.";
@@ -147,7 +145,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container l2vpn-vpls {
-      when "derived-from-or-self(../afi-safi-name, 'l2vpn-vpls')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l2vpn-vpls')" {
         description
           "Include this container for BGP-signalled VPLS specific
            configuration.";
@@ -157,7 +155,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container l2vpn-evpn {
-      when "derived-from-or-self(../afi-safi-name, 'l2vpn-evpn')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l2vpn-evpn')" {
         description
           "Include this container for BGP EVPN specific
            configuration.";
@@ -167,7 +165,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container ipv4-multicast {
-      when "derived-from-or-self(../afi-safi-name, 'ipv4-multicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-multicast')" {
         description
           "Include this container for IPv4 multicast specific
            configuration.";
@@ -177,7 +175,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container ipv6-multicast {
-      when "derived-from-or-self(../afi-safi-name, 'ipv6-multicast')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv6-multicast')" {
         description
           "Include this container for IPv6 multicast specific
            configuration.";
@@ -187,7 +185,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container ipv4-flowspec {
-      when "derived-from-or-self(../afi-safi-name, 'ipv4-flowspec')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-flowspec')" {
         description
           "Include this container for IPv4 flowspec specific
            configuration.";
@@ -197,7 +195,7 @@ submodule frr-bgp-common-multiprotocol {
     }
 
     container ipv6-flowspec {
-      when "derived-from-or-self(../afi-safi-name, 'ipv6-flowspec')" {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv6-flowspec')" {
         description
           "Include this container for IPv6 flowspec specific
            configuration.";

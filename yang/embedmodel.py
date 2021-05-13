@@ -94,7 +94,7 @@ else:
         sub_name = search_name.group(1)
         name = re_mainname.search(data).group(1)
         sub_rev = re_rev.search(data).group(1)
-    fmt = "LYS_YANG"
+    fmt = "LYS_IN_YANG"
 
 if name is None or rev is None:
     raise ValueError("cannot determine YANG module name and revision")

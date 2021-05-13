@@ -5,9 +5,6 @@ submodule frr-bgp-neighbor {
     prefix "bgp";
   }
 
-  include frr-bgp-common-structure;
-  include frr-bgp-common-multiprotocol;
-
   organization
     "FRRouting";
   contact

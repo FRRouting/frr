@@ -3632,16 +3632,16 @@ static int rip_vrf_enable(struct vrf *vrf)
 			char oldpath[XPATH_MAXLEN];
 			char newpath[XPATH_MAXLEN];
 
-			rip_dnode = yang_dnode_get(
+			rip_dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-ripd:ripd/instance[vrf='%s']/vrf",
 				old_vrf_name);
 			if (rip_dnode) {
-				yang_dnode_get_path(rip_dnode->parent, oldpath,
-						    sizeof(oldpath));
+				yang_dnode_get_path(lyd_parent(rip_dnode),
+						    oldpath, sizeof(oldpath));
 				yang_dnode_change_leaf(rip_dnode, vrf->name);
-				yang_dnode_get_path(rip_dnode->parent, newpath,
-						    sizeof(newpath));
+				yang_dnode_get_path(lyd_parent(rip_dnode),
+						    newpath, sizeof(newpath));
 				nb_running_move_tree(oldpath, newpath);
 				running_config->version++;
 			}

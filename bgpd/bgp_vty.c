@@ -4372,12 +4372,12 @@ DEFUN_YANG(neighbor_remote_as,
 		snprintf(prgrp_xpath, sizeof(prgrp_xpath),
 			 FRR_BGP_PEER_GROUP_XPATH, argv[idx_peer]->arg, "");
 
-		if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-				      VTY_CURR_XPATH, unnbr_xpath + 1)) {
+		if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+				       VTY_CURR_XPATH, unnbr_xpath + 1)) {
 			strlcpy(base_xpath, unnbr_xpath, sizeof(base_xpath));
-		} else if (yang_dnode_exists(vty->candidate_config->dnode,
-					     "%s%s", VTY_CURR_XPATH,
-					     prgrp_xpath + 1)) {
+		} else if (yang_dnode_existsf(vty->candidate_config->dnode,
+					      "%s%s", VTY_CURR_XPATH,
+					      prgrp_xpath + 1)) {
 			snprintf(base_xpath, sizeof(base_xpath),
 				 FRR_BGP_PEER_GROUP_XPATH, argv[idx_peer]->arg,
 				 "");
@@ -4648,8 +4648,8 @@ DEFUN_YANG(no_neighbor,
 	if (str2sockunion(argv[idx_peer]->arg, &su) == 0) {
 		snprintf(num_xpath, sizeof(num_xpath),
 			 FRR_BGP_NEIGHBOR_NUM_XPATH, argv[idx_peer]->arg, "");
-		if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-				      VTY_CURR_XPATH, num_xpath + 1)) {
+		if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+				       VTY_CURR_XPATH, num_xpath + 1)) {
 			strlcpy(base_xpath, num_xpath, sizeof(base_xpath));
 		}
 	} else {
@@ -4659,12 +4659,12 @@ DEFUN_YANG(no_neighbor,
 		snprintf(prgrp_xpath, sizeof(prgrp_xpath),
 			 FRR_BGP_PEER_GROUP_XPATH, argv[idx_peer]->arg, "");
 
-		if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-				      VTY_CURR_XPATH, unnbr_xpath + 1)) {
+		if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+				       VTY_CURR_XPATH, unnbr_xpath + 1)) {
 			strlcpy(base_xpath, unnbr_xpath, sizeof(base_xpath));
-		} else if (yang_dnode_exists(vty->candidate_config->dnode,
-					     "%s%s", VTY_CURR_XPATH,
-					     prgrp_xpath + 1)) {
+		} else if (yang_dnode_existsf(vty->candidate_config->dnode,
+					      "%s%s", VTY_CURR_XPATH,
+					      prgrp_xpath + 1)) {
 			strlcpy(base_xpath, prgrp_xpath, sizeof(base_xpath));
 		} else {
 			vty_out(vty,
@@ -4740,11 +4740,11 @@ DEFUN_YANG(no_neighbor_interface_peer_group_remote_as,
 	snprintf(prgrp_xpath, sizeof(prgrp_xpath), FRR_BGP_PEER_GROUP_XPATH,
 		 argv[idx_peer]->arg, "");
 
-	if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-			      VTY_CURR_XPATH, unnbr_xpath + 1)) {
+	if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+			       VTY_CURR_XPATH, unnbr_xpath + 1)) {
 		strlcpy(base_xpath, unnbr_xpath, sizeof(base_xpath));
-	} else if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-				     VTY_CURR_XPATH, prgrp_xpath + 1)) {
+	} else if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+				      VTY_CURR_XPATH, prgrp_xpath + 1)) {
 		strlcpy(base_xpath, prgrp_xpath, sizeof(base_xpath));
 	} else {
 		vty_out(vty, "%% Create the peer-group or interface first\n");
@@ -7036,8 +7036,8 @@ static int peer_and_group_lookup_nb(struct vty *vty, const char *peer_str,
 	if (str2sockunion(peer_str, &su) == 0) {
 		snprintf(num_xpath, sizeof(num_xpath),
 			 "/neighbors/neighbor[remote-address='%s']", peer_str);
-		if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-				      VTY_CURR_XPATH, num_xpath)) {
+		if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+				       VTY_CURR_XPATH, num_xpath)) {
 			snprintf(base_xpath, xpath_len,
 				 FRR_BGP_NEIGHBOR_NUM_XPATH, peer_str,
 				 xpath ? xpath : "");
@@ -7056,14 +7056,14 @@ static int peer_and_group_lookup_nb(struct vty *vty, const char *peer_str,
 			 "/peer-groups/peer-group[peer-group-name='%s']",
 			 peer_str);
 
-		if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
-				      VTY_CURR_XPATH, unnbr_xpath)) {
+		if (yang_dnode_existsf(vty->candidate_config->dnode, "%s%s",
+				       VTY_CURR_XPATH, unnbr_xpath)) {
 			snprintf(base_xpath, xpath_len,
 				 FRR_BGP_NEIGHBOR_UNNUM_XPATH, peer_str,
 				 xpath ? xpath : "");
-		} else if (yang_dnode_exists(vty->candidate_config->dnode,
-					     "%s%s", VTY_CURR_XPATH,
-					     prgrp_xpath)) {
+		} else if (yang_dnode_existsf(vty->candidate_config->dnode,
+					      "%s%s", VTY_CURR_XPATH,
+					      prgrp_xpath)) {
 			snprintf(base_xpath, xpath_len,
 				 FRR_BGP_PEER_GROUP_XPATH, peer_str,
 				 xpath ? xpath : "");
@@ -8085,7 +8085,7 @@ DEFPY_YANG(
 			 bgp_afi_safi_get_container_str(afi, safi));
 
 	if (!no) {
-		if (!yang_dnode_exists(
+		if (!yang_dnode_existsf(
 			    vty->candidate_config->dnode,
 			    "/frr-route-map:lib/route-map[name='%s']",
 			    rmap_str)) {
