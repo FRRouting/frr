@@ -1486,7 +1486,10 @@ DEFUN_YANG(no_router_bgp,
 	   "no router bgp [(1-4294967295)$instasn [<view|vrf> VIEWVRFNAME]]",
 	   NO_STR ROUTER_STR BGP_STR AS_STR BGP_INSTANCE_HELP_STR)
 {
+	int idx_asn = 3;
 	int idx_vrf = 5;
+	as_t as = 0;
+	struct bgp *bgp;
 	const char *name = NULL;
 	char base_xpath[XPATH_MAXLEN];
 	const struct lyd_node *bgp_glb_dnode;
@@ -1508,15 +1511,76 @@ DEFUN_YANG(no_router_bgp,
 			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		/* tcli mode bgp would not be set until apply stage. */
+		bgp = nb_running_get_entry(bgp_glb_dnode, NULL, false);
+		if (!bgp)
+			return CMD_SUCCESS;
+
+		if (bgp->l3vni) {
+			vty_out(vty, "%% Please unconfigure l3vni %u",
+				bgp->l3vni);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	} else {
+		as = strtoul(argv[idx_asn]->arg, NULL, 10);
+
 		if (argc > 4)
 			name = argv[idx_vrf]->arg;
-		else
-			name = VRF_DEFAULT_NAME;
 
-		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
-			 "frr-bgp:bgp", "bgp", name);
+		/* Lookup bgp structure. */
+		bgp = bgp_lookup(as, name);
+		if (!bgp) {
+			vty_out(vty, "%% Can't find BGP instance\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (bgp->l3vni) {
+			vty_out(vty, "%% Please unconfigure l3vni %u\n",
+				bgp->l3vni);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		/* Cannot delete default instance if vrf instances exist */
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+			struct listnode *node;
+			struct bgp *tmp_bgp;
+
+			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, tmp_bgp)) {
+				if (tmp_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+					continue;
+				if (CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
+					       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
+					       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
+				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
+				    (bgp == bgp_get_evpn() &&
+				    (CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+						BGP_L2VPN_EVPN_ADV_IPV4_UNICAST) ||
+				     CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+						BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP) ||
+				     CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+						BGP_L2VPN_EVPN_ADV_IPV6_UNICAST) ||
+				     CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+						BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))) ||
+				    (tmp_bgp->vnihash && hashcount(tmp_bgp->vnihash))) {
+					vty_out(vty,
+						"%% Cannot delete default BGP instance. Dependent VRF instances exist\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+			}
+		}
 	}
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
+		 "frr-bgp:bgp", "bgp",
+		 bgp->name ? bgp->name : VRF_DEFAULT_NAME);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
