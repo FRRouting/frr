@@ -1327,11 +1327,9 @@ DEFUN_YANG_NOSH(router_bgp,
 
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		snprintf(as_str, 12, "%d", bgp->as);
-		nb_cli_enqueue_change(vty, "./global/local-as", NB_OP_MODIFY,
-				      as_str);
+		nb_cli_enqueue_change(vty, "./local-as", NB_OP_MODIFY, as_str);
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
-			nb_cli_enqueue_change(vty,
-					      "./global/instance-type-view",
+			nb_cli_enqueue_change(vty, "./instance-type-view",
 					      NB_OP_MODIFY, "true");
 		}
 
@@ -1369,11 +1367,10 @@ DEFUN_YANG_NOSH(router_bgp,
 			 "frr-bgp:bgp", "bgp", name ? name : VRF_DEFAULT_NAME);
 
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-		nb_cli_enqueue_change(vty, "./global/local-as", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./local-as", NB_OP_MODIFY,
 				      argv[idx_asn]->arg);
 		if (inst_type == BGP_INSTANCE_TYPE_VIEW) {
-			nb_cli_enqueue_change(vty,
-					      "./global/instance-type-view",
+			nb_cli_enqueue_change(vty, "./instance-type-view",
 					      NB_OP_MODIFY, "true");
 		}
 
@@ -1518,8 +1515,7 @@ DEFPY_YANG(bgp_router_id, bgp_router_id_cmd, "bgp router-id A.B.C.D",
 	   "Override configured router identifier\n"
 	   "Manually configured router identifier\n")
 {
-	nb_cli_enqueue_change(vty, "./global/router-id", NB_OP_MODIFY,
-			      router_id_str);
+	nb_cli_enqueue_change(vty, "./router-id", NB_OP_MODIFY, router_id_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1529,7 +1525,7 @@ DEFPY_YANG(no_bgp_router_id, no_bgp_router_id_cmd, "no bgp router-id [A.B.C.D]",
 	   "Override configured router identifier\n"
 	   "Manually configured router identifier\n")
 {
-	nb_cli_enqueue_change(vty, "./global/router-id", NB_OP_DESTROY,
+	nb_cli_enqueue_change(vty, "./router-id", NB_OP_DESTROY,
 			      router_id_str ? router_id_str : NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1634,9 +1630,9 @@ DEFUN_YANG(bgp_cluster_id,
 {
 	int idx_ipv4 = 2;
 
-	nb_cli_enqueue_change(
-		vty, "./global/route-reflector/route-reflector-cluster-id",
-		NB_OP_MODIFY, argv[idx_ipv4]->arg);
+	nb_cli_enqueue_change(vty,
+			      "./route-reflector/route-reflector-cluster-id",
+			      NB_OP_MODIFY, argv[idx_ipv4]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1649,9 +1645,9 @@ DEFUN_YANG(no_bgp_cluster_id,
 	   "Route-Reflector Cluster-id in IP address format\n"
 	   "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/route-reflector/route-reflector-cluster-id",
-		NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty,
+			      "./route-reflector/route-reflector-cluster-id",
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1717,8 +1713,8 @@ DEFUN_YANG(bgp_confederation_identifier,
 {
 	int idx_number = 3;
 
-	nb_cli_enqueue_change(vty, "./global/confederation/identifier",
-			      NB_OP_MODIFY, argv[idx_number]->arg);
+	nb_cli_enqueue_change(vty, "./confederation/identifier", NB_OP_MODIFY,
+			      argv[idx_number]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1732,8 +1728,8 @@ DEFUN_YANG(no_bgp_confederation_identifier,
 	   "AS number\n"
 	   "Set routing domain confederation AS\n")
 {
-	nb_cli_enqueue_change(vty, "./global/confederation/identifier",
-			      NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./confederation/identifier", NB_OP_DESTROY,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1757,7 +1753,7 @@ DEFUN_YANG(bgp_confederation_peers,
 	int i;
 
 	for (i = idx_asn; i < argc; i++)
-		nb_cli_enqueue_change(vty, "./global/confederation/member-as",
+		nb_cli_enqueue_change(vty, "./confederation/member-as",
 				      NB_OP_CREATE, argv[i]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1775,7 +1771,7 @@ DEFUN_YANG(no_bgp_confederation_peers,
 	int i;
 
 	for (i = idx_asn; i < argc; i++)
-		nb_cli_enqueue_change(vty, "./global/confederation/member-as",
+		nb_cli_enqueue_change(vty, "./confederation/member-as",
 				      NB_OP_DESTROY, argv[i]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1869,7 +1865,7 @@ DEFUN_YANG(bgp_maxmed_admin,
 	   "Advertise routes with max-med\n"
 	   "Administratively applied, for an indefinite period\n")
 {
-	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin",
+	nb_cli_enqueue_change(vty, "./med-config/enable-med-admin",
 			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1885,11 +1881,11 @@ DEFUN_YANG(bgp_maxmed_admin_medv,
 {
 	int idx_number = 3;
 
-	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin",
+	nb_cli_enqueue_change(vty, "./med-config/enable-med-admin",
 			      NB_OP_MODIFY, "true");
 
-	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin",
-			      NB_OP_MODIFY, argv[idx_number]->arg);
+	nb_cli_enqueue_change(vty, "./med-config/max-med-admin", NB_OP_MODIFY,
+			      argv[idx_number]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1902,11 +1898,11 @@ DEFUN_YANG(no_bgp_maxmed_admin,
 	   "Administratively applied, for an indefinite period\n"
 	   "Max MED value to be used\n")
 {
-	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin",
+	nb_cli_enqueue_change(vty, "./med-config/enable-med-admin",
 			      NB_OP_MODIFY, "false");
 
-	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin",
-			      NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./med-config/max-med-admin", NB_OP_MODIFY,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1923,18 +1919,17 @@ DEFUN_YANG(bgp_maxmed_onstartup,
 	int idx = 0;
 
 	argv_find(argv, argc, "(5-86400)", &idx);
-	nb_cli_enqueue_change(vty,
-			      "./global/med-config/max-med-onstart-up-time",
+	nb_cli_enqueue_change(vty, "./med-config/max-med-onstart-up-time",
 			      NB_OP_MODIFY, argv[idx]->arg);
 
 	if (argv_find(argv, argc, "(0-4294967295)", &idx))
-		nb_cli_enqueue_change(
-			vty, "./global/med-config/max-med-onstart-up-value",
-			NB_OP_MODIFY, argv[idx]->arg);
+		nb_cli_enqueue_change(vty,
+				      "./med-config/max-med-onstart-up-value",
+				      NB_OP_MODIFY, argv[idx]->arg);
 	else
-		nb_cli_enqueue_change(
-			vty, "./global/med-config/max-med-onstart-up-value",
-			NB_OP_MODIFY, NULL);
+		nb_cli_enqueue_change(vty,
+				      "./med-config/max-med-onstart-up-value",
+				      NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1948,12 +1943,10 @@ DEFUN_YANG(no_bgp_maxmed_onstartup,
 	   "Time (seconds) period for max-med\n"
 	   "Max MED value to be used\n")
 {
-	nb_cli_enqueue_change(vty,
-			      "./global/med-config/max-med-onstart-up-time",
+	nb_cli_enqueue_change(vty, "./med-config/max-med-onstart-up-time",
 			      NB_OP_DESTROY, NULL);
 
-	nb_cli_enqueue_change(vty,
-			      "./global/med-config/max-med-onstart-up-value",
+	nb_cli_enqueue_change(vty, "./med-config/max-med-onstart-up-value",
 			      NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2190,12 +2183,12 @@ DEFPY_YANG(bgp_wpkt_quanta,
 	if (!no)
 		nb_cli_enqueue_change(
 			vty,
-			"./global/global-neighbor-config/packet-quanta-config/wpkt-quanta",
+			"./global-neighbor-config/packet-quanta-config/wpkt-quanta",
 			NB_OP_MODIFY, quanta_str);
 	else
 		nb_cli_enqueue_change(
 			vty,
-			"./global/global-neighbor-config/packet-quanta-config/wpkt-quanta",
+			"./global-neighbor-config/packet-quanta-config/wpkt-quanta",
 			NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2211,12 +2204,12 @@ DEFPY_YANG(bgp_rpkt_quanta,
 	if (!no)
 		nb_cli_enqueue_change(
 			vty,
-			"./global/global-neighbor-config/packet-quanta-config/rpkt-quanta",
+			"./global-neighbor-config/packet-quanta-config/rpkt-quanta",
 			NB_OP_MODIFY, quanta_str);
 	else
 		nb_cli_enqueue_change(
 			vty,
-			"./global/global-neighbor-config/packet-quanta-config/rpkt-quanta",
+			"./global-neighbor-config/packet-quanta-config/rpkt-quanta",
 			NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2244,9 +2237,8 @@ DEFUN_YANG(bgp_coalesce_time,
 	int idx = 0;
 
 	argv_find(argv, argc, "(0-4294967295)", &idx);
-	nb_cli_enqueue_change(
-		vty, "./global/global-update-group-config/coalesce-time",
-		NB_OP_MODIFY, argv[idx]->arg);
+	nb_cli_enqueue_change(vty, "./global-update-group-config/coalesce-time",
+			      NB_OP_MODIFY, argv[idx]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2258,9 +2250,8 @@ DEFUN_YANG(no_bgp_coalesce_time,
 	   "Subgroup coalesce timer\n"
 	   "Subgroup coalesce timer value (in ms)\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/global-update-group-config/coalesce-time",
-		NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./global-update-group-config/coalesce-time",
+			      NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2389,9 +2380,9 @@ DEFUN_YANG(bgp_timers,
 	int idx_number = 2;
 	int idx_number_2 = 3;
 
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive",
+	nb_cli_enqueue_change(vty, "./global-config-timers/keepalive",
 			      NB_OP_MODIFY, argv[idx_number]->arg);
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time",
+	nb_cli_enqueue_change(vty, "./global-config-timers/hold-time",
 			      NB_OP_MODIFY, argv[idx_number_2]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2406,9 +2397,9 @@ DEFUN_YANG(no_bgp_timers,
 	   "Keepalive interval\n"
 	   "Holdtime\n")
 {
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive",
+	nb_cli_enqueue_change(vty, "./global-config-timers/keepalive",
 			      NB_OP_DESTROY, NULL);
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time",
+	nb_cli_enqueue_change(vty, "./global-config-timers/hold-time",
 			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2437,7 +2428,7 @@ DEFUN_YANG(bgp_client_to_client_reflection,
 	   "Configure client to client route reflection\n"
 	   "reflection of routes allowed\n")
 {
-	nb_cli_enqueue_change(vty, "./global/route-reflector/no-client-reflect",
+	nb_cli_enqueue_change(vty, "./route-reflector/no-client-reflect",
 			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2451,7 +2442,7 @@ DEFUN_YANG(no_bgp_client_to_client_reflection,
 	   "Configure client to client route reflection\n"
 	   "reflection of routes allowed\n")
 {
-	nb_cli_enqueue_change(vty, "./global/route-reflector/no-client-reflect",
+	nb_cli_enqueue_change(vty, "./route-reflector/no-client-reflect",
 			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2503,9 +2494,9 @@ DEFUN_YANG(bgp_always_compare_med,
 	   "BGP specific commands\n"
 	   "Allow comparing MED from different neighbors\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/always-compare-med",
-		NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/always-compare-med",
+			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2517,9 +2508,9 @@ DEFUN_YANG(no_bgp_always_compare_med,
 	   "BGP specific commands\n"
 	   "Allow comparing MED from different neighbors\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/always-compare-med",
-		NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/always-compare-med",
+			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2561,8 +2552,8 @@ DEFUN_YANG(bgp_ebgp_requires_policy,
 	   "BGP specific commands\n"
 	   "Require in and out policy for eBGP peers (RFC8212)\n")
 {
-	nb_cli_enqueue_change(vty, "./global/ebgp-requires-policy",
-			      NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./ebgp-requires-policy", NB_OP_MODIFY,
+			      "true");
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2573,8 +2564,8 @@ DEFUN_YANG(no_bgp_ebgp_requires_policy,
 	   "BGP specific commands\n"
 	   "Require in and out policy for eBGP peers (RFC8212)\n")
 {
-	nb_cli_enqueue_change(vty, "./global/ebgp-requires-policy",
-			      NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty, "./ebgp-requires-policy", NB_OP_MODIFY,
+			      "false");
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2644,9 +2635,9 @@ DEFUN_YANG (bgp_deterministic_med,
        "BGP specific commands\n"
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/deterministic-med",
-		NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/deterministic-med",
+			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2658,9 +2649,9 @@ DEFUN_YANG (no_bgp_deterministic_med,
        "BGP specific commands\n"
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/deterministic-med",
-		NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/deterministic-med",
+			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3287,8 +3278,8 @@ DEFUN (bgp_graceful_shutdown,
 	if (vty->node == CONFIG_NODE)
 		return bgp_global_graceful_shutdown_config_vty(vty);
 
-	nb_cli_enqueue_change(vty, "./global/graceful-shutdown/enable",
-			      NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./graceful-shutdown/enable", NB_OP_MODIFY,
+			      "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3303,8 +3294,8 @@ DEFUN_YANG (no_bgp_graceful_shutdown,
 	if (vty->node == CONFIG_NODE)
 		return bgp_global_graceful_shutdown_deconfig_vty(vty);
 
-	nb_cli_enqueue_change(vty, "./global/graceful-shutdown/enable",
-			      NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty, "./graceful-shutdown/enable", NB_OP_MODIFY,
+			      "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3324,8 +3315,8 @@ DEFUN_YANG (bgp_fast_external_failover,
        BGP_STR
        "Immediately reset session if a link to a directly connected external peer goes down\n")
 {
-	nb_cli_enqueue_change(vty, "./global/fast-external-failover",
-			      NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty, "./fast-external-failover", NB_OP_MODIFY,
+			      "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3337,8 +3328,8 @@ DEFUN_YANG (no_bgp_fast_external_failover,
        BGP_STR
        "Immediately reset session if a link to a directly connected external peer goes down\n")
 {
-	nb_cli_enqueue_change(vty, "./global/fast-external-failover",
-			      NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./fast-external-failover", NB_OP_MODIFY,
+			      "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3360,8 +3351,7 @@ DEFUN_YANG(bgp_bestpath_compare_router_id,
 	   "Compare router-id for identical EBGP paths\n")
 {
 	nb_cli_enqueue_change(
-		vty,
-		"./global/route-selection-options/external-compare-router-id",
+		vty, "./route-selection-options/external-compare-router-id",
 		NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3376,8 +3366,7 @@ DEFUN_YANG(no_bgp_bestpath_compare_router_id,
 	   "Compare router-id for identical EBGP paths\n")
 {
 	nb_cli_enqueue_change(
-		vty,
-		"./global/route-selection-options/external-compare-router-id",
+		vty, "./route-selection-options/external-compare-router-id",
 		NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3392,9 +3381,9 @@ DEFUN_YANG(bgp_bestpath_aspath_ignore,
 	   "AS-path attribute\n"
 	   "Ignore as-path length in selecting a route\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/ignore-as-path-length",
-		NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/ignore-as-path-length",
+			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3408,9 +3397,9 @@ DEFUN_YANG(no_bgp_bestpath_aspath_ignore,
 	   "AS-path attribute\n"
 	   "Ignore as-path length in selecting a route\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/ignore-as-path-length",
-		NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/ignore-as-path-length",
+			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3424,8 +3413,7 @@ DEFUN_YANG (bgp_bestpath_aspath_confed,
        "AS-path attribute\n"
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
 {
-	nb_cli_enqueue_change(vty,
-			      "./global/route-selection-options/aspath-confed",
+	nb_cli_enqueue_change(vty, "./route-selection-options/aspath-confed",
 			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3440,8 +3428,7 @@ DEFUN_YANG (no_bgp_bestpath_aspath_confed,
        "AS-path attribute\n"
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
 {
-	nb_cli_enqueue_change(vty,
-			      "./global/route-selection-options/aspath-confed",
+	nb_cli_enqueue_change(vty, "./route-selection-options/aspath-confed",
 			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3460,18 +3447,16 @@ DEFUN_YANG (bgp_bestpath_aspath_multipath_relax,
 {
 	int idx = 0;
 
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/allow-multiple-as",
-		NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/allow-multiple-as",
+			      NB_OP_MODIFY, "true");
 	if (argv_find(argv, argc, "as-set", &idx))
 		nb_cli_enqueue_change(
-			vty,
-			"./global/route-selection-options/multi-path-as-set",
+			vty, "./route-selection-options/multi-path-as-set",
 			NB_OP_MODIFY, "true");
 	else
 		nb_cli_enqueue_change(
-			vty,
-			"./global/route-selection-options/multi-path-as-set",
+			vty, "./route-selection-options/multi-path-as-set",
 			NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3488,12 +3473,12 @@ DEFUN_YANG (no_bgp_bestpath_aspath_multipath_relax,
        "Generate an AS_SET\n"
        "Do not generate an AS_SET\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/allow-multiple-as",
-		NB_OP_MODIFY, "false");
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/multi-path-as-set",
-		NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/allow-multiple-as",
+			      NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/multi-path-as-set",
+			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3536,9 +3521,9 @@ DEFUN_YANG(bgp_log_neighbor_changes,
 	   "BGP specific commands\n"
 	   "Log neighbor up/down and reset reason\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/global-neighbor-config/log-neighbor-changes",
-		NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty,
+			      "./global-neighbor-config/log-neighbor-changes",
+			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3550,9 +3535,9 @@ DEFUN_YANG(no_bgp_log_neighbor_changes,
 	   "BGP specific commands\n"
 	   "Log neighbor up/down and reset reason\n")
 {
-	nb_cli_enqueue_change(
-		vty, "./global/global-neighbor-config/log-neighbor-changes",
-		NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty,
+			      "./global-neighbor-config/log-neighbor-changes",
+			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3577,17 +3562,16 @@ DEFUN_YANG (bgp_bestpath_med,
 	if (argv_find(argv, argc, "confed", &idx))
 		confed = true;
 
-	nb_cli_enqueue_change(vty,
-			      "./global/route-selection-options/confed-med",
+	nb_cli_enqueue_change(vty, "./route-selection-options/confed-med",
 			      NB_OP_MODIFY, confed ? "true" : "false");
 
 	idx = 0;
 	if (argv_find(argv, argc, "missing-as-worst", &idx))
 		worst_med = true;
 
-	nb_cli_enqueue_change(
-		vty, "./global/route-selection-options/missing-as-worst-med",
-		NB_OP_MODIFY, worst_med ? "true" : "false");
+	nb_cli_enqueue_change(vty,
+			      "./route-selection-options/missing-as-worst-med",
+			      NB_OP_MODIFY, worst_med ? "true" : "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3607,15 +3591,14 @@ DEFUN_YANG (no_bgp_bestpath_med,
 	int idx = 0;
 
 	if (argv_find(argv, argc, "confed", &idx))
-		nb_cli_enqueue_change(
-			vty, "./global/route-selection-options/confed-med",
-			NB_OP_MODIFY, "false");
+		nb_cli_enqueue_change(vty,
+				      "./route-selection-options/confed-med",
+				      NB_OP_MODIFY, "false");
 
 	idx = 0;
 	if (argv_find(argv, argc, "missing-as-worst", &idx))
 		nb_cli_enqueue_change(
-			vty,
-			"./global/route-selection-options/missing-as-worst-med",
+			vty, "./route-selection-options/missing-as-worst-med",
 			NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3750,8 +3733,7 @@ DEFUN_YANG (bgp_default_show_hostname,
        "Configure BGP defaults\n"
        "Show hostname in certain command outputs\n")
 {
-	nb_cli_enqueue_change(vty, "./global/show-hostname", NB_OP_MODIFY,
-			      "true");
+	nb_cli_enqueue_change(vty, "./show-hostname", NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3764,8 +3746,7 @@ DEFUN_YANG(no_bgp_default_show_hostname,
 	   "Configure BGP defaults\n"
 	   "Show hostname in certain command outputs\n")
 {
-	nb_cli_enqueue_change(vty, "./global/show-hostname", NB_OP_MODIFY,
-			      "false");
+	nb_cli_enqueue_change(vty, "./show-hostname", NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3785,8 +3766,8 @@ DEFUN (bgp_default_show_nexthop_hostname,
        "Configure BGP defaults\n"
        "Show hostname for nexthop in certain command outputs\n")
 {
-	nb_cli_enqueue_change(vty, "./global/show-nexthop-hostname",
-			      NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./show-nexthop-hostname", NB_OP_MODIFY,
+			      "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3799,8 +3780,8 @@ DEFUN (no_bgp_default_show_nexthop_hostname,
        "Configure BGP defaults\n"
        "Show hostname for nexthop in certain command outputs\n")
 {
-	nb_cli_enqueue_change(vty, "./global/show-nexthop-hostname",
-			      NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty, "./show-nexthop-hostname", NB_OP_MODIFY,
+			      "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3821,8 +3802,7 @@ DEFUN_YANG(bgp_network_import_check,
 	   "BGP network command\n"
 	   "Check BGP network route exists in IGP\n")
 {
-	nb_cli_enqueue_change(vty, "./global/import-check", NB_OP_MODIFY,
-			      "true");
+	nb_cli_enqueue_change(vty, "./import-check", NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3842,8 +3822,7 @@ DEFUN_YANG(no_bgp_network_import_check,
 	   "BGP network command\n"
 	   "Check BGP network route exists in IGP\n")
 {
-	nb_cli_enqueue_change(vty, "./global/import-check", NB_OP_MODIFY,
-			      "false");
+	nb_cli_enqueue_change(vty, "./import-check", NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3865,7 +3844,7 @@ DEFUN_YANG(bgp_default_local_preference,
 {
 	int idx_number = 3;
 
-	nb_cli_enqueue_change(vty, "./global/local-pref", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./local-pref", NB_OP_MODIFY,
 			      argv[idx_number]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3880,7 +3859,7 @@ DEFUN_YANG(no_bgp_default_local_preference,
 	   "local preference (higher=more preferred)\n"
 	   "Configure default local preference value\n")
 {
-	nb_cli_enqueue_change(vty, "./global/local-pref", NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./local-pref", NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3904,8 +3883,7 @@ DEFUN_YANG(bgp_default_subgroup_pkt_queue_max,
 	int idx_number = 3;
 
 	nb_cli_enqueue_change(
-		vty,
-		"./global/global-update-group-config/subgroup-pkt-queue-size",
+		vty, "./global-update-group-config/subgroup-pkt-queue-size",
 		NB_OP_MODIFY, argv[idx_number]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3921,8 +3899,7 @@ DEFUN_YANG(no_bgp_default_subgroup_pkt_queue_max,
 	   "Configure subgroup packet queue max\n")
 {
 	nb_cli_enqueue_change(
-		vty,
-		"./global/global-update-group-config/subgroup-pkt-queue-size",
+		vty, "./global-update-group-config/subgroup-pkt-queue-size",
 		NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3942,8 +3919,7 @@ DEFUN_YANG(bgp_rr_allow_outbound_policy,
 	   "Allow modifications made by out route-map\n"
 	   "on ibgp neighbors\n")
 {
-	nb_cli_enqueue_change(vty,
-			      "./global/route-reflector/allow-outbound-policy",
+	nb_cli_enqueue_change(vty, "./route-reflector/allow-outbound-policy",
 			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3957,8 +3933,7 @@ DEFUN_YANG(no_bgp_rr_allow_outbound_policy,
 	   "Allow modifications made by out route-map\n"
 	   "on ibgp neighbors\n")
 {
-	nb_cli_enqueue_change(vty,
-			      "./global/route-reflector/allow-outbound-policy",
+	nb_cli_enqueue_change(vty, "./route-reflector/allow-outbound-policy",
 			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -4003,7 +3978,7 @@ DEFUN_YANG(bgp_listen_limit,
 	int idx_number = 3;
 
 	nb_cli_enqueue_change(
-		vty, "./global/global-neighbor-config/dynamic-neighbors-limit",
+		vty, "./global-neighbor-config/dynamic-neighbors-limit",
 		NB_OP_MODIFY, argv[idx_number]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -4019,7 +3994,7 @@ DEFUN_YANG(no_bgp_listen_limit,
 	   "Configure Dynamic Neighbors listen limit value\n")
 {
 	nb_cli_enqueue_change(
-		vty, "./global/global-neighbor-config/dynamic-neighbors-limit",
+		vty, "./global-neighbor-config/dynamic-neighbors-limit",
 		NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -4208,8 +4183,7 @@ DEFUN_YANG(bgp_disable_connected_route_check,
 	   "BGP specific commands\n"
 	   "Disable checking if nexthop is connected on ebgp sessions\n")
 {
-	nb_cli_enqueue_change(vty,
-			      "./global/ebgp-multihop-connected-route-check",
+	nb_cli_enqueue_change(vty, "./ebgp-multihop-connected-route-check",
 			      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -4222,8 +4196,7 @@ DEFUN_YANG(no_bgp_disable_connected_route_check,
 	   "BGP specific commands\n"
 	   "Disable checking if nexthop is connected on ebgp sessions\n")
 {
-	nb_cli_enqueue_change(vty,
-			      "./global/ebgp-multihop-connected-route-check",
+	nb_cli_enqueue_change(vty, "./ebgp-multihop-connected-route-check",
 			      NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -4306,7 +4279,7 @@ DEFUN_YANG(bgp_default_shutdown,
 	   "Configure BGP defaults\n"
 	   "Apply administrative shutdown to newly configured peers\n")
 {
-	nb_cli_enqueue_change(vty, "./global/default-shutdown", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./default-shutdown", NB_OP_MODIFY,
 			      strmatch(argv[0]->text, "no") ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
