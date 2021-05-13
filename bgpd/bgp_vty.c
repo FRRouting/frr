@@ -8250,6 +8250,22 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
+ALIAS_HIDDEN(neighbor_route_map, neighbor_route_map_hidden_cmd,
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> route-map WORD <in|out>",
+	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Apply route map to neighbor\n"
+	     "Name of route map\n"
+	     "Apply map to incoming routes\n"
+	     "Apply map to outbound routes\n")
+
+ALIAS_HIDDEN(neighbor_route_map, no_neighbor_route_map_hidden_cmd,
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> route-map WORD <in|out>",
+	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Apply route map to neighbor\n"
+	     "Name of route map\n"
+	     "Apply map to incoming routes\n"
+	     "Apply map to outbound routes\n")
+
 /* Set unsuppress-map to the peer. */
 static int peer_unsuppress_map_set_vty(struct vty *vty, const char *ip_str,
 				       afi_t afi, safi_t safi,
@@ -19462,6 +19478,8 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_filter_list_cmd);
 
 	/* "neighbor route-map" commands. */
+	install_element(BGP_NODE, &neighbor_route_map_hidden_cmd);
+	install_element(BGP_NODE, &no_neighbor_route_map_hidden_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_IPV4M_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_IPV4L_NODE, &neighbor_route_map_cmd);
