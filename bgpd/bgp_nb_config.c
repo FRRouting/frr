@@ -3052,17 +3052,9 @@ int bgp_neighbors_neighbor_update_source_interface_modify(
 	struct bgp *bgp;
 	const char *peer_str, *source_str;
 	struct peer *peer;
-	struct prefix p;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-		if (str2prefix(source_str, &p)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid update-source, remove prefix length");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -5079,17 +5071,9 @@ int bgp_neighbors_unnumbered_neighbor_update_source_interface_modify(
 	struct bgp *bgp;
 	const char *peer_str, *source_str;
 	struct peer *peer;
-	struct prefix p;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-		if (str2prefix(source_str, &p)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid update-source, remove prefix length");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -6961,17 +6945,9 @@ int bgp_peer_groups_peer_group_update_source_interface_modify(
 	struct bgp *bgp;
 	const char *peer_str, *source_str;
 	struct peer *peer;
-	struct prefix p;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-		if (str2prefix(source_str, &p)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid update-source, remove prefix length");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
