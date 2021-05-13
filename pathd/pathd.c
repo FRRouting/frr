@@ -195,13 +195,15 @@ int srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 			       struct ipaddr *remote_ip, uint32_t remote_iface,
 			       uint8_t algo, uint8_t pref_len)
 {
+
 	int32_t status = 0;
 	struct prefix pre = {0};
-	segment->nai_type = type;
-	memcpy(&segment->nai_local_addr, local_ip, sizeof(struct ipaddr));
 
 	if (!segment || !local_ip || !remote_ip)
 		return 1;
+
+	segment->nai_type = type;
+	memcpy(&segment->nai_local_addr, local_ip, sizeof(struct ipaddr));
 
 	switch (type) {
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
