@@ -1318,6 +1318,9 @@ DEFUN_YANG_NOSH(router_bgp,
 			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+		/* unset the auto created flag as the user config is now present
+		 */
+		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 
 		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
 			 "frr-bgp:bgp", "bgp", VRF_DEFAULT_NAME);
@@ -1332,7 +1335,6 @@ DEFUN_YANG_NOSH(router_bgp,
 					      NB_OP_MODIFY, "true");
 		}
 
-		nb_cli_pending_commit_check(vty);
 		ret = nb_cli_apply_changes(vty, base_xpath);
 		if (ret == CMD_SUCCESS) {
 			VTY_PUSH_XPATH(BGP_NODE, base_xpath);
