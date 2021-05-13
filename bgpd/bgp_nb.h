@@ -3429,11 +3429,11 @@ void bgp_global_med_config_apply_finish(struct nb_cb_apply_finish_args *args);
 #define FRR_BGP_GLOBAL_XPATH                                                   \
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
-	"frr-bgp:bgp"
+	"frr-bgp:bgp/global"
 
 #define FRR_BGP_GLOBAL_AS_XPATH                                                \
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
-	"frr-bgp:bgp/local-as"
+	"frr-bgp:bgp/local-as["
 
 #endif
