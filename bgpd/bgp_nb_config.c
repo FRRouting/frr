@@ -71,7 +71,7 @@ int bgp_router_create(struct nb_cb_create_args *args)
 {
 	const struct lyd_node *vrf_dnode;
 	struct bgp *bgp;
-	const char *vrf_name;
+	struct vrf *vrf;
 	const char *name = NULL;
 	as_t as;
 	enum bgp_instance_type inst_type;
@@ -89,12 +89,12 @@ int bgp_router_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		vrf_dnode = yang_dnode_get_parent(args->dnode,
 						  "control-plane-protocol");
-		vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
+		vrf = nb_running_get_entry(vrf_dnode, NULL, true);
 
-		if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
+		if (strmatch(vrf->name, VRF_DEFAULT_NAME)) {
 			name = NULL;
 		} else {
-			name = vrf_name;
+			name = vrf->name;
 			inst_type = BGP_INSTANCE_TYPE_VRF;
 		}
 
