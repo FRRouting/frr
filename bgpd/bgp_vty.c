@@ -3974,12 +3974,12 @@ void cli_show_router_bgp_show_hostname(struct vty *vty, struct lyd_node *dnode,
 }
 
 /* Display hostname in certain command outputs */
-DEFUN_YANG(bgp_default_show_nexthop_hostname,
-	   bgp_default_show_nexthop_hostname_cmd,
-	   "bgp default show-nexthop-hostname",
-	   "BGP specific commands\n"
-	   "Configure BGP defaults\n"
-	   "Show hostname for nexthop in certain command outputs\n")
+DEFUN (bgp_default_show_nexthop_hostname,
+       bgp_default_show_nexthop_hostname_cmd,
+       "bgp default show-nexthop-hostname",
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "Show hostname for nexthop in certain command outputs\n")
 {
 	nb_cli_enqueue_change(vty, "./global/show-nexthop-hostname",
 			      NB_OP_MODIFY, "true");
@@ -4635,8 +4635,7 @@ int peer_conf_interface_create(struct bgp *bgp, const char *conf_if,
 	return bgp_nb_errmsg_return(errmsg, errmsg_len, ret);
 }
 
-DEFUN_YANG(neighbor_interface_config,
-	   neighbor_interface_config_cmd,
+DEFUN_YANG(neighbor_interface_config, neighbor_interface_config_cmd,
 	   "neighbor WORD interface [peer-group PGNAME]",
 	   NEIGHBOR_STR
 	   "Interface name or neighbor tag\n"
@@ -4777,14 +4776,16 @@ DEFUN_YANG(neighbor_peer_group, neighbor_peer_group_cmd,
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN_YANG(no_neighbor,
-	   no_neighbor_cmd,
-	   "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <(1-4294967295)|internal|external>]>",
-	   NO_STR NEIGHBOR_STR
-	   NEIGHBOR_ADDR_STR2
-	   "Specify a BGP neighbor\n" AS_STR
-	   "Internal BGP peer\n"
-	   "External BGP peer\n")
+DEFUN (no_neighbor,
+       no_neighbor_cmd,
+       "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <(1-4294967295)|internal|external>]>",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Specify a BGP neighbor\n"
+       AS_STR
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
 	int idx_peer = 2;
 	char base_xpath[XPATH_MAXLEN];
@@ -5372,7 +5373,7 @@ DEFUN_YANG(neighbor_shutdown_msg,
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-ALIAS_YANG(neighbor_shutdown_msg, neighbor_shutdown_cmd,
+ALIAS(neighbor_shutdown_msg, neighbor_shutdown_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
       NEIGHBOR_STR NEIGHBOR_ADDR_STR2
       "Administratively shut down this neighbor\n")
@@ -5400,7 +5401,7 @@ DEFUN_YANG(no_neighbor_shutdown_msg,
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-ALIAS_YANG(no_neighbor_shutdown_msg, no_neighbor_shutdown_cmd,
+ALIAS(no_neighbor_shutdown_msg, no_neighbor_shutdown_cmd,
       "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
       NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
       "Administratively shut down this neighbor\n")
@@ -7231,7 +7232,7 @@ DEFUN_YANG (no_neighbor_description,
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-ALIAS_YANG(no_neighbor_description, no_neighbor_description_comment_cmd,
+ALIAS(no_neighbor_description, no_neighbor_description_comment_cmd,
       "no neighbor <A.B.C.D|X:X::X:X|WORD> description LINE...",
       NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
       "Neighbor specific description\n"
@@ -8405,12 +8406,13 @@ ALIAS_HIDDEN(no_neighbor_unsuppress_map, no_neighbor_unsuppress_map_hidden_cmd,
 	     "Name of route map\n")
 
 /* Maximum number of prefix to be sent to the neighbor. */
-DEFUN_YANG(neighbor_maximum_prefix_out,
-	   neighbor_maximum_prefix_out_cmd,
-	   "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix-out (1-4294967295)",
-	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefixes to be sent to this peer\n"
-	   "Maximum no. of prefix limit\n")
+DEFUN(neighbor_maximum_prefix_out,
+      neighbor_maximum_prefix_out_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix-out (1-4294967295)",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Maximum number of prefixes to be sent to this peer\n"
+      "Maximum no. of prefix limit\n")
 {
 	char base_xpath[XPATH_MAXLEN];
 	char af_xpath[XPATH_MAXLEN];
@@ -8440,11 +8442,13 @@ DEFUN_YANG(neighbor_maximum_prefix_out,
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN_YANG(no_neighbor_maximum_prefix_out,
-	   no_neighbor_maximum_prefix_out_cmd,
-	   "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix-out",
-	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefixes to be sent to this peer\n")
+DEFUN(no_neighbor_maximum_prefix_out,
+      no_neighbor_maximum_prefix_out_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix-out",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Maximum number of prefixes to be sent to this peer\n")
 {
 	char base_xpath[XPATH_MAXLEN];
 	char af_xpath[XPATH_MAXLEN];
@@ -8473,13 +8477,14 @@ DEFUN_YANG(no_neighbor_maximum_prefix_out,
 /* Maximum number of prefix configuration. Prefix count is different
    for each peer configuration. So this configuration can be set for
    each peer configuration. */
-DEFUN_YANG(neighbor_maximum_prefix,
-	   neighbor_maximum_prefix_cmd,
-	   "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) [force]",
-	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefix accept from this peer\n"
-	   "maximum no. of prefix limit\n"
-	   "Force checking all received routes not only accepted\n")
+DEFUN (neighbor_maximum_prefix,
+       neighbor_maximum_prefix_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) [force]",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Force checking all received routes not only accepted\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -8520,14 +8525,15 @@ ALIAS_HIDDEN(neighbor_maximum_prefix, neighbor_maximum_prefix_hidden_cmd,
 	     "maximum no. of prefix limit\n"
 	     "Force checking all received routes not only accepted\n")
 
-DEFUN_YANG(neighbor_maximum_prefix_threshold,
-	   neighbor_maximum_prefix_threshold_cmd,
-	   "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) [force]",
-	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefix accept from this peer\n"
-	   "maximum no. of prefix limit\n"
-	   "Threshold value (%) at which to generate a warning msg\n"
-	   "Force checking all received routes not only accepted\n")
+DEFUN (neighbor_maximum_prefix_threshold,
+       neighbor_maximum_prefix_threshold_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) [force]",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Threshold value (%) at which to generate a warning msg\n"
+       "Force checking all received routes not only accepted\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -8576,14 +8582,15 @@ ALIAS_HIDDEN(
 	"Threshold value (%) at which to generate a warning msg\n"
 	"Force checking all received routes not only accepted\n")
 
-DEFUN_YANG(neighbor_maximum_prefix_warning,
-	   neighbor_maximum_prefix_warning_cmd,
-	   "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only [force]",
-	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefix accept from this peer\n"
-	   "maximum no. of prefix limit\n"
-	   "Only give warning message when limit is exceeded\n"
-	   "Force checking all received routes not only accepted\n")
+DEFUN (neighbor_maximum_prefix_warning,
+       neighbor_maximum_prefix_warning_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only [force]",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Only give warning message when limit is exceeded\n"
+       "Force checking all received routes not only accepted\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -8630,15 +8637,16 @@ ALIAS_HIDDEN(
 	"Only give warning message when limit is exceeded\n"
 	"Force checking all received routes not only accepted\n")
 
-DEFUN_YANG(neighbor_maximum_prefix_threshold_warning,
-	   neighbor_maximum_prefix_threshold_warning_cmd,
-	   "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) warning-only [force]",
-	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefix accept from this peer\n"
-	   "maximum no. of prefix limit\n"
-	   "Threshold value (%) at which to generate a warning msg\n"
-	   "Only give warning message when limit is exceeded\n"
-	   "Force checking all received routes not only accepted\n")
+DEFUN (neighbor_maximum_prefix_threshold_warning,
+       neighbor_maximum_prefix_threshold_warning_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) warning-only [force]",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Threshold value (%) at which to generate a warning msg\n"
+       "Only give warning message when limit is exceeded\n"
+       "Force checking all received routes not only accepted\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -8688,15 +8696,16 @@ ALIAS_HIDDEN(
 	"Only give warning message when limit is exceeded\n"
 	"Force checking all received routes not only accepted\n")
 
-DEFUN_YANG(neighbor_maximum_prefix_restart,
-	   neighbor_maximum_prefix_restart_cmd,
-	   "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535) [force]",
-	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefix accept from this peer\n"
-	   "maximum no. of prefix limit\n"
-	   "Restart bgp connection after limit is exceeded\n"
-	   "Restart interval in minutes\n"
-	   "Force checking all received routes not only accepted\n")
+DEFUN (neighbor_maximum_prefix_restart,
+       neighbor_maximum_prefix_restart_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535) [force]",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Restart bgp connection after limit is exceeded\n"
+       "Restart interval in minutes\n"
+       "Force checking all received routes not only accepted\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -8744,16 +8753,17 @@ ALIAS_HIDDEN(
 	"Restart interval in minutes\n"
 	"Force checking all received routes not only accepted\n")
 
-DEFUN_YANG(neighbor_maximum_prefix_threshold_restart,
-	   neighbor_maximum_prefix_threshold_restart_cmd,
-	   "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535) [force]",
-	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefixes to accept from this peer\n"
-	   "maximum no. of prefix limit\n"
-	   "Threshold value (%) at which to generate a warning msg\n"
-	   "Restart bgp connection after limit is exceeded\n"
-	   "Restart interval in minutes\n"
-	   "Force checking all received routes not only accepted\n")
+DEFUN (neighbor_maximum_prefix_threshold_restart,
+       neighbor_maximum_prefix_threshold_restart_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535) [force]",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefixes to accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Threshold value (%) at which to generate a warning msg\n"
+       "Restart bgp connection after limit is exceeded\n"
+       "Restart interval in minutes\n"
+       "Force checking all received routes not only accepted\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -8805,17 +8815,19 @@ ALIAS_HIDDEN(
 	"Restart interval in minutes\n"
 	"Force checking all received routes not only accepted\n")
 
-DEFUN_YANG(no_neighbor_maximum_prefix,
-	   no_neighbor_maximum_prefix_cmd,
-	   "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only] [force]]",
-	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "Maximum number of prefixes to accept from this peer\n"
-	   "maximum no. of prefix limit\n"
-	   "Threshold value (%) at which to generate a warning msg\n"
-	   "Restart bgp connection after limit is exceeded\n"
-	   "Restart interval in minutes\n"
-	   "Only give warning message when limit is exceeded\n"
-	   "Force checking all received routes not only accepted\n")
+DEFUN (no_neighbor_maximum_prefix,
+       no_neighbor_maximum_prefix_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only] [force]]",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefixes to accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Threshold value (%) at which to generate a warning msg\n"
+       "Restart bgp connection after limit is exceeded\n"
+       "Restart interval in minutes\n"
+       "Only give warning message when limit is exceeded\n"
+       "Force checking all received routes not only accepted\n")
 {
 	int idx_peer = 2;
 	char base_xpath[XPATH_MAXLEN];
@@ -8954,13 +8966,15 @@ DEFUN_YANG (neighbor_ttl_security,
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN_YANG(no_neighbor_ttl_security,
-	   no_neighbor_ttl_security_cmd,
-	   "no neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
-	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	   "BGP ttl-security parameters\n"
-	   "Specify the maximum number of hops to the BGP peer\n"
-	   "Number of hops to BGP peer\n")
+DEFUN (no_neighbor_ttl_security,
+       no_neighbor_ttl_security_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "BGP ttl-security parameters\n"
+       "Specify the maximum number of hops to the BGP peer\n"
+       "Number of hops to BGP peer\n")
 {
 	int idx_peer = 2;
 	char base_xpath[XPATH_MAXLEN];
