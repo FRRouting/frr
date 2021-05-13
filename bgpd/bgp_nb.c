@@ -635,9 +635,9 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/no-replace-as",
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/replace-as",
 			.cbs = {
-				.modify = bgp_neighbors_neighbor_local_as_no_replace_as_modify,
+				.modify = bgp_neighbors_neighbor_local_as_replace_as_modify,
 			}
 		},
 		{
@@ -925,9 +925,9 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/no-replace-as",
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/replace-as",
 			.cbs = {
-				.modify = bgp_neighbors_unnumbered_neighbor_local_as_no_replace_as_modify,
+				.modify = bgp_neighbors_unnumbered_neighbor_local_as_replace_as_modify,
 			}
 		},
 		{
@@ -1216,9 +1216,9 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/no-replace-as",
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/replace-as",
 			.cbs = {
-				.modify = bgp_peer_groups_peer_group_local_as_no_replace_as_modify,
+				.modify = bgp_peer_groups_peer_group_local_as_replace_as_modify,
 			}
 		},
 		{

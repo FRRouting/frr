@@ -3472,9 +3472,8 @@ void bgp_neighbors_neighbor_local_as_apply_finish(
 		as = yang_dnode_get_uint32(args->dnode, "./local-as");
 	if (yang_dnode_exists(args->dnode, "./no-prepend"))
 		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+	if (yang_dnode_exists(args->dnode, "./replace-as"))
+		replace_as = yang_dnode_get_bool(args->dnode, "./replace-as");
 
 	if (!as && !no_prepend && !replace_as)
 		ret = peer_local_as_unset(peer);
@@ -3557,9 +3556,9 @@ int bgp_neighbors_neighbor_local_as_no_prepend_modify(
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/no-replace-as
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/replace-as
  */
-int bgp_neighbors_neighbor_local_as_no_replace_as_modify(
+int bgp_neighbors_neighbor_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5491,9 +5490,8 @@ void bgp_neighbors_unnumbered_neighbor_local_as_apply_finish(
 		as = yang_dnode_get_uint32(args->dnode, "./local-as");
 	if (yang_dnode_exists(args->dnode, "./no-prepend"))
 		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+	if (yang_dnode_exists(args->dnode, "./replace-as"))
+		replace_as = yang_dnode_get_bool(args->dnode, "./replace-as");
 
 	if (!as && !no_prepend && !replace_as)
 		ret = peer_local_as_unset(peer);
@@ -5558,9 +5556,9 @@ int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_modify(
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/no-replace-as
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/replace-as
  */
-int bgp_neighbors_unnumbered_neighbor_local_as_no_replace_as_modify(
+int bgp_neighbors_unnumbered_neighbor_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7378,9 +7376,8 @@ void bgp_peer_groups_peer_group_local_as_apply_finish(
 		as = yang_dnode_get_uint32(args->dnode, "./local-as");
 	if (yang_dnode_exists(args->dnode, "./no-prepend"))
 		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+	if (yang_dnode_exists(args->dnode, "./replace-as"))
+		replace_as = yang_dnode_get_bool(args->dnode, "./replace-as");
 
 	if (!as && !no_prepend && !replace_as)
 		ret = peer_local_as_unset(peer);
@@ -7460,9 +7457,9 @@ int bgp_peer_groups_peer_group_local_as_no_prepend_modify(
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/no-replace-as
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/replace-as
  */
-int bgp_peer_groups_peer_group_local_as_no_replace_as_modify(
+int bgp_peer_groups_peer_group_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
