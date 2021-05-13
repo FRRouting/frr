@@ -893,9 +893,6 @@ int bgp_global_route_selection_options_allow_multiple_as_modify(
 						"../multi-path-as-set")) {
 				SET_FLAG(bgp->flags,
 					 BGP_FLAG_MULTIPATH_RELAX_AS_SET);
-			} else {
-				UNSET_FLAG(bgp->flags,
-					   BGP_FLAG_MULTIPATH_RELAX_AS_SET);
 			}
 		} else {
 			UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
@@ -925,10 +922,15 @@ int bgp_global_route_selection_options_multi_path_as_set_modify(
 		return NB_OK;
 	case NB_EV_APPLY:
 		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (yang_dnode_get_bool(args->dnode, NULL))
+
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {
 			SET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
-		else
-			UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+
+		} else
+			zlog_debug(
+				"%s multi-path-as-set as part of allow-multiple-as modify cb.",
+				__func__);
+
 		break;
 	}
 
