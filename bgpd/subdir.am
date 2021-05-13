@@ -103,8 +103,6 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_vty.c \
 	bgpd/bgp_zebra.c \
 	bgpd/bgpd.c \
-	bgpd/bgp_nb.c \
-	bgpd/bgp_nb_config.c \
 	bgpd/bgp_trace.c \
 	# end
 
@@ -185,7 +183,6 @@ noinst_HEADERS += \
 	bgpd/bgp_vty.h \
 	bgpd/bgp_zebra.h \
 	bgpd/bgpd.h \
-	bgpd/bgp_nb.h \
 	bgpd/bgp_trace.h \
 	\
 	bgpd/rfapi/bgp_rfapi_cfg.h \
