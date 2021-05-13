@@ -1336,12 +1336,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/origin",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_origin_modify,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route",
 			.cbs = {
 				.create = bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_create,
@@ -1439,18 +1433,21 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/external",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/internal",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/local",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_destroy,
 			}
 		},
 		{
@@ -1603,12 +1600,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/origin",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_origin_modify,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route",
 			.cbs = {
 				.create = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_create,
@@ -1626,40 +1617,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_modify,
 				.destroy = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/enable",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_enable_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/reach-decay",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reach_decay_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reach_decay_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/reuse-above",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reuse_above_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reuse_above_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/suppress-above",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_suppress_above_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_suppress_above_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/unreach-decay",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_unreach_decay_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_unreach_decay_destroy,
 			}
 		},
 		{
@@ -1706,18 +1663,21 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/external",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/internal",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/local",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_destroy,
 			}
 		},
 		{
@@ -1836,40 +1796,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/enable",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_enable_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/reach-decay",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reach_decay_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reach_decay_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/reuse-above",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reuse_above_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reuse_above_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/suppress-above",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_suppress_above_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_suppress_above_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/unreach-decay",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_unreach_decay_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_unreach_decay_destroy,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/use-multiple-paths/ebgp/maximum-paths",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify,
@@ -1886,40 +1812,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_modify,
 				.destroy = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/enable",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_enable_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/reach-decay",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reach_decay_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reach_decay_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/reuse-above",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reuse_above_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reuse_above_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/suppress-above",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_suppress_above_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_suppress_above_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/unreach-decay",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_unreach_decay_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_unreach_decay_destroy,
 			}
 		},
 		{
@@ -1976,12 +1868,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/origin",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_origin_modify,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route",
 			.cbs = {
 				.create = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_create,
@@ -1989,34 +1875,24 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route/distance",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_distance_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route/access-list-policy-export",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_access_list_policy_export_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_access_list_policy_export_destroy,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/external",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/internal",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/local",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_destroy,
 			}
 		},
 		{
@@ -2114,12 +1990,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/origin",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_origin_modify,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance-route",
 			.cbs = {
 				.create = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_create,
@@ -2127,68 +1997,24 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance-route/distance",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_distance_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance-route/access-list-policy-export",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_access_list_policy_export_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_access_list_policy_export_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/enable",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_enable_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/reach-decay",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reach_decay_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reach_decay_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/reuse-above",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reuse_above_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reuse_above_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/suppress-above",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_suppress_above_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_suppress_above_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/unreach-decay",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_unreach_decay_modify,
-				.destroy = bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_unreach_decay_destroy,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance/external",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance/internal",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance/local",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_modify,
+				.destroy = bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_destroy,
 			}
 		},
 		{
