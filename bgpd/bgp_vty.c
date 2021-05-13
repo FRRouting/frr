@@ -815,6 +815,9 @@ int bgp_nb_errmsg_return(char *errmsg, size_t errmsg_len, int ret)
 	case BGP_ERR_GR_OPERATION_FAILED:
 		str = "The Graceful Restart Operation failed due to an err.";
 		break;
+	case BGP_GR_NO_OPERATION:
+		str = GR_NO_OPER;
+		break;
 	case BGP_ERR_PEER_GROUP_MEMBER:
 		str = "Peer-group member cannot override remote-as of peer-group";
 		break;
