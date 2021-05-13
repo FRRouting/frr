@@ -2856,29 +2856,12 @@ int bgp_neighbors_neighbor_capability_options_dynamic_capability_modify(
 int bgp_neighbors_neighbor_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_STRICT_CAP_MATCH, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2947,29 +2930,12 @@ int bgp_neighbors_neighbor_capability_options_capability_negotiate_modify(
 int bgp_neighbors_neighbor_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_OVERRIDE_CAPABILITY, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4871,31 +4837,12 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_dynamic_capability_modi
 int bgp_neighbors_unnumbered_neighbor_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_STRICT_CAP_MATCH, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4966,29 +4913,12 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_capability_negotiate_mo
 int bgp_neighbors_unnumbered_neighbor_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_OVERRIDE_CAPABILITY, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6748,30 +6678,12 @@ int bgp_peer_groups_peer_group_capability_options_dynamic_capability_modify(
 int bgp_peer_groups_peer_group_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_STRICT_CAP_MATCH, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6841,30 +6753,12 @@ int bgp_peer_groups_peer_group_capability_options_capability_negotiate_modify(
 int bgp_peer_groups_peer_group_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_OVERRIDE_CAPABILITY, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
