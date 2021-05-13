@@ -5686,25 +5686,6 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_expor
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/origin
- */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_origin_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route
  */
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_create(
@@ -6138,6 +6119,21 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_modify(
 	return NB_OK;
 }
 
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/internal
@@ -6157,12 +6153,42 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_modify(
 	return NB_OK;
 }
 
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/local
  */
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -6852,25 +6878,6 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_expor
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/origin
- */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_origin_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route
  */
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_create(
@@ -6942,161 +6949,6 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_
 }
 
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/enable
- */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_enable_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/reach-decay
- */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reach_decay_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reach_decay_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/reuse-above
- */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reuse_above_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reuse_above_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/suppress-above
- */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_suppress_above_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_suppress_above_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/unreach-decay
- */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_unreach_decay_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_unreach_decay_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7304,6 +7156,21 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_modify(
 	return NB_OK;
 }
 
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/internal
@@ -7323,12 +7190,42 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_modify(
 	return NB_OK;
 }
 
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/local
  */
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -7903,161 +7800,6 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_c
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/enable
- */
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_enable_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/reach-decay
- */
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reach_decay_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reach_decay_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/reuse-above
- */
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reuse_above_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reuse_above_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/suppress-above
- */
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_suppress_above_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_suppress_above_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/unreach-decay
- */
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_unreach_decay_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_unreach_decay_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/use-multiple-paths/ebgp/maximum-paths
  */
 int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
@@ -8114,161 +7856,6 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_c
 }
 
 int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/enable
- */
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_enable_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/reach-decay
- */
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reach_decay_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reach_decay_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/reuse-above
- */
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reuse_above_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reuse_above_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/suppress-above
- */
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_suppress_above_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_suppress_above_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/unreach-decay
- */
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_unreach_decay_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_unreach_decay_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8512,25 +8099,6 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_exp
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/origin
- */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_origin_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route
  */
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_create(
@@ -8565,271 +8133,25 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_destroy(
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route/distance
- */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_distance_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route/access-list-policy-export
- */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_access_list_policy_export_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_access_list_policy_export_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance-route/distance
- */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_distance_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance-route/access-list-policy-export
- */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_access_list_policy_export_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_access_list_policy_export_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/enable
- */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_enable_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/reach-decay
- */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reach_decay_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reach_decay_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/reuse-above
- */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reuse_above_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reuse_above_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/suppress-above
- */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_suppress_above_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_suppress_above_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/unreach-decay
- */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_unreach_decay_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_unreach_decay_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/external
  */
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -8862,12 +8184,42 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_modify(
 	return NB_OK;
 }
 
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/local
  */
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -9299,25 +8651,6 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_exp
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/origin
- */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_origin_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance-route
  */
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_create(
@@ -9369,6 +8702,21 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_modify(
 	return NB_OK;
 }
 
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance/internal
@@ -9388,12 +8736,42 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_modify(
 	return NB_OK;
 }
 
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance/local
  */
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
