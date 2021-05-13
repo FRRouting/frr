@@ -211,8 +211,6 @@ int bgp_neighbors_neighbor_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_destroy(
@@ -229,8 +227,6 @@ int bgp_neighbors_neighbor_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_neighbor_local_as_local_as_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_neighbor_local_as_local_as_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_neighbor_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_neighbor_local_as_replace_as_modify(
@@ -259,8 +255,6 @@ int bgp_neighbors_neighbor_bfd_options_check_cp_failure_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_neighbors_neighbor_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_neighbor_admin_shutdown_enable_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_neighbor_admin_shutdown_message_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_neighbor_admin_shutdown_message_destroy(
@@ -295,8 +289,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_create(struct nb_cb_create_args *args);
 int bgp_neighbors_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_v6only_modify(
@@ -343,8 +335,6 @@ int bgp_neighbors_unnumbered_neighbor_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_destroy(
@@ -361,8 +351,6 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_disable_connected_check_modi
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_unnumbered_neighbor_local_as_local_as_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_unnumbered_neighbor_local_as_replace_as_modify(
@@ -391,8 +379,6 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_admin_shutdown_message_modify(
 	struct nb_cb_modify_args *args);
 int bgp_neighbors_unnumbered_neighbor_admin_shutdown_message_destroy(
@@ -427,8 +413,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args);
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_create(struct nb_cb_create_args *args);
 int bgp_peer_groups_peer_group_destroy(struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_ipv4_listen_range_create(
@@ -475,8 +459,6 @@ int bgp_peer_groups_peer_group_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_modify(
 	struct nb_cb_modify_args *args);
-int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_modify(
 	struct nb_cb_modify_args *args);
 int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_destroy(
@@ -493,8 +475,6 @@ int bgp_peer_groups_peer_group_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args);
 int bgp_peer_groups_peer_group_local_as_local_as_modify(
 	struct nb_cb_modify_args *args);
-int bgp_peer_groups_peer_group_local_as_local_as_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args);
 int bgp_peer_groups_peer_group_local_as_replace_as_modify(
@@ -523,8 +503,6 @@ int bgp_peer_groups_peer_group_bfd_options_check_cp_failure_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args);
-int bgp_peer_groups_peer_group_admin_shutdown_enable_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_admin_shutdown_message_modify(
 	struct nb_cb_modify_args *args);
 int bgp_peer_groups_peer_group_admin_shutdown_message_destroy(
@@ -559,8 +537,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args);
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_destroy(
@@ -3599,22 +3575,6 @@ void bgp_global_afi_safi_ip_unicast_redistribution_list_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 void bgp_global_afi_safis_afi_safi_route_flap_dampening_apply_finish(
 	struct nb_cb_apply_finish_args *args);
-void bgp_neighbors_neighbor_local_as_apply_finish(
-	struct nb_cb_apply_finish_args *args);
-void bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_apply_finish(
-	struct nb_cb_apply_finish_args *args);
-void bgp_neighbors_unnumbered_neighbor_local_as_apply_finish(
-	struct nb_cb_apply_finish_args *args);
-void bgp_peer_group_neighbor_remote_as_apply_finish(
-	struct nb_cb_apply_finish_args *args);
-void bgp_neighbors_neighbor_admin_shutdown_apply_finish(
-	struct nb_cb_apply_finish_args *args);
-void bgp_neighbors_unnumbered_neighbor_admin_shutdown_apply_finish(
-	struct nb_cb_apply_finish_args *args);
-void bgp_peer_groups_peer_group_admin_shutdown_apply_finish(
-	struct nb_cb_apply_finish_args *args);
-void bgp_peer_groups_peer_group_local_as_apply_finish(
-	struct nb_cb_apply_finish_args *args);
 
 /* xpath macros */
 /* route-list */
@@ -3630,17 +3590,5 @@ void bgp_peer_groups_peer_group_local_as_apply_finish(
 #define FRR_BGP_AFI_SAFI_REDIST_XPATH                                          \
 	"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/"                  \
 	"redistribution-list[route-type='%s'][route-instance='%s']"
-#define FRR_BGP_NEIGHBOR_NUM_XPATH "./neighbors/neighbor[remote-address='%s']%s"
-#define FRR_BGP_NEIGHBOR_UNNUM_XPATH                                           \
-	"./neighbors/unnumbered-neighbor[interface='%s']%s"
-#define FRR_BGP_PEER_GROUP_XPATH                                               \
-	"./peer-groups/peer-group[peer-group-name='%s']%s"
-#define FRR_BGP_NEIGHBOR_NUM_AFI_SAFI_XPATH                                    \
-	"./neighbors/neighbor[remote-address='%s']/afi-safis/afi-safi[afi-safi-name='%s']"
-#define FRR_BGP_NEIGHBOR_UNNUM_AFI_SAFI_XPATH                                  \
-	"./neighbors/neighbor[interface='%s']/afi-safis/afi-safi[afi-safi-name='%s']"
-#define FRR_BGP_PEER_GROUP_AFI_SAFI_XPATH                                      \
-	"./peer-groups/peer-group[peer-group-name='%s']/afi-safis/afi-safi[afi-safi-name='%s']"
-#define FRR_BGP_AF_XPATH "/afi-safis/afi-safi[afi-safi-name='%s']"
 
 #endif
