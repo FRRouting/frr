@@ -1348,12 +1348,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/match-med",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_match_med_modify,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route",
 			.cbs = {
 				.apply_finish = bgp_global_afi_safi_admin_distance_route_apply_finish,
@@ -1655,12 +1649,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/origin",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_origin_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/match-med",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_match_med_modify,
 			}
 		},
 		{
@@ -2097,12 +2085,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/match-med",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_match_med_modify,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route",
 			.cbs = {
 				.apply_finish = bgp_global_afi_safi_admin_distance_route_apply_finish,
@@ -2255,12 +2237,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/origin",
 			.cbs = {
 				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_origin_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/match-med",
-			.cbs = {
-				.modify = bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_match_med_modify,
 			}
 		},
 		{
