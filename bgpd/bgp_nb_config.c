@@ -125,12 +125,7 @@ int bgp_router_create(struct nb_cb_create_args *args)
 		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			vpn_leak_postchange_all();
 
-		/*
-		 * Check if we need to export to other VRF(s).
-		 * Leak the routes to importing bgp vrf instances,
-		 * only when new bgp vrf instance is configured.
-		 */
-		if (ret != BGP_INSTANCE_EXISTS)
+		if (inst_type == BGP_INSTANCE_TYPE_VRF)
 			bgp_vpn_leak_export(bgp);
 
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
