@@ -2594,7 +2594,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -2922,7 +2921,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -3135,7 +3133,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -3348,7 +3345,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -3561,7 +3557,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -3774,7 +3769,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -3966,7 +3960,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -4158,7 +4151,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_neighbors_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -4449,7 +4441,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -4777,7 +4768,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -5414,7 +5404,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -5627,7 +5616,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -5819,7 +5807,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -6011,7 +5998,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -6302,7 +6288,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_peer_group_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -6630,7 +6615,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_peer_group_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -6843,7 +6827,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_create,
 				.destroy = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_peer_group_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -7062,7 +7045,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_create,
 				.destroy = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_peer_group_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -7281,7 +7263,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_peer_group_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -7494,7 +7475,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_peer_group_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -7686,7 +7666,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_peer_group_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
@@ -7878,7 +7857,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create,
 				.destroy = bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy,
-				.apply_finish = bgp_peer_group_afi_safi_prefix_limit_apply_finish,
 			}
 		},
 		{
