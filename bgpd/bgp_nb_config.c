@@ -291,6 +291,9 @@ int bgp_global_confederation_identifier_modify(struct nb_cb_modify_args *args)
 		break;
 	}
 
+	as = yang_dnode_get_uint32(args->dnode, NULL);
+
+
 	return NB_OK;
 }
 
@@ -1376,6 +1379,7 @@ int bgp_global_global_config_timers_hold_time_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
 		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
 		/* Holdtime value check. */
 		if (holdtime < 3 && holdtime != 0) {
@@ -1417,6 +1421,7 @@ int bgp_global_global_config_timers_keepalive_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
 		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
 		/* Holdtime value check. */
 		if (holdtime < 3 && holdtime != 0) {
