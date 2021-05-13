@@ -22962,9 +22962,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_config_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp_neighbor_afi_safi_plist_modify(args, FILTER_IN);
+		/* TODO: implement me. */
 		break;
 	}
 
