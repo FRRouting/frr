@@ -9500,7 +9500,7 @@ static int bgp_global_afi_safi_ip_unicast_vpn_config_rd_destroy(
 	bgp = nb_running_get_entry(af_dnode, NULL, true);
 
 	rd_str = yang_dnode_get_string(args->dnode, NULL);
-	if (!str2prefix_rd(rd_str, &prd)) {
+	if (str2prefix_rd(rd_str, &prd)) {
 		snprintf(args->errmsg, args->errmsg_len, "Malformed rd %s \n",
 			 rd_str);
 		return NB_ERR_INCONSISTENCY;
