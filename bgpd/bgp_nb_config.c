@@ -66,7 +66,8 @@ int routing_control_plane_protocols_name_validate(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global
  */
-int bgp_global_create(struct nb_cb_create_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_create(
+	struct nb_cb_create_args *args)
 {
 
 	const struct lyd_node *vrf_dnode;
@@ -138,7 +139,8 @@ int bgp_global_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int bgp_global_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
 
@@ -187,7 +189,8 @@ int bgp_global_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/local-as
  */
-int bgp_global_local_as_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_local_as_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
 	as_t as;
@@ -231,7 +234,8 @@ int bgp_global_local_as_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/router-id
  */
-int bgp_global_router_id_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_router_id_modify(
+	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -246,7 +250,8 @@ int bgp_global_router_id_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_global_router_id_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_router_id_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -266,7 +271,8 @@ int bgp_global_router_id_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier
  */
-int bgp_global_confederation_identifier_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_identifier_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
 	as_t as;
@@ -299,7 +305,8 @@ int bgp_global_confederation_identifier_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_global_confederation_identifier_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_identifier_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -317,7 +324,8 @@ int bgp_global_confederation_identifier_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/member-as
  */
-int bgp_global_confederation_member_as_create(struct nb_cb_create_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_member_as_create(
+	struct nb_cb_create_args *args)
 {
 	as_t my_as, as;
 	struct bgp *bgp;
@@ -358,7 +366,8 @@ int bgp_global_confederation_member_as_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int bgp_global_confederation_member_as_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_member_as_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -378,7 +387,8 @@ int bgp_global_confederation_member_as_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config
  */
-void bgp_global_med_config_apply_finish(struct nb_cb_apply_finish_args *args)
+void routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_apply_finish(
+	struct nb_cb_apply_finish_args *args)
 {
 	struct bgp *bgp;
 
@@ -391,7 +401,7 @@ void bgp_global_med_config_apply_finish(struct nb_cb_apply_finish_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config/enable-med-admin
  */
-int bgp_global_med_config_enable_med_admin_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_enable_med_admin_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -410,7 +420,8 @@ int bgp_global_med_config_enable_med_admin_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config/max-med-admin
  */
-int bgp_global_med_config_max_med_admin_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_max_med_admin_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
 	uint32_t med_admin_val;
@@ -451,7 +462,7 @@ int bgp_global_med_config_max_med_admin_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config/max-med-onstart-up-time
  */
-int bgp_global_med_config_max_med_onstart_up_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_max_med_onstart_up_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -473,7 +484,7 @@ int bgp_global_med_config_max_med_onstart_up_time_modify(
 	return NB_OK;
 }
 
-int bgp_global_med_config_max_med_onstart_up_time_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_max_med_onstart_up_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
@@ -508,7 +519,7 @@ int bgp_global_med_config_max_med_onstart_up_time_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config/max-med-onstart-up-value
  */
-int bgp_global_med_config_max_med_onstart_up_value_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_max_med_onstart_up_value_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -546,7 +557,7 @@ int bgp_global_med_config_max_med_onstart_up_value_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-reflector/route-reflector-cluster-id
  */
-int bgp_global_route_reflector_route_reflector_cluster_id_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_route_reflector_cluster_id_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -567,7 +578,7 @@ int bgp_global_route_reflector_route_reflector_cluster_id_modify(
 	return NB_OK;
 }
 
-int bgp_global_route_reflector_route_reflector_cluster_id_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_route_reflector_cluster_id_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -589,7 +600,7 @@ int bgp_global_route_reflector_route_reflector_cluster_id_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-reflector/no-client-reflect
  */
-int bgp_global_route_reflector_no_client_reflect_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_no_client_reflect_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -614,7 +625,7 @@ int bgp_global_route_reflector_no_client_reflect_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-reflector/allow-outbound-policy
  */
-int bgp_global_route_reflector_allow_outbound_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_allow_outbound_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -641,7 +652,7 @@ int bgp_global_route_reflector_allow_outbound_policy_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options
  */
-void bgp_global_route_selection_options_apply_finish(
+void routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
 	struct bgp *bgp;
@@ -655,7 +666,7 @@ void bgp_global_route_selection_options_apply_finish(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/always-compare-med
  */
-int bgp_global_route_selection_options_always_compare_med_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_always_compare_med_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -678,7 +689,7 @@ int bgp_global_route_selection_options_always_compare_med_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/deterministic-med
  */
-int bgp_global_route_selection_options_deterministic_med_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_deterministic_med_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -743,7 +754,7 @@ int bgp_global_route_selection_options_deterministic_med_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/confed-med
  */
-int bgp_global_route_selection_options_confed_med_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_confed_med_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -765,7 +776,7 @@ int bgp_global_route_selection_options_confed_med_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/missing-as-worst-med
  */
-int bgp_global_route_selection_options_missing_as_worst_med_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_missing_as_worst_med_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -787,7 +798,7 @@ int bgp_global_route_selection_options_missing_as_worst_med_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/aspath-confed
  */
-int bgp_global_route_selection_options_aspath_confed_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_aspath_confed_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -806,7 +817,7 @@ int bgp_global_route_selection_options_aspath_confed_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/ignore-as-path-length
  */
-int bgp_global_route_selection_options_ignore_as_path_length_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_ignore_as_path_length_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -828,7 +839,7 @@ int bgp_global_route_selection_options_ignore_as_path_length_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/external-compare-router-id
  */
-int bgp_global_route_selection_options_external_compare_router_id_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_external_compare_router_id_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -850,7 +861,7 @@ int bgp_global_route_selection_options_external_compare_router_id_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/allow-multiple-as
  */
-int bgp_global_route_selection_options_allow_multiple_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_allow_multiple_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -886,7 +897,7 @@ int bgp_global_route_selection_options_allow_multiple_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/multi-path-as-set
  */
-int bgp_global_route_selection_options_multi_path_as_set_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_multi_path_as_set_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -913,7 +924,7 @@ int bgp_global_route_selection_options_multi_path_as_set_modify(
 	return NB_OK;
 }
 
-int bgp_global_route_selection_options_multi_path_as_set_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_multi_path_as_set_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
@@ -944,7 +955,7 @@ int bgp_global_route_selection_options_multi_path_as_set_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config/dynamic-neighbors-limit
  */
-int bgp_global_global_neighbor_config_dynamic_neighbors_limit_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_dynamic_neighbors_limit_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -962,7 +973,7 @@ int bgp_global_global_neighbor_config_dynamic_neighbors_limit_modify(
 	return NB_OK;
 }
 
-int bgp_global_global_neighbor_config_dynamic_neighbors_limit_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_dynamic_neighbors_limit_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -981,7 +992,7 @@ int bgp_global_global_neighbor_config_dynamic_neighbors_limit_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config/log-neighbor-changes
  */
-int bgp_global_global_neighbor_config_log_neighbor_changes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_log_neighbor_changes_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -1003,7 +1014,7 @@ int bgp_global_global_neighbor_config_log_neighbor_changes_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config/packet-quanta-config/wpkt-quanta
  */
-int bgp_global_global_neighbor_config_packet_quanta_config_wpkt_quanta_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_packet_quanta_config_wpkt_quanta_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -1029,7 +1040,7 @@ int bgp_global_global_neighbor_config_packet_quanta_config_wpkt_quanta_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config/packet-quanta-config/rpkt-quanta
  */
-int bgp_global_global_neighbor_config_packet_quanta_config_rpkt_quanta_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_packet_quanta_config_rpkt_quanta_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -1055,7 +1066,8 @@ int bgp_global_global_neighbor_config_packet_quanta_config_rpkt_quanta_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/enabled
  */
-int bgp_global_graceful_restart_enabled_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_enabled_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1069,7 +1081,8 @@ int bgp_global_graceful_restart_enabled_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_global_graceful_restart_enabled_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_enabled_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1087,7 +1100,7 @@ int bgp_global_graceful_restart_enabled_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/graceful-restart-disable
  */
-int bgp_global_graceful_restart_graceful_restart_disable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_graceful_restart_disable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1102,7 +1115,7 @@ int bgp_global_graceful_restart_graceful_restart_disable_modify(
 	return NB_OK;
 }
 
-int bgp_global_graceful_restart_graceful_restart_disable_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_graceful_restart_disable_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -1121,7 +1134,7 @@ int bgp_global_graceful_restart_graceful_restart_disable_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/preserve-fw-entry
  */
-int bgp_global_graceful_restart_preserve_fw_entry_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_preserve_fw_entry_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1140,7 +1153,7 @@ int bgp_global_graceful_restart_preserve_fw_entry_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/restart-time
  */
-int bgp_global_graceful_restart_restart_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_restart_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1159,7 +1172,7 @@ int bgp_global_graceful_restart_restart_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/stale-routes-time
  */
-int bgp_global_graceful_restart_stale_routes_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_stale_routes_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1178,7 +1191,7 @@ int bgp_global_graceful_restart_stale_routes_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/selection-deferral-time
  */
-int bgp_global_graceful_restart_selection_deferral_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_selection_deferral_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1197,7 +1210,7 @@ int bgp_global_graceful_restart_selection_deferral_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/rib-stale-time
  */
-int bgp_global_graceful_restart_rib_stale_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_restart_rib_stale_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1216,7 +1229,7 @@ int bgp_global_graceful_restart_rib_stale_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-update-group-config/subgroup-pkt-queue-size
  */
-int bgp_global_global_update_group_config_subgroup_pkt_queue_size_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_update_group_config_subgroup_pkt_queue_size_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -1238,7 +1251,7 @@ int bgp_global_global_update_group_config_subgroup_pkt_queue_size_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-update-group-config/coalesce-time
  */
-int bgp_global_global_update_group_config_coalesce_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_update_group_config_coalesce_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -1266,7 +1279,7 @@ int bgp_global_global_update_group_config_coalesce_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/rmap-delay-time
  */
-int bgp_global_global_config_timers_rmap_delay_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_rmap_delay_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1285,7 +1298,7 @@ int bgp_global_global_config_timers_rmap_delay_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/update-delay-time
  */
-int bgp_global_global_config_timers_update_delay_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_update_delay_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1300,7 +1313,7 @@ int bgp_global_global_config_timers_update_delay_time_modify(
 	return NB_OK;
 }
 
-int bgp_global_global_config_timers_update_delay_time_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_update_delay_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -1319,7 +1332,7 @@ int bgp_global_global_config_timers_update_delay_time_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/establish-wait-time
  */
-int bgp_global_global_config_timers_establish_wait_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_establish_wait_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1334,7 +1347,7 @@ int bgp_global_global_config_timers_establish_wait_time_modify(
 	return NB_OK;
 }
 
-int bgp_global_global_config_timers_establish_wait_time_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_establish_wait_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -1353,7 +1366,7 @@ int bgp_global_global_config_timers_establish_wait_time_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/connect-retry-interval
  */
-int bgp_global_global_config_timers_connect_retry_interval_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_connect_retry_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1372,7 +1385,7 @@ int bgp_global_global_config_timers_connect_retry_interval_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/hold-time
  */
-int bgp_global_global_config_timers_hold_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -1414,7 +1427,7 @@ int bgp_global_global_config_timers_hold_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/keepalive
  */
-int bgp_global_global_config_timers_keepalive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -1456,7 +1469,8 @@ int bgp_global_global_config_timers_keepalive_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/instance-type-view
  */
-int bgp_global_instance_type_view_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_instance_type_view_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1474,7 +1488,7 @@ int bgp_global_instance_type_view_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/ebgp-multihop-connected-route-check
  */
-int bgp_global_ebgp_multihop_connected_route_check_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_ebgp_multihop_connected_route_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -1499,7 +1513,8 @@ int bgp_global_ebgp_multihop_connected_route_check_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/fast-external-failover
  */
-int bgp_global_fast_external_failover_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_fast_external_failover_modify(
+	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1518,7 +1533,8 @@ int bgp_global_fast_external_failover_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/local-pref
  */
-int bgp_global_local_pref_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_local_pref_modify(
+	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1540,7 +1556,8 @@ int bgp_global_local_pref_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-shutdown
  */
-int bgp_global_default_shutdown_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_default_shutdown_modify(
+	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1557,7 +1574,8 @@ int bgp_global_default_shutdown_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/ebgp-requires-policy
  */
-int bgp_global_ebgp_requires_policy_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_ebgp_requires_policy_modify(
+	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1599,7 +1617,8 @@ int bgp_global_suppress_duplicates_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-hostname
  */
-int bgp_global_show_hostname_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_show_hostname_modify(
+	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1620,7 +1639,8 @@ int bgp_global_show_hostname_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-nexthop-hostname
  */
-int bgp_global_show_nexthop_hostname_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_show_nexthop_hostname_modify(
+	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1641,7 +1661,8 @@ int bgp_global_show_nexthop_hostname_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/import-check
  */
-int bgp_global_import_check_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_import_check_modify(
+	struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1664,7 +1685,8 @@ int bgp_global_import_check_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-shutdown/enable
  */
-int bgp_global_graceful_shutdown_enable_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_shutdown_enable_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
 
@@ -1710,7 +1732,8 @@ int bgp_global_graceful_shutdown_enable_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list
  */
-int bgp_global_bmp_config_target_list_create(struct nb_cb_create_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_create(
+	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1724,7 +1747,8 @@ int bgp_global_bmp_config_target_list_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int bgp_global_bmp_config_target_list_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1742,7 +1766,7 @@ int bgp_global_bmp_config_target_list_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/incoming-session/session-list
  */
-int bgp_global_bmp_config_target_list_incoming_session_session_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_incoming_session_session_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -1757,7 +1781,7 @@ int bgp_global_bmp_config_target_list_incoming_session_session_list_create(
 	return NB_OK;
 }
 
-int bgp_global_bmp_config_target_list_incoming_session_session_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_incoming_session_session_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -1776,7 +1800,7 @@ int bgp_global_bmp_config_target_list_incoming_session_session_list_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/outgoing-session/session-list
  */
-int bgp_global_bmp_config_target_list_outgoing_session_session_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_outgoing_session_session_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -1791,7 +1815,7 @@ int bgp_global_bmp_config_target_list_outgoing_session_session_list_create(
 	return NB_OK;
 }
 
-int bgp_global_bmp_config_target_list_outgoing_session_session_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_outgoing_session_session_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -1810,7 +1834,7 @@ int bgp_global_bmp_config_target_list_outgoing_session_session_list_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/outgoing-session/session-list/min-retry-time
  */
-int bgp_global_bmp_config_target_list_outgoing_session_session_list_min_retry_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_outgoing_session_session_list_min_retry_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1829,7 +1853,7 @@ int bgp_global_bmp_config_target_list_outgoing_session_session_list_min_retry_ti
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/outgoing-session/session-list/max-retry-time
  */
-int bgp_global_bmp_config_target_list_outgoing_session_session_list_max_retry_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_outgoing_session_session_list_max_retry_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1848,7 +1872,7 @@ int bgp_global_bmp_config_target_list_outgoing_session_session_list_max_retry_ti
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/mirror
  */
-int bgp_global_bmp_config_target_list_mirror_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_mirror_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1867,7 +1891,7 @@ int bgp_global_bmp_config_target_list_mirror_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/stats-time
  */
-int bgp_global_bmp_config_target_list_stats_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_stats_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1882,7 +1906,7 @@ int bgp_global_bmp_config_target_list_stats_time_modify(
 	return NB_OK;
 }
 
-int bgp_global_bmp_config_target_list_stats_time_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_stats_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -1901,7 +1925,7 @@ int bgp_global_bmp_config_target_list_stats_time_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/ipv4-access-list
  */
-int bgp_global_bmp_config_target_list_ipv4_access_list_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_ipv4_access_list_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1916,7 +1940,7 @@ int bgp_global_bmp_config_target_list_ipv4_access_list_modify(
 	return NB_OK;
 }
 
-int bgp_global_bmp_config_target_list_ipv4_access_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_ipv4_access_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -1935,7 +1959,7 @@ int bgp_global_bmp_config_target_list_ipv4_access_list_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/ipv6-access-list
  */
-int bgp_global_bmp_config_target_list_ipv6_access_list_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_ipv6_access_list_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -1950,7 +1974,7 @@ int bgp_global_bmp_config_target_list_ipv6_access_list_modify(
 	return NB_OK;
 }
 
-int bgp_global_bmp_config_target_list_ipv6_access_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_ipv6_access_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -1969,7 +1993,7 @@ int bgp_global_bmp_config_target_list_ipv6_access_list_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -1984,7 +2008,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_create(
 	return NB_OK;
 }
 
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2003,7 +2027,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/mirror-buffer-limit
  */
-int bgp_global_bmp_config_mirror_buffer_limit_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_mirror_buffer_limit_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2018,7 +2042,7 @@ int bgp_global_bmp_config_mirror_buffer_limit_modify(
 	return NB_OK;
 }
 
-int bgp_global_bmp_config_mirror_buffer_limit_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_mirror_buffer_limit_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2037,7 +2061,8 @@ int bgp_global_bmp_config_mirror_buffer_limit_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi
  */
-int bgp_global_afi_safis_afi_safi_create(struct nb_cb_create_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_create(
+	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2051,7 +2076,8 @@ int bgp_global_afi_safis_afi_safi_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2069,7 +2095,8 @@ int bgp_global_afi_safis_afi_safi_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor
  */
-int bgp_neighbors_neighbor_create(struct nb_cb_create_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_create(
+	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2083,7 +2110,8 @@ int bgp_neighbors_neighbor_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2101,7 +2129,7 @@ int bgp_neighbors_neighbor_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-interface
  */
-int bgp_neighbors_neighbor_local_interface_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_local_interface_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2116,7 +2144,7 @@ int bgp_neighbors_neighbor_local_interface_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_local_interface_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_local_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2135,7 +2163,8 @@ int bgp_neighbors_neighbor_local_interface_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-port
  */
-int bgp_neighbors_neighbor_local_port_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_local_port_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2149,7 +2178,8 @@ int bgp_neighbors_neighbor_local_port_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_local_port_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_local_port_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2167,7 +2197,8 @@ int bgp_neighbors_neighbor_local_port_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/peer-group
  */
-int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_peer_group_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2181,7 +2212,8 @@ int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_peer_group_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2199,7 +2231,8 @@ int bgp_neighbors_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/password
  */
-int bgp_neighbors_neighbor_password_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_password_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2213,7 +2246,8 @@ int bgp_neighbors_neighbor_password_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_password_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_password_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2231,7 +2265,8 @@ int bgp_neighbors_neighbor_password_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ttl-security
  */
-int bgp_neighbors_neighbor_ttl_security_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_ttl_security_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2245,7 +2280,8 @@ int bgp_neighbors_neighbor_ttl_security_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_ttl_security_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_ttl_security_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2263,7 +2299,8 @@ int bgp_neighbors_neighbor_ttl_security_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/solo
  */
-int bgp_neighbors_neighbor_solo_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_solo_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2281,7 +2318,7 @@ int bgp_neighbors_neighbor_solo_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/enforce-first-as
  */
-int bgp_neighbors_neighbor_enforce_first_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2300,7 +2337,8 @@ int bgp_neighbors_neighbor_enforce_first_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/description
  */
-int bgp_neighbors_neighbor_description_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_description_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2314,7 +2352,8 @@ int bgp_neighbors_neighbor_description_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_description_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_description_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2332,7 +2371,8 @@ int bgp_neighbors_neighbor_description_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/passive-mode
  */
-int bgp_neighbors_neighbor_passive_mode_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_passive_mode_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2350,7 +2390,7 @@ int bgp_neighbors_neighbor_passive_mode_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/dynamic-capability
  */
-int bgp_neighbors_neighbor_capability_options_dynamic_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2369,7 +2409,7 @@ int bgp_neighbors_neighbor_capability_options_dynamic_capability_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/strict-capability
  */
-int bgp_neighbors_neighbor_capability_options_strict_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2388,7 +2428,7 @@ int bgp_neighbors_neighbor_capability_options_strict_capability_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/extended-nexthop-capability
  */
-int bgp_neighbors_neighbor_capability_options_extended_nexthop_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2407,7 +2447,7 @@ int bgp_neighbors_neighbor_capability_options_extended_nexthop_capability_modify
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/capability-negotiate
  */
-int bgp_neighbors_neighbor_capability_options_capability_negotiate_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_capability_options_capability_negotiate_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2426,7 +2466,7 @@ int bgp_neighbors_neighbor_capability_options_capability_negotiate_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/override-capability
  */
-int bgp_neighbors_neighbor_capability_options_override_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2445,7 +2485,7 @@ int bgp_neighbors_neighbor_capability_options_override_capability_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/update-source/ip
  */
-int bgp_neighbors_neighbor_update_source_ip_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2460,7 +2500,7 @@ int bgp_neighbors_neighbor_update_source_ip_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_update_source_ip_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2479,7 +2519,7 @@ int bgp_neighbors_neighbor_update_source_ip_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/update-source/interface
  */
-int bgp_neighbors_neighbor_update_source_interface_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2494,7 +2534,7 @@ int bgp_neighbors_neighbor_update_source_interface_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_update_source_interface_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2513,7 +2553,7 @@ int bgp_neighbors_neighbor_update_source_interface_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/neighbor-remote-as/remote-as-type
  */
-int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2532,7 +2572,7 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/neighbor-remote-as/remote-as
  */
-int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_neighbor_remote_as_remote_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2547,7 +2587,7 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_neighbor_remote_as_remote_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2566,7 +2606,7 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ebgp-multihop/enabled
  */
-int bgp_neighbors_neighbor_ebgp_multihop_enabled_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2581,7 +2621,7 @@ int bgp_neighbors_neighbor_ebgp_multihop_enabled_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_ebgp_multihop_enabled_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2600,7 +2640,7 @@ int bgp_neighbors_neighbor_ebgp_multihop_enabled_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ebgp-multihop/multihop-ttl
  */
-int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2615,7 +2655,7 @@ int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2634,7 +2674,7 @@ int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ebgp-multihop/disable-connected-check
  */
-int bgp_neighbors_neighbor_ebgp_multihop_disable_connected_check_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2653,7 +2693,7 @@ int bgp_neighbors_neighbor_ebgp_multihop_disable_connected_check_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/local-as
  */
-int bgp_neighbors_neighbor_local_as_local_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_local_as_local_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2672,7 +2712,7 @@ int bgp_neighbors_neighbor_local_as_local_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/no-prepend
  */
-int bgp_neighbors_neighbor_local_as_no_prepend_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2691,7 +2731,7 @@ int bgp_neighbors_neighbor_local_as_no_prepend_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/replace-as
  */
-int bgp_neighbors_neighbor_local_as_replace_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2710,7 +2750,7 @@ int bgp_neighbors_neighbor_local_as_replace_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/enable
  */
-int bgp_neighbors_neighbor_bfd_options_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2729,7 +2769,7 @@ int bgp_neighbors_neighbor_bfd_options_enable_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/detect-multiplier
  */
-int bgp_neighbors_neighbor_bfd_options_detect_multiplier_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_detect_multiplier_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2744,7 +2784,7 @@ int bgp_neighbors_neighbor_bfd_options_detect_multiplier_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_bfd_options_detect_multiplier_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_detect_multiplier_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2763,7 +2803,7 @@ int bgp_neighbors_neighbor_bfd_options_detect_multiplier_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/required-min-rx
  */
-int bgp_neighbors_neighbor_bfd_options_required_min_rx_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_required_min_rx_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2778,7 +2818,7 @@ int bgp_neighbors_neighbor_bfd_options_required_min_rx_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_bfd_options_required_min_rx_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_required_min_rx_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2797,7 +2837,7 @@ int bgp_neighbors_neighbor_bfd_options_required_min_rx_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/desired-min-tx
  */
-int bgp_neighbors_neighbor_bfd_options_desired_min_tx_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_desired_min_tx_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2812,7 +2852,7 @@ int bgp_neighbors_neighbor_bfd_options_desired_min_tx_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_bfd_options_desired_min_tx_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_desired_min_tx_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2831,7 +2871,7 @@ int bgp_neighbors_neighbor_bfd_options_desired_min_tx_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/session-type
  */
-int bgp_neighbors_neighbor_bfd_options_session_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_session_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2846,7 +2886,7 @@ int bgp_neighbors_neighbor_bfd_options_session_type_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_bfd_options_session_type_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_session_type_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2865,7 +2905,7 @@ int bgp_neighbors_neighbor_bfd_options_session_type_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/check-cp-failure
  */
-int bgp_neighbors_neighbor_bfd_options_check_cp_failure_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_check_cp_failure_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2880,7 +2920,7 @@ int bgp_neighbors_neighbor_bfd_options_check_cp_failure_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_bfd_options_check_cp_failure_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_bfd_options_check_cp_failure_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2899,7 +2939,7 @@ int bgp_neighbors_neighbor_bfd_options_check_cp_failure_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown/enable
  */
-int bgp_neighbors_neighbor_admin_shutdown_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2918,7 +2958,7 @@ int bgp_neighbors_neighbor_admin_shutdown_enable_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown/message
  */
-int bgp_neighbors_neighbor_admin_shutdown_message_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_admin_shutdown_message_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2933,7 +2973,7 @@ int bgp_neighbors_neighbor_admin_shutdown_message_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_admin_shutdown_message_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_admin_shutdown_message_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2952,7 +2992,7 @@ int bgp_neighbors_neighbor_admin_shutdown_message_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/graceful-restart/enable
  */
-int bgp_neighbors_neighbor_graceful_restart_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_graceful_restart_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -2967,7 +3007,7 @@ int bgp_neighbors_neighbor_graceful_restart_enable_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_graceful_restart_enable_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_graceful_restart_enable_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -2986,7 +3026,7 @@ int bgp_neighbors_neighbor_graceful_restart_enable_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/graceful-restart/graceful-restart-helper
  */
-int bgp_neighbors_neighbor_graceful_restart_graceful_restart_helper_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_graceful_restart_graceful_restart_helper_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3001,7 +3041,7 @@ int bgp_neighbors_neighbor_graceful_restart_graceful_restart_helper_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_graceful_restart_graceful_restart_helper_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_graceful_restart_graceful_restart_helper_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3020,7 +3060,7 @@ int bgp_neighbors_neighbor_graceful_restart_graceful_restart_helper_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/graceful-restart/graceful-restart-disable
  */
-int bgp_neighbors_neighbor_graceful_restart_graceful_restart_disable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_graceful_restart_graceful_restart_disable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3035,7 +3075,7 @@ int bgp_neighbors_neighbor_graceful_restart_graceful_restart_disable_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_graceful_restart_graceful_restart_disable_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_graceful_restart_graceful_restart_disable_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3054,7 +3094,7 @@ int bgp_neighbors_neighbor_graceful_restart_graceful_restart_disable_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/advertise-interval
  */
-int bgp_neighbors_neighbor_timers_advertise_interval_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3069,7 +3109,7 @@ int bgp_neighbors_neighbor_timers_advertise_interval_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_timers_advertise_interval_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3088,7 +3128,7 @@ int bgp_neighbors_neighbor_timers_advertise_interval_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/connect-time
  */
-int bgp_neighbors_neighbor_timers_connect_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3103,7 +3143,7 @@ int bgp_neighbors_neighbor_timers_connect_time_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_timers_connect_time_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3122,7 +3162,7 @@ int bgp_neighbors_neighbor_timers_connect_time_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/hold-time
  */
-int bgp_neighbors_neighbor_timers_hold_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3141,7 +3181,7 @@ int bgp_neighbors_neighbor_timers_hold_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/keepalive
  */
-int bgp_neighbors_neighbor_timers_keepalive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3160,7 +3200,7 @@ int bgp_neighbors_neighbor_timers_keepalive_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -3175,7 +3215,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_create(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3194,7 +3234,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/enabled
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3213,7 +3253,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor
  */
-int bgp_neighbors_unnumbered_neighbor_create(struct nb_cb_create_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_create(
+	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -3227,7 +3268,8 @@ int bgp_neighbors_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -3245,7 +3287,7 @@ int bgp_neighbors_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/v6only
  */
-int bgp_neighbors_unnumbered_neighbor_v6only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_v6only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3264,7 +3306,7 @@ int bgp_neighbors_unnumbered_neighbor_v6only_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/peer-group
  */
-int bgp_neighbors_unnumbered_neighbor_peer_group_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_peer_group_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3279,7 +3321,7 @@ int bgp_neighbors_unnumbered_neighbor_peer_group_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3298,7 +3340,7 @@ int bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/password
  */
-int bgp_neighbors_unnumbered_neighbor_password_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_password_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3313,7 +3355,7 @@ int bgp_neighbors_unnumbered_neighbor_password_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_password_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_password_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3332,7 +3374,7 @@ int bgp_neighbors_unnumbered_neighbor_password_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ttl-security
  */
-int bgp_neighbors_unnumbered_neighbor_ttl_security_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_ttl_security_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3347,7 +3389,7 @@ int bgp_neighbors_unnumbered_neighbor_ttl_security_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_ttl_security_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_ttl_security_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3366,7 +3408,7 @@ int bgp_neighbors_unnumbered_neighbor_ttl_security_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/solo
  */
-int bgp_neighbors_unnumbered_neighbor_solo_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_solo_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3385,7 +3427,7 @@ int bgp_neighbors_unnumbered_neighbor_solo_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/enforce-first-as
  */
-int bgp_neighbors_unnumbered_neighbor_enforce_first_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3404,7 +3446,7 @@ int bgp_neighbors_unnumbered_neighbor_enforce_first_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/description
  */
-int bgp_neighbors_unnumbered_neighbor_description_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_description_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3419,7 +3461,7 @@ int bgp_neighbors_unnumbered_neighbor_description_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_description_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_description_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3438,7 +3480,7 @@ int bgp_neighbors_unnumbered_neighbor_description_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/passive-mode
  */
-int bgp_neighbors_unnumbered_neighbor_passive_mode_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_passive_mode_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3457,7 +3499,7 @@ int bgp_neighbors_unnumbered_neighbor_passive_mode_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/dynamic-capability
  */
-int bgp_neighbors_unnumbered_neighbor_capability_options_dynamic_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3476,7 +3518,7 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_dynamic_capability_modi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/strict-capability
  */
-int bgp_neighbors_unnumbered_neighbor_capability_options_strict_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3495,7 +3537,7 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_strict_capability_modif
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/extended-nexthop-capability
  */
-int bgp_neighbors_unnumbered_neighbor_capability_options_extended_nexthop_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3514,7 +3556,7 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_extended_nexthop_capabi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/capability-negotiate
  */
-int bgp_neighbors_unnumbered_neighbor_capability_options_capability_negotiate_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_capability_options_capability_negotiate_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3533,7 +3575,7 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_capability_negotiate_mo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/override-capability
  */
-int bgp_neighbors_unnumbered_neighbor_capability_options_override_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3552,7 +3594,7 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_override_capability_mod
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/update-source/ip
  */
-int bgp_neighbors_unnumbered_neighbor_update_source_ip_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3567,7 +3609,7 @@ int bgp_neighbors_unnumbered_neighbor_update_source_ip_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_update_source_ip_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3586,7 +3628,7 @@ int bgp_neighbors_unnumbered_neighbor_update_source_ip_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/update-source/interface
  */
-int bgp_neighbors_unnumbered_neighbor_update_source_interface_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3601,7 +3643,7 @@ int bgp_neighbors_unnumbered_neighbor_update_source_interface_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_update_source_interface_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3620,7 +3662,7 @@ int bgp_neighbors_unnumbered_neighbor_update_source_interface_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/neighbor-remote-as/remote-as-type
  */
-int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3639,7 +3681,7 @@ int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/neighbor-remote-as/remote-as
  */
-int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3654,7 +3696,7 @@ int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3673,7 +3715,7 @@ int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/enabled
  */
-int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3688,7 +3730,7 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3707,7 +3749,7 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/multihop-ttl
  */
-int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3722,7 +3764,7 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3741,7 +3783,7 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/disable-connected-check
  */
-int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_disable_connected_check_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3760,7 +3802,7 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_disable_connected_check_modi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/local-as
  */
-int bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3779,7 +3821,7 @@ int bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/no-prepend
  */
-int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3798,7 +3840,7 @@ int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/replace-as
  */
-int bgp_neighbors_unnumbered_neighbor_local_as_replace_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3817,7 +3859,7 @@ int bgp_neighbors_unnumbered_neighbor_local_as_replace_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/enable
  */
-int bgp_neighbors_unnumbered_neighbor_bfd_options_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3836,7 +3878,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_enable_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/detect-multiplier
  */
-int bgp_neighbors_unnumbered_neighbor_bfd_options_detect_multiplier_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_detect_multiplier_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3851,7 +3893,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_detect_multiplier_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_bfd_options_detect_multiplier_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_detect_multiplier_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3870,7 +3912,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_detect_multiplier_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/required-min-rx
  */
-int bgp_neighbors_unnumbered_neighbor_bfd_options_required_min_rx_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_required_min_rx_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3885,7 +3927,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_required_min_rx_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_bfd_options_required_min_rx_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_required_min_rx_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3904,7 +3946,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_required_min_rx_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/desired-min-tx
  */
-int bgp_neighbors_unnumbered_neighbor_bfd_options_desired_min_tx_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_desired_min_tx_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3919,7 +3961,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_desired_min_tx_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_bfd_options_desired_min_tx_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_desired_min_tx_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3938,7 +3980,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_desired_min_tx_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/session-type
  */
-int bgp_neighbors_unnumbered_neighbor_bfd_options_session_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_session_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3953,7 +3995,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_session_type_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_bfd_options_session_type_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_session_type_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3972,7 +4014,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_session_type_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/check-cp-failure
  */
-int bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -3987,7 +4029,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4006,7 +4048,7 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown/enable
  */
-int bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4025,7 +4067,7 @@ int bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown/message
  */
-int bgp_neighbors_unnumbered_neighbor_admin_shutdown_message_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_admin_shutdown_message_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4040,7 +4082,7 @@ int bgp_neighbors_unnumbered_neighbor_admin_shutdown_message_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_admin_shutdown_message_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_admin_shutdown_message_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4059,7 +4101,7 @@ int bgp_neighbors_unnumbered_neighbor_admin_shutdown_message_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/graceful-restart/enable
  */
-int bgp_neighbors_unnumbered_neighbor_graceful_restart_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_graceful_restart_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4074,7 +4116,7 @@ int bgp_neighbors_unnumbered_neighbor_graceful_restart_enable_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_graceful_restart_enable_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_graceful_restart_enable_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4093,7 +4135,7 @@ int bgp_neighbors_unnumbered_neighbor_graceful_restart_enable_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/graceful-restart/graceful-restart-helper
  */
-int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_helper_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_helper_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4108,7 +4150,7 @@ int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_helper_m
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_helper_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_helper_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4127,7 +4169,7 @@ int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_helper_d
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/graceful-restart/graceful-restart-disable
  */
-int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_disable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_disable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4142,7 +4184,7 @@ int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_disable_
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_disable_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_disable_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4161,7 +4203,7 @@ int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_disable_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/advertise-interval
  */
-int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4176,7 +4218,7 @@ int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4195,7 +4237,7 @@ int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/connect-time
  */
-int bgp_neighbors_unnumbered_neighbor_timers_connect_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4210,7 +4252,7 @@ int bgp_neighbors_unnumbered_neighbor_timers_connect_time_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_timers_connect_time_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4229,7 +4271,7 @@ int bgp_neighbors_unnumbered_neighbor_timers_connect_time_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/hold-time
  */
-int bgp_neighbors_unnumbered_neighbor_timers_hold_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4248,7 +4290,7 @@ int bgp_neighbors_unnumbered_neighbor_timers_hold_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/keepalive
  */
-int bgp_neighbors_unnumbered_neighbor_timers_keepalive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4267,7 +4309,7 @@ int bgp_neighbors_unnumbered_neighbor_timers_keepalive_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -4282,7 +4324,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_create(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4301,7 +4343,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/enabled
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4320,7 +4362,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group
  */
-int bgp_peer_groups_peer_group_create(struct nb_cb_create_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_create(
+	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4334,7 +4377,8 @@ int bgp_peer_groups_peer_group_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4352,7 +4396,7 @@ int bgp_peer_groups_peer_group_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ipv4-listen-range
  */
-int bgp_peer_groups_peer_group_ipv4_listen_range_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ipv4_listen_range_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -4367,7 +4411,7 @@ int bgp_peer_groups_peer_group_ipv4_listen_range_create(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_ipv4_listen_range_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ipv4_listen_range_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4386,7 +4430,7 @@ int bgp_peer_groups_peer_group_ipv4_listen_range_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ipv6-listen-range
  */
-int bgp_peer_groups_peer_group_ipv6_listen_range_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ipv6_listen_range_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -4401,7 +4445,7 @@ int bgp_peer_groups_peer_group_ipv6_listen_range_create(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_ipv6_listen_range_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ipv6_listen_range_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4420,7 +4464,8 @@ int bgp_peer_groups_peer_group_ipv6_listen_range_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/password
  */
-int bgp_peer_groups_peer_group_password_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_password_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4434,7 +4479,8 @@ int bgp_peer_groups_peer_group_password_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_password_destroy(struct nb_cb_destroy_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_password_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4452,7 +4498,7 @@ int bgp_peer_groups_peer_group_password_destroy(struct nb_cb_destroy_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ttl-security
  */
-int bgp_peer_groups_peer_group_ttl_security_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ttl_security_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4467,7 +4513,7 @@ int bgp_peer_groups_peer_group_ttl_security_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_ttl_security_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ttl_security_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4486,7 +4532,8 @@ int bgp_peer_groups_peer_group_ttl_security_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/solo
  */
-int bgp_peer_groups_peer_group_solo_modify(struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_solo_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4504,7 +4551,7 @@ int bgp_peer_groups_peer_group_solo_modify(struct nb_cb_modify_args *args)
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/enforce-first-as
  */
-int bgp_peer_groups_peer_group_enforce_first_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4523,7 +4570,7 @@ int bgp_peer_groups_peer_group_enforce_first_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/description
  */
-int bgp_peer_groups_peer_group_description_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_description_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4538,7 +4585,7 @@ int bgp_peer_groups_peer_group_description_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_description_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_description_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4557,7 +4604,7 @@ int bgp_peer_groups_peer_group_description_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/passive-mode
  */
-int bgp_peer_groups_peer_group_passive_mode_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_passive_mode_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4576,7 +4623,7 @@ int bgp_peer_groups_peer_group_passive_mode_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/dynamic-capability
  */
-int bgp_peer_groups_peer_group_capability_options_dynamic_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4595,7 +4642,7 @@ int bgp_peer_groups_peer_group_capability_options_dynamic_capability_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/strict-capability
  */
-int bgp_peer_groups_peer_group_capability_options_strict_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_capability_options_strict_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4614,7 +4661,7 @@ int bgp_peer_groups_peer_group_capability_options_strict_capability_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/extended-nexthop-capability
  */
-int bgp_peer_groups_peer_group_capability_options_extended_nexthop_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4633,7 +4680,7 @@ int bgp_peer_groups_peer_group_capability_options_extended_nexthop_capability_mo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/capability-negotiate
  */
-int bgp_peer_groups_peer_group_capability_options_capability_negotiate_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_capability_options_capability_negotiate_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4652,7 +4699,7 @@ int bgp_peer_groups_peer_group_capability_options_capability_negotiate_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/override-capability
  */
-int bgp_peer_groups_peer_group_capability_options_override_capability_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_capability_options_override_capability_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4671,7 +4718,7 @@ int bgp_peer_groups_peer_group_capability_options_override_capability_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/update-source/ip
  */
-int bgp_peer_groups_peer_group_update_source_ip_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4686,7 +4733,7 @@ int bgp_peer_groups_peer_group_update_source_ip_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_update_source_ip_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4705,7 +4752,7 @@ int bgp_peer_groups_peer_group_update_source_ip_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/update-source/interface
  */
-int bgp_peer_groups_peer_group_update_source_interface_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4720,7 +4767,7 @@ int bgp_peer_groups_peer_group_update_source_interface_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_update_source_interface_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4739,7 +4786,7 @@ int bgp_peer_groups_peer_group_update_source_interface_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/neighbor-remote-as/remote-as-type
  */
-int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4758,7 +4805,7 @@ int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/neighbor-remote-as/remote-as
  */
-int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4773,7 +4820,7 @@ int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4792,7 +4839,7 @@ int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ebgp-multihop/enabled
  */
-int bgp_peer_groups_peer_group_ebgp_multihop_enabled_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4807,7 +4854,7 @@ int bgp_peer_groups_peer_group_ebgp_multihop_enabled_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_ebgp_multihop_enabled_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4826,7 +4873,7 @@ int bgp_peer_groups_peer_group_ebgp_multihop_enabled_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ebgp-multihop/multihop-ttl
  */
-int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4841,7 +4888,7 @@ int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4860,7 +4907,7 @@ int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ebgp-multihop/disable-connected-check
  */
-int bgp_peer_groups_peer_group_ebgp_multihop_disable_connected_check_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4879,7 +4926,7 @@ int bgp_peer_groups_peer_group_ebgp_multihop_disable_connected_check_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/local-as
  */
-int bgp_peer_groups_peer_group_local_as_local_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_local_as_local_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4898,7 +4945,7 @@ int bgp_peer_groups_peer_group_local_as_local_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/no-prepend
  */
-int bgp_peer_groups_peer_group_local_as_no_prepend_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_local_as_no_prepend_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4917,7 +4964,7 @@ int bgp_peer_groups_peer_group_local_as_no_prepend_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/replace-as
  */
-int bgp_peer_groups_peer_group_local_as_replace_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4936,7 +4983,7 @@ int bgp_peer_groups_peer_group_local_as_replace_as_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/enable
  */
-int bgp_peer_groups_peer_group_bfd_options_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4955,7 +5002,7 @@ int bgp_peer_groups_peer_group_bfd_options_enable_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/detect-multiplier
  */
-int bgp_peer_groups_peer_group_bfd_options_detect_multiplier_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_detect_multiplier_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -4970,7 +5017,7 @@ int bgp_peer_groups_peer_group_bfd_options_detect_multiplier_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_bfd_options_detect_multiplier_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_detect_multiplier_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4989,7 +5036,7 @@ int bgp_peer_groups_peer_group_bfd_options_detect_multiplier_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/required-min-rx
  */
-int bgp_peer_groups_peer_group_bfd_options_required_min_rx_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_required_min_rx_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5004,7 +5051,7 @@ int bgp_peer_groups_peer_group_bfd_options_required_min_rx_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_bfd_options_required_min_rx_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_required_min_rx_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5023,7 +5070,7 @@ int bgp_peer_groups_peer_group_bfd_options_required_min_rx_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/desired-min-tx
  */
-int bgp_peer_groups_peer_group_bfd_options_desired_min_tx_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_desired_min_tx_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5038,7 +5085,7 @@ int bgp_peer_groups_peer_group_bfd_options_desired_min_tx_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_bfd_options_desired_min_tx_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_desired_min_tx_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5057,7 +5104,7 @@ int bgp_peer_groups_peer_group_bfd_options_desired_min_tx_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/session-type
  */
-int bgp_peer_groups_peer_group_bfd_options_session_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_session_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5072,7 +5119,7 @@ int bgp_peer_groups_peer_group_bfd_options_session_type_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_bfd_options_session_type_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_session_type_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5091,7 +5138,7 @@ int bgp_peer_groups_peer_group_bfd_options_session_type_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/check-cp-failure
  */
-int bgp_peer_groups_peer_group_bfd_options_check_cp_failure_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_check_cp_failure_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5106,7 +5153,7 @@ int bgp_peer_groups_peer_group_bfd_options_check_cp_failure_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_bfd_options_check_cp_failure_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_bfd_options_check_cp_failure_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5125,7 +5172,7 @@ int bgp_peer_groups_peer_group_bfd_options_check_cp_failure_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown/enable
  */
-int bgp_peer_groups_peer_group_admin_shutdown_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5144,7 +5191,7 @@ int bgp_peer_groups_peer_group_admin_shutdown_enable_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown/message
  */
-int bgp_peer_groups_peer_group_admin_shutdown_message_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_admin_shutdown_message_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5159,7 +5206,7 @@ int bgp_peer_groups_peer_group_admin_shutdown_message_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_admin_shutdown_message_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_admin_shutdown_message_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5178,7 +5225,7 @@ int bgp_peer_groups_peer_group_admin_shutdown_message_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/graceful-restart/enable
  */
-int bgp_peer_groups_peer_group_graceful_restart_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_graceful_restart_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5193,7 +5240,7 @@ int bgp_peer_groups_peer_group_graceful_restart_enable_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_graceful_restart_enable_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_graceful_restart_enable_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5212,7 +5259,7 @@ int bgp_peer_groups_peer_group_graceful_restart_enable_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/graceful-restart/graceful-restart-helper
  */
-int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_helper_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_graceful_restart_graceful_restart_helper_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5227,7 +5274,7 @@ int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_helper_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_helper_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_graceful_restart_graceful_restart_helper_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5246,7 +5293,7 @@ int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_helper_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/graceful-restart/graceful-restart-disable
  */
-int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_disable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_graceful_restart_graceful_restart_disable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5261,7 +5308,7 @@ int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_disable_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_disable_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_graceful_restart_graceful_restart_disable_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5280,7 +5327,7 @@ int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_disable_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/advertise-interval
  */
-int bgp_peer_groups_peer_group_timers_advertise_interval_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5295,7 +5342,7 @@ int bgp_peer_groups_peer_group_timers_advertise_interval_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_timers_advertise_interval_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5314,7 +5361,7 @@ int bgp_peer_groups_peer_group_timers_advertise_interval_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/connect-time
  */
-int bgp_peer_groups_peer_group_timers_connect_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5329,7 +5376,7 @@ int bgp_peer_groups_peer_group_timers_connect_time_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_timers_connect_time_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5348,7 +5395,7 @@ int bgp_peer_groups_peer_group_timers_connect_time_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/hold-time
  */
-int bgp_peer_groups_peer_group_timers_hold_time_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5367,7 +5414,7 @@ int bgp_peer_groups_peer_group_timers_hold_time_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/keepalive
  */
-int bgp_peer_groups_peer_group_timers_keepalive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5386,7 +5433,7 @@ int bgp_peer_groups_peer_group_timers_keepalive_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -5401,7 +5448,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_create(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5420,7 +5467,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/enabled
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5439,7 +5486,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -5454,7 +5501,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5473,7 +5520,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config/backdoor
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_backdoor_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_backdoor_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5492,7 +5539,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_backdoor_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config/label-index
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5507,7 +5554,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_modify
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5526,7 +5573,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_destro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5541,7 +5588,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5560,7 +5607,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -5575,7 +5622,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5594,7 +5641,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/as-set
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_as_set_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_as_set_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5613,7 +5660,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_as_set_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/summary-only
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_summary_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_summary_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5632,7 +5679,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_summary_only_modi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5647,7 +5694,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_expor
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5666,7 +5713,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_expor
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -5681,7 +5728,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5700,7 +5747,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route/distance
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_distance_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_distance_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5719,7 +5766,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_distance_mod
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route/access-list-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_access_list_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_access_list_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5734,7 +5781,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_access_list_
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_access_list_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_access_list_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5753,7 +5800,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_access_list_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/enable
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5772,7 +5819,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_enable_modif
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/reach-decay
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reach_decay_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reach_decay_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5787,7 +5834,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reach_decay_
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reach_decay_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reach_decay_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5806,7 +5853,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reach_decay_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/reuse-above
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reuse_above_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reuse_above_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5821,7 +5868,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reuse_above_
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reuse_above_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reuse_above_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5840,7 +5887,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reuse_above_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/suppress-above
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_suppress_above_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_suppress_above_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5855,7 +5902,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_suppress_abo
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_suppress_above_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_suppress_above_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5874,7 +5921,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_suppress_abo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/unreach-decay
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_decay_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_decay_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5889,7 +5936,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_deca
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_decay_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_decay_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5908,7 +5955,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_deca
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ebgp/maximum-paths
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5927,7 +5974,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ibgp/maximum-paths
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5946,7 +5993,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_maximum_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ibgp/cluster-length-list
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5961,7 +6008,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_cluster_l
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -5980,7 +6027,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_cluster_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/redistribution-list
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -5995,7 +6042,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6014,7 +6061,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/redistribution-list/metric
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_metric_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_metric_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6029,7 +6076,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_metric_modify
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_metric_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_metric_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6048,7 +6095,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_metric_destro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/redistribution-list/rmap-policy-import
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6063,7 +6110,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_i
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6082,7 +6129,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_i
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/external
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6097,7 +6144,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6116,7 +6163,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/internal
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6131,7 +6178,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6150,7 +6197,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/local
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6165,7 +6212,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6184,7 +6231,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-export
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6199,7 +6246,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6218,7 +6265,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/rd
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rd_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rd_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6233,7 +6280,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rd_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rd_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rd_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6252,7 +6299,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rd_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/label
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6267,7 +6314,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6286,7 +6333,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/label-auto
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_auto_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_auto_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6301,7 +6348,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_auto_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_auto_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_auto_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6320,7 +6367,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_auto_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/nexthop
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6335,7 +6382,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6355,7 +6402,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/import-vpn
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vpn_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6374,7 +6421,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vpn_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/export-vpn
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_vpn_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6393,7 +6440,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_vpn_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/import-vrf-list
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -6408,7 +6455,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_create
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6427,7 +6474,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_destro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/rmap-import
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6442,7 +6489,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6461,7 +6508,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/rmap-export
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6476,7 +6523,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_export_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6495,7 +6542,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_export_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/redirect-rt
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_redirect_rt_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_redirect_rt_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6510,7 +6557,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_redirect_rt_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_redirect_rt_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_redirect_rt_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6529,7 +6576,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_redirect_rt_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/import-rt-list
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_rt_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_rt_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -6544,7 +6591,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_rt_list_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_rt_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_rt_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6563,7 +6610,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_rt_list_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/export-rt-list
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_rt_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_rt_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -6578,7 +6625,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_rt_list_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_rt_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_rt_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6597,7 +6644,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_rt_list_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/rt-list
  */
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rt_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rt_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -6612,7 +6659,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rt_list_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rt_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rt_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6631,7 +6678,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rt_list_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/network-config
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -6646,7 +6693,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6665,7 +6712,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/network-config/backdoor
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_backdoor_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_backdoor_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6684,7 +6731,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_backdoor_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/network-config/label-index
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_label_index_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_label_index_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6699,7 +6746,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_label_index_modify
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_label_index_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_label_index_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6718,7 +6765,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_label_index_destro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/network-config/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6733,7 +6780,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_rmap_policy_export
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6752,7 +6799,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_rmap_policy_export
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -6767,7 +6814,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6786,7 +6833,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/as-set
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_as_set_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_as_set_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6805,7 +6852,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_as_set_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/summary-only
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_summary_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_summary_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6824,7 +6871,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_summary_only_modi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6839,7 +6886,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_expor
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6858,7 +6905,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_expor
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -6873,7 +6920,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6892,7 +6939,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route/distance
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_distance_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_distance_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6911,7 +6958,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_distance_mod
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route/access-list-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6926,7 +6973,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -6945,7 +6992,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/use-multiple-paths/ebgp/maximum-paths
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6964,7 +7011,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ebgp_maximum_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/use-multiple-paths/ibgp/maximum-paths
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6983,7 +7030,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_maximum_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/use-multiple-paths/ibgp/cluster-length-list
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -6998,7 +7045,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_cluster_l
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7017,7 +7064,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ibgp_cluster_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/redistribution-list
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -7032,7 +7079,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7051,7 +7098,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/redistribution-list/metric
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_metric_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_metric_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7066,7 +7113,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_metric_modify
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_metric_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_metric_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7085,7 +7132,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_metric_destro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/redistribution-list/rmap-policy-import
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_rmap_policy_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_rmap_policy_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7100,7 +7147,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_rmap_policy_i
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_rmap_policy_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_rmap_policy_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7119,7 +7166,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_rmap_policy_i
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/external
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7134,7 +7181,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7153,7 +7200,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/internal
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7168,7 +7215,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7187,7 +7234,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/local
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7202,7 +7249,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7221,7 +7268,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/filter-config/rmap-export
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7236,7 +7283,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7255,7 +7302,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/rd
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rd_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rd_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7270,7 +7317,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rd_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rd_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rd_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7289,7 +7336,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rd_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/label
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7304,7 +7351,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7323,7 +7370,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/label-auto
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_auto_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_auto_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7338,7 +7385,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_auto_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_auto_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_auto_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7357,7 +7404,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_auto_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/nexthop
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7372,7 +7419,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7391,7 +7438,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/import-vpn
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vpn_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
 	bool is_enable = false;
@@ -7431,7 +7478,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vpn_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/export-vpn
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_vpn_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
 	bool is_enable = false;
@@ -7470,7 +7517,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_vpn_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/import-vrf-list
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vrf_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vrf_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -7485,7 +7532,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vrf_list_create
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vrf_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vrf_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7504,7 +7551,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vrf_list_destro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/rmap-import
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7519,7 +7566,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_import_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7538,7 +7585,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_import_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/rmap-export
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7553,7 +7600,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_export_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7572,7 +7619,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_export_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/redirect-rt
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_redirect_rt_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_redirect_rt_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7587,7 +7634,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_redirect_rt_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_redirect_rt_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_redirect_rt_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7606,7 +7653,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_redirect_rt_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/import-rt-list
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_rt_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_rt_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -7621,7 +7668,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_rt_list_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_rt_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_rt_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7640,7 +7687,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_rt_list_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/export-rt-list
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_rt_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_rt_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -7655,7 +7702,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_rt_list_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_rt_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_rt_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7674,7 +7721,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_rt_list_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/rt-list
  */
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rt_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rt_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -7689,7 +7736,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rt_list_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rt_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rt_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7708,7 +7755,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rt_list_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/use-multiple-paths/ebgp/maximum-paths
  */
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7727,7 +7774,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ebgp_m
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/use-multiple-paths/ibgp/maximum-paths
  */
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7746,7 +7793,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_m
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/use-multiple-paths/ibgp/cluster-length-list
  */
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7761,7 +7808,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_c
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7780,7 +7827,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_c
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/use-multiple-paths/ebgp/maximum-paths
  */
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7799,7 +7846,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_m
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/use-multiple-paths/ibgp/maximum-paths
  */
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7818,7 +7865,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_m
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/use-multiple-paths/ibgp/cluster-length-list
  */
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7833,7 +7880,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_c
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7852,7 +7899,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_c
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/network-config
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -7867,7 +7914,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7886,7 +7933,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/network-config/backdoor
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_backdoor_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_backdoor_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7905,7 +7952,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_backdoor_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/network-config/label-index
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_label_index_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_label_index_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7920,7 +7967,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_label_index_modi
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_label_index_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_label_index_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7939,7 +7986,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_label_index_dest
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/network-config/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7954,7 +8001,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_rmap_policy_expo
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -7973,7 +8020,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_rmap_policy_expo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -7988,7 +8035,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8007,7 +8054,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/as-set
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_as_set_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_as_set_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8026,7 +8073,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_as_set_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/summary-only
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_summary_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_summary_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8045,7 +8092,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_summary_only_mo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8060,7 +8107,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_exp
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8079,7 +8126,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_exp
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -8094,7 +8141,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8113,7 +8160,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/external
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8128,7 +8175,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8147,7 +8194,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/internal
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8162,7 +8209,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8181,7 +8228,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/local
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8196,7 +8243,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8215,7 +8262,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/enable
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_enable_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_enable_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8234,7 +8281,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_enable_mod
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/reach-decay
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reach_decay_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reach_decay_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8249,7 +8296,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reach_deca
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reach_decay_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reach_decay_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8268,7 +8315,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reach_deca
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/reuse-above
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reuse_above_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reuse_above_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8283,7 +8330,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reuse_abov
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reuse_above_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reuse_above_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8302,7 +8349,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reuse_abov
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/suppress-above
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_suppress_above_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_suppress_above_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8317,7 +8364,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_suppress_a
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_suppress_above_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_suppress_above_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8336,7 +8383,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_suppress_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/unreach-decay
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_unreach_decay_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_unreach_decay_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8351,7 +8398,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_unreach_de
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_unreach_decay_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_unreach_decay_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8370,7 +8417,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_unreach_de
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/filter-config/rmap-export
  */
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8385,7 +8432,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_export_modif
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8404,7 +8451,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_export_destr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/network-config
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -8419,7 +8466,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8438,7 +8485,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/network-config/backdoor
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_backdoor_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_backdoor_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8457,7 +8504,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_backdoor_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/network-config/label-index
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_label_index_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_label_index_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8472,7 +8519,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_label_index_modi
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_label_index_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_label_index_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8491,7 +8538,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_label_index_dest
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/network-config/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8506,7 +8553,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_rmap_policy_expo
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8525,7 +8572,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_rmap_policy_expo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -8540,7 +8587,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8559,7 +8606,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/as-set
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_as_set_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_as_set_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8578,7 +8625,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_as_set_modify(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/summary-only
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_summary_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_summary_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8597,7 +8644,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_summary_only_mo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8612,7 +8659,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_exp
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8631,7 +8678,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_exp
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance-route
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -8646,7 +8693,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8665,7 +8712,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance/external
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8680,7 +8727,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8699,7 +8746,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance/internal
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8714,7 +8761,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8733,7 +8780,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_destroy
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/admin-distance/local
  */
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8748,7 +8795,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_modify(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8767,7 +8814,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-flowspec/flow-spec-config/interface
  */
-int bgp_global_afi_safis_afi_safi_ipv4_flowspec_flow_spec_config_interface_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_flowspec_flow_spec_config_interface_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8782,7 +8829,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_flowspec_flow_spec_config_interface_modif
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_flowspec_flow_spec_config_interface_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_ipv4_flowspec_flow_spec_config_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8801,7 +8848,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_flowspec_flow_spec_config_interface_destr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/network-config
  */
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -8816,7 +8863,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8835,7 +8882,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/network-config/prefix-list
  */
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -8850,7 +8897,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8869,7 +8916,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/network-config/prefix-list/label-index
  */
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_label_index_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_label_index_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8888,7 +8935,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/network-config/prefix-list/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -8903,7 +8950,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8922,7 +8969,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv4_unicast_network_config_prefix_list_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/network-config
  */
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -8937,7 +8984,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_create(
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8956,7 +9003,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_destroy(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/network-config/prefix-list
  */
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -8971,7 +9018,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -8990,7 +9037,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/network-config/prefix-list/label-index
  */
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_label_index_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_label_index_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9009,7 +9056,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/network-config/prefix-list/rmap-policy-export
  */
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9024,7 +9071,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9043,7 +9090,7 @@ int bgp_global_afi_safis_afi_safi_l3vpn_ipv6_unicast_network_config_prefix_list_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast/common-config/pre-policy
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_unicast_common_config_pre_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_unicast_common_config_pre_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9062,7 +9109,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_unicast_common_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast/common-config/post-policy
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_unicast_common_config_post_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_unicast_common_config_post_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9081,7 +9128,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_unicast_common_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-multicast/common-config/pre-policy
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_multicast_common_config_pre_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_multicast_common_config_pre_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9100,7 +9147,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_multicast_common_c
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-multicast/common-config/post-policy
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_multicast_common_config_post_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_multicast_common_config_post_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9119,7 +9166,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv4_multicast_common_c
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-unicast/common-config/pre-policy
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_unicast_common_config_pre_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_unicast_common_config_pre_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9138,7 +9185,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_unicast_common_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-unicast/common-config/post-policy
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_unicast_common_config_post_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_unicast_common_config_post_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9157,7 +9204,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_unicast_common_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-multicast/common-config/pre-policy
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_multicast_common_config_pre_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_multicast_common_config_pre_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9176,7 +9223,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_multicast_common_c
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-multicast/common-config/post-policy
  */
-int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_multicast_common_config_post_policy_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_multicast_common_config_post_policy_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9195,7 +9242,7 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_multicast_common_c
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/path-type
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9214,7 +9261,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_add_paths_path_type_m
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9229,7 +9276,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9248,7 +9295,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9263,7 +9310,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9282,7 +9329,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9301,7 +9348,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_repla
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9320,7 +9367,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_opt
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9335,7 +9382,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_opt
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9354,7 +9401,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_opt
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -9369,7 +9416,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9388,7 +9435,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9407,7 +9454,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9422,7 +9469,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9441,7 +9488,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9456,7 +9503,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9475,7 +9522,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9490,7 +9537,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9509,7 +9556,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9524,7 +9571,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9543,7 +9590,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9558,7 +9605,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9577,7 +9624,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9592,7 +9639,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9611,7 +9658,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9626,7 +9673,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9645,7 +9692,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9664,7 +9711,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9683,7 +9730,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9702,7 +9749,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9721,7 +9768,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9740,7 +9787,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9759,7 +9806,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/weight/weight-attribute
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9774,7 +9821,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribu
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9793,7 +9840,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribu
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9812,7 +9859,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_reflector_route
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9831,7 +9878,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_server_route_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/send-community/send-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9850,7 +9897,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_c
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9869,7 +9916,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_e
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/send-community/send-large-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9888,7 +9935,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9907,7 +9954,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9926,7 +9973,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_pat
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9945,7 +9992,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_h
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9964,7 +10011,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_un
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-send
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -9979,7 +10026,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_se
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -9998,7 +10045,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-receive
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10013,7 +10060,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_re
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10032,7 +10079,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-both
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10047,7 +10094,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_bo
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10066,7 +10113,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_bo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-import
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10081,7 +10128,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_im
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10100,7 +10147,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_im
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10115,7 +10162,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_ex
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10134,7 +10181,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_ex
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/plist-import
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10149,7 +10196,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_i
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10168,7 +10215,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_i
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/plist-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10183,7 +10230,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_e
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10202,7 +10249,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_e
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/access-list-import
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10217,7 +10264,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10236,7 +10283,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/access-list-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10251,7 +10298,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10270,7 +10317,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/as-path-filter-list-import
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10285,7 +10332,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10304,7 +10351,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/as-path-filter-list-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10319,7 +10366,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10338,7 +10385,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10353,7 +10400,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppr
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10372,7 +10419,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10387,7 +10434,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppr
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10406,7 +10453,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/nexthop-local-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_local_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_local_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10425,7 +10472,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_local_unchang
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/path-type
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10444,7 +10491,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_add_paths_path_type_m
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10459,7 +10506,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10478,7 +10525,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10493,7 +10540,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10512,7 +10559,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10531,7 +10578,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_repla
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10550,7 +10597,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_pat
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10569,7 +10616,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_h
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10588,7 +10635,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_un
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-send
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10603,7 +10650,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_se
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10622,7 +10669,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-receive
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10637,7 +10684,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_re
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10656,7 +10703,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-both
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10671,7 +10718,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_bo
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10690,7 +10737,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_bo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -10705,7 +10752,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10724,7 +10771,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10743,7 +10790,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10758,7 +10805,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10777,7 +10824,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10792,7 +10839,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10811,7 +10858,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10826,7 +10873,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10845,7 +10892,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10860,7 +10907,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10879,7 +10926,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10894,7 +10941,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10913,7 +10960,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10928,7 +10975,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10947,7 +10994,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -10962,7 +11009,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -10981,7 +11028,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_directio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11000,7 +11047,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11019,7 +11066,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11038,7 +11085,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11057,7 +11104,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11076,7 +11123,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11095,7 +11142,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11114,7 +11161,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_reflector_route
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11133,7 +11180,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_server_route_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/send-community/send-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11152,7 +11199,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_c
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11171,7 +11218,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_e
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/send-community/send-large-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11190,7 +11237,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11209,7 +11256,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/weight/weight-attribute
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11224,7 +11271,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribu
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11243,7 +11290,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribu
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/path-type
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11262,7 +11309,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_add_paths_path_type
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11277,7 +11324,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_all
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11296,7 +11343,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_all
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11311,7 +11358,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_all
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11330,7 +11377,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_all
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11349,7 +11396,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_rep
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11368,7 +11415,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11387,7 +11434,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11406,7 +11453,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-send
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11421,7 +11468,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11440,7 +11487,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-receive
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11455,7 +11502,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11474,7 +11521,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-both
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11489,7 +11536,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11508,7 +11555,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -11523,7 +11570,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11542,7 +11589,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11561,7 +11608,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11576,7 +11623,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11595,7 +11642,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11610,7 +11657,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11629,7 +11676,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11644,7 +11691,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11663,7 +11710,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11678,7 +11725,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11697,7 +11744,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11712,7 +11759,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11731,7 +11778,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11746,7 +11793,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11765,7 +11812,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11780,7 +11827,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -11799,7 +11846,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11818,7 +11865,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_h
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11837,7 +11884,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_h
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11856,7 +11903,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11875,7 +11922,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11894,7 +11941,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11913,7 +11960,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11932,7 +11979,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_reflector_rou
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11951,7 +11998,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_server_route_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/send-community/send-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11970,7 +12017,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/send-community/send-ext-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11989,7 +12036,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/send-community/send-large-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12008,7 +12055,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12027,7 +12074,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguratio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/weight/weight-attribute
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12042,7 +12089,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attri
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12061,7 +12108,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/path-type
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12080,7 +12127,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_add_paths_path_type
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12095,7 +12142,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_all
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12114,7 +12161,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_all
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12129,7 +12176,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_all
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12148,7 +12195,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_all
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12167,7 +12214,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_rep
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12186,7 +12233,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12205,7 +12252,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12224,7 +12271,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-send
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12239,7 +12286,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12258,7 +12305,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-receive
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12273,7 +12320,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12292,7 +12339,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-both
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12307,7 +12354,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12326,7 +12373,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -12341,7 +12388,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12360,7 +12407,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12379,7 +12426,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12394,7 +12441,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12413,7 +12460,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12428,7 +12475,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12447,7 +12494,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12462,7 +12509,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12481,7 +12528,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12496,7 +12543,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12515,7 +12562,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12530,7 +12577,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12549,7 +12596,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12564,7 +12611,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12583,7 +12630,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12598,7 +12645,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12617,7 +12664,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direct
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12636,7 +12683,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_h
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12655,7 +12702,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_h
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12674,7 +12721,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12693,7 +12740,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12712,7 +12759,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12731,7 +12778,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12750,7 +12797,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_reflector_rou
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12769,7 +12816,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_server_route_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/send-community/send-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12788,7 +12835,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/send-community/send-ext-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12807,7 +12854,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/send-community/send-large-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12826,7 +12873,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12845,7 +12892,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguratio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/weight/weight-attribute
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12860,7 +12907,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attri
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12879,7 +12926,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attri
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/path-type
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12898,7 +12945,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_add_paths_pat
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12913,7 +12960,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_optio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12932,7 +12979,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_optio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12947,7 +12994,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_optio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -12966,7 +13013,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_optio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -12985,7 +13032,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_optio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13004,7 +13051,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13023,7 +13070,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13042,7 +13089,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-send
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13057,7 +13104,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capabilit
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13076,7 +13123,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capabilit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-receive
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13091,7 +13138,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capabilit
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13110,7 +13157,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capabilit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-both
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13125,7 +13172,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capabilit
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13144,7 +13191,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capabilit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -13159,7 +13206,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13178,7 +13225,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13197,7 +13244,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13212,7 +13259,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13231,7 +13278,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13246,7 +13293,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13265,7 +13312,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13280,7 +13327,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13299,7 +13346,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13314,7 +13361,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13333,7 +13380,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13348,7 +13395,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13367,7 +13414,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13382,7 +13429,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13401,7 +13448,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13416,7 +13463,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13435,7 +13482,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13454,7 +13501,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13473,7 +13520,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13492,7 +13539,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13511,7 +13558,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13530,7 +13577,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13549,7 +13596,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13568,7 +13615,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflect
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13587,7 +13634,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13606,7 +13653,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13625,7 +13672,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-large-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13644,7 +13691,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13663,7 +13710,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfig
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/weight/weight-attribute
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13678,7 +13725,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13697,7 +13744,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/path-type
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13716,7 +13763,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_add_paths_pat
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13731,7 +13778,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_optio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13750,7 +13797,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_optio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13765,7 +13812,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_optio
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13784,7 +13831,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_optio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13803,7 +13850,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_optio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13822,7 +13869,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13841,7 +13888,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13860,7 +13907,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-send
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13875,7 +13922,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capabilit
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13894,7 +13941,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capabilit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-receive
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13909,7 +13956,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capabilit
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13928,7 +13975,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capabilit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-both
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13943,7 +13990,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capabilit
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13962,7 +14009,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capabilit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -13977,7 +14024,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -13996,7 +14043,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14015,7 +14062,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14030,7 +14077,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14049,7 +14096,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14064,7 +14111,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14083,7 +14130,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14098,7 +14145,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14117,7 +14164,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14132,7 +14179,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14151,7 +14198,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14166,7 +14213,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14185,7 +14232,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14200,7 +14247,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14219,7 +14266,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14234,7 +14281,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14253,7 +14300,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14272,7 +14319,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14291,7 +14338,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14310,7 +14357,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14329,7 +14376,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14348,7 +14395,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14367,7 +14414,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14386,7 +14433,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflect
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14405,7 +14452,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14424,7 +14471,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14443,7 +14490,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-large-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14462,7 +14509,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14481,7 +14528,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfig
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/weight/weight-attribute
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14496,7 +14543,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14515,7 +14562,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/path-type
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14534,7 +14581,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_paths_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14549,7 +14596,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14568,7 +14615,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14583,7 +14630,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14602,7 +14649,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14621,7 +14668,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14640,7 +14687,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14659,7 +14706,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14678,7 +14725,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -14693,7 +14740,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14712,7 +14759,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14731,7 +14778,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14746,7 +14793,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14765,7 +14812,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14780,7 +14827,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14799,7 +14846,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14814,7 +14861,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14833,7 +14880,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14848,7 +14895,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14867,7 +14914,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14882,7 +14929,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14901,7 +14948,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14916,7 +14963,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14935,7 +14982,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14950,7 +14997,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -14969,7 +15016,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -14988,7 +15035,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15007,7 +15054,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15026,7 +15073,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15045,7 +15092,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15064,7 +15111,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15083,7 +15130,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15102,7 +15149,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15121,7 +15168,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_ro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15140,7 +15187,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15159,7 +15206,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-large-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15178,7 +15225,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15197,7 +15244,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfigur
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/weight/weight-attribute
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15212,7 +15259,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_a
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15231,7 +15278,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/path-type
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15250,7 +15297,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_paths_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15265,7 +15312,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15284,7 +15331,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15299,7 +15346,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15318,7 +15365,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15337,7 +15384,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15356,7 +15403,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15375,7 +15422,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15394,7 +15441,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -15409,7 +15456,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15428,7 +15475,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15447,7 +15494,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15462,7 +15509,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15481,7 +15528,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15496,7 +15543,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15515,7 +15562,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15530,7 +15577,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15549,7 +15596,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15564,7 +15611,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15583,7 +15630,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15598,7 +15645,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15617,7 +15664,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15632,7 +15679,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15651,7 +15698,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15666,7 +15713,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15685,7 +15732,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15704,7 +15751,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15723,7 +15770,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15742,7 +15789,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15761,7 +15808,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15780,7 +15827,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15799,7 +15846,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15818,7 +15865,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15837,7 +15884,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_ro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15856,7 +15903,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15875,7 +15922,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-large-community
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15894,7 +15941,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15913,7 +15960,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfigur
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/weight/weight-attribute
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15928,7 +15975,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_a
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15947,7 +15994,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/as-path-options/allow-own-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15962,7 +16009,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_o
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15981,7 +16028,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_o
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15996,7 +16043,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_o
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16015,7 +16062,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_o
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/as-path-options/replace-peer-as
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16034,7 +16081,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16053,7 +16100,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16072,7 +16119,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16091,7 +16138,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unch
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/nexthop-self/next-hop-self
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16110,7 +16157,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_s
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16129,7 +16176,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_s
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16148,7 +16195,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_r
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16167,7 +16214,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server_route_serv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16186,7 +16233,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_mo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-flowspec/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16205,7 +16252,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_reflector_rout
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-flowspec/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16224,7 +16271,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_server_route_s
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-flowspec/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16243,7 +16290,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec/route-reflector/route-reflector-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16262,7 +16309,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_reflector_rout
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec/route-server/route-server-client
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16281,7 +16328,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_server_route_s
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec/soft-reconfiguration
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16300,7 +16347,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/path-type
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16319,7 +16366,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_add_paths_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16334,7 +16381,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16353,7 +16400,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16368,7 +16415,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16387,7 +16434,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16406,7 +16453,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16425,7 +16472,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16440,7 +16487,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16459,7 +16506,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -16474,7 +16521,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16493,7 +16540,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16512,7 +16559,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16527,7 +16574,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16546,7 +16593,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16561,7 +16608,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16580,7 +16627,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16595,7 +16642,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16614,7 +16661,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16629,7 +16676,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16648,7 +16695,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16663,7 +16710,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16682,7 +16729,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16697,7 +16744,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16716,7 +16763,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16731,7 +16778,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16750,7 +16797,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16769,7 +16816,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16788,7 +16835,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16807,7 +16854,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16826,7 +16873,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16845,7 +16892,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16864,7 +16911,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/weight/weight-attribute
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16879,7 +16926,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_wei
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -16898,7 +16945,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_wei
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16917,7 +16964,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_refl
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16936,7 +16983,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_serv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/send-community/send-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16955,7 +17002,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16974,7 +17021,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/send-community/send-large-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -16993,7 +17040,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17012,7 +17059,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_recon
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17031,7 +17078,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17050,7 +17097,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17069,7 +17116,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-send
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17084,7 +17131,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capabi
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17103,7 +17150,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capabi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-receive
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17118,7 +17165,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capabi
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17137,7 +17184,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capabi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-both
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17152,7 +17199,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capabi
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17171,7 +17218,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_orf_capabi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-import
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17186,7 +17233,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17205,7 +17252,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17220,7 +17267,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17239,7 +17286,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/plist-import
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17254,7 +17301,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17273,7 +17320,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/plist-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17288,7 +17335,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17307,7 +17354,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/access-list-import
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17322,7 +17369,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17341,7 +17388,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/access-list-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17356,7 +17403,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17375,7 +17422,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/as-path-filter-list-import
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17390,7 +17437,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17409,7 +17456,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/as-path-filter-list-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17424,7 +17471,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17443,7 +17490,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17458,7 +17505,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17477,7 +17524,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17492,7 +17539,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17511,7 +17558,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/nexthop-local-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_local_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_local_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17530,7 +17577,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_lo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/path-type
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17549,7 +17596,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_add_paths_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17564,7 +17611,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_op
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17583,7 +17630,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_op
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17598,7 +17645,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_op
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17617,7 +17664,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_op
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17636,7 +17683,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_op
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17655,7 +17702,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17674,7 +17721,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17693,7 +17740,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-send
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17708,7 +17755,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capabi
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17727,7 +17774,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capabi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-receive
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17742,7 +17789,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capabi
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17761,7 +17808,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capabi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-both
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17776,7 +17823,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capabi
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17795,7 +17842,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_orf_capabi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -17810,7 +17857,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17829,7 +17876,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17848,7 +17895,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17863,7 +17910,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17882,7 +17929,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17897,7 +17944,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17916,7 +17963,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17931,7 +17978,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17950,7 +17997,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17965,7 +18012,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -17984,7 +18031,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -17999,7 +18046,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18018,7 +18065,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18033,7 +18080,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18052,7 +18099,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18067,7 +18114,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18086,7 +18133,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_prefix_lim
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18105,7 +18152,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18124,7 +18171,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18143,7 +18190,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18162,7 +18209,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18181,7 +18228,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18200,7 +18247,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18219,7 +18266,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_refl
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18238,7 +18285,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_serv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/send-community/send-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18257,7 +18304,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18276,7 +18323,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/send-community/send-large-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18295,7 +18342,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18314,7 +18361,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_recon
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/weight/weight-attribute
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18329,7 +18376,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_wei
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18348,7 +18395,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_wei
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/path-type
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18367,7 +18414,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_add_path
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18382,7 +18429,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18401,7 +18448,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18416,7 +18463,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18435,7 +18482,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18454,7 +18501,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18473,7 +18520,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18492,7 +18539,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18511,7 +18558,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-send
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18526,7 +18573,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capa
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18545,7 +18592,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capa
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-receive
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18560,7 +18607,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capa
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18579,7 +18626,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capa
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-both
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18594,7 +18641,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capa
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18613,7 +18660,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_orf_capa
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -18628,7 +18675,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18647,7 +18694,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18666,7 +18713,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18681,7 +18728,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18700,7 +18747,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18715,7 +18762,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18734,7 +18781,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18749,7 +18796,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18768,7 +18815,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18783,7 +18830,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18802,7 +18849,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18817,7 +18864,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18836,7 +18883,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18851,7 +18898,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18870,7 +18917,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18885,7 +18932,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -18904,7 +18951,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18923,7 +18970,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18942,7 +18989,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18961,7 +19008,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18980,7 +19027,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -18999,7 +19046,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19018,7 +19065,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19037,7 +19084,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19056,7 +19103,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/send-community/send-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19075,7 +19122,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/send-community/send-ext-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19094,7 +19141,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/send-community/send-large-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19113,7 +19160,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19132,7 +19179,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_rec
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/weight/weight-attribute
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19147,7 +19194,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_w
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19166,7 +19213,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_w
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/path-type
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19185,7 +19232,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_add_path
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19200,7 +19247,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19219,7 +19266,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19234,7 +19281,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19253,7 +19300,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19272,7 +19319,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19291,7 +19338,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19310,7 +19357,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19329,7 +19376,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-send
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19344,7 +19391,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capa
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19363,7 +19410,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capa
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-receive
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19378,7 +19425,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capa
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19397,7 +19444,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capa
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-both
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19412,7 +19459,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capa
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19431,7 +19478,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_orf_capa
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -19446,7 +19493,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19465,7 +19512,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19484,7 +19531,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19499,7 +19546,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19518,7 +19565,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19533,7 +19580,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19552,7 +19599,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19567,7 +19614,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19586,7 +19633,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19601,7 +19648,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19620,7 +19667,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19635,7 +19682,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19654,7 +19701,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19669,7 +19716,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19688,7 +19735,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19703,7 +19750,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19722,7 +19769,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_prefix_l
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19741,7 +19788,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19760,7 +19807,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19779,7 +19826,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19798,7 +19845,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19817,7 +19864,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19836,7 +19883,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19855,7 +19902,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_re
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19874,7 +19921,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/send-community/send-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19893,7 +19940,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/send-community/send-ext-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19912,7 +19959,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/send-community/send-large-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19931,7 +19978,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19950,7 +19997,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_rec
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/weight/weight-attribute
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -19965,7 +20012,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_w
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -19984,7 +20031,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_w
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/path-type
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20003,7 +20050,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ad
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20018,7 +20065,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20037,7 +20084,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20052,7 +20099,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20071,7 +20118,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20090,7 +20137,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20109,7 +20156,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20128,7 +20175,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20147,7 +20194,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-send
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20162,7 +20209,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20181,7 +20228,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-receive
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20196,7 +20243,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20215,7 +20262,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-both
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20230,7 +20277,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20249,7 +20296,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -20264,7 +20311,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20283,7 +20330,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20302,7 +20349,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20317,7 +20364,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20336,7 +20383,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20351,7 +20398,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20370,7 +20417,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20385,7 +20432,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20404,7 +20451,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20419,7 +20466,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20438,7 +20485,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20453,7 +20500,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20472,7 +20519,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20487,7 +20534,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20506,7 +20553,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20521,7 +20568,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20540,7 +20587,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20559,7 +20606,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20578,7 +20625,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20597,7 +20644,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20616,7 +20663,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20635,7 +20682,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20654,7 +20701,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20673,7 +20720,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20692,7 +20739,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20711,7 +20758,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20730,7 +20777,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-large-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20749,7 +20796,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20768,7 +20815,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_so
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/weight/weight-attribute
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20783,7 +20830,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_we
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20802,7 +20849,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_we
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/path-type
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20821,7 +20868,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ad
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20836,7 +20883,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20855,7 +20902,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20870,7 +20917,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20889,7 +20936,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20908,7 +20955,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20927,7 +20974,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20946,7 +20993,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20965,7 +21012,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-send
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -20980,7 +21027,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -20999,7 +21046,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-receive
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21014,7 +21061,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21033,7 +21080,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-both
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21048,7 +21095,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21067,7 +21114,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -21082,7 +21129,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21101,7 +21148,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21120,7 +21167,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21135,7 +21182,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21154,7 +21201,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21169,7 +21216,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21188,7 +21235,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21203,7 +21250,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21222,7 +21269,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21237,7 +21284,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21256,7 +21303,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21271,7 +21318,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21290,7 +21337,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21305,7 +21352,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21324,7 +21371,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21339,7 +21386,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21358,7 +21405,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21377,7 +21424,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21396,7 +21443,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21415,7 +21462,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21434,7 +21481,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21453,7 +21500,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21472,7 +21519,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21491,7 +21538,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21510,7 +21557,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21529,7 +21576,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21548,7 +21595,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-large-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21567,7 +21614,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21586,7 +21633,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_so
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/weight/weight-attribute
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21601,7 +21648,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_we
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21620,7 +21667,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_we
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/path-type
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21639,7 +21686,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21654,7 +21701,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_p
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21673,7 +21720,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21688,7 +21735,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_p
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21707,7 +21754,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21726,7 +21773,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21745,7 +21792,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21764,7 +21811,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21783,7 +21830,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -21798,7 +21845,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21817,7 +21864,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21836,7 +21883,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21851,7 +21898,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21870,7 +21917,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21885,7 +21932,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21904,7 +21951,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21919,7 +21966,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21938,7 +21985,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21953,7 +22000,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -21972,7 +22019,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -21987,7 +22034,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22006,7 +22053,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22021,7 +22068,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22040,7 +22087,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22055,7 +22102,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22074,7 +22121,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22093,7 +22140,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22112,7 +22159,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22131,7 +22178,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22150,7 +22197,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22169,7 +22216,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22188,7 +22235,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22207,7 +22254,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_rout
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22226,7 +22273,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_rout
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22245,7 +22292,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22264,7 +22311,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-large-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22283,7 +22330,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22302,7 +22349,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/weight/weight-attribute
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22317,7 +22364,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weig
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22336,7 +22383,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weig
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/path-type
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22355,7 +22402,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22370,7 +22417,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_p
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22389,7 +22436,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22404,7 +22451,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_p
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22423,7 +22470,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22442,7 +22489,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22461,7 +22508,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22480,7 +22527,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22499,7 +22546,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -22514,7 +22561,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22533,7 +22580,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22552,7 +22599,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22567,7 +22614,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22586,7 +22633,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22601,7 +22648,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22620,7 +22667,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22635,7 +22682,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22654,7 +22701,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22669,7 +22716,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22688,7 +22735,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22703,7 +22750,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22722,7 +22769,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22737,7 +22784,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22756,7 +22803,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22771,7 +22818,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -22790,7 +22837,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_pref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22809,7 +22856,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22828,7 +22875,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-all
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22847,7 +22894,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22866,7 +22913,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22885,7 +22932,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-replace
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22904,7 +22951,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22923,7 +22970,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_rout
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22942,7 +22989,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_rout
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22961,7 +23008,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-ext-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22980,7 +23027,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-large-community
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22999,7 +23046,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23018,7 +23065,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/weight/weight-attribute
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23033,7 +23080,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weig
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23052,7 +23099,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weig
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/as-path-options/allow-own-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23067,7 +23114,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_opti
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23086,7 +23133,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_opti
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/as-path-options/allow-own-origin-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23101,7 +23148,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_opti
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23120,7 +23167,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_opti
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/as-path-options/replace-peer-as
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23139,7 +23186,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_opti
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/as-path-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23158,7 +23205,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/next-hop-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23177,7 +23224,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/med-unchanged
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23196,7 +23243,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/nexthop-self/next-hop-self
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23215,7 +23262,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/nexthop-self/next-hop-self-force
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23234,7 +23281,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23253,7 +23300,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflec
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23272,7 +23319,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23291,7 +23338,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-flowspec/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23310,7 +23357,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_ref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-flowspec/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23329,7 +23376,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_ser
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-flowspec/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23348,7 +23395,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reco
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec/route-reflector/route-reflector-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23367,7 +23414,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_ref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec/route-server/route-server-client
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23386,7 +23433,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_ser
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec/soft-reconfiguration
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23405,7 +23452,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reco
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/add-paths/path-type
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23424,7 +23471,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_add_paths_path_ty
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23439,7 +23486,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_a
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23458,7 +23505,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23473,7 +23520,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_a
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23492,7 +23539,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23511,7 +23558,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_r
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23530,7 +23577,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23545,7 +23592,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23564,7 +23611,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -23579,7 +23626,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23598,7 +23645,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23617,7 +23664,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23632,7 +23679,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23651,7 +23698,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23666,7 +23713,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23685,7 +23732,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23700,7 +23747,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23719,7 +23766,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23734,7 +23781,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23753,7 +23800,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23768,7 +23815,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23787,7 +23834,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23802,7 +23849,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23821,7 +23868,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23836,7 +23883,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23855,7 +23902,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23874,7 +23921,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23893,7 +23940,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-all
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23912,7 +23959,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23931,7 +23978,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23950,7 +23997,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/private-as/remove-private-as-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23969,7 +24016,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/weight/weight-attribute
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23984,7 +24031,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_att
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24003,7 +24050,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_att
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24022,7 +24069,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_reflector_r
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24041,7 +24088,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_server_rout
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/send-community/send-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24060,7 +24107,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/send-community/send-ext-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24079,7 +24126,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/send-community/send-large-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24098,7 +24145,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24117,7 +24164,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_soft_reconfigurat
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24136,7 +24183,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24155,7 +24202,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24174,7 +24221,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_me
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-send
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24189,7 +24236,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_or
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24208,7 +24255,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-receive
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24223,7 +24270,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_or
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24242,7 +24289,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/orf-capability/orf-both
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24257,7 +24304,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_or
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24276,7 +24323,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_orf_capability_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-import
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24291,7 +24338,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rma
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24310,7 +24357,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rma
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24325,7 +24372,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rma
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24344,7 +24391,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_rma
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/plist-import
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24359,7 +24406,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_pli
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24378,7 +24425,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_pli
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/plist-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24393,7 +24440,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_pli
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_plist_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24412,7 +24459,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_pli
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/access-list-import
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24427,7 +24474,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_acc
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24446,7 +24493,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_acc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/access-list-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24461,7 +24508,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_acc
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_access_list_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24480,7 +24527,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_acc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/as-path-filter-list-import
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24495,7 +24542,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24514,7 +24561,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/as-path-filter-list-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24529,7 +24576,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path_filter_list_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24548,7 +24595,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24563,7 +24610,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24582,7 +24629,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24597,7 +24644,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24616,7 +24663,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/nexthop-local-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_local_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_local_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24635,7 +24682,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_local_unc
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/add-paths/path-type
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24654,7 +24701,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_add_paths_path_ty
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24669,7 +24716,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_a
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24688,7 +24735,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24703,7 +24750,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_a
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24722,7 +24769,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24741,7 +24788,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_r
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24760,7 +24807,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24779,7 +24826,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24798,7 +24845,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_me
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-send
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24813,7 +24860,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_or
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24832,7 +24879,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-receive
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24847,7 +24894,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_or
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24866,7 +24913,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/orf-capability/orf-both
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24881,7 +24928,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_or
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24900,7 +24947,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_orf_capability_or
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -24915,7 +24962,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24934,7 +24981,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24953,7 +25000,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -24968,7 +25015,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -24987,7 +25034,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25002,7 +25049,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25021,7 +25068,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25036,7 +25083,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25055,7 +25102,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25070,7 +25117,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25089,7 +25136,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25104,7 +25151,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25123,7 +25170,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25138,7 +25185,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25157,7 +25204,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25172,7 +25219,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25191,7 +25238,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_prefix_limit_dire
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25210,7 +25257,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25229,7 +25276,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-all
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25248,7 +25295,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25267,7 +25314,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25286,7 +25333,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/private-as/remove-private-as-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25305,7 +25352,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25324,7 +25371,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_reflector_r
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25343,7 +25390,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_server_rout
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/send-community/send-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25362,7 +25409,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/send-community/send-ext-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25381,7 +25428,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/send-community/send-large-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25400,7 +25447,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25419,7 +25466,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_soft_reconfigurat
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/weight/weight-attribute
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25434,7 +25481,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_att
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25453,7 +25500,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_att
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/add-paths/path-type
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25472,7 +25519,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_add_paths_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25487,7 +25534,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25506,7 +25553,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25521,7 +25568,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25540,7 +25587,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25559,7 +25606,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25578,7 +25625,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25597,7 +25644,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25616,7 +25663,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-send
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25631,7 +25678,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25650,7 +25697,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-receive
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25665,7 +25712,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25684,7 +25731,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/orf-capability/orf-both
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25699,7 +25746,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25718,7 +25765,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_orf_capability_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -25733,7 +25780,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25752,7 +25799,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25771,7 +25818,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25786,7 +25833,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25805,7 +25852,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25820,7 +25867,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25839,7 +25886,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25854,7 +25901,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25873,7 +25920,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25888,7 +25935,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25907,7 +25954,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25922,7 +25969,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25941,7 +25988,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25956,7 +26003,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -25975,7 +26022,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -25990,7 +26037,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26009,7 +26056,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26028,7 +26075,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26047,7 +26094,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-all
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26066,7 +26113,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-all-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26085,7 +26132,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26104,7 +26151,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/private-as/remove-private-as-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26123,7 +26170,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26142,7 +26189,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_reflector
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26161,7 +26208,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_server_ro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/send-community/send-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26180,7 +26227,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/send-community/send-ext-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26199,7 +26246,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/send-community/send-large-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26218,7 +26265,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26237,7 +26284,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_soft_reconfigur
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/weight/weight-attribute
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26252,7 +26299,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_a
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26271,7 +26318,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/add-paths/path-type
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26290,7 +26337,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_add_paths_path_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26305,7 +26352,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26324,7 +26371,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26339,7 +26386,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26358,7 +26405,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26377,7 +26424,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26396,7 +26443,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26415,7 +26462,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26434,7 +26481,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-send
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26449,7 +26496,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26468,7 +26515,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-receive
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26483,7 +26530,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26502,7 +26549,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/orf-capability/orf-both
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26517,7 +26564,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26536,7 +26583,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_orf_capability_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -26551,7 +26598,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26570,7 +26617,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26589,7 +26636,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26604,7 +26651,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26623,7 +26670,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26638,7 +26685,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26657,7 +26704,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26672,7 +26719,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26691,7 +26738,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26706,7 +26753,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26725,7 +26772,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26740,7 +26787,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26759,7 +26806,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26774,7 +26821,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26793,7 +26840,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26808,7 +26855,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -26827,7 +26874,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_prefix_limit_di
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26846,7 +26893,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26865,7 +26912,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_ne
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-all
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26884,7 +26931,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-all-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26903,7 +26950,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26922,7 +26969,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/private-as/remove-private-as-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26941,7 +26988,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26960,7 +27007,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_reflector
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26979,7 +27026,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_server_ro
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/send-community/send-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -26998,7 +27045,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/send-community/send-ext-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27017,7 +27064,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/send-community/send-large-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27036,7 +27083,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27055,7 +27102,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_soft_reconfigur
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/weight/weight-attribute
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27070,7 +27117,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_a
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27089,7 +27136,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/path-type
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27108,7 +27155,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_add_paths
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27123,7 +27170,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_o
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27142,7 +27189,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_o
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27157,7 +27204,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_o
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27176,7 +27223,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_o
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27195,7 +27242,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_o
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27214,7 +27261,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27233,7 +27280,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27252,7 +27299,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-send
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27267,7 +27314,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capab
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27286,7 +27333,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capab
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-receive
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27301,7 +27348,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capab
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27320,7 +27367,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capab
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/orf-capability/orf-both
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27335,7 +27382,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capab
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27354,7 +27401,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_orf_capab
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -27369,7 +27416,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27388,7 +27435,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27407,7 +27454,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27422,7 +27469,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27441,7 +27488,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27456,7 +27503,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27475,7 +27522,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27490,7 +27537,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27509,7 +27556,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27524,7 +27571,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27543,7 +27590,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27558,7 +27605,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27577,7 +27624,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27592,7 +27639,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27611,7 +27658,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27626,7 +27673,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27645,7 +27692,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27664,7 +27711,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_s
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27683,7 +27730,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_s
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-all
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27702,7 +27749,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27721,7 +27768,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27740,7 +27787,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/private-as/remove-private-as-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27759,7 +27806,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27778,7 +27825,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_ref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27797,7 +27844,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_ser
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27816,7 +27863,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-ext-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27835,7 +27882,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/send-community/send-large-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27854,7 +27901,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27873,7 +27920,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reco
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/weight/weight-attribute
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27888,7 +27935,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_we
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27907,7 +27954,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_we
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/path-type
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27926,7 +27973,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_add_paths
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27941,7 +27988,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_o
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27960,7 +28007,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_o
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -27975,7 +28022,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_o
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -27994,7 +28041,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_o
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28013,7 +28060,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_o
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28032,7 +28079,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28051,7 +28098,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28070,7 +28117,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-send
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28085,7 +28132,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capab
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_send_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28104,7 +28151,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capab
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-receive
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28119,7 +28166,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capab
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_receive_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28138,7 +28185,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capab
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/orf-capability/orf-both
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28153,7 +28200,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capab
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capability_orf_both_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28172,7 +28219,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_orf_capab
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -28187,7 +28234,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28206,7 +28253,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28225,7 +28272,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28240,7 +28287,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28259,7 +28306,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28274,7 +28321,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28293,7 +28340,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28308,7 +28355,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28327,7 +28374,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28342,7 +28389,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28361,7 +28408,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28376,7 +28423,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28395,7 +28442,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28410,7 +28457,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28429,7 +28476,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28444,7 +28491,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28463,7 +28510,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_prefix_li
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28482,7 +28529,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_s
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28501,7 +28548,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_s
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-all
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28520,7 +28567,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28539,7 +28586,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28558,7 +28605,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/private-as/remove-private-as-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28577,7 +28624,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28596,7 +28643,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_ref
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28615,7 +28662,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_ser
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28634,7 +28681,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-ext-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28653,7 +28700,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/send-community/send-large-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28672,7 +28719,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28691,7 +28738,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reco
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/weight/weight-attribute
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28706,7 +28753,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_we
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28725,7 +28772,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_we
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/path-type
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28744,7 +28791,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_add_paths_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28759,7 +28806,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_opt
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28778,7 +28825,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_opt
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28793,7 +28840,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_opt
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28812,7 +28859,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_opt
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28831,7 +28878,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_opt
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28850,7 +28897,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28869,7 +28916,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28888,7 +28935,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -28903,7 +28950,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28922,7 +28969,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28941,7 +28988,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28956,7 +29003,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -28975,7 +29022,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -28990,7 +29037,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29009,7 +29056,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29024,7 +29071,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29043,7 +29090,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29058,7 +29105,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29077,7 +29124,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29092,7 +29139,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29111,7 +29158,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29126,7 +29173,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29145,7 +29192,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29160,7 +29207,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29179,7 +29226,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29198,7 +29245,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_sel
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29217,7 +29264,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_sel
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-all
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29236,7 +29283,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29255,7 +29302,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29274,7 +29321,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/private-as/remove-private-as-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29293,7 +29340,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29312,7 +29359,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_refle
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29331,7 +29378,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_serve
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29350,7 +29397,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-ext-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29369,7 +29416,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/send-community/send-large-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29388,7 +29435,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29407,7 +29454,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconf
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/weight/weight-attribute
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29422,7 +29469,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weig
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29441,7 +29488,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weig
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/path-type
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_paths_path_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_paths_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29460,7 +29507,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_add_paths_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29475,7 +29522,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_opt
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29494,7 +29541,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_opt
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29509,7 +29556,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_opt
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29528,7 +29575,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_opt
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29547,7 +29594,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_opt
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29566,7 +29613,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29585,7 +29632,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29604,7 +29651,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_create(
 	struct nb_cb_create_args *args)
 {
 	switch (args->event) {
@@ -29619,7 +29666,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29638,7 +29685,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/max-prefixes
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_max_prefixes_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29657,7 +29704,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29672,7 +29719,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29691,7 +29738,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29706,7 +29753,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29725,7 +29772,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29740,7 +29787,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29759,7 +29806,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29774,7 +29821,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29793,7 +29840,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tr-restart-timer
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29808,7 +29855,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tr_restart_timer_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29827,7 +29874,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-shutdown-threshold-pct
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29842,7 +29889,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_shutdown_threshold_pct_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29861,7 +29908,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/prefix-limit-options/tw-warning-only
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29876,7 +29923,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limit_direction_list_prefix_limit_options_tw_warning_only_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -29895,7 +29942,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_prefix_limi
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29914,7 +29961,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_sel
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29933,7 +29980,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_sel
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-all
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29952,7 +29999,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-all-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_all_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29971,7 +30018,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -29990,7 +30037,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/private-as/remove-private-as-replace
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_replace_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remove_private_as_replace_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30009,7 +30056,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30028,7 +30075,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_refle
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30047,7 +30094,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_serve
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30066,7 +30113,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-ext-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_ext_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_ext_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30085,7 +30132,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/send-community/send-large-community
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_large_community_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_send_large_community_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30104,7 +30151,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30123,7 +30170,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconf
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/weight/weight-attribute
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30138,7 +30185,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weig
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_attribute_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30157,7 +30204,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weig
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/as-path-options/allow-own-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30172,7 +30219,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_all
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30191,7 +30238,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_all
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/as-path-options/allow-own-origin-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30206,7 +30253,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_all
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_destroy(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_allow_own_origin_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -30225,7 +30272,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_all
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/as-path-options/replace-peer-as
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace_peer_as_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace_peer_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30244,7 +30291,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_rep
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/as-path-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30263,7 +30310,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_p
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/next-hop-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30282,7 +30329,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/attr-unchanged/med-unchanged
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unchanged_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unchanged_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30301,7 +30348,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/nexthop-self/next-hop-self
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30320,7 +30367,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_h
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/nexthop-self/next-hop-self-force
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_force_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_self_force_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30339,7 +30386,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_h
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30358,7 +30405,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_reflector_rou
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30377,7 +30424,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_server_route_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30396,7 +30443,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguratio
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-flowspec/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30415,7 +30462,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_reflector_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-flowspec/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30434,7 +30481,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_server_rou
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-flowspec/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30453,7 +30500,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_soft_reconfigura
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec/route-reflector/route-reflector-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_reflector_route_reflector_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_reflector_route_reflector_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30472,7 +30519,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_reflector_
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec/route-server/route-server-client
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_server_route_server_client_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_server_route_server_client_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30491,7 +30538,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_server_rou
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec/soft-reconfiguration
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration_modify(
+int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
