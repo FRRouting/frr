@@ -692,8 +692,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 		if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 			zlog_debug(
 				"%s: LSA is in MAX-AGE so refreshing LSA(%pI4/%d)",
-				__PRETTY_FUNCTION__, &aggr->p.prefix,
-				aggr->p.prefixlen);
+				__func__, &aggr->p.prefix, aggr->p.prefixlen);
 
 		ospf_external_lsa_refresh(ospf, lsa, &ei_aggr,
 					  LSA_REFRESH_FORCE, 1);
@@ -711,8 +710,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 		if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 			zlog_debug(
 				"%s: External route prefix is same as aggr so refreshing LSA(%pI4/%d)",
-				__PRETTY_FUNCTION__, &aggr->p.prefix,
-				aggr->p.prefixlen);
+				__func__, &aggr->p.prefix, aggr->p.prefixlen);
 		ospf_external_lsa_refresh(ospf, lsa, &ei_aggr,
 					  LSA_REFRESH_FORCE, 1);
 		SET_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_ORIGINATED);

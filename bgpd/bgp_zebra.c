@@ -2394,7 +2394,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
 				      &afi, &safi)) {
-		zlog_err("%s : error in msg decode", __PRETTY_FUNCTION__);
+		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}
 
@@ -2402,8 +2402,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
 		flog_err(EC_BGP_INVALID_BGP_INSTANCE,
-			 "%s : bgp instance not found vrf %d",
-			 __PRETTY_FUNCTION__, vrf_id);
+			 "%s : bgp instance not found vrf %d", __func__,
+			 vrf_id);
 		return -1;
 	}
 
