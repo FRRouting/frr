@@ -8390,6 +8390,55 @@ ALIAS_HIDDEN(no_neighbor_unsuppress_map, no_neighbor_unsuppress_map_hidden_cmd,
 	     "Route-map to selectively unsuppress suppressed routes\n"
 	     "Name of route map\n")
 
+static int peer_maximum_prefix_set_vty(struct vty *vty, const char *ip_str,
+				       afi_t afi, safi_t safi,
+				       const char *num_str,
+				       const char *threshold_str, int warning,
+				       const char *restart_str,
+				       const char *force_str)
+{
+	int ret;
+	struct peer *peer;
+	uint32_t max;
+	uint8_t threshold;
+	uint16_t restart;
+
+	peer = peer_and_group_lookup_vty(vty, ip_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	max = strtoul(num_str, NULL, 10);
+	if (threshold_str)
+		threshold = atoi(threshold_str);
+	else
+		threshold = MAXIMUM_PREFIX_THRESHOLD_DEFAULT;
+
+	if (restart_str)
+		restart = atoi(restart_str);
+	else
+		restart = 0;
+
+	ret = peer_maximum_prefix_set(peer, afi, safi, max, threshold, warning,
+				      restart, force_str ? true : false);
+
+	return bgp_vty_return(vty, ret);
+}
+
+static int peer_maximum_prefix_unset_vty(struct vty *vty, const char *ip_str,
+					 afi_t afi, safi_t safi)
+{
+	int ret;
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, ip_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = peer_maximum_prefix_unset(peer, afi, safi);
+
+	return bgp_vty_return(vty, ret);
+}
+
 /* Maximum number of prefix to be sent to the neighbor. */
 DEFUN(neighbor_maximum_prefix_out,
       neighbor_maximum_prefix_out_cmd,
@@ -8399,32 +8448,23 @@ DEFUN(neighbor_maximum_prefix_out,
       "Maximum number of prefixes to be sent to this peer\n"
       "Maximum no. of prefix limit\n")
 {
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
 	int idx_peer = 1;
 	int idx_number = 3;
+	struct peer *peer;
+	uint32_t max;
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='out']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
+	max = strtoul(argv[idx_number]->arg, NULL, 10);
 
-	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
+	peer->pmax_out[afi][safi] = max;
 
-	nb_cli_enqueue_change(vty, "./max-prefixes", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-
-	return nb_cli_apply_changes(vty, base_xpath);
+	return CMD_SUCCESS;
 }
 
 DEFUN(no_neighbor_maximum_prefix_out,
@@ -8435,28 +8475,19 @@ DEFUN(no_neighbor_maximum_prefix_out,
       NEIGHBOR_ADDR_STR2
       "Maximum number of prefixes to be sent to this peer\n")
 {
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
 	int idx_peer = 2;
+	struct peer *peer;
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='out']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
+	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
+	peer->pmax_out[afi][safi] = 0;
 
-	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, base_xpath);
+	return CMD_SUCCESS;
 }
 
 /* Maximum number of prefix configuration. Prefix count is different
@@ -8474,33 +8505,14 @@ DEFUN (neighbor_maximum_prefix,
 	int idx_peer = 1;
 	int idx_number = 3;
 	int idx_force = 0;
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
+	char *force = NULL;
 
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='in']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
-
-	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-
-	nb_cli_enqueue_change(vty, "./max-prefixes", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
 	if (argv_find(argv, argc, "force", &idx_force))
-		nb_cli_enqueue_change(vty, "./force-check", NB_OP_MODIFY,
-				      "true");
+		force = argv[idx_force]->arg;
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	return peer_maximum_prefix_set_vty(
+		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
+		argv[idx_number]->arg, NULL, 0, NULL, force);
 }
 
 ALIAS_HIDDEN(neighbor_maximum_prefix, neighbor_maximum_prefix_hidden_cmd,
@@ -8524,37 +8536,14 @@ DEFUN (neighbor_maximum_prefix_threshold,
 	int idx_number = 3;
 	int idx_number_2 = 4;
 	int idx_force = 0;
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='in']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
-
-	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-
-	nb_cli_enqueue_change(vty, "./max-prefixes", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-
-	nb_cli_enqueue_change(vty, "./options/shutdown-threshold-pct",
-			      NB_OP_MODIFY, argv[idx_number_2]->arg);
+	char *force = NULL;
 
 	if (argv_find(argv, argc, "force", &idx_force))
-		nb_cli_enqueue_change(vty, "./force-check", NB_OP_MODIFY,
-				      "true");
+		force = argv[idx_force]->arg;
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	return peer_maximum_prefix_set_vty(
+		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
+		argv[idx_number]->arg, argv[idx_number_2]->arg, 0, NULL, force);
 }
 
 ALIAS_HIDDEN(
@@ -8580,36 +8569,14 @@ DEFUN (neighbor_maximum_prefix_warning,
 	int idx_peer = 1;
 	int idx_number = 3;
 	int idx_force = 0;
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
+	char *force = NULL;
 
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='in']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
-
-	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-
-	nb_cli_enqueue_change(vty, "./max-prefixes", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-
-	nb_cli_enqueue_change(vty, "./options/warning-only", NB_OP_MODIFY,
-			      "true");
 	if (argv_find(argv, argc, "force", &idx_force))
-		nb_cli_enqueue_change(vty, "./force-check", NB_OP_MODIFY,
-				      "true");
+		force = argv[idx_force]->arg;
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	return peer_maximum_prefix_set_vty(
+		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
+		argv[idx_number]->arg, NULL, 1, NULL, force);
 }
 
 ALIAS_HIDDEN(
@@ -8637,37 +8604,14 @@ DEFUN (neighbor_maximum_prefix_threshold_warning,
 	int idx_number = 3;
 	int idx_number_2 = 4;
 	int idx_force = 0;
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
+	char *force = NULL;
 
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='in']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
-
-	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-
-	nb_cli_enqueue_change(vty, "./max-prefixes", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-	nb_cli_enqueue_change(vty, "./options/tw-shutdown-threshold-pct",
-			      NB_OP_MODIFY, argv[idx_number_2]->arg);
-	nb_cli_enqueue_change(vty, "./options/tw-warning-only", NB_OP_MODIFY,
-			      "true");
 	if (argv_find(argv, argc, "force", &idx_force))
-		nb_cli_enqueue_change(vty, "./force-check", NB_OP_MODIFY,
-				      "true");
+		force = argv[idx_force]->arg;
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	return peer_maximum_prefix_set_vty(
+		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
+		argv[idx_number]->arg, argv[idx_number_2]->arg, 1, NULL, force);
 }
 
 ALIAS_HIDDEN(
@@ -8696,35 +8640,14 @@ DEFUN (neighbor_maximum_prefix_restart,
 	int idx_number = 3;
 	int idx_number_2 = 5;
 	int idx_force = 0;
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
+	char *force = NULL;
 
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='in']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
-
-	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-
-	nb_cli_enqueue_change(vty, "./max-prefixes", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-	nb_cli_enqueue_change(vty, "./options/restart-timer", NB_OP_MODIFY,
-			      argv[idx_number_2]->arg);
 	if (argv_find(argv, argc, "force", &idx_force))
-		nb_cli_enqueue_change(vty, "./force-check", NB_OP_MODIFY,
-				      "true");
+		force = argv[idx_force]->arg;
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	return peer_maximum_prefix_set_vty(
+		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
+		argv[idx_number]->arg, NULL, 0, argv[idx_number_2]->arg, force);
 }
 
 ALIAS_HIDDEN(
@@ -8755,37 +8678,15 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
 	int idx_number_2 = 4;
 	int idx_number_3 = 6;
 	int idx_force = 0;
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
+	char *force = NULL;
 
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='in']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
-
-	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-
-	nb_cli_enqueue_change(vty, "./max-prefixes", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-	nb_cli_enqueue_change(vty, "./options/tr-shutdown-threshold-pct",
-			      NB_OP_MODIFY, argv[idx_number_2]->arg);
-	nb_cli_enqueue_change(vty, "./options/tr-restart-timer", NB_OP_MODIFY,
-			      argv[idx_number_3]->arg);
 	if (argv_find(argv, argc, "force", &idx_force))
-		nb_cli_enqueue_change(vty, "./force-check", NB_OP_MODIFY,
-				      "true");
+		force = argv[idx_force]->arg;
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	return peer_maximum_prefix_set_vty(
+		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
+		argv[idx_number]->arg, argv[idx_number_2]->arg, 0,
+		argv[idx_number_3]->arg, force);
 }
 
 ALIAS_HIDDEN(
@@ -8815,27 +8716,9 @@ DEFUN (no_neighbor_maximum_prefix,
        "Force checking all received routes not only accepted\n")
 {
 	int idx_peer = 2;
-	char base_xpath[XPATH_MAXLEN];
-	char af_xpath[XPATH_MAXLEN];
-	char attr_xpath[XPATH_MAXLEN];
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
-		 yang_afi_safi_value2identity(afi, safi));
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), af_xpath)
-	    < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(attr_xpath, sizeof(attr_xpath),
-		 "/%s/prefix-limit/direction-list[direction='in']",
-		 bgp_afi_safi_get_container_str(afi, safi));
-	strlcat(base_xpath, attr_xpath, sizeof(base_xpath));
-
-	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, base_xpath);
+	return peer_maximum_prefix_unset_vty(vty, argv[idx_peer]->arg,
+					     bgp_node_afi(vty),
+					     bgp_node_safi(vty));
 }
 
 ALIAS_HIDDEN(
