@@ -21866,7 +21866,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_filter_config
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_plist_modify(args, FILTER_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -21880,7 +21881,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_filter_config
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_plist_destroy(args, FILTER_IN);
+		/* TODO: implement me. */
+		break;
 	}
 
 	return NB_OK;
@@ -23008,7 +23010,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_filter_config_p
 	case NB_EV_ABORT:
 		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_plist_modify(args, FILTER_IN);
+		bgp_neighbor_afi_safi_plist_modify(args, FILTER_IN);
+		break;
 	}
 
 	return NB_OK;
@@ -48269,7 +48272,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_filter_config_rm
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
+		return bgp_peer_group_afi_safi_plist_destroy(args, FILTER_IN);
 	}
 
 	return NB_OK;
@@ -48303,7 +48306,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_filter_config_pl
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_plist_destroy(args, FILTER_IN);
+		return bgp_peer_group_afi_safi_rmap_destroy(args, RMAP_OUT);
 	}
 
 	return NB_OK;
