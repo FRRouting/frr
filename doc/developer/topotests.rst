@@ -59,7 +59,7 @@ there are some errors in the upstream MIBS which need to be patched up. The
 following steps will get you there on Ubuntu 20.04.
 
 .. code:: shell
-	  
+
    apt install libsnmp-dev
    apt install snmpd snmp
    apt install snmp-mibs-downloader
@@ -68,9 +68,9 @@ following steps will get you there on Ubuntu 20.04.
    wget http://pastebin.com/raw.php?i=p3QyuXzZ -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU
    wget http://pastebin.com/raw.php?i=gG7j8nyk -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB
    edit /etc/snmp/snmp.conf to look like this
-   # As the snmp packages come without MIB files due to license reasons, loading   
-   # of MIBs is disabled by default. If you added the MIBs you can reenable        
-   # loading them by commenting out the following line.                            
+   # As the snmp packages come without MIB files due to license reasons, loading
+   # of MIBs is disabled by default. If you added the MIBs you can reenable
+   # loading them by commenting out the following line.
    mibs +ALL
 
 
@@ -485,7 +485,7 @@ Some things to keep in mind:
   in BGP, the test should look for the peers reconverging instead of just
   sleeping an arbitrary amount of time and continuing on.  It is ok to
   use sleep in a tight loop with appropriate show commands to ensure that
-  the protocol reaches the desired state.  This should be bounded by 
+  the protocol reaches the desired state.  This should be bounded by
   appropriate timeouts for the protocol in question though.  See
   verify_bgp_convergence as a good example of this.  If you are having
   troubles figuring out what to look for, please do not be afraid to ask.
@@ -882,6 +882,8 @@ Example:
 
 Requirements:
 
+- Directory name for a new topotest must not contain hyphen (``-``) characters.
+  To separate words, use underscores (``_``). For example, `tests/topotests/bgp_new_example`.
 - Test code should always be declared inside functions that begin with the
   ``test_`` prefix. Functions beginning with different prefixes will not be run
   by pytest.
