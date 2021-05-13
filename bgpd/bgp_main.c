@@ -517,10 +517,6 @@ int main(int argc, char **argv)
 	bgp_script_init();
 #endif
 
-	hook_register(routing_conf_event,
-		      routing_control_plane_protocols_name_validate);
-
-
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);
 
