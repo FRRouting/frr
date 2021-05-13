@@ -13950,9 +13950,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_repla
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/originate
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_originate_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13969,9 +13969,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_ori
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/route-map
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -13986,7 +13986,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_rou
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15455,59 +15455,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_repla
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/default-originate/originate
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/default-originate/route-map
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/as-path-unchanged
  */
 int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
@@ -16405,59 +16352,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_rep
 			args, PEER_FLAG_AS_OVERRIDE,
 			yang_dnode_get_bool(args->dnode, NULL));
 
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/default-originate/originate
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/default-originate/route-map
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -17371,59 +17265,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_rep
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/default-originate/originate
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/default-originate/route-map
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/as-path-unchanged
  */
 int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
@@ -18329,59 +18170,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_optio
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/originate
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/route-map
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/as-path-unchanged
  */
 int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
@@ -19279,59 +19067,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_optio
 			args, PEER_FLAG_AS_OVERRIDE,
 			yang_dnode_get_bool(args->dnode, NULL));
 
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/originate
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/route-map
- */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -22295,9 +22030,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/originate
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_originate_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22314,9 +22049,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/route-map
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -22331,7 +22066,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_or
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23742,59 +23477,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_op
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/default-originate/originate
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/default-originate/route-map
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/as-path-unchanged
  */
 int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
@@ -24693,59 +24375,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_
 			args, PEER_FLAG_AS_OVERRIDE,
 			yang_dnode_get_bool(args->dnode, NULL));
 
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/default-originate/originate
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/default-originate/route-map
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -25660,59 +25289,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/default-originate/originate
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/default-originate/route-map
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/as-path-unchanged
  */
 int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
@@ -26619,59 +26195,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/originate
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/route-map
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/as-path-unchanged
  */
 int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
@@ -27570,59 +27093,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as
 			args, PEER_FLAG_AS_OVERRIDE,
 			yang_dnode_get_bool(args->dnode, NULL));
 
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/originate
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/route-map
- */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -30586,9 +30056,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_r
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate/originate
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate-options/send-default-route
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_originate_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_send_default_route_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30605,9 +30075,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate/route-map
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/default-originate-options/rmap-policy-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -30622,7 +30092,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_route_map_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_default_originate_options_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -32025,59 +31495,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_r
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/default-originate/originate
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/default-originate/route-map
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/attr-unchanged/as-path-unchanged
  */
 int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_path_unchanged_modify(
@@ -32975,59 +32392,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options
 			args, PEER_FLAG_AS_OVERRIDE,
 			yang_dnode_get_bool(args->dnode, NULL));
 
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/default-originate/originate
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/default-originate/route-map
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -33941,59 +33305,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/default-originate/originate
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/default-originate/route-map
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/attr-unchanged/as-path-unchanged
  */
 int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_path_unchanged_modify(
@@ -34899,59 +34210,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_o
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/originate
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/default-originate/route-map
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/attr-unchanged/as-path-unchanged
  */
 int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchanged_as_path_unchanged_modify(
@@ -35849,59 +35107,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_o
 			args, PEER_FLAG_AS_OVERRIDE,
 			yang_dnode_get_bool(args->dnode, NULL));
 
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/originate
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_originate_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/default-originate/route-map
- */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_default_originate_route_map_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
