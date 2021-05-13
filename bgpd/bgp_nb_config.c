@@ -64,11 +64,13 @@ int routing_control_plane_protocols_name_validate(
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global
  */
-int bgp_create(struct nb_cb_create_args *args)
+int bgp_global_create(struct nb_cb_create_args *args)
 {
+
 	const struct lyd_node *vrf_dnode;
+	const struct lyd_node *bgp_dnode;
 	struct bgp *bgp;
 	struct vrf *vrf;
 	const char *name = NULL;
@@ -97,10 +99,10 @@ int bgp_create(struct nb_cb_create_args *args)
 			inst_type = BGP_INSTANCE_TYPE_VRF;
 		}
 
-		as = yang_dnode_get_uint32(args->dnode, "./global/local-as");
+		as = yang_dnode_get_uint32(args->dnode, "./local-as");
 
-		is_view_inst = yang_dnode_get_bool(
-			args->dnode, "./global/instance-type-view");
+		is_view_inst = yang_dnode_get_bool(args->dnode,
+						   "./instance-type-view");
 		if (is_view_inst)
 			inst_type = BGP_INSTANCE_TYPE_VIEW;
 
@@ -129,16 +131,18 @@ int bgp_create(struct nb_cb_create_args *args)
 
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 
-		nb_running_set_entry(args->dnode, bgp);
+		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
+		nb_running_set_entry(bgp_dnode, bgp);
 		break;
 	}
 
 	return NB_OK;
 }
 
-int bgp_destroy(struct nb_cb_destroy_args *args)
+int bgp_global_destroy(struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
+	const struct lyd_node *bgp_dnode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -171,7 +175,8 @@ int bgp_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_unset_entry(args->dnode);
+		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
+		bgp = nb_running_unset_entry(bgp_dnode);
 
 		bgp_delete(bgp);
 
