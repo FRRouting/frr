@@ -9023,10 +9023,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_p
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > multipath_num) {
+		if (maxpaths > MULTIPATH_NUM) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 multipath_num);
+				 MULTIPATH_NUM);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -9094,10 +9094,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_maximum_p
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > multipath_num) {
+		if (maxpaths > MULTIPATH_NUM) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 multipath_num);
+				 MULTIPATH_NUM);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -10942,10 +10942,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ebgp_maximum_p
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > multipath_num) {
+		if (maxpaths > MULTIPATH_NUM) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 multipath_num);
+				 MULTIPATH_NUM);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -11745,10 +11745,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ebgp_m
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > multipath_num) {
+		if (maxpaths > MULTIPATH_NUM) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 multipath_num);
+				 MULTIPATH_NUM);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -11983,10 +11983,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_m
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > multipath_num) {
+		if (maxpaths > MULTIPATH_NUM) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 multipath_num);
+				 MULTIPATH_NUM);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -12013,10 +12013,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_m
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
-		if (maxpaths > multipath_num) {
+		if (maxpaths > MULTIPATH_NUM) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "maxpaths %u is out of range %u", maxpaths,
-				 multipath_num);
+				 MULTIPATH_NUM);
 			return NB_ERR_VALIDATION;
 		}
 		break;
