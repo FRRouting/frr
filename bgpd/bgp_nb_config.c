@@ -107,22 +107,16 @@ int bgp_router_create(struct nb_cb_create_args *args)
 
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			is_new_bgp = (bgp_lookup(as, name) == NULL);
-		else
-			is_new_bgp = (bgp_lookup_by_name(name) == NULL);
 
 		ret = bgp_get_vty(&bgp, &as, name, inst_type);
-		switch (ret) {
-		case BGP_ERR_AS_MISMATCH:
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance is already running; AS is %u",
-				 as);
-			return NB_ERR_INCONSISTENCY;
-		case BGP_ERR_INSTANCE_MISMATCH:
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance type mismatch");
+		if (ret == BGP_ERR_INSTANCE_MISMATCH) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"BGP instance name and AS number mismatch\nBGP instance is already running; AS is %u, input-as %u",
+				bgp->as, as);
+
 			return NB_ERR_INCONSISTENCY;
 		}
-
 		/*
 		 * If we just instantiated the default instance, complete
 		 * any pending VRF-VPN leaking that was configured via
@@ -136,7 +130,7 @@ int bgp_router_create(struct nb_cb_create_args *args)
 		 * Leak the routes to importing bgp vrf instances,
 		 * only when new bgp vrf instance is configured.
 		 */
-		if (is_new_bgp)
+		if (ret != BGP_INSTANCE_EXISTS)
 			bgp_vpn_leak_export(bgp);
 
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
@@ -280,17 +274,15 @@ int bgp_global_local_as_modify(struct nb_cb_modify_args *args)
 			inst_type = BGP_INSTANCE_TYPE_VIEW;
 
 		ret = bgp_lookup_by_as_name_type(&bgp, &as, name, inst_type);
-		switch (ret) {
-		case BGP_ERR_AS_MISMATCH:
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance is already running; AS is %u",
-				 as);
-			return NB_ERR_VALIDATION;
-		case BGP_ERR_INSTANCE_MISMATCH:
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance type mismatch");
+		if (ret == BGP_ERR_INSTANCE_MISMATCH) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"BGP instance name and AS number mismatch\nBGP instance is already running; input-as %u",
+				as);
+
 			return NB_ERR_VALIDATION;
 		}
+
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
