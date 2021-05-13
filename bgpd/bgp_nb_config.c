@@ -2109,73 +2109,18 @@ int bgp_global_afi_safis_afi_safi_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
-static struct peer *bgp_neighbor_peer_lookup(struct bgp *bgp,
-					     const char *peer_str, char *errmsg,
-					     size_t errmsg_len)
-{
-	struct peer *peer = NULL;
-	union sockunion su;
-
-	str2sockunion(peer_str, &su);
-	peer = peer_lookup(bgp, &su);
-	if (!peer) {
-		snprintf(errmsg, errmsg_len,
-			 "Specify remote-as or peer-group commands first");
-		return NULL;
-	}
-	if (peer_dynamic_neighbor(peer)) {
-		snprintf(errmsg, errmsg_len,
-			 "Operation not allowed on a dynamic neighbor\n");
-		return NULL;
-	}
-	return peer;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor
  */
 int bgp_neighbors_neighbor_create(struct nb_cb_create_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	union sockunion su;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-
-		peer_str =
-			yang_dnode_get_string(args->dnode, "./remote-address");
-
-		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
-
-		str2sockunion(peer_str, &su);
-		if (peer_address_self_check(bgp, &su)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Can not configure the local system as neighbor");
-			return NB_ERR_VALIDATION;
-		}
-
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		/* Once bgp instance available check self peer addr */
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-
-		peer_str =
-			yang_dnode_get_string(args->dnode, "./remote-address");
-		str2sockunion(peer_str, &su);
-		if (peer_address_self_check(bgp, &su)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Can not configure the local system as neighbor");
-			return NB_ERR_INCONSISTENCY;
-		}
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2184,65 +2129,12 @@ int bgp_neighbors_neighbor_create(struct nb_cb_create_args *args)
 
 int bgp_neighbors_neighbor_destroy(struct nb_cb_destroy_args *args)
 {
-
-	struct bgp *bgp;
-	const char *peer_str;
-	union sockunion su;
-	struct peer *peer = NULL;
-	struct peer *other;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
-		peer_str =
-			yang_dnode_get_string(args->dnode, "./remote-address");
-		str2sockunion(peer_str, &su);
-
-		peer = peer_lookup(bgp, &su);
-		if (peer) {
-			if (peer_dynamic_neighbor(peer)) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"Operation not allowed on a dynamic neighbor");
-				return NB_ERR_VALIDATION;
-			}
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-
-		peer_str =
-			yang_dnode_get_string(args->dnode, "./remote-address");
-		str2sockunion(peer_str, &su);
-
-		peer = peer_lookup(bgp, &su);
-		if (peer) {
-			if (peer_dynamic_neighbor(peer)) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"Operation not allowed on a dynamic neighbor");
-				return NB_ERR_INCONSISTENCY;
-			}
-
-			other = peer->doppelganger;
-
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-				bgp_zebra_terminate_radv(peer->bgp, peer);
-
-			peer_notify_unconfig(peer);
-			peer_delete(peer);
-			if (other && other->status != Deleted) {
-				peer_notify_unconfig(other);
-				peer_delete(other);
-			}
-		}
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2256,38 +2148,12 @@ int bgp_neighbors_neighbor_destroy(struct nb_cb_destroy_args *args)
 int bgp_neighbors_neighbor_local_interface_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *intf_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP invalid peer %s", peer_str);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		if (peer->conf_if) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP invalid peer %s", peer_str);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		intf_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_interface_set(peer, intf_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2297,35 +2163,12 @@ int bgp_neighbors_neighbor_local_interface_modify(
 int bgp_neighbors_neighbor_local_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP invalid peer %s", peer_str);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		if (peer->conf_if) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP invalid peer %s", peer_str);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		peer_interface_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2338,31 +2181,12 @@ int bgp_neighbors_neighbor_local_interface_destroy(
  */
 int bgp_neighbors_neighbor_local_port_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t port;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP invalid peer %s", peer_str);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		port = yang_dnode_get_uint16(args->dnode, NULL);
-		peer_port_set(peer, port);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2371,33 +2195,12 @@ int bgp_neighbors_neighbor_local_port_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_local_port_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t port;
-	struct servent *sp;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP invalid peer %s", peer_str);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		sp = getservbyname("bgp", "tcp");
-		port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs(sp->s_port);
-		peer_port_set(peer, port);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2410,67 +2213,12 @@ int bgp_neighbors_neighbor_local_port_destroy(struct nb_cb_destroy_args *args)
  */
 int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *peer_grp_str;
-	struct peer *peer;
-	struct peer_group *group;
-	union sockunion su;
-	as_t as;
-	int ret = 0;
-	char prgrp_xpath[XPATH_MAXLEN];
-	const struct lyd_node *bgp_dnode;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		peer_grp_str = yang_dnode_get_string(args->dnode, NULL);
-		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
-		snprintf(prgrp_xpath, sizeof(prgrp_xpath),
-			 FRR_BGP_PEER_GROUP_XPATH, peer_grp_str, "");
-
-		if (!yang_dnode_exists(bgp_dnode, prgrp_xpath)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Configure the peer-group first %s",
-				 peer_grp_str);
-			return NB_ERR_VALIDATION;
-		}
-
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		str2sockunion(peer_str, &su);
-
-		peer_grp_str = yang_dnode_get_string(args->dnode, NULL);
-		group = peer_group_lookup(bgp, peer_grp_str);
-		if (!group) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Configure the peer-group first %s",
-				 peer_grp_str);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		ret = peer_group_bind(bgp, &su, peer, group, &as);
-
-		if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n",
-				as);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2479,33 +2227,12 @@ int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-			bgp_zebra_terminate_radv(peer->bgp, peer);
-
-		peer_notify_unconfig(peer);
-		ret = peer_delete(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2518,29 +2245,12 @@ int bgp_neighbors_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
  */
 int bgp_neighbors_neighbor_password_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *passwrd_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_password_set(peer, passwrd_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2549,26 +2259,12 @@ int bgp_neighbors_neighbor_password_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_password_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_password_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2581,44 +2277,12 @@ int bgp_neighbors_neighbor_password_destroy(struct nb_cb_destroy_args *args)
  */
 int bgp_neighbors_neighbor_ttl_security_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-	uint8_t gtsm_hops;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		gtsm_hops = yang_dnode_get_uint8(args->dnode, NULL);
-		/*
-		 * If 'neighbor swpX', then this is for directly connected
-		 * peers, we should not accept a ttl-security hops value greater
-		 * than 1.
-		 */
-		if (peer->conf_if && (gtsm_hops > BGP_GTSM_HOPS_CONNECTED)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"%d is directly connected peer, hops cannot exceed 1\n",
-				gtsm_hops);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		ret = peer_ttl_security_hops_set(peer, gtsm_hops);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret))
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2627,31 +2291,12 @@ int bgp_neighbors_neighbor_ttl_security_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_ttl_security_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ttl_security_hops_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2683,28 +2328,12 @@ int bgp_neighbors_neighbor_solo_modify(struct nb_cb_modify_args *args)
 int bgp_neighbors_neighbor_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_ENFORCE_FIRST_AS, enable,
-				    args->errmsg, args->errmsg_len);
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2717,30 +2346,12 @@ int bgp_neighbors_neighbor_enforce_first_as_modify(
  */
 int bgp_neighbors_neighbor_description_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *desc_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		desc_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_description_set(peer, desc_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2749,26 +2360,12 @@ int bgp_neighbors_neighbor_description_modify(struct nb_cb_modify_args *args)
 
 int bgp_neighbors_neighbor_description_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_description_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2781,32 +2378,12 @@ int bgp_neighbors_neighbor_description_destroy(struct nb_cb_destroy_args *args)
  */
 int bgp_neighbors_neighbor_passive_mode_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_PASSIVE,
-					set, args->errmsg, args->errmsg_len)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2820,29 +2397,12 @@ int bgp_neighbors_neighbor_passive_mode_modify(struct nb_cb_modify_args *args)
 int bgp_neighbors_neighbor_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_DYNAMIC_CAPABILITY, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2875,29 +2435,12 @@ int bgp_neighbors_neighbor_capability_options_strict_capability_modify(
 int bgp_neighbors_neighbor_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_CAPABILITY_ENHE, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2949,30 +2492,12 @@ int bgp_neighbors_neighbor_capability_options_override_capability_modify(
 int bgp_neighbors_neighbor_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str, *source_str;
-	struct peer *peer;
-	union sockunion su;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-
-		str2sockunion(source_str, &su);
-		peer_update_source_addr_set(peer, &su);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -2982,26 +2507,12 @@ int bgp_neighbors_neighbor_update_source_ip_modify(
 int bgp_neighbors_neighbor_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_update_source_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3015,28 +2526,12 @@ int bgp_neighbors_neighbor_update_source_ip_destroy(
 int bgp_neighbors_neighbor_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str, *source_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_update_source_if_set(peer, source_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3046,26 +2541,12 @@ int bgp_neighbors_neighbor_update_source_interface_modify(
 int bgp_neighbors_neighbor_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_update_source_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3078,45 +2559,6 @@ int bgp_neighbors_neighbor_update_source_interface_destroy(
  */
 int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_modify(
 	struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	int as_type = AS_SPECIFIED;
-	union sockunion su;
-	int ret;
-	as_t as = 0;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		as_type = yang_dnode_get_enum(args->dnode, "../remote-as-type");
-		/* When remote-as-type is as-specified, the peer will be
-		 * created in remote_as_modify callback */
-		if (yang_dnode_exists(args->dnode, "../remote-as"))
-			return NB_OK;
-
-		str2sockunion(peer_str, &su);
-		ret = peer_remote_as(bgp, &su, NULL, &as, as_type);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_destroy(
-	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -3137,33 +2579,12 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_type_destroy(
 int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	int as_type = AS_SPECIFIED;
-	union sockunion su;
-	int ret;
-	as_t as = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		as_type = yang_dnode_get_enum(args->dnode, "../remote-as-type");
-		as = yang_dnode_get_uint32(args->dnode, NULL);
-
-		str2sockunion(peer_str, &su);
-		ret = peer_remote_as(bgp, &su, NULL, &as, as_type);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3192,46 +2613,12 @@ int bgp_neighbors_neighbor_neighbor_remote_as_remote_as_destroy(
 int bgp_neighbors_neighbor_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-	int ret = 0;
-	uint8_t ttl = MAXTTL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		if (peer->conf_if) {
-			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
-			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
-					     ret);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (set)
-			ret = peer_ebgp_multihop_set(peer, ttl);
-		else
-			ret = peer_ebgp_multihop_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3241,32 +2628,12 @@ int bgp_neighbors_neighbor_ebgp_multihop_enabled_modify(
 int bgp_neighbors_neighbor_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ebgp_multihop_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3280,39 +2647,12 @@ int bgp_neighbors_neighbor_ebgp_multihop_enabled_destroy(
 int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-	uint8_t ttl = MAXTTL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		if (peer->conf_if) {
-			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
-			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
-					     ret);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		ttl = yang_dnode_get_uint8(args->dnode, NULL);
-
-		ret = peer_ebgp_multihop_set(peer, ttl);
-
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3322,29 +2662,12 @@ int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_modify(
 int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ebgp_multihop_unset(peer);
-
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3358,72 +2681,16 @@ int bgp_neighbors_neighbor_ebgp_multihop_multihop_ttl_destroy(
 int bgp_neighbors_neighbor_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (peer_flag_modify_nb(bgp, peer_str, peer,
-					PEER_FLAG_DISABLE_CONNECTED_CHECK, set,
-					args->errmsg, args->errmsg_len)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
 	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as
- */
-void bgp_neighbors_neighbor_local_as_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	int ret;
-	as_t as = 0;
-	const char *peer_str;
-	struct peer *peer = NULL;
-	bool no_prepend = 0;
-	bool replace_as = 0;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	peer_str = yang_dnode_get_string(args->dnode, "../remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-
-	if (yang_dnode_exists(args->dnode, "./local-as"))
-		as = yang_dnode_get_uint32(args->dnode, "./local-as");
-	if (yang_dnode_exists(args->dnode, "./no-prepend"))
-		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
-
-	if (!as && !no_prepend && !replace_as)
-		ret = peer_local_as_unset(peer);
-	else
-		ret = peer_local_as_set(peer, as, no_prepend, replace_as);
-	bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
 }
 
 /*
@@ -3439,40 +2706,6 @@ int bgp_neighbors_neighbor_local_as_local_as_modify(
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_neighbor_local_as_local_as_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	int ret;
-	const char *peer_str;
-	struct peer *peer;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-
-
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		ret = peer_local_as_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-
 		break;
 	}
 
@@ -3708,53 +2941,10 @@ int bgp_neighbors_neighbor_bfd_options_check_cp_failure_destroy(
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown
- */
-void bgp_neighbors_neighbor_admin_shutdown_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-	const char *message;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	peer_str = yang_dnode_get_string(args->dnode, "../remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-
-	if (yang_dnode_exists(args->dnode, "./message")) {
-		message = yang_dnode_get_string(args->dnode, "./message");
-		peer_tx_shutdown_message_set(peer, message);
-	}
-	enable = yang_dnode_get_bool(args->dnode, "./enable");
-
-	peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_SHUTDOWN, enable,
-			    args->errmsg, args->errmsg_len);
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown/enable
  */
 int bgp_neighbors_neighbor_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_neighbor_admin_shutdown_enable_destroy(
-	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -3911,30 +3101,12 @@ int bgp_neighbors_neighbor_graceful_restart_graceful_restart_disable_destroy(
 int bgp_neighbors_neighbor_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t routeadv;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		routeadv = yang_dnode_get_uint16(args->dnode, NULL);
-
-		ret = peer_advertise_interval_set(peer, routeadv);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3944,28 +3116,12 @@ int bgp_neighbors_neighbor_timers_advertise_interval_modify(
 int bgp_neighbors_neighbor_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		ret = peer_advertise_interval_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -3979,30 +3135,12 @@ int bgp_neighbors_neighbor_timers_advertise_interval_destroy(
 int bgp_neighbors_neighbor_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t connect;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		connect = yang_dnode_get_uint16(args->dnode, NULL);
-
-		ret = peer_timers_connect_set(peer, connect);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4012,28 +3150,12 @@ int bgp_neighbors_neighbor_timers_connect_time_modify(
 int bgp_neighbors_neighbor_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-
-		ret = peer_timers_connect_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4047,37 +3169,12 @@ int bgp_neighbors_neighbor_timers_connect_time_destroy(
 int bgp_neighbors_neighbor_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t keepalive = 0;
-	uint16_t holdtime = 0;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
-		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
-
-		if (keepalive != BGP_DEFAULT_KEEPALIVE
-		    && holdtime != BGP_DEFAULT_HOLDTIME) {
-			ret = peer_timers_set(peer, keepalive, holdtime);
-		} else
-			ret = peer_timers_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4091,44 +3188,12 @@ int bgp_neighbors_neighbor_timers_hold_time_modify(
 int bgp_neighbors_neighbor_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t keepalive = 0, curr_keep = 0;
-	uint16_t holdtime = 0;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
-		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
-
-		if (keepalive != BGP_DEFAULT_KEEPALIVE
-		    && holdtime != BGP_DEFAULT_HOLDTIME) {
-			if (peer->holdtime == holdtime) {
-				curr_keep = (keepalive < holdtime / 3
-						     ? keepalive
-						     : holdtime / 3);
-				if (curr_keep == keepalive)
-					return NB_OK;
-			}
-			ret = peer_timers_set(peer, keepalive, holdtime);
-		} else
-			ret = peer_timers_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4176,47 +3241,89 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_destroy(
 int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	bool activate = false;
-	int ret = 0;
-	union sockunion su;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		af_name =
-			yang_dnode_get_string(args->dnode, "../afi-safi-name");
-		yang_afi_safi_identity2value(af_name, &afi, &safi);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../../remote-address");
-		str2sockunion(peer_str, &su);
-		peer = peer_lookup(bgp, &su);
-
-		activate = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (activate)
-			ret = peer_activate(peer, afi, safi);
-		else
-			ret = peer_deactivate(peer, afi, safi);
-
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_destroy(
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor
+ */
+int bgp_neighbors_unnumbered_neighbor_create(struct nb_cb_create_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/v6only
+ */
+int bgp_neighbors_unnumbered_neighbor_v6only_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/peer-group
+ */
+int bgp_neighbors_unnumbered_neighbor_peer_group_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -4231,268 +3338,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_destroy(
 	return NB_OK;
 }
 
-static struct peer *bgp_unnumbered_neighbor_peer_lookup(struct bgp *bgp,
-							const char *peer_str,
-							char *errmsg,
-							size_t errmsg_len)
-{
-	struct peer *peer = NULL;
-
-	/* Not IP, could match either peer configured on interface or a
-	 * group. */
-	peer = peer_lookup_by_conf_if(bgp, peer_str);
-	if (!peer) {
-		snprintf(errmsg, errmsg_len,
-			 "Specify remote-as or peer-group commands first");
-		return NULL;
-	}
-	if (peer_dynamic_neighbor(peer)) {
-		snprintf(errmsg, errmsg_len,
-			 "Operation not allowed on a dynamic neighbor\n");
-		return NULL;
-	}
-
-	return peer;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor
- */
-int bgp_neighbors_unnumbered_neighbor_create(struct nb_cb_create_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *peer_grp_str = NULL;
-	bool v6_only = false;
-	int as_type = AS_UNSPECIFIED;
-	as_t as = 0;
-	char prgrp_xpath[XPATH_MAXLEN];
-	const struct lyd_node *bgp_dnode;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		peer_str = yang_dnode_get_string(args->dnode, "./interface");
-		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
-		snprintf(prgrp_xpath, sizeof(prgrp_xpath),
-			 FRR_BGP_PEER_GROUP_XPATH, peer_str, "");
-
-		if (yang_dnode_exists(bgp_dnode, prgrp_xpath)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Name conflict with peer-group: %s", peer_str);
-			return NB_ERR_VALIDATION;
-		}
-
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "./interface");
-
-		if (yang_dnode_exists(args->dnode, "./peer-group"))
-			peer_grp_str = yang_dnode_get_string(args->dnode,
-							     "./peer-group");
-
-		if (yang_dnode_exists(args->dnode, "./v6-only"))
-			v6_only = yang_dnode_get_bool(args->dnode, "./v6-only");
-
-		if (yang_dnode_exists(args->dnode,
-				      "./neighbor-remote-as/remote-as-type")) {
-			as_type = yang_dnode_get_enum(
-				args->dnode,
-				"./neighbor-remote-as/remote-as-type");
-			if (yang_dnode_exists(args->dnode,
-					      "./neighbor-remote-as/remote-as"))
-				as = yang_dnode_get_uint32(
-					args->dnode,
-					"./neighbor-remote-as/remote-as");
-		}
-
-		if (peer_conf_interface_create(bgp, peer_str, v6_only,
-					       peer_grp_str, as_type, as,
-					       args->errmsg, args->errmsg_len))
-			return NB_ERR_INCONSISTENCY;
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-
-		peer_str = yang_dnode_get_string(args->dnode, "./interface");
-		/* look up for neighbor by interface name config. */
-		peer = peer_lookup_by_conf_if(bgp, peer_str);
-		if (peer) {
-			/* Request zebra to terminate IPv6 RAs on this
-			 * interface. */
-			if (peer->ifp)
-				bgp_zebra_terminate_radv(peer->bgp, peer);
-			peer_notify_unconfig(peer);
-			peer_delete(peer);
-		} else {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Create the peer-group first");
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/v6only
- */
-int bgp_neighbors_unnumbered_neighbor_v6only_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	bool v6_only = false;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-
-		v6_only = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (peer_conf_interface_create(bgp, peer_str, v6_only, NULL,
-					       AS_UNSPECIFIED, 0, args->errmsg,
-					       args->errmsg_len))
-			return NB_ERR_INCONSISTENCY;
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/peer-group
- */
-int bgp_neighbors_unnumbered_neighbor_peer_group_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *peer_grp_str;
-	struct peer *peer;
-	struct peer_group *group;
-	union sockunion su;
-	as_t as;
-	int ret = 0;
-	char prgrp_xpath[XPATH_MAXLEN];
-	const struct lyd_node *bgp_dnode;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		peer_grp_str = yang_dnode_get_string(args->dnode, NULL);
-		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
-		snprintf(prgrp_xpath, sizeof(prgrp_xpath),
-			 FRR_BGP_PEER_GROUP_XPATH, peer_grp_str, "");
-
-		if (!yang_dnode_exists(bgp_dnode, prgrp_xpath)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Configure the peer-group first %s",
-				 peer_grp_str);
-			return NB_ERR_VALIDATION;
-		}
-
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-
-		peer_grp_str = yang_dnode_get_string(args->dnode, NULL);
-		group = peer_group_lookup(bgp, peer_grp_str);
-		if (!group) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Configure the peer-group first\n");
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		ret = peer_group_bind(bgp, &su, peer, group, &as);
-		if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n",
-				as);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-			bgp_zebra_terminate_radv(peer->bgp, peer);
-
-		peer_notify_unconfig(peer);
-		ret = peer_delete(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/password
@@ -4500,27 +3345,12 @@ int bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
 int bgp_neighbors_unnumbered_neighbor_password_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *passwrd_str;
-	struct peer *peer = NULL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
-		peer_password_set(peer, passwrd_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4530,25 +3360,12 @@ int bgp_neighbors_unnumbered_neighbor_password_modify(
 int bgp_neighbors_unnumbered_neighbor_password_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer = NULL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_password_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4562,44 +3379,12 @@ int bgp_neighbors_unnumbered_neighbor_password_destroy(
 int bgp_neighbors_unnumbered_neighbor_ttl_security_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-	uint8_t gtsm_hops;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		gtsm_hops = yang_dnode_get_uint8(args->dnode, NULL);
-		/*
-		 * If 'neighbor swpX', then this is for directly connected
-		 * peers, we should not accept a ttl-security hops value greater
-		 * than 1.
-		 */
-		if (peer->conf_if && (gtsm_hops > BGP_GTSM_HOPS_CONNECTED)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"%d is directly connected peer, hops cannot exceed 1\n",
-				gtsm_hops);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		ret = peer_ttl_security_hops_set(peer, gtsm_hops);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4609,27 +3394,12 @@ int bgp_neighbors_unnumbered_neighbor_ttl_security_modify(
 int bgp_neighbors_unnumbered_neighbor_ttl_security_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ttl_security_hops_unset(peer);
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4662,28 +3432,12 @@ int bgp_neighbors_unnumbered_neighbor_solo_modify(
 int bgp_neighbors_unnumbered_neighbor_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_ENFORCE_FIRST_AS, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4697,29 +3451,12 @@ int bgp_neighbors_unnumbered_neighbor_enforce_first_as_modify(
 int bgp_neighbors_unnumbered_neighbor_description_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *desc_str;
-	struct peer *peer = NULL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		desc_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_description_set(peer, desc_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4729,26 +3466,12 @@ int bgp_neighbors_unnumbered_neighbor_description_modify(
 int bgp_neighbors_unnumbered_neighbor_description_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer = NULL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_description_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4762,31 +3485,12 @@ int bgp_neighbors_unnumbered_neighbor_description_destroy(
 int bgp_neighbors_unnumbered_neighbor_passive_mode_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_PASSIVE,
-					set, args->errmsg, args->errmsg_len)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4800,31 +3504,12 @@ int bgp_neighbors_unnumbered_neighbor_passive_mode_modify(
 int bgp_neighbors_unnumbered_neighbor_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_DYNAMIC_CAPABILITY, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4857,31 +3542,12 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_strict_capability_modif
 int bgp_neighbors_unnumbered_neighbor_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_CAPABILITY_ENHE, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4933,30 +3599,12 @@ int bgp_neighbors_unnumbered_neighbor_capability_options_override_capability_mod
 int bgp_neighbors_unnumbered_neighbor_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str, *source_str;
-	struct peer *peer;
-	union sockunion su;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-
-		str2sockunion(source_str, &su);
-		peer_update_source_addr_set(peer, &su);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4966,26 +3614,12 @@ int bgp_neighbors_unnumbered_neighbor_update_source_ip_modify(
 int bgp_neighbors_unnumbered_neighbor_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_update_source_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -4999,28 +3633,12 @@ int bgp_neighbors_unnumbered_neighbor_update_source_ip_destroy(
 int bgp_neighbors_unnumbered_neighbor_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str, *source_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_update_source_if_set(peer, source_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -5030,63 +3648,16 @@ int bgp_neighbors_unnumbered_neighbor_update_source_interface_modify(
 int bgp_neighbors_unnumbered_neighbor_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_update_source_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
 	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/neighbor-remote-as
- */
-void bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	int as_type = AS_SPECIFIED;
-	int ret;
-	as_t as = 0;
-	struct peer *peer = NULL;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	peer_str = yang_dnode_get_string(args->dnode, "../interface");
-	as_type = yang_dnode_get_enum(args->dnode, "./remote-as-type");
-	if (yang_dnode_exists(args->dnode, "./remote-as"))
-		as = yang_dnode_get_uint32(args->dnode, "./remote-as");
-
-	peer = peer_lookup_by_conf_if(bgp, peer_str);
-
-	ret = peer_remote_as(bgp, NULL, peer_str, &as, as_type);
-
-	if (ret < 0 && !peer) {
-		snprintf(args->errmsg, args->errmsg_len,
-			 "Create the peer-group or interface first");
-		return;
-	}
-
-	bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
 }
 
 /*
@@ -5102,33 +3673,6 @@ int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_modify(
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = peer_lookup_by_conf_if(bgp, peer_str);
-
-		/* remote-as set to 0 and as_type to unspecified */
-		peer_as_change(peer, 0, AS_UNSPECIFIED);
-
 		break;
 	}
 
@@ -5176,42 +3720,12 @@ int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_destroy(
 int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-	int ret = 0;
-	uint8_t ttl = MAXTTL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = peer_lookup_by_conf_if(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		if (peer->conf_if) {
-			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
-			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
-					     ret);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (set)
-			ret = peer_ebgp_multihop_set(peer, ttl);
-		else
-			ret = peer_ebgp_multihop_unset(peer);
-
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -5221,28 +3735,12 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_modify(
 int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = peer_lookup_by_conf_if(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ebgp_multihop_unset(peer);
-
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -5254,158 +3752,6 @@ int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_enabled_destroy(
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/multihop-ttl
  */
 int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-	uint8_t ttl = MAXTTL;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = peer_lookup_by_conf_if(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		if (peer->conf_if) {
-			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
-			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
-					     ret);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		ttl = yang_dnode_get_uint8(args->dnode, NULL);
-
-		ret = peer_ebgp_multihop_set(peer, ttl);
-
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = peer_lookup_by_conf_if(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ebgp_multihop_unset(peer);
-
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/disable-connected-check
- */
-int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_disable_connected_check_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = peer_lookup_by_conf_if(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (peer_flag_modify_nb(bgp, peer_str, peer,
-					PEER_FLAG_DISABLE_CONNECTED_CHECK, set,
-					args->errmsg, args->errmsg_len)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as
- */
-void bgp_neighbors_unnumbered_neighbor_local_as_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	int ret;
-	as_t as = 0;
-	const char *peer_str;
-	struct peer *peer = NULL;
-	bool no_prepend = 0;
-	bool replace_as = 0;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	peer_str = yang_dnode_get_string(args->dnode, "../interface");
-
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-
-	if (yang_dnode_exists(args->dnode, "./local-as"))
-		as = yang_dnode_get_uint32(args->dnode, "./local-as");
-	if (yang_dnode_exists(args->dnode, "./no-prepend"))
-		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
-
-	if (!as && !no_prepend && !replace_as)
-		ret = peer_local_as_unset(peer);
-	else
-		ret = peer_local_as_set(peer, as, no_prepend, replace_as);
-
-	bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/local-as
- */
-int bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5420,8 +3766,46 @@ int bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_local_as_local_as_destroy(
+int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/disable-connected-check
+ */
+int bgp_neighbors_unnumbered_neighbor_ebgp_multihop_disable_connected_check_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/local-as
+ */
+int bgp_neighbors_unnumbered_neighbor_local_as_local_as_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -5664,53 +4048,10 @@ int bgp_neighbors_unnumbered_neighbor_bfd_options_check_cp_failure_destroy(
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown
- */
-void bgp_neighbors_unnumbered_neighbor_admin_shutdown_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-	const char *message;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	peer_str = yang_dnode_get_string(args->dnode, "../interface");
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-
-	if (yang_dnode_exists(args->dnode, "./message")) {
-		message = yang_dnode_get_string(args->dnode, "./message");
-		peer_tx_shutdown_message_set(peer, message);
-	}
-	enable = yang_dnode_get_bool(args->dnode, "./enable");
-
-	peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_SHUTDOWN, enable,
-			    args->errmsg, args->errmsg_len);
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown/enable
  */
 int bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_neighbors_unnumbered_neighbor_admin_shutdown_enable_destroy(
-	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -5867,28 +4208,12 @@ int bgp_neighbors_unnumbered_neighbor_graceful_restart_graceful_restart_disable_
 int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t routeadv;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		routeadv = yang_dnode_get_uint16(args->dnode, NULL);
-
-		ret = peer_advertise_interval_set(peer, routeadv);
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -5898,26 +4223,12 @@ int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_modify(
 int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-
-		ret = peer_advertise_interval_unset(peer);
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -5931,28 +4242,12 @@ int bgp_neighbors_unnumbered_neighbor_timers_advertise_interval_destroy(
 int bgp_neighbors_unnumbered_neighbor_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t connect;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		connect = yang_dnode_get_uint16(args->dnode, NULL);
-
-		ret = peer_timers_connect_set(peer, connect);
-		bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -5962,27 +4257,12 @@ int bgp_neighbors_unnumbered_neighbor_timers_connect_time_modify(
 int bgp_neighbors_unnumbered_neighbor_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		ret = peer_timers_connect_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -5996,38 +4276,12 @@ int bgp_neighbors_unnumbered_neighbor_timers_connect_time_destroy(
 int bgp_neighbors_unnumbered_neighbor_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t keepalive = 0;
-	uint16_t holdtime = 0;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-
-		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
-		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
-
-		if (keepalive != BGP_DEFAULT_KEEPALIVE
-		    && holdtime != BGP_DEFAULT_HOLDTIME) {
-			ret = peer_timers_set(peer, keepalive, holdtime);
-		} else
-			ret = peer_timers_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6041,45 +4295,12 @@ int bgp_neighbors_unnumbered_neighbor_timers_hold_time_modify(
 int bgp_neighbors_unnumbered_neighbor_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t keepalive = 0, curr_keep = 0;
-	uint16_t holdtime = 0;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-
-		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
-		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
-
-		if (keepalive != BGP_DEFAULT_KEEPALIVE
-		    && holdtime != BGP_DEFAULT_HOLDTIME) {
-			if (peer->holdtime == holdtime) {
-				curr_keep = (keepalive < holdtime / 3
-						     ? keepalive
-						     : holdtime / 3);
-				if (curr_keep == keepalive)
-					return NB_OK;
-			}
-			ret = peer_timers_set(peer, keepalive, holdtime);
-		} else
-			ret = peer_timers_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6127,50 +4348,23 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_destroy(
 int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	bool activate = false;
-	int ret = 0;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		af_name =
-			yang_dnode_get_string(args->dnode, "../afi-safi-name");
-		yang_afi_safi_identity2value(af_name, &afi, &safi);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../../interface");
-
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-
-		activate = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (activate)
-			ret = peer_activate(peer, afi, safi);
-		else
-			ret = peer_deactivate(peer, afi, safi);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_destroy(
-	struct nb_cb_destroy_args *args)
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group
+ */
+int bgp_peer_groups_peer_group_create(struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -6184,93 +4378,14 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_destroy(
 	return NB_OK;
 }
 
-static struct peer *bgp_peer_group_peer_lookup(struct bgp *bgp,
-					       const char *peer_str)
-{
-	struct peer *peer = NULL;
-	struct peer_group *group = NULL;
-
-	group = peer_group_lookup(bgp, peer_str);
-	return peer = group->conf;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group
- */
-int bgp_peer_groups_peer_group_create(struct nb_cb_create_args *args)
-{
-	const char *peer_grp_str;
-	struct peer *peer;
-	struct peer_group *group;
-	struct bgp *bgp;
-	char unnbr_xpath[XPATH_MAXLEN];
-	const struct lyd_node *bgp_dnode;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		peer_grp_str =
-			yang_dnode_get_string(args->dnode, "./peer-group-name");
-		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
-		snprintf(unnbr_xpath, sizeof(unnbr_xpath),
-			 FRR_BGP_NEIGHBOR_UNNUM_XPATH, peer_grp_str, "");
-
-		if (yang_dnode_exists(bgp_dnode, unnbr_xpath)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Name conflict with interface: %s",
-				 peer_grp_str);
-			return NB_ERR_VALIDATION;
-		}
-
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_grp_str =
-			yang_dnode_get_string(args->dnode, "./peer-group-name");
-		peer = peer_lookup_by_conf_if(bgp, peer_grp_str);
-		if (peer) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Name conflict with interface:");
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		group = peer_group_get(bgp, peer_grp_str);
-		if (!group) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP failed to find or create peer-group");
-			return NB_ERR_INCONSISTENCY;
-		}
-		break;
-	}
-
-	return NB_OK;
-}
-
 int bgp_peer_groups_peer_group_destroy(struct nb_cb_destroy_args *args)
 {
-	const char *peer_grp_str;
-	struct peer_group *group;
-	struct bgp *bgp;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_grp_str =
-			yang_dnode_get_string(args->dnode, "./peer-group-name");
-
-		group = peer_group_lookup(bgp, peer_grp_str);
-		if (group) {
-			peer_group_notify_unconfig(group);
-			peer_group_delete(group);
-		}
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6351,25 +4466,12 @@ int bgp_peer_groups_peer_group_ipv6_listen_range_destroy(
  */
 int bgp_peer_groups_peer_group_password_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *passwrd_str;
-	struct peer *peer = NULL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
-		peer_password_set(peer, passwrd_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6378,23 +4480,12 @@ int bgp_peer_groups_peer_group_password_modify(struct nb_cb_modify_args *args)
 
 int bgp_peer_groups_peer_group_password_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer = NULL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		peer_password_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6408,44 +4499,12 @@ int bgp_peer_groups_peer_group_password_destroy(struct nb_cb_destroy_args *args)
 int bgp_peer_groups_peer_group_ttl_security_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-	uint8_t gtsm_hops;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		gtsm_hops = yang_dnode_get_uint8(args->dnode, NULL);
-		/*
-		 * If 'neighbor swpX', then this is for directly connected
-		 * peers, we should not accept a ttl-security hops value greater
-		 * than 1.
-		 */
-		if (peer->conf_if && (gtsm_hops > BGP_GTSM_HOPS_CONNECTED)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"%d is directly connected peer, hops cannot exceed 1\n",
-				gtsm_hops);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		ret = peer_ttl_security_hops_set(peer, gtsm_hops);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6455,29 +4514,12 @@ int bgp_peer_groups_peer_group_ttl_security_modify(
 int bgp_peer_groups_peer_group_ttl_security_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ttl_security_hops_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6509,28 +4551,12 @@ int bgp_peer_groups_peer_group_solo_modify(struct nb_cb_modify_args *args)
 int bgp_peer_groups_peer_group_enforce_first_as_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_ENFORCE_FIRST_AS, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6544,26 +4570,12 @@ int bgp_peer_groups_peer_group_enforce_first_as_modify(
 int bgp_peer_groups_peer_group_description_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *desc_str;
-	struct peer *peer = NULL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		desc_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_description_set(peer, desc_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6573,25 +4585,12 @@ int bgp_peer_groups_peer_group_description_modify(
 int bgp_peer_groups_peer_group_description_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer = NULL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_description_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6605,31 +4604,12 @@ int bgp_peer_groups_peer_group_description_destroy(
 int bgp_peer_groups_peer_group_passive_mode_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_PASSIVE,
-					set, args->errmsg, args->errmsg_len)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6643,30 +4623,12 @@ int bgp_peer_groups_peer_group_passive_mode_modify(
 int bgp_peer_groups_peer_group_capability_options_dynamic_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_DYNAMIC_CAPABILITY, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6699,30 +4661,12 @@ int bgp_peer_groups_peer_group_capability_options_strict_capability_modify(
 int bgp_peer_groups_peer_group_capability_options_extended_nexthop_capability_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		enable = yang_dnode_get_bool(args->dnode, NULL);
-
-		peer_flag_modify_nb(bgp, peer_str, peer,
-				    PEER_FLAG_CAPABILITY_ENHE, enable,
-				    args->errmsg, args->errmsg_len);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6774,29 +4718,12 @@ int bgp_peer_groups_peer_group_capability_options_override_capability_modify(
 int bgp_peer_groups_peer_group_update_source_ip_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str, *source_str;
-	struct peer *peer;
-	union sockunion su;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-
-		str2sockunion(source_str, &su);
-		peer_update_source_addr_set(peer, &su);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6806,25 +4733,12 @@ int bgp_peer_groups_peer_group_update_source_ip_modify(
 int bgp_peer_groups_peer_group_update_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_update_source_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6838,27 +4752,12 @@ int bgp_peer_groups_peer_group_update_source_ip_destroy(
 int bgp_peer_groups_peer_group_update_source_interface_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str, *source_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		source_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_update_source_if_set(peer, source_str);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -6868,56 +4767,16 @@ int bgp_peer_groups_peer_group_update_source_interface_modify(
 int bgp_peer_groups_peer_group_update_source_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		peer_update_source_unset(peer);
-
+		/* TODO: implement me. */
 		break;
 	}
 
 	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/neighbor-remote-as
- */
-void bgp_peer_group_neighbor_remote_as_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	int as_type = AS_SPECIFIED;
-	int ret;
-	as_t as = 0;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	peer_str = yang_dnode_get_string(args->dnode, "../peer-group-name");
-	as_type = yang_dnode_get_enum(args->dnode, "./remote-as-type");
-	if (yang_dnode_exists(args->dnode, "./remote-as"))
-		as = yang_dnode_get_uint32(args->dnode, "./remote-as");
-
-	ret = peer_group_remote_as(bgp, peer_str, &as, as_type);
-	if (ret < 0) {
-		snprintf(args->errmsg, args->errmsg_len,
-			 "Create the peer-group or interface first");
-		return;
-	}
 }
 
 /*
@@ -6933,32 +4792,6 @@ int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_modify(
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_type_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer_group *group;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		group = peer_group_lookup(bgp, peer_str);
-		if (group)
-			peer_group_remote_as_delete(group);
-
 		break;
 	}
 
@@ -7006,44 +4839,12 @@ int bgp_peer_groups_peer_group_neighbor_remote_as_remote_as_destroy(
 int bgp_peer_groups_peer_group_ebgp_multihop_enabled_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-	int ret = 0;
-	uint8_t ttl = MAXTTL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		if (peer->conf_if) {
-			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
-			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
-					     ret);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (set)
-			ret = peer_ebgp_multihop_set(peer, ttl);
-		else
-			ret = peer_ebgp_multihop_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7053,30 +4854,12 @@ int bgp_peer_groups_peer_group_ebgp_multihop_enabled_modify(
 int bgp_peer_groups_peer_group_ebgp_multihop_enabled_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ebgp_multihop_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7090,40 +4873,12 @@ int bgp_peer_groups_peer_group_ebgp_multihop_enabled_destroy(
 int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-	uint8_t ttl = MAXTTL;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		if (peer->conf_if) {
-			ret = BGP_ERR_INVALID_FOR_DIRECT_PEER;
-			bgp_nb_errmsg_return(args->errmsg, args->errmsg_len,
-					     ret);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		ttl = yang_dnode_get_uint8(args->dnode, NULL);
-
-		ret = peer_ebgp_multihop_set(peer, ttl);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7133,30 +4888,12 @@ int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_modify(
 int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		ret = peer_ebgp_multihop_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7170,75 +4907,16 @@ int bgp_peer_groups_peer_group_ebgp_multihop_multihop_ttl_destroy(
 int bgp_peer_groups_peer_group_ebgp_multihop_disable_connected_check_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool set = false;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		set = yang_dnode_get_bool(args->dnode, NULL);
-
-		if (peer_flag_modify_nb(bgp, peer_str, peer,
-					PEER_FLAG_DISABLE_CONNECTED_CHECK, set,
-					args->errmsg, args->errmsg_len)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
 	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as
- */
-void bgp_peer_groups_peer_group_local_as_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	int ret;
-	as_t as = 0;
-	const char *peer_str;
-	struct peer *peer = NULL;
-	bool no_prepend = false;
-	bool replace_as = false;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	peer_str = yang_dnode_get_string(args->dnode, "../peer-group-name");
-
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-	if (yang_dnode_exists(args->dnode, "./local-as"))
-		as = yang_dnode_get_uint32(args->dnode, "./local-as");
-
-	if (yang_dnode_exists(args->dnode, "./local-as"))
-		as = yang_dnode_get_uint32(args->dnode, "./local-as");
-	if (yang_dnode_exists(args->dnode, "./no-prepend"))
-		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
-
-	if (!as && !no_prepend && !replace_as)
-		ret = peer_local_as_unset(peer);
-	else
-		ret = peer_local_as_set(peer, as, no_prepend, replace_as);
-
-	bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
 }
 
 /*
@@ -7254,36 +4932,6 @@ int bgp_peer_groups_peer_group_local_as_local_as_modify(
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
 		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_local_as_local_as_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		ret = peer_local_as_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
 		break;
 	}
 
@@ -7519,52 +5167,10 @@ int bgp_peer_groups_peer_group_bfd_options_check_cp_failure_destroy(
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown
- */
-void bgp_peer_groups_peer_group_admin_shutdown_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	bool enable = false;
-	const char *message;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	peer_str = yang_dnode_get_string(args->dnode, "../peer-group-name");
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-	if (yang_dnode_exists(args->dnode, "./message")) {
-		message = yang_dnode_get_string(args->dnode, "./message");
-		peer_tx_shutdown_message_set(peer, message);
-	}
-	enable = yang_dnode_get_bool(args->dnode, "./enable");
-
-	peer_flag_modify_nb(bgp, peer_str, peer, PEER_FLAG_SHUTDOWN, enable,
-			    args->errmsg, args->errmsg_len);
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown/enable
  */
 int bgp_peer_groups_peer_group_admin_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_admin_shutdown_enable_destroy(
-	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -7721,29 +5327,12 @@ int bgp_peer_groups_peer_group_graceful_restart_graceful_restart_disable_destroy
 int bgp_peer_groups_peer_group_timers_advertise_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t routeadv;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		routeadv = yang_dnode_get_uint16(args->dnode, NULL);
-
-		ret = peer_advertise_interval_set(peer, routeadv);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7753,27 +5342,12 @@ int bgp_peer_groups_peer_group_timers_advertise_interval_modify(
 int bgp_peer_groups_peer_group_timers_advertise_interval_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		ret = peer_advertise_interval_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7787,29 +5361,12 @@ int bgp_peer_groups_peer_group_timers_advertise_interval_destroy(
 int bgp_peer_groups_peer_group_timers_connect_time_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t connect;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-		connect = yang_dnode_get_uint16(args->dnode, NULL);
-
-		ret = peer_timers_connect_set(peer, connect);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7819,27 +5376,12 @@ int bgp_peer_groups_peer_group_timers_connect_time_modify(
 int bgp_peer_groups_peer_group_timers_connect_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	int ret;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		ret = peer_timers_connect_unset(peer);
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7853,37 +5395,12 @@ int bgp_peer_groups_peer_group_timers_connect_time_destroy(
 int bgp_peer_groups_peer_group_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t keepalive = 0;
-	uint16_t holdtime = 0;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
-		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
-
-		if (keepalive != BGP_DEFAULT_KEEPALIVE
-		    && holdtime != BGP_DEFAULT_HOLDTIME) {
-			ret = peer_timers_set(peer, keepalive, holdtime);
-		} else
-			ret = peer_timers_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7897,49 +5414,12 @@ int bgp_peer_groups_peer_group_timers_hold_time_modify(
 int bgp_peer_groups_peer_group_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	uint16_t keepalive = 0, curr_keep = 0;
-	uint16_t holdtime = 0;
-	int ret = 0;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
-		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
-
-		if (keepalive != BGP_DEFAULT_KEEPALIVE
-		    && holdtime != BGP_DEFAULT_HOLDTIME) {
-			if (peer->holdtime == holdtime) {
-				curr_keep = (keepalive < holdtime / 3
-						     ? keepalive
-						     : holdtime / 3);
-				if (curr_keep == keepalive) {
-					// zlog_debug("%s holdtime %u keepalive
-					// %u value is already set, skipping
-					// update.",
-					//   __func__, holdtime, keepalive);
-					return NB_OK;
-				}
-			}
-			ret = peer_timers_set(peer, keepalive, holdtime);
-		} else
-			ret = peer_timers_unset(peer);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -7986,48 +5466,6 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_destroy(
  */
 int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_modify(
 	struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	bool activate = false;
-	int ret = 0;
-	struct peer *peer;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		af_name =
-			yang_dnode_get_string(args->dnode, "../afi-safi-name");
-		yang_afi_safi_identity2value(af_name, &afi, &safi);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../../../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		activate = yang_dnode_get_bool(args->dnode, NULL);
-		if (activate)
-			ret = peer_activate(peer, afi, safi);
-		else
-			ret = peer_deactivate(peer, afi, safi);
-
-		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret)
-		    < 0)
-			return NB_ERR_INCONSISTENCY;
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_destroy(
-	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -13702,36 +11140,6 @@ int bgp_global_bmp_config_target_list_afi_safis_afi_safi_ipv6_multicast_common_c
 	return NB_OK;
 }
 
-static int bgp_neighbor_afi_safi_flag_modify(struct nb_cb_modify_args *args,
-					     uint32_t flags, bool set)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-
-	if (peer_af_flag_modify_nb(peer, afi, safi, flags, set, args->errmsg,
-				   args->errmsg_len)
-	    < 0)
-		return NB_ERR_INCONSISTENCY;
-
-	return NB_OK;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/path-type
@@ -13830,12 +11238,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_repla
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14197,12 +11601,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14220,12 +11620,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14243,12 +11639,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14266,12 +11658,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14289,12 +11677,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14312,75 +11696,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
-
-	return NB_OK;
-}
-
-static int bgp_neighbor_afi_safi_weight_modify(struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	uint16_t weight;
-	afi_t afi;
-	safi_t safi;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-
-	weight = yang_dnode_get_uint16(args->dnode, NULL);
-
-	ret = peer_weight_set(peer, afi, safi, weight);
-	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
-		return NB_ERR_INCONSISTENCY;
-
-	return NB_OK;
-}
-
-static int bgp_neighbor_afi_safi_weight_destroy(struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
-	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-					args->errmsg_len);
-
-	ret = peer_weight_unset(peer, afi, safi);
-	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
-		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -14396,10 +11715,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14413,10 +11730,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_weight_attribu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14434,12 +11749,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_reflector_route
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14457,12 +11768,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_route_server_route_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14480,12 +11787,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14503,12 +11806,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_e
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14526,12 +11825,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_send_community_send_l
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14549,12 +11844,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_reconfiguration_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14572,12 +11863,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as_pat
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14595,12 +11882,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -14618,12 +11901,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_med_un
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15189,12 +12468,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_options_repla
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15212,12 +12487,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as_pat
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15235,12 +12506,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15258,12 +12525,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_med_un
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15674,12 +12937,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15697,12 +12956,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15720,12 +12975,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15743,12 +12994,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15766,12 +13013,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15789,12 +13032,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as_remove_pri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15812,12 +13051,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_reflector_route
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15835,12 +13070,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_route_server_route_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15858,12 +13089,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_c
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15881,12 +13108,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_e
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15904,12 +13127,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_send_community_send_l
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15927,12 +13146,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_reconfiguration_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15950,10 +13165,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -15967,10 +13180,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_weight_attribu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16075,12 +13286,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_options_rep
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16098,12 +13305,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16121,12 +13324,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16144,12 +13343,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_med_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16560,12 +13755,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16583,12 +13774,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16606,12 +13793,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16629,12 +13812,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16652,12 +13831,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16675,12 +13850,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16698,12 +13869,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_reflector_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16721,12 +13888,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_route_server_route_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16744,12 +13907,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16767,12 +13926,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16790,12 +13945,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16813,12 +13964,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_reconfiguratio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16836,10 +13983,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16853,10 +13998,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_weight_attri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16961,12 +14104,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_options_rep
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -16984,12 +14123,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17007,12 +14142,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17030,12 +14161,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_med_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17446,12 +14573,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17469,12 +14592,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17492,12 +14611,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17515,12 +14630,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17538,12 +14649,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17561,12 +14668,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_private_as_remove_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17584,12 +14687,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_reflector_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17607,12 +14706,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_route_server_route_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17630,12 +14725,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17653,12 +14744,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17676,12 +14763,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_send_community_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17699,12 +14782,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_reconfiguratio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17722,10 +14801,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17739,10 +14816,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_weight_attri
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17847,12 +14922,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_optio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17870,12 +14941,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17893,12 +14960,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -17916,12 +14979,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18332,12 +15391,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18355,12 +15410,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_self_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18378,12 +15429,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18401,12 +15448,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18424,12 +15467,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18447,12 +15486,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18470,12 +15505,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_reflect
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18493,12 +15524,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_route_server_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18516,12 +15543,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18539,12 +15562,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18562,12 +15581,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18585,12 +15600,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reconfig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18608,10 +15619,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18625,10 +15634,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_weight_weight
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18733,12 +15740,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_optio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18756,12 +15759,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18779,12 +15778,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -18802,12 +15797,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unchange
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19218,12 +16209,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19241,12 +16228,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_self_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19264,12 +16247,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19287,12 +16266,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19310,12 +16285,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19333,12 +16304,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_private_as_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19356,12 +16323,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_reflect
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19379,12 +16342,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_route_server_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19402,12 +16361,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19425,12 +16380,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19448,12 +16399,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_send_communit
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19471,12 +16418,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reconfig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19494,10 +16437,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19511,10 +16452,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_weight_weight
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19619,12 +16558,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_options
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19642,12 +16577,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19665,12 +16596,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -19688,12 +16615,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20002,12 +16925,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20025,12 +16944,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20048,12 +16963,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20071,12 +16982,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20094,12 +17001,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20117,12 +17020,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20140,12 +17039,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_reflector
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20163,12 +17058,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_server_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20186,12 +17077,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20209,12 +17096,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20232,12 +17115,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20255,12 +17134,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconfigur
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20278,10 +17153,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20295,10 +17168,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20403,12 +17274,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_options
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20426,12 +17293,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20449,12 +17312,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20472,12 +17331,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20786,12 +17641,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20809,12 +17660,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20832,12 +17679,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20855,12 +17698,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20878,12 +17717,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20901,12 +17736,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20924,12 +17755,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_reflector
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20947,12 +17774,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_server_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20970,12 +17793,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -20993,12 +17812,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21016,12 +17831,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21039,12 +17850,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconfigur
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21062,10 +17869,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21079,10 +17884,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21168,12 +17971,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_options_replace
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21191,12 +17990,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_path_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21214,12 +18009,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next_hop
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21237,12 +18028,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21260,12 +18047,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21283,12 +18066,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_hop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21306,12 +18085,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflector_route_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21329,12 +18104,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server_route_serv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21352,12 +18123,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguration_mo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21375,12 +18142,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_reflector_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21398,12 +18161,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_server_route_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21421,12 +18180,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reconfiguration
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21444,12 +18199,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_reflector_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21467,12 +18218,8 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_server_route_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21490,45 +18237,10 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
-
-	return NB_OK;
-}
-
-static int
-bgp_unnumbered_neighbor_afi_safi_flag_modify(struct nb_cb_modify_args *args,
-					     uint32_t flags, bool set)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-
-	if (peer_af_flag_modify_nb(peer, afi, safi, flags, set, args->errmsg,
-				   args->errmsg_len)
-	    < 0)
-		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -21631,12 +18343,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -21998,12 +18706,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22021,12 +18725,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_nexthop_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22044,12 +18744,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22067,12 +18763,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22090,12 +18782,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22113,76 +18801,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
-
-	return NB_OK;
-}
-
-static int
-bgp_unnumbered_neighbor_afi_safi_weight_modify(struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const char *af_name;
-	uint16_t weight;
-	afi_t afi;
-	safi_t safi;
-	const struct lyd_node *nbr_af_dnode;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-
-	weight = yang_dnode_get_uint16(args->dnode, NULL);
-
-	ret = peer_weight_set(peer, afi, safi, weight);
-	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
-		return NB_ERR_INCONSISTENCY;
-
-	return NB_OK;
-}
-
-static int
-bgp_unnumbered_neighbor_afi_safi_weight_destroy(struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int ret;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	nbr_dnode = yang_dnode_get_parent(args->dnode, "unnumbered-neighbor");
-	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
-	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						   args->errmsg_len);
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	ret = peer_weight_unset(peer, afi, safi);
-	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
-		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -22198,10 +18820,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_wei
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22215,10 +18835,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_weight_wei
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22236,12 +18854,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_refl
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22259,12 +18873,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_route_serv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22282,12 +18892,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22305,12 +18911,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22328,12 +18930,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22351,12 +18949,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_soft_recon
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22374,12 +18968,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22397,12 +18987,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22420,12 +19006,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -22991,12 +19573,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_as_path_op
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23014,12 +19592,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23037,12 +19611,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23060,12 +19630,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_attr_uncha
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23476,12 +20042,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23499,12 +20061,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_nexthop_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23522,12 +20080,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23545,12 +20099,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23568,12 +20118,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23591,12 +20137,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_private_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23614,12 +20156,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_refl
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23637,12 +20175,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_route_serv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23660,12 +20194,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23683,12 +20213,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23706,12 +20232,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_send_commu
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23729,12 +20251,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_soft_recon
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23752,10 +20270,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_wei
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23769,10 +20285,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_unicast_weight_wei
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23877,12 +20391,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_as_path_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23900,12 +20410,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23923,12 +20429,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -23946,12 +20448,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24362,12 +20860,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24385,12 +20879,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_nexthop_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24408,12 +20898,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24431,12 +20917,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24454,12 +20936,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24477,12 +20955,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24500,12 +20974,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24523,12 +20993,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_route_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24546,12 +21012,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24569,12 +21031,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24592,12 +21050,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24615,12 +21069,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_soft_rec
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24638,10 +21088,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_w
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24655,10 +21103,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_multicast_weight_w
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24763,12 +21209,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_as_path_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24786,12 +21228,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24809,12 +21247,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -24832,12 +21266,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_attr_unc
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25248,12 +21678,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25271,12 +21697,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_nexthop_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25294,12 +21716,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25317,12 +21735,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25340,12 +21754,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25363,12 +21773,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_private_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25386,12 +21792,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_re
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25409,12 +21811,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_route_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25432,12 +21830,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25455,12 +21849,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25478,12 +21868,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_send_com
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25501,12 +21887,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_soft_rec
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25524,10 +21906,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_w
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25541,10 +21921,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_multicast_weight_w
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25649,12 +22027,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25672,12 +22046,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25695,12 +22065,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -25718,12 +22084,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26134,12 +22496,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26157,12 +22515,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26180,12 +22534,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26203,12 +22553,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26226,12 +22572,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26249,12 +22591,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26272,12 +22610,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26295,12 +22629,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26318,12 +22648,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26341,12 +22667,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26364,12 +22686,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26387,12 +22705,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_so
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26410,10 +22724,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26427,10 +22739,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_labeled_unicast_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26535,12 +22845,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26558,12 +22864,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26581,12 +22883,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -26604,12 +22902,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_at
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27020,12 +23314,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27043,12 +23333,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27066,12 +23352,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27089,12 +23371,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27112,12 +23390,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27135,12 +23409,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_pr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27158,12 +23428,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27181,12 +23447,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27204,12 +23466,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27227,12 +23485,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27250,12 +23504,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27273,12 +23523,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_so
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27296,10 +23542,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27313,10 +23557,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_labeled_unicast_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27421,12 +23663,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27444,12 +23682,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27467,12 +23701,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27490,12 +23720,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27804,12 +24030,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27827,12 +24049,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27850,12 +24068,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27873,12 +24087,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27896,12 +24106,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27919,12 +24125,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27942,12 +24144,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27965,12 +24163,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -27988,12 +24182,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28011,12 +24201,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28034,12 +24220,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28057,12 +24239,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28080,10 +24258,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28097,10 +24273,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv4_unicast_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28205,12 +24379,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28228,12 +24398,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28251,12 +24417,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28274,12 +24436,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28588,12 +24746,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28611,12 +24765,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28634,12 +24784,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28657,12 +24803,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28680,12 +24822,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28703,12 +24841,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_priv
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28726,12 +24860,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28749,12 +24879,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28772,12 +24898,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28795,12 +24917,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28818,12 +24936,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_send
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28841,12 +24955,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28864,10 +24974,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28881,10 +24989,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l3vpn_ipv6_unicast_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28970,12 +25076,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_as_path_opti
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -28993,12 +25095,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29016,12 +25114,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29039,12 +25133,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_attr_unchang
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29062,12 +25152,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29085,12 +25171,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_nexthop_self
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29108,12 +25190,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_reflec
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29131,12 +25209,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_route_server
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29154,12 +25228,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_l2vpn_evpn_soft_reconfi
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29177,12 +25247,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_ref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29200,12 +25266,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_route_ser
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29223,12 +25285,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_flowspec_soft_reco
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29246,12 +25304,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_ref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29269,12 +25323,8 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_route_ser
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29292,42 +25342,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv6_flowspec_soft_reco
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_unnumbered_neighbor_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
-
-	return NB_OK;
-}
-
-static int bgp_peer_group_afi_safi_flag_modify(struct nb_cb_modify_args *args,
-					       uint32_t flags, bool set)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-	if (peer_af_flag_modify_nb(peer, afi, safi, flags, set, args->errmsg,
-				   args->errmsg_len)
-	    < 0)
-		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -29430,12 +25448,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29797,12 +25811,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29820,12 +25830,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_nexthop_self_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29843,12 +25849,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29866,12 +25868,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29889,12 +25887,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -29912,73 +25906,10 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
-
-	return NB_OK;
-}
-
-static int bgp_peer_group_afi_safi_weight_modify(struct nb_cb_modify_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	uint16_t weight;
-	afi_t afi;
-	safi_t safi;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-
-	nbr_dnode = yang_dnode_get_parent(args->dnode, "peer-group");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-	weight = yang_dnode_get_uint16(args->dnode, NULL);
-
-	ret = peer_weight_set(peer, afi, safi, weight);
-	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
-		return NB_ERR_INCONSISTENCY;
-
-	return NB_OK;
-}
-
-static int
-bgp_peer_group_afi_safi_weight_destroy(struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-	const char *peer_str;
-	struct peer *peer;
-	const struct lyd_node *nbr_dnode;
-	const struct lyd_node *nbr_af_dnode;
-	const char *af_name;
-	afi_t afi;
-	safi_t safi;
-	int ret;
-
-	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
-	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(af_name, &afi, &safi);
-	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
-	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
-	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
-	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-	ret = peer_weight_unset(peer, afi, safi);
-	if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret) < 0)
-		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -29994,10 +25925,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_att
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30011,10 +25940,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_weight_weight_att
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30032,12 +25959,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_reflector_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30055,12 +25978,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_route_server_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30078,12 +25997,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30101,12 +26016,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30124,12 +26035,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30147,12 +26054,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_soft_reconfigurat
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30170,12 +26073,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30193,12 +26092,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30216,12 +26111,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_attr_unchanged_me
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30787,12 +26678,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_as_path_options_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30810,12 +26697,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_as
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30833,12 +26716,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -30856,12 +26735,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_attr_unchanged_me
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31272,12 +27147,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31295,12 +27166,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_nexthop_self_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31318,12 +27185,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31341,12 +27204,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31364,12 +27223,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31387,12 +27242,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_private_as_remove
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31410,12 +27261,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_reflector_r
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31433,12 +27280,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_route_server_rout
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31456,12 +27299,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31479,12 +27318,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31502,12 +27337,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_send_community_se
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31525,12 +27356,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_soft_reconfigurat
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31548,10 +27375,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_att
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31565,10 +27390,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_unicast_weight_weight_att
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31673,12 +27496,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_as_path_options
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31696,12 +27515,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31719,12 +27534,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -31742,12 +27553,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32158,12 +27965,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32181,12 +27984,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32204,12 +28003,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32227,12 +28022,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32250,12 +28041,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32273,12 +28060,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32296,12 +28079,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_reflector
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32319,12 +28098,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_route_server_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32342,12 +28117,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32365,12 +28136,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32388,12 +28155,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32411,12 +28174,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_soft_reconfigur
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32434,10 +28193,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32451,10 +28208,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_multicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32559,12 +28314,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_as_path_options
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32582,12 +28333,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32605,12 +28352,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -32628,12 +28371,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_attr_unchanged_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33044,12 +28783,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33067,12 +28802,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_nexthop_self_ne
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33090,12 +28821,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33113,12 +28840,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33136,12 +28859,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33159,12 +28878,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_private_as_remo
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33182,12 +28897,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_reflector
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33205,12 +28916,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_route_server_ro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33228,12 +28935,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33251,12 +28954,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33274,12 +28973,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_send_community_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33297,12 +28992,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_soft_reconfigur
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33320,10 +29011,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33337,10 +29026,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_multicast_weight_weight_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33445,12 +29132,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_as_path_o
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33468,12 +29151,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33491,12 +29170,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33514,12 +29189,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33930,12 +29601,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33953,12 +29620,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_nexthop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33976,12 +29639,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -33999,12 +29658,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34022,12 +29677,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34045,12 +29696,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34068,12 +29715,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_ref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34091,12 +29734,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_route_ser
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34114,12 +29753,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34137,12 +29772,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34160,12 +29791,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34183,12 +29810,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_soft_reco
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34206,10 +29829,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34223,10 +29844,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_labeled_unicast_weight_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34331,12 +29950,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_as_path_o
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34354,12 +29969,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34377,12 +29988,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34400,12 +30007,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_attr_unch
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34816,12 +30419,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34839,12 +30438,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_nexthop_s
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34862,12 +30457,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34885,12 +30476,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34908,12 +30495,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34931,12 +30514,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_private_a
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34954,12 +30533,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_ref
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -34977,12 +30552,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_route_ser
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35000,12 +30571,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35023,12 +30590,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35046,12 +30609,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_send_comm
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35069,12 +30628,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_soft_reco
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35092,10 +30647,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35109,10 +30662,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_labeled_unicast_weight_we
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35217,12 +30768,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_as_path_opt
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35240,12 +30787,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35263,12 +30806,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35286,12 +30825,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35600,12 +31135,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_sel
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35623,12 +31154,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_nexthop_sel
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35646,12 +31173,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35669,12 +31192,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35692,12 +31211,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35715,12 +31230,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35738,12 +31249,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_refle
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35761,12 +31268,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_route_serve
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35784,12 +31287,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35807,12 +31306,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35830,12 +31325,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35853,12 +31344,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_soft_reconf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35876,10 +31363,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -35893,10 +31378,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv4_unicast_weight_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36001,12 +31484,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_as_path_opt
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36024,12 +31503,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36047,12 +31522,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36070,12 +31541,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_attr_unchan
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36384,12 +31851,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_sel
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36407,12 +31870,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_nexthop_sel
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36430,12 +31889,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36453,12 +31908,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36476,12 +31927,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36499,12 +31946,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_private_as_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36522,12 +31965,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_refle
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36545,12 +31984,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_route_serve
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36568,12 +32003,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36591,12 +32022,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_EXT_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36614,12 +32041,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_send_commun
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SEND_LARGE_COMMUNITY,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36637,12 +32060,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_soft_reconf
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36660,10 +32079,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_modify(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36677,10 +32094,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l3vpn_ipv6_unicast_weight_weig
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_weight_destroy(args);
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36766,12 +32181,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_as_path_options_rep
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_OVERRIDE,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36789,12 +32200,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_as_p
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_AS_PATH_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36812,12 +32219,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_next
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36835,12 +32238,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_attr_unchanged_med_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_MED_UNCHANGED,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36858,12 +32257,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36881,12 +32276,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_nexthop_self_next_h
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_FORCE_NEXTHOP_SELF,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36904,12 +32295,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_reflector_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36927,12 +32314,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_route_server_route_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36950,12 +32333,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_l2vpn_evpn_soft_reconfiguratio
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36973,12 +32352,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_reflector_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -36996,12 +32371,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_route_server_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -37019,12 +32390,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_flowspec_soft_reconfigura
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -37042,12 +32409,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_reflector_
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_REFLECTOR_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -37065,12 +32428,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_route_server_rou
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_RSERVER_CLIENT,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
@@ -37088,12 +32447,8 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_soft_reconfigura
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		return bgp_peer_group_afi_safi_flag_modify(
-			args, PEER_FLAG_SOFT_RECONFIG,
-			yang_dnode_get_bool(args->dnode, NULL));
-
+		/* TODO: implement me. */
 		break;
 	}
 
