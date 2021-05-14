@@ -17754,7 +17754,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP timers configuration. */
 		if (bgp->default_keepalive != SAVE_BGP_KEEPALIVE
-		    && bgp->default_holdtime != SAVE_BGP_HOLDTIME)
+		    || bgp->default_holdtime != SAVE_BGP_HOLDTIME)
 			vty_out(vty, " timers bgp %u %u\n",
 				bgp->default_keepalive, bgp->default_holdtime);
 
