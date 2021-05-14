@@ -1028,8 +1028,8 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	sin.sin_addr = ifaddr;
 	sin.sin_port = 0;
 	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)) != 0) {
-		zlog_warn("Could not bind IGMP socket for %pI4 on %s",
-			  &ifaddr, ifp->name);
+		zlog_warn("Could not bind IGMP socket for %pI4 on %s: %s(%d)",
+			  &ifaddr, ifp->name, strerror(errno), errno);
 		close(fd);
 
 		return NULL;
