@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 /* Polling time for monitoring condition-map routes in route table */
-#define CONDITIONAL_ROUTES_POLL_TIME 60
+#define DEFAULT_CONDITIONAL_ROUTES_POLL_TIME 60
 
 extern void bgp_conditional_adv_enable(struct peer *peer, afi_t afi,
 				       safi_t safi);
