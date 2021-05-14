@@ -426,9 +426,11 @@ static void pim_channel_update_mute(struct channel_oil *c_oil)
 	struct pim_interface *pim_reg_ifp;
 	struct pim_interface *vxlan_ifp;
 
-	pim_reg_ifp = c_oil->pim->regiface->info;
-	if (pim_reg_ifp)
-		pim_channel_update_oif_mute(c_oil, pim_reg_ifp);
+	if (c_oil->pim->regiface) {
+		pim_reg_ifp = c_oil->pim->regiface->info;
+		if (pim_reg_ifp)
+			pim_channel_update_oif_mute(c_oil, pim_reg_ifp);
+	}
 	vxlan_ifp = pim_vxlan_get_term_ifp(c_oil->pim);
 	if (vxlan_ifp)
 		pim_channel_update_oif_mute(c_oil, vxlan_ifp);
