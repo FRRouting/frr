@@ -39,12 +39,13 @@ DEFINE_MTYPE_STATIC(PBRD, PBR_NHG, "PBR Nexthop Groups");
 
 struct hash *pbr_nhg_hash;
 static struct hash *pbr_nhrc_hash;
+static struct hash *pbr_nhg_allocated_id_hash;
 
 static uint32_t pbr_nhg_low_table;
 static uint32_t pbr_nhg_high_table;
+static uint32_t pbr_next_unallocated_table_id;
 static uint32_t pbr_nhg_low_rule;
 static uint32_t pbr_nhg_high_rule;
-static bool nhg_tableid[65535];
 
 static void pbr_nht_install_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
 					  struct nexthop_group nhg);
@@ -194,7 +195,7 @@ static void *pbr_nhgc_alloc(void *p)
 	new = XCALLOC(MTYPE_PBR_NHG, sizeof(*new));
 
 	strlcpy(new->name, pnhgc->name, sizeof(pnhgc->name));
-	new->table_id = pbr_nht_get_next_tableid(false);
+	pbr_nht_reserve_next_table_id(new);
 
 	DEBUGD(&pbr_dbg_nht, "%s: NHT: %s assigned Table ID: %u", __func__,
 	       new->name, new->table_id);
@@ -237,7 +238,7 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	struct pbr_nexthop_cache pnhc_find = {};
 	struct pbr_nexthop_cache *pnhc;
 
-	if (!pbr_nht_get_next_tableid(true)) {
+	if (!pbr_nht_has_unallocated_table()) {
 		zlog_warn(
 			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
 			__func__, nhgc->name);
@@ -288,6 +289,13 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	/* find pnhgc by name */
 	strlcpy(pnhgc_find.name, nhgc->name, sizeof(pnhgc_find.name));
 	pnhgc = hash_lookup(pbr_nhg_hash, &pnhgc_find);
+
+	/*
+	 * Ignore deletions of nhg we did not / could not allocate nhgc for
+	 * Occurs when PBR table range is full but new nhg keep coming in
+	 */
+	if (!pnhgc)
+		return;
 
 	/* delete pnhc from pnhgc->nhh */
 	pnhc_find.nexthop = *nhop;
@@ -533,7 +541,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
 				  pbrms->seqno, find.name);
 
-	if (!pbr_nht_get_next_tableid(true)) {
+	if (!pbr_nht_has_unallocated_table()) {
 		zlog_warn(
 			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
 			__func__, find.name);
@@ -610,7 +618,7 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache lookup;
 
-	if (!pbr_nht_get_next_tableid(true)) {
+	if (!pbr_nht_has_unallocated_table()) {
 		zlog_warn(
 			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
 			__func__, name);
@@ -666,6 +674,18 @@ void pbr_nht_delete_group(const char *name)
 
 	strlcpy(pnhgc_find.name, name, sizeof(pnhgc_find.name));
 	pnhgc = hash_release(pbr_nhg_hash, &pnhgc_find);
+
+	/*
+	 * Ignore deletions of nh we did not / could not allocate nhgc for
+	 * Occurs when PBR table range is full but new nhg keep coming in
+	 */
+	if (!pnhgc)
+		return;
+
+	/* Remove and recalculate the next table id */
+	hash_release(pbr_nhg_allocated_id_hash, pnhgc);
+	pbr_nht_update_next_unallocated_table_id();
+
 	pbr_nhgc_delete(pnhgc);
 }
 
@@ -1146,6 +1166,24 @@ void pbr_nht_nexthop_interface_update(struct interface *ifp)
 		     ifp);
 }
 
+static bool pbr_nhg_allocated_id_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct pbr_nexthop_group_cache *left, *right;
+
+	left = (const struct pbr_nexthop_group_cache *)arg1;
+	right = (const struct pbr_nexthop_group_cache *)arg2;
+
+	return left->table_id == right->table_id;
+}
+
+static uint32_t pbr_nhg_allocated_id_hash_key(const void *arg)
+{
+	const struct pbr_nexthop_group_cache *nhgc = arg;
+
+	/* table_id makes elements in this hash unique */
+	return nhgc->table_id;
+}
+
 static uint32_t pbr_nhg_hash_key(const void *arg)
 {
 	const struct pbr_nexthop_group_cache *nhgc = arg;
@@ -1163,29 +1201,62 @@ static bool pbr_nhg_hash_equal(const void *arg1, const void *arg2)
 	return !strcmp(nhgc1->name, nhgc2->name);
 }
 
-uint32_t pbr_nht_get_next_tableid(bool peek)
+uint32_t pbr_nht_find_next_unallocated_table_id(void)
 {
-	uint32_t i;
-	bool found = false;
+	struct pbr_nexthop_group_cache iter;
 
-	for (i = pbr_nhg_low_table; i <= pbr_nhg_high_table; i++) {
-		if (!nhg_tableid[i]) {
-			found = true;
-			break;
-		}
-	}
+	/*
+	 * Find the smallest unallocated table id
+	 * This can be non-trivial considering nhg removals / shifting upper &
+	 * lower bounds, so start at the lowest in the range and continue until
+	 * an unallocated space is found
+	 */
+	for (iter.table_id = pbr_nhg_low_table;
+	     iter.table_id < pbr_nhg_high_table; ++iter.table_id)
+		if (!hash_lookup(pbr_nhg_allocated_id_hash, &iter))
+			return iter.table_id;
 
-	if (found) {
-		nhg_tableid[i] = !peek;
-		return i;
-	} else
+	/* Configured range is full, cannot install anywhere */
+	return 0;
+}
+
+bool pbr_nht_has_unallocated_table(void)
+{
+	return !!pbr_next_unallocated_table_id;
+}
+
+void pbr_nht_update_next_unallocated_table_id(void)
+{
+	pbr_next_unallocated_table_id =
+		pbr_nht_find_next_unallocated_table_id();
+}
+
+uint32_t pbr_nht_reserve_next_table_id(struct pbr_nexthop_group_cache *nhgc)
+{
+	/* Nothing to reserve if all tables in range already used */
+	if (!pbr_next_unallocated_table_id)
 		return 0;
+
+	/* Reserve this table id */
+	nhgc->table_id = pbr_next_unallocated_table_id;
+
+	/* Mark table id as allocated in id-indexed hash */
+	hash_get(pbr_nhg_allocated_id_hash, nhgc, hash_alloc_intern);
+
+	/* Pre-compute the next unallocated table id */
+	pbr_nht_update_next_unallocated_table_id();
+
+	/* Present caller with reserved table id */
+	return nhgc->table_id;
 }
 
 void pbr_nht_set_tableid_range(uint32_t low, uint32_t high)
 {
 	pbr_nhg_low_table = low;
 	pbr_nhg_high_table = high;
+
+	/* Re-compute next unallocated id within new range */
+	pbr_nht_update_next_unallocated_table_id();
 }
 
 void pbr_nht_write_table_range(struct vty *vty)
@@ -1352,10 +1423,15 @@ void pbr_nht_init(void)
 	pbr_nhrc_hash =
 		hash_create_size(16, (unsigned int (*)(const void *))nexthop_hash,
 				 pbr_nhrc_hash_equal, "PBR NH Hash");
+	pbr_nhg_allocated_id_hash = hash_create_size(
+		16, pbr_nhg_allocated_id_hash_key,
+		pbr_nhg_allocated_id_hash_equal, "PBR Allocated Table Hash");
 
 	pbr_nhg_low_table = PBR_NHT_DEFAULT_LOW_TABLEID;
 	pbr_nhg_high_table = PBR_NHT_DEFAULT_HIGH_TABLEID;
 	pbr_nhg_low_rule = PBR_NHT_DEFAULT_LOW_RULE;
 	pbr_nhg_high_rule = PBR_NHT_DEFAULT_HIGH_RULE;
-	memset(&nhg_tableid, 0, 65535 * sizeof(uint8_t));
+
+	/* First unallocated table is lowest in range on init */
+	pbr_next_unallocated_table_id = PBR_NHT_DEFAULT_LOW_TABLEID;
 }
