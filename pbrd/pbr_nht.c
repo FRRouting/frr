@@ -238,16 +238,22 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	struct pbr_nexthop_cache pnhc_find = {};
 	struct pbr_nexthop_cache *pnhc;
 
-	if (!pbr_nht_has_unallocated_table()) {
-		zlog_warn(
-			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
-			__func__, nhgc->name);
-		return;
-	}
-
 	/* find pnhgc by name */
 	strlcpy(pnhgc_find.name, nhgc->name, sizeof(pnhgc_find.name));
-	pnhgc = hash_get(pbr_nhg_hash, &pnhgc_find, pbr_nhgc_alloc);
+	pnhgc = hash_lookup(pbr_nhg_hash, &pnhgc_find);
+
+	if (!pnhgc) {
+		/* Check if configured table range is exhausted */
+		if (!pbr_nht_has_unallocated_table()) {
+			zlog_warn(
+				"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
+				__func__, nhgc->name);
+			return;
+		}
+
+		/* No nhgc but range not exhausted? Then alloc it */
+		pnhgc = hash_get(pbr_nhg_hash, &pnhgc_find, pbr_nhgc_alloc);
+	}
 
 	/* create & insert new pnhc into pnhgc->nhh */
 	pnhc_find.nexthop = *nhop;
