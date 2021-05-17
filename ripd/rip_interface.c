@@ -493,6 +493,9 @@ int rip_if_down(struct interface *ifp)
 	struct listnode *listnode = NULL, *nextnode = NULL;
 
 	ri = ifp->info;
+
+	THREAD_OFF(ri->t_wakeup);
+
 	rip = ri->rip;
 	if (rip) {
 		for (rp = route_top(rip->table); rp; rp = route_next(rp))
