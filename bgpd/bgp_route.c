@@ -550,6 +550,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     char *pfx_buf, afi_t afi, safi_t safi,
 			     enum bgp_path_selection_reason *reason)
 {
+	const struct prefix *new_p;
 	struct attr *newattr, *existattr;
 	bgp_peer_sort_t new_sort;
 	bgp_peer_sort_t exist_sort;
@@ -614,10 +615,13 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	newattr = new->attr;
 	existattr = exist->attr;
 
+	new_p = bgp_dest_get_prefix(new->net);
+
 	/* For EVPN routes, we cannot just go by local vs remote, we have to
 	 * look at the MAC mobility sequence number, if present.
 	 */
-	if (safi == SAFI_EVPN) {
+	if ((safi == SAFI_EVPN)
+	    && (new_p->u.prefix_evpn.route_type == BGP_EVPN_MAC_IP_ROUTE)) {
 		/* This is an error condition described in RFC 7432 Section
 		 * 15.2. The RFC
 		 * states that in this scenario "the PE MUST alert the operator"
@@ -630,9 +634,9 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 */
 		if (newattr->sticky != existattr->sticky) {
 			if (!debug) {
-				prefix2str(
-					bgp_dest_get_prefix(new->net), pfx_buf,
-					sizeof(*pfx_buf) * PREFIX2STR_BUFFER);
+				prefix2str(new_p, pfx_buf,
+					   sizeof(*pfx_buf)
+						   * PREFIX2STR_BUFFER);
 				bgp_path_info_path_with_addpath_rx_str(
 					new, new_buf, sizeof(new_buf));
 				bgp_path_info_path_with_addpath_rx_str(
