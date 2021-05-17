@@ -31,6 +31,7 @@
 /lib/test_heavy_wq
 /lib/test_idalloc
 /lib/test_memory
+/lib/test_nexthop
 /lib/test_nexthop_iter
 /lib/test_ntop
 /lib/test_prefix2str
