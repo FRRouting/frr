@@ -11,6 +11,11 @@ AM_CFLAGS = \
 	$(SAN_FLAGS) \
 	$(WERROR) \
 	# end
+AM_CXXFLAGS = \
+	$(AC_CXXFLAGS) \
+	$(LIBYANG_CFLAGS) \
+	$(WERROR) \
+	# end
 
 # CPPFLAGS_BASE does not contain the include path for overriding assert.h,
 # therefore should be used in tools that do *not* link libfrr or do not want
