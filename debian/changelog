@@ -1,8 +1,38 @@
-frr (7.7~dev-1) UNRELEASED; urgency=medium
+frr (8.1~dev-1) UNRELEASED; urgency=medium
 
   * New upstream release...
 
  -- Ondřej Surý <ondrej@debian.org>  Tue, 04 May 2021 22:52:47 +0200
+
+frr (7.5.1-1) unstable; urgency=medium
+
+  * Update the d/gbp.conf for 7.5.1 release
+  * Use wrap-and-sort -a to unify debian/ wrapping and sorting
+  * Work around the sphinx-build error that doesn't copy images to texinfo
+  * Change the upstream-tag in d/gbp.conf to track the upstream tarballs
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 08 Mar 2021 09:40:19 +0100
+
+frr (7.5-1) unstable; urgency=medium
+
+  * New upstream version 7.5
+
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 14 Feb 2021 21:38:50 +0100
+
+frr (7.4-2) unstable; urgency=medium
+
+  * Bump libyang dependency to >= 1.0.184-1~
+  * Make the autopkgtest more resilient (Closes: #980111)
+  * Adjust the ax_python.m4 to hardcode python3.9
+
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 07 Feb 2021 13:15:07 +0100
+
+frr (7.4-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Backport upstream fix for FTBFS with Python 3.9. (Closes: #972767)
+
+ -- Adrian Bunk <bunk@debian.org>  Thu, 21 Jan 2021 16:06:12 +0200
 
 frr (7.4-1) unstable; urgency=medium
 
