@@ -199,9 +199,8 @@ class NorthboundImpl
 				auto m = tag->response.add_supported_modules();
 
 				m->set_name(module->name);
-				if (module->info->rev_size)
-					m->set_revision(
-						module->info->rev[0].date);
+				if (module->info->revision)
+					m->set_revision(module->info->revision);
 				m->set_organization(module->info->org);
 			}
 
@@ -1068,14 +1067,13 @@ class NorthboundImpl
 				   const std::string &path,
 				   const std::string &value)
 	{
-		ly_errno = LY_SUCCESS;
-		dnode = lyd_new_path(dnode, ly_native_ctx, path.c_str(),
-				     (void *)value.c_str(),
-				     (LYD_ANYDATA_VALUETYPE)0,
-				     LYD_PATH_OPT_UPDATE);
-		if (!dnode && ly_errno != LY_SUCCESS) {
-			flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
-				  __func__);
+		LY_ERR err = lyd_new_path(dnode, ly_native_ctx, path.c_str(),
+					  value.c_str(), LYD_NEW_PATH_UPDATE,
+					  &dnode);
+		if (err != LY_SUCCESS) {
+			flog_warn(EC_LIB_LIBYANG,
+				  "%s: lyd_new_path() failed: %s", __func__,
+				  ly_errmsg(ly_native_ctx));
 			return -1;
 		}
 
@@ -1089,7 +1087,7 @@ class NorthboundImpl
 		if (!dnode)
 			return -1;
 
-		lyd_free(dnode);
+		lyd_free_tree(dnode);
 
 		return 0;
 	}
@@ -1132,46 +1130,53 @@ class NorthboundImpl
 			std::string(date), std::string(comment)));
 	}
 
-	static int data_tree_from_dnode(frr::DataTree *dt,
-					const struct lyd_node *dnode,
-					LYD_FORMAT lyd_format,
-					bool with_defaults)
+	static LY_ERR data_tree_from_dnode(frr::DataTree *dt,
+					   const struct lyd_node *dnode,
+					   LYD_FORMAT lyd_format,
+					   bool with_defaults)
 	{
 		char *strp;
 		int options = 0;
 
-		SET_FLAG(options, LYP_FORMAT | LYP_WITHSIBLINGS);
+		SET_FLAG(options, LYD_PRINT_WITHSIBLINGS);
 		if (with_defaults)
-			SET_FLAG(options, LYP_WD_ALL);
+			SET_FLAG(options, LYD_PRINT_WD_ALL);
 		else
-			SET_FLAG(options, LYP_WD_TRIM);
+			SET_FLAG(options, LYD_PRINT_WD_TRIM);
 
-		if (lyd_print_mem(&strp, dnode, lyd_format, options) == 0) {
+		LY_ERR err = lyd_print_mem(&strp, dnode, lyd_format, options);
+		if (err == LY_SUCCESS) {
 			if (strp) {
 				dt->set_data(strp);
 				free(strp);
 			}
-			return 0;
 		}
-
-		return -1;
+		return err;
 	}
 
 	static struct lyd_node *dnode_from_data_tree(const frr::DataTree *dt,
 						     bool config_only)
 	{
 		struct lyd_node *dnode;
-		int options;
+		int options, opt2;
+		LY_ERR err;
 
-		if (config_only)
-			options = LYD_OPT_CONFIG;
-		else
-			options = LYD_OPT_DATA | LYD_OPT_DATA_NO_YANGLIB;
+		if (config_only) {
+			options = LYD_PARSE_STRICT | LYD_PARSE_NO_STATE;
+			opt2 = LYD_VALIDATE_NO_STATE;
+		} else {
+			options = LYD_PARSE_STRICT;
+			opt2 = 0;
+		}
 
-		dnode = lyd_parse_mem(ly_native_ctx, dt->data().c_str(),
-				      encoding2lyd_format(dt->encoding()),
-				      options);
-
+		err = lyd_parse_data_mem(ly_native_ctx, dt->data().c_str(),
+					 encoding2lyd_format(dt->encoding()),
+					 options, opt2, &dnode);
+		if (err != LY_SUCCESS) {
+			flog_warn(EC_LIB_LIBYANG,
+				  "%s: lyd_parse_mem() failed: %s", __func__,
+				  ly_errmsg(ly_native_ctx));
+		}
 		return dnode;
 	}
 
@@ -1239,14 +1244,15 @@ class NorthboundImpl
 			// Combine configuration and state data into a single
 			// dnode.
 			//
-			if (lyd_merge(dnode_state, dnode_config,
-				      LYD_OPT_EXPLICIT)
-			    != 0) {
+			if (lyd_merge_tree(&dnode_state, dnode_config,
+					   LYD_MERGE_DESTRUCT)
+			    != LY_SUCCESS) {
 				yang_dnode_free(dnode_state);
 				yang_dnode_free(dnode_config);
 				return grpc::Status(
 					grpc::StatusCode::INTERNAL,
-					"Failed to merge configuration and state data");
+					"Failed to merge configuration and state data",
+					ly_errmsg(ly_native_ctx));
 			}
 
 			dnode_final = dnode_state;
@@ -1262,19 +1268,25 @@ class NorthboundImpl
 		// Validate data to create implicit default nodes if necessary.
 		int validate_opts = 0;
 		if (type == frr::GetRequest_DataType_CONFIG)
-			validate_opts = LYD_OPT_CONFIG;
+			validate_opts = LYD_VALIDATE_NO_STATE;
 		else
-			validate_opts = LYD_OPT_DATA | LYD_OPT_DATA_NO_YANGLIB;
-		lyd_validate(&dnode_final, validate_opts, ly_native_ctx);
+			validate_opts = 0;
 
+		LY_ERR err = lyd_validate_all(&dnode_final, ly_native_ctx,
+					      validate_opts, NULL);
+
+		if (err)
+			flog_warn(EC_LIB_LIBYANG,
+				  "%s: lyd_validate_all() failed: %s", __func__,
+				  ly_errmsg(ly_native_ctx));
 		// Dump data using the requested format.
-		int ret = data_tree_from_dnode(dt, dnode_final, lyd_format,
-					       with_defaults);
+		if (!err)
+			err = data_tree_from_dnode(dt, dnode_final, lyd_format,
+						   with_defaults);
 		yang_dnode_free(dnode_final);
-		if (ret != 0)
+		if (err)
 			return grpc::Status(grpc::StatusCode::INTERNAL,
 					    "Failed to dump data");
-
 		return grpc::Status::OK;
 	}
 

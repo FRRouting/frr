@@ -10,7 +10,7 @@ The FRR project builds some binary ``libyang`` packages.
 RPM packages are at our `RPM repository <https://rpm.frrouting.org>`_.
 
 DEB packages are available as CI artifacts `here
-<https://ci1.netdef.org/browse/LIBYANG-LIBYANG-V2/latestSuccessful/artifact>`_.
+<https://ci1.netdef.org/browse/LIBYANG-LIBYANGV2/latestSuccessful/artifact>`_.
 
 .. warning::
 

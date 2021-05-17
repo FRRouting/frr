@@ -169,6 +169,7 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
 	static void __attribute__((used, _CONSTRUCTOR(1100)))                  \
 			_xref_init(void) {                                     \
 		static struct xref_block _xref_block = {                       \
+			.next = NULL,                                          \
 			.start = __start_xref_array,                           \
 			.stop = __stop_xref_array,                             \
 		};                                                             \
