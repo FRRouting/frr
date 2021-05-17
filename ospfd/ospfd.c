@@ -2182,6 +2182,16 @@ static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf, bool set)
 			vrf_bitmap_unset(zclient->redist[AFI_IP][type],
 					 ospf->vrf_id);
 	}
+
+	red_list = ospf->redist[DEFAULT_ROUTE];
+	if (red_list) {
+		if (set)
+			vrf_bitmap_set(zclient->default_information[AFI_IP],
+				       ospf->vrf_id);
+		else
+			vrf_bitmap_unset(zclient->default_information[AFI_IP],
+					 ospf->vrf_id);
+	}
 }
 
 /* Enable OSPF VRF instance */
