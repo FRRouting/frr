@@ -169,6 +169,9 @@ static int ripng_if_down(struct interface *ifp)
 	struct listnode *listnode = NULL, *nextnode = NULL;
 
 	ri = ifp->info;
+
+	THREAD_OFF(ri->t_wakeup);
+
 	ripng = ri->ripng;
 
 	if (ripng)
