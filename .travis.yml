@@ -5,14 +5,14 @@ services:
   - docker
 jobs:
   include:
-   # - script:
-   #     - docker/centos-7/build.sh
-   #     - docker images
-   #   name: centos7
-   # - script:
-   #     - docker/centos-8/build.sh
-   #     - docker images
-   #   name: centos8
+   - script:
+       - docker/centos-7/build.sh
+       - docker images
+     name: centos7
+   - script:
+       - docker/centos-8/build.sh
+       - docker images
+     name: centos8
    - script:
        - sudo apt install -y linux-modules-extra-$(uname -r)
        - docker build -t frr-ubuntu18:latest -f docker/ubuntu18-ci/Dockerfile .
