@@ -481,16 +481,13 @@ void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 	IPV6_ADDR_COPY(&p.u.prefix6, address);
 	p.prefixlen = IPV6_MAX_PREFIXLEN;
 
-	ifc = listnode_head(ifp->nbr_connected);
-	if (!ifc) {
-		/* new addition */
-		ifc = nbr_connected_new();
-		ifc->address = prefix_new();
-		ifc->ifp = ifp;
-		listnode_add(ifp->nbr_connected, ifc);
-	}
-
+	/* new addition */
+	ifc = nbr_connected_new();
+	ifc->address = prefix_new();
+	ifc->ifp = ifp;
 	prefix_copy(ifc->address, &p);
+
+	listnode_add(ifp->nbr_connected, ifc);
 
 	zebra_interface_nbr_address_add_update(ifp, ifc);
 
