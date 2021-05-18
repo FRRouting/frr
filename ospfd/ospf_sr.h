@@ -61,7 +61,7 @@
 
 /* SID/Label Sub TLV - section 2.1 */
 #define SUBTLV_SID_LABEL		1
-#define SUBTLV_SID_LABEL_SIZE		8
+#define SUBTLV_SID_LABEL_SIZE		4
 struct subtlv_sid_label {
 	/* Length is 3 (20 rightmost bits MPLS label) or 4 (32 bits SID) */
 	struct tlv_header header;
