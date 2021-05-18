@@ -61,7 +61,7 @@
 
 /* SID/Label Sub TLV - section 2.1 */
 #define SUBTLV_SID_LABEL		1
-#define SUBTLV_SID_LABEL_SIZE		8
+#define SUBTLV_SID_LABEL_SIZE		4
 struct subtlv_sid_label {
 	/* Length is 3 (20 rightmost bits MPLS label) or 4 (32 bits SID) */
 	struct tlv_header header;
@@ -88,6 +88,7 @@ struct ri_sr_tlv_sr_algorithm {
 /* RI SID/Label Range TLV used for SRGB & SRLB - section 3.2 & 3.3 */
 #define RI_SR_TLV_SRGB_LABEL_RANGE	9
 #define RI_SR_TLV_SRLB_LABEL_RANGE	14
+#define RI_SR_TLV_LABEL_RANGE_SIZE	12
 struct ri_sr_tlv_sid_label_range {
 	struct tlv_header header;
 /* Only 24 upper most bits are significant */
