@@ -1247,7 +1247,6 @@ the command :clicmd:`show pony` would be documented as follows:
 
 .. code-block:: rest
 
-   .. index:: show pony
    .. clicmd:: show pony
 
       Prints an ASCII pony. Example output:::

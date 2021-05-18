@@ -855,13 +855,11 @@ Traffic Engineering
    flood in AREA <area-id> with Opaque Type-10, respectively in AS with Opaque
    Type-11. In all case, Opaque-LSA TLV=6.
 
-.. index:: mpls-te export
 .. clicmd:: no mpls-te export
 
    Export Traffic Engineering Data Base to other daemons through the ZAPI
    Opaque Link State messages.
 
-.. index:: show ip ospf mpls-te interface
 .. clicmd:: show ip ospf mpls-te interface
 
 .. clicmd:: show ip ospf mpls-te interface INTERFACE
@@ -872,16 +870,12 @@ Traffic Engineering
 
    Show Traffic Engineering router parameters.
 
-.. index:: show ip ospf mpls-te database [verbose|json]
 .. clicmd:: show ip ospf mpls-te database [verbose|json]
 
-.. index:: show ip ospf mpls-te database vertex [self-originate|adv-router ADV-ROUTER] [verbose|json]
 .. clicmd:: show ip ospf mpls-te database vertex [self-originate|adv-router ADV-ROUTER] [verbose|json]
 
-.. index:: show ip ospf mpls-te database edge [A.B.C.D] [verbose|json]
 .. clicmd:: show ip ospf mpls-te database edge [A.B.C.D] [verbose|json]
 
-.. index:: show ip ospf mpls-te database subnet [A.B.C.D/M] [verbose|json]
 .. clicmd:: show ip ospf mpls-te database subnet [A.B.C.D/M] [verbose|json]
 
    Show Traffic Engineering Database
