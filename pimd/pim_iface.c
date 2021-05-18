@@ -1512,10 +1512,15 @@ struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr 
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-		if ((c->address->family == AF_INET)
-		    && prefix_match(CONNECTED_PREFIX(c), &p)) {
-			return CONNECTED_PREFIX(c);
-		}
+		if (c->address->family != AF_INET)
+			continue;
+		if (prefix_match(c->address, &p))
+			return c->address;
+		if (CONNECTED_PEER(c) && prefix_match(c->destination, &p))
+			/* this is not a typo, on PtP we need to return the
+			 * *local* address that lines up with src.
+			 */
+			return c->address;
 	}
 
 	return NULL;
