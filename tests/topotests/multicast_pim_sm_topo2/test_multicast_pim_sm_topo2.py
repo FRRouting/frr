@@ -1676,7 +1676,8 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
 
     source = topo["routers"]["i3"]["links"]["r2"]["ipv4"].split("/")[0]
     input_dict_all = [
-        {"dut": "l1", "src_address": source, "iif": "l1-r2-eth4", "oil": "l1-i1-eth1"},
+        {"dut": "l1", "src_address": source, "iif": ["l1-r2-eth4", "l1-c1-eth0"],
+            "oil": ["l1-i1-eth1", "l1-i6-eth2"]},
         {"dut": "f1", "src_address": source, "iif": "f1-r2-eth3", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict_all:
