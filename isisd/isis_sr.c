@@ -361,9 +361,9 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 	pcfg->last_hop_behavior = yang_get_default_enum(
 		"%s/prefix-sid-map/prefix-sid/last-hop-behavior", ISIS_SR);
 
-	/* Set the N-flag when appropriate. */
+	/* Mark as node Sid if the prefix is host and configured in loopback */
 	ifp = if_lookup_prefix(prefix, VRF_DEFAULT);
-	if (ifp && sr_prefix_is_node_sid(ifp, prefix) && !pcfg->n_flag_clear)
+	if (ifp && sr_prefix_is_node_sid(ifp, prefix))
 		pcfg->node_sid = true;
 
 	/* Save prefix-sid configuration. */
@@ -948,8 +948,7 @@ static int sr_if_new_hook(struct interface *ifp)
 		if (!pcfg)
 			continue;
 
-		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)
-		    && !pcfg->n_flag_clear) {
+		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)) {
 			pcfg->node_sid = true;
 			lsp_regenerate_schedule(area, area->is_type, 0);
 		}
