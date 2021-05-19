@@ -447,8 +447,7 @@ static void set_sr_global_label_range(struct sr_block srgb)
 {
 	/* Set Header */
 	TLV_TYPE(OspfRI.sr_info.srgb) = htons(RI_SR_TLV_SRGB_LABEL_RANGE);
-	TLV_LEN(OspfRI.sr_info.srgb) =
-		htons(SUBTLV_SID_LABEL_SIZE + sizeof(uint32_t));
+	TLV_LEN(OspfRI.sr_info.srgb) = htons(RI_SR_TLV_LABEL_RANGE_SIZE);
 	/* Set Range Size */
 	OspfRI.sr_info.srgb.size = htonl(SET_RANGE_SIZE(srgb.range_size));
 	/* Set Lower bound label SubTLV */
@@ -471,8 +470,7 @@ static void set_sr_local_label_range(struct sr_block srlb)
 {
 	/* Set Header */
 	TLV_TYPE(OspfRI.sr_info.srlb) = htons(RI_SR_TLV_SRLB_LABEL_RANGE);
-	TLV_LEN(OspfRI.sr_info.srlb) =
-		htons(SUBTLV_SID_LABEL_SIZE + sizeof(uint32_t));
+	TLV_LEN(OspfRI.sr_info.srlb) = htons(RI_SR_TLV_LABEL_RANGE_SIZE);
 	/* Set Range Size */
 	OspfRI.sr_info.srlb.size = htonl(SET_RANGE_SIZE(srlb.range_size));
 	/* Set Lower bound label SubTLV */
