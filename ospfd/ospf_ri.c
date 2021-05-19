@@ -1231,7 +1231,7 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 				vty_out(vty, "  Wrong %s TLV size: %d(%d)\n",  \
 					msg, ntohs(tlvh->length), size);       \
 			else                                                   \
-				zlog_debug("    Wrong %s TLV size: %d(%d)\n",  \
+				zlog_debug("    Wrong %s TLV size: %d(%d)",    \
 					   msg, ntohs(tlvh->length), size);    \
 			return size + TLV_HDR_SIZE;                            \
 		}                                                              \
