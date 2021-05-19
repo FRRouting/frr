@@ -5070,7 +5070,7 @@ ALIAS_HIDDEN(neighbor_set_peer_group, neighbor_set_peer_group_hidden_cmd,
 
 DEFUN_YANG (no_neighbor_set_peer_group,
 	    no_neighbor_set_peer_group_cmd,
-	    "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group [PGNAME]",
+	    "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
 	    NO_STR
 	    NEIGHBOR_STR
 	    NEIGHBOR_ADDR_STR2
@@ -5091,7 +5091,7 @@ DEFUN_YANG (no_neighbor_set_peer_group,
 }
 
 ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group [PGNAME]",
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Member of the peer-group\n"
 	     "Peer-group name\n")
