@@ -232,11 +232,13 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 		snprintf(lcsb, sizeof(lcsb), "%u:%u:%u", global, local1,
 			 local2);
 
-		len = strlcat(str_buf, bgp_community2alias(lcsb), str_buf_sz);
+		const char *com2alias = bgp_community2alias(lcsb);
+
+		len = strlcat(str_buf, com2alias, str_buf_sz);
 		assert((unsigned int)len < str_buf_sz);
 
 		if (make_json) {
-			json_string = json_object_new_string(lcsb);
+			json_string = json_object_new_string(com2alias);
 			json_object_array_add(json_lcommunity_list,
 					      json_string);
 		}
