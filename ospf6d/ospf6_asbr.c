@@ -240,8 +240,14 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 
 		next_route = old_route->next;
 
-		if (!ospf6_route_is_same(old_route, route)
-		    || (old_route->path.type != route->path.type))
+		/* The route linked-list is grouped in batches of prefix.
+		 * If the new prefix is not the same as the one of interest
+		 * then we have walked over the end of the batch and so we
+		 * should break rather than continuing unnecessarily.
+		 */
+		if (!ospf6_route_is_same(old_route, route))
+			break;
+		if (old_route->path.type != route->path.type)
 			continue;
 
 		/* Current and New route has same origin,
@@ -345,11 +351,14 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 	/* Add new route */
 	for (old_route = old; old_route; old_route = old_route->next) {
 
-		/* Current and New Route prefix or route type
-		 * is not same skip this current node.
+		/* The route linked-list is grouped in batches of prefix.
+		 * If the new prefix is not the same as the one of interest
+		 * then we have walked over the end of the batch and so we
+		 * should break rather than continuing unnecessarily.
 		 */
-		if (!ospf6_route_is_same(old_route, route)
-		    || (old_route->path.type != route->path.type))
+		if (!ospf6_route_is_same(old_route, route))
+			break;
+		if (old_route->path.type != route->path.type)
 			continue;
 
 		/* Old Route and New Route have Equal Cost, Merge NHs */
