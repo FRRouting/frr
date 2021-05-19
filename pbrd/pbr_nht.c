@@ -721,7 +721,7 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 	 * So let's search and do the right thing on the
 	 * interface event.
 	 */
-	if (!pnhi->nhr && pnhi->ifp) {
+	if (!pnhi->nhr) {
 		switch (pnhc->nexthop.type) {
 		case NEXTHOP_TYPE_BLACKHOLE:
 		case NEXTHOP_TYPE_IPV4:
@@ -738,20 +738,18 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 		goto done;
 	}
 
-	if (pnhi->nhr) {
-		switch (pnhi->nhr->prefix.family) {
-		case AF_INET:
-			if (pnhc->nexthop.gate.ipv4.s_addr
-			    != pnhi->nhr->prefix.u.prefix4.s_addr)
-				goto done; /* Unrelated change */
-			break;
-		case AF_INET6:
-			if (memcmp(&pnhc->nexthop.gate.ipv6,
-				   &pnhi->nhr->prefix.u.prefix6, 16)
-			    != 0)
-				goto done; /* Unrelated change */
-			break;
-		}
+	switch (pnhi->nhr->prefix.family) {
+	case AF_INET:
+		if (pnhc->nexthop.gate.ipv4.s_addr
+		    != pnhi->nhr->prefix.u.prefix4.s_addr)
+			goto done; /* Unrelated change */
+		break;
+	case AF_INET6:
+		if (memcmp(&pnhc->nexthop.gate.ipv6,
+			   &pnhi->nhr->prefix.u.prefix6, 16)
+		    != 0)
+			goto done; /* Unrelated change */
+		break;
 	}
 
 	pnhi->nhr_matched = true;
