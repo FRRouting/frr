@@ -23,6 +23,7 @@
 #include <math.h>
 
 #include "printfrr.h"
+#include "frrstr.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "memory.h"
@@ -10570,7 +10571,6 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 			      const char *comstr, int exact, afi_t afi,
 			      safi_t safi, uint8_t show_flags);
 
-
 static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			  struct bgp_table *table, enum bgp_show_type type,
 			  void *output_arg, char *rd, int is_last,
@@ -10644,6 +10644,48 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				uint32_t version =
 					strtoul(output_arg, NULL, 10);
 				if (dest->version < version)
+					continue;
+			}
+
+			if (type == bgp_show_type_community_alias) {
+				char *alias = output_arg;
+				char **communities;
+				int num;
+				bool found = false;
+
+				if (pi->attr->community) {
+					frrstr_split(pi->attr->community->str,
+						     " ", &communities, &num);
+					for (int i = 0; i < num; i++) {
+						const char *com2alias =
+							bgp_community2alias(
+								communities[i]);
+						if (strncmp(alias, com2alias,
+							    strlen(com2alias))
+						    == 0) {
+							found = true;
+							break;
+						}
+					}
+				}
+
+				if (!found && pi->attr->lcommunity) {
+					frrstr_split(pi->attr->lcommunity->str,
+						     " ", &communities, &num);
+					for (int i = 0; i < num; i++) {
+						const char *com2alias =
+							bgp_community2alias(
+								communities[i]);
+						if (strncmp(alias, com2alias,
+							    strlen(com2alias))
+						    == 0) {
+							found = true;
+							break;
+						}
+					}
+				}
+
+				if (!found)
 					continue;
 			}
 
@@ -11920,9 +11962,10 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 }
 
 /* BGP route print out function with JSON */
-DEFPY (show_ip_bgp_json,
-       show_ip_bgp_json_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
+DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
+      " [" BGP_SAFI_WITH_LABEL_CMD_STR
+      "]]\
           [all$all]\
           [cidr-only\
           |dampening <flap-statistics|dampened-paths>\
@@ -11933,44 +11976,41 @@ DEFPY (show_ip_bgp_json,
                      |route-filter-translated-v4] [exact-match]\
           |rpki <invalid|valid|notfound>\
           |version (1-4294967295)\
+          |alias WORD\
           ] [json$uj [detail$detail] | wide$wide]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
-       "Display the entries for all address families\n"
-       "Display only routes with non-natural netmasks\n"
-       "Display detailed information about dampening\n"
-       "Display flap statistics of routes\n"
-       "Display paths suppressed due to dampening\n"
-       "Display routes matching the communities\n"
-       COMMUNITY_AANN_STR
-       "Do not send outside local AS (well-known community)\n"
-       "Do not advertise to any peer (well-known community)\n"
-       "Do not export to next AS (well-known community)\n"
-       "Graceful shutdown (well-known community)\n"
-       "Do not export to any peer (well-known community)\n"
-       "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
-       "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
-       "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
-       "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
-       "Should accept VPN route with local nexthop (well-known community)\n"
-       "RT VPNv6 route filtering (well-known community)\n"
-       "RT VPNv4 route filtering (well-known community)\n"
-       "RT translated VPNv6 route filtering (well-known community)\n"
-       "RT translated VPNv4 route filtering (well-known community)\n"
-       "Exact match of the communities\n"
-       "RPKI route types\n"
-       "A valid path as determined by rpki\n"
-       "A invalid path as determined by rpki\n"
-       "A path that has no rpki data\n"
-       "Display prefixes with matching version numbers\n"
-       "Version number and above\n"
-       JSON_STR
-       "Display detailed version of JSON output\n"
-       "Increase table width for longer prefixes\n")
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR
+      "Display the entries for all address families\n"
+      "Display only routes with non-natural netmasks\n"
+      "Display detailed information about dampening\n"
+      "Display flap statistics of routes\n"
+      "Display paths suppressed due to dampening\n"
+      "Display routes matching the communities\n" COMMUNITY_AANN_STR
+      "Do not send outside local AS (well-known community)\n"
+      "Do not advertise to any peer (well-known community)\n"
+      "Do not export to next AS (well-known community)\n"
+      "Graceful shutdown (well-known community)\n"
+      "Do not export to any peer (well-known community)\n"
+      "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
+      "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
+      "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
+      "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
+      "Should accept VPN route with local nexthop (well-known community)\n"
+      "RT VPNv6 route filtering (well-known community)\n"
+      "RT VPNv4 route filtering (well-known community)\n"
+      "RT translated VPNv6 route filtering (well-known community)\n"
+      "RT translated VPNv4 route filtering (well-known community)\n"
+      "Exact match of the communities\n"
+      "RPKI route types\n"
+      "A valid path as determined by rpki\n"
+      "A invalid path as determined by rpki\n"
+      "A path that has no rpki data\n"
+      "Display prefixes with matching version numbers\n"
+      "Version number and above\n"
+      "Display prefixes with matching BGP community alias\n"
+      "BGP community alias\n" JSON_STR
+      "Display detailed version of JSON output\n"
+      "Increase table width for longer prefixes\n")
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
@@ -11980,6 +12020,7 @@ DEFPY (show_ip_bgp_json,
 	int exact_match = 0;
 	char *community = NULL;
 	char *prefix_version = NULL;
+	char *bgp_community_alias = NULL;
 	bool first = true;
 	uint8_t show_flags = 0;
 	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
@@ -12056,6 +12097,12 @@ DEFPY (show_ip_bgp_json,
 		prefix_version = argv[idx + 1]->arg;
 	}
 
+	/* Display prefixes with matching BGP community alias */
+	if (argv_find(argv, argc, "alias", &idx)) {
+		sh_type = bgp_show_type_community_alias;
+		bgp_community_alias = argv[idx + 1]->arg;
+	}
+
 	if (!all) {
 		/* show bgp: AFI_IP6, show ip bgp: AFI_IP */
 		if (community)
@@ -12065,6 +12112,10 @@ DEFPY (show_ip_bgp_json,
 		else if (prefix_version)
 			return bgp_show(vty, bgp, afi, safi, sh_type,
 					prefix_version, show_flags,
+					rpki_target_state);
+		else if (bgp_community_alias)
+			return bgp_show(vty, bgp, afi, safi, sh_type,
+					bgp_community_alias, show_flags,
 					rpki_target_state);
 		else
 			return bgp_show(vty, bgp, afi, safi, sh_type, NULL,
@@ -12108,6 +12159,11 @@ DEFPY (show_ip_bgp_json,
 							sh_type, prefix_version,
 							show_flags,
 							rpki_target_state);
+				else if (bgp_community_alias)
+					return bgp_show(
+						vty, bgp, afi, safi, sh_type,
+						bgp_community_alias, show_flags,
+						rpki_target_state);
 				else
 					bgp_show(vty, bgp, afi, safi, sh_type,
 						 NULL, show_flags,
