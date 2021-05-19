@@ -149,7 +149,7 @@ Configuration Commands
    Delete or start a dynamic candidate path definition.
 
 
-.. clicmd:: affinity {exclude-any|include-any|include-all} BITPATTERN
+.. clicmd:: affinity <exclude-any|include-any|include-all> BITPATTERN
 
    Delete or specify an affinity constraint for a dynamic candidate path.
 

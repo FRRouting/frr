@@ -821,9 +821,8 @@ DEFPY(srte_candidate_no_bandwidth,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_affinity_filter,
-      srte_candidate_affinity_filter_cmd,
-      "affinity {exclude-any|include-any|include-all}$type BITPATTERN$value",
+DEFPY(srte_candidate_affinity_filter, srte_candidate_affinity_filter_cmd,
+      "affinity <exclude-any|include-any|include-all>$type BITPATTERN$value",
       "Affinity constraint\n"
       "Exclude any matching link\n"
       "Include any matching link\n"
@@ -846,9 +845,8 @@ DEFPY(srte_candidate_affinity_filter,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_no_affinity_filter,
-      srte_candidate_no_affinity_filter_cmd,
-      "no affinity {exclude-any|include-any|include-all}$type [BITPATTERN$value]",
+DEFPY(srte_candidate_no_affinity_filter, srte_candidate_no_affinity_filter_cmd,
+      "no affinity <exclude-any|include-any|include-all>$type [BITPATTERN$value]",
       NO_STR
       "Affinity constraint\n"
       "Exclude any matching link\n"
