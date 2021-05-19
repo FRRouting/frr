@@ -42,6 +42,7 @@ enum bgp_show_type {
 	bgp_show_type_neighbor,
 	bgp_show_type_cidr_only,
 	bgp_show_type_prefix_longer,
+	bgp_show_type_community_alias,
 	bgp_show_type_community_all,
 	bgp_show_type_community,
 	bgp_show_type_community_exact,
