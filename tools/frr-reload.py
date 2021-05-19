@@ -2097,10 +2097,25 @@ if __name__ == "__main__":
                     if line == "!":
                         continue
 
-                    # Don't run "no" commands twice since they can error
-                    # out the second time due to first deletion
-                    if x == 1 and ctx_keys[0].startswith("no "):
-                        continue
+                    # some commands complain when issued twice.  If on the second pass,
+                    # skip the ones that whine about it
+                    if x == 1:
+
+                        # Don't run "no" commands twice since they can error
+                        # out the second time due to first deletion
+                        if ctx_keys[0].startswith("no "):
+                            continue
+
+                        # putting the same message-digest-key in twice thinks you trying to
+                        # override the old one with the same key number.  Skip it.
+                        re_m_d_key = (
+                            re.search("^ip ospf message-digest-key (.*)$", line)
+                            if line is not None
+                            else False
+                        )
+
+                        if re_m_d_key:
+                            continue
 
                     cmd = "\n".join(lines_to_config(ctx_keys, line, False)) + "\n"
                     lines_to_configure.append(cmd)
