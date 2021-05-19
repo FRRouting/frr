@@ -8926,7 +8926,7 @@ DEFUN (ip_ospf_area,
 	argv_find(argv, argc, "area", &idx);
 	areaid = argv[idx + 1]->arg;
 
-	if (ifp->vrf_id && !instance)
+	if (!instance)
 		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
 	else
 		ospf = ospf_lookup_instance(instance);
@@ -9050,7 +9050,7 @@ DEFUN (no_ip_ospf_area,
 	if (argv_find(argv, argc, "(1-65535)", &idx))
 		instance = strtol(argv[idx]->arg, NULL, 10);
 
-	if (ifp->vrf_id && !instance)
+	if (!instance)
 		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
 	else
 		ospf = ospf_lookup_instance(instance);
