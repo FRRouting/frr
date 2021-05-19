@@ -599,6 +599,7 @@ static void nb_config_diff(const struct nb_config *config1,
 				   * the diff tree.
 				   */
 				target = yang_dnode_get(config2->dnode, path);
+				assert(target);
 				nb_config_diff_created(target, &seq, changes);
 
 				/* Skip rest of sub-tree, move to next sibling
@@ -607,6 +608,7 @@ static void nb_config_diff(const struct nb_config *config1,
 				break;
 			case 'd': /* delete */
 				target = yang_dnode_get(config1->dnode, path);
+				assert(target);
 				nb_config_diff_deleted(target, &seq, changes);
 
 				/* Skip rest of sub-tree, move to next sibling
