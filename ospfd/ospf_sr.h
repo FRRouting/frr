@@ -88,6 +88,7 @@ struct ri_sr_tlv_sr_algorithm {
 /* RI SID/Label Range TLV used for SRGB & SRLB - section 3.2 & 3.3 */
 #define RI_SR_TLV_SRGB_LABEL_RANGE	9
 #define RI_SR_TLV_SRLB_LABEL_RANGE	14
+#define RI_SR_TLV_LABEL_RANGE_SIZE	12
 struct ri_sr_tlv_sid_label_range {
 	struct tlv_header header;
 /* Only 24 upper most bits are significant */
@@ -99,6 +100,7 @@ struct ri_sr_tlv_sid_label_range {
 
 /* RI Node/MSD TLV as per RFC 8476 */
 #define RI_SR_TLV_NODE_MSD		12
+#define RI_SR_TLV_NODE_MSD_SIZE		4
 struct ri_sr_tlv_node_msd {
 	struct tlv_header header;
 	uint8_t subtype; /* always = 1 */

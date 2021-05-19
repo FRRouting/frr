@@ -175,6 +175,7 @@ struct ospf_lsa *ospf_lsa_new_and_data(size_t size)
 
 	new = ospf_lsa_new();
 	new->data = ospf_lsa_data_new(size);
+	new->size = size;
 
 	return new;
 }
@@ -3241,22 +3242,22 @@ int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2)
 	if (IS_LSA_MAXAGE(l2) && !IS_LSA_MAXAGE(l1))
 		return 1;
 
-	if (l1->data->length != l2->data->length)
+	if (l1->size != l2->size)
 		return 1;
 
-	if (l1->data->length == 0)
+	if (l1->size == 0)
 		return 1;
 
 	if (CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
 		return 1; /* May be a stale LSA in the LSBD */
 
-	assert(ntohs(l1->data->length) > OSPF_LSA_HEADER_SIZE);
+	assert(l1->size > OSPF_LSA_HEADER_SIZE);
 
 	p1 = (char *)l1->data;
 	p2 = (char *)l2->data;
 
 	if (memcmp(p1 + OSPF_LSA_HEADER_SIZE, p2 + OSPF_LSA_HEADER_SIZE,
-		   ntohs(l1->data->length) - OSPF_LSA_HEADER_SIZE)
+		   l1->size - OSPF_LSA_HEADER_SIZE)
 	    != 0)
 		return 1;
 

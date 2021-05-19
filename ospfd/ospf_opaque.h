@@ -79,6 +79,7 @@
 
 #define VALID_OPAQUE_INFO_LEN(lsahdr)                                          \
 	((ntohs((lsahdr)->length) >= sizeof(struct lsa_header))                \
+	 && ((ntohs((lsahdr)->length) < OSPF_MAX_LSA_SIZE))                    \
 	 && ((ntohs((lsahdr)->length) % sizeof(uint32_t)) == 0))
 
 /*

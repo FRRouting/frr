@@ -1204,9 +1204,10 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 
 void ospf_opaque_lsa_dump(struct stream *s, uint16_t length)
 {
-	struct ospf_lsa lsa;
+	struct ospf_lsa lsa = {};
 
 	lsa.data = (struct lsa_header *)stream_pnt(s);
+	lsa.size = length;
 	show_opaque_info_detail(NULL, &lsa, NULL);
 	return;
 }
