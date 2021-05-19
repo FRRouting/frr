@@ -2111,6 +2111,10 @@ things on the wire.
             Large Community: lcommunity-1 65001:123:2
             Last update: Fri Apr 16 12:51:27 2021
 
+.. clicmd:: show bgp [afi] [safi] [all] alias WORD [wide|json]
+
+   Display prefixes with matching BGP community alias.
+
 .. _bgp-using-communities-in-route-map:
 
 Using Communities in Route Maps
