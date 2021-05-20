@@ -3161,11 +3161,11 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
 				vty_out(vty, "  Wrong %s TLV size: %d(%d)\n",  \
 					msg, ntohs(tlvh->length), size);       \
 			else                                                   \
-				zlog_debug("    Wrong %s TLV size: %d(%d)\n",  \
+				zlog_debug("    Wrong %s TLV size: %d(%d)",    \
 					   msg, ntohs(tlvh->length), size);    \
 			return size + TLV_HDR_SIZE;                            \
 		}                                                              \
-	} while(0)
+	} while (0)
 
 static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
 {
