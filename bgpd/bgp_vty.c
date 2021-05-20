@@ -4829,7 +4829,7 @@ DEFUN_YANG(
 			      argv[idx_number]->arg);
 	nb_cli_enqueue_change(vty, "./local-as/no-prepend", NB_OP_MODIFY,
 			      "true");
-	nb_cli_enqueue_change(vty, "./local-as/no-replace-as", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./local-as/replace-as", NB_OP_MODIFY,
 			      "true");
 
 	return nb_cli_apply_changes(vty, base_xpath);
@@ -4855,7 +4855,7 @@ DEFUN_YANG(no_neighbor_local_as,
 	nb_cli_enqueue_change(vty, "./local-as/local-as", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./local-as/no-prepend", NB_OP_MODIFY,
 			      "false");
-	nb_cli_enqueue_change(vty, "./local-as/no-replace-as", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./local-as/replace-as", NB_OP_MODIFY,
 			      "false");
 
 	return nb_cli_apply_changes(vty, base_xpath);

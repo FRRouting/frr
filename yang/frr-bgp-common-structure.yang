@@ -124,7 +124,7 @@ submodule frr-bgp-common-structure {
            set to 'false' it will prepend local-as to updates.";
       }
 
-      leaf no-replace-as {
+      leaf replace-as {
         type boolean;
         default "false";
         description
