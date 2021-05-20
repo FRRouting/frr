@@ -21,7 +21,7 @@
         },
         {
           "interface": "r4-eth1",
-          "metric": "20",
+          "metric": "10",
           "next-hop": "r5",
           "parent": "r5(4)",
           "type": "IP TE",
@@ -29,7 +29,7 @@
         },
         {
           "interface": "r4-eth1",
-          "metric": "20",
+          "metric": "10",
           "next-hop": "r5",
           "parent": "r5(4)",
           "type": "IP TE",
@@ -37,7 +37,7 @@
         },
         {
           "interface": "r4-eth1",
-          "metric": "30",
+          "metric": "20",
           "next-hop": "r5",
           "parent": "r3(4)",
           "type": "IP TE",
@@ -63,16 +63,16 @@
           "vertex": "r5"
         },
         {
+          "metric": "10",
           "interface": "r4-eth1",
-          "metric": "20",
           "next-hop": "r5",
           "parent": "r5(4)",
           "type": "IP6 internal",
           "vertex": "2001:db8:2:1::/64"
         },
         {
+          "metric": "20",
           "interface": "r4-eth1",
-          "metric": "30",
           "next-hop": "r5",
           "parent": "r3(4)",
           "type": "IP6 internal",
@@ -101,7 +101,7 @@
         },
         {
           "interface": "r4-eth0",
-          "metric": "20",
+          "metric": "10",
           "next-hop": "r2",
           "parent": "r2(4)",
           "type": "IP TE",

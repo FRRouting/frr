@@ -2,7 +2,7 @@
   "10.0.10.0/24": [
     {
       "distance": 115, 
-      "metric": 20, 
+      "metric": 10, 
       "nexthops": [
         {
           "afi": "ipv4", 

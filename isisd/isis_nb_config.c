@@ -68,7 +68,7 @@ int isis_instance_create(struct nb_cb_create_args *args)
 		return NB_OK;
 	vrf_name = yang_dnode_get_string(args->dnode, "./vrf");
 	area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
-	isis_global_instance_create(vrf_name);
+
 	area = isis_area_lookup_by_vrf(area_tag, vrf_name);
 	if (area)
 		return NB_ERR_INCONSISTENCY;

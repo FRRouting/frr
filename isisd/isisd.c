@@ -175,15 +175,6 @@ void isis_master_init(struct thread_master *master)
 	im->master = master;
 }
 
-void isis_global_instance_create(const char *vrf_name)
-{
-	struct isis *isis;
-
-	isis = isis_lookup_by_vrfname(vrf_name);
-	if (isis == NULL)
-		isis_new(vrf_name);
-}
-
 struct isis *isis_new(const char *vrf_name)
 {
 	struct vrf *vrf;
@@ -199,6 +190,8 @@ struct isis *isis_new(const char *vrf_name)
 		isis_vrf_link(isis, vrf);
 	else
 		isis->vrf_id = VRF_UNKNOWN;
+
+	isis_zebra_vrf_register(isis);
 
 	if (IS_DEBUG_EVENTS)
 		zlog_debug(
@@ -226,6 +219,8 @@ void isis_finish(struct isis *isis)
 	struct vrf *vrf = NULL;
 
 	listnode_delete(im->isis, isis);
+
+	isis_zebra_vrf_deregister(isis);
 
 	vrf = vrf_lookup_by_name(isis->name);
 	if (vrf)
@@ -567,8 +562,7 @@ void isis_area_destroy(struct isis_area *area)
 	area_mt_finish(area);
 
 	if (listcount(area->isis->area_list) == 0) {
-		memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
-		area->isis->sysid_set = 0;
+		isis_finish(area->isis);
 	}
 
 	XFREE(MTYPE_ISIS_AREA, area);
@@ -595,6 +589,68 @@ static int isis_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
+static void isis_set_redist_vrf_bitmaps(struct isis *isis, bool set)
+{
+	struct listnode *node;
+	struct isis_area *area;
+	int type;
+	int level;
+	int protocol;
+
+	char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
+
+	memset(do_subscribe, 0, sizeof(do_subscribe));
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
+			for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
+				for (level = 0; level < ISIS_LEVELS; level++)
+					if (area->redist_settings[protocol]
+								 [type][level]
+									 .redist
+					    == 1)
+						do_subscribe[protocol][type] =
+							1;
+
+	for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
+		for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++) {
+			/* This field is actually controlling transmission of
+			 * the IS-IS
+			 * routes to Zebra and has nothing to do with
+			 * redistribution,
+			 * so skip it. */
+			if (type == PROTO_TYPE)
+				continue;
+
+			if (!do_subscribe[protocol][type])
+				continue;
+
+			afi_t afi = afi_for_redist_protocol(protocol);
+
+			if (type == DEFAULT_ROUTE) {
+				if (set)
+					vrf_bitmap_set(
+						zclient->default_information
+							[afi],
+						isis->vrf_id);
+				else
+					vrf_bitmap_unset(
+						zclient->default_information
+							[afi],
+						isis->vrf_id);
+			} else {
+				if (set)
+					vrf_bitmap_set(
+						zclient->redist[afi][type],
+						isis->vrf_id);
+				else
+					vrf_bitmap_unset(
+						zclient->redist[afi][type],
+						isis->vrf_id);
+			}
+		}
+}
+
 static int isis_vrf_enable(struct vrf *vrf)
 {
 	struct isis *isis;
@@ -614,13 +670,10 @@ static int isis_vrf_enable(struct vrf *vrf)
 				"%s: isis linked to vrf %s vrf_id %u (old id %u)",
 				__func__, vrf->name, isis->vrf_id, old_vrf_id);
 		if (old_vrf_id != isis->vrf_id) {
-			frr_with_privs (&isisd_privs) {
-				/* stop zebra redist to us for old vrf */
-				zclient_send_dereg_requests(zclient,
-							    old_vrf_id);
-				/* start zebra redist to us for new vrf */
-				isis_zebra_vrf_register(isis);
-			}
+			/* start zebra redist to us for new vrf */
+			isis_set_redist_vrf_bitmaps(isis, true);
+
+			isis_zebra_vrf_register(isis);
 		}
 	}
 
@@ -641,6 +694,10 @@ static int isis_vrf_disable(struct vrf *vrf)
 	isis = isis_lookup_by_vrfname(vrf->name);
 	if (isis) {
 		old_vrf_id = isis->vrf_id;
+
+		isis_zebra_vrf_deregister(isis);
+
+		isis_set_redist_vrf_bitmaps(isis, false);
 
 		/* We have instance configured, unlink
 		 * from VRF and make it "down".
