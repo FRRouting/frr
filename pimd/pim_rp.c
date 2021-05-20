@@ -1159,7 +1159,7 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 bool pim_rp_check_is_my_ip_address(struct pim_instance *pim,
 				   struct in_addr dest_addr)
 {
-	if (if_lookup_exact_address(&dest_addr, AF_INET, pim->vrf_id))
+	if (if_lookup_exact_address(&dest_addr, AF_INET, pim->vrf->vrf_id))
 		return true;
 
 	return false;
@@ -1323,7 +1323,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 				continue;
 
 			struct interface *ifp1 = if_lookup_by_index(
-				nh_node->ifindex, pim->vrf_id);
+				nh_node->ifindex, pim->vrf->vrf_id);
 
 			if (nbr->interface != ifp1)
 				continue;

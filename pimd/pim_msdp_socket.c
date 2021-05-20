@@ -156,9 +156,9 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
 
-	if (pim->vrf_id != VRF_DEFAULT) {
+	if (pim->vrf->vrf_id != VRF_DEFAULT) {
 		struct interface *ifp =
-			if_lookup_by_name(pim->vrf->name, pim->vrf_id);
+			if_lookup_by_name(pim->vrf->name, pim->vrf->vrf_id);
 		if (!ifp) {
 			flog_err(EC_LIB_INTERFACE,
 				 "%s: Unable to lookup vrf interface: %s",
@@ -243,9 +243,9 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 		return -1;
 	}
 
-	if (mp->pim->vrf_id != VRF_DEFAULT) {
-		struct interface *ifp =
-			if_lookup_by_name(mp->pim->vrf->name, mp->pim->vrf_id);
+	if (mp->pim->vrf->vrf_id != VRF_DEFAULT) {
+		struct interface *ifp = if_lookup_by_name(mp->pim->vrf->name,
+							  mp->pim->vrf->vrf_id);
 		if (!ifp) {
 			flog_err(EC_LIB_INTERFACE,
 				 "%s: Unable to lookup vrf interface: %s",

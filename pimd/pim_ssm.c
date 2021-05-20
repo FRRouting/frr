@@ -112,7 +112,7 @@ int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
 	struct pim_ssm *ssm;
 	int change = 0;
 
-	if (vrf_id != pim->vrf_id)
+	if (vrf_id != pim->vrf->vrf_id)
 		return PIM_SSM_ERR_NO_VRF;
 
 	ssm = pim->ssm_info;

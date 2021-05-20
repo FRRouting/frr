@@ -54,7 +54,7 @@ void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 	int ret;
 
 	p = &(pnc->rpf.rpf_addr);
-	ret = zclient_send_rnh(zclient, command, p, false, pim->vrf_id);
+	ret = zclient_send_rnh(zclient, command, p, false, pim->vrf->vrf_id);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		zlog_warn("sendmsg_nexthop: zclient_send_message() failed");
 
@@ -266,7 +266,7 @@ bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
 	while (i < num_ifindex) {
 		first_ifindex = nexthop_tab[i].ifindex;
 
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 		if (!ifp) {
 			if (PIM_DEBUG_ZEBRA) {
 				char addr_str[INET_ADDRSTRLEN];
@@ -344,7 +344,7 @@ bool pim_nexthop_match_nht_cache(struct pim_instance *pim, struct in_addr addr,
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 		if (!ifp) {
 			if (PIM_DEBUG_PIM_NHT) {
 				char addr_str[INET_ADDRSTRLEN];
@@ -590,7 +590,8 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	 */
 	for (nh_node = pnc->nexthop, i = 0; nh_node;
 	     nh_node = nh_node->next, i++) {
-		ifps[i] = if_lookup_by_index(nh_node->ifindex, pim->vrf_id);
+		ifps[i] =
+			if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
 		if (ifps[i]) {
 			nbrs[i] = pim_neighbor_find(ifps[i],
 						    nh_node->gate.ipv4);
@@ -774,7 +775,7 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 				break;
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				ifp1 = if_lookup_by_index(nexthop->ifindex,
-							  pim->vrf_id);
+							  pim->vrf->vrf_id);
 
 				if (!ifp1)
 					nbr = NULL;
@@ -793,7 +794,8 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 				break;
 			}
 
-			ifp = if_lookup_by_index(nexthop->ifindex, pim->vrf_id);
+			ifp = if_lookup_by_index(nexthop->ifindex,
+						 pim->vrf->vrf_id);
 			if (!ifp) {
 				if (PIM_DEBUG_PIM_NHT) {
 					char buf[NEXTHOP_STRLEN];
@@ -940,7 +942,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	 */
 	for (i = 0; i < num_ifindex; i++) {
 		ifps[i] = if_lookup_by_index(nexthop_tab[i].ifindex,
-					     pim->vrf_id);
+					     pim->vrf->vrf_id);
 		if (ifps[i]) {
 			nbrs[i] = pim_neighbor_find(
 				ifps[i], nexthop_tab[i].nexthop_addr.u.prefix4);
@@ -1076,7 +1078,8 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 	if (PIM_DEBUG_PIM_NHT)
 		zlog_debug(
 			"%s: found nexthop ifindex=%d (interface %s(%s)) for address %s",
-			__func__, ifindex, ifindex2ifname(ifindex, pim->vrf_id),
+			__func__, ifindex,
+			ifindex2ifname(ifindex, pim->vrf->vrf_id),
 			pim->vrf->name, addr_str);
 
 	vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
