@@ -277,7 +277,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	 * resolve to the same network and mask
 	 */
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-		struct prefix cp;
+		struct prefix cp = {0};
 
 		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
