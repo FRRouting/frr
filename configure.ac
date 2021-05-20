@@ -1924,7 +1924,7 @@ dnl ---------------
 dnl gRPC
 dnl ---------------
 if test "$enable_grpc" = "yes"; then
-  AC_LANG([C++])
+  AC_LANG_PUSH([C++])
   AX_CXX_COMPILE_STDCXX([11], [ext])
   PKG_CHECK_MODULES([GRPC], [grpc >= 6.0.0 grpc++ >= 1.16.1 protobuf >= 3.6.1 ], [
     AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
@@ -1938,6 +1938,7 @@ if test "$enable_grpc" = "yes"; then
     GRPC=false
     AC_MSG_ERROR([grpc/grpc++ were not found on your system.])
   ])
+  AC_LANG_POP([C++])
 fi
 
 dnl -----
