@@ -18,6 +18,10 @@
 #ifndef _FRR_STATIC_NB_H_
 #define _FRR_STATIC_NB_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern const struct frr_yang_module_info frr_staticd_info;
 
 /* Mandatory callbacks. */
@@ -180,5 +184,9 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH                           \
 	FRR_S_ROUTE_SRC_INFO_KEY_NO_DISTANCE_XPATH                             \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

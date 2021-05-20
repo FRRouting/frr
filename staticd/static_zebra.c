@@ -529,6 +529,16 @@ void static_zebra_init(void)
 				      "Static Nexthop Tracking hash");
 }
 
+/* static_zebra_stop used by tests/lib/test_grpc.cpp */
+void static_zebra_stop(void)
+{
+	if (!zclient)
+		return;
+	zclient_stop(zclient);
+	zclient_free(zclient);
+	zclient = NULL;
+}
+
 void static_zebra_vrf_register(struct vrf *vrf)
 {
 	if (vrf->vrf_id == VRF_DEFAULT)

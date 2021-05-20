@@ -24,6 +24,10 @@
 #include "table.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MGROUP(STATIC);
 
 /* Static route label information */
@@ -216,4 +220,9 @@ extern void zebra_stable_node_cleanup(struct route_table *table,
  */
 extern void static_get_nh_str(struct static_nexthop *nh, char *nexthop,
 			      size_t size);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
