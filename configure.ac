@@ -1924,7 +1924,9 @@ dnl ---------------
 dnl gRPC
 dnl ---------------
 if test "$enable_grpc" = "yes"; then
-  PKG_CHECK_MODULES([GRPC], [grpc grpc++ protobuf], [
+  AC_LANG([C++])
+  AX_CXX_COMPILE_STDCXX([11], [ext])
+  PKG_CHECK_MODULES([GRPC], [grpc >= 6.0.0 grpc++ >= 1.16.1 protobuf >= 3.6.1 ], [
     AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
     if test "$PROTOC" = "/bin/false"; then
       AC_MSG_FAILURE([grpc requested but protoc not found.])
