@@ -336,7 +336,7 @@ int nb_config_merge(struct nb_config *config_dst, struct nb_config *config_src,
 {
 	int ret;
 
-	ret = lyd_merge_tree(&config_dst->dnode, config_src->dnode, 0);
+	ret = lyd_merge_siblings(&config_dst->dnode, config_src->dnode, 0);
 	if (ret != 0)
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_merge() failed", __func__);
 
