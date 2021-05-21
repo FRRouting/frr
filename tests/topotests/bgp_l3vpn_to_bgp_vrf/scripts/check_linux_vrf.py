@@ -59,8 +59,8 @@ luCommand(
     "VRF cust1 IP config",
 )
 luCommand(
-    rtr,
-    "ip route show vrf r4-cust2".format(rtr),
+    "r4",
+    "ip route show vrf r4-cust2",
     "192.168...0/24 dev r.-eth",
     "pass",
     "VRF cust2 interface route",
