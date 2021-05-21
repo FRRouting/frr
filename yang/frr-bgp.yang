@@ -11,16 +11,16 @@ module frr-bgp {
     prefix inet;
   }
 
-  import ietf-routing-types {
-    prefix rt-types;
-  }
-
   import frr-interface {
     prefix frr-interface;
   }
 
   import frr-bgp-types {
     prefix frr-bt;
+  }
+
+  import frr-route-types {
+    prefix frr-route-types;
   }
 
   include "frr-bgp-common";
@@ -405,7 +405,7 @@ module frr-bgp {
       description
         "A list of network routes.";
       leaf prefix {
-        type rt-types:ipv4-multicast-group-address;
+        type frr-route-types:ipv4-multicast-group-prefix;
         description
           "IPv4 multicast destination prefix.";
       }
@@ -425,7 +425,7 @@ module frr-bgp {
       description
         "A list of aggregated routes.";
       leaf prefix {
-        type rt-types:ipv4-multicast-group-address;
+        type frr-route-types:ipv4-multicast-group-prefix;
         description
           "IPv4 multicast destination prefix.";
       }
@@ -438,7 +438,7 @@ module frr-bgp {
       description
         "A list of routes with a particular admin distance.";
       leaf prefix {
-        type rt-types:ipv4-multicast-group-address;
+        type frr-route-types:ipv4-multicast-group-prefix;
         description
           "IPv4 multicast destination prefix.";
       }
@@ -459,7 +459,7 @@ module frr-bgp {
       description
         "A list of network routes.";
       leaf prefix {
-        type rt-types:ipv6-multicast-group-address;
+        type frr-route-types:ipv6-multicast-group-prefix;
         description
           "IPv6 multicast destination prefix.";
       }
@@ -479,7 +479,7 @@ module frr-bgp {
       description
         "A list of aggregated routes.";
       leaf prefix {
-        type rt-types:ipv6-multicast-group-address;
+        type frr-route-types:ipv6-multicast-group-prefix;
         description
           "IPv6 multicast destination prefix.";
       }
@@ -492,7 +492,7 @@ module frr-bgp {
       description
         "A list of routes with a particular admin distance.";
       leaf prefix {
-        type rt-types:ipv6-multicast-group-address;
+        type frr-route-types:ipv6-multicast-group-prefix;
         description
           "IPv6 multicast destination prefix.";
       }
