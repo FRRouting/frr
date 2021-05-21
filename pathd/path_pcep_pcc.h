@@ -125,6 +125,9 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state, struct path *path,
 			  bool is_stable);
+void pcep_pcc_send_error(struct ctrl_state *ctrl_state,
+			 struct pcc_state *pcc_state, struct pcep_error *path,
+			 bool is_stable);
 int pcep_pcc_multi_pce_sync_path(struct ctrl_state *ctrl_state, int pcc_id,
 				 struct pcc_state **pcc_state_list);
 int pcep_pcc_multi_pce_remove_pcc(struct ctrl_state *ctrl_state,

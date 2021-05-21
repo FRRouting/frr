@@ -57,6 +57,7 @@ enum pcep_ctrl_event_type {
 	EV_PCEPLIB_EVENT,
 	EV_RESET_PCC_SESSION,
 	EV_SEND_REPORT,
+	EV_SEND_ERROR,
 	EV_PATH_REFINED
 };
 
@@ -328,6 +329,14 @@ int pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
 }
 
 
+int pcep_ctrl_send_error(struct frr_pthread *fpt, int pcc_id,
+			 struct pcep_error *error)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	return send_to_thread(ctrl_state, pcc_id, EV_SEND_ERROR, 0, error);
+}
+
+
 /* ------------ Internal Functions Called from Main Thread ------------ */
 
 int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res)
@@ -365,6 +374,13 @@ void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 			     struct path *path)
 {
 	send_to_main(ctrl_state, pcc_id, PCEP_MAIN_EVENT_UPDATE_CANDIDATE,
+		     path);
+}
+
+void pcep_thread_initiate_path(struct ctrl_state *ctrl_state, int pcc_id,
+			       struct path *path)
+{
+	send_to_main(ctrl_state, pcc_id, PCEP_MAIN_EVENT_INITIATE_CANDIDATE,
 		     path);
 }
 
@@ -743,6 +759,7 @@ int pcep_thread_event_handler(struct thread *thread)
 	struct pcep_refine_path_event_data *refine_data = NULL;
 
 	struct path *path_copy = NULL;
+	struct pcep_error *error = NULL;
 
 	switch (type) {
 	case EV_UPDATE_PCC_OPTS:
@@ -817,6 +834,13 @@ int pcep_thread_event_handler(struct thread *thread)
 		assert(payload != NULL);
 		refine_data = (struct pcep_refine_path_event_data *)payload;
 		pcep_thread_path_refined_event(ctrl_state, refine_data);
+		break;
+	case EV_SEND_ERROR:
+		assert(payload != NULL);
+		error = (struct pcep_error *)payload;
+		pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
+		pcep_pcc_send_error(ctrl_state, pcc_state, error,
+				    (bool)sub_type);
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,

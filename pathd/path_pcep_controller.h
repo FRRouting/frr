@@ -27,6 +27,7 @@ struct pcc_state;
 enum pcep_main_event_type {
 	PCEP_MAIN_EVENT_UNDEFINED = 0,
 	PCEP_MAIN_EVENT_START_SYNC,
+	PCEP_MAIN_EVENT_INITIATE_CANDIDATE,
 	PCEP_MAIN_EVENT_UPDATE_CANDIDATE,
 	PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP,
 };
@@ -137,10 +138,15 @@ struct pcep_pcc_info *pcep_ctrl_get_pcc_info(struct frr_pthread *fpt,
 int pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
 			  struct path *path, bool is_stable);
 
+int pcep_ctrl_send_error(struct frr_pthread *fpt, int pcc_id,
+			 struct pcep_error *error);
+
 /* Functions called from the controller thread */
 void pcep_thread_start_sync(struct ctrl_state *ctrl_state, int pcc_id);
 void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 			     struct path *path);
+void pcep_thread_initiate_path(struct ctrl_state *ctrl_state, int pcc_id,
+			       struct path *path);
 void pcep_thread_cancel_timer(struct thread **thread);
 void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 				    int retry_count, struct thread **thread);
