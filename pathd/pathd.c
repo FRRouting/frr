@@ -294,7 +294,9 @@ void srte_segment_set_local_modification(struct srte_segment_list *s_list,
  * @param endpoint The IP address of the policy endpoint
  * @return The created policy
  */
-struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint)
+struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint,
+				    enum srte_protocol_origin origin,
+				    const char *originator)
 {
 	struct srte_policy *policy;
 
@@ -302,6 +304,11 @@ struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint)
 	policy->color = color;
 	policy->endpoint = *endpoint;
 	policy->binding_sid = MPLS_LABEL_NONE;
+	policy->protocol_origin = origin;
+	if (originator != NULL)
+		strlcpy(policy->originator, originator,
+			sizeof(policy->originator));
+
 	RB_INIT(srte_candidate_head, &policy->candidate_paths);
 	RB_INSERT(srte_policy_head, &srte_policies, policy);
 
@@ -646,7 +653,9 @@ void srte_policy_apply_changes(struct srte_policy *policy)
  * @return The added candidate path
  */
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
-					  uint32_t preference)
+					  uint32_t preference,
+					  enum srte_protocol_origin origin,
+					  const char *originator)
 {
 	struct srte_candidate *candidate;
 	struct srte_lsp *lsp;
@@ -657,8 +666,18 @@ struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 	candidate->preference = preference;
 	candidate->policy = policy;
 	candidate->type = SRTE_CANDIDATE_TYPE_UNDEFINED;
-	candidate->discriminator = frr_weak_random();
+	candidate->discriminator = rand();
+	candidate->protocol_origin = origin;
+	if (originator != NULL) {
+		strlcpy(candidate->originator, originator,
+			sizeof(candidate->originator));
+		lsp->protocol_origin = origin;
+	}
 
+	if (candidate->protocol_origin == SRTE_ORIGIN_PCEP
+	    || candidate->protocol_origin == SRTE_ORIGIN_BGP) {
+		candidate->type = SRTE_CANDIDATE_TYPE_DYNAMIC;
+	}
 	lsp->candidate = candidate;
 	candidate->lsp = lsp;
 
