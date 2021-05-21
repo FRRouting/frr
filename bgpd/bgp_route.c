@@ -14857,18 +14857,38 @@ void bgp_route_init(void)
 	install_element(BGP_NODE, &bgp_distance_cmd);
 	install_element(BGP_NODE, &no_bgp_distance_cmd);
 	install_element(BGP_NODE, &bgp_distance_source_cmd);
+	install_element(BGP_NODE, &no_bgp_distance_source_cmd);
+	install_element(BGP_NODE, &bgp_distance_source_access_list_cmd);
+	install_element(BGP_NODE, &no_bgp_distance_source_access_list_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_distance_cmd);
 	install_element(BGP_IPV4_NODE, &no_bgp_distance_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_distance_source_cmd);
+	install_element(BGP_IPV4_NODE, &no_bgp_distance_source_cmd);
+	install_element(BGP_IPV4_NODE, &bgp_distance_source_access_list_cmd);
+	install_element(BGP_IPV4_NODE, &no_bgp_distance_source_access_list_cmd);
 	install_element(BGP_IPV4M_NODE, &bgp_distance_cmd);
 	install_element(BGP_IPV4M_NODE, &no_bgp_distance_cmd);
 	install_element(BGP_IPV4M_NODE, &bgp_distance_source_cmd);
+	install_element(BGP_IPV4M_NODE, &no_bgp_distance_source_cmd);
+	install_element(BGP_IPV4M_NODE, &bgp_distance_source_access_list_cmd);
+	install_element(BGP_IPV4M_NODE,
+			&no_bgp_distance_source_access_list_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_distance_cmd);
 	install_element(BGP_IPV6_NODE, &no_bgp_distance_cmd);
-	install_element(BGP_IPV6_NODE, &bgp_distance_source_cmd);
+	install_element(BGP_IPV6_NODE, &ipv6_bgp_distance_source_cmd);
+	install_element(BGP_IPV6_NODE, &no_ipv6_bgp_distance_source_cmd);
+	install_element(BGP_IPV6_NODE,
+			&ipv6_bgp_distance_source_access_list_cmd);
+	install_element(BGP_IPV6_NODE,
+			&no_ipv6_bgp_distance_source_access_list_cmd);
 	install_element(BGP_IPV6M_NODE, &bgp_distance_cmd);
 	install_element(BGP_IPV6M_NODE, &no_bgp_distance_cmd);
-	install_element(BGP_IPV6M_NODE, &bgp_distance_source_cmd);
+	install_element(BGP_IPV6M_NODE, &ipv6_bgp_distance_source_cmd);
+	install_element(BGP_IPV6M_NODE, &no_ipv6_bgp_distance_source_cmd);
+	install_element(BGP_IPV6M_NODE,
+			&ipv6_bgp_distance_source_access_list_cmd);
+	install_element(BGP_IPV6M_NODE,
+			&no_ipv6_bgp_distance_source_access_list_cmd);
 
 	/* BGP dampening */
 	install_element(BGP_NODE, &bgp_damp_set_cmd);
