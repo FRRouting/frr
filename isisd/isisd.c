@@ -1920,9 +1920,9 @@ DEFUN(no_debug_isis_ldp_sync, no_debug_isis_ldp_sync_cmd,
 
 DEFUN (show_hostname,
        show_hostname_cmd,
-       "show " PROTO_NAME " hostname",
-       SHOW_STR
-       PROTO_HELP
+       "show " PROTO_NAME " [vrf <NAME|all>] hostname",
+       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
+       "All VRFs\n"
        "IS-IS Dynamic hostname mapping\n")
 {
 	struct listnode *node;
