@@ -385,11 +385,16 @@ struct pcep_object_lsp {
 	bool flag_c;
 };
 
+#define ENTERPRISE_NUMBER_CISCO 9
+#define ENTERPRISE_COLOR_CISCO 65540
 /* RFC 7470 */
 struct pcep_object_vendor_info {
 	struct pcep_object_header header;
 	uint32_t enterprise_number;
 	uint32_t enterprise_specific_info;
+	uint32_t enterprise_specific_info1; /* cisco sends color for PcInit */
+	uint32_t enterprise_specific_info2;
+	uint32_t enterprise_specific_info3;
 };
 
 /* RFC 8282 */
