@@ -451,9 +451,11 @@ static void set_community_string(struct community *com, bool make_json)
 			val = comval & 0xFFFF;
 			char buf[32];
 			snprintf(buf, sizeof(buf), "%u:%d", as, val);
-			strlcat(str, bgp_community2alias(buf), len);
+			const char *com2alias = bgp_community2alias(buf);
+
+			strlcat(str, com2alias, len);
 			if (make_json) {
-				json_string = json_object_new_string(buf);
+				json_string = json_object_new_string(com2alias);
 				json_object_array_add(json_community_list,
 						      json_string);
 			}

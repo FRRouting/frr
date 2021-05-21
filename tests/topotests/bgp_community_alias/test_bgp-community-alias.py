@@ -84,12 +84,14 @@ def test_bgp_community_alias():
     router = tgen.gears["r1"]
 
     def _bgp_converge(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp 192.168.1.0/24 json"))
+        output = json.loads(
+            router.vtysh_cmd("show bgp ipv4 unicast 172.16.16.1/32 json")
+        )
         expected = {
             "paths": [
                 {
-                    "community": {"string": "community-r2-1 community-r2-2"},
-                    "largeCommunity": {"string": "large-community-r2-1 65002:2:1"},
+                    "community": {"string": "community-r2-1 65001:2"},
+                    "largeCommunity": {"string": "large-community-r2-1 65001:1:2"},
                 }
             ]
         }
@@ -97,8 +99,24 @@ def test_bgp_community_alias():
 
     test_func = functools.partial(_bgp_converge, router)
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-
     assert result is None, 'Cannot see BGP community aliases "{}"'.format(router)
+
+    def _bgp_show_prefixes_by_alias(router):
+        output = json.loads(
+            router.vtysh_cmd("show bgp ipv4 unicast alias community-r2-2 json detail")
+        )
+        expected = {
+            "routes": {
+                "172.16.16.2/32": [{"community": {"string": "65002:1 community-r2-2"}}]
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_show_prefixes_by_alias, router)
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, 'Cannot see BGP prefixes by community alias "{}"'.format(
+        router
+    )
 
 
 if __name__ == "__main__":
