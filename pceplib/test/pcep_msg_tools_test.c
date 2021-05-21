@@ -809,8 +809,8 @@ void test_pcep_msg_read_pcep_report_cisco_pcc()
 	CU_ASSERT_EQUAL(lsp->header.object_type, PCEP_OBJ_TYPE_LSP);
 	CU_ASSERT_EQUAL(lsp->header.encoded_object_length, 60);
 	CU_ASSERT_PTR_NOT_NULL(lsp->header.tlv_list);
-	/* The TLV with ID 65505 is not recognized, and its not in the list */
-	CU_ASSERT_EQUAL(lsp->header.tlv_list->num_entries, 2);
+	/* The TLV with ID 65505 is now recognized, and its in the list */
+	CU_ASSERT_EQUAL(lsp->header.tlv_list->num_entries, 3);
 	CU_ASSERT_EQUAL(lsp->plsp_id, 524303);
 	CU_ASSERT_EQUAL(lsp->operational_status, PCEP_LSP_OPERATIONAL_DOWN);
 	CU_ASSERT_TRUE(lsp->flag_a);
