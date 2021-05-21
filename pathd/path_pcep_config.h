@@ -38,6 +38,7 @@ typedef int (*path_list_cb_t)(struct path *path, void *arg);
 void path_pcep_refine_path(struct path *path);
 struct path *path_pcep_config_get_path(struct lsp_nb_key *key);
 void path_pcep_config_list_path(path_list_cb_t cb, void *arg);
+int path_pcep_config_initiate_path(struct path *path);
 int path_pcep_config_update_path(struct path *path);
 struct path *candidate_to_path(struct srte_candidate *candidate);
 

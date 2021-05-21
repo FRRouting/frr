@@ -339,6 +339,12 @@ struct srte_policy {
 	/* Binding SID */
 	mpls_label_t binding_sid;
 
+	/* The Protocol-Origin. */
+	enum srte_protocol_origin protocol_origin;
+
+	/* The Originator */
+	char originator[64];
+
 	/* Operational Status of the policy */
 	enum srte_policy_status status;
 
@@ -352,6 +358,8 @@ struct srte_policy {
 #define F_POLICY_NEW 0x0002
 #define F_POLICY_MODIFIED 0x0004
 #define F_POLICY_DELETED 0x0008
+	/* SRP id for PcInitiated support */
+	int srp_id;
 };
 RB_HEAD(srte_policy_head, srte_policy);
 RB_PROTOTYPE(srte_policy_head, srte_policy, entry, srte_policy_compare)
@@ -385,7 +393,9 @@ int srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 void srte_segment_set_local_modification(struct srte_segment_list *s_list,
 					 struct srte_segment_entry *s_entry,
 					 uint32_t ted_sid);
-struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint);
+struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint,
+				    enum srte_protocol_origin origin,
+				    const char *originator);
 void srte_policy_del(struct srte_policy *policy);
 struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
 int srte_policy_update_ted_sid(void);
@@ -395,7 +405,9 @@ void srte_apply_changes(void);
 void srte_clean_zebra(void);
 void srte_policy_apply_changes(struct srte_policy *policy);
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
-					  uint32_t preference);
+					  uint32_t preference,
+					  enum srte_protocol_origin origin,
+					  const char *originator);
 void srte_candidate_del(struct srte_candidate *candidate);
 void srte_candidate_set_bandwidth(struct srte_candidate *candidate,
 				  float bandwidth, bool required);
