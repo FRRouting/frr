@@ -1174,6 +1174,8 @@ static struct ospf6_redist *ospf6_redist_add(struct ospf6 *ospf6, int type,
 
 	red = XCALLOC(MTYPE_OSPF6_REDISTRIBUTE, sizeof(struct ospf6_redist));
 	red->instance = instance;
+	red->dmetric.type = -1;
+	red->dmetric.value = -1;
 	ROUTEMAP_NAME(red) = NULL;
 	ROUTEMAP(red) = NULL;
 
