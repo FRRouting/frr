@@ -49,6 +49,7 @@
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_ldp_sync.h"
+#include "ospfd/ospf_route.h"
 
 DEFINE_QOBJ_TYPE(ospf_interface);
 DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd));
@@ -804,6 +805,10 @@ int ospf_if_up(struct ospf_interface *oi)
 int ospf_if_down(struct ospf_interface *oi)
 {
 	struct ospf *ospf;
+	struct route_node *rn;
+	struct ospf_route *or;
+	struct listnode *nh;
+	struct ospf_path *op;
 
 	if (oi == NULL)
 		return 0;
@@ -839,6 +844,22 @@ int ospf_if_down(struct ospf_interface *oi)
 	oi->lsa_pos_end = 0;
 	/* Shutdown packet reception and sending */
 	ospf_if_stream_unset(oi);
+
+	for (rn = route_top(ospf->new_table); rn; rn = route_next(rn)) {
+		or = rn->info;
+
+		if (!or)
+			continue;
+
+		for (nh = listhead(or->paths); nh;
+		     nh = listnextnode_unchecked(nh)) {
+			op = listgetdata(nh);
+			if (op->ifindex == oi->ifp->ifindex) {
+				or->changed = true;
+				break;
+			}
+		}
+	}
 
 	return 1;
 }

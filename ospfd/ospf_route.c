@@ -208,6 +208,9 @@ int ospf_route_match_same(struct route_table *rt, struct prefix_ipv4 *prefix,
 
 	or = rn->info;
 	if (or->type == newor->type && or->cost == newor->cost) {
+		if (or->changed)
+			return 0;
+
 		if (or->type == OSPF_DESTINATION_NETWORK) {
 			if (or->paths->count != newor->paths->count)
 				return 0;
