@@ -675,7 +675,7 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 	if (strlen(vrfname) > VRF_NAMSIZ) {
 		if (vty)
 			vty_out(vty,
-				"%% VRF name %s invalid: length exceeds %d bytes",
+				"%% VRF name %s invalid: length exceeds %d bytes\n",
 				vrfname, VRF_NAMSIZ);
 		else
 			flog_warn(
