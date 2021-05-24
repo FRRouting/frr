@@ -1282,7 +1282,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	/* create new entry */
 	route = ospf6_route_create();
 	route->type = OSPF6_DEST_TYPE_NETWORK;
-	memcpy(&route->prefix, prefix, sizeof(struct prefix));
+	prefix_copy(&route->prefix, prefix);
 
 	info = (struct ospf6_external_info *)XCALLOC(
 		MTYPE_OSPF6_EXTERNAL_INFO, sizeof(struct ospf6_external_info));
