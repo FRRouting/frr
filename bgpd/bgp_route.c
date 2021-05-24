@@ -7807,14 +7807,14 @@ int bgp_aggregate_set(struct bgp *bgp, struct prefix *prefix, afi_t afi,
 
 DEFPY_YANG(
 	aggregate_addressv4, aggregate_addressv4_cmd,
-	"[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> {"
+	"[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> [{"
 	"as-set$as_set_s"
 	"|summary-only$summary_only"
 	"|route-map WORD$rmap_name"
 	"|origin <egp|igp|incomplete>$origin_s"
 	"|matching-MED-only$match_med"
 	"|suppress-map WORD$suppress_map"
-	"}",
+	"}]",
 	NO_STR
 	"Configure BGP aggregate entries\n"
 	"Aggregate prefix\n"
@@ -7897,14 +7897,14 @@ DEFPY_YANG(
 }
 
 DEFPY_YANG(aggregate_addressv6, aggregate_addressv6_cmd,
-	   "[no] aggregate-address X:X::X:X/M$prefix {"
+	   "[no] aggregate-address X:X::X:X/M$prefix [{"
 	   "as-set$as_set_s"
 	   "|summary-only$summary_only"
 	   "|route-map WORD$rmap_name"
 	   "|origin <egp|igp|incomplete>$origin_s"
 	   "|matching-MED-only$match_med"
 	   "|suppress-map WORD$suppress_map"
-	   "}",
+	   "}]",
 	   NO_STR
 	   "Configure BGP aggregate entries\n"
 	   "Aggregate prefix\n"
