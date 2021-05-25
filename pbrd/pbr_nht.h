@@ -64,13 +64,26 @@ extern void pbr_nht_write_table_range(struct vty *vty);
 extern void pbr_nht_set_tableid_range(uint32_t low, uint32_t high);
 
 /*
- * Get the next tableid to use for installation.
- *
- * peek
- *    If set to true, retrieves the next ID without marking it used. The next
- *    call will return the same ID.
+ * Find and reserve the next available table for installation;
+ * Sequential calls to this function will reserve sequential table numbers
+ * until the configured range is exhausted; calls made after exhaustion always
+ * return 0
  */
-extern uint32_t pbr_nht_get_next_tableid(bool peek);
+extern uint32_t
+pbr_nht_reserve_next_table_id(struct pbr_nexthop_group_cache *nhgc);
+/*
+ * Get the next tableid to use for installation to kernel
+ */
+extern uint32_t pbr_nht_find_next_unallocated_table_id(void);
+/*
+ * Calculate where the next table representing a nhg will go in kernel
+ */
+extern void pbr_nht_update_next_unallocated_table_id(void);
+/*
+ * Indicate if there are free spots to install a table to kernel within the
+ * configured PBR table range
+ */
+extern bool pbr_nht_has_unallocated_table(void);
 /*
  * Get the next rule number to use for installation
  */
