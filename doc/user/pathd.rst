@@ -104,11 +104,11 @@ Configuration Commands
 
    Configure segment routing traffic engineering.
 
-.. clicmd:: [no] mpls-te <on|off>
+.. clicmd:: mpls-te <on|off>
 
    Activate/Deactivate use of internal Traffic Engineering Database
 
-.. clicmd:: [no] mpls-te import <ospfv2|ospfv3|isis>
+.. clicmd:: mpls-te import <ospfv2|ospfv3|isis>
 
    Load data from the selected igp
 

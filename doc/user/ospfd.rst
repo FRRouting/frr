@@ -855,7 +855,7 @@ Traffic Engineering
    flood in AREA <area-id> with Opaque Type-10, respectively in AS with Opaque
    Type-11. In all case, Opaque-LSA TLV=6.
 
-.. clicmd:: no mpls-te export
+.. clicmd:: mpls-te export
 
    Export Traffic Engineering Data Base to other daemons through the ZAPI
    Opaque Link State messages.
