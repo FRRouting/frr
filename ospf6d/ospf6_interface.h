@@ -39,6 +39,9 @@ struct ospf6_interface {
 	/* back pointer */
 	struct ospf6_area *area;
 
+	uint32_t area_id;
+	int area_id_format;
+
 	/* list of ospf6 neighbor */
 	struct list *neighbor_list;
 
@@ -177,6 +180,9 @@ extern const char *const ospf6_interface_state_str[];
 
 /* Function Prototypes */
 
+extern void ospf6_interface_start(struct ospf6_interface *oi);
+extern void ospf6_interface_stop(struct ospf6_interface *oi);
+
 extern struct ospf6_interface *
 ospf6_interface_lookup_by_ifindex(ifindex_t, vrf_id_t vrf_id);
 extern struct ospf6_interface *ospf6_interface_create(struct interface *);
@@ -185,7 +191,6 @@ extern void ospf6_interface_delete(struct ospf6_interface *);
 extern void ospf6_interface_enable(struct ospf6_interface *);
 extern void ospf6_interface_disable(struct ospf6_interface *);
 
-extern void ospf6_interface_if_add(struct interface *);
 extern void ospf6_interface_state_update(struct interface *);
 extern void ospf6_interface_connected_route_update(struct interface *);
 extern void ospf6_interface_connected_route_add(struct connected *);
