@@ -1224,8 +1224,6 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (table->hook_add)
 			(*table->hook_add)(old_route);
 
-		/* Delete new route */
-		ospf6_route_delete(route);
 		break;
 	}
 
@@ -1253,7 +1251,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		listnode_add_sort(route->paths, path);
 		/* ospf6_ia_add_nw_route (table, &prefix, route); */
 		ospf6_route_add(route, table);
-	}
+	} else
+		/* if we did not add the route remove it */
+		ospf6_route_delete(route);
 }
 
 void ospf6_abr_examin_brouter(uint32_t router_id, struct ospf6_route *route,
