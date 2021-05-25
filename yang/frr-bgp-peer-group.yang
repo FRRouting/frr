@@ -76,6 +76,8 @@ submodule frr-bgp-peer-group {
     uses neighbor-remote-as;
 
     uses neighbor-parameters;
+
+    uses structure-neighbor-group-capability-options;
   }
 
   grouping bgp-peer-group-list {

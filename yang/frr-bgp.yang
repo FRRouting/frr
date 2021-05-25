@@ -230,6 +230,8 @@ module frr-bgp {
           }
 
           uses neighbor-parameters;
+
+          uses structure-neighbor-group-capability-options;
         }
 
         list unnumbered-neighbor {
@@ -264,6 +266,12 @@ module frr-bgp {
           uses neighbor-remote-as;
 
           uses neighbor-parameters;
+
+          uses structure-neighbor-group-capability-options {
+            refine "frr-bgp:capability-options/extended-nexthop-capability" {
+              default "true";
+            }
+          }
         }
       }
 

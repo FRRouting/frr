@@ -90,8 +90,6 @@ submodule frr-bgp-neighbor {
         "Don't send open messages to this neighbor.";
     }
 
-    uses structure-neighbor-group-capability-options;
-
     uses neighbor-update-source;
 
     uses structure-neighbor-group-ebgp-multihop;
