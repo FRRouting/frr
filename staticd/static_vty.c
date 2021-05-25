@@ -153,6 +153,37 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 	static_get_nh_type(type, buf_nh_type, PREFIX_STRLEN);
 	if (!negate) {
+		if (src_str)
+			snprintf(ab_xpath, sizeof(ab_xpath),
+				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
+				 "frr-staticd:staticd", "staticd", svrf,
+				 buf_prefix,
+				 yang_afi_safi_value2identity(afi, safi),
+				 buf_src_prefix, table_id, buf_nh_type, nh_svrf,
+				 buf_gate_str, ifname);
+		else
+			snprintf(ab_xpath, sizeof(ab_xpath),
+				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
+				 "frr-staticd:staticd", "staticd", svrf,
+				 buf_prefix,
+				 yang_afi_safi_value2identity(afi, safi),
+				 table_id, buf_nh_type, nh_svrf, buf_gate_str,
+				 ifname);
+
+		/*
+		 * If there's already the same nexthop but with a different
+		 * distance, then remove it for the replacement.
+		 */
+		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
+		if (dnode) {
+			dnode = yang_get_subtree_with_no_sibling(dnode);
+			assert(dnode);
+			yang_dnode_get_path(dnode, ab_xpath, XPATH_MAXLEN);
+
+			nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY,
+					      NULL);
+		}
+
 		/* route + path procesing */
 		if (src_str)
 			snprintf(xpath_prefix, sizeof(xpath_prefix),
@@ -277,20 +308,20 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	} else {
 		if (src_str)
 			snprintf(ab_xpath, sizeof(ab_xpath),
-				 FRR_DEL_S_ROUTE_SRC_NH_KEY_XPATH,
+				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
-				 buf_src_prefix, table_id, distance,
-				 buf_nh_type, nh_svrf, buf_gate_str, ifname);
+				 buf_src_prefix, table_id, buf_nh_type, nh_svrf,
+				 buf_gate_str, ifname);
 		else
 			snprintf(ab_xpath, sizeof(ab_xpath),
-				 FRR_DEL_S_ROUTE_NH_KEY_XPATH,
+				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
-				 table_id, distance, buf_nh_type, nh_svrf,
-				 buf_gate_str, ifname);
+				 table_id, buf_nh_type, nh_svrf, buf_gate_str,
+				 ifname);
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode) {
