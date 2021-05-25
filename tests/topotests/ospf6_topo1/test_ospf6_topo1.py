@@ -360,6 +360,36 @@ def test_linux_ipv6_kernel_routingTable():
             )
 
 
+def test_ospfv3_routingTable_write_multiplier():
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    # For debugging, uncomment the next line
+    # tgen.mininet_cli()
+
+    # Modify R1 write muliplier and reset the interfaces
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("conf t\nrouter ospf6\n write-multiplier 100")
+    r1.vtysh_cmd("clear ipv6 ospf interface r1-stubnet")
+    r1.vtysh_cmd("clear ipv6 ospf interface r1-sw5")
+
+    # Verify OSPFv3 Routing Table
+    for router, rnode in tgen.routers().items():
+        logger.info('Waiting for router "%s" convergence', router)
+
+        # Load expected results from the command
+        reffile = os.path.join(CWD, "{}/show_ipv6_route.ref".format(router))
+        expected = open(reffile).read()
+
+        # Run test function until we get an result. Wait at most 60 seconds.
+        test_func = partial(compare_show_ipv6, router, expected)
+        result, diff = topotest.run_and_expect(test_func, "", count=120, wait=0.5)
+        assert result, "OSPFv3 did not converge on {}:\n{}".format(router, diff)
+
+
 def test_shutdown_check_stderr():
 
     tgen = get_topogen()
