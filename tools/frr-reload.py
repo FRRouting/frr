@@ -1095,6 +1095,175 @@ def check_for_exit_vrf(lines_to_add, lines_to_del):
     return (lines_to_add, lines_to_del)
 
 
+"""
+This method handles deletion of bgp peer group config.
+The objective is to delete config lines related to peers
+associated with the peer-group and move the peer-group
+config line to the end of the lines_to_del list.
+"""
+
+
+def delete_move_lines(lines_to_add, lines_to_del):
+
+    del_dict = dict()
+    # Stores the lines to move to the end of the pending list.
+    lines_to_del_to_del = []
+    # Stores the lines to move to end of the pending list.
+    lines_to_del_to_app = []
+    found_pg_del_cmd = False
+
+    """
+    When "neighbor <pg_name> peer-group" under a bgp instance is removed,
+    it also deletes the associated peer config. Any config line below no form of
+    peer-group related to a peer are errored out as the peer no longer exists.
+    To cleanup peer-group and associated peer(s) configs:
+    - Remove all the peers config lines from the pending list (lines_to_del list).
+    - Move peer-group deletion line to the end of the pending list, to allow
+    removal of any of the peer-group specific configs.
+
+    Create a dictionary of config context (i.e. router bgp vrf x).
+    Under each context node, create a dictionary of a peer-group name.
+    Append a peer associated to the peer-group into a list under a peer-group node.
+    Remove all of the peer associated config lines from the pending list.
+    Append peer-group deletion line to end of the pending list.
+
+    Example:
+      neighbor underlay peer-group
+      neighbor underlay remote-as external
+      neighbor underlay advertisement-interval 0
+      neighbor underlay timers 3 9
+      neighbor underlay timers connect 10
+      neighbor swp1 interface peer-group underlay
+      neighbor swp1 advertisement-interval 0
+      neighbor swp1 timers 3 9
+      neighbor swp1 timers connect 10
+      neighbor swp2 interface peer-group underlay
+      neighbor swp2 advertisement-interval 0
+      neighbor swp2 timers 3 9
+      neighbor swp2 timers connect 10
+      neighbor swp3 interface peer-group underlay
+      neighbor uplink1 interface remote-as internal
+      neighbor uplink1 advertisement-interval 0
+      neighbor uplink1 timers 3 9
+      neighbor uplink1 timers connect 10
+
+    New order:
+      "router bgp 200  no bgp bestpath as-path multipath-relax"
+      "router bgp 200  no neighbor underlay advertisement-interval 0"
+      "router bgp 200  no neighbor underlay timers 3 9"
+      "router bgp 200  no neighbor underlay timers connect 10"
+      "router bgp 200  no neighbor uplink1 advertisement-interval 0"
+      "router bgp 200  no neighbor uplink1 timers 3 9"
+      "router bgp 200  no neighbor uplink1 timers connect 10"
+      "router bgp 200  no neighbor underlay remote-as external"
+      "router bgp 200  no neighbor uplink1 interface remote-as internal"
+      "router bgp 200  no neighbor underlay peer-group"
+
+    """
+
+    for (ctx_keys, line) in lines_to_del:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            """
+            When 'neighbor <peer> remote-as <>' is removed it deletes the peer,
+            there might be a peer associated config which also needs to be removed
+            prior to peer.
+            Append the 'neighbor <peer> remote-as <>' to the lines_to_del.
+            Example:
+
+             neighbor uplink1 interface remote-as internal
+             neighbor uplink1 advertisement-interval 0
+             neighbor uplink1 timers 3 9
+             neighbor uplink1 timers connect 10
+
+             Move to end:
+             neighbor uplink1 advertisement-interval 0
+             neighbor uplink1 timers 3 9
+             neighbor uplink1 timers connect 10
+             ...
+
+             neighbor uplink1 interface remote-as internal
+
+            """
+            # 'no neighbor peer [interface] remote-as <>'
+            nb_remoteas = "neighbor (\S+) .*remote-as (\S+)"
+            re_nb_remoteas = re.search(nb_remoteas, line)
+            if re_nb_remoteas:
+                lines_to_del_to_app.append((ctx_keys, line))
+
+            """
+            {'router bgp 65001': {'PG': [], 'PG1': []},
+            'router bgp 65001 vrf vrf1': {'PG': [], 'PG1': []}}
+            """
+            if ctx_keys[0] not in del_dict:
+                del_dict[ctx_keys[0]] = dict()
+            # find 'no neighbor <pg_name> peer-group'
+            re_pg = re.match("neighbor (\S+) peer-group$", line)
+            if re_pg and re_pg.group(1) not in del_dict[ctx_keys[0]]:
+                del_dict[ctx_keys[0]][re_pg.group(1)] = list()
+
+    for (ctx_keys, line) in lines_to_del_to_app:
+        lines_to_del.remove((ctx_keys, line))
+        lines_to_del.append((ctx_keys, line))
+
+    if found_pg_del_cmd == False:
+        return (lines_to_add, lines_to_del)
+
+    """
+    {'router bgp 65001': {'PG': ['10.1.1.2'], 'PG1': ['10.1.1.21']},
+     'router bgp 65001 vrf vrf1': {'PG': ['10.1.1.2'], 'PG1': ['10.1.1.21']}}
+    """
+    for (ctx_keys, line) in lines_to_del:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            if ctx_keys[0] in del_dict:
+                for pg_key in del_dict[ctx_keys[0]]:
+                    # 'neighbor <peer> [interface] peer-group <pg_name>'
+                    nb_pg = "neighbor (\S+) .*peer-group %s$" % pg_key
+                    re_nbr_pg = re.search(nb_pg, line)
+                    if (
+                        re_nbr_pg
+                        and re_nbr_pg.group(1) not in del_dict[ctx_keys[0]][pg_key]
+                    ):
+                        del_dict[ctx_keys[0]][pg_key].append(re_nbr_pg.group(1))
+
+    lines_to_del_to_app = []
+    for (ctx_keys, line) in lines_to_del:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            if ctx_keys[0] in del_dict:
+                for pg in del_dict[ctx_keys[0]]:
+                    for nbr in del_dict[ctx_keys[0]][pg]:
+                        nb_exp = "neighbor %s .*" % nbr
+                        re_nb = re.search(nb_exp, line)
+                        # add peer configs to delete list.
+                        if re_nb and line not in lines_to_del_to_del:
+                            lines_to_del_to_del.append((ctx_keys, line))
+
+                    pg_exp = "neighbor %s peer-group$" % pg
+                    re_pg = re.match(pg_exp, line)
+                    if re_pg:
+                        lines_to_del_to_app.append((ctx_keys, line))
+
+    for (ctx_keys, line) in lines_to_del_to_del:
+        lines_to_del.remove((ctx_keys, line))
+
+    for (ctx_keys, line) in lines_to_del_to_app:
+        lines_to_del.remove((ctx_keys, line))
+        lines_to_del.append((ctx_keys, line))
+
+    return (lines_to_add, lines_to_del)
+
+
 def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
     # Quite possibly the most confusing (while accurate) variable names in history
@@ -1724,6 +1893,7 @@ def compare_context_objects(newconf, running):
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(
         lines_to_add, lines_to_del
     )
+    (lines_to_add, lines_to_del) = delete_move_lines(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = ignore_unconfigurable_lines(
         lines_to_add, lines_to_del
     )
