@@ -39,6 +39,7 @@
 #include "ospf6_zebra.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE,   "OSPF6 route");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE_TABLE, "OSPF6 route table");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEXTHOP, "OSPF6 nexthop");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PATH,    "OSPF6 Path");
 
@@ -1021,7 +1022,8 @@ void ospf6_route_remove_all(struct ospf6_route_table *table)
 struct ospf6_route_table *ospf6_route_table_create(int s, int t)
 {
 	struct ospf6_route_table *new;
-	new = XCALLOC(MTYPE_OSPF6_ROUTE, sizeof(struct ospf6_route_table));
+	new = XCALLOC(MTYPE_OSPF6_ROUTE_TABLE,
+		      sizeof(struct ospf6_route_table));
 	new->table = route_table_init();
 	new->scope_type = s;
 	new->table_type = t;
@@ -1033,7 +1035,7 @@ void ospf6_route_table_delete(struct ospf6_route_table *table)
 	ospf6_route_remove_all(table);
 	bf_free(table->idspace);
 	route_table_finish(table->table);
-	XFREE(MTYPE_OSPF6_ROUTE, table);
+	XFREE(MTYPE_OSPF6_ROUTE_TABLE, table);
 }
 
 
