@@ -900,6 +900,19 @@ int route_next_hop_bfd_monitor_enable_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int route_next_hop_bfd_monitor_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_monitor_disable(sn);
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/multi-hop
@@ -914,6 +927,19 @@ int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args)
 	sn = nb_running_get_entry(args->dnode, NULL, true);
 	static_next_hop_bfd_multi_hop(sn,
 				      yang_dnode_get_bool(args->dnode, NULL));
+
+	return NB_OK;
+}
+
+int route_next_hop_bfd_multi_hop_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_multi_hop(sn, false);
 
 	return NB_OK;
 }
