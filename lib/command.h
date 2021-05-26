@@ -34,7 +34,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(COMPLETION)
+DECLARE_MTYPE(COMPLETION);
 
 /*
  * From RFC 1123 (Requirements for Internet Hosts), Section 2.1 on hostnames:
@@ -137,6 +137,7 @@ enum node_type {
 	PREFIX_IPV6_NODE,	/* Prefix list node. */
 	AS_LIST_NODE,		 /* AS list node. */
 	COMMUNITY_LIST_NODE,     /* Community list node. */
+	COMMUNITY_ALIAS_NODE, /* Community alias node. */
 	RMAP_NODE,		 /* Route map node. */
 	PBRMAP_NODE,		 /* PBR map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
@@ -145,6 +146,15 @@ enum node_type {
 	PROTOCOL_NODE,		 /* protocol filtering node */
 	MPLS_NODE,		 /* MPLS config node */
 	PW_NODE,		 /* Pseudowire config node */
+	SEGMENT_ROUTING_NODE,	 /* Segment routing root node */
+	SR_TRAFFIC_ENG_NODE,	 /* SR Traffic Engineering node */
+	SR_SEGMENT_LIST_NODE,	 /* SR segment list config node */
+	SR_POLICY_NODE,		 /* SR policy config node */
+	SR_CANDIDATE_DYN_NODE,	 /* SR dynamic candidate path config node */
+	PCEP_NODE,	 	 /* PCEP node */
+	PCEP_PCE_CONFIG_NODE,	 /* PCE shared configuration node */
+	PCEP_PCE_NODE,		 /* PCE configuration node */
+	PCEP_PCC_NODE,		 /* PCC configuration node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
@@ -214,6 +224,7 @@ struct cmd_node {
 #define CMD_SUSPEND             12
 #define CMD_WARNING_CONFIG_FAILED 13
 #define CMD_NOT_MY_INSTANCE	14
+#define CMD_NO_LEVEL_UP 15
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
@@ -230,7 +241,11 @@ struct cmd_node {
 		.attr = attrs,                                                 \
 		.daemon = dnum,                                                \
 		.name = #cmdname,                                              \
-	};
+		.xref = XREF_INIT(XREFT_DEFUN, NULL, #funcname),               \
+	};                                                                     \
+	XREF_LINK(cmdname.xref);                                               \
+	/* end */
+
 
 #define DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	static int funcname(const struct cmd_element *, struct vty *, int,     \
@@ -405,7 +420,8 @@ struct cmd_node {
 	"<neighbor|interface|area|lsa|zebra|config|dbex|spf|route|lsdb|redistribute|hook|asbr|prefix|abr>"
 #define AREA_TAG_STR "[area tag]\n"
 #define COMMUNITY_AANN_STR "Community number where AA and NN are (0-65535)\n"
-#define COMMUNITY_VAL_STR  "Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet or additive\n"
+#define COMMUNITY_VAL_STR                                                      \
+	"Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet|graceful-shutdown|accept-own-nexthop|accept-own|route-filter-translated-v4|route-filter-v4|route-filter-translated-v6|route-filter-v6|llgr-stale|no-llgr|blackhole|no-peer or additive\n"
 #define MPLS_TE_STR "MPLS-TE specific commands\n"
 #define LINK_PARAMS_STR "Configure interface link parameters\n"
 #define OSPF_RI_STR "OSPF Router Information specific commands\n"
@@ -474,7 +490,29 @@ struct cmd_node {
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);
-extern void install_element(enum node_type, const struct cmd_element *);
+
+struct xref_install_element {
+	struct xref xref;
+
+	const struct cmd_element *cmd_element;
+	enum node_type node_type;
+};
+
+#ifndef VTYSH_EXTRACT_PL
+#define install_element(node_type_, cmd_element_) do {                         \
+		static const struct xref_install_element _xref                 \
+				__attribute__((used)) = {                      \
+			.xref = XREF_INIT(XREFT_INSTALL_ELEMENT, NULL,         \
+					  __func__),                           \
+			.cmd_element = cmd_element_,                           \
+			.node_type = node_type_,                               \
+		};                                                             \
+		XREF_LINK(_xref.xref);                                         \
+		_install_element(node_type_, cmd_element_);                    \
+	} while (0)
+#endif
+
+extern void _install_element(enum node_type, const struct cmd_element *);
 
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */

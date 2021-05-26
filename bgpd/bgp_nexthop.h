@@ -41,6 +41,9 @@ PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
 
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
+	/* The ifindex of the outgoing interface *if* it's a v6 LL */
+	ifindex_t ifindex;
+
 	/* RB-tree entry. */
 	struct bgp_nexthop_cache_item entry;
 
@@ -100,6 +103,11 @@ struct update_subgroup;
 struct bgp_dest;
 struct attr;
 
+#define BNC_FLAG_DUMP_SIZE 180
+extern char *bgp_nexthop_dump_bnc_flags(struct bgp_nexthop_cache *bnc,
+					char *buf, size_t len);
+extern char *bgp_nexthop_dump_bnc_change_flags(struct bgp_nexthop_cache *bnc,
+					       char *buf, size_t len);
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
 extern bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,

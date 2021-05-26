@@ -173,7 +173,6 @@ ECMP as recommended in [Draft-IETF-idr-link-bandwidth]_.
 
 The operator can change these behaviors with the following configuration:
 
-.. index:: bgp bestpath bandwidth <ignore | skip-missing | default-weight-for-missing>
 .. clicmd:: bgp bestpath bandwidth <ignore | skip-missing | default-weight-for-missing>
 
 The different options imply behavior as follows:

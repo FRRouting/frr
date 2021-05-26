@@ -54,7 +54,7 @@
   #include "command_graph.h"
   #include "log.h"
 
-  DECLARE_MTYPE(LEX)
+  DECLARE_MTYPE(LEX);
 
   #define YYSTYPE CMD_YYSTYPE
   #define YYLTYPE CMD_YYLTYPE
@@ -75,7 +75,7 @@
 
 %code provides {
   #ifndef FLEX_SCANNER
-  #include "command_lex.h"
+  #include "lib/command_lex.h"
   #endif
 
   extern void set_lexer_string (yyscan_t *scn, const char *string);
@@ -376,7 +376,7 @@ selector: '[' selector_seq_seq ']' varname_token
 
 #undef scanner
 
-DEFINE_MTYPE(LIB, LEX, "Lexer token (temporary)")
+DEFINE_MTYPE(LIB, LEX, "Lexer token (temporary)");
 
 void
 cmd_graph_parse (struct graph *graph, const struct cmd_element *cmd)
@@ -496,7 +496,7 @@ terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
     zlog_err ("----------");
     while (ctx->docstr && ctx->docstr[1] != '\0')
       zlog_err ("%s", strsep(&ctx->docstr, "\n"));
-    zlog_err ("----------\n");
+    zlog_err ("----------");
   }
 
   graph_add_edge (finalnode, end_token_node);

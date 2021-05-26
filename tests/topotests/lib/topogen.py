@@ -336,7 +336,9 @@ class Topogen(object):
         for gear in self.gears.values():
             errors += gear.stop()
         if len(errors) > 0:
-            logger.error("Errors found post shutdown - details follow: {}".format(errors))
+            logger.error(
+                "Errors found post shutdown - details follow: {}".format(errors)
+            )
 
         self.net.stop()
 
@@ -552,6 +554,8 @@ class TopoRouter(TopoGear):
     RD_SHARP = 14
     RD_BABEL = 15
     RD_PBRD = 16
+    RD_PATH = 17
+    RD_SNMP = 18
     RD = {
         RD_ZEBRA: "zebra",
         RD_RIP: "ripd",
@@ -569,6 +573,8 @@ class TopoRouter(TopoGear):
         RD_SHARP: "sharpd",
         RD_BABEL: "babeld",
         RD_PBRD: "pbrd",
+        RD_PATH: "pathd",
+        RD_SNMP: "snmpd",
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -653,7 +659,7 @@ class TopoRouter(TopoGear):
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
-        TopoRouter.RD_PIM, TopoRouter.RD_PBR.
+        TopoRouter.RD_PIM, TopoRouter.RD_PBR, TopoRouter.RD_SNMP.
         """
         daemonstr = self.RD.get(daemon)
         self.logger.info('loading "{}" configuration: {}'.format(daemonstr, source))
@@ -1000,7 +1006,7 @@ def diagnose_env_linux():
     if not os.path.isdir("/tmp"):
         logger.warning("could not find /tmp for logs")
     else:
-        os.system("mkdir /tmp/topotests")
+        os.system("mkdir -p /tmp/topotests")
         # Log diagnostics to file so it can be examined later.
         fhandler = logging.FileHandler(filename="/tmp/topotests/diagnostics.txt")
         fhandler.setLevel(logging.DEBUG)

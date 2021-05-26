@@ -401,11 +401,21 @@ const struct frr_yang_module_info frr_zebra_info = {
 		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib",
 			.cbs = {
-				.create = lib_vrf_zebra_ribs_rib_create,
-				.destroy = lib_vrf_zebra_ribs_rib_destroy,
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,
 				.get_keys = lib_vrf_zebra_ribs_rib_get_keys,
 				.lookup_entry = lib_vrf_zebra_ribs_rib_lookup_entry,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/afi-safi-name",
+			.cbs = {
+				.get_elem = lib_vrf_zebra_ribs_rib_afi_safi_name_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/table-id",
+			.cbs = {
+				.get_elem = lib_vrf_zebra_ribs_rib_table_id_get_elem,
 			}
 		},
 		{
@@ -631,48 +641,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/prefix-only",
 			.cbs = {
 				.modify = lib_vrf_zebra_prefix_only_modify,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/frr-zebra:ipv4-prefix-length",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_ipv4_prefix_length_modify,
-				.destroy = lib_route_map_entry_match_condition_ipv4_prefix_length_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/frr-zebra:ipv6-prefix-length",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_ipv6_prefix_length_modify,
-				.destroy = lib_route_map_entry_match_condition_ipv6_prefix_length_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/frr-zebra:source-protocol",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_source_protocol_modify,
-				.destroy = lib_route_map_entry_match_condition_source_protocol_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/frr-zebra:source-instance",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_source_instance_modify,
-				.destroy = lib_route_map_entry_match_condition_source_instance_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/frr-zebra:source-v4",
-			.cbs = {
-				.modify = lib_route_map_entry_set_action_source_v4_modify,
-				.destroy = lib_route_map_entry_set_action_source_v4_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/frr-zebra:source-v6",
-			.cbs = {
-				.modify = lib_route_map_entry_set_action_source_v6_modify,
-				.destroy = lib_route_map_entry_set_action_source_v6_destroy,
 			}
 		},
 		{

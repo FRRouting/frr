@@ -54,11 +54,6 @@ static int iface_solve_index(const char *ifname)
 	}
 
 	for (i = 0; ini[i].if_index; ++i) {
-#if 0
-    fprintf(stderr,
-	    "%s: interface=%s matching against local ifname=%s ifindex=%d\n",
-	    prog_name, ifname, ini[i].if_name, ini[i].if_index);
-#endif
 		if (!strcmp(ini[i].if_name, ifname)) {
 			ifindex = ini[i].if_index;
 			break;

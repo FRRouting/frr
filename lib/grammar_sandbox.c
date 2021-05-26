@@ -34,7 +34,7 @@
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command desc")
+DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command desc");
 
 /** headers **/
 void grammar_sandbox_init(void);

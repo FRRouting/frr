@@ -60,4 +60,9 @@ void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
 extern void sharp_zebra_send_arp(const struct interface *ifp,
 				 const struct prefix *p);
 
+/* Register Link State Opaque messages */
+extern void sharp_zebra_register_te(void);
+
+extern void sharp_redistribute_vrf(struct vrf *vrf, int source);
+
 #endif

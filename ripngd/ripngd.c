@@ -44,10 +44,10 @@
 #include "ripngd/ripng_debug.h"
 #include "ripngd/ripng_nexthop.h"
 
-DEFINE_MGROUP(RIPNGD, "ripngd")
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG, "RIPng structure")
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_VRF_NAME, "RIPng VRF name")
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_ROUTE, "RIPng route info")
+DEFINE_MGROUP(RIPNGD, "ripngd");
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG, "RIPng structure");
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_VRF_NAME, "RIPng VRF name");
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_ROUTE, "RIPng route info");
 
 enum { ripng_all_route,
        ripng_changed_route,
@@ -191,7 +191,7 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 
 	if (IS_RIPNG_DEBUG_SEND) {
 		if (to)
-			zlog_debug("send to %s", inet6_ntoa(to->sin6_addr));
+			zlog_debug("send to %pI6", &to->sin6_addr);
 		zlog_debug("  send interface %s", ifp->name);
 		zlog_debug("  send packet size %d", bufsize);
 	}
@@ -237,8 +237,8 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 	if (ret < 0) {
 		if (to)
 			flog_err_sys(EC_LIB_SOCKET,
-				     "RIPng send fail on %s to %s: %s",
-				     ifp->name, inet6_ntoa(to->sin6_addr),
+				     "RIPng send fail on %s to %pI6: %s",
+				     ifp->name, &to->sin6_addr,
 				     safe_strerror(errno));
 		else
 			flog_err_sys(EC_LIB_SOCKET, "RIPng send fail on %s: %s",
@@ -338,11 +338,11 @@ void ripng_packet_dump(struct ripng_packet *packet, int size,
 
 	for (lim = (caddr_t)packet + size; (caddr_t)rte < lim; rte++) {
 		if (rte->metric == RIPNG_METRIC_NEXTHOP)
-			zlog_debug("  nexthop %s/%d", inet6_ntoa(rte->addr),
+			zlog_debug("  nexthop %pI6/%d", &rte->addr,
 				   rte->prefixlen);
 		else
-			zlog_debug("  %s/%d metric %d tag %" ROUTE_TAG_PRI,
-				   inet6_ntoa(rte->addr), rte->prefixlen,
+			zlog_debug("  %pI6/%d metric %d tag %" ROUTE_TAG_PRI,
+				   &rte->addr, rte->prefixlen,
 				   rte->metric, (route_tag_t)ntohs(rte->tag));
 	}
 }
@@ -351,13 +351,11 @@ void ripng_packet_dump(struct ripng_packet *packet, int size,
 static void ripng_nexthop_rte(struct rte *rte, struct sockaddr_in6 *from,
 			      struct ripng_nexthop *nexthop)
 {
-	char buf[INET6_BUFSIZ];
-
 	/* Logging before checking RTE. */
 	if (IS_RIPNG_DEBUG_RECV)
-		zlog_debug("RIPng nexthop RTE address %s tag %" ROUTE_TAG_PRI
+		zlog_debug("RIPng nexthop RTE address %pI6 tag %" ROUTE_TAG_PRI
 			   " prefixlen %d",
-			   inet6_ntoa(rte->addr), (route_tag_t)ntohs(rte->tag),
+			   &rte->addr, (route_tag_t)ntohs(rte->tag),
 			   rte->prefixlen);
 
 	/* RFC2080 2.1.1 Next Hop:
@@ -366,14 +364,13 @@ static void ripng_nexthop_rte(struct rte *rte, struct sockaddr_in6 *from,
 	if (ntohs(rte->tag) != 0)
 		zlog_warn(
 			"RIPng nexthop RTE with non zero tag value %" ROUTE_TAG_PRI
-			" from %s",
-			(route_tag_t)ntohs(rte->tag),
-			inet6_ntoa(from->sin6_addr));
+			" from %pI6",
+			(route_tag_t)ntohs(rte->tag), &from->sin6_addr);
 
 	if (rte->prefixlen != 0)
 		zlog_warn(
-			"RIPng nexthop RTE with non zero prefixlen value %d from %s",
-			rte->prefixlen, inet6_ntoa(from->sin6_addr));
+			"RIPng nexthop RTE with non zero prefixlen value %d from %pI6",
+			rte->prefixlen, &from->sin6_addr);
 
 	/* Specifying a value of 0:0:0:0:0:0:0:0 in the prefix field of a
 	 next hop RTE indicates that the next hop address should be the
@@ -398,9 +395,8 @@ static void ripng_nexthop_rte(struct rte *rte, struct sockaddr_in6 *from,
 	 information is ignored, a possibly sub-optimal, but absolutely
 	 valid, route may be taken.  If the received next hop address is not
 	 a link-local address, it should be treated as 0:0:0:0:0:0:0:0.  */
-	zlog_warn("RIPng nexthop RTE with non link-local address %s from %s",
-		  inet6_ntoa(rte->addr),
-		  inet_ntop(AF_INET6, &from->sin6_addr, buf, INET6_BUFSIZ));
+	zlog_warn("RIPng nexthop RTE with non link-local address %pI6 from %pI6",
+		  &rte->addr, &from->sin6_addr);
 
 	nexthop->flag = RIPNG_NEXTHOP_UNSPEC;
 	memset(&nexthop->address, 0, sizeof(struct in6_addr));
@@ -753,8 +749,8 @@ static void ripng_route_process(struct rte *rte, struct sockaddr_in6 *from,
 		if (ret == RMAP_DENYMATCH) {
 			if (IS_RIPNG_DEBUG_PACKET)
 				zlog_debug(
-					"RIPng %s/%d is filtered by route-map in",
-					inet6_ntoa(p.prefix), p.prefixlen);
+					"RIPng %pFX is filtered by route-map in",
+					&p);
 			return;
 		}
 
@@ -996,8 +992,8 @@ void ripng_redistribute_add(struct ripng *ripng, int type, int sub_type,
 				p, ifindex2ifname(ifindex, ripng->vrf->vrf_id));
 		else
 			zlog_debug(
-				"Redistribute new prefix %pFX with nexthop %s on the interface %s",
-				p, inet6_ntoa(*nexthop),
+				"Redistribute new prefix %pFX with nexthop %pI6 on the interface %s",
+				p, nexthop,
 				ifindex2ifname(ifindex, ripng->vrf->vrf_id));
 	}
 
@@ -1109,8 +1105,8 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 	/* RFC2080 2.4.2  Response Messages:
 	 The Response must be ignored if it is not from the RIPng port.  */
 	if (ntohs(from->sin6_port) != RIPNG_PORT_DEFAULT) {
-		zlog_warn("RIPng packet comes from non RIPng port %d from %s",
-			  ntohs(from->sin6_port), inet6_ntoa(from->sin6_addr));
+		zlog_warn("RIPng packet comes from non RIPng port %d from %pI6",
+			  ntohs(from->sin6_port), &from->sin6_addr);
 		ripng_peer_bad_packet(ripng, from);
 		return;
 	}
@@ -1119,8 +1115,8 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 	 whether the datagram is from a valid neighbor; the source of the
 	 datagram must be a link-local address.  */
 	if (!IN6_IS_ADDR_LINKLOCAL(&from->sin6_addr)) {
-		zlog_warn("RIPng packet comes from non link local address %s",
-			  inet6_ntoa(from->sin6_addr));
+		zlog_warn("RIPng packet comes from non link local address %pI6",
+			  &from->sin6_addr);
 		ripng_peer_bad_packet(ripng, from);
 		return;
 	}
@@ -1132,8 +1128,8 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 	 and such datagrams must be ignored. */
 	if (ripng_lladdr_check(ifp, &from->sin6_addr)) {
 		zlog_warn(
-			"RIPng packet comes from my own link local address %s",
-			inet6_ntoa(from->sin6_addr));
+			"RIPng packet comes from my own link local address %pI6",
+			&from->sin6_addr);
 		ripng_peer_bad_packet(ripng, from);
 		return;
 	}
@@ -1144,8 +1140,8 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 	 packets) must be examined to ensure that the hop count is 255. */
 	if (hoplimit >= 0 && hoplimit != 255) {
 		zlog_warn(
-			"RIPng packet comes with non 255 hop count %d from %s",
-			hoplimit, inet6_ntoa(from->sin6_addr));
+			"RIPng packet comes with non 255 hop count %d from %pI6",
+			hoplimit, &from->sin6_addr);
 		ripng_peer_bad_packet(ripng, from);
 		return;
 	}
@@ -1176,25 +1172,22 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 		   should never be present in an RTE. */
 		if (IN6_IS_ADDR_MULTICAST(&rte->addr)) {
 			zlog_warn(
-				"Destination prefix is a multicast address %s/%d [%d]",
-				inet6_ntoa(rte->addr), rte->prefixlen,
-				rte->metric);
+				"Destination prefix is a multicast address %pI6/%d [%d]",
+				&rte->addr, rte->prefixlen, rte->metric);
 			ripng_peer_bad_route(ripng, from);
 			continue;
 		}
 		if (IN6_IS_ADDR_LINKLOCAL(&rte->addr)) {
 			zlog_warn(
-				"Destination prefix is a link-local address %s/%d [%d]",
-				inet6_ntoa(rte->addr), rte->prefixlen,
-				rte->metric);
+				"Destination prefix is a link-local address %pI6/%d [%d]",
+				&rte->addr, rte->prefixlen, rte->metric);
 			ripng_peer_bad_route(ripng, from);
 			continue;
 		}
 		if (IN6_IS_ADDR_LOOPBACK(&rte->addr)) {
 			zlog_warn(
-				"Destination prefix is a loopback address %s/%d [%d]",
-				inet6_ntoa(rte->addr), rte->prefixlen,
-				rte->metric);
+				"Destination prefix is a loopback address %pI6/%d [%d]",
+				&rte->addr, rte->prefixlen, rte->metric);
 			ripng_peer_bad_route(ripng, from);
 			continue;
 		}
@@ -1202,17 +1195,17 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 		/* - is the prefix length valid (i.e., between 0 and 128,
 		   inclusive) */
 		if (rte->prefixlen > 128) {
-			zlog_warn("Invalid prefix length %s/%d from %s%%%s",
-				  inet6_ntoa(rte->addr), rte->prefixlen,
-				  inet6_ntoa(from->sin6_addr), ifp->name);
+			zlog_warn("Invalid prefix length %pI6/%d from %pI6%%%s",
+				  &rte->addr, rte->prefixlen,
+				  &from->sin6_addr, ifp->name);
 			ripng_peer_bad_route(ripng, from);
 			continue;
 		}
 
 		/* - is the metric valid (i.e., between 1 and 16, inclusive) */
 		if (!(rte->metric >= 1 && rte->metric <= 16)) {
-			zlog_warn("Invalid metric %d from %s%%%s", rte->metric,
-				  inet6_ntoa(from->sin6_addr), ifp->name);
+			zlog_warn("Invalid metric %d from %pI6%%%s",
+				  rte->metric, &from->sin6_addr, ifp->name);
 			ripng_peer_bad_route(ripng, from);
 			continue;
 		}
@@ -1345,8 +1338,8 @@ static int ripng_read(struct thread *thread)
 	/* Check RTE boundary.  RTE size (Packet length - RIPng header size
 	   (4)) must be multiple size of one RTE size (20). */
 	if (((len - 4) % 20) != 0) {
-		zlog_warn("RIPng invalid packet size %d from %s (VRF %s)", len,
-			  inet6_ntoa(from.sin6_addr), ripng->vrf_name);
+		zlog_warn("RIPng invalid packet size %d from %pI6 (VRF %s)",
+			  len, &from.sin6_addr, ripng->vrf_name);
 		ripng_peer_bad_packet(ripng, &from);
 		return 0;
 	}
@@ -1357,8 +1350,8 @@ static int ripng_read(struct thread *thread)
 	/* RIPng packet received. */
 	if (IS_RIPNG_DEBUG_EVENT)
 		zlog_debug(
-			"RIPng packet received from %s port %d on %s (VRF %s)",
-			inet6_ntoa(from.sin6_addr), ntohs(from.sin6_port),
+			"RIPng packet received from %pI6 port %d on %s (VRF %s)",
+			&from.sin6_addr, ntohs(from.sin6_port),
 			ifp ? ifp->name : "unknown", ripng->vrf_name);
 
 	/* Logging before packet checking. */
@@ -1584,8 +1577,8 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 
 	if (IS_RIPNG_DEBUG_EVENT) {
 		if (to)
-			zlog_debug("RIPng update routes to neighbor %s",
-				   inet6_ntoa(to->sin6_addr));
+			zlog_debug("RIPng update routes to neighbor %pI6",
+				   &to->sin6_addr);
 		else
 			zlog_debug("RIPng update routes on interface %s",
 				   ifp->name);
@@ -2092,8 +2085,8 @@ DEFUN (show_ipv6_ripng,
 #endif /* DEBUG */
 				vty_out(vty, "\n");
 				vty_out(vty, "%*s", 18, " ");
-				len = vty_out(vty, "%s",
-					      inet6_ntoa(rinfo->nexthop));
+				len = vty_out(vty, "%pI6",
+					      &rinfo->nexthop);
 
 				len = 28 - len;
 				if (len > 0)
@@ -2216,136 +2209,6 @@ DEFUN (show_ipv6_ripng_status,
 
 	return CMD_SUCCESS;
 }
-
-#if 0
-/* RIPng update timer setup. */
-DEFUN (ripng_update_timer,
-       ripng_update_timer_cmd,
-       "update-timer SECOND",
-       "Set RIPng update timer in seconds\n"
-       "Seconds\n")
-{
-  unsigned long update;
-  char *endptr = NULL;
-
-  update = strtoul (argv[0], &endptr, 10);
-  if (update == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "update timer value error\n");
-      return CMD_WARNING_CONFIG_FAILED;
-    }
-
-  ripng->update_time = update;
-
-  ripng_event (RIPNG_UPDATE_EVENT, 0);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_update_timer,
-       no_ripng_update_timer_cmd,
-       "no update-timer SECOND",
-       NO_STR
-       "Unset RIPng update timer in seconds\n"
-       "Seconds\n")
-{
-  ripng->update_time = RIPNG_UPDATE_TIMER_DEFAULT;
-  ripng_event (RIPNG_UPDATE_EVENT, 0);
-  return CMD_SUCCESS;
-}
-
-/* RIPng timeout timer setup. */
-DEFUN (ripng_timeout_timer,
-       ripng_timeout_timer_cmd,
-       "timeout-timer SECOND",
-       "Set RIPng timeout timer in seconds\n"
-       "Seconds\n")
-{
-  unsigned long timeout;
-  char *endptr = NULL;
-
-  timeout = strtoul (argv[0], &endptr, 10);
-  if (timeout == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "timeout timer value error\n");
-      return CMD_WARNING_CONFIG_FAILED;
-    }
-
-  ripng->timeout_time = timeout;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_timeout_timer,
-       no_ripng_timeout_timer_cmd,
-       "no timeout-timer SECOND",
-       NO_STR
-       "Unset RIPng timeout timer in seconds\n"
-       "Seconds\n")
-{
-  ripng->timeout_time = RIPNG_TIMEOUT_TIMER_DEFAULT;
-  return CMD_SUCCESS;
-}
-
-/* RIPng garbage timer setup. */
-DEFUN (ripng_garbage_timer,
-       ripng_garbage_timer_cmd,
-       "garbage-timer SECOND",
-       "Set RIPng garbage timer in seconds\n"
-       "Seconds\n")
-{
-  unsigned long garbage;
-  char *endptr = NULL;
-
-  garbage = strtoul (argv[0], &endptr, 10);
-  if (garbage == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "garbage timer value error\n");
-      return CMD_WARNING_CONFIG_FAILED;
-    }
-
-  ripng->garbage_time = garbage;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_garbage_timer,
-       no_ripng_garbage_timer_cmd,
-       "no garbage-timer SECOND",
-       NO_STR
-       "Unset RIPng garbage timer in seconds\n"
-       "Seconds\n")
-{
-  ripng->garbage_time = RIPNG_GARBAGE_TIMER_DEFAULT;
-  return CMD_SUCCESS;
-}
-#endif /* 0 */
-
-#if 0
-DEFUN (show_ipv6_protocols,
-       show_ipv6_protocols_cmd,
-       "show ipv6 protocols",
-       SHOW_STR
-       IPV6_STR
-       "Routing protocol information\n")
-{
-  if (! ripng)
-    return CMD_SUCCESS;
-
-  vty_out (vty, "Routing Protocol is \"ripng\"\n");
-
-  vty_out (vty, "Sending updates every %ld seconds, next due in %d seconds\n",
-	   ripng->update_time, 0);
-
-  vty_out (vty, "Timerout after %ld seconds, garbage correct %ld\n",
-	   ripng->timeout_time,
-	   ripng->garbage_time);
-
-  vty_out (vty, "Outgoing update filter list for all interfaces is not set");
-  vty_out (vty, "Incoming update filter list for all interfaces is not set");
-
-  return CMD_SUCCESS;
-}
-#endif
 
 /* Update ECMP routes to zebra when ECMP is disabled. */
 void ripng_ecmp_disable(struct ripng *ripng)
@@ -2771,16 +2634,16 @@ static int ripng_vrf_enable(struct vrf *vrf)
 			char oldpath[XPATH_MAXLEN];
 			char newpath[XPATH_MAXLEN];
 
-			ripng_dnode = yang_dnode_get(
+			ripng_dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
 				old_vrf_name);
 			if (ripng_dnode) {
-				yang_dnode_get_path(ripng_dnode->parent, oldpath,
-						    sizeof(oldpath));
+				yang_dnode_get_path(lyd_parent(ripng_dnode),
+						    oldpath, sizeof(oldpath));
 				yang_dnode_change_leaf(ripng_dnode, vrf->name);
-				yang_dnode_get_path(ripng_dnode->parent, newpath,
-						    sizeof(newpath));
+				yang_dnode_get_path(lyd_parent(ripng_dnode),
+						    newpath, sizeof(newpath));
 				nb_running_move_tree(oldpath, newpath);
 				running_config->version++;
 			}
@@ -2847,16 +2710,6 @@ void ripng_init(void)
 
 	install_default(RIPNG_NODE);
 
-#if 0
-  install_element (VIEW_NODE, &show_ipv6_protocols_cmd);
-  install_element (RIPNG_NODE, &ripng_update_timer_cmd);
-  install_element (RIPNG_NODE, &no_ripng_update_timer_cmd);
-  install_element (RIPNG_NODE, &ripng_timeout_timer_cmd);
-  install_element (RIPNG_NODE, &no_ripng_timeout_timer_cmd);
-  install_element (RIPNG_NODE, &ripng_garbage_timer_cmd);
-  install_element (RIPNG_NODE, &no_ripng_garbage_timer_cmd);
-#endif /* 0 */
-
 	ripng_if_init();
 	ripng_debug_init();
 
@@ -2869,9 +2722,6 @@ void ripng_init(void)
 	prefix_list_init();
 	prefix_list_add_hook(ripng_distribute_update_all);
 	prefix_list_delete_hook(ripng_distribute_update_all);
-
-	/* Distribute list install. */
-	distribute_list_init(RIPNG_NODE);
 
 	/* Route-map for interface. */
 	ripng_route_map_init();

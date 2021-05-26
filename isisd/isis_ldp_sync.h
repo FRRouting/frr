@@ -29,13 +29,15 @@
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
-extern void isis_if_set_ldp_sync_enable(struct isis_circuit *circuit);
+extern void isis_area_ldp_sync_enable(struct isis_area *area);
+extern void isis_area_ldp_sync_disable(struct isis_area *area);
+extern void isis_area_ldp_sync_set_holddown(struct isis_area *area,
+					    uint16_t holddown);
+extern void isis_if_ldp_sync_enable(struct isis_circuit *circuit);
+extern void isis_if_ldp_sync_disable(struct isis_circuit *circuit);
 extern void isis_if_set_ldp_sync_holddown(struct  isis_circuit *circuit);
-extern void isis_ldp_sync_if_init(struct isis_circuit *circuit,
-				  struct isis *isis);
 extern void isis_ldp_sync_if_start(struct isis_circuit *circuit,
 				   bool send_state_req);
-extern void isis_ldp_sync_if_remove(struct isis_circuit *circuit, bool remove);
 extern void isis_ldp_sync_if_complete(struct isis_circuit *circuit);
 extern void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit);
 extern void
@@ -49,5 +51,4 @@ extern void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit,
 extern bool isis_ldp_sync_if_metric_config(struct isis_circuit *circuit,
 					   int level, int metric);
 extern void isis_ldp_sync_init(void);
-extern void isis_ldp_sync_gbl_exit(bool remove);
 #endif /* _ZEBRA_ISIS_LDP_SYNC_H */

@@ -29,3 +29,4 @@ Building FRR
    building-frr-for-ubuntu2004
    building-frr-for-archlinux
    building-docker
+   cross-compiling

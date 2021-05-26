@@ -148,6 +148,7 @@ extern void ospf6_area_show(struct vty *, struct ospf6_area *,
 			    json_object *json_areas, bool use_json);
 
 extern void ospf6_area_plist_update(struct prefix_list *plist, int add);
+extern void ospf6_filter_update(struct access_list *access);
 extern void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern void ospf6_area_init(void);
 struct ospf6_interface;

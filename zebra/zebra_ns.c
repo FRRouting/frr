@@ -28,7 +28,6 @@
 
 #include "zebra_ns.h"
 #include "zebra_vrf.h"
-#include "zebra_memory.h"
 #include "rt.h"
 #include "zebra_vxlan.h"
 #include "debug.h"
@@ -41,7 +40,7 @@
 
 extern struct zebra_privs_t zserv_privs;
 
-DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_NS, "Zebra Name Space");
 
 static struct zebra_ns *dzns;
 

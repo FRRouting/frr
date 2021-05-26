@@ -259,6 +259,13 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/bfd/profile",
+			.cbs = {
+				.modify = lib_interface_pim_bfd_profile_modify,
+				.destroy = lib_interface_pim_bfd_profile_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/bsm",
 			.cbs = {
 				.modify = lib_interface_pim_bsm_modify,

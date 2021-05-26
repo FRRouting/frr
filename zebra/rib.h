@@ -23,6 +23,7 @@
 #define _ZEBRA_RIB_H
 
 #include "zebra.h"
+#include "memory.h"
 #include "hook.h"
 #include "typesafe.h"
 #include "linklist.h"
@@ -41,9 +42,13 @@
 extern "C" {
 #endif
 
+DECLARE_MGROUP(ZEBRA);
+
+DECLARE_MTYPE(RE);
+
 enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
 
-PREDECL_LIST(rnh_list)
+PREDECL_LIST(rnh_list);
 
 /* Nexthop structure. */
 struct rnh {
@@ -82,7 +87,7 @@ struct rnh {
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
 
-PREDECL_LIST(re_list)
+PREDECL_LIST(re_list);
 
 struct opaque {
 	uint16_t length;
@@ -343,8 +348,8 @@ int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe);
 
 /* NHG replace has happend, we have to update route_entry pointers to new one */
-void rib_handle_nhg_replace(struct nhg_hash_entry *old,
-			    struct nhg_hash_entry *new);
+void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
+			    struct nhg_hash_entry *new_entry);
 
 #define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
 extern void _route_entry_dump(const char *func, union prefixconstptr pp,
@@ -393,7 +398,7 @@ extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       struct prefix *p, struct prefix_ipv6 *src_p,
 		       const struct nexthop *nh, uint32_t nhe_id,
 		       uint32_t table_id, uint32_t metric, uint8_t distance,
-		       bool fromkernel, bool connected_down);
+		       bool fromkernel);
 
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     union g_addr *addr,
@@ -406,9 +411,8 @@ extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 					   vrf_id_t vrf_id);
 
 extern void rib_update(enum rib_update_event event);
-extern void rib_update_vrf(vrf_id_t vrf_id, enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
-			     enum rib_update_event event);
+			     enum rib_update_event event, int rtype);
 extern int rib_sweep_route(struct thread *t);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
@@ -422,7 +426,11 @@ extern int rib_queue_add(struct route_node *rn);
 
 struct nhg_ctx; /* Forward declaration */
 
-extern int rib_queue_nhg_add(struct nhg_ctx *ctx);
+/* Enqueue incoming nhg from OS for processing */
+extern int rib_queue_nhg_ctx_add(struct nhg_ctx *ctx);
+
+/* Enqueue incoming nhg from proto daemon for processing */
+extern int rib_queue_nhe_add(struct nhg_hash_entry *nhe);
 
 extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
@@ -542,7 +550,7 @@ static inline void rib_tables_iter_cleanup(rib_tables_iter_t *iter)
 }
 
 DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
-	     (rn, reason))
+	     (rn, reason));
 
 /*
  * Access installed/fib nexthops, which may be a subset of the

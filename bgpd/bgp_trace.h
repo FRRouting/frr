@@ -43,7 +43,7 @@ TRACEPOINT_EVENT_CLASS(
 	packet_process,
 	TP_ARGS(struct peer *, peer, bgp_size_t, size),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 	)
 )
 
@@ -65,7 +65,7 @@ TRACEPOINT_EVENT(
 	packet_read,
 	TP_ARGS(struct peer *, peer, struct stream *, pkt),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
 				 STREAM_READABLE(pkt))
 	)
@@ -79,7 +79,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(struct peer *, peer, char *, pfx, uint32_t, addpath_id, afi_t,
 		afi, safi_t, safi, struct attr *, attr),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_string(prefix, pfx)
 		ctf_integer(uint32_t, addpath_id, addpath_id)
 		ctf_integer(afi_t, afi, afi)
@@ -96,7 +96,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(struct peer *, peer, char *, pfx, afi_t, afi, safi_t, safi,
 		const char *, result),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_string(prefix, pfx)
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
@@ -112,7 +112,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(struct peer *, peer, char *, pfx, afi_t, afi, safi_t, safi,
 		const char *, result),
 	TP_FIELDS(
-		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
+		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_string(prefix, pfx)
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
@@ -121,6 +121,102 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_LOGLEVEL(frr_bgp, output_filter, TRACE_INFO)
+
+/* BMP tracepoints */
+
+/* BMP mirrors a packet to all mirror-enabled targets */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bmp_mirror_packet,
+	TP_ARGS(struct peer *, peer, uint8_t, type, struct stream *, pkt),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(uint8_t, type, type)
+		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
+				 STREAM_READABLE(pkt))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, bmp_mirror_packet, TRACE_INFO)
+
+
+/* BMP sends an EOR */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bmp_eor,
+	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags),
+	TP_FIELDS(
+		ctf_integer(afi_t, afi, afi)
+		ctf_integer(safi_t, safi, safi)
+		ctf_integer(uint8_t, flags, flags)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, bmp_eor, TRACE_INFO)
+
+
+/* BMP updates its copy of the last OPEN a peer sent */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bmp_update_saved_open,
+	TP_ARGS(struct peer *, peer, struct stream *, pkt),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
+				 STREAM_READABLE(pkt))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, bmp_update_saved_open, TRACE_DEBUG)
+
+
+/* BMP is notified of a peer status change internally */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bmp_peer_status_changed,
+	TP_ARGS(struct peer *, peer),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(peer))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, bmp_peer_status_changed, TRACE_DEBUG)
+
+
+/*
+ * BMP is notified that a peer has transitioned in the opposite direction of
+ * Established internally
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bmp_peer_backward_transition,
+	TP_ARGS(struct peer *, peer),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(peer))
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, bmp_peer_backward, TRACE_DEBUG)
+
+
+/*
+ * BMP is hooked for a route process
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bmp_process,
+	TP_ARGS(struct peer *, peer, char *, pfx, afi_t,
+		afi, safi_t, safi, bool, withdraw),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_string(prefix, pfx)
+		ctf_integer(afi_t, afi, afi)
+		ctf_integer(safi_t, safi, safi)
+		ctf_integer(bool, withdraw, withdraw)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, bmp_process, TRACE_DEBUG)
 
 /* clang-format on */
 

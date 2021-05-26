@@ -15,8 +15,8 @@
 
 #include "netlink.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry")
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE_CONFIG, "NHRP cache config entry")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry");
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE_CONFIG, "NHRP cache config entry");
 
 unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
@@ -69,12 +69,13 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 {
 	struct nhrp_interface *nifp = c->ifp->info;
 
-	zassert(c->cur.type == NHRP_CACHE_INVALID && c->cur.peer == NULL);
-	zassert(c->new.type == NHRP_CACHE_INVALID && c->new.peer == NULL);
+	debugf(NHRP_DEBUG_COMMON, "Deleting cache entry");
 	nhrp_cache_counts[c->cur.type]--;
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
-	zassert(!notifier_active(&c->notifier_list));
+	assert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
+	THREAD_OFF(c->t_timeout);
+	THREAD_OFF(c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
 }
 
@@ -140,6 +141,41 @@ struct nhrp_cache_config *nhrp_cache_config_get(struct interface *ifp,
 			create ? nhrp_cache_config_alloc : NULL);
 }
 
+static void do_nhrp_cache_free(struct hash_bucket *hb,
+			       void *arg __attribute__((__unused__)))
+{
+	struct nhrp_cache *c = hb->data;
+
+	nhrp_cache_free(c);
+}
+
+static void do_nhrp_cache_config_free(struct hash_bucket *hb,
+				      void *arg __attribute__((__unused__)))
+{
+	struct nhrp_cache_config *cc = hb->data;
+
+	nhrp_cache_config_free(cc);
+}
+
+void nhrp_cache_interface_del(struct interface *ifp)
+{
+	struct nhrp_interface *nifp = ifp->info;
+
+	debugf(NHRP_DEBUG_COMMON, "Cleaning up undeleted cache entries (%lu)",
+	       nifp->cache_hash ? nifp->cache_hash->count : 0);
+
+	if (nifp->cache_hash) {
+		hash_iterate(nifp->cache_hash, do_nhrp_cache_free, NULL);
+		hash_free(nifp->cache_hash);
+	}
+
+	if (nifp->cache_config_hash) {
+		hash_iterate(nifp->cache_config_hash, do_nhrp_cache_config_free,
+			     NULL);
+		hash_free(nifp->cache_config_hash);
+	}
+}
+
 struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 				  union sockunion *remote_addr, int create)
 {
@@ -164,6 +200,7 @@ struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 static int nhrp_cache_do_free(struct thread *t)
 {
 	struct nhrp_cache *c = THREAD_ARG(t);
+
 	c->t_timeout = NULL;
 	nhrp_cache_free(c);
 	return 0;
@@ -172,9 +209,11 @@ static int nhrp_cache_do_free(struct thread *t)
 static int nhrp_cache_do_timeout(struct thread *t)
 {
 	struct nhrp_cache *c = THREAD_ARG(t);
+
 	c->t_timeout = NULL;
 	if (c->cur.type != NHRP_CACHE_INVALID)
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
+		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+					  NULL);
 	return 0;
 }
 
@@ -182,7 +221,6 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 {
 	struct prefix pfx;
 	struct nhrp_peer *p = c->cur.peer;
-	char buf[3][SU_ADDRSTRLEN];
 	struct nhrp_interface *nifp;
 
 	if (!sockunion2hostprefix(&c->remote_addr, &pfx))
@@ -195,26 +233,18 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			 * nbma.
 			 */
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache (remote_nbma_natoa set): Update binding for %s dev %s from (deleted) peer.vc.nbma %s to %s",
-			       sockunion2str(&c->remote_addr, buf[0],
-					     sizeof(buf[0])),
-			       p->ifp->name,
-			       sockunion2str(&p->vc->remote.nbma, buf[1],
-					     sizeof(buf[1])),
-			       sockunion2str(&c->cur.remote_nbma_natoa, buf[2],
-					     sizeof(buf[2])));
+			       "cache (remote_nbma_natoa set): Update binding for %pSU dev %s from (deleted) peer.vc.nbma %pSU to %pSU",
+			       &c->remote_addr, p->ifp->name,
+			       &p->vc->remote.nbma, &c->cur.remote_nbma_natoa);
 
 			netlink_update_binding(p->ifp, &c->remote_addr,
 					       &c->cur.remote_nbma_natoa);
 		} else {
 			/* update binding to peer->vc->remote->nbma */
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache (remote_nbma_natoa unspec): Update binding for %s dev %s from (deleted) to peer.vc.nbma %s",
-			       sockunion2str(&c->remote_addr, buf[0],
-					     sizeof(buf[0])),
-			       p->ifp->name,
-			       sockunion2str(&p->vc->remote.nbma, buf[1],
-					     sizeof(buf[1])));
+			       "cache (remote_nbma_natoa unspec): Update binding for %pSU dev %s from (deleted) to peer.vc.nbma %pSU",
+			       &c->remote_addr, p->ifp->name,
+			       &p->vc->remote.nbma);
 
 			netlink_update_binding(p->ifp, &c->remote_addr,
 					       &p->vc->remote.nbma);
@@ -272,7 +302,8 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 	case NOTIFY_PEER_DOWN:
 	case NOTIFY_PEER_IFCONFIG_CHANGED:
 		notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
+		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+					  NULL);
 		break;
 	case NOTIFY_PEER_NBMA_CHANGING:
 		if (c->cur.type == NHRP_CACHE_DYNAMIC)
@@ -315,9 +346,8 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 	struct nhrp_cache *c = container_of(r, struct nhrp_cache, eventid);
 	char buf[3][SU_ADDRSTRLEN];
 
-	debugf(NHRP_DEBUG_COMMON, "cache: %s %s: %s", c->ifp->name,
-	       sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
-	       (const char *)arg);
+	debugf(NHRP_DEBUG_COMMON, "cache: %s %pSU: %s", c->ifp->name,
+	       &c->remote_addr, (const char *)arg);
 
 	nhrp_reqid_free(&nhrp_event_reqid, r);
 
@@ -339,16 +369,13 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 
 		if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache: update binding for %s dev %s from (deleted) peer.vc.nbma %s to %s",
-			       sockunion2str(&c->remote_addr, buf[0],
-					     sizeof(buf[0])),
-			       c->ifp->name,
+			       "cache: update binding for %pSU dev %s from (deleted) peer.vc.nbma %s to %pSU",
+			       &c->remote_addr, c->ifp->name,
 			       (c->cur.peer ? sockunion2str(
 					&c->cur.peer->vc->remote.nbma, buf[1],
 					sizeof(buf[1]))
 					    : "(no peer)"),
-			       sockunion2str(&c->cur.remote_nbma_natoa, buf[2],
-					     sizeof(buf[2])));
+			       &c->cur.remote_nbma_natoa);
 
 			if (c->cur.peer)
 				netlink_update_binding(
@@ -397,7 +424,8 @@ static void nhrp_cache_newpeer_notifier(struct notifier_block *n,
 
 int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 			      int holding_time, struct nhrp_peer *p,
-			      uint32_t mtu, union sockunion *nbma_oa)
+			      uint32_t mtu, union sockunion *nbma_oa,
+			      union sockunion *nbma_claimed)
 {
 	char buf[2][SU_ADDRSTRLEN];
 
@@ -439,6 +467,12 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 			memset(&c->cur.remote_nbma_natoa, 0,
 			       sizeof(c->cur.remote_nbma_natoa));
 
+		if (nbma_claimed)
+			c->cur.remote_nbma_claimed = *nbma_claimed;
+		else
+			memset(&c->cur.remote_nbma_claimed, 0,
+			       sizeof(c->cur.remote_nbma_claimed));
+
 		nhrp_peer_unref(p);
 	} else {
 		debugf(NHRP_DEBUG_COMMON,
@@ -449,8 +483,12 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 		c->new.type = type;
 		c->new.peer = p;
 		c->new.mtu = mtu;
+		c->new.holding_time = holding_time;
 		if (nbma_oa)
 			c->new.remote_nbma_natoa = *nbma_oa;
+
+		if (nbma_claimed)
+			c->new.remote_nbma_claimed = *nbma_claimed;
 
 		if (holding_time > 0)
 			c->new.expires = monotime(NULL) + holding_time;

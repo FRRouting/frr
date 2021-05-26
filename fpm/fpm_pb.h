@@ -29,7 +29,7 @@
 #ifndef _FPM_PB_H
 #define _FPM_PB_H
 
-#include "route_types.h"
+#include "lib/route_types.h"
 #include "qpb/qpb.h"
 
 #include "fpm/fpm.pb-c.h"

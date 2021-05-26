@@ -28,9 +28,9 @@
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
 
-DEFINE_MGROUP(MVTYSH, "vtysh")
-DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG, "Vtysh configuration")
-DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line")
+DEFINE_MGROUP(MVTYSH, "vtysh");
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG, "Vtysh configuration");
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line");
 
 vector configvec;
 
@@ -91,9 +91,9 @@ static uint32_t config_hash(const struct config *c)
 	return string_hash_make(c->name);
 }
 
-DECLARE_LIST(config_master, struct config, rbt_item)
+DECLARE_LIST(config_master, struct config, rbt_item);
 DECLARE_HASH(config_master_hash, struct config, hash_item, config_cmp,
-	     config_hash)
+	     config_hash);
 
 /*
  * The config_master_head is a list for order of receipt
@@ -342,6 +342,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(OPENFABRIC_NODE, line);
 		else if (strncmp(line, "route-map", strlen("route-map")) == 0)
 			config = config_get(RMAP_NODE, line);
+		else if (strncmp(line, "no route-map", strlen("no route-map"))
+			 == 0)
+			config = config_get(RMAP_NODE, line);
 		else if (strncmp(line, "pbr-map", strlen("pbr-map")) == 0)
 			config = config_get(PBRMAP_NODE, line);
 		else if (strncmp(line, "access-list", strlen("access-list"))
@@ -377,6 +380,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				    strlen("bgp large-community-list"))
 				    == 0)
 			config = config_get(COMMUNITY_LIST_NODE, line);
+		else if (strncmp(line, "bgp community alias",
+				 strlen("bgp community alias")) == 0)
+			config = config_get(COMMUNITY_ALIAS_NODE, line);
 		else if (strncmp(line, "ip route", strlen("ip route")) == 0)
 			config = config_get(IP_NODE, line);
 		else if (strncmp(line, "ipv6 route", strlen("ipv6 route")) == 0)
@@ -449,11 +455,12 @@ void vtysh_config_parse_line(void *arg, const char *line)
 #define NO_DELIMITER(I)                                                        \
 	((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE            \
 	 || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE                  \
-	 || (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE                  \
-	 || (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE                  \
-	 || (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE      \
-	 || (I) == NORTHBOUND_DEBUG_NODE || (I) == RMAP_DEBUG_NODE             \
-	 || (I) == RESOLVER_DEBUG_NODE || (I) == MPLS_NODE)
+	 || (I) == COMMUNITY_ALIAS_NODE || (I) == ACCESS_IPV6_NODE             \
+	 || (I) == ACCESS_MAC_NODE || (I) == PREFIX_IPV6_NODE                  \
+	 || (I) == FORWARDING_NODE || (I) == DEBUG_NODE || (I) == AAA_NODE     \
+	 || (I) == VRF_DEBUG_NODE || (I) == NORTHBOUND_DEBUG_NODE              \
+	 || (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE               \
+	 || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(void)

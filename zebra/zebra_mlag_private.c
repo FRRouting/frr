@@ -28,7 +28,7 @@
 #include "thread.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "network.h"
 
 #include "lib/stream.h"
@@ -297,4 +297,4 @@ FRR_MODULE_SETUP(
 	.version = FRR_VERSION,
 	.description = "zebra Cumulus MLAG interface",
 	.init = zebra_mlag_module_init,
-)
+);

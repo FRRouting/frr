@@ -30,7 +30,7 @@
 #include "vrf.h"
 #include "smux.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -1418,4 +1418,5 @@ static int ospf6_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "ospf6d_snmp", .version = FRR_VERSION,
 		 .description = "ospf6d AgentX SNMP module",
-		 .init = ospf6_snmp_module_init, )
+		 .init = ospf6_snmp_module_init,
+);

@@ -51,7 +51,8 @@ int main(int argc, char **argv)
 #if PY_VERSION_HEX >= 0x03040000 /* 3.4 */
 	Py_SetStandardStreamEncoding("UTF-8", NULL);
 #endif
-	Py_SetProgramName(wconv(argv[0]));
+	wchar_t *name = wconv(argv[0]);
+	Py_SetProgramName(name);
 	PyImport_AppendInittab("_clippy", command_py_init);
 
 	Py_Initialize();
@@ -67,6 +68,8 @@ int main(int argc, char **argv)
 		fp = fopen(pyfile, "r");
 		if (!fp) {
 			fprintf(stderr, "%s: %s\n", pyfile, strerror(errno));
+
+			free(name);
 			return 1;
 		}
 	} else {
@@ -85,6 +88,8 @@ int main(int argc, char **argv)
 	if (PyRun_AnyFile(fp, pyfile)) {
 		if (PyErr_Occurred())
 			PyErr_Print();
+
+		free(name);
 		return 1;
 	}
 	Py_Finalize();
@@ -93,6 +98,7 @@ int main(int argc, char **argv)
 	for (int i = 1; i < argc; i++)
 		free(wargv[i - 1]);
 #endif
+	free(name);
 	free(wargv);
 	return 0;
 }
@@ -100,26 +106,13 @@ int main(int argc, char **argv)
 /* and now for the ugly part... provide simplified logging functions so we
  * don't need to link libzebra (which would be a circular build dep) */
 
-#ifdef __ASSERT_FUNCTION
-#undef __ASSERT_FUNCTION
-#endif
-
 #include "log.h"
-#include "zassert.h"
 
-void vzlog(int prio, const char *format, va_list args)
+void vzlogx(const struct xref_logmsg *xref, int prio,
+	    const char *format, va_list args)
 {
 	vfprintf(stderr, format, args);
 	fputs("\n", stderr);
-}
-
-void _zlog_assert_failed(const char *assertion, const char *file,
-			 unsigned int line, const char *function)
-{
-	fprintf(stderr,
-		"Assertion `%s' failed in file %s, line %u, function %s",
-		assertion, file, line, (function ? function : "?"));
-	abort();
 }
 
 void memory_oom(size_t size, const char *name)

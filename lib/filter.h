@@ -50,8 +50,6 @@ extern "C" {
 /* Filter type is made by `permit', `deny' and `dynamic'. */
 enum filter_type { FILTER_DENY, FILTER_PERMIT, FILTER_DYNAMIC };
 
-enum access_type { ACCESS_TYPE_STRING, ACCESS_TYPE_NUMBER };
-
 struct filter_cisco {
 	/* Cisco access-list */
 	int extended;
@@ -103,8 +101,6 @@ struct access_list {
 
 	struct access_master *master;
 
-	enum access_type type;
-
 	struct access_list *next;
 	struct access_list *prev;
 
@@ -120,9 +116,6 @@ struct access_list_list {
 
 /* Master structure of access_list. */
 struct access_master {
-	/* List of access_list which name is number. */
-	struct access_list_list num;
-
 	/* List of access_list which name is string. */
 	struct access_list_list str;
 
@@ -151,10 +144,6 @@ void access_list_filter_add(struct access_list *access,
 void access_list_filter_delete(struct access_list *access,
 			       struct filter *filter);
 int64_t filter_new_seq_get(struct access_list *access);
-struct filter *filter_lookup_cisco(struct access_list *access,
-				   struct filter *mnew);
-struct filter *filter_lookup_zebra(struct access_list *access,
-				   struct filter *mnew);
 
 extern const struct frr_yang_module_info frr_filter_info;
 
@@ -182,6 +171,9 @@ struct acl_dup_args {
 	/** Access list name. */
 	const char *ada_name;
 
+	/** Entry action. */
+	const char *ada_action;
+
 #define ADA_MAX_VALUES 4
 	/** Entry XPath for value. */
 	const char *ada_xpath[ADA_MAX_VALUES];
@@ -190,6 +182,9 @@ struct acl_dup_args {
 
 	/** Duplicated entry found in list? */
 	bool ada_found;
+
+	/** Sequence number of the found entry */
+	int64_t ada_seq;
 
 	/** (Optional) Already existing `dnode`. */
 	const struct lyd_node *ada_entry_dnode;
@@ -209,6 +204,9 @@ struct plist_dup_args {
 	/** Access list name. */
 	const char *pda_name;
 
+	/** Entry action. */
+	const char *pda_action;
+
 #define PDA_MAX_VALUES 4
 	/** Entry XPath for value. */
 	const char *pda_xpath[PDA_MAX_VALUES];
@@ -217,6 +215,9 @@ struct plist_dup_args {
 
 	/** Duplicated entry found in list? */
 	bool pda_found;
+
+	/** Sequence number of the found entry */
+	int64_t pda_seq;
 
 	/** (Optional) Already existing `dnode`. */
 	const struct lyd_node *pda_entry_dnode;
@@ -234,10 +235,12 @@ bool plist_is_dup(const struct lyd_node *dnode, struct plist_dup_args *pda);
 struct lyd_node;
 struct vty;
 
+extern int access_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2);
 extern void access_list_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults);
 extern void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
+extern int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2);
 extern void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults);
 extern void prefix_list_remark_show(struct vty *vty, struct lyd_node *dnode,

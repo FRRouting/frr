@@ -17,6 +17,8 @@ import os
 import re
 import pygments
 from sphinx.highlighting import lexers
+from sphinx.util import logging
+logger = logging.getLogger(__name__)
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -362,11 +364,37 @@ texinfo_documents = [
 with open("../extra/frrlexer.py", "rb") as lex:
     frrlexerpy = lex.read()
 
+frrfmt_re = re.compile(r'^\s*%(?P<spec>[^\s]+)\s+\((?P<types>.*)\)\s*$')
+
+def parse_frrfmt(env, text, node):
+    from sphinx import addnodes
+
+    m = frrfmt_re.match(text)
+    if not m:
+        logger.warning('could not parse frrfmt:: %r' % (text), location=node)
+        node += addnodes.desc_name(text, text)
+        return text
+
+    spec, types = m.group('spec'), m.group('types')
+
+    node += addnodes.desc_sig_operator('%', '%')
+    node += addnodes.desc_name(spec + ' ', spec + ' ')
+    plist = addnodes.desc_parameterlist()
+    for typ in types.split(','):
+        typ = typ.strip()
+        plist += addnodes.desc_parameter(typ, typ)
+    node += plist
+    return '%' + spec
+
 # custom extensions here
 def setup(app):
     # object type for FRR CLI commands, can be extended to document parent CLI
     # node later on
     app.add_object_type("clicmd", "clicmd")
+
+    # printfrr extensions
+    app.add_object_type("frrfmt", "frrfmt", parse_node=parse_frrfmt)
+
     # css overrides for HTML theme
     app.add_stylesheet("overrides.css")
     # load Pygments lexer for FRR config syntax

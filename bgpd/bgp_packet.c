@@ -68,12 +68,12 @@
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
 			struct stream *s),
-		(peer, type, size, s))
+		(peer, type, size, s));
 
 DEFINE_HOOK(bgp_packet_send,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
 			struct stream *s),
-		(peer, type, size, s))
+		(peer, type, size, s));
 
 /**
  * Sets marker and type fields for a BGP message.
@@ -144,7 +144,7 @@ static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 		zlog_debug("send End-of-RIB for %s to %s",
 			   get_afi_safi_str(afi, safi, false), peer->host);
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
@@ -444,6 +444,45 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 			 * yet.
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
+				if (!paf->t_announce_route) {
+					/* Make sure we supress BGP UPDATES
+					 * for normal processing later again.
+					 */
+					UNSET_FLAG(paf->subgroup->sflags,
+						   SUBGRP_STATUS_FORCE_UPDATES);
+
+					/* If route-refresh BoRR message was
+					 * already sent and we are done with
+					 * re-announcing tables for a decent
+					 * afi/safi, we ready to send
+					 * EoRR request.
+					 */
+					if (CHECK_FLAG(
+						    peer->af_sflags[afi][safi],
+						    PEER_STATUS_BORR_SEND)) {
+						bgp_route_refresh_send(
+							peer, afi, safi, 0, 0,
+							0,
+							BGP_ROUTE_REFRESH_EORR);
+
+						SET_FLAG(peer->af_sflags[afi]
+									[safi],
+							 PEER_STATUS_EORR_SEND);
+						UNSET_FLAG(
+							peer->af_sflags[afi]
+								       [safi],
+							PEER_STATUS_BORR_SEND);
+
+						if (bgp_debug_neighbor_events(
+							    peer))
+							zlog_debug(
+								"%s sending route-refresh (EoRR) for %s/%s",
+								peer->host,
+								afi2str(afi),
+								safi2str(safi));
+					}
+				}
+
 				if (CHECK_FLAG(peer->cap,
 					       PEER_CAP_RESTART_RCV)) {
 					if (!(PAF_SUBGRP(paf))->t_coalesce
@@ -506,7 +545,7 @@ void bgp_keepalive_send(struct peer *peer)
 {
 	struct stream *s;
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 
 	/* Make keepalive packet. */
 	bgp_packet_set_marker(s, BGP_MSG_KEEPALIVE);
@@ -547,7 +586,7 @@ void bgp_open_send(struct peer *peer)
 	else
 		local_as = peer->local_as;
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 
 	/* Make open packet. */
 	bgp_packet_set_marker(s, BGP_MSG_OPEN);
@@ -687,7 +726,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	/* ============================================== */
 
 	/* Allocate new stream. */
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make notify packet. */
 	bgp_packet_set_marker(s, BGP_MSG_NOTIFY);
@@ -713,7 +752,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	 */
 	if (peer->curr) {
 		size_t packetsize = stream_get_endp(peer->curr);
-		assert(packetsize <= sizeof(peer->last_reset_cause));
+		assert(packetsize <= peer->max_packet_size);
 		memcpy(peer->last_reset_cause, peer->curr->data, packetsize);
 		peer->last_reset_cause_size = packetsize;
 	}
@@ -809,7 +848,7 @@ void bgp_notify_send(struct peer *peer, uint8_t code, uint8_t sub_code)
  */
 void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 			    uint8_t orf_type, uint8_t when_to_refresh,
-			    int remove)
+			    int remove, uint8_t subtype)
 {
 	struct stream *s;
 	struct bgp_filter *filter;
@@ -825,7 +864,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
 	if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
@@ -835,7 +874,10 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Encode Route Refresh message. */
 	stream_putw(s, pkt_afi);
-	stream_putc(s, 0);
+	if (subtype)
+		stream_putc(s, subtype);
+	else
+		stream_putc(s, 0);
 	stream_putc(s, pkt_safi);
 
 	if (orf_type == ORF_TYPE_PREFIX || orf_type == ORF_TYPE_PREFIX_OLD)
@@ -921,7 +963,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_CAPABILITY);
@@ -958,98 +1000,90 @@ static int bgp_collision_detect(struct peer *new, struct in_addr remote_id)
 {
 	struct peer *peer;
 
-	/* Upon receipt of an OPEN message, the local system must examine
-	   all of its connections that are in the OpenConfirm state.  A BGP
-	   speaker may also examine connections in an OpenSent state if it
-	   knows the BGP Identifier of the peer by means outside of the
-	   protocol.  If among these connections there is a connection to a
-	   remote BGP speaker whose BGP Identifier equals the one in the
-	   OPEN message, then the local system performs the following
-	   collision resolution procedure: */
+	/*
+	 * Upon receipt of an OPEN message, the local system must examine
+	 * all of its connections that are in the OpenConfirm state.  A BGP
+	 * speaker may also examine connections in an OpenSent state if it
+	 * knows the BGP Identifier of the peer by means outside of the
+	 * protocol.  If among these connections there is a connection to a
+	 * remote BGP speaker whose BGP Identifier equals the one in the
+	 * OPEN message, then the local system performs the following
+	 * collision resolution procedure:
+	 */
+	peer = new->doppelganger;
+	if (peer == NULL)
+		return 0;
 
-	if ((peer = new->doppelganger) != NULL) {
-		/* Do not accept the new connection in Established or Clearing
-		 * states.
-		 * Note that a peer GR is handled by closing the existing
-		 * connection
-		 * upon receipt of new one.
-		 */
-		if (peer->status == Established || peer->status == Clearing) {
+	/*
+	 * Do not accept the new connection in Established or Clearing
+	 * states. Note that a peer GR is handled by closing the existing
+	 * connection upon receipt of new one.
+	 */
+	if (peer->status == Established || peer->status == Clearing) {
+		bgp_notify_send(new, BGP_NOTIFY_CEASE,
+				BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+		return -1;
+	}
+
+	if ((peer->status != OpenConfirm) && (peer->status != OpenSent))
+		return 0;
+
+	/*
+	 * 1. The BGP Identifier of the local system is
+	 * compared to the BGP Identifier of the remote
+	 * system (as specified in the OPEN message).
+	 *
+	 * If the BGP Identifiers of the peers
+	 * involved in the connection collision
+	 * are identical, then the connection
+	 * initiated by the BGP speaker with the
+	 * larger AS number is preserved.
+	 */
+	if (ntohl(peer->local_id.s_addr) < ntohl(remote_id.s_addr)
+	    || (ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr)
+		&& peer->local_as < peer->as))
+		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) {
+			/*
+			 * 2. If the value of the local BGP
+			 * Identifier is less than the remote one,
+			 * the local system closes BGP connection
+			 * that already exists (the one that is
+			 * already in the OpenConfirm state),
+			 * and accepts BGP connection initiated by
+			 * the remote system.
+			 */
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+			return 1;
+		} else {
 			bgp_notify_send(new, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 			return -1;
-		} else if ((peer->status == OpenConfirm)
-			   || (peer->status == OpenSent)) {
-			/* 1. The BGP Identifier of the local system is
-			 * compared to the BGP Identifier of the remote
-			 * system (as specified in the OPEN message).
-			 *
-			 * If the BGP Identifiers of the peers
-			 * involved in the connection collision
-			 * are identical, then the connection
-			 * initiated by the BGP speaker with the
-			 * larger AS number is preserved.
-			 */
-			if (ntohl(peer->local_id.s_addr)
-				    < ntohl(remote_id.s_addr)
-			    || (ntohl(peer->local_id.s_addr)
-					       == ntohl(remote_id.s_addr)
-				       && peer->local_as < peer->as))
-				if (!CHECK_FLAG(peer->sflags,
-						PEER_STATUS_ACCEPT_PEER)) {
-					/* 2. If the value of the local BGP
-					   Identifier is less
-					   than the remote one, the local system
-					   closes BGP
-					   connection that already exists (the
-					   one that is
-					   already in the OpenConfirm state),
-					   and accepts BGP
-					   connection initiated by the remote
-					   system. */
-					bgp_notify_send(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
-					return 1;
-				} else {
-					bgp_notify_send(
-						new, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
-					return -1;
-				}
-			else {
-				if (ntohl(peer->local_id.s_addr)
-					    == ntohl(remote_id.s_addr)
-				    && peer->local_as == peer->as)
-					flog_err(
-						EC_BGP_ROUTER_ID_SAME,
-						"Peer's router-id %pI4 is the same as ours",
-						&remote_id);
+		}
+	else {
+		if (ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr)
+		    && peer->local_as == peer->as)
+			flog_err(EC_BGP_ROUTER_ID_SAME,
+				 "Peer's router-id %pI4 is the same as ours",
+				 &remote_id);
 
-				/* 3. Otherwise, the local system closes newly
-				   created
-				   BGP connection (the one associated with the
-				   newly
-				   received OPEN message), and continues to use
-				   the
-				   existing one (the one that is already in the
-				   OpenConfirm state). */
-				if (CHECK_FLAG(peer->sflags,
-					       PEER_STATUS_ACCEPT_PEER)) {
-					bgp_notify_send(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
-					return 1;
-				} else {
-					bgp_notify_send(
-						new, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
-					return -1;
-				}
-			}
+		/*
+		 * 3. Otherwise, the local system closes newly
+		 * created BGP connection (the one associated with the
+		 * newly received OPEN message), and continues to use
+		 * the existing one (the one that is already in the
+		 * OpenConfirm state).
+		 */
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) {
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+			return 1;
+		} else {
+			bgp_notify_send(new, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+			return -1;
 		}
 	}
-	return 0;
 }
 
 /* Packet processing routines ---------------------------------------------- */
@@ -1227,9 +1261,6 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 	}
 
-	/* Set remote router-id */
-	peer->remote_id = remote_id;
-
 	/* Peer BGP version check. */
 	if (version != BGP_VERSION_4) {
 		uint16_t maxver = htons(BGP_VERSION_4);
@@ -1288,6 +1319,25 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 					  notify_data_remote_as, 2);
 		return BGP_Stop;
 	}
+
+	/*
+	 * When collision is detected and this peer is closed.
+	 * Return immediately.
+	 */
+	ret = bgp_collision_detect(peer, remote_id);
+	if (ret < 0)
+		return BGP_Stop;
+
+	/* Get sockname. */
+	if (bgp_getsockname(peer) < 0) {
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: bgp_getsockname() failed for peer: %s",
+			     __func__, peer->host);
+		return BGP_Stop;
+	}
+
+	/* Set remote router-id */
+	peer->remote_id = remote_id;
 
 	/* From the rfc: Upon receipt of an OPEN message, a BGP speaker MUST
 	   calculate the value of the Hold Timer by using the smaller of its
@@ -1369,21 +1419,6 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 			peer->afc[AFI_IP6][SAFI_FLOWSPEC];
 	}
 
-	/* When collision is detected and this peer is closed.
-	 * Return immediately.
-	 */
-	ret = bgp_collision_detect(peer, remote_id);
-	if (ret < 0)
-		return BGP_Stop;
-
-	/* Get sockname. */
-	if (bgp_getsockname(peer) < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "%s: bgp_getsockname() failed for peer: %s",
-			     __func__, peer->host);
-		return BGP_Stop;
-	}
-
 	/* Verify valid local address present based on negotiated
 	 * address-families. */
 	if (peer->afc_nego[AFI_IP][SAFI_UNICAST]
@@ -1453,6 +1488,29 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	return Receive_KEEPALIVE_message;
 }
 
+static int bgp_refresh_stalepath_timer_expire(struct thread *thread)
+{
+	struct peer_af *paf;
+
+	paf = THREAD_ARG(thread);
+
+	afi_t afi = paf->afi;
+	safi_t safi = paf->safi;
+	struct peer *peer = paf->peer;
+
+	peer->t_refresh_stalepath = NULL;
+
+	if (peer->nsf[afi][safi])
+		bgp_clear_stale_route(peer, afi, safi);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s: route-refresh (BoRR) timer for %s/%s expired",
+			   peer->host, afi2str(afi), safi2str(safi));
+
+	bgp_timer_set(peer);
+
+	return 0;
+}
 
 /**
  * Process BGP UPDATE message for peer.
@@ -1798,6 +1856,7 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	bgp_notify.subcode = stream_getc(peer->curr);
 	bgp_notify.length = size - 2;
 	bgp_notify.data = NULL;
+	bgp_notify.raw_data = NULL;
 
 	/* Preserv notify code and sub code. */
 	peer->notify.code = bgp_notify.code;
@@ -1881,6 +1940,9 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	struct peer_af *paf;
 	struct update_group *updgrp;
 	struct peer *updgrp_peer;
+	uint8_t subtype;
+	bgp_size_t msg_length =
+		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
 
 	/* If peer does not have the capability, send notification. */
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_ADV)) {
@@ -1908,13 +1970,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 	/* Parse packet. */
 	pkt_afi = stream_getw(s);
-	(void)stream_getc(s);
+	subtype = stream_getc(s);
 	pkt_safi = stream_getc(s);
-
-	if (bgp_debug_update(peer, NULL, NULL, 0))
-		zlog_debug("%s rcvd REFRESH_REQ for afi/safi: %s/%s",
-			   peer->host, iana_afi2str(pkt_afi),
-			   iana_safi2str(pkt_safi));
 
 	/* Convert AFI, SAFI to internal values and check. */
 	if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
@@ -1931,8 +1988,34 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 		uint8_t orf_type;
 		uint16_t orf_len;
 
-		if (size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE)
-		    < 5) {
+		if (subtype) {
+			/* If the length, excluding the fixed-size message
+			 * header, of the received ROUTE-REFRESH message with
+			 * Message Subtype 1 and 2 is not 4, then the BGP
+			 * speaker MUST send a NOTIFICATION message with the
+			 * Error Code of "ROUTE-REFRESH Message Error" and the
+			 * subcode of "Invalid Message Length".
+			 */
+			if (msg_length != 4) {
+				zlog_err(
+					"%s Enhanced Route Refresh message length error",
+					peer->host);
+				bgp_notify_send(
+					peer, BGP_NOTIFY_ROUTE_REFRESH_ERR,
+					BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN);
+			}
+
+			/* When the BGP speaker receives a ROUTE-REFRESH message
+			 * with a "Message Subtype" field other than 0, 1, or 2,
+			 * it MUST ignore the received ROUTE-REFRESH message.
+			 */
+			if (subtype > 2)
+				zlog_err(
+					"%s Enhanced Route Refresh invalid subtype",
+					peer->host);
+		}
+
+		if (msg_length < 5) {
 			zlog_info("%s ORF route refresh length error",
 				  peer->host);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
@@ -2116,6 +2199,11 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 				peer->orf_plist[afi][safi];
 		}
 
+		/* Avoid supressing duplicate routes later
+		 * when processing in subgroup_announce_table().
+		 */
+		SET_FLAG(paf->subgroup->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+
 		/* If the peer is configured for default-originate clear the
 		 * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will
 		 * re-advertise the
@@ -2125,6 +2213,124 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			       SUBGRP_STATUS_DEFAULT_ORIGINATE))
 			UNSET_FLAG(paf->subgroup->sflags,
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
+	}
+
+	if (subtype == BGP_ROUTE_REFRESH_BORR) {
+		/* A BGP speaker that has received the Graceful Restart
+		 * Capability from its neighbor MUST ignore any BoRRs for
+		 * an <AFI, SAFI> from the neighbor before the speaker
+		 * receives the EoR for the given <AFI, SAFI> from the
+		 * neighbor.
+		 */
+		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)
+		    && !CHECK_FLAG(peer->af_sflags[afi][safi],
+				   PEER_STATUS_EOR_RECEIVED)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s rcvd route-refresh (BoRR) for %s/%s before EoR",
+					peer->host, afi2str(afi),
+					safi2str(safi));
+			return BGP_PACKET_NOOP;
+		}
+
+		if (peer->t_refresh_stalepath) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
+					peer->host, afi2str(afi),
+					safi2str(safi));
+			return BGP_PACKET_NOOP;
+		}
+
+		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_BORR_RECEIVED);
+		UNSET_FLAG(peer->af_sflags[afi][safi],
+			   PEER_STATUS_EORR_RECEIVED);
+
+		/* When a BGP speaker receives a BoRR message from
+		 * a peer, it MUST mark all the routes with the given
+		 * Address Family Identifier and Subsequent Address
+		 * Family Identifier, <AFI, SAFI> [RFC2918], from
+		 * that peer as stale.
+		 */
+		if (peer_active_nego(peer)) {
+			SET_FLAG(peer->af_sflags[afi][safi],
+				 PEER_STATUS_ENHANCED_REFRESH);
+			bgp_set_stale_route(peer, afi, safi);
+		}
+
+		if (peer->status == Established)
+			thread_add_timer(bm->master,
+					 bgp_refresh_stalepath_timer_expire,
+					 paf, peer->bgp->stalepath_time,
+					 &peer->t_refresh_stalepath);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug(
+				"%s rcvd route-refresh (BoRR) for %s/%s, triggering timer for %u seconds",
+				peer->host, afi2str(afi), safi2str(safi),
+				peer->bgp->stalepath_time);
+	} else if (subtype == BGP_ROUTE_REFRESH_EORR) {
+		if (!peer->t_refresh_stalepath) {
+			zlog_err(
+				"%s rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
+				peer->host, afi2str(afi), safi2str(safi));
+			return BGP_PACKET_NOOP;
+		}
+
+		BGP_TIMER_OFF(peer->t_refresh_stalepath);
+
+		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_RECEIVED);
+		UNSET_FLAG(peer->af_sflags[afi][safi],
+			   PEER_STATUS_BORR_RECEIVED);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug(
+				"%s rcvd route-refresh (EoRR) for %s/%s, stopping BoRR timer",
+				peer->host, afi2str(afi), safi2str(safi));
+
+		if (peer->nsf[afi][safi])
+			bgp_clear_stale_route(peer, afi, safi);
+	} else {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s rcvd route-refresh (REQUEST) for %s/%s",
+				   peer->host, afi2str(afi), safi2str(safi));
+
+		/* In response to a "normal route refresh request" from the
+		 * peer, the speaker MUST send a BoRR message.
+		 */
+		if (CHECK_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV)) {
+			/* For a BGP speaker that supports the BGP Graceful
+			 * Restart, it MUST NOT send a BoRR for an <AFI, SAFI>
+			 * to a neighbor before it sends the EoR for the
+			 * <AFI, SAFI> to the neighbor.
+			 */
+			if (!CHECK_FLAG(peer->af_sflags[afi][safi],
+					PEER_STATUS_EOR_SEND)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%s rcvd route-refresh (REQUEST) for %s/%s before EoR",
+						peer->host, afi2str(afi),
+						safi2str(safi));
+				return BGP_PACKET_NOOP;
+			}
+
+			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+					       BGP_ROUTE_REFRESH_BORR);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s sending route-refresh (BoRR) for %s/%s",
+					peer->host, afi2str(afi),
+					safi2str(safi));
+
+			/* Set flag Ready-To-Send to know when we can send EoRR
+			 * message.
+			 */
+			SET_FLAG(peer->af_sflags[afi][safi],
+				 PEER_STATUS_BORR_SEND);
+			UNSET_FLAG(peer->af_sflags[afi][safi],
+				   PEER_STATUS_EORR_SEND);
+		}
 	}
 
 	/* Perform route refreshment to the peer */
@@ -2467,7 +2673,7 @@ int bgp_process_packet(struct thread *thread)
 		frr_with_mutex(&peer->io_mtx) {
 			// more work to do, come back later
 			if (peer->ibuf->count > 0)
-				thread_add_timer_msec(
+				thread_add_event(
 					bm->master, bgp_process_packet, peer, 0,
 					&peer->t_process_packet);
 		}
@@ -2485,4 +2691,38 @@ void bgp_send_delayed_eor(struct bgp *bgp)
 	/* EOR message sent in bgp_write_proceed_actions */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 		bgp_write_proceed_actions(peer);
+}
+
+/*
+ * Task callback to handle socket error encountered in the io pthread. We avoid
+ * having the io pthread try to enqueue fsm events or mess with the peer
+ * struct.
+ */
+int bgp_packet_process_error(struct thread *thread)
+{
+	struct peer *peer;
+	int code;
+
+	peer = THREAD_ARG(thread);
+	code = THREAD_VAL(thread);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s [Event] BGP error %d on fd %d",
+			   peer->host, peer->fd, code);
+
+	/* Closed connection or error on the socket */
+	if (peer->status == Established) {
+		if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+		     || CHECK_FLAG(peer->flags,
+				   PEER_FLAG_GRACEFUL_RESTART_HELPER))
+		    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+			peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+		} else
+			peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+	}
+
+	bgp_event_update(peer, code);
+
+	return 0;
 }

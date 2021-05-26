@@ -103,6 +103,9 @@
 /* Extended Communities type flag.  */
 #define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40
 
+/* Extended Community readable string length */
+#define ECOMMUNITY_STRLEN 64
+
 /* Extended Communities attribute.  */
 struct ecommunity {
 	/* Reference counter.  */
@@ -114,7 +117,7 @@ struct ecommunity {
 	uint8_t unit_size;
 
 	/* Size of Extended Communities attribute.  */
-	int size;
+	uint32_t size;
 
 	/* Extended Communities value.  */
 	uint8_t *val;

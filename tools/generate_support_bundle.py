@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 ########################################################
 ### Python Script to generate the FRR support bundle ###
@@ -7,23 +7,12 @@ import os
 import subprocess
 import datetime
 
-TOOLS_DIR = "tools/"
 ETC_DIR = "/etc/frr/"
 LOG_DIR = "/var/log/frr/"
 SUCCESS = 1
 FAIL = 0
 
 inputFile = ETC_DIR + "support_bundle_commands.conf"
-
-# Open support bundle configuration file
-def openConfFile(i_file):
-    try:
-        with open(i_file) as supportBundleConfFile:
-            lines = filter(None, (line.rstrip() for line in supportBundleConfFile))
-        return lines
-    except IOError:
-        return []
-
 
 # Create the output file name
 def createOutputFile(procName):
@@ -50,9 +39,9 @@ def openOutputFile(fileName):
 
 
 # Close the output file for this process
-def closeOutputFile(file):
+def closeOutputFile(f):
     try:
-        file.close()
+        f.close()
         return SUCCESS
     except IOError:
         return FAIL
@@ -67,13 +56,13 @@ def executeCommand(cmd, outputFile):
         try:
             dateTime = datetime.datetime.now()
             outputFile.write(">>[" + str(dateTime) + "]" + cmd + "\n")
-            outputFile.write(cmd_output)
+            outputFile.write(str(cmd_output))
             outputFile.write(
                 "########################################################\n"
             )
             outputFile.write("\n")
-        except:
-            print("Writing to ouptut file Failed")
+        except Exception as e:
+            print("Writing to output file Failed: ", e)
     except subprocess.CalledProcessError as e:
         dateTime = datetime.datetime.now()
         outputFile.write(">>[" + str(dateTime) + "]" + cmd + "\n")
@@ -85,10 +74,23 @@ def executeCommand(cmd, outputFile):
 
 # Process the support bundle configuration file
 # and call appropriate functions
-def processConfFile(lines):
+def processConfFile():
+
+    lines = list()
+    outputFile = None
+
+    try:
+        with open(inputFile, "r") as supportBundleConfFile:
+            for l in supportBundleConfFile:
+                lines.append(l.rstrip())
+    except IOError:
+        print("conf file {} not present".format(inputFile))
+        return
+
     for line in lines:
-        if line[0][0] == "#":
+        if len(line) == 0 or line[0] == "#":
             continue
+
         cmd_line = line.split(":")
         if cmd_line[0] == "PROC_NAME":
             outputFileName = createOutputFile(cmd_line[1])
@@ -112,8 +114,4 @@ def processConfFile(lines):
 
 
 # Main Function
-lines = openConfFile(inputFile)
-if not lines:
-    print("File support_bundle_commands.conf not present in /etc/frr/ directory")
-else:
-    processConfFile(lines)
+processConfFile()

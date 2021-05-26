@@ -21,7 +21,7 @@
 
 #include "log.h"
 #include "privs.h"
-#include "version.h"
+#include "lib/version.h"
 #include <getopt.h>
 #include "command.h"
 #include "thread.h"
@@ -32,7 +32,7 @@
 #include "filter.h"
 #include "vty.h"
 #include "sigevent.h"
-#include "version.h"
+#include "lib/version.h"
 #include "prefix.h"
 #include "plist.h"
 #include "vrf.h"
@@ -92,7 +92,8 @@ FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
 		.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
 
 		.privs = &pimd_privs, .yang_modules = pimd_yang_modules,
-		.n_yang_modules = array_size(pimd_yang_modules), )
+		.n_yang_modules = array_size(pimd_yang_modules),
+);
 
 
 int main(int argc, char **argv, char **envp)
@@ -144,6 +145,8 @@ int main(int argc, char **argv, char **envp)
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
+
+	routing_control_plane_protocols_register_vrf_dependency();
 
 	frr_config_fork();
 

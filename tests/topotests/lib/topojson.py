@@ -43,8 +43,9 @@ from lib.common_config import (
     create_vrf_cfg,
 )
 
+from lib.pim import create_pim_config, create_igmp_config
 from lib.bgp import create_router_bgp
-from lib.ospf import create_router_ospf
+from lib.ospf import create_router_ospf, create_router_ospf6
 
 ROUTER_LIST = []
 
@@ -68,20 +69,18 @@ def build_topo_from_json(tgen, topo):
             topo["switches"].keys(), key=lambda x: int(re_search("\d+", x).group(0))
         )
 
-    listRouters = ROUTER_LIST[:]
-    listSwitches = SWITCH_LIST[:]
+    listRouters = sorted(ROUTER_LIST[:])
+    listSwitches = sorted(SWITCH_LIST[:])
     listAllRouters = deepcopy(listRouters)
     dictSwitches = {}
 
     for routerN in ROUTER_LIST:
         logger.info("Topo: Add router {}".format(routerN))
         tgen.add_router(routerN)
-        listRouters.append(routerN)
 
     for switchN in SWITCH_LIST:
         logger.info("Topo: Add switch {}".format(switchN))
         dictSwitches[switchN] = tgen.add_switch(switchN)
-        listSwitches.append(switchN)
 
     if "ipv4base" in topo:
         ipv4Next = ipaddress.IPv4Address(topo["link_ip_start"]["ipv4"])
@@ -96,33 +95,25 @@ def build_topo_from_json(tgen, topo):
     for router in listRouters:
         topo["routers"][router]["nextIfname"] = 0
 
+    router_count = 0
     while listRouters != []:
         curRouter = listRouters.pop(0)
         # Physical Interfaces
         if "links" in topo["routers"][curRouter]:
-
-            def link_sort(x):
-                if x == "lo":
-                    return 0
-                elif "link" in x:
-                    return int(x.split("-link")[1])
-                else:
-                    return int(re_search("\d+", x).group(0))
-
             for destRouterLink, data in sorted(
-                topo["routers"][curRouter]["links"].items(),
-                key=lambda x: link_sort(x[0]),
+                topo["routers"][curRouter]["links"].iteritems()
             ):
                 currRouter_lo_json = topo["routers"][curRouter]["links"][destRouterLink]
                 # Loopback interfaces
                 if "type" in data and data["type"] == "loopback":
+                    router_count += 1
                     if (
                         "ipv4" in currRouter_lo_json
                         and currRouter_lo_json["ipv4"] == "auto"
                     ):
                         currRouter_lo_json["ipv4"] = "{}{}.{}/{}".format(
                             topo["lo_prefix"]["ipv4"],
-                            number_to_row(curRouter),
+                            router_count,
                             number_to_column(curRouter),
                             topo["lo_prefix"]["v4mask"],
                         )
@@ -132,7 +123,7 @@ def build_topo_from_json(tgen, topo):
                     ):
                         currRouter_lo_json["ipv6"] = "{}{}:{}/{}".format(
                             topo["lo_prefix"]["ipv6"],
-                            number_to_row(curRouter),
+                            router_count,
                             number_to_column(curRouter),
                             topo["lo_prefix"]["v6mask"],
                         )
@@ -164,6 +155,14 @@ def build_topo_from_json(tgen, topo):
                         curRouter, destRouter, topo["routers"][curRouter]["nextIfname"]
                     )
                     destRouter_link_json["interface"] = "{}-{}-eth{}".format(
+                        destRouter, curRouter, topo["routers"][destRouter]["nextIfname"]
+                    )
+
+                    # add link interface
+                    destRouter_link_json["peer-interface"] = "{}-{}-eth{}".format(
+                        curRouter, destRouter, topo["routers"][curRouter]["nextIfname"]
+                    )
+                    currRouter_link_json["peer-interface"] = "{}-{}-eth{}".format(
                         destRouter, curRouter, topo["routers"][destRouter]["nextIfname"]
                     )
 
@@ -311,8 +310,11 @@ def build_config_from_json(tgen, topo, save_bkup=True):
             ("prefix_lists", create_prefix_lists),
             ("bgp_community_list", create_bgp_community_lists),
             ("route_maps", create_route_maps),
+            ("pim", create_pim_config),
+            ("igmp", create_igmp_config),
             ("bgp", create_router_bgp),
             ("ospf", create_router_ospf),
+            ("ospf6", create_router_ospf6),
         ]
     )
 

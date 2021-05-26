@@ -25,6 +25,11 @@ dist_yangmodels_DATA += yang/frr-nexthop.yang
 dist_yangmodels_DATA += yang/frr-test-module.yang
 dist_yangmodels_DATA += yang/frr-interface.yang
 dist_yangmodels_DATA += yang/frr-route-map.yang
+dist_yangmodels_DATA += yang/frr-zebra-route-map.yang
+dist_yangmodels_DATA += yang/frr-ospf-route-map.yang
+dist_yangmodels_DATA += yang/frr-ospf6-route-map.yang
+dist_yangmodels_DATA += yang/frr-bgp-filter.yang
+dist_yangmodels_DATA += yang/frr-bgp-route-map.yang
 dist_yangmodels_DATA += yang/frr-vrf.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
 dist_yangmodels_DATA += yang/frr-routing.yang
@@ -82,3 +87,13 @@ dist_yangmodels_DATA += yang/frr-bgp-bmp.yang
 dist_yangmodels_DATA += yang/frr-bgp-types.yang
 dist_yangmodels_DATA += yang/frr-bgp.yang
 endif
+
+if PATHD
+dist_yangmodels_DATA += yang/frr-pathd.yang
+endif
+
+CLEANFILES += \
+	yang/*.c \
+	yang/ietf/*.c \
+	yang/confd/*.c \
+	#

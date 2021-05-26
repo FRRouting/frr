@@ -23,6 +23,7 @@
 
 #include "typesafe.h"
 #include "ospf6_top.h"
+#include "lib/json.h"
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_spf;
@@ -34,7 +35,7 @@ extern unsigned char conf_debug_ospf6_spf;
 #define IS_OSPF6_DEBUG_SPF(level)                                              \
 	(conf_debug_ospf6_spf & OSPF6_DEBUG_SPF_##level)
 
-PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue)
+PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue);
 /* Transit Vertex */
 struct ospf6_vertex {
 	/* type of this vertex */
@@ -88,6 +89,8 @@ struct ospf6_vertex {
 #define OSPF6_SPF_FLAGS_LINK_LSA_REMOVED         (1 << 5)
 #define OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED    (1 << 6)
 #define OSPF6_SPF_FLAGS_NETWORK_LSA_ORIGINATED   (1 << 7)
+#define OSPF6_SPF_FLAGS_CONFIG_CHANGE            (1 << 8)
+#define OSPF6_SPF_FLAGS_ASBR_STATUS_CHANGE       (1 << 9)
 
 static inline void ospf6_set_spf_reason(struct ospf6 *ospf, unsigned int reason)
 {
@@ -146,7 +149,8 @@ extern void ospf6_spf_calculation(uint32_t router_id,
 extern void ospf6_spf_schedule(struct ospf6 *ospf, unsigned int reason);
 
 extern void ospf6_spf_display_subtree(struct vty *vty, const char *prefix,
-				      int rest, struct ospf6_vertex *v);
+				      int rest, struct ospf6_vertex *v,
+				      json_object *json_obj, bool use_json);
 
 extern void ospf6_spf_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_spf(struct vty *vty);

@@ -384,7 +384,7 @@ def vparse(s):
 def setup(app):
     # object type for FRR CLI commands, can be extended to document parent CLI
     # node later on
-    app.add_object_type("clicmd", "clicmd")
+    app.add_object_type("clicmd", "clicmd", indextemplate="pair: %s; configuration command")
 
     # css overrides for HTML theme
     # Note sphinx version differences

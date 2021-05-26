@@ -45,7 +45,8 @@ Add packages:
 
    sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
-      json-c-devel pam-devel flex epel-release c-ares-devel libcap-devel
+      json-c-devel pam-devel flex epel-release c-ares-devel libcap-devel \
+      elfutils-libelf-devel
 
 Install newer version of bison (CentOS 6 package source is too old) from CentOS
 7:

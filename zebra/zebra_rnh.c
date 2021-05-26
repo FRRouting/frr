@@ -48,10 +48,9 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/interface.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_errors.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object")
+DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object");
 
 static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);
@@ -1124,7 +1123,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		break;
 	default:
 		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
-			 "%s: Unknown family (%d) notification attempted\n",
+			 "%s: Unknown family (%d) notification attempted",
 			 __func__, rn->p.family);
 		goto failure;
 	}

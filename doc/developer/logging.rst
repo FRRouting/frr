@@ -1,5 +1,7 @@
 .. _logging:
 
+.. highlight:: c
+
 Logging
 =======
 
@@ -52,60 +54,30 @@ are available:
       if (ret != buf)
          XFREE(MTYPE_FOO, ret);
 
-Extensions
-^^^^^^^^^^
+.. c:function:: ssize_t bprintfrr(struct fbuf *fb, const char *fmt, ...)
+.. c:function:: ssize_t vbprintfrr(struct fbuf *fb, const char *fmt, va_list)
 
-``printfrr()`` format strings can be extended with suffixes after `%p` or
-`%d`.  The following extended format specifiers are available:
+   These are the "lowest level" functions, which the other variants listed
+   above use to implement their functionality on top.  Mainly useful for
+   implementing printfrr extensions since those get a ``struct fbuf *`` to
+   write their output to.
 
-+-----------+--------------------------+----------------------------------------------+
-| Specifier | Argument                 | Output                                       |
-+===========+==========================+==============================================+
-| ``%Lu``   | ``uint64_t``             | ``12345``                                    |
-+-----------+--------------------------+----------------------------------------------+
-| ``%Ld``   | ``int64_t``              | ``-12345``                                   |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pI4``  | ``struct in_addr *``     | ``1.2.3.4``                                  |
-|           |                          |                                              |
-|           | ``in_addr_t *``          |                                              |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pI6``  | ``struct in6_addr *``    | ``fe80::1234``                               |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pFX``  | ``struct prefix *``      | ``fe80::1234/64``                            |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pSG4`` | ``struct prefix_sg *``   | ``(*,1.2.3.4)``                              |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pRN``  | ``struct route_node *``  | ``192.168.1.0/24`` (dst-only node)           |
-|           |                          |                                              |
-|           |                          | ``2001:db8::/32 from fe80::/64`` (SADR node) |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pNHv`` | ``struct nexthop *``     | ``1.2.3.4, via eth0``                        |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pNHs`` | ``struct nexthop *``     | ``1.2.3.4 if 15``                            |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pFX``  + ``struct bgp_dest *``    | ``fe80::1234/64`` available in BGP only      |
-+-----------+--------------------------+----------------------------------------------+
+.. c:macro:: FMT_NSTD(expr)
 
-Printf features like field lengths can be used normally with these extensions,
-e.g. ``%-15pI4`` works correctly.
+   This macro turns off/on format warnings as needed when non-ISO-C
+   compatible printfrr extensions are used (e.g. ``%.*p`` or ``%Ld``.)::
 
-The extension specifier after ``%p`` or ``%d`` is always an uppercase letter;
-by means of established pattern uppercase letters and numbers form the type
-identifier which may be followed by lowercase flags.
+      vty_out(vty, "standard compatible %pI4\n", &addr);
+      FMT_NSTD(vty_out(vty, "non-standard %-47.*pHX\n", (int)len, buf));
 
-You can grep the FRR source for ``printfrr_ext_autoreg`` to see all extended
-printers and what exactly they do.  More printers are likely to be added as
-needed/useful, so the list above may become outdated.
-
-``%Ld`` is not an "extension" for printfrr; it's wired directly into the main
-printf logic.
+   When the frr-format plugin is in use, this macro is a no-op since the
+   frr-format plugin supports all printfrr extensions.  Since the FRR CI
+   includes a system with the plugin enabled, this means format errors will
+   not slip by undetected even with FMT_NSTD.
 
 .. note::
 
-   The ``zlog_*``/``flog_*`` and ``vty_out`` functions all use printfrr
-   internally, so these extensions are available there.  However, they are
-   **not** available when calling ``snprintf`` directly.  You need to call
-   ``snprintfrr`` instead.
+   ``printfrr()`` does not support the ``%n`` format.
 
 AS-Safety
 ^^^^^^^^^
@@ -117,6 +89,243 @@ AS-Safety
 * the positional ``%1$d`` syntax should not be used (8 arguments are supported
   while AS-Safe)
 * extensions are only AS-Safe if their printer is AS-Safe
+
+printfrr Extensions
+-------------------
+
+``printfrr()`` format strings can be extended with suffixes after `%p` or `%d`.
+Printf features like field lengths can be used normally with these extensions,
+e.g. ``%-15pI4`` works correctly, **except if the extension consumes the
+width or precision**.  Extensions that do so are listed below as ``%*pXX``
+rather than ``%pXX``.
+
+The extension specifier after ``%p`` or ``%d`` is always an uppercase letter;
+by means of established pattern uppercase letters and numbers form the type
+identifier which may be followed by lowercase flags.
+
+You can grep the FRR source for ``printfrr_ext_autoreg`` to see all extended
+printers and what exactly they do.  More printers are likely to be added as
+needed/useful, so the list here may be outdated.
+
+.. note::
+
+   The ``zlog_*``/``flog_*`` and ``vty_out`` functions all use printfrr
+   internally, so these extensions are available there.  However, they are
+   **not** available when calling ``snprintf`` directly.  You need to call
+   ``snprintfrr`` instead.
+
+Networking data types
+^^^^^^^^^^^^^^^^^^^^^
+
+.. role:: frrfmtout(code)
+
+.. frrfmt:: %pI4 (struct in_addr *, in_addr_t *)
+
+   :frrfmtout:`1.2.3.4`
+
+.. frrfmt:: %pI6 (struct in6_addr *)
+
+   :frrfmtout:`fe80::1234`
+
+.. frrfmt:: %pEA (struct ethaddr *)
+
+   :frrfmtout:`01:23:45:67:89:ab`
+
+.. frrfmt:: %pIA (struct ipaddr *)
+
+   :frrfmtout:`1.2.3.4` / :frrfmtout:`fe80::1234`
+
+.. frrfmt:: %pFX (struct prefix *)
+
+   :frrfmtout:`1.2.3.0/24` / :frrfmtout:`fe80::1234/64`
+
+   This accepts the following types:
+
+   - :c:struct:`prefix`
+   - :c:struct:`prefix_ipv4`
+   - :c:struct:`prefix_ipv6`
+   - :c:struct:`prefix_eth`
+   - :c:struct:`prefix_evpn`
+   - :c:struct:`prefix_fs`
+
+   It does **not** accept the following types:
+
+   - :c:struct:`prefix_ls`
+   - :c:struct:`prefix_rd`
+   - :c:struct:`prefix_ptr`
+   - :c:struct:`prefix_sg` (use :frrfmt:`%pSG4`)
+   - :c:union:`prefixptr` (dereference to get :c:struct:`prefix`)
+   - :c:union:`prefixconstptr` (dereference to get :c:struct:`prefix`)
+
+.. frrfmt:: %pSG4 (struct prefix_sg *)
+
+   :frrfmtout:`(*,1.2.3.4)`
+
+   This is *(S,G)* output for use in pimd.  (Note prefix_sg is not a prefix
+   "subclass" like the other prefix_* structs.)
+
+.. frrfmt:: %pSU (union sockunion *)
+
+   ``%pSU``: :frrfmtout:`1.2.3.4` / :frrfmtout:`fe80::1234`
+
+   ``%pSUs``: :frrfmtout:`1.2.3.4` / :frrfmtout:`fe80::1234%89`
+   (adds IPv6 scope ID as integer)
+
+   ``%pSUp``: :frrfmtout:`1.2.3.4:567` / :frrfmtout:`[fe80::1234]:567`
+   (adds port)
+
+   ``%pSUps``: :frrfmtout:`1.2.3.4:567` / :frrfmtout:`[fe80::1234%89]:567`
+   (adds port and scope ID)
+
+.. frrfmt:: %pRN (struct route_node *, struct bgp_node *, struct agg_node *)
+
+   :frrfmtout:`192.168.1.0/24` (dst-only node)
+
+   :frrfmtout:`2001:db8::/32 from fe80::/64` (SADR node)
+
+.. frrfmt:: %pNH (struct nexthop *)
+
+   ``%pNHvv``: :frrfmtout:`via 1.2.3.4, eth0` — verbose zebra format
+
+   ``%pNHv``: :frrfmtout:`1.2.3.4, via eth0` — slightly less verbose zebra format
+
+   ``%pNHs``: :frrfmtout:`1.2.3.4 if 15` — same as :c:func:`nexthop2str()`
+
+.. frrfmt:: %pBD (struct bgp_dest *)
+
+   :frrfmtout:`fe80::1234/64`
+
+   (only available in bgpd.)
+
+.. frrfmt:: %dPF (int)
+
+   :frrfmtout:`AF_INET`
+
+   Prints an `AF_*` / `PF_*` constant.  ``PF`` is used here to avoid confusion
+   with `AFI` constants, even though the FRR codebase prefers `AF_INET` over
+   `PF_INET` & co.
+
+.. frrfmt:: %dSO (int)
+
+   :frrfmtout:`SOCK_STREAM`
+
+General utility formats
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. frrfmt:: %m (no argument)
+
+   :frrfmtout:`Permission denied`
+
+   Prints ``strerror(errno)``.  Does **not** consume any input argument, don't
+   pass ``errno``!
+
+   (This is a GNU extension not specific to FRR.  FRR guarantees it is
+   available on all systems in printfrr, though BSDs support it in printf too.)
+
+.. frrfmt:: %pSQ (char *)
+
+   ([S]tring [Q]uote.)  Like ``%s``, but produce a quoted string.  Options:
+
+      ``n`` - treat ``NULL`` as empty string instead.
+
+      ``q`` - include ``""`` quotation marks.  Note: ``NULL`` is printed as
+      ``(null)``, not ``"(null)"`` unless ``n`` is used too.  This is
+      intentional.
+
+      ``s`` - use escaping suitable for RFC5424 syslog.  This means ``]`` is
+      escaped too.
+
+   If a length is specified (``%*pSQ`` or ``%.*pSQ``), null bytes in the input
+   string do not end the string and are just printed as ``\x00``.
+
+.. frrfmt:: %pSE (char *)
+
+   ([S]tring [E]scape.)  Like ``%s``, but escape special characters.
+   Options:
+
+      ``n`` - treat ``NULL`` as empty string instead.
+
+   Unlike :frrfmt:`%pSQ`, this escapes many more characters that are fine for
+   a quoted string but not on their own.
+
+   If a length is specified (``%*pSE`` or ``%.*pSE``), null bytes in the input
+   string do not end the string and are just printed as ``\x00``.
+
+.. frrfmt:: %pVA (struct va_format *)
+
+   Recursively invoke printfrr, with arguments passed in through:
+
+   .. c:struct:: va_format
+
+      .. c:member:: const char *fmt
+
+         Format string to use for the recursive printfrr call.
+
+      .. c:member:: va_list *va
+
+         Formatting arguments.  Note this is passed as a pointer, not - as in
+         most other places - a direct struct reference.  Internally uses
+         ``va_copy()`` so repeated calls can be made (e.g. for determining
+         output length.)
+
+.. frrfmt:: %pFB (struct fbuf *)
+
+   Insert text from a ``struct fbuf *``, i.e. the output of a call to
+   :c:func:`bprintfrr()`.
+
+.. frrfmt:: %*pHX (void *, char *, unsigned char *)
+
+   ``%pHX``: :frrfmtout:`12 34 56 78`
+
+   ``%pHXc``: :frrfmtout:`12:34:56:78` (separate with [c]olon)
+
+   ``%pHXn``: :frrfmtout:`12345678` (separate with [n]othing)
+
+   Insert hexdump.  This specifier requires a precision or width to be
+   specified.  A precision (``%.*pHX``) takes precedence, but generates a
+   compiler warning since precisions are undefined for ``%p`` in ISO C.  If
+   no precision is given, the width is used instead (and normal handling of
+   the width is suppressed).
+
+   Note that width and precision are ``int`` arguments, not ``size_t``.  Use
+   like::
+
+     char *buf;
+     size_t len;
+
+     snprintfrr(out, sizeof(out), "... %*pHX ...", (int)len, buf);
+
+     /* with padding to width - would generate a warning due to %.*p */
+     FMT_NSTD(snprintfrr(out, sizeof(out), "... %-47.*pHX ...", (int)len, buf));
+
+.. frrfmt:: %*pHS (void *, char *, unsigned char *)
+
+   ``%pHS``: :frrfmtout:`hex.dump`
+
+   This is a complementary format for :frrfmt:`%*pHX` to print the text
+   representation for a hexdump.  Non-printable characters are replaced with
+   a dot.
+
+Integer formats
+^^^^^^^^^^^^^^^
+
+.. note::
+
+   These formats currently only exist for advanced type checking with the
+   ``frr-format`` GCC plugin.  They should not be used directly since they will
+   cause compiler warnings when used without the plugin.  Use with
+   :c:macro:`FMT_NSTD` if necessary.
+
+   It is possible ISO C23 may introduce another format for these, possibly
+   ``%w64d`` discussed in `JTC 1/SC 22/WG 14/N2680 <http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2680.pdf>`_.
+
+.. frrfmt:: %Lu (uint64_t)
+
+   :frrfmtout:`12345`
+
+.. frrfmt:: %Ld (int64_t)
+
+   :frrfmtout:`-12345`
 
 Log levels
 ----------

@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(CONNECTED_LABEL)
+DECLARE_MTYPE(CONNECTED_LABEL);
 
 /* Interface link-layer type, if known. Derived from:
  *
@@ -301,14 +301,14 @@ struct interface {
 	 */
 	bool configured;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 
 RB_HEAD(if_name_head, interface);
 RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func)
 RB_HEAD(if_index_head, interface);
 RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_index_func)
-DECLARE_QOBJ_TYPE(interface)
+DECLARE_QOBJ_TYPE(interface);
 
 #define IFNAME_RB_INSERT(vrf, ifp)                                                    \
 	({                                                                            \
@@ -378,8 +378,8 @@ DECLARE_QOBJ_TYPE(interface)
  * can use 1000+ so they run after the daemon has initialised daemon-specific
  * interface data
  */
-DECLARE_HOOK(if_add, (struct interface * ifp), (ifp))
-DECLARE_KOOH(if_del, (struct interface * ifp), (ifp))
+DECLARE_HOOK(if_add, (struct interface * ifp), (ifp));
+DECLARE_KOOH(if_del, (struct interface * ifp), (ifp));
 
 #define METRIC_MAX (~0)
 
@@ -393,6 +393,7 @@ struct connected {
 #define ZEBRA_IFC_REAL         (1 << 0)
 #define ZEBRA_IFC_CONFIGURED   (1 << 1)
 #define ZEBRA_IFC_QUEUED       (1 << 2)
+#define ZEBRA_IFC_DOWN         (1 << 3)
 	/*
 	   The ZEBRA_IFC_REAL flag should be set if and only if this address
 	   exists in the kernel and is actually usable. (A case where it exists
@@ -406,6 +407,8 @@ struct connected {
 	   in the kernel. It may and should be set although the address might
 	   not be
 	   usable yet. (compare with ZEBRA_IFC_REAL)
+	   The ZEBRA_IFC_DOWN flag is used to record that an address is
+	   present, but down/unavailable.
 	 */
 
 	/* Flags for connected address. */
@@ -513,6 +516,8 @@ extern struct interface *if_create_name(const char *name, vrf_id_t vrf_id);
 /* Create new interface, adds to index list only */
 extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
+extern struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
+						     vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
 extern struct interface *if_lookup_exact_address(const void *matchaddr,
 						 int family, vrf_id_t vrf_id);

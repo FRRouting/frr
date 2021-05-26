@@ -63,8 +63,8 @@
 #include "lib_errors.h"
 #include "network.h"
 
-DEFINE_MTYPE_STATIC(LIB, SKIP_LIST, "Skip List")
-DEFINE_MTYPE_STATIC(LIB, SKIP_LIST_NODE, "Skip Node")
+DEFINE_MTYPE_STATIC(LIB, SKIP_LIST, "Skip List");
+DEFINE_MTYPE_STATIC(LIB, SKIP_LIST_NODE, "Skip Node");
 
 #define BitsInRandom 31
 

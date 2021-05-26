@@ -290,6 +290,9 @@ ldp_config_write(struct vty *vty)
 		vty_out (vty, " wait-for-sync %u\n",
 		    ldpd_conf->wait_for_sync_interval);
 
+	if (ldpd_conf->flags & F_LDPD_ALLOW_BROKEN_LSP)
+		vty_out(vty, " install allow-broken-lsp\n");
+
 	RB_FOREACH(nbrp, nbrp_head, &ldpd_conf->nbrp_tree) {
 		if (nbrp->flags & F_NBRP_KEEPALIVE)
 			vty_out (vty, " neighbor %pI4 session holdtime %u\n",
@@ -428,6 +431,9 @@ ldp_vty_mpls_ldp(struct vty *vty, const char *negate)
 		vty->node = LDP_NODE;
 		vty_conf->flags |= F_LDPD_ENABLED;
 	}
+
+	/* register / de-register to recv info from zebra */
+	ldp_zebra_regdereg_zebra_info(!negate);
 
 	ldp_config_apply(vty, vty_conf);
 
@@ -1033,6 +1039,19 @@ int ldp_vty_wait_for_sync_interval(struct vty *vty, const char *negate,
 	default:
 		fatalx("ldp_vty_wait_for_sync_interval: unexpected node");
 	}
+	return (CMD_SUCCESS);
+}
+
+int
+ldp_vty_allow_broken_lsp(struct vty *vty, const char *negate)
+{
+	if (negate)
+		vty_conf->flags &= ~F_LDPD_ALLOW_BROKEN_LSP;
+	else
+		vty_conf->flags |= F_LDPD_ALLOW_BROKEN_LSP;
+
+	ldp_config_apply(vty, vty_conf);
+
 	return (CMD_SUCCESS);
 }
 

@@ -34,8 +34,8 @@
 #include "vrf.h"
 #include "nexthop_group.h"
 
-DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
-DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
+DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop");
+DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label");
 
 static int _nexthop_labels_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)
@@ -62,7 +62,8 @@ static int _nexthop_labels_cmp(const struct nexthop *nh1,
 	if (nhl1->num_labels < nhl2->num_labels)
 		return -1;
 
-	return memcmp(nhl1->label, nhl2->label, nhl1->num_labels);
+	return memcmp(nhl1->label, nhl2->label,
+		      (nhl1->num_labels * sizeof(mpls_label_t)));
 }
 
 int nexthop_g_addr_cmp(enum nexthop_types_t type, const union g_addr *addr1,
@@ -199,6 +200,105 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 
 	ret = _nexthop_labels_cmp(next1, next2);
 
+	return ret;
+}
+
+/*
+ * More-limited comparison function used to detect duplicate
+ * nexthops. This is used in places where we don't need the full
+ * comparison of 'nexthop_cmp()'.
+ */
+int nexthop_cmp_basic(const struct nexthop *nh1,
+		      const struct nexthop *nh2)
+{
+	int ret = 0;
+	const struct mpls_label_stack *nhl1 = NULL;
+	const struct mpls_label_stack *nhl2 = NULL;
+
+	if (nh1 == NULL && nh2 == NULL)
+		return 0;
+
+	if (nh1 && !nh2)
+		return 1;
+
+	if (!nh1 && nh2)
+		return -1;
+
+	if (nh1->vrf_id < nh2->vrf_id)
+		return -1;
+
+	if (nh1->vrf_id > nh2->vrf_id)
+		return 1;
+
+	if (nh1->type < nh2->type)
+		return -1;
+
+	if (nh1->type > nh2->type)
+		return 1;
+
+	if (nh1->weight < nh2->weight)
+		return -1;
+
+	if (nh1->weight > nh2->weight)
+		return 1;
+
+	switch (nh1->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+		ret = nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+		if (ret != 0)
+			return ret;
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret = nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+		if (ret != 0)
+			return ret;
+		/* Intentional Fall-Through */
+	case NEXTHOP_TYPE_IFINDEX:
+		if (nh1->ifindex < nh2->ifindex)
+			return -1;
+
+		if (nh1->ifindex > nh2->ifindex)
+			return 1;
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		if (nh1->bh_type < nh2->bh_type)
+			return -1;
+
+		if (nh1->bh_type > nh2->bh_type)
+			return 1;
+		break;
+	}
+
+	/* Compare source addr */
+	ret = nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
+	if (ret != 0)
+		goto done;
+
+	nhl1 = nh1->nh_label;
+	nhl2 = nh2->nh_label;
+
+	/* No labels is a match */
+	if (!nhl1 && !nhl2)
+		return 0;
+
+	if (nhl1 && !nhl2)
+		return 1;
+
+	if (nhl2 && !nhl1)
+		return -1;
+
+	if (nhl1->num_labels > nhl2->num_labels)
+		return 1;
+
+	if (nhl1->num_labels < nhl2->num_labels)
+		return -1;
+
+	ret = memcmp(nhl1->label, nhl2->label,
+		     (nhl1->num_labels * sizeof(mpls_label_t)));
+
+done:
 	return ret;
 }
 
@@ -730,70 +830,99 @@ int nexthop_str2backups(const char *str, int *num_backups,
  *		nexthop2str()
  */
 printfrr_ext_autoreg_p("NH", printfrr_nh)
-static ssize_t printfrr_nh(char *buf, size_t bsz, const char *fmt,
-			   int prec, const void *ptr)
+static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
 {
 	const struct nexthop *nexthop = ptr;
-	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
 	bool do_ifi = false;
-	const char *s, *v_is = "", *v_via = "", *v_viaif = "via ";
-	ssize_t ret = 3;
+	const char *v_is = "", *v_via = "", *v_viaif = "via ";
+	ssize_t ret = 0;
 
-	switch (fmt[2]) {
+	switch (*ea->fmt) {
 	case 'v':
-		if (fmt[3] == 'v') {
+		ea->fmt++;
+		if (*ea->fmt == 'v') {
 			v_is = "is ";
 			v_via = "via ";
 			v_viaif = "";
-			ret++;
+			ea->fmt++;
 		}
+
+		if (!nexthop)
+			return bputs(buf, "(null)");
 
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV4:
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			bprintfrr(&fb, "%s%pI4", v_via, &nexthop->gate.ipv4);
+			ret += bprintfrr(buf, "%s%pI4", v_via,
+					 &nexthop->gate.ipv4);
 			do_ifi = true;
 			break;
 		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			bprintfrr(&fb, "%s%pI6", v_via, &nexthop->gate.ipv6);
+			ret += bprintfrr(buf, "%s%pI6", v_via,
+					 &nexthop->gate.ipv6);
 			do_ifi = true;
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
-			bprintfrr(&fb, "%sdirectly connected, %s", v_is,
-				ifindex2ifname(nexthop->ifindex,
-					       nexthop->vrf_id));
+			ret += bprintfrr(buf, "%sdirectly connected, %s", v_is,
+					 ifindex2ifname(nexthop->ifindex,
+							nexthop->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
+			ret += bputs(buf, "unreachable");
+
 			switch (nexthop->bh_type) {
 			case BLACKHOLE_REJECT:
-				s = " (ICMP unreachable)";
+				ret += bputs(buf, " (ICMP unreachable)");
 				break;
 			case BLACKHOLE_ADMINPROHIB:
-				s = " (ICMP admin-prohibited)";
+				ret += bputs(buf, " (ICMP admin-prohibited)");
 				break;
 			case BLACKHOLE_NULL:
-				s = " (blackhole)";
+				ret += bputs(buf, " (blackhole)");
 				break;
 			default:
-				s = "";
 				break;
 			}
-			bprintfrr(&fb, "unreachable%s", s);
 			break;
 		default:
 			break;
 		}
 		if (do_ifi && nexthop->ifindex)
-			bprintfrr(&fb, ", %s%s", v_viaif, ifindex2ifname(
-					nexthop->ifindex,
-					nexthop->vrf_id));
+			ret += bprintfrr(buf, ", %s%s", v_viaif,
+					 ifindex2ifname(nexthop->ifindex,
+							nexthop->vrf_id));
 
-		*fb.pos = '\0';
 		return ret;
 	case 's':
-		nexthop2str(nexthop, buf, bsz);
-		return 3;
+		ea->fmt++;
+
+		if (!nexthop)
+			return bputs(buf, "(null)");
+
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_IFINDEX:
+			ret += bprintfrr(buf, "if %u", nexthop->ifindex);
+			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			ret += bprintfrr(buf, "%pI4 if %u", &nexthop->gate.ipv4,
+					 nexthop->ifindex);
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			ret += bprintfrr(buf, "%pI6 if %u", &nexthop->gate.ipv6,
+					 nexthop->ifindex);
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			ret += bputs(buf, "blackhole");
+			break;
+		default:
+			ret += bputs(buf, "unknown");
+			break;
+		}
+		return ret;
 	}
-	return 0;
+	return -1;
 }

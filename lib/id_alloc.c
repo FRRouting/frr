@@ -29,13 +29,14 @@
 
 #include <inttypes.h>
 
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR, "ID Number Allocator")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR_NAME, "ID Number Allocator Name")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_DIRECTORY, "ID Number Allocator Directory")
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR, "ID Number Allocator");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR_NAME, "ID Number Allocator Name");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_DIRECTORY, "ID Number Allocator Directory");
 DEFINE_MTYPE_STATIC(LIB, IDALLOC_SUBDIRECTORY,
-		    "ID Number Allocator Subdirectory")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_PAGE, "ID Number Allocator Page")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_POOL, "ID Number temporary holding pool entry")
+		    "ID Number Allocator Subdirectory");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_PAGE, "ID Number Allocator Page");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_POOL,
+		    "ID Number temporary holding pool entry");
 
 #if UINT_MAX >= UINT32_MAX
 #define FFS32(x) ffs(x)

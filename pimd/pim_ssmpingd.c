@@ -41,12 +41,12 @@ void pim_ssmpingd_init(struct pim_instance *pim)
 {
 	int result;
 
-	zassert(!pim->ssmpingd_list);
+	assert(!pim->ssmpingd_list);
 
 	result = inet_pton(AF_INET, PIM_SSMPINGD_REPLY_GROUP,
 			   &pim->ssmpingd_group_addr);
 
-	zassert(result > 0);
+	assert(result > 0);
 }
 
 void pim_ssmpingd_destroy(struct pim_instance *pim)
@@ -197,7 +197,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 
 static void ssmpingd_delete(struct ssmpingd_sock *ss)
 {
-	zassert(ss);
+	assert(ss);
 
 	THREAD_OFF(ss->t_sock_read);
 
@@ -267,7 +267,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 		return -1;
 	}
 
-	ifp = if_lookup_by_index(ifindex, ss->pim->vrf_id);
+	ifp = if_lookup_by_index(ifindex, ss->pim->vrf->vrf_id);
 
 	if (buf[0] != PIM_SSMPINGD_REQUEST) {
 		char source_str[INET_ADDRSTRLEN];

@@ -83,6 +83,21 @@ extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			   afi_t afi, safi_t safi);
 
+static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
+{
+	afi_t afi;
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+		for (afi = 0; afi < AFI_MAX; ++afi) {
+			if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+				       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
+			    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+					  BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT))
+				return true;
+		}
+	return false;
+}
+
 static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 					 const char **pmsg)
 {

@@ -127,7 +127,7 @@ struct pim_router {
 
 /* Per VRF PIM DB */
 struct pim_instance {
-	vrf_id_t vrf_id;
+	// vrf_id_t vrf_id;
 	struct vrf *vrf;
 
 	struct {

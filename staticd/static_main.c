@@ -129,7 +129,7 @@ FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 
 		.privs = &static_privs, .yang_modules = staticd_yang_modules,
 		.n_yang_modules = array_size(staticd_yang_modules),
-)
+);
 
 int main(int argc, char **argv, char **envp)
 {
@@ -163,6 +163,8 @@ int main(int argc, char **argv, char **envp)
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
+
+	routing_control_plane_protocols_register_vrf_dependency();
 
 	snprintf(backup_config_file, sizeof(backup_config_file),
 		 "%s/zebra.conf", frr_sysconfdir);

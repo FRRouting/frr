@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <zebra.h>
+
 #include "pimd.h"
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
@@ -36,7 +38,7 @@ static void pim_if_membership_clear(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (PIM_IF_TEST_PIM(pim_ifp->options)
 	    && PIM_IF_TEST_IGMP(pim_ifp->options)) {
@@ -62,7 +64,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	struct igmp_sock *igmp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (!PIM_IF_TEST_PIM(pim_ifp->options))
 		return;
@@ -218,7 +220,7 @@ static int pim_cmd_spt_switchover(struct pim_instance *pim,
 static int pim_ssm_cmd_worker(struct pim_instance *pim, const char *plist,
 		char *errmsg, size_t errmsg_len)
 {
-	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
+	int result = pim_ssm_range_set(pim, pim->vrf->vrf_id, plist);
 	int ret = NB_ERR;
 
 	if (result == PIM_SSM_ERR_NONE)
@@ -522,11 +524,10 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	const struct lyd_node *igmp_enable_dnode;
 
 	yang_dnode_get_path(dnode, if_xpath, sizeof(if_xpath));
-	pim_enable_dnode = yang_dnode_get(dnode, "%s/frr-pim:pim/pim-enable",
-					  if_xpath);
-	igmp_enable_dnode = yang_dnode_get(dnode,
-					   "%s/frr-igmp:igmp/igmp-enable",
-					   if_xpath);
+	pim_enable_dnode =
+		yang_dnode_getf(dnode, "%s/frr-pim:pim/pim-enable", if_xpath);
+	igmp_enable_dnode = yang_dnode_getf(
+		dnode, "%s/frr-igmp:igmp/igmp-enable", if_xpath);
 
 	if (((pim_enable_dnode) &&
 	     (yang_dnode_get_bool(pim_enable_dnode, "."))) ||
@@ -545,7 +546,7 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
-		(void)pim_if_new(ifp, true, false, false, false);
+		pim_ifp = pim_if_new(ifp, true, false, false, false);
 		need_startup = 1;
 	} else {
 		if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
@@ -553,6 +554,7 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 			need_startup = 1;
 		}
 	}
+	pim_if_create_pimreg(pim_ifp->pim);
 
 	/* 'ip igmp' executed multiple times, with need_startup
 	 * avoid multiple if add all and membership refresh
@@ -575,7 +577,7 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 
-	zassert(igmp);
+	assert(igmp);
 
 	/* other querier present? */
 
@@ -584,8 +586,8 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 
 	/* this is the querier */
 
-	zassert(igmp->interface);
-	zassert(igmp->interface->info);
+	assert(igmp->interface);
+	assert(igmp->interface->info);
 
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
@@ -615,25 +617,25 @@ static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
 
 	if (igmp->t_igmp_query_timer) {
 		/* other querier present */
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
+		assert(igmp->t_igmp_query_timer);
+		assert(!igmp->t_other_querier_timer);
 
 		pim_igmp_general_query_off(igmp);
 		pim_igmp_general_query_on(igmp);
 
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
+		assert(igmp->t_igmp_query_timer);
+		assert(!igmp->t_other_querier_timer);
 	} else {
 		/* this is the querier */
 
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
+		assert(!igmp->t_igmp_query_timer);
+		assert(igmp->t_other_querier_timer);
 
 		pim_igmp_other_querier_timer_off(igmp);
 		pim_igmp_other_querier_timer_on(igmp);
 
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
+		assert(!igmp->t_igmp_query_timer);
+		assert(igmp->t_other_querier_timer);
 	}
 }
 
@@ -754,18 +756,14 @@ int pim_join_prune_interval_modify(struct nb_cb_modify_args *args)
  */
 int pim_register_suppress_time_modify(struct nb_cb_modify_args *args)
 {
-	struct vrf *vrf;
-	struct pim_instance *pim;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		pim = vrf->info;
-		pim->keep_alive_time = yang_dnode_get_uint16(args->dnode, NULL);
+		pim_update_suppress_timers(
+			yang_dnode_get_uint16(args->dnode, NULL));
 		break;
 	}
 
@@ -1180,7 +1178,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		mesh_group_name = yang_dnode_get_string(args->dnode, ".");
+		mesh_group_name = yang_dnode_get_string(args->dnode, "mesh-group-name");
 
 		result = ip_no_msdp_mesh_group_cmd_worker(pim, mesh_group_name,
 				args->errmsg,
@@ -1829,6 +1827,7 @@ int lib_interface_pim_hello_interval_modify(struct nb_cb_modify_args *args)
 		pim_ifp = ifp->info;
 		pim_ifp->pim_hello_period =
 			yang_dnode_get_uint8(args->dnode, NULL);
+		pim_ifp->pim_default_holdtime = -1;
 		break;
 	}
 
@@ -1884,11 +1883,19 @@ int lib_interface_pim_hello_holdtime_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_pim_bfd_create(struct nb_cb_create_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->bfd_config.enabled = true;
 		break;
 	}
 
@@ -1914,13 +1921,10 @@ int lib_interface_pim_bfd_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode->parent, NULL, true);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		if (pim_ifp->bfd_info) {
-			pim_bfd_reg_dereg_all_nbr(ifp,
-					ZEBRA_BFD_DEST_DEREGISTER);
-			bfd_info_free(&(pim_ifp->bfd_info));
-		}
+		pim_ifp->bfd_config.enabled = false;
+		pim_bfd_reg_dereg_all_nbr(ifp);
 		break;
 	}
 
@@ -1934,11 +1938,8 @@ void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
-	uint32_t min_rx;
-	uint32_t min_tx;
-	uint8_t detect_mult;
 
-	ifp = nb_running_get_entry(args->dnode->parent, NULL, true);
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
@@ -1946,17 +1947,14 @@ void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
 		return;
 	}
 
-	min_rx = yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
-	min_tx = yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
-	detect_mult = yang_dnode_get_uint8(args->dnode, "./detect_mult");
+	pim_ifp->bfd_config.detection_multiplier =
+		yang_dnode_get_uint8(args->dnode, "./detect_mult");
+	pim_ifp->bfd_config.min_rx =
+		yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
+	pim_ifp->bfd_config.min_tx =
+		yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
 
-	if ((min_rx == BFD_DEF_MIN_RX) && (min_tx == BFD_DEF_MIN_TX)
-			&& (detect_mult == BFD_DEF_DETECT_MULT))
-		pim_bfd_if_param_set(ifp, min_rx, min_tx, detect_mult, 1);
-	else
-		pim_bfd_if_param_set(ifp, min_rx, min_tx, detect_mult, 0);
-
-	nb_running_set_entry(args->dnode, pim_ifp->bfd_info);
+	pim_bfd_reg_dereg_all_nbr(ifp);
 }
 
 /*
@@ -2001,6 +1999,53 @@ int lib_interface_pim_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd/profile
+ */
+int lib_interface_pim_bfd_profile_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
+		pim_ifp->bfd_config.profile = XSTRDUP(
+			MTYPE_TMP, yang_dnode_get_string(args->dnode, NULL));
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_bfd_profile_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 		break;
 	}
 
@@ -2353,7 +2398,7 @@ int lib_interface_pim_address_family_mroute_destroy(
 		pim = pim_iifp->pim;
 
 		oifname = yang_dnode_get_string(args->dnode, "./oif");
-		oif = if_lookup_by_name(oifname, pim->vrf_id);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 
 		if (!oif) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -2401,6 +2446,26 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 				 "%% Enable PIM and/or IGMP on this interface first");
 			return NB_ERR_VALIDATION;
 		}
+
+#ifdef PIM_ENFORCE_LOOPFREE_MFC
+		iif = nb_running_get_entry(args->dnode, NULL, false);
+		if (!iif) {
+			return NB_OK;
+		}
+
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, NULL);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
+
+		if (oif && (iif->ifindex == oif->ifindex)) {
+			strlcpy(args->errmsg,
+				"% IIF same as OIF and loopfree enforcement is enabled; rejecting",
+				args->errmsg_len);
+			return NB_ERR_VALIDATION;
+		}
+#endif
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -2411,8 +2476,7 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 		pim = pim_iifp->pim;
 
 		oifname = yang_dnode_get_string(args->dnode, NULL);
-		oif = if_lookup_by_name(oifname, pim->vrf_id);
-
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 		if (!oif) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "No such interface name %s",
@@ -2706,11 +2770,11 @@ int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
-		ifp_name = yang_dnode_get_string(if_dnode, ".");
 		mcast_if_count =
 			yang_get_list_elements_count(if_dnode);
 		/* Limiting mcast interfaces to number of VIFs */
 		if (mcast_if_count == MAXVIFS) {
+			ifp_name = yang_dnode_get_string(if_dnode, "name");
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s",
 				 MAXVIFS, ifp_name);
@@ -2981,7 +3045,7 @@ int lib_interface_igmp_address_family_static_group_create(
 	case NB_EV_VALIDATE:
 		if_dnode =  yang_dnode_get_parent(args->dnode, "interface");
 		if (!is_pim_interface(if_dnode)) {
-			ifp_name = yang_dnode_get_string(if_dnode, ".");
+			ifp_name = yang_dnode_get_string(if_dnode, "name");
 			snprintf(args->errmsg, args->errmsg_len,
 				 "multicast not enabled on interface %s",
 				 ifp_name);

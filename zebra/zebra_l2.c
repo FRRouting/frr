@@ -38,7 +38,6 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/interface.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
@@ -110,6 +109,44 @@ void zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave)
 	br_slave->br_if = NULL;
 }
 
+/* If any of the bond members are in bypass state the bond is placed
+ * in bypass state
+ */
+static void zebra_l2_bond_lacp_bypass_eval(struct zebra_if *bond_zif)
+{
+	struct listnode *node;
+	struct zebra_if *bond_mbr;
+	bool old_bypass = !!(bond_zif->flags & ZIF_FLAG_LACP_BYPASS);
+	bool new_bypass = false;
+
+	if (bond_zif->bond_info.mbr_zifs) {
+		for (ALL_LIST_ELEMENTS_RO(bond_zif->bond_info.mbr_zifs, node,
+					  bond_mbr)) {
+			if (bond_mbr->flags & ZIF_FLAG_LACP_BYPASS) {
+				new_bypass = true;
+				break;
+			}
+		}
+	}
+
+	if (old_bypass == new_bypass)
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("bond %s lacp bypass changed to %s",
+			   bond_zif->ifp->name, new_bypass ? "on" : "off");
+
+	if (new_bypass)
+		bond_zif->flags |= ZIF_FLAG_LACP_BYPASS;
+	else
+		bond_zif->flags &= ~ZIF_FLAG_LACP_BYPASS;
+
+	if (bond_zif->es_info.es)
+		zebra_evpn_es_bypass_update(bond_zif->es_info.es, bond_zif->ifp,
+					    new_bypass);
+}
+
+/* Returns true if member was newly linked to bond */
 void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf_id)
 {
 	struct interface *bond_if;
@@ -138,6 +175,7 @@ void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf_id)
 			if (zebra_evpn_is_es_bond(bond_if))
 				zebra_evpn_mh_update_protodown_bond_mbr(
 					zif, false /*clear*/, __func__);
+			zebra_l2_bond_lacp_bypass_eval(bond_zif);
 		}
 	} else {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVENT)
@@ -170,6 +208,7 @@ void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif)
 							__func__);
 	listnode_delete(bond_zif->bond_info.mbr_zifs, zif);
 	bond_slave->bond_if = NULL;
+	zebra_l2_bond_lacp_bypass_eval(bond_zif);
 }
 
 void zebra_l2if_update_bond(struct interface *ifp, bool add)
@@ -248,6 +287,32 @@ void zebra_l2_vlanif_update(struct interface *ifp,
 
 	/* Copy over the L2 information. */
 	memcpy(&zif->l2info.vl, vlan_info, sizeof(*vlan_info));
+}
+
+/*
+ * Update L2 info for a GRE interface. This is called upon interface
+ * addition as well as update. Upon add/update, need to inform
+ * clients about GRE information.
+ */
+void zebra_l2_greif_add_update(struct interface *ifp,
+			       struct zebra_l2info_gre *gre_info, int add)
+{
+	struct zebra_if *zif;
+	struct in_addr old_vtep_ip;
+
+	zif = ifp->info;
+	assert(zif);
+
+	if (add) {
+		memcpy(&zif->l2info.gre, gre_info, sizeof(*gre_info));
+		return;
+	}
+
+	old_vtep_ip = zif->l2info.gre.vtep_ip;
+	if (IPV4_ADDR_SAME(&old_vtep_ip, &gre_info->vtep_ip))
+		return;
+
+	zif->l2info.gre.vtep_ip = gre_info->vtep_ip;
 }
 
 /*
@@ -378,13 +443,35 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	}
 }
 
-void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex)
+void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex,
+				  bool new_bypass)
 {
 	struct zebra_if *zif;
 	ifindex_t old_bond_ifindex;
+	bool old_bypass;
+	struct zebra_l2info_bondslave *bond_mbr;
 
 	zif = ifp->info;
 	assert(zif);
+
+	old_bypass = !!(zif->flags & ZIF_FLAG_LACP_BYPASS);
+	if (old_bypass != new_bypass) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("bond-mbr %s lacp bypass changed to %s",
+				   zif->ifp->name, new_bypass ? "on" : "off");
+
+		if (new_bypass)
+			zif->flags |= ZIF_FLAG_LACP_BYPASS;
+		else
+			zif->flags &= ~ZIF_FLAG_LACP_BYPASS;
+
+		bond_mbr = &zif->bondslave_info;
+		if (bond_mbr->bond_if) {
+			struct zebra_if *bond_zif = bond_mbr->bond_if->info;
+
+			zebra_l2_bond_lacp_bypass_eval(bond_zif);
+		}
+	}
 
 	old_bond_ifindex = zif->bondslave_info.bond_ifindex;
 	if (old_bond_ifindex == bond_ifindex)

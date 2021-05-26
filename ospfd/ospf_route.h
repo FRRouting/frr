@@ -42,6 +42,10 @@ struct sr_nexthop_info {
 	 * or NULL if next hop is the destination of the prefix
 	 */
 	struct sr_node *nexthop;
+
+	/* TI-LFA */
+	struct mpls_label_stack *backup_label_stack;
+	struct in_addr backup_nexthop;
 };
 
 /* OSPF Path. */
@@ -120,6 +124,8 @@ struct ospf_route {
 		struct route_standard std;
 		struct route_external ext;
 	} u;
+
+	bool changed;
 };
 
 extern struct ospf_path *ospf_path_new(void);
@@ -132,7 +138,6 @@ extern void ospf_route_table_free(struct route_table *);
 
 extern void ospf_route_install(struct ospf *, struct route_table *);
 extern void ospf_route_table_dump(struct route_table *);
-extern void ospf_route_table_print(struct vty *vty, struct route_table *rt);
 
 extern void ospf_intra_add_router(struct route_table *, struct vertex *,
 				  struct ospf_area *);

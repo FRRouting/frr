@@ -1,0 +1,42 @@
+{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "r1-eth1",
+        "vrf": "default",
+        "state": {
+          "frr-isisd:isis": {
+            "adjacencies": {
+              "adjacency": [
+                {
+                  "neighbor-sys-type": "level-1",
+                  "neighbor-sysid": "0000.0000.0002",
+                  "neighbor-extended-circuit-id": 0,
+                  "state": "up"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "r1-eth2",
+        "vrf": "default",
+        "state": {
+          "frr-isisd:isis": {
+            "adjacencies": {
+              "adjacency": [
+                {
+                  "neighbor-sys-type": "level-1",
+                  "neighbor-sysid": "0000.0000.0003",
+                  "neighbor-extended-circuit-id": 0,
+                  "state": "up"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

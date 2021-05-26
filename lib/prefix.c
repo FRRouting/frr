@@ -32,8 +32,8 @@
 #include "printfrr.h"
 #include "vxlan.h"
 
-DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix")
-DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec")
+DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix");
+DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec");
 
 /* Maskbit. */
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
@@ -1160,7 +1160,7 @@ in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen)
    ex.) "1.1.0.0" "255.255.0.0" => "1.1.0.0/16"
    ex.) "1.0.0.0" NULL => "1.0.0.0/8"                   */
 int netmask_str2prefix_str(const char *net_str, const char *mask_str,
-			   char *prefix_str)
+			   char *prefix_str, size_t prefix_str_len)
 {
 	struct in_addr network;
 	struct in_addr mask;
@@ -1193,18 +1193,9 @@ int netmask_str2prefix_str(const char *net_str, const char *mask_str,
 			return 0;
 	}
 
-	sprintf(prefix_str, "%s/%d", net_str, prefixlen);
+	snprintf(prefix_str, prefix_str_len, "%s/%d", net_str, prefixlen);
 
 	return 1;
-}
-
-/* Utility function for making IPv6 address string. */
-const char *inet6_ntoa(struct in6_addr addr)
-{
-	static char buf[INET6_ADDRSTRLEN];
-
-	inet_ntop(AF_INET6, &addr, buf, INET6_ADDRSTRLEN);
-	return buf;
 }
 
 /* converts to internal representation of mac address
@@ -1361,66 +1352,92 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 }
 
 printfrr_ext_autoreg_p("EA", printfrr_ea)
-static ssize_t printfrr_ea(char *buf, size_t bsz, const char *fmt,
-			   int prec, const void *ptr)
+static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
 {
 	const struct ethaddr *mac = ptr;
+	char cbuf[ETHER_ADDR_STRLEN];
 
-	prefix_mac2str(mac, buf, bsz);
-	return 2;
+	if (!mac)
+		return bputs(buf, "(null)");
+
+	/* need real length even if buffer is too short */
+	prefix_mac2str(mac, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("IA", printfrr_ia)
-static ssize_t printfrr_ia(char *buf, size_t bsz, const char *fmt,
-			   int prec, const void *ptr)
+static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
 {
 	const struct ipaddr *ipa = ptr;
+	char cbuf[INET6_ADDRSTRLEN];
 
-	ipaddr2str(ipa, buf, bsz);
-	return 2;
+	if (!ipa)
+		return bputs(buf, "(null)");
+
+	ipaddr2str(ipa, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("I4", printfrr_i4)
-static ssize_t printfrr_i4(char *buf, size_t bsz, const char *fmt,
-			   int prec, const void *ptr)
+static ssize_t printfrr_i4(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
 {
-	inet_ntop(AF_INET, ptr, buf, bsz);
-	return 2;
+	char cbuf[INET_ADDRSTRLEN];
+
+	if (!ptr)
+		return bputs(buf, "(null)");
+
+	inet_ntop(AF_INET, ptr, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("I6", printfrr_i6)
-static ssize_t printfrr_i6(char *buf, size_t bsz, const char *fmt,
-			   int prec, const void *ptr)
+static ssize_t printfrr_i6(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
 {
-	inet_ntop(AF_INET6, ptr, buf, bsz);
-	return 2;
+	char cbuf[INET6_ADDRSTRLEN];
+
+	if (!ptr)
+		return bputs(buf, "(null)");
+
+	inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("FX", printfrr_pfx)
-static ssize_t printfrr_pfx(char *buf, size_t bsz, const char *fmt,
-			    int prec, const void *ptr)
+static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
+			    const void *ptr)
 {
-	prefix2str(ptr, buf, bsz);
-	return 2;
+	char cbuf[PREFIX_STRLEN];
+
+	if (!ptr)
+		return bputs(buf, "(null)");
+
+	prefix2str(ptr, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }
 
 printfrr_ext_autoreg_p("SG4", printfrr_psg)
-static ssize_t printfrr_psg(char *buf, size_t bsz, const char *fmt,
-			    int prec, const void *ptr)
+static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
+			    const void *ptr)
 {
 	const struct prefix_sg *sg = ptr;
-	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
+	ssize_t ret = 0;
+
+	if (!sg)
+		return bputs(buf, "(null)");
 
 	if (sg->src.s_addr == INADDR_ANY)
-		bprintfrr(&fb, "(*,");
+		ret += bputs(buf, "(*,");
 	else
-		bprintfrr(&fb, "(%pI4,", &sg->src);
+		ret += bprintfrr(buf, "(%pI4,", &sg->src);
 
 	if (sg->grp.s_addr == INADDR_ANY)
-		bprintfrr(&fb, "*)");
+		ret += bputs(buf, "*)");
 	else
-		bprintfrr(&fb, "%pI4)", &sg->grp);
+		ret += bprintfrr(buf, "%pI4)", &sg->grp);
 
-	fb.pos[0] = '\0';
-	return 3;
+	return ret;
 }

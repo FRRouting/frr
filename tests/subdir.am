@@ -31,6 +31,14 @@ TESTS_ISISD =
 IGNORE_ISISD = --ignore=isisd/
 endif
 
+if OSPFD
+TESTS_OSPFD = \
+	tests/ospfd/test_ospf_spf \
+	# end
+else
+TESTS_OSPFD =
+endif
+
 if OSPF6D
 TESTS_OSPF6D = \
 	tests/ospf6d/test_lsdb \
@@ -41,6 +49,16 @@ TESTS_OSPF6D =
 IGNORE_OSPF6D = --ignore=ospf6d/
 endif
 
+if ZEBRA
+TESTS_ZEBRA = \
+	tests/zebra/test_lm_plugin \
+	#end
+IGNORE_ZEBRA =
+else
+TESTS_ZEBRA =
+IGNORE_ZEBRA = --ignore=zebra/
+endif
+
 clippy_scan += \
 	tests/lib/cli/test_cli.c \
 	tests/ospf6d/test_lsdb.c \
@@ -48,6 +66,7 @@ clippy_scan += \
 
 check_PROGRAMS = \
 	tests/lib/cxxcompat \
+	tests/lib/test_assert \
 	tests/lib/test_atomlist \
 	tests/lib/test_buffer \
 	tests/lib/test_checksum \
@@ -57,6 +76,7 @@ check_PROGRAMS = \
 	tests/lib/test_idalloc \
 	tests/lib/test_memory \
 	tests/lib/test_nexthop_iter \
+	tests/lib/test_nexthop \
 	tests/lib/test_ntop \
 	tests/lib/test_prefix2str \
 	tests/lib/test_printfrr \
@@ -73,6 +93,7 @@ check_PROGRAMS = \
 	tests/lib/test_ttable \
 	tests/lib/test_typelist \
 	tests/lib/test_versioncmp \
+	tests/lib/test_xref \
 	tests/lib/test_zlog \
 	tests/lib/test_graph \
 	tests/lib/cli/test_cli \
@@ -80,7 +101,9 @@ check_PROGRAMS = \
 	tests/lib/northbound/test_oper_data \
 	$(TESTS_BGPD) \
 	$(TESTS_ISISD) \
+	$(TESTS_OSPFD) \
 	$(TESTS_OSPF6D) \
+	$(TESTS_ZEBRA) \
 	# end
 
 if ZEROMQ
@@ -115,6 +138,7 @@ noinst_HEADERS += \
 	tests/lib/cli/common_cli.h \
 	tests/lib/test_typelist.h \
 	tests/isisd/test_common.h \
+	tests/ospfd/common.h \
 	# end
 
 #
@@ -126,15 +150,18 @@ TESTS_CPPFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_builddir)/tests/helpers/c \
 	# end
 TESTS_CFLAGS = \
+	$(AC_CFLAGS) \
 	$(LIBYANG_CFLAGS) \
 	$(SAN_FLAGS) \
 	# end
 # note no -Werror
 
 ALL_TESTS_LDADD = lib/libfrr.la $(LIBCAP)
-BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) -lm
+BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) -lm
 ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
+OSPFD_TEST_LDADD = ospfd/libfrrospf.a $(ALL_TESTS_LDADD)
 OSPF6_TEST_LDADD = ospf6d/libospf6.a $(ALL_TESTS_LDADD)
+ZEBRA_TEST_LDADD = zebra/label_manager.o $(ALL_TESTS_LDADD)
 
 tests_bgpd_test_aspath_CFLAGS = $(TESTS_CFLAGS)
 tests_bgpd_test_aspath_CPPFLAGS = $(TESTS_CPPFLAGS)
@@ -201,6 +228,11 @@ tests_isisd_test_isis_vertex_queue_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
 tests_isisd_test_isis_vertex_queue_SOURCES = tests/isisd/test_isis_vertex_queue.c tests/isisd/test_common.c
 
+tests_ospfd_test_ospf_spf_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_spf_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_spf_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_spf_SOURCES = tests/ospfd/test_ospf_spf.c tests/ospfd/common.c tests/ospfd/topologies.c
+
 tests_lib_cxxcompat_CFLAGS = $(TESTS_CFLAGS) $(CXX_COMPAT_CFLAGS) $(WERROR)
 tests_lib_cxxcompat_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_cxxcompat_SOURCES = tests/lib/cxxcompat.c
@@ -219,6 +251,10 @@ tests_lib_northbound_test_oper_data_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_northbound_test_oper_data_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_northbound_test_oper_data_SOURCES = tests/lib/northbound/test_oper_data.c
 nodist_tests_lib_northbound_test_oper_data_SOURCES = yang/frr-test-module.yang.c
+tests_lib_test_assert_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_assert_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_assert_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_assert_SOURCES = tests/lib/test_assert.c
 tests_lib_test_atomlist_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_atomlist_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_atomlist_LDADD = $(ALL_TESTS_LDADD)
@@ -258,8 +294,12 @@ tests_lib_test_nexthop_iter_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_nexthop_iter_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_nexthop_iter_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_nexthop_iter_SOURCES = tests/lib/test_nexthop_iter.c tests/helpers/c/prng.c
+tests_lib_test_nexthop_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_nexthop_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_nexthop_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_nexthop_SOURCES = tests/lib/test_nexthop.c
 tests_lib_test_ntop_CFLAGS = $(TESTS_CFLAGS)
-tests_lib_test_ntop_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_ntop_CPPFLAGS = $(CPPFLAGS_BASE) # no assert override
 tests_lib_test_ntop_LDADD = # none
 tests_lib_test_ntop_SOURCES = tests/lib/test_ntop.c tests/helpers/c/prng.c
 tests_lib_test_prefix2str_CFLAGS = $(TESTS_CFLAGS)
@@ -322,6 +362,10 @@ tests_lib_test_versioncmp_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_versioncmp_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_versioncmp_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_versioncmp_SOURCES = tests/lib/test_versioncmp.c
+tests_lib_test_xref_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_xref_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_xref_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_xref_SOURCES = tests/lib/test_xref.c
 tests_lib_test_zlog_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_zlog_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_zlog_LDADD = $(ALL_TESTS_LDADD)
@@ -335,6 +379,11 @@ tests_ospf6d_test_lsdb_CFLAGS = $(TESTS_CFLAGS)
 tests_ospf6d_test_lsdb_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_ospf6d_test_lsdb_LDADD = $(OSPF6_TEST_LDADD)
 tests_ospf6d_test_lsdb_SOURCES = tests/ospf6d/test_lsdb.c tests/lib/cli/common_cli.c
+
+tests_zebra_test_lm_plugin_CFLAGS = $(TESTS_CFLAGS)
+tests_zebra_test_lm_plugin_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_zebra_test_lm_plugin_LDADD = $(ZEBRA_TEST_LDADD)
+tests_zebra_test_lm_plugin_SOURCES = tests/zebra/test_lm_plugin.c
 
 EXTRA_DIST += \
 	tests/runtests.py \
@@ -353,6 +402,9 @@ EXTRA_DIST += \
 	tests/isisd/test_isis_spf.in \
 	tests/isisd/test_isis_spf.refout \
 	tests/isisd/test_isis_vertex_queue.py \
+	tests/ospfd/test_ospf_spf.py \
+	tests/ospfd/test_ospf_spf.in \
+	tests/ospfd/test_ospf_spf.refout \
 	tests/lib/cli/test_commands.in \
 	tests/lib/cli/test_commands.py \
 	tests/lib/cli/test_commands.refout \
@@ -362,8 +414,10 @@ EXTRA_DIST += \
 	tests/lib/northbound/test_oper_data.in \
 	tests/lib/northbound/test_oper_data.py \
 	tests/lib/northbound/test_oper_data.refout \
+	tests/lib/test_assert.py \
 	tests/lib/test_atomlist.py \
 	tests/lib/test_nexthop_iter.py \
+	tests/lib/test_nexthop.py \
 	tests/lib/test_ntop.py \
 	tests/lib/test_prefix2str.py \
 	tests/lib/test_printfrr.py \
@@ -377,12 +431,15 @@ EXTRA_DIST += \
 	tests/lib/test_ttable.refout \
 	tests/lib/test_typelist.py \
 	tests/lib/test_versioncmp.py \
+	tests/lib/test_xref.py \
 	tests/lib/test_zlog.py \
 	tests/lib/test_graph.py \
 	tests/lib/test_graph.refout \
 	tests/ospf6d/test_lsdb.py \
 	tests/ospf6d/test_lsdb.in \
 	tests/ospf6d/test_lsdb.refout \
+	tests/zebra/test_lm_plugin.py \
+	tests/zebra/test_lm_plugin.refout \
 	# end
 
 .PHONY: tests/tests.xml

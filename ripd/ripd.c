@@ -56,11 +56,11 @@
 /* UDP receive buffer size */
 #define RIP_UDP_RCV_BUF 41600
 
-DEFINE_MGROUP(RIPD, "ripd")
-DEFINE_MTYPE_STATIC(RIPD, RIP, "RIP structure")
-DEFINE_MTYPE_STATIC(RIPD, RIP_VRF_NAME, "RIP VRF name")
-DEFINE_MTYPE_STATIC(RIPD, RIP_INFO, "RIP route info")
-DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance")
+DEFINE_MGROUP(RIPD, "ripd");
+DEFINE_MTYPE_STATIC(RIPD, RIP, "RIP structure");
+DEFINE_MTYPE_STATIC(RIPD, RIP_VRF_NAME, "RIP VRF name");
+DEFINE_MTYPE_STATIC(RIPD, RIP_INFO, "RIP route info");
+DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance");
 
 /* Prototypes. */
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
@@ -698,7 +698,6 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 	caddr_t lim;
 	struct rte *rte;
 	const char *command_str;
-	char pbuf[BUFSIZ], nbuf[BUFSIZ];
 	uint8_t netmask = 0;
 	uint8_t *p;
 
@@ -766,24 +765,18 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 				}
 			} else
 				zlog_debug(
-					"  %s/%d -> %s family %d tag %" ROUTE_TAG_PRI
+					"  %pI4/%d -> %pI4 family %d tag %" ROUTE_TAG_PRI
 					" metric %ld",
-					inet_ntop(AF_INET, &rte->prefix, pbuf,
-						  BUFSIZ),
-					netmask,
-					inet_ntop(AF_INET, &rte->nexthop, nbuf,
-						  BUFSIZ),
+					&rte->prefix, netmask, &rte->nexthop,
 					ntohs(rte->family),
 					(route_tag_t)ntohs(rte->tag),
 					(unsigned long)ntohl(rte->metric));
 		} else {
-			zlog_debug(
-				"  %s family %d tag %" ROUTE_TAG_PRI
-				" metric %ld",
-				inet_ntop(AF_INET, &rte->prefix, pbuf, BUFSIZ),
-				ntohs(rte->family),
-				(route_tag_t)ntohs(rte->tag),
-				(unsigned long)ntohl(rte->metric));
+			zlog_debug("  %pI4 family %d tag %" ROUTE_TAG_PRI
+				   " metric %ld",
+				   &rte->prefix, ntohs(rte->family),
+				   (route_tag_t)ntohs(rte->tag),
+				   (unsigned long)ntohl(rte->metric));
 		}
 	}
 }
@@ -2858,23 +2851,6 @@ void rip_event(struct rip *rip, enum rip_event event, int sock)
 	}
 }
 
-#if 0
-static void
-rip_update_default_metric (void)
-{
-  struct route_node *np;
-  struct rip_info *rinfo = NULL;
-  struct list *list = NULL;
-  struct listnode *listnode = NULL;
-
-  for (np = route_top (rip->table); np; np = route_next (np))
-    if ((list = np->info) != NULL)
-      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
-        if (rinfo->type != ZEBRA_ROUTE_RIP && rinfo->type != ZEBRA_ROUTE_CONNECT)
-          rinfo->metric = rip->default_metric;
-}
-#endif
-
 struct rip_distance *rip_distance_new(void)
 {
 	return XCALLOC(MTYPE_RIP_DISTANCE, sizeof(struct rip_distance));
@@ -3656,16 +3632,16 @@ static int rip_vrf_enable(struct vrf *vrf)
 			char oldpath[XPATH_MAXLEN];
 			char newpath[XPATH_MAXLEN];
 
-			rip_dnode = yang_dnode_get(
+			rip_dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-ripd:ripd/instance[vrf='%s']/vrf",
 				old_vrf_name);
 			if (rip_dnode) {
-				yang_dnode_get_path(rip_dnode->parent, oldpath,
-						    sizeof(oldpath));
+				yang_dnode_get_path(lyd_parent(rip_dnode),
+						    oldpath, sizeof(oldpath));
 				yang_dnode_change_leaf(rip_dnode, vrf->name);
-				yang_dnode_get_path(rip_dnode->parent, newpath,
-						    sizeof(newpath));
+				yang_dnode_get_path(lyd_parent(rip_dnode),
+						    newpath, sizeof(newpath));
 				nb_running_move_tree(oldpath, newpath);
 				running_config->version++;
 			}
@@ -3745,9 +3721,6 @@ void rip_init(void)
 	prefix_list_init();
 	prefix_list_add_hook(rip_distribute_update_all);
 	prefix_list_delete_hook(rip_distribute_update_all);
-
-	/* Distribute list install. */
-	distribute_list_init(RIP_NODE);
 
 	/* Route-map */
 	rip_route_map_init();

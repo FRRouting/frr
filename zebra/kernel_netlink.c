@@ -29,7 +29,6 @@
 #include "connected.h"
 #include "table.h"
 #include "memory.h"
-#include "zebra_memory.h"
 #include "rib.h"
 #include "thread.h"
 #include "privs.h"
@@ -159,7 +158,7 @@ extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
-DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers")
+DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers");
 
 size_t nl_batch_tx_bufsize;
 char *nl_batch_tx_buf;
@@ -383,7 +382,7 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		 * it to be sent up to us
 		 */
 		flog_err(EC_ZEBRA_UNKNOWN_NLMSG,
-			 "Unknown netlink nlmsg_type %s(%d) vrf %u\n",
+			 "Unknown netlink nlmsg_type %s(%d) vrf %u",
 			 nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_type,
 			 ns_id);
 		break;
@@ -485,13 +484,28 @@ static void netlink_install_filter(int sock, __u32 pid, __u32 dplane_pid)
 
 	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog))
 	    < 0)
-		flog_err_sys(EC_LIB_SOCKET, "Can't install socket filter: %s\n",
+		flog_err_sys(EC_LIB_SOCKET, "Can't install socket filter: %s",
 			     safe_strerror(errno));
+}
+
+void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
+		struct rtattr *rta, int len, unsigned short flags)
+{
+	unsigned short type;
+
+	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
+	while (RTA_OK(rta, len)) {
+		type = rta->rta_type & ~flags;
+		if ((type <= max) && (!tb[type]))
+			tb[type] = rta;
+		rta = RTA_NEXT(rta, len);
+	}
 }
 
 void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 			  int len)
 {
+	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
 		if (rta->rta_type <= max)
 			tb[rta->rta_type] = rta;
@@ -1123,9 +1137,11 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 		 * associated with any dplane context object.
 		 */
 		if (ctx == NULL) {
-			zlog_debug(
-				"%s: skipping unassociated response, seq number %d NS %u",
-				__func__, h->nlmsg_seq, bth->zns->ns_id);
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s: skipping unassociated response, seq number %d NS %u",
+					__func__, h->nlmsg_seq,
+					bth->zns->ns_id);
 			continue;
 		}
 
@@ -1136,8 +1152,9 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 				dplane_ctx_set_status(
 					ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 
-			zlog_debug("%s: netlink error message seq=%d ",
-				   __func__, h->nlmsg_seq);
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: netlink error message seq=%d ",
+					   __func__, h->nlmsg_seq);
 			continue;
 		}
 
@@ -1146,9 +1163,11 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 		 * the error and instead received some other message in an
 		 * unexpected way.
 		 */
-		zlog_debug("%s: ignoring message type 0x%04x(%s) NS %u",
-			   __func__, h->nlmsg_type,
-			   nl_msg_type_to_str(h->nlmsg_type), bth->zns->ns_id);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: ignoring message type 0x%04x(%s) NS %u",
+				   __func__, h->nlmsg_type,
+				   nl_msg_type_to_str(h->nlmsg_type),
+				   bth->zns->ns_id);
 	}
 
 	return 0;
@@ -1318,6 +1337,9 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
 	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 		return netlink_put_neigh_update_msg(bth, ctx);
 
 	case DPLANE_OP_RULE_ADD:
@@ -1331,6 +1353,17 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_LSP_NOTIFY:
 	case DPLANE_OP_BR_PORT_UPDATE:
 		return FRR_NETLINK_SUCCESS;
+
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+	case DPLANE_OP_IPSET_ADD:
+	case DPLANE_OP_IPSET_DELETE:
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+		return FRR_NETLINK_ERROR;
+
+	case DPLANE_OP_GRE_SET:
+		return netlink_put_gre_set_msg(bth, ctx);
 
 	case DPLANE_OP_NONE:
 		return FRR_NETLINK_ERROR;

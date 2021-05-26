@@ -39,7 +39,7 @@
 #include "ripngd/ripng_debug.h"
 #include "ripngd/ripng_nexthop.h"
 
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_RTE_DATA, "RIPng rte data")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_RTE_DATA, "RIPng rte data");
 
 #define DEBUG 1
 

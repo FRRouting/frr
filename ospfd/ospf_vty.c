@@ -60,7 +60,7 @@
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
-)
+);
 
 static const char *const ospf_network_type_str[] = {
 	"Null",	"POINTOPOINT", "BROADCAST", "NBMA", "POINTOMULTIPOINT",
@@ -140,44 +140,37 @@ int ospf_oi_count(struct interface *ifp)
 		all_vrf = strmatch(vrf_name, "all");                           \
 	}
 
-static struct ospf *ospf_cmd_lookup_ospf(struct vty *vty,
-					 struct cmd_token *argv[],
-					 const int argc, uint32_t enable,
-					 unsigned short *instance)
+static int ospf_router_cmd_parse(struct vty *vty, struct cmd_token *argv[],
+				 const int argc, unsigned short *instance,
+				 const char **vrf_name)
 {
-	struct ospf *ospf = NULL;
 	int idx_vrf = 0, idx_inst = 0;
-	const char *vrf_name = NULL;
-	bool created = false;
 
 	*instance = 0;
-	if (argv_find(argv, argc, "(1-65535)", &idx_inst))
+	if (argv_find(argv, argc, "(1-65535)", &idx_inst)) {
+		if (ospf_instance == 0) {
+			vty_out(vty,
+				"%% OSPF is not running in instance mode\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
 		*instance = strtoul(argv[idx_inst]->arg, NULL, 10);
+	}
 
+	*vrf_name = NULL;
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
-		vrf_name = argv[idx_vrf + 1]->arg;
-		if (vrf_name == NULL || strmatch(vrf_name, VRF_DEFAULT_NAME))
-			vrf_name = NULL;
-		if (enable) {
-			/* Allocate VRF aware instance */
-			ospf = ospf_get(*instance, vrf_name, &created);
-		} else {
-			ospf = ospf_lookup_by_inst_name(*instance, vrf_name);
+		if (ospf_instance != 0) {
+			vty_out(vty,
+				"%% VRF is not supported in instance mode\n");
+			return CMD_WARNING_CONFIG_FAILED;
 		}
-	} else {
-		if (enable) {
-			ospf = ospf_get(*instance, NULL, &created);
-		} else {
-			ospf = ospf_lookup_instance(*instance);
-		}
+
+		*vrf_name = argv[idx_vrf + 1]->arg;
+		if (*vrf_name && strmatch(*vrf_name, VRF_DEFAULT_NAME))
+			*vrf_name = NULL;
 	}
 
-	if (created) {
-		if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
-			SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
-	}
-
-	return ospf;
+	return CMD_SUCCESS;
 }
 
 static void ospf_show_vrf_name(struct ospf *ospf, struct vty *vty,
@@ -213,27 +206,34 @@ DEFUN_NOSH (router_ospf,
        "Instance ID\n"
        VRF_CMD_HELP_STR)
 {
-	struct ospf *ospf = NULL;
-	int ret = CMD_SUCCESS;
-	unsigned short instance = 0;
+	unsigned short instance;
+	const char *vrf_name;
+	bool created = false;
+	struct ospf *ospf;
+	int ret;
 
-	ospf = ospf_cmd_lookup_ospf(vty, argv, argc, 1, &instance);
-	if (!ospf)
-		return CMD_WARNING_CONFIG_FAILED;
+	ret = ospf_router_cmd_parse(vty, argv, argc, &instance, &vrf_name);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
-	/* The following logic to set the vty qobj index is in place to be able
-	   to ignore the commands which dont belong to this instance. */
-	if (ospf->instance != instance) {
+	if (instance != ospf_instance) {
 		VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
-		ret = CMD_NOT_MY_INSTANCE;
-	} else {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
-				instance, ospf->name ? ospf->name : "NIL",
-				ospf->vrf_id, ospf->oi_running);
-		VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
+		return CMD_NOT_MY_INSTANCE;
 	}
+
+	ospf = ospf_get(instance, vrf_name, &created);
+
+	if (created)
+		if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+			SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug(
+			"Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
+			ospf->instance, ospf->name ? ospf->name : "NIL",
+			ospf->vrf_id, ospf->oi_running);
+
+	VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
 
 	return ret;
 }
@@ -247,19 +247,25 @@ DEFUN (no_router_ospf,
        "Instance ID\n"
        VRF_CMD_HELP_STR)
 {
+	unsigned short instance;
+	const char *vrf_name;
 	struct ospf *ospf;
-	unsigned short instance = 0;
+	int ret;
 
-	ospf = ospf_cmd_lookup_ospf(vty, argv, argc, 0, &instance);
-	if (ospf == NULL) {
-		if (instance)
-			return CMD_NOT_MY_INSTANCE;
-		else
-			return CMD_WARNING;
-	}
-	ospf_finish(ospf);
+	ret = ospf_router_cmd_parse(vty, argv, argc, &instance, &vrf_name);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
-	return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	ospf = ospf_lookup(instance, vrf_name);
+	if (ospf)
+		ospf_finish(ospf);
+	else
+		ret = CMD_WARNING_CONFIG_FAILED;
+
+	return ret;
 }
 
 
@@ -280,7 +286,7 @@ DEFPY (ospf_router_id,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, save config and restart ospfd\n");
+				"For this router-id change to take effect, use “clear ip ospf process” command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -313,7 +319,7 @@ DEFUN_HIDDEN (ospf_router_id_old,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, save config and restart ospfd\n");
+				"For this router-id change to take effect, use “clear ip ospf process” command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -346,7 +352,7 @@ DEFPY (no_ospf_router_id,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, save config and restart ospfd\n");
+				"For this router-id change to take effect, use “clear ip ospf process” command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -571,6 +577,7 @@ DEFUN (ospf_network_area,
 	struct prefix_ipv4 p;
 	struct in_addr area_id;
 	int ret, format;
+	uint32_t count;
 
 	if (ospf->instance) {
 		vty_out(vty,
@@ -578,14 +585,15 @@ DEFUN (ospf_network_area,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ospf->if_ospf_cli_count > 0) {
+	count = ospf_count_area_params(ospf);
+	if (count > 0) {
 		vty_out(vty,
 			"Please remove all ip ospf area x.x.x.x commands first.\n");
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"%s ospf vrf %s num of %u ip ospf area x config",
 				__func__, ospf->name ? ospf->name : "NIL",
-				ospf->if_ospf_cli_count);
+				count);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -1538,6 +1546,7 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 	/* Flush the external LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	ospf_schedule_abr_task(ospf);
+	ospf_schedule_asbr_nssa_redist_update(ospf);
 
 	return CMD_SUCCESS;
 }
@@ -1566,6 +1575,58 @@ DEFUN (ospf_area_nssa,
        "Configure OSPF area as nssa\n")
 {
 	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
+}
+
+DEFUN(ospf_area_nssa_suppress_fa, ospf_area_nssa_suppress_fa_cmd,
+      "area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
+      "OSPF area parameters\n"
+      "OSPF area ID in IP address format\n"
+      "OSPF area ID as a decimal value\n"
+      "Configure OSPF area as nssa\n"
+      "Suppress forwarding address\n")
+{
+	int idx_ipv4_number = 1;
+	struct in_addr area_id;
+	int format;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
+				   argv[idx_ipv4_number]->arg);
+
+	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
+				     format);
+	ospf_area_nssa_suppress_fa_set(ospf, area_id);
+
+	ospf_schedule_abr_task(ospf);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ospf_area_nssa_suppress_fa, no_ospf_area_nssa_suppress_fa_cmd,
+      "no area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
+      NO_STR
+      "OSPF area parameters\n"
+      "OSPF area ID in IP address format\n"
+      "OSPF area ID as a decimal value\n"
+      "Configure OSPF area as nssa\n"
+      "Suppress forwarding address\n")
+{
+	int idx_ipv4_number = 2;
+	struct in_addr area_id;
+	int format;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	VTY_GET_OSPF_AREA_ID_NO_BB("nssa", area_id, format,
+				   argv[idx_ipv4_number]->arg);
+
+	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
+				     format);
+	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
+
+	ospf_schedule_abr_task(ospf);
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (ospf_area_nssa_no_summary,
@@ -2602,6 +2663,87 @@ ALIAS(no_ospf_write_multiplier, no_write_multiplier_cmd,
       "Write multiplier\n"
       "Maximum number of interface serviced per write\n")
 
+DEFUN(ospf_ti_lfa, ospf_ti_lfa_cmd, "fast-reroute ti-lfa [node-protection]",
+      "Fast Reroute for MPLS and IP resilience\n"
+      "Topology Independent LFA (Loop-Free Alternate)\n"
+      "TI-LFA node protection (default is link protection)\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->ti_lfa_enabled = true;
+
+	if (argc == 3)
+		ospf->ti_lfa_protection_type = OSPF_TI_LFA_NODE_PROTECTION;
+	else
+		ospf->ti_lfa_protection_type = OSPF_TI_LFA_LINK_PROTECTION;
+
+	ospf_spf_calculate_schedule(ospf, SPF_FLAG_CONFIG_CHANGE);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ospf_ti_lfa, no_ospf_ti_lfa_cmd,
+      "no fast-reroute ti-lfa [node-protection]",
+      NO_STR
+      "Fast Reroute for MPLS and IP resilience\n"
+      "Topology Independent LFA (Loop-Free Alternate)\n"
+      "TI-LFA node protection (default is link protection)\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->ti_lfa_enabled = false;
+
+	ospf->ti_lfa_protection_type = OSPF_TI_LFA_UNDEFINED_PROTECTION;
+
+	ospf_spf_calculate_schedule(ospf, SPF_FLAG_CONFIG_CHANGE);
+
+	return CMD_SUCCESS;
+}
+
+static void ospf_maxpath_set(struct vty *vty, struct ospf *ospf, uint16_t paths)
+{
+	if (ospf->max_multipath == paths)
+		return;
+
+	ospf->max_multipath = paths;
+
+	/* Send deletion notification to zebra to delete all
+	 * ospf specific routes and reinitiat SPF to reflect
+	 * the new max multipath.
+	 */
+	ospf_restart_spf(ospf);
+}
+
+/* Ospf Maximum multiple paths config support */
+DEFUN (ospf_max_multipath,
+       ospf_max_multipath_cmd,
+       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+       "Max no of multiple paths for ECMP support\n"
+       "Number of paths\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	int idx_number = 1;
+	uint16_t maxpaths;
+
+	maxpaths = strtol(argv[idx_number]->arg, NULL, 10);
+
+	ospf_maxpath_set(vty, ospf, maxpaths);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_max_multipath,
+       no_ospf_max_multipath_cmd,
+       "no maximum-paths",
+       NO_STR
+       "Max no of multiple paths for ECMP support\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	uint16_t maxpaths = MULTIPATH_NUM;
+
+	ospf_maxpath_set(vty, ospf, maxpaths);
+	return CMD_SUCCESS;
+}
+
 static const char *const ospf_abr_type_descr_str[] = {
 	"Unknown", "Standard (RFC2328)", "Alternative IBM",
 	"Alternative Cisco", "Alternative Shortcut"
@@ -3131,6 +3273,10 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		/* Show refresh parameters. */
 		vty_out(vty, " Refresh timer %d secs\n",
 			ospf->lsa_refresh_interval);
+
+		/* show max multipath */
+		vty_out(vty, " Maximum multiple paths(ECMP) supported  %d\n",
+			ospf->max_multipath);
 	}
 
 	/* Show ABR/ASBR flags. */
@@ -3344,11 +3490,11 @@ DEFUN (show_ip_ospf_instance,
 	json_object *json = NULL;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -3363,6 +3509,54 @@ DEFUN (show_ip_ospf_instance,
 	}
 
 	return ret;
+}
+
+static void ospf_interface_auth_show(struct vty *vty, struct ospf_interface *oi,
+				     json_object *json, bool use_json)
+{
+	int auth_type;
+
+	auth_type = OSPF_IF_PARAM(oi, auth_type);
+
+	switch (auth_type) {
+	case OSPF_AUTH_NULL:
+		if (use_json)
+			json_object_string_add(json, "authentication",
+					       "authenticationNone");
+		else
+			vty_out(vty, "  Authentication NULL is enabled\n");
+		break;
+	case OSPF_AUTH_SIMPLE: {
+		if (use_json)
+			json_object_string_add(json, "authentication",
+					       "authenticationSimplePassword");
+		else
+			vty_out(vty,
+				"  Simple password authentication enabled\n");
+		break;
+	}
+	case OSPF_AUTH_CRYPTOGRAPHIC: {
+		struct crypt_key *ckey;
+
+		if (list_isempty(OSPF_IF_PARAM(oi, auth_crypt)))
+			return;
+
+		ckey = listgetdata(listtail(OSPF_IF_PARAM(oi, auth_crypt)));
+		if (ckey) {
+			if (use_json) {
+				json_object_string_add(json, "authentication",
+						       "authenticationMessageDigest");
+			} else {
+				vty_out(vty,
+					"  Cryptographic authentication enabled\n");
+				vty_out(vty, "  Algorithm:MD5\n");
+			}
+		}
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
@@ -3543,6 +3737,31 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				vty_out(vty,
 					"  No backup designated router on this network\n");
 		} else {
+			nbr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi));
+			if (nbr) {
+				if (use_json) {
+					json_object_string_add(
+						json_interface_sub, "drId",
+						inet_ntop(AF_INET,
+							  &nbr->router_id, buf,
+							  sizeof(buf)));
+					json_object_string_add(
+						json_interface_sub, "drAddress",
+						inet_ntop(
+							AF_INET,
+							&nbr->address.u.prefix4,
+							buf, sizeof(buf)));
+				} else {
+					vty_out(vty,
+						"  Designated Router (ID) %pI4",
+						&nbr->router_id);
+					vty_out(vty,
+						" Interface Address %pFX\n",
+						&nbr->address);
+				}
+			}
+			nbr = NULL;
+
 			nbr = ospf_nbr_lookup_by_addr(oi->nbrs, &BDR(oi));
 			if (nbr == NULL) {
 				if (!use_json)
@@ -3685,7 +3904,11 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				"  Neighbor Count is %d, Adjacent neighbor count is %d\n",
 				ospf_nbr_count(oi, 0),
 				ospf_nbr_count(oi, NSM_Full));
-		ospf_bfd_interface_show(vty, ifp, json_interface_sub, use_json);
+
+		ospf_interface_bfd_show(vty, ifp, json_interface_sub);
+
+		/* OSPF Authentication information */
+		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
 	}
 }
 
@@ -4043,11 +4266,11 @@ DEFUN (show_ip_ospf_instance_interface,
 	json_object *json = NULL;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -4438,11 +4661,11 @@ DEFUN (show_ip_ospf_instance_neighbor,
 	int ret = CMD_SUCCESS;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -4653,11 +4876,11 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
 	int ret = CMD_SUCCESS;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 	if (uj)
 		json = json_object_new_object();
@@ -4793,11 +5016,11 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
 		show_ip_ospf_neighbour_header(vty);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (!uj)
@@ -5188,7 +5411,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 						 .helper_exit_reason));
 	}
 
-	ospf_bfd_show_info(vty, nbr->bfd_info, json_neigh, use_json, 0);
+	bfd_sess_show(vty, json_neigh, nbr->bfd_session);
 
 	if (use_json)
 		json_object_array_add(json_neigh_array, json_neigh);
@@ -5271,11 +5494,11 @@ DEFPY (show_ip_ospf_instance_neighbor_id,
 {
 	struct ospf *ospf;
 
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_id_common(vty, ospf, &router_id, !!json,
@@ -5444,11 +5667,11 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
 	int ret = CMD_SUCCESS;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -5639,11 +5862,11 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
 	int ret = CMD_SUCCESS;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -5771,11 +5994,11 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
 	bool uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, idx_ifname,
@@ -6177,6 +6400,7 @@ static int show_network_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 
 	if (lsa != NULL) {
 		struct network_lsa *nl = (struct network_lsa *)lsa->data;
+		struct in_addr *addr;
 
 		show_ip_ospf_database_header(vty, lsa, json);
 
@@ -6187,24 +6411,25 @@ static int show_network_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 			json_object_int_add(json, "networkMask",
 					    ip_masklen(nl->mask));
 
-		length = ntohs(lsa->data->length) - OSPF_LSA_HEADER_SIZE - 4;
-
-		for (i = 0; length > 0; i++, length -= 4)
+		length = lsa->size - OSPF_LSA_HEADER_SIZE - 4;
+		addr = &nl->routers[0];
+		for (i = 0; length > 0 && addr;
+		     length -= 4, addr = &nl->routers[++i])
 			if (!json) {
 				vty_out(vty, "        Attached Router: %pI4\n",
-					&nl->routers[i]);
+					addr);
 				vty_out(vty, "\n");
 			} else {
 				json_router = json_object_new_object();
 				json_object_string_add(
 					json_router, "attachedRouterId",
-					inet_ntop(AF_INET, &nl->routers[i],
-						  buf, sizeof(buf)));
-				json_object_object_add(
-					json_attached_rt,
-					inet_ntop(AF_INET, &(nl->routers[i]),
-						  buf, sizeof(buf)),
-					json_router);
+					inet_ntop(AF_INET, addr, buf,
+						  sizeof(buf)));
+				json_object_object_add(json_attached_rt,
+						       inet_ntop(AF_INET, addr,
+								 buf,
+								 sizeof(buf)),
+						       json_router);
 			}
 	}
 
@@ -6318,31 +6543,7 @@ static int show_as_external_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 
 	return 0;
 }
-#if 0
-static int
-show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
-{
-  struct as_external_lsa *al = (struct as_external_lsa *) lsa->data;
 
-  /* show_ip_ospf_database_header (vty, lsa); */
-
-  zlog_debug( "  Network Mask: /%d%s",
-	     ip_masklen (al->mask), "\n");
-  zlog_debug( "        Metric Type: %s%s",
-	     IS_EXTERNAL_METRIC (al->e[0].tos) ?
-	     "2 (Larger than any link state path)" : "1", "\n");
-  zlog_debug( "        TOS: 0%s", "\n");
-  zlog_debug( "        Metric: %d%s",
-	     GET_METRIC (al->e[0].metric), "\n");
-  zlog_debug( "        Forward Address: %pI4%s",
-	     &al->e[0].fwd_addr, "\n");
-
-  zlog_debug( "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
-	     (route_tag_t)ntohl (al->e[0].route_tag), "\n", "\n");
-
-  return 0;
-}
-#endif
 /* Show AS-NSSA-LSA detail information. */
 static int show_as_nssa_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 				   json_object *json)
@@ -6630,8 +6831,8 @@ static void show_lsa_detail_adv_router(struct vty *vty, struct ospf *ospf,
 				       json_lstype);
 }
 
-static void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf,
-					  int self, json_object *json)
+void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
+				   json_object *json)
 {
 	struct ospf_lsa *lsa;
 	struct route_node *rn;
@@ -7039,14 +7240,14 @@ DEFUN (show_ip_ospf_database_max,
 	return ret;
 }
 
-DEFUN (show_ip_ospf_instance_database,
-       show_ip_ospf_instance_database_cmd,
-       "show ip ospf [{(1-65535)|vrf NAME}] database [<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> [A.B.C.D [<self-originate|adv-router A.B.C.D>]]] [json]",
+ALIAS (show_ip_ospf_database_max,
+       show_ip_ospf_database_cmd,
+       "show ip ospf [vrf <NAME|all>] database [<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> [A.B.C.D [<self-originate|adv-router A.B.C.D>]]] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "Instance ID\n"
        VRF_CMD_HELP_STR
+       "All VRFs\n"
        "Database summary\n"
         OSPF_LSA_TYPES_DESC
        "Link State ID (as an IP address)\n"
@@ -7054,77 +7255,6 @@ DEFUN (show_ip_ospf_instance_database,
        "Advertising Router link states\n"
        "Advertising Router (as an IP address)\n"
        JSON_STR)
-{
-	struct ospf *ospf;
-	unsigned short instance = 0;
-	struct listnode *node = NULL;
-	char *vrf_name = NULL;
-	bool all_vrf = false;
-	int ret = CMD_SUCCESS;
-	int inst = 0;
-	int idx = 0;
-	uint8_t use_vrf = 0;
-	bool uj = use_json(argc, argv);
-	json_object *json = NULL;
-
-	if (uj)
-		json = json_object_new_object();
-
-	if (argv_find(argv, argc, "(1-65535)", &idx)) {
-		instance = strtoul(argv[idx]->arg, NULL, 10);
-		ospf = ospf_lookup_instance(instance);
-		if (ospf == NULL)
-			return CMD_NOT_MY_INSTANCE;
-		if (!ospf->oi_running)
-			return CMD_SUCCESS;
-
-		return (show_ip_ospf_database_common(
-			vty, ospf, idx ? 1 : 0, argc, argv, use_vrf, json, uj));
-	} else if (argv_find(argv, argc, "vrf", &idx)) {
-		vrf_name = argv[++idx]->arg;
-		all_vrf = strmatch(vrf_name, "all");
-	}
-
-	if (vrf_name) {
-		use_vrf = 1;
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
-				if (!ospf->oi_running)
-					continue;
-				ret = (show_ip_ospf_database_common(
-					vty, ospf, idx ? 2 : 0, argc, argv,
-					use_vrf, json, uj));
-			}
-		} else {
-			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
-			if ((ospf == NULL) || !ospf->oi_running) {
-				vty_out(vty, "%% OSPF instance not found\n");
-				return CMD_SUCCESS;
-			}
-
-			ret = (show_ip_ospf_database_common(
-				vty, ospf, idx ? 2 : 0, argc, argv, use_vrf,
-				json, uj));
-		}
-	} else {
-		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found\n");
-			return CMD_SUCCESS;
-		}
-
-		ret = (show_ip_ospf_database_common(vty, ospf, 0, argc, argv,
-						    use_vrf, json, uj));
-	}
-
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string(json));
-		json_object_free(json);
-	}
-
-	return ret;
-}
 
 DEFUN (show_ip_ospf_instance_database_max,
        show_ip_ospf_instance_database_max_cmd,
@@ -7148,15 +7278,12 @@ DEFUN (show_ip_ospf_instance_database_max,
 		json = json_object_new_object();
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running) {
-		vty_out(vty, "%% OSPF instance not found\n");
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
-	}
 
 	show_ip_ospf_database_common(vty, ospf, 1, argc, argv, 0, json, uj);
 
@@ -7170,6 +7297,20 @@ DEFUN (show_ip_ospf_instance_database_max,
 	return CMD_SUCCESS;
 }
 
+ALIAS (show_ip_ospf_instance_database_max,
+       show_ip_ospf_instance_database_cmd,
+       "show ip ospf (1-65535) database [<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> [A.B.C.D [<self-originate|adv-router A.B.C.D>]]] [json]",
+       SHOW_STR
+       IP_STR
+       "OSPF information\n"
+       "Instance ID\n"
+       "Database summary\n"
+        OSPF_LSA_TYPES_DESC
+       "Link State ID (as an IP address)\n"
+       "Self-originated link states\n"
+       "Advertising Router link states\n"
+       "Advertising Router (as an IP address)\n"
+       JSON_STR)
 
 static int show_ip_ospf_database_type_adv_router_common(struct vty *vty,
 							struct ospf *ospf,
@@ -7259,14 +7400,14 @@ static int show_ip_ospf_database_type_adv_router_common(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_ospf_instance_database_type_adv_router,
-       show_ip_ospf_instance_database_type_adv_router_cmd,
-       "show ip ospf [{(1-65535)|vrf NAME}] database <asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> <adv-router A.B.C.D|self-originate> [json]",
+DEFUN (show_ip_ospf_database_type_adv_router,
+       show_ip_ospf_database_type_adv_router_cmd,
+       "show ip ospf [vrf <NAME|all>] database <asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> <adv-router A.B.C.D|self-originate> [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "Instance ID\n"
        VRF_CMD_HELP_STR
+       "All VRFs\n"
        "Database summary\n"
        OSPF_LSA_TYPES_DESC
        "Advertising Router link states\n"
@@ -7275,33 +7416,18 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
        JSON_STR)
 {
 	struct ospf *ospf = NULL;
-	unsigned short instance = 0;
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
 	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
-	int idx = 0, idx_vrf = 0;
+	int idx_vrf = 0;
 	uint8_t use_vrf = 0;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 
 	if (uj)
 		json = json_object_new_object();
-
-	if (argv_find(argv, argc, "(1-65535)", &idx)) {
-		instance = strtoul(argv[idx]->arg, NULL, 10);
-		ospf = ospf_lookup_instance(instance);
-		if (ospf == NULL)
-			return CMD_NOT_MY_INSTANCE;
-		if (!ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found\n");
-			return CMD_SUCCESS;
-		}
-
-		return (show_ip_ospf_database_type_adv_router_common(
-			vty, ospf, idx ? 1 : 0, argc, argv, use_vrf, json, uj));
-	}
 
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
@@ -7316,8 +7442,8 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 					continue;
 				ospf_output = true;
 				ret = show_ip_ospf_database_type_adv_router_common(
-					vty, ospf, idx ? 1 : 0, argc, argv,
-					use_vrf, json, uj);
+					vty, ospf, 2, argc, argv, use_vrf, json,
+					uj);
 			}
 			if (!ospf_output)
 				vty_out(vty, "%% OSPF instance not found\n");
@@ -7329,8 +7455,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 			}
 
 			ret = show_ip_ospf_database_type_adv_router_common(
-				vty, ospf, idx ? 1 : 0, argc, argv, use_vrf,
-				json, uj);
+				vty, ospf, 2, argc, argv, use_vrf, json, uj);
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
@@ -7341,7 +7466,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 		}
 
 		ret = show_ip_ospf_database_type_adv_router_common(
-			vty, ospf, idx ? 1 : 0, argc, argv, use_vrf, json, uj);
+			vty, ospf, 0, argc, argv, use_vrf, json, uj);
 	}
 
 	if (uj) {
@@ -7350,8 +7475,50 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 	}
 
 	return ret;
-	/*return (show_ip_ospf_database_type_adv_router_common(
-		vty, ospf, idx ? 1 : 0, argc, argv));*/
+}
+
+DEFUN (show_ip_ospf_instance_database_type_adv_router,
+       show_ip_ospf_instance_database_type_adv_router_cmd,
+       "show ip ospf (1-65535) database <asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> <adv-router A.B.C.D|self-originate> [json]",
+       SHOW_STR
+       IP_STR
+       "OSPF information\n"
+       "Instance ID\n"
+       "Database summary\n"
+       OSPF_LSA_TYPES_DESC
+       "Advertising Router link states\n"
+       "Advertising Router (as an IP address)\n"
+       "Self-originated link states\n"
+       JSON_STR)
+{
+	int idx_number = 3;
+	struct ospf *ospf;
+	unsigned short instance = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+
+	instance = strtoul(argv[idx_number]->arg, NULL, 10);
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
+		return CMD_SUCCESS;
+
+	show_ip_ospf_database_type_adv_router_common(vty, ospf, 1, argc, argv,
+						     0, json, uj);
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_ospf_authentication_args,
@@ -7726,10 +7893,9 @@ DEFUN (ip_ospf_message_digest_key,
 	}
 
 	key_id = strtol(keyid, NULL, 10);
-	if (ospf_crypt_key_lookup(params->auth_crypt, key_id) != NULL) {
-		vty_out(vty, "OSPF: Key %d already exists\n", key_id);
-		return CMD_WARNING;
-	}
+
+	/* Remove existing key, if any */
+	ospf_crypt_key_delete(params->auth_crypt, key_id);
 
 	ck = ospf_crypt_key_new();
 	ck->key_id = (uint8_t)key_id;
@@ -8253,6 +8419,7 @@ DEFUN (no_ip_ospf_hello_interval,
 			continue;
 
 		oi->type = IF_DEF_PARAMS(ifp)->type;
+		oi->ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
 
 		if (oi->state > ISM_Down) {
 			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
@@ -8280,20 +8447,21 @@ DEFUN_HIDDEN (no_ospf_hello_interval,
 	return no_ip_ospf_hello_interval(self, vty, argc, argv);
 }
 
-DEFUN (ip_ospf_network,
-       ip_ospf_network_cmd,
-       "ip ospf network <broadcast|non-broadcast|point-to-multipoint|point-to-point>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Network type\n"
-       "Specify OSPF broadcast multi-access network\n"
-       "Specify OSPF NBMA network\n"
-       "Specify OSPF point-to-multipoint network\n"
-       "Specify OSPF point-to-point network\n")
+DEFUN(ip_ospf_network, ip_ospf_network_cmd,
+      "ip ospf network <broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn]>",
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Network type\n"
+      "Specify OSPF broadcast multi-access network\n"
+      "Specify OSPF NBMA network\n"
+      "Specify OSPF point-to-multipoint network\n"
+      "Specify OSPF point-to-point network\n"
+      "Specify OSPF point-to-point DMVPN network\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
 	int old_type = IF_DEF_PARAMS(ifp)->type;
+	uint8_t old_ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
 	struct route_node *rn;
 
 	if (old_type == OSPF_IFTYPE_LOOPBACK) {
@@ -8302,16 +8470,22 @@ DEFUN (ip_ospf_network,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
+
 	if (argv_find(argv, argc, "broadcast", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_BROADCAST;
 	else if (argv_find(argv, argc, "non-broadcast", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_NBMA;
 	else if (argv_find(argv, argc, "point-to-multipoint", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOMULTIPOINT;
-	else if (argv_find(argv, argc, "point-to-point", &idx))
+	else if (argv_find(argv, argc, "point-to-point", &idx)) {
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOPOINT;
+		if (argv_find(argv, argc, "dmvpn", &idx))
+			IF_DEF_PARAMS(ifp)->ptp_dmvpn = 1;
+	}
 
-	if (IF_DEF_PARAMS(ifp)->type == old_type)
+	if (IF_DEF_PARAMS(ifp)->type == old_type
+	    && IF_DEF_PARAMS(ifp)->ptp_dmvpn == old_ptp_dmvpn)
 		return CMD_SUCCESS;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
@@ -8363,6 +8537,7 @@ DEFUN (no_ip_ospf_network,
 	struct route_node *rn;
 
 	IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
 
 	if (IF_DEF_PARAMS(ifp)->type == old_type)
 		return CMD_SUCCESS;
@@ -8751,12 +8926,12 @@ DEFUN (ip_ospf_area,
 	argv_find(argv, argc, "area", &idx);
 	areaid = argv[idx + 1]->arg;
 
-	if (ifp->vrf_id && !instance)
+	if (!instance)
 		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
 	else
 		ospf = ospf_lookup_instance(instance);
 
-	if (instance && ospf == NULL) {
+	if (instance && instance != ospf_instance) {
 		/*
 		 * At this point we know we have received
 		 * an instance and there is no ospf instance
@@ -8784,10 +8959,8 @@ DEFUN (ip_ospf_area,
 
 		if (count > 0) {
 			ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
-			if (ospf) {
+			if (ospf)
 				ospf_interface_area_unset(ospf, ifp);
-				ospf->if_ospf_cli_count -= count;
-			}
 		}
 
 		return CMD_NOT_MY_INSTANCE;
@@ -8831,9 +9004,12 @@ DEFUN (ip_ospf_area,
 		// update/create address-level params
 		params = ospf_get_if_params((ifp), (addr));
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
-			vty_out(vty,
-				"Must remove previous area/address config before changing ospf area\n");
-			return CMD_WARNING_CONFIG_FAILED;
+			if (!IPV4_ADDR_SAME(&params->if_area, &area_id)) {
+				vty_out(vty,
+					"Must remove previous area/address config before changing ospf area\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			} else
+				return CMD_SUCCESS;
 		}
 		ospf_if_update_params((ifp), (addr));
 	}
@@ -8845,10 +9021,8 @@ DEFUN (ip_ospf_area,
 		params->if_area_id_fmt = format;
 	}
 
-	if (ospf) {
+	if (ospf)
 		ospf_interface_area_set(ospf, ifp);
-		ospf->if_ospf_cli_count++;
-	}
 
 	return CMD_SUCCESS;
 }
@@ -8871,16 +9045,17 @@ DEFUN (no_ip_ospf_area,
 	struct ospf_if_params *params;
 	unsigned short instance = 0;
 	struct in_addr addr;
+	struct in_addr area_id;
 
 	if (argv_find(argv, argc, "(1-65535)", &idx))
 		instance = strtol(argv[idx]->arg, NULL, 10);
 
-	if (ifp->vrf_id && !instance)
+	if (!instance)
 		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
 	else
 		ospf = ospf_lookup_instance(instance);
 
-	if (instance && ospf == NULL)
+	if (instance && instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	argv_find(argv, argc, "area", &idx);
@@ -8898,6 +9073,7 @@ DEFUN (no_ip_ospf_area,
 	} else
 		params = IF_DEF_PARAMS(ifp);
 
+	area_id = params->if_area;
 	if (!OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 		vty_out(vty,
 			"Can't find specified interface area configuration.\n");
@@ -8912,7 +9088,7 @@ DEFUN (no_ip_ospf_area,
 
 	if (ospf) {
 		ospf_interface_area_unset(ospf, ifp);
-		ospf->if_ospf_cli_count--;
+		ospf_area_check_free(ospf, area_id);
 	}
 
 	return CMD_SUCCESS;
@@ -8937,13 +9113,12 @@ DEFUN (ospf_redistribute_source,
 	int metric = -1;
 	struct ospf_redist *red;
 	int idx = 0;
+	bool update = false;
 
 	/* Get distribute source. */
 	source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (source < 0)
 		return CMD_WARNING_CONFIG_FAILED;
-
-	red = ospf_redist_add(ospf, source, 0);
 
 	/* Get metric value. */
 	if (argv_find(argv, argc, "(0-16777214)", &idx)) {
@@ -8957,13 +9132,25 @@ DEFUN (ospf_redistribute_source,
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 	idx = 1;
+
+	red = ospf_redist_lookup(ospf, source, 0);
+	if (!red)
+		red = ospf_redist_add(ospf, source, 0);
+	else
+		update = true;
+
 	/* Get route-map */
 	if (argv_find(argv, argc, "WORD", &idx)) {
 		ospf_routemap_set(red, argv[idx]->arg);
 	} else
 		ospf_routemap_unset(red);
 
-	return ospf_redistribute_set(ospf, source, 0, type, metric);
+	if (update)
+		return ospf_redistribute_update(ospf, red, source, 0, type,
+						metric);
+	else
+		return ospf_redistribute_set(ospf, red, source, 0, type,
+					     metric);
 }
 
 DEFUN (no_ospf_redistribute_source,
@@ -9021,6 +9208,7 @@ DEFUN (ospf_redistribute_instance_source,
 	int metric = -1;
 	unsigned short instance;
 	struct ospf_redist *red;
+	bool update = false;
 
 	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
@@ -9053,7 +9241,11 @@ DEFUN (ospf_redistribute_instance_source,
 		if (!str2metric_type(argv[idx + 1]->arg, &type))
 			return CMD_WARNING_CONFIG_FAILED;
 
-	red = ospf_redist_add(ospf, source, instance);
+	red = ospf_redist_lookup(ospf, source, instance);
+	if (!red)
+		red = ospf_redist_add(ospf, source, instance);
+	else
+		update = true;
 
 	idx = 3;
 	if (argv_find(argv, argc, "route-map", &idx))
@@ -9061,7 +9253,12 @@ DEFUN (ospf_redistribute_instance_source,
 	else
 		ospf_routemap_unset(red);
 
-	return ospf_redistribute_set(ospf, source, instance, type, metric);
+	if (update)
+		return ospf_redistribute_update(ospf, red, source, instance,
+						type, metric);
+	else
+		return ospf_redistribute_set(ospf, red, source, instance, type,
+					     metric);
 }
 
 DEFUN (no_ospf_redistribute_instance_source,
@@ -9376,78 +9573,6 @@ DEFUN (ospf_distance_ospf,
 
 	return CMD_SUCCESS;
 }
-
-#if 0
-DEFUN (ospf_distance_source,
-       ospf_distance_source_cmd,
-       "distance (1-255) A.B.C.D/M",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_number = 1;
-  int idx_ipv4_prefixlen = 2;
-
-  ospf_distance_set (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_distance_source,
-       no_ospf_distance_source_cmd,
-       "no distance (1-255) A.B.C.D/M",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_number = 2;
-  int idx_ipv4_prefixlen = 3;
-
-  ospf_distance_unset (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (ospf_distance_source_access_list,
-       ospf_distance_source_access_list_cmd,
-       "distance (1-255) A.B.C.D/M WORD",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_number = 1;
-  int idx_ipv4_prefixlen = 2;
-  int idx_word = 3;
-
-  ospf_distance_set (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_distance_source_access_list,
-       no_ospf_distance_source_access_list_cmd,
-       "no distance (1-255) A.B.C.D/M WORD",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_number = 2;
-  int idx_ipv4_prefixlen = 3;
-  int idx_word = 4;
-
-  ospf_distance_unset (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-
-  return CMD_SUCCESS;
-}
-#endif
 
 DEFUN (ip_ospf_mtu_ignore,
        ip_ospf_mtu_ignore_addr_cmd,
@@ -9928,10 +10053,10 @@ DEFPY(no_ospf_gr_helper_planned_only,
 	return CMD_SUCCESS;
 }
 
-static int ospf_print_vty_helper_dis_rtr_walkcb(struct hash_bucket *backet,
+static int ospf_print_vty_helper_dis_rtr_walkcb(struct hash_bucket *bucket,
 						void *arg)
 {
-	struct advRtr *rtr = backet->data;
+	struct advRtr *rtr = bucket->data;
 	struct vty *vty = (struct vty *)arg;
 	static unsigned int count;
 
@@ -10924,11 +11049,11 @@ DEFUN (show_ip_ospf_instance_border_routers,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_border_routers_common(vty, ospf, 0);
@@ -11092,11 +11217,11 @@ DEFUN (show_ip_ospf_instance_route,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	ospf = ospf_lookup_instance(instance);
-	if (ospf == NULL)
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	if (!ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_route_common(vty, ospf, NULL, 0);
@@ -11177,6 +11302,68 @@ DEFUN (show_ip_ospf_vrfs,
 
 	return CMD_SUCCESS;
 }
+DEFPY (clear_ip_ospf_neighbor,
+       clear_ip_ospf_neighbor_cmd,
+       "clear ip ospf [(1-65535)]$instance neighbor [A.B.C.D$nbr_id]",
+       CLEAR_STR
+       IP_STR
+       "OSPF information\n"
+       "Instance ID\n"
+       "Reset OSPF Neighbor\n"
+       "Neighbor ID\n")
+{
+	struct listnode *node;
+	struct ospf *ospf = NULL;
+
+	/* If user does not specify the arguments,
+	 * instance = 0 and nbr_id = 0.0.0.0
+	 */
+	if (instance != 0) {
+		/* This means clear only the particular ospf process */
+		if (instance != ospf_instance)
+			return CMD_NOT_MY_INSTANCE;
+	}
+
+	/* Clear all the ospf processes */
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!ospf->oi_running)
+			continue;
+
+		ospf_neighbor_reset(ospf, nbr_id, nbr_id_str);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ip_ospf_process,
+       clear_ip_ospf_process_cmd,
+       "clear ip ospf [(1-65535)]$instance process",
+       CLEAR_STR
+       IP_STR
+       "OSPF information\n"
+       "Instance ID\n"
+       "Reset OSPF Process\n")
+{
+	struct listnode *node;
+	struct ospf *ospf = NULL;
+
+	/* Check if instance is not passed as an argument */
+	if (instance != 0) {
+		/* This means clear only the particular ospf process */
+		if (instance != ospf_instance)
+			return CMD_NOT_MY_INSTANCE;
+	}
+
+	/* Clear all the ospf processes */
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!ospf->oi_running)
+			continue;
+
+		ospf_process_reset(ospf);
+	}
+
+	return CMD_SUCCESS;
+}
 
 static const char *const ospf_abr_type_str[] = {
 	"unknown", "standard", "ibm", "cisco", "shortcut"
@@ -11185,10 +11372,10 @@ static const char *const ospf_abr_type_str[] = {
 static const char *const ospf_shortcut_mode_str[] = {
 	"default", "enable", "disable"
 };
-static int ospf_vty_external_rt_walkcb(struct hash_bucket *backet,
+static int ospf_vty_external_rt_walkcb(struct hash_bucket *bucket,
 					void *arg)
 {
-	struct external_info *ei = backet->data;
+	struct external_info *ei = bucket->data;
 	struct vty *vty = (struct vty *)arg;
 	static unsigned int count;
 
@@ -11204,10 +11391,10 @@ static int ospf_vty_external_rt_walkcb(struct hash_bucket *backet,
 	return HASHWALK_CONTINUE;
 }
 
-static int ospf_json_external_rt_walkcb(struct hash_bucket *backet,
+static int ospf_json_external_rt_walkcb(struct hash_bucket *bucket,
 					void *arg)
 {
-	struct external_info *ei = backet->data;
+	struct external_info *ei = bucket->data;
 	struct json_object *json = (struct json_object *)arg;
 	char buf[PREFIX2STR_BUFFER];
 	char exnalbuf[20];
@@ -11487,7 +11674,6 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 	struct ospf_if_params *params;
 	const char *auth_str;
 	int write = 0;
-	struct ospf *ospf = vrf->info;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 
@@ -11515,6 +11701,10 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					vty_out(vty, " ip ospf network %s",
 						ospf_int_type_str
 							[params->type]);
+					if (params->type
+						    == OSPF_IFTYPE_POINTOPOINT
+					    && params->ptp_dmvpn)
+						vty_out(vty, " dmvpn");
 					if (params != IF_DEF_PARAMS(ifp) && rn)
 						vty_out(vty, " %pI4",
 							&rn->p.u.prefix4);
@@ -11582,6 +11772,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			/* Router Dead Interval print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, v_wait)
+			    && params->is_v_wait_set
 			    && params->v_wait
 				       != OSPF_ROUTER_DEAD_INTERVAL_DEFAULT) {
 				vty_out(vty, " ip ospf dead-interval ");
@@ -11640,9 +11831,9 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			/* Area  print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
-				if (ospf && ospf->instance)
+				if (ospf_instance)
 					vty_out(vty, " ip ospf %d",
-						ospf->instance);
+						ospf_instance);
 				else
 					vty_out(vty, " ip ospf");
 
@@ -11658,7 +11849,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			}
 
 			/* bfd  print. */
-			if (params && params->bfd_info)
+			if (params && params->bfd_config)
 				ospf_bfd_write_config(vty, params);
 
 			/* MTU ignore print. */
@@ -11793,6 +11984,10 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 				if (area->no_summary)
 					vty_out(vty,
 						" area %s nssa no-summary\n",
+						buf);
+				if (area->suppress_fa)
+					vty_out(vty,
+						" area %s nssa suppress-fa\n",
 						buf);
 			}
 
@@ -11976,10 +12171,10 @@ static int config_write_ospf_redistribute(struct vty *vty, struct ospf *ospf)
 	return 0;
 }
 
-static int ospf_cfg_write_helper_dis_rtr_walkcb(struct hash_bucket *backet,
+static int ospf_cfg_write_helper_dis_rtr_walkcb(struct hash_bucket *bucket,
 						void *arg)
 {
-	struct advRtr *rtr = backet->data;
+	struct advRtr *rtr = bucket->data;
 	struct vty *vty = (struct vty *)arg;
 
 	vty_out(vty, " graceful-restart helper-only %pI4\n",
@@ -12192,6 +12387,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 		vty_out(vty, " ospf write-multiplier %d\n",
 			ospf->write_oi_count);
 
+	if (ospf->max_multipath != MULTIPATH_NUM)
+		vty_out(vty, " maximum-paths %d\n", ospf->max_multipath);
+
 	/* Max-metric router-lsa print */
 	config_write_stub_router(vty, ospf);
 
@@ -12245,6 +12443,14 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 		vty_out(vty, " %spassive-interface %s %pI4\n",
 			oi->params->passive_interface ? "" : "no ",
 			oi->ifp->name, &oi->address->u.prefix4);
+	}
+
+	/* TI-LFA print. */
+	if (ospf->ti_lfa_enabled) {
+		if (ospf->ti_lfa_protection_type == OSPF_TI_LFA_NODE_PROTECTION)
+			vty_out(vty, " fast-reroute ti-lfa node-protection\n");
+		else
+			vty_out(vty, " fast-reroute ti-lfa\n");
 	}
 
 	/* Network area print. */
@@ -12309,8 +12515,10 @@ void ospf_vty_show_init(void)
 	install_element(VIEW_NODE, &show_ip_ospf_instance_cmd);
 
 	/* "show ip ospf database" commands. */
+	install_element(VIEW_NODE, &show_ip_ospf_database_cmd);
 	install_element(VIEW_NODE, &show_ip_ospf_database_max_cmd);
-
+	install_element(VIEW_NODE,
+			&show_ip_ospf_database_type_adv_router_cmd);
 	install_element(VIEW_NODE,
 			&show_ip_ospf_instance_database_type_adv_router_cmd);
 	install_element(VIEW_NODE, &show_ip_ospf_instance_database_cmd);
@@ -12491,13 +12699,6 @@ static void ospf_vty_zebra_init(void)
 			&no_ospf_external_route_aggregation_no_adrvertise_cmd);
 	install_element(OSPF_NODE, &ospf_route_aggregation_timer_cmd);
 	install_element(OSPF_NODE, &no_ospf_route_aggregation_timer_cmd);
-
-#if 0
-  install_element (OSPF_NODE, &ospf_distance_source_cmd);
-  install_element (OSPF_NODE, &no_ospf_distance_source_cmd);
-  install_element (OSPF_NODE, &ospf_distance_source_access_list_cmd);
-  install_element (OSPF_NODE, &no_ospf_distance_source_access_list_cmd);
-#endif /* 0 */
 }
 
 static int ospf_config_write(struct vty *vty);
@@ -12573,6 +12774,8 @@ DEFUN (clear_ip_ospf_interface,
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
+	install_element(ENABLE_NODE, &clear_ip_ospf_process_cmd);
+	install_element(ENABLE_NODE, &clear_ip_ospf_neighbor_cmd);
 }
 
 
@@ -12650,6 +12853,8 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_area_nssa_translate_cmd);
 	install_element(OSPF_NODE, &ospf_area_nssa_no_summary_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_nssa_no_summary_cmd);
+	install_element(OSPF_NODE, &ospf_area_nssa_suppress_fa_cmd);
+	install_element(OSPF_NODE, &no_ospf_area_nssa_suppress_fa_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_nssa_cmd);
 
 	install_element(OSPF_NODE, &ospf_area_default_cost_cmd);
@@ -12708,6 +12913,14 @@ void ospf_vty_init(void)
 	/* "proactive-arp" commands. */
 	install_element(OSPF_NODE, &ospf_proactive_arp_cmd);
 	install_element(OSPF_NODE, &no_ospf_proactive_arp_cmd);
+
+	/* TI-LFA commands */
+	install_element(OSPF_NODE, &ospf_ti_lfa_cmd);
+	install_element(OSPF_NODE, &no_ospf_ti_lfa_cmd);
+
+	/* Max path configurations */
+	install_element(OSPF_NODE, &ospf_max_multipath_cmd);
+	install_element(OSPF_NODE, &no_ospf_max_multipath_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();

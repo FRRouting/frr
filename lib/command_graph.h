@@ -31,12 +31,13 @@
 #include "memory.h"
 #include "vector.h"
 #include "graph.h"
+#include "xref.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-DECLARE_MTYPE(CMD_ARG)
+DECLARE_MTYPE(CMD_ARG);
 
 struct vty;
 
@@ -98,13 +99,14 @@ struct cmd_element {
 	const char *string; /* Command specification by string. */
 	const char *doc;    /* Documentation of this command. */
 	int daemon;	 /* Daemon to which this command belong. */
-	uint8_t attr;       /* Command attributes */
+	uint32_t attr;       /* Command attributes */
 
 	/* handler function for command */
 	int (*func)(const struct cmd_element *, struct vty *, int,
 		    struct cmd_token *[]);
 
 	const char *name; /* symbol name for debugging */
+	struct xref xref;
 };
 
 /* text for <cr> command */

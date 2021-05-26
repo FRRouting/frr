@@ -69,13 +69,13 @@ static void		 merge_l2vpns(struct ldpd_conf *, struct ldpd_conf *);
 static void		 merge_l2vpn(struct ldpd_conf *, struct l2vpn *,
 			    struct l2vpn *);
 
-DEFINE_QOBJ_TYPE(iface)
-DEFINE_QOBJ_TYPE(tnbr)
-DEFINE_QOBJ_TYPE(nbr_params)
-DEFINE_QOBJ_TYPE(l2vpn_if)
-DEFINE_QOBJ_TYPE(l2vpn_pw)
-DEFINE_QOBJ_TYPE(l2vpn)
-DEFINE_QOBJ_TYPE(ldpd_conf)
+DEFINE_QOBJ_TYPE(iface);
+DEFINE_QOBJ_TYPE(tnbr);
+DEFINE_QOBJ_TYPE(nbr_params);
+DEFINE_QOBJ_TYPE(l2vpn_if);
+DEFINE_QOBJ_TYPE(l2vpn_pw);
+DEFINE_QOBJ_TYPE(l2vpn);
+DEFINE_QOBJ_TYPE(ldpd_conf);
 
 struct ldpd_global	 global;
 struct ldpd_init	 init;
@@ -86,6 +86,30 @@ static struct imsgev	*iev_lde, *iev_lde_sync;
 static pid_t		 ldpe_pid;
 static pid_t		 lde_pid;
 
+static struct frr_daemon_info ldpd_di;
+
+DEFINE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm));
+
+static void ldp_load_module(const char *name)
+{
+	const char *dir;
+	dir = ldpd_di.module_path ? ldpd_di.module_path : frr_moduledir;
+	char moderr[256];
+	struct frrmod_runtime *module;
+
+	module = frrmod_load(name, dir, moderr, sizeof(moderr));
+	if (!module) {
+		fprintf(stderr, "%s: failed to load %s", __func__, name);
+		log_warnx("%s: failed to load %s", __func__, name);
+	}
+}
+
+void ldp_agentx_enabled(void)
+{
+	ldp_load_module("snmp");
+	hook_call(ldp_register_mib, master);
+}
+
 enum ldpd_process ldpd_process;
 
 #define LDP_DEFAULT_CONFIG	"ldpd.conf"
@@ -93,8 +117,6 @@ enum ldpd_process ldpd_process;
 
 /* Master of threads. */
 struct thread_master *master;
-
-static struct frr_daemon_info ldpd_di;
 
 /* ldpd privileges */
 static zebra_capabilities_t _caps_p [] =
@@ -196,7 +218,7 @@ FRR_DAEMON_INFO(ldpd, LDP,
 
 	.yang_modules = ldpd_yang_modules,
 	.n_yang_modules = array_size(ldpd_yang_modules),
-)
+);
 
 static int ldp_config_fork_apply(struct thread *t)
 {
@@ -625,6 +647,7 @@ main_dispatch_lde(struct thread *thread)
 	struct imsg	 imsg;
 	ssize_t		 n;
 	int		 shut = 0;
+	struct zapi_rlfa_response *rlfa_labels;
 
 	iev->ev_read = NULL;
 
@@ -690,6 +713,15 @@ main_dispatch_lde(struct thread *thread)
 			    sizeof(struct acl_check))
 				fatalx("IMSG_ACL_CHECK imsg with wrong len");
 			ldp_acl_reply(iev, (struct acl_check *)imsg.data);
+			break;
+		case IMSG_RLFA_LABELS:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct zapi_rlfa_response)) {
+				log_warnx("%s: wrong imsg len", __func__);
+				break;
+			}
+			rlfa_labels = imsg.data;
+			ldp_zebra_send_rlfa_labels(rlfa_labels);
 			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
@@ -1332,6 +1364,19 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		if (ldpd_process == PROC_LDP_ENGINE)
 			ldpe_reset_ds_nbrs();
 	}
+
+	/*
+	 * Configuration of allow-broken-lsp requires reprograming all
+	 * labeled routes
+	 */
+	if ((conf->flags & F_LDPD_ALLOW_BROKEN_LSP) !=
+	    (xconf->flags & F_LDPD_ALLOW_BROKEN_LSP)) {
+		if (ldpd_process == PROC_LDE_ENGINE)
+			lde_allow_broken_lsp_update(xconf->flags);
+	}
+
+	if (ldpd_process == PROC_LDP_ENGINE)
+		ldpe_set_config_change_time();
 
 	conf->flags = xconf->flags;
 }

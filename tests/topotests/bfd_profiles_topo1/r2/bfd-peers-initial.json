@@ -1,0 +1,40 @@
+[
+    {
+        "detect-multiplier": 3,
+        "diagnostic": "ok",
+        "id": "*",
+        "interface": "r2-eth0",
+        "multihop": false,
+        "peer": "172.16.0.2",
+        "receive-interval": 800,
+        "remote-detect-multiplier": 3,
+        "remote-diagnostic": "ok",
+        "remote-id": "*",
+        "remote-receive-interval": 800,
+        "remote-transmit-interval": 800,
+        "remote-echo-receive-interval": 400,
+        "status": "up",
+        "transmit-interval": 800,
+        "uptime": "*",
+        "vrf": "default"
+    },
+    {
+        "detect-multiplier": 3,
+        "diagnostic": "ok",
+        "id": "*",
+        "interface": "r2-eth1",
+        "multihop": false,
+        "peer": "172.16.1.1",
+        "receive-interval": 250,
+        "remote-detect-multiplier": 3,
+        "remote-diagnostic": "ok",
+        "remote-echo-receive-interval": 50,
+        "remote-id": "*",
+        "remote-receive-interval": 300,
+        "remote-transmit-interval": 300,
+        "status": "up",
+        "transmit-interval": 250,
+        "uptime": "*",
+        "vrf": "default"
+    }
+]

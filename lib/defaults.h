@@ -98,7 +98,8 @@ struct frr_default {
 	static void _dfltinit_##varname(void)                                  \
 	{                                                                      \
 		frr_default_add(&_dflt_##varname);                             \
-	}
+	}                                                                      \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* use:
  *   FRR_CFG_DEFAULT_LONG(SHARP_BLUNTNESS,

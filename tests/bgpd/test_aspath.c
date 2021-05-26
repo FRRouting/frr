@@ -892,7 +892,7 @@ static int validate(struct aspath *as, const struct test_spec *sp)
 
 	/* Excercise AS4 parsing a bit, with a dogfood test */
 	if (!s)
-		s = stream_new(4096);
+		s = stream_new(BGP_MAX_PACKET_SIZE);
 	bytes4 = aspath_put(s, as, 1);
 	as4 = make_aspath(STREAM_DATA(s), bytes4, 1);
 
@@ -1207,6 +1207,7 @@ static int handle_attr_test(struct aspath_tests *t)
 	peer.host = (char *)"none";
 	peer.fd = -1;
 	peer.cap = t->cap;
+	peer.max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
 	stream_write(peer.curr, t->attrheader, t->len);
 	datalen = aspath_put(peer.curr, asp, t->as4 == AS4_DATA);
@@ -1265,7 +1266,8 @@ int main(void)
 {
 	int i = 0;
 	qobj_init();
-	bgp_master_init(thread_master_create(NULL), BGP_SOCKET_SNDBUF_SIZE);
+	bgp_master_init(thread_master_create(NULL), BGP_SOCKET_SNDBUF_SIZE,
+			list_new());
 	master = bm->master;
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();

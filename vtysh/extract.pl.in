@@ -42,7 +42,7 @@ sub scan_file {
 
     $cppadd = $fabricd ? "-DFABRICD=1" : "";
 
-    open (FH, "@CPP@ -P -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ $cppadd $file |");
+    open (FH, "@CPP@ -P -std=gnu11 -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ @LIBYANG_CFLAGS@ $cppadd $file |");
     local $/; undef $/;
     $line = <FH>;
     if (!close (FH)) {
@@ -103,11 +103,11 @@ sub scan_file {
         elsif ($file =~ /lib\/(filter|filter_cli)\.c$/) {
             $protocol = "VTYSH_ACL";
         }
-        elsif ($file =~ /lib\/lib_vty\.c$/) {
+        elsif ($file =~ /lib\/(lib|log)_vty\.c$/) {
             $protocol = "VTYSH_ALL";
         }
 	elsif ($file =~ /lib\/agentx\.c$/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
+	    $protocol = "VTYSH_ISISD|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
 	}
 	elsif ($file =~ /lib\/nexthop_group\.c$/) {
 	    $protocol = "VTYSH_NH_GROUP";
@@ -119,13 +119,6 @@ sub scan_file {
                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
             }
         }
-        elsif ($file =~ /lib\/distribute\.c$/) {
-            if ($defun_array[1] =~ m/ipv6/) {
-                $protocol = "VTYSH_RIPNGD";
-            } else {
-                $protocol = "VTYSH_RIPD";
-            }
-        }
         elsif ($file =~ /lib\/if_rmap\.c$/) {
             if ($defun_array[1] =~ m/ipv6/) {
                 $protocol = "VTYSH_RIPNGD";
@@ -133,7 +126,13 @@ sub scan_file {
                 $protocol = "VTYSH_RIPD";
             }
         }
-        elsif ($file =~ /lib\/vty\.c$/) {
+	elsif ($file =~ /lib\/resolver\.c$/) {
+	    $protocol = "VTYSH_NHRPD|VTYSH_BGPD";
+	}
+	elsif ($file =~ /lib\/spf_backoff\.c$/) {
+	    $protocol = "VTYSH_ISISD";
+	}
+        elsif ($file =~ /lib\/(vty|thread)\.c$/) {
            $protocol = "VTYSH_ALL";
         }
         elsif ($file =~ /librfp\/.*\.c$/ || $file =~ /rfapi\/.*\.c$/) {
@@ -269,7 +268,7 @@ EOF
 foreach (sort keys %odefun) {
     my ($node, $str) = (split (/,/));
     $cmd = $ocmd{$_};
-    $cmd =~ s/_cmd/_cmd_vtysh/;
+    $cmd =~ s/_cmd$/_cmd_vtysh/;
     printf "  install_element ($node, &$cmd);\n";
 }
 

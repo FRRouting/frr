@@ -1,19 +1,33 @@
 ## Process this file with automake to produce Makefile.in.
 
 AUTOMAKE_OPTIONS = subdir-objects 1.12
-ACLOCAL_AMFLAGS = -I m4
+ACLOCAL_AMFLAGS = -I m4 -Wall,no-override
 
 AM_CFLAGS = \
+	$(AC_CFLAGS) \
 	$(LIBYANG_CFLAGS) \
 	$(SQLITE3_CFLAGS) \
 	$(UNWIND_CFLAGS) \
 	$(SAN_FLAGS) \
 	$(WERROR) \
 	# end
-AM_CPPFLAGS = \
+AM_CXXFLAGS = \
+	$(AC_CXXFLAGS) \
+	$(LIBYANG_CFLAGS) \
+	$(WERROR) \
+	# end
+
+# CPPFLAGS_BASE does not contain the include path for overriding assert.h,
+# therefore should be used in tools that do *not* link libfrr or do not want
+# assert() overridden
+CPPFLAGS_BASE = \
 	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
-	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib \
+	-I$(top_builddir) \
 	$(LUA_INCLUDE) \
+	# end
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/lib/assert \
+	$(CPPFLAGS_BASE) \
 	# end
 AM_LDFLAGS = \
 	-export-dynamic \
@@ -158,6 +172,9 @@ include bfdd/subdir.am
 include yang/subdir.am
 include yang/libyang_plugins/subdir.am
 include vrrpd/subdir.am
+include pceplib/subdir.am
+include pceplib/test/subdir.am
+include pathd/subdir.am
 
 include vtysh/subdir.am
 include tests/subdir.am
@@ -186,8 +203,16 @@ EXTRA_DIST += \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \
+	python/clippy/elf.py \
+	python/clippy/uidhash.py \
 	python/makevars.py \
 	python/makefile.py \
+	python/tiabwarfo.py \
+	python/xrelfo.py \
+	python/test_xrelfo.py \
+	python/runtests.py \
+	\
+	python/xrefstructs.json \
 	\
 	redhat/frr.logrotate \
 	redhat/frr.pam \

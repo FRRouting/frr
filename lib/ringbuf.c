@@ -22,7 +22,7 @@
 #include "ringbuf.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, RINGBUFFER, "Ring buffer")
+DEFINE_MTYPE_STATIC(LIB, RINGBUFFER, "Ring buffer");
 
 struct ringbuf *ringbuf_new(size_t size)
 {

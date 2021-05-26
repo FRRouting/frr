@@ -42,7 +42,6 @@
 #include "prefix.h"
 #include "command.h"
 #include "memory.h"
-#include "zebra_memory.h"
 #include "stream.h"
 #include "ioctl.h"
 #include "connected.h"
@@ -52,7 +51,7 @@
 #include "privs.h"
 #include "libfrr.h"
 #include "lib_errors.h"
-#include "version.h"
+#include "lib/version.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
@@ -349,4 +348,5 @@ static int irdp_module_init(void)
 }
 
 FRR_MODULE_SETUP(.name = "zebra_irdp", .version = FRR_VERSION,
-		 .description = "zebra IRDP module", .init = irdp_module_init, )
+		 .description = "zebra IRDP module", .init = irdp_module_init,
+);

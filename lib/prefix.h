@@ -491,7 +491,7 @@ extern void masklen2ip(const int, struct in_addr *);
  * special treatment for /31 according to RFC3021 section 3.3 */
 extern in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen);
 
-extern int netmask_str2prefix_str(const char *, const char *, char *);
+extern int netmask_str2prefix_str(const char *, const char *, char *, size_t);
 
 extern struct prefix_ipv6 *prefix_ipv6_new(void);
 extern void prefix_ipv6_free(struct prefix_ipv6 **p);
@@ -503,8 +503,6 @@ extern void apply_mask_ipv6(struct prefix_ipv6 *);
 
 extern int ip6_masklen(struct in6_addr);
 extern void masklen2ip6(const int, struct in6_addr *);
-
-extern const char *inet6_ntoa(struct in6_addr);
 
 extern int is_zero_mac(const struct ethaddr *mac);
 extern bool is_mcast_mac(const struct ethaddr *mac);

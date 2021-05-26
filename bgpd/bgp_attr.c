@@ -1753,14 +1753,22 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	attr->aggregator_as = aggregator_as;
 	attr->aggregator_addr.s_addr = stream_get_ipv4(peer->curr);
 
-	/* Set atomic aggregate flag. */
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
-
 	/* Codification of AS 0 Processing */
-	if (aggregator_as == BGP_AS_ZERO)
+	if (aggregator_as == BGP_AS_ZERO) {
 		flog_err(EC_BGP_ATTR_LEN,
-			 "AGGREGATOR AS number is 0 for aspath: %s",
-			 aspath_print(attr->aspath));
+			 "%s: AGGREGATOR AS number is 0 for aspath: %s",
+			 peer->host, aspath_print(attr->aspath));
+
+		if (bgp_debug_update(peer, NULL, NULL, 1)) {
+			char attr_str[BUFSIZ] = {0};
+
+			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+
+			zlog_debug("%s: attributes: %s", __func__, attr_str);
+		}
+	} else {
+		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
+	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1784,16 +1792,26 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 	}
 
 	aggregator_as = stream_getl(peer->curr);
+
 	*as4_aggregator_as = aggregator_as;
 	as4_aggregator_addr->s_addr = stream_get_ipv4(peer->curr);
 
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR);
-
 	/* Codification of AS 0 Processing */
-	if (aggregator_as == BGP_AS_ZERO)
+	if (aggregator_as == BGP_AS_ZERO) {
 		flog_err(EC_BGP_ATTR_LEN,
-			 "AS4_AGGREGATOR AS number is 0 for aspath: %s",
-			 aspath_print(attr->aspath));
+			 "%s: AS4_AGGREGATOR AS number is 0 for aspath: %s",
+			 peer->host, aspath_print(attr->aspath));
+
+		if (bgp_debug_update(peer, NULL, NULL, 1)) {
+			char attr_str[BUFSIZ] = {0};
+
+			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+
+			zlog_debug("%s: attributes: %s", __func__, attr_str);
+		}
+	} else {
+		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR);
+	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2115,19 +2133,11 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		}
 		stream_get(&attr->mp_nexthop_local, s, IPV6_MAX_BYTELEN);
 		if (!IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local)) {
-			char buf1[INET6_ADDRSTRLEN];
-			char buf2[INET6_ADDRSTRLEN];
-
 			if (bgp_debug_update(peer, NULL, NULL, 1))
 				zlog_debug(
-					"%s sent next-hops %s and %s. Ignoring non-LL value",
-					peer->host,
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global,
-						  buf1, INET6_ADDRSTRLEN),
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_local, buf2,
-						  INET6_ADDRSTRLEN));
+					"%s sent next-hops %pI6 and %pI6. Ignoring non-LL value",
+					peer->host, &attr->mp_nexthop_global,
+					&attr->mp_nexthop_local);
 
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
@@ -2326,16 +2336,10 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 
 	/* Extract the Rmac, if any */
 	if (bgp_attr_rmac(attr, &attr->rmac)) {
-		if (bgp_debug_update(peer, NULL, NULL, 1) &&
-		    bgp_mac_exist(&attr->rmac)) {
-			char buf1[ETHER_ADDR_STRLEN];
-
-			zlog_debug("%s: router mac %s is self mac",
-				   __func__,
-				   prefix_mac2str(&attr->rmac, buf1,
-						  sizeof(buf1)));
-		}
-
+		if (bgp_debug_update(peer, NULL, NULL, 1)
+		    && bgp_mac_exist(&attr->rmac))
+			zlog_debug("%s: router mac %pEA is self mac", __func__,
+				   &attr->rmac);
 	}
 
 	/* Get the tunnel type from encap extended community */
@@ -3085,7 +3089,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			 * a stack buffer, since they perform bounds checking
 			 * and we are working with untrusted data.
 			 */
-			unsigned char ndata[BGP_MAX_PACKET_SIZE];
+			unsigned char ndata[peer->max_packet_size];
 			memset(ndata, 0x00, sizeof(ndata));
 			size_t lfl =
 				CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN) ? 2 : 1;
@@ -3395,7 +3399,8 @@ void bgp_attr_extcom_tunnel_type(struct attr *attr,
 				 bgp_encap_types *tunnel_type)
 {
 	struct ecommunity *ecom;
-	int i;
+	uint32_t i;
+
 	if (!attr)
 		return;
 
@@ -3729,7 +3734,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	struct aspath *aspath;
 	int send_as4_path = 0;
 	int send_as4_aggregator = 0;
-	int use32bit = (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)) ? 1 : 0;
+	bool use32bit = CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV);
 
 	if (!bgp)
 		bgp = peer->bgp;
@@ -3900,7 +3905,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 
 			/* Is ASN representable in 2-bytes? Or must AS_TRANS be
 			 * used? */
-			if (attr->aggregator_as > 65535) {
+			if (attr->aggregator_as > UINT16_MAX) {
 				stream_putw(s, BGP_AS_TRANS);
 
 				/* we have to send AS4_AGGREGATOR, too.
@@ -4021,7 +4026,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			uint8_t *pnt;
 			int tbit;
 			int ecom_tr_size = 0;
-			int i;
+			uint32_t i;
 
 			for (i = 0; i < attr->ecommunity->size; i++) {
 				pnt = attr->ecommunity->val + (i * 8);

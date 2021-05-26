@@ -1156,6 +1156,7 @@ int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
 	struct msg_register_event *rmsg;
 	int rc;
 	uint32_t seqnum;
+	size_t size;
 
 	rmsg = (struct msg_register_event *)STREAM_DATA(msg->s);
 
@@ -1165,13 +1166,16 @@ int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
 	/* Free existing filter in apiserv. */
 	XFREE(MTYPE_OSPF_APISERVER_MSGFILTER, apiserv->filter);
 	/* Alloc new space for filter. */
+	size = ntohs(msg->hdr.msglen);
+	if (size < OSPF_MAX_LSA_SIZE) {
 
-	apiserv->filter =
-		XMALLOC(MTYPE_OSPF_APISERVER_MSGFILTER, ntohs(msg->hdr.msglen));
+		apiserv->filter = XMALLOC(MTYPE_OSPF_APISERVER_MSGFILTER, size);
 
-	/* copy it over. */
-	memcpy(apiserv->filter, &rmsg->filter, ntohs(msg->hdr.msglen));
-	rc = OSPF_API_OK;
+		/* copy it over. */
+		memcpy(apiserv->filter, &rmsg->filter, size);
+		rc = OSPF_API_OK;
+	} else
+		rc = OSPF_API_NOMEMORY;
 
 	/* Send a reply back to client with return code */
 	rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);

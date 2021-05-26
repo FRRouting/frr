@@ -51,7 +51,6 @@
 #include "eigrpd/eigrp_macros.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_memory.h"
 
 /*EIGRP SIA-REPLY read function*/
 void eigrp_siareply_receive(struct eigrp *eigrp, struct ip *iph,
@@ -86,7 +85,7 @@ void eigrp_siareply_receive(struct eigrp *eigrp, struct ip *iph,
 			dest_addr.family = AFI_IP;
 			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
-			struct eigrp_prefix_entry *dest =
+			struct eigrp_prefix_descriptor *dest =
 				eigrp_topology_table_lookup_ipv4(
 					eigrp->topology_table, &dest_addr);
 
@@ -94,9 +93,9 @@ void eigrp_siareply_receive(struct eigrp *eigrp, struct ip *iph,
 			 * know)*/
 			if (dest != NULL) {
 				struct eigrp_fsm_action_message msg;
-				struct eigrp_nexthop_entry *entry =
-					eigrp_prefix_entry_lookup(dest->entries,
-								  nbr);
+				struct eigrp_route_descriptor *entry =
+					eigrp_route_descriptor_lookup(
+						dest->entries, nbr);
 				msg.packet_type = EIGRP_OPC_SIAQUERY;
 				msg.eigrp = eigrp;
 				msg.data_type = EIGRP_INT;
@@ -113,7 +112,7 @@ void eigrp_siareply_receive(struct eigrp *eigrp, struct ip *iph,
 }
 
 void eigrp_send_siareply(struct eigrp_neighbor *nbr,
-			 struct eigrp_prefix_entry *pe)
+			 struct eigrp_prefix_descriptor *pe)
 {
 	struct eigrp_packet *ep;
 	uint16_t length = EIGRP_HEADER_LEN;

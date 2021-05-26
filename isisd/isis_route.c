@@ -50,10 +50,13 @@
 #include "isis_route.h"
 #include "isis_zebra.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_NEXTHOP,    "ISIS nexthop");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_ROUTE_INFO, "ISIS route info");
+
 DEFINE_HOOK(isis_route_update_hook,
 	    (struct isis_area * area, struct prefix *prefix,
 	     struct isis_route_info *route_info),
-	    (area, prefix, route_info))
+	    (area, prefix, route_info));
 
 static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
 					  union g_addr *ip, ifindex_t ifindex);
@@ -279,6 +282,22 @@ static bool isis_sr_psid_info_same(struct isis_sr_psid_info *new,
 	return true;
 }
 
+static bool isis_label_stack_same(struct mpls_label_stack *new,
+				  struct mpls_label_stack *old)
+{
+	if (!new && !old)
+		return true;
+	if (!new || !old)
+		return false;
+	if (new->num_labels != old->num_labels)
+		return false;
+	if (memcmp(&new->label, &old->label,
+		   sizeof(mpls_label_t) * new->num_labels))
+		return false;
+
+	return true;
+}
+
 static int isis_route_info_same(struct isis_route_info *new,
 				struct isis_route_info *old, char *buf,
 				size_t buf_size)
@@ -325,6 +344,12 @@ static int isis_route_info_same(struct isis_route_info *new,
 		if (!isis_sr_psid_info_same(&new_nh->sr, &old_nh->sr)) {
 			if (buf)
 				snprintf(buf, buf_size, "nhop SR label");
+			return 0;
+		}
+		if (!isis_label_stack_same(new_nh->label_stack,
+					   old_nh->label_stack)) {
+			if (buf)
+				snprintf(buf, buf_size, "nhop label stack");
 			return 0;
 		}
 	}
@@ -400,8 +425,8 @@ isis_route_create(struct prefix *prefix, struct prefix_ipv6 *src_p,
 	return route_info;
 }
 
-static void isis_route_delete(struct isis_area *area, struct route_node *rode,
-			      struct route_table *table)
+void isis_route_delete(struct isis_area *area, struct route_node *rode,
+		       struct route_table *table)
 {
 	struct isis_route_info *rinfo;
 	char buff[SRCDEST2STR_BUFFER];
@@ -466,9 +491,6 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 	} else {
-		if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
-			return;
-
 		/* Uninstall Prefix-SID label. */
 		if (route_info->sr.present)
 			isis_zebra_prefix_sid_uninstall(
@@ -514,6 +536,10 @@ static void _isis_route_verify_table(struct isis_area *area,
 							 src_p);
 			if (rnode_bck) {
 				rinfo->backup = rnode_bck->info;
+				UNSET_FLAG(rinfo->flag,
+					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+			} else if (rinfo->backup) {
+				rinfo->backup = NULL;
 				UNSET_FLAG(rinfo->flag,
 					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 			}
@@ -627,6 +653,10 @@ void isis_route_verify_merge(struct isis_area *area,
 				tables_backup[level - 1], prefix, src_p);
 			if (rnode_bck) {
 				rinfo->backup = rnode_bck->info;
+				UNSET_FLAG(rinfo->flag,
+					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+			} else if (rinfo->backup) {
+				rinfo->backup = NULL;
 				UNSET_FLAG(rinfo->flag,
 					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 			}

@@ -134,7 +134,7 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 static int getce(struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
 {
 	uint8_t *ecp;
-	int i;
+	uint32_t i;
 	uint16_t localadmin = bgp->rfapi_cfg->resolve_nve_roo_local_admin;
 
 	for (ecp = attr->ecommunity->val, i = 0; i < attr->ecommunity->size;
@@ -1177,19 +1177,19 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 
 		if (!rfg->rt_export_list || !rfg->rfapi_import_table) {
 			vnc_zlog_debug_verbose(
-				"%s: VRF \"%s\" is missing RT import/export configuration.\n",
+				"%s: VRF \"%s\" is missing RT import/export configuration.",
 				__func__, rfg->name);
 			return;
 		}
 		if (!rfg->rd.prefixlen) {
 			vnc_zlog_debug_verbose(
-				"%s: VRF \"%s\" is missing RD configuration.\n",
+				"%s: VRF \"%s\" is missing RD configuration.",
 				__func__, rfg->name);
 			return;
 		}
 		if (rfg->label > MPLS_LABEL_MAX) {
 			vnc_zlog_debug_verbose(
-				"%s: VRF \"%s\" is missing default label configuration.\n",
+				"%s: VRF \"%s\" is missing default label configuration.",
 				__func__, rfg->name);
 			return;
 		}

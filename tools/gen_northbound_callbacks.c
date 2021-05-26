@@ -118,7 +118,7 @@ static void replace_hyphens_by_underscores(char *str)
 		*p++ = '_';
 }
 
-static void generate_callback_name(struct lys_node *snode,
+static void generate_callback_name(const struct lysc_node *snode,
 				   enum nb_operation operation, char *buffer,
 				   size_t size)
 {
@@ -126,14 +126,14 @@ static void generate_callback_name(struct lys_node *snode,
 	struct listnode *ln;
 
 	snodes = list_new();
-	for (; snode; snode = lys_parent(snode)) {
+	for (; snode; snode = snode->parent) {
 		/* Skip schema-only snodes. */
 		if (CHECK_FLAG(snode->nodetype, LYS_USES | LYS_CHOICE | LYS_CASE
 							| LYS_INPUT
 							| LYS_OUTPUT))
 			continue;
 
-		listnode_add_head(snodes, snode);
+		listnode_add_head(snodes, (void *)snode);
 	}
 
 	memset(buffer, 0, size);
@@ -153,7 +153,7 @@ static void generate_prototype(const struct nb_callback_info *ncinfo,
 	printf("%s%s(%s);\n", ncinfo->return_type, cb_name, ncinfo->arguments);
 }
 
-static int generate_prototypes(const struct lys_node *snode, void *arg)
+static int generate_prototypes(const struct lysc_node *snode, void *arg)
 {
 	switch (snode->nodetype) {
 	case LYS_CONTAINER:
@@ -175,8 +175,8 @@ static int generate_prototypes(const struct lys_node *snode, void *arg)
 		    || !nb_operation_is_valid(cb->operation, snode))
 			continue;
 
-		generate_callback_name((struct lys_node *)snode, cb->operation,
-				       cb_name, sizeof(cb_name));
+		generate_callback_name(snode, cb->operation, cb_name,
+				       sizeof(cb_name));
 		generate_prototype(cb, cb_name);
 	}
 
@@ -213,7 +213,7 @@ static void generate_callback(const struct nb_callback_info *ncinfo,
 	printf("\treturn %s;\n}\n\n", ncinfo->return_value);
 }
 
-static int generate_callbacks(const struct lys_node *snode, void *arg)
+static int generate_callbacks(const struct lysc_node *snode, void *arg)
 {
 	bool first = true;
 
@@ -250,15 +250,15 @@ static int generate_callbacks(const struct lys_node *snode, void *arg)
 			first = false;
 		}
 
-		generate_callback_name((struct lys_node *)snode, cb->operation,
-				       cb_name, sizeof(cb_name));
+		generate_callback_name(snode, cb->operation, cb_name,
+				       sizeof(cb_name));
 		generate_callback(cb, cb_name);
 	}
 
 	return YANG_ITER_CONTINUE;
 }
 
-static int generate_nb_nodes(const struct lys_node *snode, void *arg)
+static int generate_nb_nodes(const struct lysc_node *snode, void *arg)
 {
 	bool first = true;
 
@@ -295,8 +295,8 @@ static int generate_nb_nodes(const struct lys_node *snode, void *arg)
 			first = false;
 		}
 
-		generate_callback_name((struct lys_node *)snode, cb->operation,
-				       cb_name, sizeof(cb_name));
+		generate_callback_name(snode, cb->operation, cb_name,
+				       sizeof(cb_name));
 		printf("\t\t\t\t.%s = %s,\n", nb_operation_name(cb->operation),
 		       cb_name);
 	}
@@ -350,17 +350,20 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		usage(EXIT_FAILURE);
 
-	yang_init(false);
+	yang_init(false, true);
 
 	if (search_path)
 		ly_ctx_set_searchdir(ly_native_ctx, search_path);
 
 	/* Load all FRR native models to ensure all augmentations are loaded. */
 	yang_module_load_all();
+
 	module = yang_module_find(argv[0]);
 	if (!module)
 		/* Non-native FRR module (e.g. modules from unit tests). */
 		module = yang_module_load(argv[0]);
+
+	yang_init_loading_complete();
 
 	/* Create a nb_node for all YANG schema nodes. */
 	nb_nodes_create();

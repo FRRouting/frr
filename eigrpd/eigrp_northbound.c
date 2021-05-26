@@ -34,6 +34,7 @@
 #include "eigrp_interface.h"
 #include "eigrp_network.h"
 #include "eigrp_zebra.h"
+#include "eigrp_cli.h"
 
 /* Helper functions. */
 static void redistribute_get_metrics(const struct lyd_node *dnode,

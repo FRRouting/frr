@@ -30,6 +30,7 @@
 #include "zclient.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
+#include "link_state.h"
 
 #include "sharp_globals.h"
 #include "sharp_nht.h"
@@ -539,6 +540,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	struct zapi_nhg api_nhg = {};
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nh;
+	bool is_valid = true;
 
 	api_nhg.id = id;
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
@@ -549,10 +551,23 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 			break;
 		}
 
+		/* Unresolved nexthops will lead to failure - only send
+		 * nexthops that zebra will consider valid.
+		 */
+		if (nh->ifindex == 0)
+			continue;
+
 		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
 
 		zapi_nexthop_from_nexthop(api_nh, nh);
 		api_nhg.nexthop_num++;
+	}
+
+	if (api_nhg.nexthop_num == 0) {
+		zlog_debug("%s: nhg %u not sent: no valid nexthops",
+			   __func__, id);
+		is_valid = false;
+		goto done;
 	}
 
 	if (backup_nhg) {
@@ -563,6 +578,20 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 					__func__);
 				break;
 			}
+
+			/* Unresolved nexthop: will be rejected by zebra.
+			 * That causes a problem, since the primary nexthops
+			 * rely on array indexing into the backup nexthops. If
+			 * that array isn't valid, the backup indexes won't be
+			 * valid.
+			 */
+			if (nh->ifindex == 0) {
+				zlog_debug("%s: nhg %u: invalid backup nexthop",
+					   __func__, id);
+				is_valid = false;
+				break;
+			}
+
 			api_nh = &api_nhg.backup_nexthops
 					  [api_nhg.backup_nexthop_num];
 
@@ -571,7 +600,9 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 		}
 	}
 
-	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
+done:
+	if (is_valid)
+		zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
 void nhg_del(uint32_t id)
@@ -608,7 +639,6 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 static int sharp_debug_nexthops(struct zapi_route *api)
 {
 	int i;
-	char buf[PREFIX_STRLEN];
 
 	if (api->nexthop_num == 0) {
 		zlog_debug(
@@ -623,20 +653,16 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
 			zlog_debug(
-				"        Nexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
-				inet_ntop(AF_INET, &znh->gate.ipv4.s_addr, buf,
-					  sizeof(buf)),
-				znh->type, znh->ifindex, znh->vrf_id,
-				znh->label_num);
+				"        Nexthop %pI4, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				&znh->gate.ipv4.s_addr, znh->type, znh->ifindex,
+				znh->vrf_id, znh->label_num);
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 		case NEXTHOP_TYPE_IPV6:
 			zlog_debug(
-				"        Nexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
-				inet_ntop(AF_INET6, &znh->gate.ipv6, buf,
-					  sizeof(buf)),
-				znh->type, znh->ifindex, znh->vrf_id,
-				znh->label_num);
+				"        Nexthop %pI6, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				&znh->gate.ipv6, znh->type, znh->ifindex,
+				znh->vrf_id, znh->label_num);
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			zlog_debug("        Nexthop IFINDEX: %d, ifindex: %d",
@@ -660,7 +686,8 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 	}
 
-	zlog_debug("Received update for %pFX", &nhr.prefix);
+	zlog_debug("Received update for %pFX metric: %u", &nhr.prefix,
+		   nhr.metric);
 
 	nht = sharp_nh_tracker_get(&nhr.prefix);
 	nht->nhop_num = nhr.nexthop_num;
@@ -685,6 +712,12 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	sharp_debug_nexthops(&api);
 
 	return 0;
+}
+
+void sharp_redistribute_vrf(struct vrf *vrf, int type)
+{
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
+				0, vrf->vrf_id);
 }
 
 /* Add a zclient with a specified session id, for testing. */
@@ -743,11 +776,15 @@ int sharp_zclient_delete(uint32_t session_id)
 	return 0;
 }
 
+static const char *const type2txt[] = { "Generic", "Vertex", "Edge", "Subnet" };
+static const char *const status2txt[] = { "Unknown", "New", "Update",
+					  "Delete", "Sync", "Orphan"};
 /* Handler for opaque messages */
 static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
+	struct ls_element *lse;
 
 	s = zclient->ibuf;
 
@@ -756,6 +793,18 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 
 	zlog_debug("%s: [%u] received opaque type %u", __func__,
 		   zclient->session_id, info.type);
+
+	if (info.type == LINK_STATE_UPDATE) {
+		lse = ls_stream2ted(sg.ted, s, false);
+		if (lse)
+			zlog_debug(" |- Got %s %s from Link State Database",
+				   status2txt[lse->status],
+				   type2txt[lse->type]);
+		else
+			zlog_debug(
+				"%s: Error to convert Stream into Link State",
+				__func__);
+	}
 
 	return 0;
 }
@@ -825,6 +874,16 @@ void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
 
 	(void)zclient_send_message(zclient);
 
+}
+
+/* Link State registration */
+void sharp_zebra_register_te(void)
+{
+	/* First register to received Link State Update messages */
+	zclient_register_opaque(zclient, LINK_STATE_UPDATE);
+
+	/* Then, request initial TED with SYNC message */
+	ls_request_sync(zclient);
 }
 
 void sharp_zebra_send_arp(const struct interface *ifp, const struct prefix *p)

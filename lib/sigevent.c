@@ -237,9 +237,12 @@ core_handler(int signo, siginfo_t *siginfo, void *context)
 	/* make sure we don't hang in here.  default for SIGALRM is terminate.
 	 * - if we're in backtrace for more than a second, abort. */
 	struct sigaction sa_default = {.sa_handler = SIG_DFL};
+
 	sigaction(SIGALRM, &sa_default, NULL);
+	sigaction(signo, &sa_default, NULL);
 
 	sigset_t sigset;
+
 	sigemptyset(&sigset);
 	sigaddset(&sigset, SIGALRM);
 	sigprocmask(SIG_UNBLOCK, &sigset, NULL);
@@ -252,13 +255,22 @@ core_handler(int signo, siginfo_t *siginfo, void *context)
 	log_memstats(stderr, "core_handler");
 
 	zlog_tls_buffer_fini();
-	abort();
+
+	/* give the kernel a chance to generate a coredump */
+	sigaddset(&sigset, signo);
+	sigprocmask(SIG_UNBLOCK, &sigset, NULL);
+	raise(signo);
+
+	/* only chance to end up here is if the default action for signo is
+	 * something other than kill or coredump the process
+	 */
+	_exit(128 + signo);
 }
 
 static void trap_default_signals(void)
 {
 	static const int core_signals[] = {
-		SIGQUIT, SIGILL,
+		SIGQUIT, SIGILL, SIGABRT,
 #ifdef SIGEMT
 		SIGEMT,
 #endif

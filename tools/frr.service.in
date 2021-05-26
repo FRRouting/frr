@@ -1,0 +1,26 @@
+[Unit]
+Description=FRRouting
+Documentation=https://frrouting.readthedocs.io/en/latest/setup.html
+Wants=network.target
+After=network-pre.target systemd-sysctl.service
+Before=network.target
+OnFailure=heartbeat-failed@%n
+
+[Service]
+Nice=-5
+Type=forking
+NotifyAccess=all
+StartLimitInterval=3m
+StartLimitBurst=3
+TimeoutSec=2m
+WatchdogSec=60s
+RestartSec=5
+Restart=on-abnormal
+LimitNOFILE=1024
+PIDFile=@CFG_STATE@/watchfrr.pid
+ExecStart=@CFG_SBIN@/frrinit.sh start
+ExecStop=@CFG_SBIN@/frrinit.sh stop
+ExecReload=@CFG_SBIN@/frrinit.sh reload
+
+[Install]
+WantedBy=multi-user.target

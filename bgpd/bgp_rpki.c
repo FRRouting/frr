@@ -47,6 +47,9 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_rpki.h"
+#include "northbound_cli.h"
+
 #include "lib/network.h"
 #include "lib/thread.h"
 #ifndef VTYSH_EXTRACT_PL
@@ -54,18 +57,14 @@
 #endif
 #include "hook.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_rpki_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server")
-DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group")
-
-#define RPKI_VALID      1
-#define RPKI_NOTFOUND   2
-#define RPKI_INVALID    3
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
@@ -562,6 +561,7 @@ static int bgp_rpki_module_init(void)
 {
 	lrtr_set_alloc_functions(malloc_wrapper, realloc_wrapper, free_wrapper);
 
+	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, &bgp_rpki_fini);
 
@@ -1165,7 +1165,7 @@ DEFUN (show_rpki_prefix_table,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_rpki_as_number, show_rpki_as_number_cmd,
+DEFPY (show_rpki_as_number, show_rpki_as_number_cmd,
       "show rpki as-number (1-4294967295)$by_asn",
       SHOW_STR RPKI_OUTPUT_STRING
       "Lookup by ASN in prefix table\n"
@@ -1358,7 +1358,7 @@ DEFUN (no_debug_rpki,
 	return CMD_SUCCESS;
 }
 
-DEFUN (match_rpki,
+DEFUN_YANG (match_rpki,
        match_rpki_cmd,
        "match rpki <valid|invalid|notfound>",
        MATCH_STR
@@ -1367,27 +1367,19 @@ DEFUN (match_rpki,
        "Invalid prefix\n"
        "Prefix not found\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	enum rmap_compile_rets ret;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:rpki']";
+	char xpath_value[XPATH_MAXLEN];
 
-	ret = route_map_add_match(index, "rpki", argv[2]->arg,
-				  RMAP_EVENT_MATCH_ADDED);
-	switch (ret) {
-	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% BGP Can't find rule.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	case RMAP_COMPILE_ERROR:
-		vty_out(vty, "%% BGP Argument is malformed.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	case RMAP_COMPILE_SUCCESS:
-		return CMD_SUCCESS;
-		break;
-	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:rpki", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[2]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_rpki,
+DEFUN_YANG (no_match_rpki,
        no_match_rpki_cmd,
        "no match rpki <valid|invalid|notfound>",
        NO_STR
@@ -1397,26 +1389,11 @@ DEFUN (no_match_rpki,
        "Invalid prefix\n"
        "Prefix not found\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	enum rmap_compile_rets ret;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:rpki']";
 
-	ret = route_map_delete_match(index, "rpki", argv[3]->arg,
-				     RMAP_EVENT_MATCH_DELETED);
-	switch (ret) {
-	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% BGP Can't find rule.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-		break;
-	case RMAP_COMPILE_ERROR:
-		vty_out(vty, "%% BGP Argument is malformed.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-		break;
-	case RMAP_COMPILE_SUCCESS:
-		return CMD_SUCCESS;
-		break;
-	}
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void install_cli_commands(void)
@@ -1470,4 +1447,5 @@ static void install_cli_commands(void)
 
 FRR_MODULE_SETUP(.name = "bgpd_rpki", .version = "0.3.6",
 		 .description = "Enable RPKI support for FRR.",
-		 .init = bgp_rpki_module_init)
+		 .init = bgp_rpki_module_init,
+);

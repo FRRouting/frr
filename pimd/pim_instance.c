@@ -71,6 +71,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
+
+	pim->vrf = NULL;
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pim);
 }
 
@@ -91,7 +93,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->ecmp_rebalance_enable = false;
 	pim->ssm_enabled = false;
 
-	pim->vrf_id = vrf->vrf_id;
 	pim->vrf = vrf;
 
 	pim->spt.switchover = PIM_SPT_IMMEDIATE;
@@ -154,10 +155,16 @@ static int pim_vrf_delete(struct vrf *vrf)
 {
 	struct pim_instance *pim = vrf->info;
 
+	if (!pim)
+		return 0;
+
 	zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
 	pim_ssmpingd_destroy(pim);
 	pim_instance_terminate(pim);
+
+	vrf->info = NULL;
+
 	return 0;
 }
 
@@ -168,8 +175,17 @@ static int pim_vrf_delete(struct vrf *vrf)
 static int pim_vrf_enable(struct vrf *vrf)
 {
 	struct pim_instance *pim = (struct pim_instance *)vrf->info;
+	struct interface *ifp;
 
-	zlog_debug("%s: for %s", __func__, vrf->name);
+	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		if (!ifp->info)
+			continue;
+
+		pim_if_create_pimreg(pim);
+		break;
+	}
 
 	pim_mroute_socket_enable(pim);
 

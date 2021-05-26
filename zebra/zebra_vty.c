@@ -21,7 +21,6 @@
 #include <zebra.h>
 
 #include "memory.h"
-#include "zebra_memory.h"
 #include "if.h"
 #include "prefix.h"
 #include "command.h"
@@ -43,6 +42,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
 #include "lib/json.h"
+#include "lib/route_opaque.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_evpn_mh.h"
 #ifndef VTYSH_EXTRACT_PL
@@ -422,6 +422,8 @@ static void show_nexthop_detail_helper(struct vty *vty,
 static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 				       struct json_object *json)
 {
+	struct bgp_zebra_opaque bzo = {};
+
 	if (!re->opaque)
 		return;
 
@@ -434,16 +436,40 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 			vty_out(vty, "    Opaque Data: %s",
 				(char *)re->opaque->data);
 		break;
-	case ZEBRA_ROUTE_BGP:
-		if (json)
-			json_object_string_add(json, "asPath",
-					       (char *)re->opaque->data);
-		else
-			vty_out(vty, "    AS-Path: %s",
-				(char *)re->opaque->data);
+	case ZEBRA_ROUTE_BGP: {
+		memcpy(&bzo, re->opaque->data, re->opaque->length);
+
+		if (json) {
+			json_object_string_add(json, "asPath", bzo.aspath);
+			json_object_string_add(json, "communities",
+					       bzo.community);
+			json_object_string_add(json, "largeCommunities",
+					       bzo.lcommunity);
+		} else {
+			vty_out(vty, "    AS-Path          : %s\n", bzo.aspath);
+
+			if (bzo.community[0] != '\0')
+				vty_out(vty, "    Communities      : %s\n",
+					bzo.community);
+
+			if (bzo.lcommunity[0] != '\0')
+				vty_out(vty, "    Large-Communities: %s\n",
+					bzo.lcommunity);
+		}
+	}
 	default:
 		break;
 	}
+}
+
+static void uptime2str(time_t uptime, char *buf, size_t bufsize)
+{
+	time_t cur;
+
+	cur = monotime(NULL);
+	cur -= uptime;
+
+	frrtime_to_interval(cur, buf, bufsize);
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
@@ -500,12 +526,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			vty_out(vty, ", best");
 		vty_out(vty, "\n");
 
-		time_t uptime;
-
-		uptime = monotime(NULL);
-		uptime -= re->uptime;
-
-		frrtime_to_interval(uptime, buf, sizeof(buf));
+		uptime2str(re->uptime, buf, sizeof(buf));
 
 		vty_out(vty, "  Last update %s ago\n", buf);
 
@@ -840,17 +861,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_nexthops = NULL;
 	json_object *json_nexthop = NULL;
 	json_object *json_route = NULL;
-	time_t uptime;
 	const rib_dest_t *dest = rib_dest_from_rnode(rn);
 	const struct nexthop_group *nhg;
 	char up_str[MONOTIME_STRLEN];
 	bool first_p = true;
 	bool nhg_from_backup = false;
 
-	uptime = monotime(NULL);
-	uptime -= re->uptime;
-
-	frrtime_to_interval(uptime, up_str, sizeof(up_str));
+	uptime2str(re->uptime, up_str, sizeof(up_str));
 
 	/* If showing fib information, use the fib view of the
 	 * nexthops.
@@ -1331,7 +1348,7 @@ DEFUN (ip_nht_default_route,
 
 	zvrf->zebra_rnh_ip_default_route = 1;
 
-	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1340,9 +1357,13 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop_group *backup_nhg;
+	char up_str[MONOTIME_STRLEN];
+
+	uptime2str(nhe->uptime, up_str, sizeof(up_str));
 
 	vty_out(vty, "ID: %u (%s)\n", nhe->id, zebra_route_string(nhe->type));
-	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
+	vty_out(vty, "     RefCnt: %u\n", nhe->refcnt);
+	vty_out(vty, "     Uptime: %s\n", up_str);
 	vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
@@ -1636,6 +1657,18 @@ DEFPY_HIDDEN(proto_nexthop_group_only, proto_nexthop_group_only_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN(backup_nexthop_recursive_use_enable,
+	     backup_nexthop_recursive_use_enable_cmd,
+	     "[no] zebra nexthop resolve-via-backup",
+	     NO_STR
+	     ZEBRA_STR
+	     "Nexthop configuration \n"
+	     "Configure use of backup nexthops in recursive resolution\n")
+{
+	zebra_nhg_set_recursive_use_backups(!no);
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_ip_nht_default_route,
        no_ip_nht_default_route_cmd,
        "no ip nht resolve-via-default",
@@ -1653,7 +1686,7 @@ DEFUN (no_ip_nht_default_route,
 		return CMD_SUCCESS;
 
 	zvrf->zebra_rnh_ip_default_route = 0;
-	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1673,7 +1706,7 @@ DEFUN (ipv6_nht_default_route,
 		return CMD_SUCCESS;
 
 	zvrf->zebra_rnh_ipv6_default_route = 1;
-	zebra_evaluate_rnh(zvrf, AFI_IP6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1695,7 +1728,7 @@ DEFUN (no_ipv6_nht_default_route,
 		return CMD_SUCCESS;
 
 	zvrf->zebra_rnh_ipv6_default_route = 0;
-	zebra_evaluate_rnh(zvrf, AFI_IP6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2514,8 +2547,8 @@ DEFPY (evpn_mh_neigh_holdtime,
        "Duration in seconds\n")
 {
 
-	return zebra_evpn_mh_neigh_holdtime_update(vty, duration, 
-			no ? true : false);
+	return zebra_evpn_mh_neigh_holdtime_update(vty, duration,
+						   no ? true : false);
 }
 
 DEFPY (evpn_mh_startup_delay,
@@ -2553,10 +2586,8 @@ DEFUN (default_vrf_vni_mapping,
        "VNI-ID\n"
        "Prefix routes only \n")
 {
-	int ret = 0;
-	char err[ERR_STR_SZ];
+	char xpath[XPATH_MAXLEN];
 	struct zebra_vrf *zvrf = NULL;
-	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
 	int filter = 0;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -2566,25 +2597,35 @@ DEFUN (default_vrf_vni_mapping,
 	if (argc == 3)
 		filter = 1;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ,
-					      filter, 1);
-	if (ret != 0) {
-		vty_out(vty, "%s\n", err);
-		return CMD_WARNING;
+	snprintf(xpath, sizeof(xpath), FRR_VRF_KEY_XPATH "/frr-zebra:zebra",
+		 VRF_DEFAULT_NAME);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath, sizeof(xpath),
+		 FRR_VRF_KEY_XPATH "/frr-zebra:zebra/l3vni-id",
+		 VRF_DEFAULT_NAME);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[1]->arg);
+
+	if (filter) {
+		snprintf(xpath, sizeof(xpath),
+			 FRR_VRF_KEY_XPATH "/frr-zebra:zebra/prefix-only",
+			 VRF_DEFAULT_NAME);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 	}
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_default_vrf_vni_mapping,
        no_default_vrf_vni_mapping_cmd,
-       "no vni " CMD_VNI_RANGE,
+       "no vni " CMD_VNI_RANGE "[prefix-routes-only]",
        NO_STR
        "VNI corresponding to DEFAULT VRF\n"
-       "VNI-ID")
+       "VNI-ID\n"
+       "Prefix routes only \n")
 {
-	int ret = 0;
-	char err[ERR_STR_SZ];
+	char xpath[XPATH_MAXLEN];
+	int filter = 0;
 	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
 	struct zebra_vrf *zvrf = NULL;
 
@@ -2592,13 +2633,32 @@ DEFUN (no_default_vrf_vni_mapping,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0, 0);
-	if (ret != 0) {
-		vty_out(vty, "%s\n", err);
+	if (argc == 4)
+		filter = 1;
+
+	if (zvrf->l3vni != vni) {
+		vty_out(vty, "VNI %d doesn't exist in VRF: %s \n", vni,
+			zvrf->vrf->name);
 		return CMD_WARNING;
 	}
 
-	return CMD_SUCCESS;
+	snprintf(xpath, sizeof(xpath),
+		 FRR_VRF_KEY_XPATH "/frr-zebra:zebra/l3vni-id",
+		 VRF_DEFAULT_NAME);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, argv[2]->arg);
+
+	if (filter) {
+		snprintf(xpath, sizeof(xpath),
+			 FRR_VRF_KEY_XPATH "/frr-zebra:zebra/prefix-only",
+			 VRF_DEFAULT_NAME);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, "true");
+	}
+
+	snprintf(xpath, sizeof(xpath), FRR_VRF_KEY_XPATH "/frr-zebra:zebra",
+		 VRF_DEFAULT_NAME);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (vrf_vni_mapping,
@@ -2626,9 +2686,7 @@ DEFUN (vrf_vni_mapping,
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
 				      NB_OP_MODIFY, "true");
 
-	nb_cli_apply_changes(vty, NULL);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_vrf_vni_mapping,
@@ -2665,9 +2723,7 @@ DEFUN (no_vrf_vni_mapping,
 
 	nb_cli_enqueue_change(vty, "./frr-zebra:zebra", NB_OP_DESTROY, NULL);
 
-	nb_cli_apply_changes(vty, NULL);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* show vrf */
@@ -3619,6 +3675,9 @@ static int config_write_protocol(struct vty *vty)
 	if (zebra_nhg_proto_nexthops_only())
 		vty_out(vty, "zebra nexthop proto only\n");
 
+	if (!zebra_nhg_recursive_use_backups())
+		vty_out(vty, "no zebra nexthop resolve-via-backup\n");
+
 #ifdef HAVE_NETLINK
 	/* Include netlink info */
 	netlink_config_write_helper(vty);
@@ -4054,6 +4113,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
 	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
+	install_element(CONFIG_NODE, &backup_nexthop_recursive_use_enable_cmd);
 
 	install_element(VIEW_NODE, &show_nexthop_group_cmd);
 	install_element(VIEW_NODE, &show_interface_nexthop_group_cmd);

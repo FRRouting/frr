@@ -113,7 +113,6 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	struct external_info *new;
 	struct route_node *rn;
 	struct ospf_external *ext;
-	char inetbuf[INET6_BUFSIZ];
 
 	ext = ospf_external_lookup(ospf, type, instance);
 	if (!ext)
@@ -121,25 +120,22 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 
 	rn = route_node_get(EXTERNAL_INFO(ext), (struct prefix *)&p);
 	/* If old info exists, -- discard new one or overwrite with new one? */
-	if (rn)
-		if (rn->info) {
-			new = rn->info;
-			if ((new->ifindex == ifindex)
-			    && (new->nexthop.s_addr == nexthop.s_addr)
-			    && (new->tag == tag)) {
-				route_unlock_node(rn);
-				return NULL; /* NULL => no LSA to refresh */
-			}
-
-			inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
-				  sizeof(inetbuf));
-			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-				zlog_debug(
-					"Redistribute[%s][%d][%u]: %pFX discarding old info with NH %s.",
-					ospf_redist_string(type), instance,
-					ospf->vrf_id, &p, inetbuf);
-			XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
+	if (rn && rn->info) {
+		new = rn->info;
+		if ((new->ifindex == ifindex)
+		    && (new->nexthop.s_addr == nexthop.s_addr)
+		    && (new->tag == tag)) {
+			route_unlock_node(rn);
+			return NULL; /* NULL => no LSA to refresh */
 		}
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"Redistribute[%s][%d][%u]: %pFX discarding old info with NH %pI4.",
+				ospf_redist_string(type), instance,
+				ospf->vrf_id, &p, &nexthop.s_addr);
+		XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
+	}
 
 	/* Create new External info instance. */
 	new = ospf_external_info_new(type, instance);
@@ -155,12 +151,10 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		rn->info = new;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
-			  sizeof(inetbuf));
 		zlog_debug(
-			"Redistribute[%s][%u]: %pFX external info created, with NH %s",
-			ospf_redist_string(type), ospf->vrf_id,
-			&p, inetbuf);
+			"Redistribute[%s][%u]: %pFX external info created, with NH %pI4",
+			ospf_redist_string(type), ospf->vrf_id, &p,
+			&nexthop.s_addr);
 	}
 	return new;
 }
@@ -277,9 +271,15 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 /* If there's redistribution configured, we need to refresh external
  * LSAs in order to install Type-7 and flood to all NSSA Areas
  */
-void ospf_asbr_nssa_redist_task(struct ospf *ospf)
+static int ospf_asbr_nssa_redist_update_timer(struct thread *thread)
 {
+	struct ospf *ospf = THREAD_ARG(thread);
 	int type;
+
+	ospf->t_asbr_nssa_redist_update = NULL;
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("Running ASBR NSSA redistribution update on timer");
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
 		struct list *red_list;
@@ -293,10 +293,22 @@ void ospf_asbr_nssa_redist_task(struct ospf *ospf)
 		for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
 			ospf_external_lsa_refresh_type(ospf, type,
 						       red->instance,
-						       LSA_REFRESH_IF_CHANGED);
+						       LSA_REFRESH_FORCE);
 	}
 
 	ospf_external_lsa_refresh_default(ospf);
+
+	return 0;
+}
+
+void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("Scheduling ASBR NSSA redistribution update");
+
+	thread_add_timer(master, ospf_asbr_nssa_redist_update_timer, ospf,
+			 OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY,
+			 &ospf->t_asbr_nssa_redist_update);
 }
 
 void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
@@ -311,24 +323,35 @@ void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
 		return;
 
 	/* Delete external info for specified type. */
-	if (EXTERNAL_INFO(ext))
-		for (rn = route_top(EXTERNAL_INFO(ext)); rn;
-		     rn = route_next(rn))
-			if ((ei = rn->info))
-				if (ospf_external_info_find_lsa(ospf, &ei->p)) {
-					if (is_prefix_default(&ei->p)
-					    && ospf->default_originate
-						       != DEFAULT_ORIGINATE_NONE)
-						continue;
-					ospf_external_lsa_flush(
-						ospf, type, &ei->p,
+	if (!EXTERNAL_INFO(ext))
+		return;
+
+	for (rn = route_top(EXTERNAL_INFO(ext)); rn; rn = route_next(rn)) {
+		ei = rn->info;
+
+		if (!ei)
+			continue;
+
+		struct ospf_external_aggr_rt *aggr;
+
+		if (is_prefix_default(&ei->p)
+		    && ospf->default_originate != DEFAULT_ORIGINATE_NONE)
+			continue;
+
+		aggr = ei->aggr_route;
+
+		if (aggr)
+			ospf_unlink_ei_from_aggr(ospf, aggr, ei);
+		else if (ospf_external_info_find_lsa(ospf, &ei->p))
+			ospf_external_lsa_flush(ospf, type, &ei->p,
 						ei->ifindex /*, ei->nexthop */);
 
-					ospf_external_info_free(ei);
-					route_unlock_node(rn);
-					rn->info = NULL;
-				}
+		ospf_external_info_free(ei);
+		route_unlock_node(rn);
+		rn->info = NULL;
+	}
 }
+
 
 /* External Route Aggregator Handlers */
 bool is_valid_summary_addr(struct prefix_ipv4 *p)
@@ -517,7 +540,7 @@ struct ospf_external_aggr_rt *ospf_external_aggr_match(struct ospf *ospf,
 				struct ospf_external_aggr_rt *ag = node->info;
 
 				zlog_debug(
-					"%s: Matching aggregator found.prefix:%pI4/%d Aggregator %pI4/%d\n",
+					"%s: Matching aggregator found.prefix:%pI4/%d Aggregator %pI4/%d",
 					__func__, &p->prefix, p->prefixlen,
 					&ag->p.prefix, ag->p.prefixlen);
 			}
@@ -669,8 +692,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 		if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 			zlog_debug(
 				"%s: LSA is in MAX-AGE so refreshing LSA(%pI4/%d)",
-				__PRETTY_FUNCTION__, &aggr->p.prefix,
-				aggr->p.prefixlen);
+				__func__, &aggr->p.prefix, aggr->p.prefixlen);
 
 		ospf_external_lsa_refresh(ospf, lsa, &ei_aggr,
 					  LSA_REFRESH_FORCE, 1);
@@ -688,8 +710,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 		if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 			zlog_debug(
 				"%s: External route prefix is same as aggr so refreshing LSA(%pI4/%d)",
-				__PRETTY_FUNCTION__, &aggr->p.prefix,
-				aggr->p.prefixlen);
+				__func__, &aggr->p.prefix, aggr->p.prefixlen);
 		ospf_external_lsa_refresh(ospf, lsa, &ei_aggr,
 					  LSA_REFRESH_FORCE, 1);
 		SET_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_ORIGINATED);
@@ -956,7 +977,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 	struct route_node *rn = NULL;
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: Process modified aggregators.\n", __func__);
+		zlog_debug("%s: Process modified aggregators.", __func__);
 
 	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn)) {
 		struct ospf_external_aggr_rt *aggr;
@@ -1047,7 +1068,7 @@ static int ospf_asbr_external_aggr_process(struct thread *thread)
 	operation = ospf->aggr_action;
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: operation:%d\n", __func__, operation);
+		zlog_debug("%s: operation:%d", __func__, operation);
 
 	switch (operation) {
 	case OSPF_ROUTE_AGGR_ADD:

@@ -55,10 +55,11 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_vty.h"
 
-DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
-DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer))
-extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
+DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
+DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
+
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
  */
@@ -100,7 +101,7 @@ static int bgp_delayopen_timer(struct thread *);
 static int bgp_start(struct peer *);
 
 /* Register peer with NHT */
-static int bgp_peer_reg_with_nht(struct peer *peer)
+int bgp_peer_reg_with_nht(struct peer *peer)
 {
 	int connected = 0;
 
@@ -109,9 +110,9 @@ static int bgp_peer_reg_with_nht(struct peer *peer)
 	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
-	return bgp_find_or_add_nexthop(
-		peer->bgp, peer->bgp, family2afi(peer->su.sa.sa_family),
-		NULL, peer, connected);
+	return bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
+				       family2afi(peer->su.sa.sa_family),
+				       SAFI_UNICAST, NULL, peer, connected);
 }
 
 static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
@@ -293,7 +294,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
-		peer->af_flags[afi][safi] = from_peer->af_flags[afi][safi];
 		peer->af_sflags[afi][safi] = from_peer->af_sflags[afi][safi];
 		peer->af_cap[afi][safi] = from_peer->af_cap[afi][safi];
 		peer->afc_nego[afi][safi] = from_peer->afc_nego[afi][safi];
@@ -339,11 +339,13 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	 * needed, even on a passive connection.
 	 */
 	bgp_peer_reg_with_nht(peer);
+	if (from_peer)
+		bgp_replace_nexthop_by_peer(from_peer, peer);
 
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
-	thread_add_timer_msec(bm->master, bgp_process_packet, peer, 0,
-			      &peer->t_process_packet);
+	thread_add_event(bm->master, bgp_process_packet, peer, 0,
+			 &peer->t_process_packet);
 
 	return (peer);
 }
@@ -468,6 +470,7 @@ void bgp_timer_set(struct peer *peer)
 		BGP_TIMER_OFF(peer->t_gr_restart);
 		BGP_TIMER_OFF(peer->t_gr_stale);
 		BGP_TIMER_OFF(peer->t_pmax_restart);
+		BGP_TIMER_OFF(peer->t_refresh_stalepath);
 	/* fallthru */
 	case Clearing:
 		BGP_TIMER_OFF(peer->t_start);
@@ -1213,8 +1216,9 @@ int bgp_stop(struct peer *peer)
 	peer->nsf_af_count = 0;
 
 	/* deregister peer */
-	if (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
-		bgp_bfd_deregister_peer(peer);
+	if (peer->bfd_config
+	    && peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
+		bfd_sess_uninstall(peer->bfd_config->session);
 
 	if (peer_dynamic_neighbor(peer)
 	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
@@ -1280,6 +1284,16 @@ int bgp_stop(struct peer *peer)
 				for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN;
 				     safi++)
 					peer->nsf[afi][safi] = 0;
+		}
+
+		/* Stop route-refresh stalepath timer */
+		if (peer->t_refresh_stalepath) {
+			BGP_TIMER_OFF(peer->t_refresh_stalepath);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s: route-refresh restart stalepath timer stopped",
+					peer->host);
 		}
 
 		/* If peer reset before receiving EOR, decrement EOR count and
@@ -1407,19 +1421,6 @@ int bgp_stop(struct peer *peer)
 		peer->v_delayopen = peer->bgp->default_delayopen;
 
 	peer->update_time = 0;
-
-/* Until we are sure that there is no problem about prefix count
-   this should be commented out.*/
-#if 0
-  /* Reset prefix count */
-  peer->pcount[AFI_IP][SAFI_UNICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_MULTICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_LABELED_UNICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_MPLS_VPN] = 0;
-  peer->pcount[AFI_IP6][SAFI_UNICAST] = 0;
-  peer->pcount[AFI_IP6][SAFI_MULTICAST] = 0;
-  peer->pcount[AFI_IP6][SAFI_LABELED_UNICAST] = 0;
-#endif /* 0 */
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
 	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
@@ -1557,13 +1558,9 @@ static int bgp_connect_success(struct peer *peer)
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		char buf1[SU_ADDRSTRLEN];
-
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %s",
-				   peer->host,
-				   sockunion2str(peer->su_local, buf1,
-						 SU_ADDRSTRLEN));
+			zlog_debug("%s open active, local address %pSU",
+				   peer->host, peer->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}
@@ -1599,13 +1596,9 @@ static int bgp_connect_success_w_delayopen(struct peer *peer)
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		char buf1[SU_ADDRSTRLEN];
-
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %s",
-				   peer->host,
-				   sockunion2str(peer->su_local, buf1,
-						 SU_ADDRSTRLEN));
+			zlog_debug("%s open active, local address %pSU",
+				   peer->host, peer->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}
@@ -1634,6 +1627,12 @@ static int bgp_connect_fail(struct peer *peer)
 		peer_delete(peer);
 		return -1;
 	}
+
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
 
 	return (bgp_stop(peer));
 }
@@ -2065,14 +2064,16 @@ static int bgp_establish(struct peer *peer)
 			       PEER_CAP_ORF_PREFIX_SM_ADV)) {
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_RM_RCV))
-				bgp_route_refresh_send(peer, afi, safi,
-						       ORF_TYPE_PREFIX,
-						       REFRESH_IMMEDIATE, 0);
+				bgp_route_refresh_send(
+					peer, afi, safi, ORF_TYPE_PREFIX,
+					REFRESH_IMMEDIATE, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 			else if (CHECK_FLAG(peer->af_cap[afi][safi],
 					    PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
-				bgp_route_refresh_send(peer, afi, safi,
-						       ORF_TYPE_PREFIX_OLD,
-						       REFRESH_IMMEDIATE, 0);
+				bgp_route_refresh_send(
+					peer, afi, safi, ORF_TYPE_PREFIX_OLD,
+					REFRESH_IMMEDIATE, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 		}
 	}
 
@@ -2123,7 +2124,10 @@ static int bgp_establish(struct peer *peer)
 	hash_release(peer->bgp->peerhash, peer);
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
-	bgp_bfd_reset_peer(peer);
+	/* Start BFD peer if not already running. */
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
+
 	return ret;
 }
 

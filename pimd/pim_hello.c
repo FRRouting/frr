@@ -95,22 +95,6 @@ static void tlv_trace_uint32_hex(const char *label, const char *tlv_name,
 	}
 }
 
-#if 0
-static void tlv_trace(const char *label, const char *tlv_name,
-		      const char *ifname, struct in_addr src_addr,
-		      int isset)
-{
-  if (isset) {
-    char src_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-    zlog_debug("%s: PIM hello option from %s on interface %s: %s",
-	       label,
-	       src_str, ifname,
-	       tlv_name);
-  }
-}
-#endif
-
 static void tlv_trace_list(const char *label, const char *tlv_name,
 			   const char *ifname, struct in_addr src_addr,
 			   int isset, struct list *addr_list)
@@ -157,14 +141,14 @@ int pim_hello_recv(struct interface *ifp, struct in_addr src_addr,
 		on_trace(__func__, ifp, src_addr);
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	++pim_ifp->pim_ifstat_hello_recv;
 
 	/*
 	  Parse PIM hello TLVs
 	 */
-	zassert(tlv_buf_size >= 0);
+	assert(tlv_buf_size >= 0);
 	tlv_curr = tlv_buf;
 	tlv_pastend = tlv_buf + tlv_buf_size;
 
@@ -555,11 +539,11 @@ void pim_hello_require(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
+	assert(ifp);
 
 	pim_ifp = ifp->info;
 
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (pim_ifp->pim_ifstat_hello_sent)
 		return;

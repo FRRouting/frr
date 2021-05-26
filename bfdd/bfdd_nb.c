@@ -103,8 +103,15 @@ const struct frr_yang_module_info frr_bfdd_info = {
                         .xpath = "/frr-bfdd:bfdd/bfd/profile/desired-echo-transmission-interval",
                         .cbs = {
                                 .modify = bfdd_bfd_profile_desired_echo_transmission_interval_modify,
-				.cli_show = bfd_cli_show_echo_interval,
-                       }
+				.cli_show = bfd_cli_show_desired_echo_transmission_interval,
+                        }
+                },
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/required-echo-receive-interval",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_required_echo_receive_interval_modify,
+				.cli_show = bfd_cli_show_required_echo_receive_interval,
+                        }
                 },
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop",
@@ -179,7 +186,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/desired-echo-transmission-interval",
 			.cbs = {
 				.modify = bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify,
-				.cli_show = bfd_cli_show_echo_interval,
+				.cli_show = bfd_cli_show_desired_echo_transmission_interval,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/required-echo-receive-interval",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_single_hop_required_echo_receive_interval_modify,
+				.cli_show = bfd_cli_show_required_echo_receive_interval,
 			}
 		},
 		{

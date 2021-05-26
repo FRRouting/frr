@@ -27,6 +27,7 @@
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
+%{!?with_pathd:         %global  with_pathd         1 }
 
 # user and group
 %{!?frr_user:           %global  frr_user           frr }
@@ -87,7 +88,7 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd bfdd fabricd
+%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd bfdd fabricd pathd
 
 %if %{with_ldpd}
     %define daemon_ldpd ldpd
@@ -143,7 +144,13 @@
     %define daemon_bfdd ""
 %endif
 
-%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd} %{daemon_vrrpd}
+%if %{with_pathd}
+    %define daemon_pathd pathd
+%else
+    %define daemon_pathd ""
+%endif
+
+%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd} %{daemon_vrrpd} %{daemon_pathd}
 
 #release sub-revision (the two digits after the CONFDATE)
 %{!?release_rev:        %global  release_rev        01 }
@@ -169,7 +176,7 @@ BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
-BuildRequires:  libyang-devel >= 1.0.184
+BuildRequires:  libyang2-devel
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -398,6 +405,11 @@ routing state through standard SNMP MIBs.
 %else
     --disable-bfdd \
 %endif
+%if %{with_pathd}
+    --enable-pathd \
+%else
+    --disable-pathd \
+%endif
     --enable-snmp
     # end
 
@@ -444,6 +456,7 @@ ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 %endif
 
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
+install %{zeb_src}/tools/etc/frr/frr.conf %{buildroot}%{_sysconfdir}/frr
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
@@ -525,6 +538,9 @@ zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 %if %{with_vrrpd}
     zebra_spec_add_service vrrpd    2619/tcp "VRRPd vty"
+%endif
+%if %{with_pathd}
+    zebra_spec_add_service pathd    2620/tcp "Pathd vty"
 %endif
 
 %if "%{initsystem}" == "systemd"
@@ -626,7 +642,7 @@ fi
 
 
 %files
-%doc */*.sample* COPYING
+%doc COPYING
 %doc doc/mpls
 %doc README.md
 /usr/share/yang/*.yang
@@ -638,9 +654,6 @@ fi
     %dir %attr(750,root,root) %{configdir}
     %dir %attr(750,root,root) %{_localstatedir}/log/frr
     %dir %attr(750,root,root) %{rundir}
-%endif
-%if 0%{?vty_group:1}
-    %attr(750,%{frr_user},%{vty_group}) %{configdir}/vtysh.conf.sample
 %endif
 %{_infodir}/frr.info.gz
 %{_mandir}/man*/*
@@ -680,6 +693,10 @@ fi
 %endif
 %if %{with_bfdd}
     %{_sbindir}/bfdd
+%endif
+%if %{with_pathd}
+    %{_sbindir}/pathd
+    %{_libdir}/frr/modules/pathd_pcep.so
 %endif
 %{_libdir}/libfrr.so*
 %{_libdir}/libfrrcares*
@@ -797,6 +814,9 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 - lib
 -    migrate route-maps to use northbound interface
 - plus countless bug fixes and other improvements
+
+* Mon Jun 15 2020 Sascha Kattelmann <sascha@netdef.org>
+- Add Pathd support
 
 * Wed May 06 2020 David Lamparter <equinox@opensourcerouting.org> - 7.3.1
 - upstream 7.3.1

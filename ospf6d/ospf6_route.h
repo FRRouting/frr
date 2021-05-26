@@ -23,6 +23,7 @@
 
 #include "command.h"
 #include "zclient.h"
+#include "lib/json.h"
 
 #define OSPF6_MULTI_PATH_LIMIT    4
 
@@ -233,6 +234,9 @@ extern const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 #define OSPF6_PATH_TYPE_SUBSTR(x)                                              \
 	(0 < (x) && (x) < OSPF6_PATH_TYPE_MAX ? ospf6_path_type_substr[(x)]    \
 					      : ospf6_path_type_substr[0])
+#define OSPF6_PATH_TYPE_JSON(x)                                                \
+	(0 < (x) && (x) < OSPF6_PATH_TYPE_MAX ? ospf6_path_type_json[(x)]      \
+					      : ospf6_path_type_json[0])
 
 #define OSPF6_ROUTE_ADDRESS_STR "Display the route bestmatches the address\n"
 #define OSPF6_ROUTE_PREFIX_STR  "Display the route\n"
@@ -326,11 +330,14 @@ extern void ospf6_route_table_delete(struct ospf6_route_table *table);
 extern void ospf6_route_dump(struct ospf6_route_table *table);
 
 
-extern void ospf6_route_show(struct vty *vty, struct ospf6_route *route);
-extern void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route);
+extern void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
+			     json_object *json, bool use_json);
+extern void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
+				    json_object *json, bool use_json);
+
 
 extern int ospf6_route_table_show(struct vty *, int, int, struct cmd_token **,
-				  struct ospf6_route_table *);
+				  struct ospf6_route_table *, bool use_json);
 extern int ospf6_linkstate_table_show(struct vty *vty, int idx_ipv4, int argc,
 				      struct cmd_token **argv,
 				      struct ospf6_route_table *table);

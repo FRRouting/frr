@@ -500,9 +500,21 @@ made. For example, a change in :file:`bgpd/rfapi` would be formatted as::
 The first line should be no longer than 50 characters. Subsequent lines should
 be wrapped to 72 characters.
 
+The purpose of commit messages is to briefly summarize what the commit is
+changing. Therefore, the extended summary portion should be in the form of an
+English paragraph. Brief examples of program output are acceptable but if
+present should be short (on the order of 10 lines) and clearly demonstrate what
+has changed. The goal should be that someone with only passing familiarity with
+the code in question can understand what is being changed.
+
+Commit messages consisting entirely of program output are *unacceptable*. These
+do not describe the behavior changed. For example, putting VTYSH output or the
+result of test runs as the sole content of commit messages is unacceptable.
+
 You must also sign off on your commit.
 
 .. seealso:: :ref:`signing-off`
+
 
 Source File Header
 ------------------
@@ -563,7 +575,7 @@ In general, code submitted into FRR will be rejected if it uses unsafe
 programming practices.  While there is no enforced overall ruleset, the
 following requirements have achieved consensus:
 
-- ``strcpy``, ``strcat`` and ``sprintf`` are inacceptable without exception.
+- ``strcpy``, ``strcat`` and ``sprintf`` are unacceptable without exception.
   Use ``strlcpy``, ``strlcat`` and ``snprintf`` instead.  (Rationale:  even if
   you know the operation cannot overflow the buffer, a future code change may
   inadvertedly introduce an overflow.)
@@ -1229,13 +1241,12 @@ towards making documentation easier to use, write and maintain.
 CLI Commands
 ^^^^^^^^^^^^
 
-When documenting CLI please use a combination of the ``.. index::`` and
-``.. clicmd::`` directives. For example, the command :clicmd:`show pony` would
-be documented as follows:
+When documenting CLI please use the ``.. clicmd::`` directive. This directive
+will format the command and generate index entries automatically. For example,
+the command :clicmd:`show pony` would be documented as follows:
 
 .. code-block:: rest
 
-   .. index:: show pony
    .. clicmd:: show pony
 
       Prints an ASCII pony. Example output:::
@@ -1252,6 +1263,7 @@ be documented as follows:
          hjw    |_>|>     /_] //
                   /_]        /_]
 
+
 When documented this way, CLI commands can be cross referenced with the
 ``:clicmd:`` inline markup like so:
 
@@ -1261,6 +1273,28 @@ When documented this way, CLI commands can be cross referenced with the
 
 This is very helpful for users who want to quickly remind themselves what a
 particular command does.
+
+When documenting a cli that has a ``no`` form, please do not include the ``no``
+form. I.e. ``no show pony`` would not be documented anywhere. Since most
+commands have ``no`` forms, users should be able to infer these or get help
+from vtysh's completions.
+
+When documenting commands that have lots of possible variants, just document
+the single command in summary rather than enumerating each possible variant.
+E.g. for ``show pony [foo|bar]``, do not:
+
+.. code-block:: rest
+
+   .. clicmd:: show pony
+   .. clicmd:: show pony foo
+   .. clicmd:: show pony bar
+
+Do:
+
+.. code-block:: rest
+
+   .. clicmd:: show pony [foo|bar]
+
 
 Configuration Snippets
 ^^^^^^^^^^^^^^^^^^^^^^

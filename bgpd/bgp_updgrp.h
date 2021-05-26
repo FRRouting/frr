@@ -109,12 +109,6 @@ struct bpacket {
 struct bpacket_queue {
 	TAILQ_HEAD(pkt_queue, bpacket) pkts;
 
-#if 0
-  /* A dummy packet that is used to thread all peers that have
-     completed their work */
-  struct bpacket sentinel;
-#endif
-
 	unsigned int conf_max_count;
 	unsigned int curr_count;
 	unsigned int hwm_count;
@@ -252,18 +246,12 @@ struct update_subgroup {
 	uint64_t id;
 
 	uint16_t sflags;
+#define SUBGRP_STATUS_DEFAULT_ORIGINATE (1 << 0)
+#define SUBGRP_STATUS_FORCE_UPDATES (1 << 1)
 
-	/* Subgroup flags, see below  */
 	uint16_t flags;
+#define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
 };
-
-/*
- * We need to do an outbound refresh to get this subgroup into a
- * consistent state.
- */
-#define SUBGRP_FLAG_NEEDS_REFRESH         (1 << 0)
-
-#define SUBGRP_STATUS_DEFAULT_ORIGINATE   (1 << 0)
 
 /*
  * Add the given value to the specified counter on a subgroup and its

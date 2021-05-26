@@ -54,7 +54,7 @@ void igmp_v2_send_query(struct igmp_group *group, int fd, const char *ifname,
 	/* max_resp_code must be non-zero else this will look like an IGMP v1
 	 * query */
 	max_resp_code = igmp_msg_encode16to8(query_max_response_time_dsec);
-	zassert(max_resp_code > 0);
+	assert(max_resp_code > 0);
 
 	query_buf[0] = PIM_IGMP_MEMBERSHIP_QUERY;
 	query_buf[1] = max_resp_code;
@@ -158,12 +158,13 @@ int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	return 0;
 }
 
-int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
+int igmp_v2_recv_leave(struct igmp_sock *igmp, struct ip *ip_hdr,
 		       const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	struct interface *ifp = igmp->interface;
 	struct in_addr group_addr;
 	char group_str[INET_ADDRSTRLEN];
+	struct in_addr from = ip_hdr->ip_src;
 
 	on_trace(__func__, igmp->interface, from);
 
@@ -184,8 +185,6 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
 		return -1;
 	}
 
-	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.leave_v2++;
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
@@ -195,6 +194,32 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
 		zlog_debug("Recv IGMPv2 LEAVE from %s on %s for %s", from_str,
 			   ifp->name, group_str);
 	}
+	/*
+	 * As per RFC 2236, section 9:
+	 Message Type                  Destination Group
+	 ------------                  -----------------
+	 General Query                 ALL-SYSTEMS (224.0.0.1)
+	 Group-Specific Query          The group being queried
+	 Membership Report             The group being reported
+	 Leave Message                 ALL-ROUTERS (224.0.0.2)
+
+	 Note: in older (i.e., non-standard and now obsolete) versions of
+	 IGMPv2, hosts send Leave Messages to the group being left.  A
+	 router SHOULD accept Leave Messages addressed to the group being
+	 left in the interests of backwards compatibility with such hosts.
+	 In all cases, however, hosts MUST send to the ALL-ROUTERS address
+	 to be compliant with this specification.
+	*/
+	if ((ntohl(ip_hdr->ip_dst.s_addr) != INADDR_ALLRTRS_GROUP)
+	    && (ip_hdr->ip_dst.s_addr != group_addr.s_addr)) {
+		if (PIM_DEBUG_IGMP_EVENTS)
+			zlog_debug(
+				"IGMPv2 Leave message is ignored since received on address other than ALL-ROUTERS or Group-address");
+		return -1;
+	}
+
+	/* Collecting IGMP Rx stats */
+	igmp->rx_stats.leave_v2++;
 
 	/*
 	 * RFC 3376

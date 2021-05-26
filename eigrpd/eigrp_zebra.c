@@ -41,6 +41,7 @@
 #include "log.h"
 #include "nexthop.h"
 
+#include "eigrpd/eigrp_types.h"
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_interface.h"
@@ -52,6 +53,7 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
+#include "eigrpd/eigrp_metric.h"
 
 static int eigrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
@@ -194,7 +196,7 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	struct eigrp_nexthop_entry *te;
+	struct eigrp_route_descriptor *te;
 	struct listnode *node;
 	int count = 0;
 
@@ -229,9 +231,7 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 	api.nexthop_num = count;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[PREFIX_STRLEN];
-		zlog_debug("Zebra: Route add %pFX nexthop %s", p,
-			   inet_ntop(AF_INET, 0, buf, PREFIX_STRLEN));
+		zlog_debug("Zebra: Route add %pFX", p);
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);

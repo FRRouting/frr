@@ -46,7 +46,8 @@
 
 #include "lib/openbsd-queue.h"
 
-DEFINE_MTYPE_STATIC(BFDD, BFDD_DPLANE_CTX, "Data plane client allocated memory")
+DEFINE_MTYPE_STATIC(BFDD, BFDD_DPLANE_CTX,
+		    "Data plane client allocated memory");
 
 /** Data plane client socket buffer size. */
 #define BFD_DPLANE_CLIENT_BUF_SIZE 8192
@@ -169,8 +170,8 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 				   &msg->data.session.dst);
 		else
 			snprintfrr(addrs, sizeof(addrs), "src=%pI4 dst=%pI4",
-				   &msg->data.session.src,
-				   &msg->data.session.dst);
+				   (struct in_addr *)&msg->data.session.src,
+				   (struct in_addr *)&msg->data.session.dst);
 
 		buf[0] = 0;
 		if (flags & SESSION_CBIT)
@@ -765,7 +766,8 @@ static void _bfd_dplane_session_fill(const struct bfd_session *bs,
 	msg->data.session.lid = htonl(bs->discrs.my_discr);
 	msg->data.session.min_tx = htonl(bs->timers.desired_min_tx);
 	msg->data.session.min_rx = htonl(bs->timers.required_min_rx);
-	msg->data.session.min_echo_rx = htonl(bs->timers.required_min_echo);
+	msg->data.session.min_echo_tx = htonl(bs->timers.desired_min_echo_tx);
+	msg->data.session.min_echo_rx = htonl(bs->timers.required_min_echo_rx);
 }
 
 static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,

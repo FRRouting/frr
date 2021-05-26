@@ -30,7 +30,7 @@
 
 #include "bfd.h"
 
-DEFINE_MTYPE_STATIC(BFDD, BFDD_LABEL, "long-lived label memory")
+DEFINE_MTYPE_STATIC(BFDD, BFDD_LABEL, "long-lived label memory");
 
 /*
  * Definitions
@@ -135,7 +135,8 @@ static int parse_list(struct json_object *jo, enum peer_list_type plt,
 		bpc.bpc_detectmultiplier = BFD_DEFDETECTMULT;
 		bpc.bpc_recvinterval = BFD_DEFREQUIREDMINRX;
 		bpc.bpc_txinterval = BFD_DEFDESIREDMINTX;
-		bpc.bpc_echointerval = BFD_DEF_REQ_MIN_ECHO;
+		bpc.bpc_echorecvinterval = BFD_DEF_REQ_MIN_ECHO_RX;
+		bpc.bpc_echotxinterval = BFD_DEF_DES_MIN_ECHO_TX;
 
 		switch (plt) {
 		case PLT_IPV4:
@@ -250,11 +251,16 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 			bpc->bpc_has_txinterval = true;
 			zlog_debug("        transmit-interval: %" PRIu64,
 				   bpc->bpc_txinterval);
-		} else if (strcmp(key, "echo-interval") == 0) {
-			bpc->bpc_echointerval = json_object_get_int64(jo_val);
-			bpc->bpc_has_echointerval = true;
-			zlog_debug("        echo-interval: %" PRIu64,
-				   bpc->bpc_echointerval);
+		} else if (strcmp(key, "echo-receive-interval") == 0) {
+			bpc->bpc_echorecvinterval = json_object_get_int64(jo_val);
+			bpc->bpc_has_echorecvinterval = true;
+			zlog_debug("        echo-receive-interval: %" PRIu64,
+				   bpc->bpc_echorecvinterval);
+		} else if (strcmp(key, "echo-transmit-interval") == 0) {
+			bpc->bpc_echotxinterval = json_object_get_int64(jo_val);
+			bpc->bpc_has_echotxinterval = true;
+			zlog_debug("        echo-transmit-interval: %" PRIu64,
+				   bpc->bpc_echotxinterval);
 		} else if (strcmp(key, "create-only") == 0) {
 			bpc->bpc_createonly = json_object_get_boolean(jo_val);
 			zlog_debug("        create-only: %s",
@@ -463,8 +469,10 @@ char *config_notify_config(const char *op, struct bfd_session *bs)
 			    bs->timers.required_min_rx / 1000);
 	json_object_int_add(resp, "transmit-interval",
 			    bs->timers.desired_min_tx / 1000);
-	json_object_int_add(resp, "echo-interval",
-			    bs->timers.required_min_echo / 1000);
+	json_object_int_add(resp, "echo-receive-interval",
+			    bs->timers.required_min_echo_rx / 1000);
+	json_object_int_add(resp, "echo-transmit-interval",
+			    bs->timers.desired_min_echo_tx / 1000);
 
 	json_object_int_add(resp, "remote-detect-multiplier",
 			    bs->remote_detect_mult);
@@ -472,7 +480,7 @@ char *config_notify_config(const char *op, struct bfd_session *bs)
 			    bs->remote_timers.required_min_rx / 1000);
 	json_object_int_add(resp, "remote-transmit-interval",
 			    bs->remote_timers.desired_min_tx / 1000);
-	json_object_int_add(resp, "remote-echo-interval",
+	json_object_int_add(resp, "remote-echo-receive-interval",
 			    bs->remote_timers.required_min_echo / 1000);
 
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))

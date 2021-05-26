@@ -1562,6 +1562,26 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
+bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
+				const char *spaces)
+{
+	struct pim_msdp_peer *mp;
+	struct listnode *node;
+	bool written = false;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
+		/* Non meshed peers have the group name set to 'default'. */
+		if (strcmp(mp->mesh_group_name, "default"))
+			continue;
+
+		vty_out(vty, "%sip msdp peer %pI4 source %pI4\n", spaces,
+			&mp->peer, &mp->local);
+		written = true;
+	}
+
+	return written;
+}
+
 /* Enable feature including active/periodic timers etc. on the first peer
  * config. Till then MSDP should just stay quiet. */
 static void pim_msdp_enable(struct pim_instance *pim)

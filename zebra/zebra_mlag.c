@@ -29,7 +29,6 @@
 #include "zebra/zebra_mlag.h"
 #include "zebra/zebra_mlag_vty.h"
 #include "zebra/zebra_router.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/debug.h"
 
@@ -38,11 +37,11 @@
 #endif
 
 DEFINE_HOOK(zebra_mlag_private_write_data,
-	    (uint8_t *data, uint32_t len), (data, len))
-DEFINE_HOOK(zebra_mlag_private_monitor_state, (), ())
-DEFINE_HOOK(zebra_mlag_private_open_channel, (), ())
-DEFINE_HOOK(zebra_mlag_private_close_channel, (), ())
-DEFINE_HOOK(zebra_mlag_private_cleanup_data, (), ())
+	    (uint8_t *data, uint32_t len), (data, len));
+DEFINE_HOOK(zebra_mlag_private_monitor_state, (), ());
+DEFINE_HOOK(zebra_mlag_private_open_channel, (), ());
+DEFINE_HOOK(zebra_mlag_private_close_channel, (), ());
+DEFINE_HOOK(zebra_mlag_private_cleanup_data, (), ());
 
 #define ZEBRA_MLAG_METADATA_LEN 4
 #define ZEBRA_MLAG_MSG_BCAST 0xFFFFFFFF
@@ -659,7 +658,7 @@ void zebra_mlag_terminate(void)
 
 #ifdef HAVE_PROTOBUF_VERSION_3
 
-DEFINE_MTYPE_STATIC(ZEBRA, MLAG_PBUF, "ZEBRA MLAG PROTOBUF")
+DEFINE_MTYPE_STATIC(ZEBRA, MLAG_PBUF, "ZEBRA MLAG PROTOBUF");
 
 int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 {

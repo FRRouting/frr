@@ -1,0 +1,23 @@
+{
+  "203.0.113.8\/30":[
+    {
+      "prefix":"203.0.113.8\/30",
+      "protocol":"bgp",
+      "installed":true,
+      "internalNextHopNum":2,
+      "internalNextHopActiveNum":1,
+      "nexthops":[
+        {
+          "fib":true,
+          "ip":"10.0.3.2",
+          "active":true
+        },
+        {
+          "fib":null,
+          "ip":"198.51.100.10",
+          "active":null
+        }
+      ]
+    }
+  ]
+}

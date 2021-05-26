@@ -29,6 +29,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
 
 from lib.ltemplate import *
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
+
 
 def test_add_routes():
     CliOnFail = None

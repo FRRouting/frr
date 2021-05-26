@@ -18,3 +18,6 @@ FRRouting Developer's Guide
    ospf
    zebra
    vtysh
+   path
+   pceplib
+   link-state

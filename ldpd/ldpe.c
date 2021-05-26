@@ -27,11 +27,13 @@
 #include "control.h"
 #include "log.h"
 #include "ldp_debug.h"
+#include "rlfa.h"
 
 #include <lib/log.h>
 #include "memory.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "libfrr.h"
 
 static void	 ldpe_shutdown(void);
 static int	 ldpe_dispatch_main(struct thread *);
@@ -102,15 +104,15 @@ char *pkt_ptr; /* packet buffer */
 void
 ldpe(void)
 {
-	struct thread		 thread;
-
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("ldp engine");
 #endif
 	ldpd_process = PROC_LDP_ENGINE;
 	log_procname = log_procnames[ldpd_process];
 
-	master = thread_master_create(NULL);
+	master = frr_init();
+	/* no frr_config_fork() here, allow frr_pthread to create threads */
+	frr_is_after_fork = true;
 
 	/* setup signal handler */
 	signal_init(master, array_size(ldpe_signals), ldpe_signals);
@@ -132,9 +134,12 @@ ldpe(void)
 	/* create base configuration */
 	leconf = config_new_empty();
 
-	/* Fetch next active thread. */
+	struct thread thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
+
+	/* NOTREACHED */
+	return;
 }
 
 void
@@ -298,7 +303,11 @@ ldpe_dispatch_main(struct thread *thread)
 	int			 n, shut = 0;
 	struct ldp_access       *laccess;
 	struct ldp_igp_sync_if_state_req *ldp_sync_if_state_req;
-	
+	struct ldp_rlfa_node	 *rnode, *rntmp;
+	struct ldp_rlfa_client	 *rclient;
+	struct zapi_rlfa_request *rlfa_req;
+	struct zapi_rlfa_igp	 *rlfa_igp;
+
 	iev->ev_read = NULL;
 
 	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
@@ -381,6 +390,9 @@ ldpe_dispatch_main(struct thread *thread)
 
 			memcpy(&init, imsg.data, sizeof(init));
 			ldpe_init(&init);
+			break;
+		case IMSG_AGENTX_ENABLED:
+			ldp_agentx_enabled();
 			break;
 		case IMSG_CLOSE_SOCKETS:
 			af = imsg.hdr.peerid;
@@ -568,6 +580,44 @@ ldpe_dispatch_main(struct thread *thread)
 			}
 			ldp_sync_if_state_req = imsg.data;
 			ldp_sync_fsm_state_req(ldp_sync_if_state_req);
+			break;
+		case IMSG_RLFA_REG:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct zapi_rlfa_request)) {
+				log_warnx("%s: wrong imsg len", __func__);
+				break;
+			}
+			rlfa_req = imsg.data;
+
+			rnode = rlfa_node_find(&rlfa_req->destination,
+					       rlfa_req->pq_address);
+			if (!rnode)
+				rnode = rlfa_node_new(&rlfa_req->destination,
+						      rlfa_req->pq_address);
+			rclient = rlfa_client_find(rnode, &rlfa_req->igp);
+			if (rclient)
+				/* RLFA already registered - do nothing */
+				break;
+			rclient = rlfa_client_new(rnode, &rlfa_req->igp);
+			ldpe_rlfa_init(rclient);
+			break;
+		case IMSG_RLFA_UNREG_ALL:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct zapi_rlfa_igp)) {
+				log_warnx("%s: wrong imsg len", __func__);
+				break;
+			}
+			rlfa_igp = imsg.data;
+
+			RB_FOREACH_SAFE (rnode, ldp_rlfa_node_head,
+					 &rlfa_node_tree, rntmp) {
+				rclient = rlfa_client_find(rnode, rlfa_igp);
+				if (!rclient)
+					continue;
+
+				ldpe_rlfa_exit(rclient);
+				rlfa_client_del(rclient);
+			}
 			break;
 		default:
 			log_debug("ldpe_dispatch_main: error handling imsg %d",
@@ -1029,4 +1079,11 @@ ldpe_check_filter_af(int af, struct ldpd_af_conf *af_conf,
 {
 	if (strcmp(af_conf->acl_thello_accept_from, filter_name) == 0)
 		ldpe_remove_dynamic_tnbrs(af);
+}
+
+void
+ldpe_set_config_change_time(void)
+{
+	/* SNMP update time when ever there is a config change */
+	leconf->config_change_time = time(NULL);
 }

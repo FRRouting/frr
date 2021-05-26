@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include <lib/version.h>
+#include "bfd.h"
 #include "getopt.h"
 #include "thread.h"
 #include "prefix.h"
@@ -55,6 +56,7 @@
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_ldp_sync.h"
+#include "ospfd/ospf_routemap_nb.h"
 
 /* ospfd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
@@ -98,6 +100,7 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+	bfd_protocol_integration_set_shutdown(true);
 	ospf_terminate();
 	exit(0);
 }
@@ -132,6 +135,7 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&frr_ospf_route_map_info,
 };
 
 FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
@@ -141,14 +145,12 @@ FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 		.signals = ospf_signals, .n_signals = array_size(ospf_signals),
 
 		.privs = &ospfd_privs, .yang_modules = ospfd_yang_modules,
-		.n_yang_modules = array_size(ospfd_yang_modules), )
+		.n_yang_modules = array_size(ospfd_yang_modules),
+);
 
 /* OSPFd main routine. */
 int main(int argc, char **argv)
 {
-	unsigned short instance = 0;
-	bool created = false;
-
 #ifdef SUPPORT_OSPF_API
 	/* OSPF apiserver is disabled by default. */
 	ospf_apiserver_enable = 0;
@@ -169,8 +171,8 @@ int main(int argc, char **argv)
 
 		switch (opt) {
 		case 'n':
-			ospfd_di.instance = instance = atoi(optarg);
-			if (instance < 1)
+			ospfd_di.instance = ospf_instance = atoi(optarg);
+			if (ospf_instance < 1)
 				exit(0);
 			break;
 		case 0:
@@ -208,7 +210,7 @@ int main(int argc, char **argv)
 
 	/* OSPFd inits. */
 	ospf_if_init();
-	ospf_zebra_init(master, instance);
+	ospf_zebra_init(master, ospf_instance);
 
 	/* OSPF vty inits. */
 	ospf_vty_init();
@@ -216,7 +218,7 @@ int main(int argc, char **argv)
 	ospf_vty_clear_init();
 
 	/* OSPF BFD init */
-	ospf_bfd_init();
+	ospf_bfd_init(master);
 
 	/* OSPF LDP IGP Sync init */
 	ospf_ldp_sync_init();
@@ -226,17 +228,6 @@ int main(int argc, char **argv)
 
 	/* OSPF errors init */
 	ospf_error_init();
-
-	/*
-	 * Need to initialize the default ospf structure, so the interface mode
-	 * commands can be duly processed if they are received before 'router
-	 * ospf',  when ospfd is restarted
-	 */
-	if (instance && !ospf_get_instance(instance, &created)) {
-		flog_err(EC_OSPF_INIT_FAIL, "OSPF instance init failed: %s",
-			 strerror(errno));
-		exit(1);
-	}
 
 	frr_config_fork();
 	frr_run(master);

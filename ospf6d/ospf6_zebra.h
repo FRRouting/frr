@@ -23,6 +23,8 @@
 
 #include "zclient.h"
 
+#define DEFAULT_ROUTE ZEBRA_ROUTE_MAX
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_zebra;
 #define OSPF6_DEBUG_ZEBRA_SEND 0x01

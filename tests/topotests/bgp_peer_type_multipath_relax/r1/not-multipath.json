@@ -1,0 +1,50 @@
+{
+ "routes": { "203.0.113.0/30": [
+  {
+    "valid":true,
+    "multipath":null,
+    "pathFrom":"external",
+    "peerId":"10.0.5.2"
+  },
+  {
+    "valid":true,
+    "bestpath":true,
+    "selectionReason":"Peer Type",
+    "pathFrom":"external",
+    "peerId":"10.0.4.2"
+  },
+  {
+    "valid":true,
+    "multipath":null,
+    "pathFrom":"internal",
+    "peerId":"10.0.1.2"
+  } 
+],"203.0.113.4/30": [
+  {
+    "valid":true,
+    "bestpath":true,
+    "selectionReason":"Confed Peer Type",
+    "pathFrom":"external",
+    "peerId":"10.0.5.2"
+  },
+  {
+    "valid":true,
+    "multipath":null,
+    "pathFrom":"internal",
+    "peerId":"10.0.1.2"
+  }
+],"203.0.113.8/30": [
+  {
+    "valid":true,
+    "multipath":true,
+    "pathFrom":"external",
+    "peerId":"10.0.4.2"
+  },
+  {
+    "valid":true,
+    "bestpath":true,
+    "selectionReason":"Router ID",
+    "pathFrom":"external",
+    "peerId":"10.0.3.2"
+  }
+] }  }

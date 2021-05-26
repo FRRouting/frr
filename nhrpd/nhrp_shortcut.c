@@ -18,7 +18,7 @@
 #include "log.h"
 #include "nhrp_protocol.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut");
 
 static struct route_table *shortcut_rib[AFI_MAX];
 
@@ -51,18 +51,26 @@ static int nhrp_shortcut_do_expire(struct thread *t)
 static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 				       unsigned long cmd)
 {
+	char buf2[PREFIX_STRLEN];
+
 	struct nhrp_shortcut *s =
 		container_of(n, struct nhrp_shortcut, cache_notifier);
+	struct nhrp_cache *c = s->cache;
 
+	if (c)
+		sockunion2str(&c->remote_addr, buf2, sizeof(buf2));
+	else
+		snprintf(buf2, sizeof(buf2), "(unspec)");
 	switch (cmd) {
 	case NOTIFY_CACHE_UP:
 		if (!s->route_installed) {
 			debugf(NHRP_DEBUG_ROUTE,
-			       "Shortcut: route install %pFX nh (unspec) dev %s",
-			       s->p, s->cache->ifp->name);
+			       "Shortcut: route install %pFX nh %s dev %s",
+			       s->p, buf2, c && c->ifp ?
+			       c->ifp->name : "<unk>");
 
-			nhrp_route_announce(1, s->type, s->p, s->cache->ifp,
-					    NULL, 0);
+			nhrp_route_announce(1, s->type, s->p, c ? c->ifp : NULL,
+					    c ? &c->remote_addr : NULL, 0);
 			s->route_installed = 1;
 		}
 		break;
@@ -86,8 +94,6 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 					 enum nhrp_cache_type type,
 					 struct nhrp_cache *c, int holding_time)
 {
-	char buf[2][PREFIX_STRLEN];
-
 	s->type = type;
 	if (c != s->cache) {
 		if (s->cache) {
@@ -103,13 +109,9 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 				 * change */
 				s->route_installed = 0;
 				debugf(NHRP_DEBUG_ROUTE,
-				       "Shortcut: forcing renewal of zebra announce on prefix change peer %s ht %u cur nbma %s dev %s",
-				       sockunion2str(&s->cache->remote_addr,
-						     buf[0], sizeof(buf[0])),
-				       holding_time,
-				       sockunion2str(
-					       &s->cache->cur.remote_nbma_natoa,
-					       buf[1], sizeof(buf[1])),
+				       "Shortcut: forcing renewal of zebra announce on prefix change peer %pSU ht %u cur nbma %pSU dev %s",
+				       &s->cache->remote_addr, holding_time,
+				       &s->cache->cur.remote_nbma_natoa,
 				       s->cache->ifp->name);
 				nhrp_shortcut_cache_notify(&s->cache_notifier,
 							   NOTIFY_CACHE_UP);
@@ -201,16 +203,18 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 					      void *arg)
 {
 	struct nhrp_packet_parser *pp = arg;
+	struct interface *ifp = pp->ifp;
+	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_shortcut *s =
 		container_of(reqid, struct nhrp_shortcut, reqid);
 	struct nhrp_shortcut *ps;
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c = NULL;
+	struct nhrp_cache *c_dst = NULL;
 	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
-	char buf[4][SU_ADDRSTRLEN];
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
@@ -232,23 +236,13 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 		return;
 	}
 
-	/* Parse extensions */
-	memset(&nat_nbma, 0, sizeof(nat_nbma));
-	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
-		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
-		case NHRP_EXTENSION_NAT_ADDRESS:
-			nhrp_cie_pull(&extpl, pp->hdr, &nat_nbma, &cie_proto);
-			break;
-		}
-	}
-
 	/* Minor sanity check */
 	prefix2sockunion(s->p, &cie_proto);
 	if (!sockunion_same(&cie_proto, &pp->dst_proto)) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "Shortcut: Warning dst_proto altered from %s to %s",
-		       sockunion2str(&cie_proto, buf[0], sizeof(buf[0])),
-		       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])));
+		       "Shortcut: Warning dst_proto altered from %pSU to %pSU",
+		       &cie_proto, &pp->dst_proto);
+		;
 	}
 
 	/* One or more CIEs should be given as reply, we support only one */
@@ -277,19 +271,58 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			prefix.prefixlen = route_prefix.prefixlen;
 	}
 
-	debugf(NHRP_DEBUG_COMMON,
-	       "Shortcut: %pFX is at proto %s dst_proto %s cie-nbma %s nat-nbma %s cie-holdtime %d",
-	       &prefix, sockunion2str(proto, buf[0], sizeof(buf[0])),
-	       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])),
-	       sockunion2str(&cie_nbma, buf[2], sizeof(buf[2])),
-	       sockunion2str(&nat_nbma, buf[3], sizeof(buf[3])),
-	       htons(cie->holding_time));
+	/* Parse extensions */
+	memset(&nat_nbma, 0, sizeof(nat_nbma));
+	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
+		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
+		case NHRP_EXTENSION_NAT_ADDRESS: {
+			struct nhrp_cie_header *cie_nat;
+
+			do {
+				union sockunion cie_nat_proto, cie_nat_nbma;
+
+				sockunion_family(&cie_nat_proto) = AF_UNSPEC;
+				sockunion_family(&cie_nat_nbma) = AF_UNSPEC;
+				cie_nat = nhrp_cie_pull(&extpl, pp->hdr,
+							&cie_nat_nbma,
+							&cie_nat_proto);
+				/* We are interested only in peer CIE */
+				if (cie_nat
+				    && sockunion_same(&cie_nat_proto, proto)) {
+					nat_nbma = cie_nat_nbma;
+				}
+			} while (cie_nat);
+		} break;
+		default:
+			break;
+		}
+	}
 
 	/* Update cache entry for the protocol to nbma binding */
-	if (sockunion_family(&nat_nbma) != AF_UNSPEC)
+	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
+		debugf(NHRP_DEBUG_COMMON,
+		       "Shortcut: NAT detected (NAT extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
+		       proto, &nat_nbma, &cie_nbma);
 		nbma = &nat_nbma;
-	else
+	}
+	/* For NHRP resolution reply the cie_nbma in mandatory part is the
+	 * address of the actual address of the sender
+	 */
+	else if (!sockunion_same(&cie_nbma, &pp->peer->vc->remote.nbma)
+		 && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma, nifp)) {
+		debugf(NHRP_DEBUG_COMMON,
+		       "Shortcut: NAT detected (no NAT Extension) proto %pSU NBMA %pSU claimed-NBMA %pSU",
+		       proto, &pp->peer->vc->remote.nbma, &cie_nbma);
+		nbma = &pp->peer->vc->remote.nbma;
+		nat_nbma = *nbma;
+	} else {
 		nbma = &cie_nbma;
+	}
+
+	debugf(NHRP_DEBUG_COMMON,
+	       "Shortcut: %pFX is at proto %pSU dst_proto %pSU NBMA %pSU cie-holdtime %d",
+	       &prefix, proto, &pp->dst_proto, nbma,
+	       htons(cie->holding_time));
 
 	if (sockunion_family(nbma)) {
 		c = nhrp_cache_get(pp->ifp, proto, 1);
@@ -299,10 +332,32 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma);
+						  htons(cie->mtu),
+						  nbma,
+						  &cie_nbma);
 		} else {
 			debugf(NHRP_DEBUG_COMMON,
-			       "Shortcut: no cache for nbma %s", buf[2]);
+			       "Shortcut: no cache for proto %pSU", proto);
+		}
+
+		/* Update cache binding for dst_proto as well */
+		if (sockunion_cmp(proto, &pp->dst_proto)) {
+			c_dst = nhrp_cache_get(pp->ifp, &pp->dst_proto, 1);
+			if (c_dst) {
+				debugf(NHRP_DEBUG_COMMON,
+				       "Shortcut: cache found, update binding");
+				nhrp_cache_update_binding(c_dst,
+						  NHRP_CACHE_DYNAMIC,
+						  holding_time,
+						  nhrp_peer_get(pp->ifp, nbma),
+						  htons(cie->mtu),
+						  nbma,
+						  &cie_nbma);
+			} else {
+				debugf(NHRP_DEBUG_COMMON,
+				       "Shortcut: no cache for proto %pSU",
+				       &pp->dst_proto);
+			}
 		}
 	}
 
@@ -340,6 +395,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	struct nhrp_afi_data *if_ad;
 	struct nhrp_peer *peer;
 	struct nhrp_cie_header *cie;
+	struct nhrp_extension_header *ext;
 
 	if (nhrp_route_address(NULL, &s->addr, NULL, &peer)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
@@ -383,7 +439,14 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 
 	/* Cisco NAT detection extension */
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_NAT);
-	nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
+	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
+	if (sockunion_family(&nifp->nat_nbma) != AF_UNSPEC) {
+		cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nat_nbma,
+				    &if_ad->addr);
+		cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
+		cie->mtu = htons(if_ad->mtu);
+		nhrp_ext_complete(zb, ext);
+	}
 
 	nhrp_packet_complete(zb, hdr);
 

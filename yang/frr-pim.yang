@@ -294,6 +294,9 @@ module frr-pim {
       type uint8 {
         range "1..180";
       }
+      must ". > ./../hello-interval" {
+      error-message "HoldTime must be greater than Hello";
+      }
       description
         "Hello holdtime";
     }
@@ -328,18 +331,24 @@ module frr-pim {
         description
           "Detect Multiplier";
       }
+
+      leaf profile {
+        type string;
+        description
+          "Use a preconfigure BFD profile.";
+      }
     }
 
     leaf bsm {
       type boolean;
-      default "false";
+      default "true";
       description
         "Enables BSM support on the interface.";
     }
 
     leaf unicast-bsm {
       type boolean;
-      default "false";
+      default "true";
       description
         "Accept/Send unicast BSM on the interface.";
     }

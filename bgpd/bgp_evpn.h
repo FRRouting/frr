@@ -206,5 +206,4 @@ extern void bgp_evpn_init(struct bgp *bgp);
 extern int bgp_evpn_get_type5_prefixlen(const struct prefix *pfx);
 extern bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx);
 extern void update_advertise_vrf_routes(struct bgp *bgp_vrf);
-
 #endif /* _QUAGGA_BGP_EVPN_H */

@@ -115,7 +115,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
-
+from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import (
     step,
     verify_rib,
@@ -128,7 +128,6 @@ from lib.common_config import (
     create_static_routes,
     create_prefix_lists,
     create_interface_in_kernel,
-    kill_mininet_routers_process,
     create_bgp_community_lists,
     check_router_status,
     apply_raw_config,
@@ -215,6 +214,10 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
+    # iproute2 needs to support VRFs for this suite to run.
+    if not iproute2_is_vrf_capable():
+        pytest.skip("Installed iproute2 version does not support VRFs")
+
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -224,9 +227,6 @@ def setup_module(mod):
     # This function initiates the topology build with Topogen...
     tgen = Topogen(CreateTopo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
-
-    # Kill stale mininet routers and process
-    kill_mininet_routers_process(tgen)
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
@@ -504,8 +504,9 @@ def test_ambiguous_overlapping_addresses_in_different_vrfs_p0(request):
         )
 
         result = verify_rib(tgen, addr_type, dut, input_dict_1, tag=500, expected=False)
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Routes are present with tag value 500 \n Error: {}".format(tc_name, result)
         )
         logger.info("Expected Behavior: {}".format(result))
 
@@ -1142,8 +1143,11 @@ def test_prefixes_leaking_p0(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_1, metric=123, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Routes are present with metric value 123 \n Error: {}".format(
+                tc_name, result
+            )
         )
         logger.info("Expected Behavior: {}".format(result))
 
@@ -1155,8 +1159,11 @@ def test_prefixes_leaking_p0(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict_2, metric=0, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Routes are present with metric value 0 \n Error: {}".format(
+                tc_name, result
+            )
         )
         logger.info("Expected Behavior: {}".format(result))
 
@@ -2666,14 +2673,12 @@ def test_route_map_within_vrf_to_alter_bgp_attribute_nexthop_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because"
-        " nexthop-self config is deleted \n Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because nexthop-self config is deleted \n Error {}".format(tc_name, result)
 
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because"
-        " nexthop-self config is deleted \n Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because nexthop-self config is deleted \n Error {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -4947,8 +4952,7 @@ def test_prefix_list_to_permit_deny_prefixes_p0(request):
 
         result = verify_rib(tgen, addr_type, dut, denied_routes, expected=False)
         assert result is not True, "Testcase {} : Failed \n"
-        "Expected behaviour: Routes are denied by prefix-list \n"
-        "Error {}".format(tc_name, result)
+        "{}:Expected behaviour: Routes are denied by prefix-list \nError {}".format(tc_name, result)
 
     step(
         "On router R1, configure prefix-lists to permit 2 "
@@ -5158,9 +5162,7 @@ def test_prefix_list_to_permit_deny_prefixes_p0(request):
         )
 
         result = verify_rib(tgen, addr_type, dut, denied_routes, expected=False)
-        assert result is not True, "Testcase {} : Failed \n"
-        "Expected behaviour: Routes are denied by prefix-list \n"
-        "Error {}".format(tc_name, result)
+        assert result is not True, "Testcase {} : Failed \nExpected behaviour: Routes are denied by prefix-list \nError {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -5438,8 +5440,7 @@ def test_route_map_set_and_match_tag_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \n"
-        "Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \nError {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -5842,8 +5843,7 @@ def test_route_map_set_and_match_metric_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \n"
-        "Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \nError {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 

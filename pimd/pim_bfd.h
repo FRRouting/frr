@@ -25,16 +25,35 @@
 
 #include "if.h"
 
+/**
+ * Initializes PIM BFD integration code.
+ */
 void pim_bfd_init(void);
+
+/**
+ * Write configuration to `show running-config`.
+ *
+ * \param vty the vty output pointer.
+ * \param ifp the interface pointer that has the configuration.
+ */
 void pim_bfd_write_config(struct vty *vty, struct interface *ifp);
-void pim_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
-		       bool use_json, int param_only);
-void pim_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
-			  uint32_t min_tx, uint8_t detect_mult, int defaults);
-int pim_bfd_reg_dereg_all_nbr(struct interface *ifp, int command);
-void pim_bfd_trigger_event(struct pim_interface *pim_ifp,
-			   struct pim_neighbor *nbr, uint8_t nbr_up);
+
+/**
+ * Enables or disables all peers BFD sessions.
+ *
+ * \param ifp interface pointer.
+ * \param enable session state to set.
+ */
+void pim_bfd_reg_dereg_all_nbr(struct interface *ifp);
+
+/**
+ * Create and configure peer BFD session if it does not exist. It will use
+ * the interface configured parameters as the peer configuration.
+ *
+ * \param pim_ifp the interface configuration pointer.
+ * \param neigh the neighbor configuration pointer.
+ */
 void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
 			     struct pim_neighbor *neigh);
-void pim_bfd_info_free(struct bfd_info **bfd_info);
+
 #endif /* _PIM_BFD_H */

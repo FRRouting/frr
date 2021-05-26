@@ -317,6 +317,7 @@ int pim_upstream_eval_inherit_if(struct pim_upstream *up,
 void pim_upstream_update_join_desired(struct pim_instance *pim,
 				      struct pim_upstream *up);
 
+void pim_update_suppress_timers(uint32_t suppress_time);
 void pim_upstream_join_suppress(struct pim_upstream *up,
 				struct in_addr rpf_addr, int holdtime);
 
@@ -373,7 +374,7 @@ void join_timer_start(struct pim_upstream *up);
 int pim_upstream_compare(const struct pim_upstream *up1,
 			 const struct pim_upstream *up2);
 DECLARE_RBTREE_UNIQ(rb_pim_upstream, struct pim_upstream, upstream_rb,
-		    pim_upstream_compare)
+		    pim_upstream_compare);
 
 void pim_upstream_register_reevaluate(struct pim_instance *pim);
 

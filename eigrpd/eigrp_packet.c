@@ -56,8 +56,14 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_errors.h"
+
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_FIFO,            "EIGRP FIFO");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_PACKET,          "EIGRP Packet");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IPV4_INT_TLV,    "EIGRP IPv4 TLV");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_SEQ_TLV,         "EIGRP SEQ TLV");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_AUTH_TLV,        "EIGRP AUTH TLV");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_AUTH_SHA256_TLV, "EIGRP SHA TLV");
 
 /* Packet Type String. */
 const struct message eigrp_packet_type_str[] = {
@@ -566,23 +572,22 @@ int eigrp_read(struct thread *thread)
 	    && IS_DEBUG_EIGRP_TRANSMIT(0, PACKET_DETAIL))
 		eigrp_header_dump(eigrph);
 
-	//  if (MSG_OK != eigrp_packet_examin(eigrph, stream_get_endp(ibuf) -
-	//  stream_get_getp(ibuf)))
-	//    return -1;
+	if (ntohs(eigrph->ASNumber) != eigrp->AS) {
+		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
+			zlog_debug(
+				"ignoring packet from router %u sent to %pI4, wrong AS Number received: %u",
+				ntohs(eigrph->vrid), &iph->ip_dst,
+				ntohs(eigrph->ASNumber));
+		return 0;
+	}
 
 	/* If incoming interface is passive one, ignore it. */
 	if (eigrp_if_is_passive(ei)) {
-		char buf[3][INET_ADDRSTRLEN];
-
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
-				"ignoring packet from router %s sent to %s, received on a passive interface, %s",
-				inet_ntop(AF_INET, &eigrph->vrid, buf[0],
-					  sizeof(buf[0])),
-				inet_ntop(AF_INET, &iph->ip_dst, buf[1],
-					  sizeof(buf[1])),
-				inet_ntop(AF_INET, &ei->address.u.prefix4,
-					  buf[2], sizeof(buf[2])));
+				"ignoring packet from router %u sent to %pI4, received on a passive interface, %pI4",
+				ntohs(eigrph->vrid), &iph->ip_dst,
+				&ei->address.u.prefix4);
 
 		if (iph->ip_dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS)) {
 			eigrp_if_set_multicast(ei);
@@ -1144,7 +1149,7 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 }
 
 uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
-					 struct eigrp_prefix_entry *pe)
+					 struct eigrp_prefix_descriptor *pe)
 {
 	uint16_t length;
 

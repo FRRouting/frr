@@ -137,6 +137,11 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (pbrms->dst && pbrms->family && prefix->family != pbrms->family) {
+		vty_out(vty, "Cannot mismatch families within match src/dst\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	pbrms->family = prefix->family;
 
 	if (!no) {
@@ -164,6 +169,11 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	"v6 Prefix\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (pbrms->src && pbrms->family && prefix->family != pbrms->family) {
+		vty_out(vty, "Cannot mismatch families within match src/dst\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	pbrms->family = prefix->family;
 

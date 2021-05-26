@@ -52,7 +52,7 @@ struct isis_route_info {
 DECLARE_HOOK(isis_route_update_hook,
 	     (struct isis_area * area, struct prefix *prefix,
 	      struct isis_route_info *route_info),
-	     (area, prefix, route_info))
+	     (area, prefix, route_info));
 
 void isis_nexthop_delete(struct isis_nexthop *nexthop);
 void adjinfo2nexthop(int family, struct list *nexthops,
@@ -63,6 +63,8 @@ isis_route_create(struct prefix *prefix, struct prefix_ipv6 *src_p,
 		  uint32_t cost, uint32_t depth, struct isis_sr_psid_info *sr,
 		  struct list *adjacencies, bool allow_ecmp,
 		  struct isis_area *area, struct route_table *table);
+void isis_route_delete(struct isis_area *area, struct route_node *rode,
+		       struct route_table *table);
 
 /* Walk the given table and install new routes to zebra and remove old ones.
  * route status is tracked using ISIS_ROUTE_FLAG_ACTIVE */

@@ -304,7 +304,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	msg_metric.ip_address = src_addr;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 	++pim_ifp->pim_ifstat_assert_recv;
 
 	return dispatch_assert(ifp, msg_source_addr.u.prefix4, sg.grp,

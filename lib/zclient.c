@@ -40,9 +40,10 @@
 #include "nexthop_group.h"
 #include "lib_errors.h"
 #include "srte.h"
+#include "printfrr.h"
 
-DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
-DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
+DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient");
+DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs");
 
 /* Zebra client events. */
 enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
@@ -586,7 +587,7 @@ zclient_send_router_id_update(struct zclient *zclient,
 enum zclient_send_status
 zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
 				struct interface *ifp, int enable,
-				int ra_interval)
+				uint32_t ra_interval)
 {
 	struct stream *s;
 
@@ -995,14 +996,21 @@ done:
 	return ret;
 }
 
-int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
+static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	int i;
 
 	if (cmd != ZEBRA_NHG_DEL && cmd != ZEBRA_NHG_ADD) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified zapi NHG command (%d) doesn't exist\n",
+			 "%s: Specified zapi NHG command (%d) doesn't exist",
 			 __func__, cmd);
+		return -1;
+	}
+
+	if (api_nhg->nexthop_num >= MULTIPATH_NUM ||
+	    api_nhg->backup_nexthop_num >= MULTIPATH_NUM) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: zapi NHG encode with invalid input", __func__);
 		return -1;
 	}
 
@@ -1023,7 +1031,6 @@ int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 			zapi_nexthop_encode(s, &api_nhg->nexthops[i], 0, 0);
 
 		/* Backup nexthops */
-
 		stream_putw(s, api_nhg->backup_nexthop_num);
 
 		for (i = 0; i < api_nhg->backup_nexthop_num; i++)
@@ -1058,7 +1065,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 	if (api->type >= ZEBRA_ROUTE_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified route type (%u) is not a legal value\n",
+			 "%s: Specified route type (%u) is not a legal value",
 			 __func__, api->type);
 		return -1;
 	}
@@ -1070,7 +1077,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified route SAFI (%u) is not a legal value\n",
+			 "%s: Specified route SAFI (%u) is not a legal value",
 			 __func__, api->safi);
 		return -1;
 	}
@@ -1285,7 +1292,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETC(s, api->type);
 	if (api->type >= ZEBRA_ROUTE_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified route type: %d is not a legal value\n",
+			 "%s: Specified route type: %d is not a legal value",
 			 __func__, api->type);
 		return -1;
 	}
@@ -1296,7 +1303,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETC(s, api->safi);
 	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified route SAFI (%u) is not a legal value\n",
+			 "%s: Specified route SAFI (%u) is not a legal value",
 			 __func__, api->safi);
 		return -1;
 	}
@@ -1544,15 +1551,16 @@ bool zapi_ipset_notify_decode(struct stream *s, uint32_t *unique,
 			      enum zapi_ipset_notify_owner *note)
 {
 	uint32_t uni;
+	uint16_t notew;
 
-	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GETW(s, notew);
 
 	STREAM_GETL(s, uni);
 
 	if (zclient_debug)
 		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
-
+	*note = (enum zapi_ipset_notify_owner)notew;
 	return true;
 
 stream_failure:
@@ -1564,8 +1572,9 @@ bool zapi_ipset_entry_notify_decode(struct stream *s, uint32_t *unique,
 				    enum zapi_ipset_entry_notify_owner *note)
 {
 	uint32_t uni;
+	uint16_t notew;
 
-	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GETW(s, notew);
 
 	STREAM_GETL(s, uni);
 
@@ -1574,6 +1583,7 @@ bool zapi_ipset_entry_notify_decode(struct stream *s, uint32_t *unique,
 	if (zclient_debug)
 		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
+	*note = (enum zapi_ipset_entry_notify_owner)notew;
 
 	return true;
 
@@ -1586,14 +1596,16 @@ bool zapi_iptable_notify_decode(struct stream *s,
 		enum zapi_iptable_notify_owner *note)
 {
 	uint32_t uni;
+	uint16_t notew;
 
-	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GETW(s, notew);
 
 	STREAM_GETL(s, uni);
 
 	if (zclient_debug)
 		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
+	*note = (enum zapi_iptable_notify_owner)notew;
 
 	return true;
 
@@ -2328,7 +2340,7 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 				 * "peer" */
 				flog_err(
 					EC_LIB_ZAPI_ENCODE,
-					"warning: interface %s address %pFX with peer flag set, but no peer address!",
+					"interface %s address %pFX with peer flag set, but no peer address!",
 					ifp->name, ifc->address);
 				UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			}
@@ -3297,7 +3309,7 @@ static void zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 
 	if (vrf_backend < 0 || vrf_configure_backend(vrf_backend)) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Garbage VRF backend type: %d\n", __func__,
+			 "%s: Garbage VRF backend type: %d", __func__,
 			 vrf_backend);
 		goto stream_failure;
 	}
@@ -3904,6 +3916,26 @@ static int zclient_read(struct thread *thread)
 			(*zclient->zebra_client_close_notify)(command, zclient,
 							      length, vrf_id);
 		break;
+	case ZEBRA_NHRP_NEIGH_ADDED:
+		if (zclient->neighbor_added)
+			(*zclient->neighbor_added)(command, zclient, length,
+						   vrf_id);
+		break;
+	case ZEBRA_NHRP_NEIGH_REMOVED:
+		if (zclient->neighbor_removed)
+			(*zclient->neighbor_removed)(command, zclient, length,
+						     vrf_id);
+		break;
+	case ZEBRA_NHRP_NEIGH_GET:
+		if (zclient->neighbor_get)
+			(*zclient->neighbor_get)(command, zclient, length,
+						 vrf_id);
+		break;
+	case ZEBRA_GRE_UPDATE:
+		if (zclient->gre_update)
+			(*zclient->gre_update)(command, zclient,
+					       length, vrf_id);
+		break;
 	default:
 		break;
 	}
@@ -4120,4 +4152,128 @@ uint32_t zclient_get_nhg_start(uint32_t proto)
 	assert(proto < ZEBRA_ROUTE_MAX);
 
 	return ZEBRA_NHG_PROTO_SPACING * proto;
+}
+
+char *zclient_dump_route_flags(uint32_t flags, char *buf, size_t len)
+{
+	if (flags == 0) {
+		snprintfrr(buf, len, "None ");
+		return buf;
+	}
+
+	snprintfrr(
+		buf, len, "%s%s%s%s%s%s%s%s%s%s",
+		CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION) ? "Recursion "
+							      : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) ? "Self " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_IBGP) ? "iBGP " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_SELECTED) ? "Selected " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_FIB_OVERRIDE) ? "Override " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE) ? "Evpn " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_RR_USE_DISTANCE) ? "RR Distance "
+							      : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_TRAPPED) ? "Trapped " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOADED) ? "Offloaded " : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOAD_FAILED) ? "Offload Failed "
+							     : "");
+	return buf;
+}
+
+char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf, size_t len)
+{
+	if (flags == 0) {
+		snprintfrr(buf, len, "None ");
+		return buf;
+	}
+
+	snprintfrr(
+		buf, len, "%s%s%s%s%s%s%s",
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY) ? "Sticky MAC " : "",
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW) ? "Gateway MAC " : "",
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG) ? "Router "
+								: "",
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_OVERRIDE_FLAG) ? "Override "
+								  : "",
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP) ? "SVI MAC " : "",
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT) ? "Proxy "
+								 : "",
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH) ? "Sync " : "");
+
+	return buf;
+}
+
+static int zclient_neigh_ip_read_entry(struct stream *s, struct ipaddr *add)
+{
+	uint8_t family;
+
+	STREAM_GETC(s, family);
+	if (family != AF_INET && family != AF_INET6)
+		return -1;
+
+	STREAM_GET(&add->ip.addr, s, family2addrsize(family));
+	add->ipa_type = family;
+	return 0;
+ stream_failure:
+	return -1;
+}
+
+int zclient_neigh_ip_encode(struct stream *s,
+			    uint16_t cmd,
+			    union sockunion *in,
+			    union sockunion *out,
+			    struct interface *ifp)
+{
+	int ret = 0;
+
+	zclient_create_header(s, cmd, ifp->vrf_id);
+	stream_putc(s, sockunion_family(in));
+	stream_write(s, sockunion_get_addr(in), sockunion_get_addrlen(in));
+	if (out && sockunion_family(out) != AF_UNSPEC) {
+		stream_putc(s, sockunion_family(out));
+		stream_write(s, sockunion_get_addr(out),
+			     sockunion_get_addrlen(out));
+	} else
+		stream_putc(s, AF_UNSPEC);
+	stream_putl(s, ifp->ifindex);
+	if (out)
+		stream_putl(s, ZEBRA_NEIGH_STATE_REACHABLE);
+	else
+		stream_putl(s, ZEBRA_NEIGH_STATE_FAILED);
+	return ret;
+}
+
+int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api)
+{
+	int ret;
+
+	ret = zclient_neigh_ip_read_entry(s, &api->ip_in);
+	if (ret < 0)
+		return -1;
+	zclient_neigh_ip_read_entry(s, &api->ip_out);
+
+	STREAM_GETL(s, api->index);
+	STREAM_GETL(s, api->ndm_state);
+	return 0;
+ stream_failure:
+	return -1;
+}
+
+int zclient_send_zebra_gre_request(struct zclient *client,
+				   struct interface *ifp)
+{
+	struct stream *s;
+
+	if (!client || client->sock < 0) {
+		zlog_err("%s : zclient not ready", __func__);
+		return -1;
+	}
+	s = client->obuf;
+	stream_reset(s);
+	zclient_create_header(s,
+			      ZEBRA_GRE_GET,
+			      ifp->vrf_id);
+	stream_putl(s, ifp->ifindex);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(client);
+	return 0;
 }

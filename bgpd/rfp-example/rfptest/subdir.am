@@ -6,7 +6,10 @@ if ENABLE_BGP_VNC
 noinst_PROGRAMS += bgpd/rfp-example/rfptest/rfptest
 endif
 
-bgpd_rfp_example_rfptest_rfptest_CFLAGS = -I$(top_srcdir)/bgpd/rfapi
+bgpd_rfp_example_rfptest_rfptest_CFLAGS = \
+	$(AM_CFLAGS) \
+	-I$(top_srcdir)/bgpd/rfapi \
+	# end
 bgpd_rfp_example_rfptest_rfptest_SOURCES = \
 	bgpd/rfp-example/rfptest/rfptest.c \
 	# end

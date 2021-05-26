@@ -388,8 +388,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 			if (IS_DEBUG_OSPF_GR_HELPER)
 				zlog_debug(
 					"%s, Received a maxage GRACE-LSA from router %pI4",
-					__PRETTY_FUNCTION__,
-					&new->data->adv_router);
+					__func__, &new->data->adv_router);
 
 			if (current) {
 				ospf_process_maxage_grace_lsa(ospf, new, nbr);
@@ -397,22 +396,21 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 				if (IS_DEBUG_OSPF_GR_HELPER)
 					zlog_debug(
 						"%s, Grace LSA doesn't exist in lsdb, so discarding grace lsa",
-						__PRETTY_FUNCTION__);
+						__func__);
 				return -1;
 			}
 		} else {
 			if (IS_DEBUG_OSPF_GR_HELPER)
 				zlog_debug(
 					"%s, Received a GRACE-LSA from router %pI4",
-					__PRETTY_FUNCTION__,
-					&new->data->adv_router);
+					__func__, &new->data->adv_router);
 
 			if (ospf_process_grace_lsa(ospf, new, nbr)
 			    == OSPF_GR_NOT_HELPER) {
 				if (IS_DEBUG_OSPF_GR_HELPER)
 					zlog_debug(
 						"%s, Not moving to HELPER role, So discarding grace LSA",
-						__PRETTY_FUNCTION__);
+						__func__);
 				return -1;
 			}
 		}
@@ -458,11 +456,11 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s:ospf_flood_through_interface(): considering int %s, INBR(%s), LSA[%s] AGE %u",
-			ospf_get_name(oi->ospf), IF_NAME(oi),
-			inbr ?
-			inet_ntop(AF_INET, &inbr->router_id, buf, sizeof(buf)) :
-			"NULL",
+			"%s: considering int %s (%s), INBR(%s), LSA[%s] AGE %u",
+			__func__, IF_NAME(oi), ospf_get_name(oi->ospf),
+			inbr ? inet_ntop(AF_INET, &inbr->router_id, buf,
+					 sizeof(buf))
+			     : "NULL",
 			dump_lsa_key(lsa), ntohs(lsa->data->ls_age));
 
 	if (!ospf_if_is_enable(oi))
@@ -483,8 +481,8 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		onbr = rn->info;
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_flood_through_interface(): considering nbr %pI4(%s) (%s)",
-				&onbr->router_id,
+				"%s: considering nbr %pI4 via %s (%s), state: %s",
+				__func__, &onbr->router_id, IF_NAME(oi),
 				ospf_get_name(oi->ospf),
 				lookup_msg(ospf_nsm_state_msg, onbr->state,
 					   NULL));
@@ -504,7 +502,10 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		if (onbr->state < NSM_Full) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_flood_through_interface(): nbr adj is not Full");
+					"%s: adj to onbr %pI4 is not Full (%s)",
+					__func__, &onbr->router_id,
+					lookup_msg(ospf_nsm_state_msg,
+						   onbr->state, NULL));
 			ls_req = ospf_ls_request_lookup(onbr, lsa);
 			if (ls_req != NULL) {
 				int ret;
@@ -534,7 +535,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 			if (!CHECK_FLAG(onbr->options, OSPF_OPTION_O)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"Skip this neighbor: Not Opaque-capable.");
+						"%s: Skipping neighbor %s via %pI4 -- Not Opaque-capable.",
+						__func__, IF_NAME(oi),
+						&onbr->router_id);
 				continue;
 			}
 		}
@@ -550,7 +553,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 					   &onbr->router_id)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"Skip this neighbor: inbr == onbr");
+						"%s: Skipping neighbor %s via %pI4 -- inbr == onbr.",
+						__func__, IF_NAME(oi),
+						&inbr->router_id);
 				continue;
 			}
 		} else {
@@ -562,7 +567,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 					   &onbr->router_id)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"Skip this neighbor: lsah->adv_router == onbr");
+						"%s: Skipping neighbor %s via %pI4 -- lsah->adv_router == onbr.",
+						__func__, IF_NAME(oi),
+						&onbr->router_id);
 				continue;
 			}
 		}
@@ -591,9 +598,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		   received the LSA already. */
 		if (NBR_IS_DR(inbr) || NBR_IS_BDR(inbr)) {
 			if (IS_DEBUG_OSPF_NSSA)
-				zlog_debug(
-					"ospf_flood_through_interface(): DR/BDR NOT SEND to int %s",
-					IF_NAME(oi));
+				zlog_debug("%s: DR/BDR NOT SEND to int %s (%s)",
+					   __func__, IF_NAME(oi),
+					   ospf_get_name(oi->ospf));
 			return 1;
 		}
 
@@ -606,8 +613,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		if (oi->state == ISM_Backup) {
 			if (IS_DEBUG_OSPF_NSSA)
 				zlog_debug(
-					"ospf_flood_through_interface(): ISM_Backup NOT SEND to int %s",
-					IF_NAME(oi));
+					"%s: ISM_Backup NOT SEND to int %s (%s)",
+					__func__, IF_NAME(oi),
+					ospf_get_name(oi->ospf));
 			return 1;
 		}
 	}
@@ -620,9 +628,8 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 	   value of MaxAge). */
 	/* XXX HASSO: Is this IS_DEBUG_OSPF_NSSA really correct? */
 	if (IS_DEBUG_OSPF_NSSA)
-		zlog_debug(
-			"ospf_flood_through_interface(): DR/BDR sending upd to int %s",
-			IF_NAME(oi));
+		zlog_debug("%s: DR/BDR sending upd to int %s (%s)", __func__,
+			   IF_NAME(oi), ospf_get_name(oi->ospf));
 
 	/*  RFC2328  Section 13.3
 	    On non-broadcast networks, separate	Link State Update

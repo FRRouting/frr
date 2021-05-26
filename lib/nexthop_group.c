@@ -32,7 +32,7 @@
 #include "lib/nexthop_group_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(LIB, NEXTHOP_GROUP, "Nexthop Group")
+DEFINE_MTYPE_STATIC(LIB, NEXTHOP_GROUP, "Nexthop Group");
 
 /*
  * Internal struct used to hold nhg config strings
@@ -620,7 +620,7 @@ static void nhgc_delete(struct nexthop_group_cmd *nhgc)
 	XFREE(MTYPE_TMP, nhgc);
 }
 
-DEFINE_QOBJ_TYPE(nexthop_group_cmd)
+DEFINE_QOBJ_TYPE(nexthop_group_cmd);
 
 DEFUN_NOSH(nexthop_group, nexthop_group_cmd, "nexthop-group NHGNAME",
 	   "Enter into the nexthop-group submode\n"

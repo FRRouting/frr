@@ -54,7 +54,6 @@ In a nutshell, the current implementation provides the following features
 Enabling RPKI
 -------------
 
-.. index:: rpki
 .. clicmd:: rpki
 
    This command enables the RPKI configuration mode. Most commands that start
@@ -67,7 +66,6 @@ Enabling RPKI
    to configure at least one reachable cache server. See section
    :ref:`configuring-rpki-rtr-cache-servers` for configuring a cache server.
 
-.. index:: RPKI and daemons
 
 When first installing FRR with RPKI support from the pre-packaged binaries.
 Remember to add ``-M rpki`` to the variable ``bgpd_options`` in
@@ -101,11 +99,8 @@ Configuring RPKI/RTR Cache Servers
 
 The following commands are independent of a specific cache server.
 
-.. index:: rpki polling_period (1-3600)
 .. clicmd:: rpki polling_period (1-3600)
 
-.. index:: rpki polling_period
-.. clicmd:: no rpki polling_period
 
    Set the number of seconds the router waits until the router asks the cache
    again for updated data.
@@ -114,11 +109,8 @@ The following commands are independent of a specific cache server.
 
    The following commands configure one or multiple cache servers.
 
-.. index:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
 .. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
 
-.. index:: rpki cache (A.B.C.D|WORD) [PORT] PREFERENCE
-.. clicmd:: no rpki cache (A.B.C.D|WORD) [PORT] PREFERENCE
 
    Add a cache server to the socket. By default, the connection between router
    and cache server is based on plain TCP. Protecting the connection between
@@ -154,11 +146,8 @@ The following commands are independent of a specific cache server.
 Validating BGP Updates
 ----------------------
 
-.. index:: match rpki notfound|invalid|valid
 .. clicmd:: match rpki notfound|invalid|valid
 
-.. index:: match rpki notfound|invalid|valid
-.. clicmd:: no match rpki notfound|invalid|valid
 
     Create a clause for a route map to match prefixes with the specified RPKI
     state.
@@ -187,11 +176,8 @@ Validating BGP Updates
 Debugging
 ---------
 
-.. index:: debug rpki
 .. clicmd:: debug rpki
 
-.. index:: debug rpki
-.. clicmd:: no debug rpki
 
    Enable or disable debugging output for RPKI.
 
@@ -200,29 +186,33 @@ Debugging
 Displaying RPKI
 ---------------
 
-.. index:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
 .. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
 
    Display validated prefixes received from the cache servers filtered
    by the specified prefix.
 
-.. index:: show rpki as-number ASN
 .. clicmd:: show rpki as-number ASN
 
    Display validated prefixes received from the cache servers filtered
    by ASN.
 
-.. index:: show rpki prefix-table
 .. clicmd:: show rpki prefix-table
 
    Display all validated prefix to origin AS mappings/records which have been
    received from the cache servers and stored in the router. Based on this data,
    the router validates BGP Updates.
 
-.. index:: show rpki cache-connection
 .. clicmd:: show rpki cache-connection
 
    Display all configured cache servers, whether active or not.
+
+.. clicmd:: show bgp [afi] [safi] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> rpki <valid|invalid|notfound>
+
+   Display for the specified prefix or address the bgp paths that match the given rpki state.
+
+.. clicmd:: show bgp [afi] [safi] rpki <valid|invalid|notfound>
+
+   Display all prefixes that match the given rpki state.
 
 RPKI Configuration Example
 --------------------------
@@ -271,5 +261,5 @@ RPKI Configuration Example
    route-map rpki permit 40
    !
 
-.. [Securing-BGP] Geoff Huston, Randy Bush: Securing BGP, In: The Internet Protocol Journal, Volume 14, No. 2, 2011. <http://www.cisco.com/web/about/ac123/ac147/archived_issues/ipj_14-2/142_bgp.html>
-.. [Resource-Certification] Geoff Huston: Resource Certification, In: The Internet Protocol Journal, Volume 12, No.1, 2009. <http://www.cisco.com/web/about/ac123/ac147/archived_issues/ipj_12-1/121_resource.html>
+.. [Securing-BGP] Geoff Huston, Randy Bush: Securing BGP, In: The Internet Protocol Journal, Volume 14, No. 2, 2011. <https://www.cisco.com/c/dam/en_us/about/ac123/ac147/archived_issues/ipj_14-2/ipj_14-2.pdf>
+.. [Resource-Certification] Geoff Huston: Resource Certification, In: The Internet Protocol Journal, Volume 12, No.1, 2009. <https://www.cisco.com/c/dam/en_us/about/ac123/ac147/archived_issues/ipj_12-1/ipj_12-1.pdf>

@@ -156,6 +156,8 @@ uint32_t	 lde_update_label(struct fec_node *);
 void		 lde_free_label(uint32_t label);
 void		 lde_send_change_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_send_delete_klabel(struct fec_node *, struct fec_nh *);
+void		 lde_fec2prefix(const struct fec *fec, struct prefix *prefix);
+void		 lde_prefix2fec(const struct prefix *prefix, struct fec *fec);
 void		 lde_fec2map(struct fec *, struct map *);
 void		 lde_map2fec(struct map *, struct in_addr, struct fec *);
 void		 lde_send_labelmapping(struct lde_nbr *, struct fec_node *,
@@ -198,6 +200,7 @@ void		 lde_route_update_release(struct iface *, int);
 void		 lde_route_update_release_all(int);
 struct lde_addr	*lde_address_find(struct lde_nbr *, int,
 		    union ldpd_addr *);
+void		 lde_allow_broken_lsp_update(int new_config);
 
 /* lde_lib.c */
 void		 fec_init(struct fec_tree *);

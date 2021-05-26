@@ -31,6 +31,7 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_dynhn.h"
 #include "isisd/isis_misc.h"
+#include "isisd/isis_route.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_spf_private.h"
 
@@ -40,6 +41,7 @@ enum test_type {
 	TEST_SPF = 1,
 	TEST_REVERSE_SPF,
 	TEST_LFA,
+	TEST_RLFA,
 	TEST_TI_LFA,
 };
 
@@ -48,8 +50,6 @@ enum test_type {
 #define F_IPV6_ONLY 0x04
 #define F_LEVEL1_ONLY 0x08
 #define F_LEVEL2_ONLY 0x10
-
-static struct isis *isis;
 
 static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 			 const struct isis_test_node *root,
@@ -103,6 +103,86 @@ static void test_run_lfa(struct vty *vty, const struct isis_topology *topology,
 
 	/* Cleanup everything. */
 	isis_spftree_del(spftree_self);
+}
+
+static void test_run_rlfa(struct vty *vty, const struct isis_topology *topology,
+			  const struct isis_test_node *root,
+			  struct isis_area *area, struct lspdb_head *lspdb,
+			  int level, int tree,
+			  struct lfa_protected_resource *protected_resource)
+{
+	struct isis_spftree *spftree_self;
+	struct isis_spftree *spftree_reverse;
+	struct isis_spftree *spftree_pc;
+	struct isis_spf_node *spf_node, *node;
+	struct rlfa *rlfa;
+	uint8_t flags;
+
+	/* Run forward SPF in the root node. */
+	flags = F_SPFTREE_NO_ADJACENCIES;
+	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree,
+					SPF_TYPE_FORWARD, flags);
+	isis_run_spf(spftree_self);
+
+	/* Run reverse SPF in the root node. */
+	spftree_reverse = isis_spf_reverse_run(spftree_self);
+
+	/* Run forward SPF on all adjacent routers. */
+	isis_spf_run_neighbors(spftree_self);
+
+	/* Compute the local LFA repair paths. */
+	isis_lfa_compute(area, NULL, spftree_self, protected_resource);
+
+	/* Compute the remote LFA repair paths. */
+	spftree_pc = isis_rlfa_compute(area, spftree_self, spftree_reverse, 0,
+				       protected_resource);
+
+	/* Print the extended P-space and Q-space. */
+	vty_out(vty, "P-space (self):\n");
+	RB_FOREACH (node, isis_spf_nodes, &spftree_pc->lfa.p_space)
+		vty_out(vty, " %s\n", print_sys_hostname(node->sysid));
+	vty_out(vty, "\n");
+	RB_FOREACH (spf_node, isis_spf_nodes, &spftree_self->adj_nodes) {
+		if (RB_EMPTY(isis_spf_nodes, &spf_node->lfa.p_space))
+			continue;
+		vty_out(vty, "P-space (%s):\n",
+			print_sys_hostname(spf_node->sysid));
+		RB_FOREACH (node, isis_spf_nodes, &spf_node->lfa.p_space)
+			vty_out(vty, " %s\n", print_sys_hostname(node->sysid));
+		vty_out(vty, "\n");
+	}
+	vty_out(vty, "Q-space:\n");
+	RB_FOREACH (node, isis_spf_nodes, &spftree_pc->lfa.q_space)
+		vty_out(vty, " %s\n", print_sys_hostname(node->sysid));
+	vty_out(vty, "\n");
+
+	/* Print the post-convergence SPT. */
+	isis_print_spftree(vty, spftree_pc);
+
+	/*
+	 * Activate the computed RLFAs (if any) using artificial LDP labels for
+	 * the PQ nodes.
+	 */
+	frr_each_safe (rlfa_tree, &spftree_self->lfa.remote.rlfas, rlfa) {
+		struct zapi_rlfa_response response = {};
+
+		response.pq_label = test_topology_node_ldp_label(
+			topology, rlfa->pq_address);
+		assert(response.pq_label != MPLS_INVALID_LABEL);
+		isis_rlfa_activate(spftree_self, rlfa, &response);
+	}
+
+	/* Print the SPT and the corresponding main/backup routing tables. */
+	isis_print_spftree(vty, spftree_self);
+	vty_out(vty, "Main:\n");
+	isis_print_routes(vty, spftree_self, false, false);
+	vty_out(vty, "Backup:\n");
+	isis_print_routes(vty, spftree_self, false, true);
+
+	/* Cleanup everything. */
+	isis_spftree_del(spftree_self);
+	isis_spftree_del(spftree_reverse);
+	isis_spftree_del(spftree_pc);
 }
 
 static void test_run_ti_lfa(struct vty *vty,
@@ -175,8 +255,8 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	uint8_t fail_id[ISIS_SYS_ID_LEN] = {};
 
 	/* Init topology. */
-	memcpy(isis->sysid, root->sysid, sizeof(isis->sysid));
 	area = isis_area_create("1", NULL);
+	memcpy(area->isis->sysid, root->sysid, sizeof(area->isis->sysid));
 	area->is_type = IS_LEVEL_1_AND_2;
 	area->srdb.enabled = true;
 	if (test_topology_load(topology, area, area->lspdb) != 0) {
@@ -242,6 +322,11 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 					     &area->lspdb[level - 1], level,
 					     tree, &protected_resource);
 				break;
+			case TEST_RLFA:
+				test_run_rlfa(vty, topology, root, area,
+					      &area->lspdb[level - 1], level,
+					      tree, &protected_resource);
+				break;
 			case TEST_TI_LFA:
 				test_run_ti_lfa(vty, topology, root, area,
 						&area->lspdb[level - 1], level,
@@ -266,6 +351,7 @@ DEFUN(test_isis, test_isis_cmd,
 	   spf\
 	   |reverse-spf\
 	   |lfa system-id WORD [pseudonode-id <1-255>]\
+	   |remote-lfa system-id WORD [pseudonode-id <1-255>]\
 	   |ti-lfa system-id WORD [pseudonode-id <1-255>] [node-protection]\
 	 >\
 	 [display-lspdb] [<ipv4-only|ipv6-only>] [<level-1-only|level-2-only>]",
@@ -278,6 +364,11 @@ DEFUN(test_isis, test_isis_cmd,
       "Normal Shortest Path First\n"
       "Reverse Shortest Path First\n"
       "Classic LFA\n"
+      "System ID\n"
+      "System ID\n"
+      "Pseudonode-ID\n"
+      "Pseudonode-ID\n"
+      "Remote LFA\n"
       "System ID\n"
       "System ID\n"
       "Pseudonode-ID\n"
@@ -335,6 +426,14 @@ DEFUN(test_isis, test_isis_cmd,
 			fail_pseudonode_id =
 				strtoul(argv[idx + 1]->arg, NULL, 10);
 		protection_type = LFA_LINK_PROTECTION;
+	} else if (argv_find(argv, argc, "remote-lfa", &idx)) {
+		test_type = TEST_RLFA;
+
+		fail_sysid_str = argv[idx + 2]->arg;
+		if (argv_find(argv, argc, "pseudonode-id", &idx))
+			fail_pseudonode_id =
+				strtoul(argv[idx + 1]->arg, NULL, 10);
+		protection_type = LFA_LINK_PROTECTION;
 	} else if (argv_find(argv, argc, "ti-lfa", &idx)) {
 		test_type = TEST_TI_LFA;
 
@@ -369,7 +468,6 @@ static void vty_do_exit(int isexit)
 {
 	printf("\nend.\n");
 
-	isis_finish(isis);
 	cmd_terminate();
 	vty_terminate();
 	yang_terminate();
@@ -446,7 +544,7 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	cmd_hostname_set("test");
 	vty_init(master, false);
-	yang_init(true);
+	yang_init(true, false);
 	if (debug)
 		zlog_aux_init("NONE: ", LOG_DEBUG);
 	else
@@ -454,8 +552,6 @@ int main(int argc, char **argv)
 
 	/* IS-IS inits. */
 	yang_module_load("frr-isisd");
-	isis = isis_new(VRF_DEFAULT_NAME);
-	listnode_add(im->isis, isis);
 	SET_FLAG(im->options, F_ISIS_UNIT_TEST);
 	debug_spf_events |= DEBUG_SPF_EVENTS;
 	debug_lfa |= DEBUG_LFA;

@@ -43,10 +43,10 @@
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
 
-DEFINE_MTYPE_STATIC(RIPD, RIP_INTERFACE, "RIP interface")
-DEFINE_MTYPE(RIPD, RIP_INTERFACE_STRING, "RIP Interface String")
-DEFINE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
-DEFINE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
+DEFINE_MTYPE_STATIC(RIPD, RIP_INTERFACE, "RIP interface");
+DEFINE_MTYPE(RIPD, RIP_INTERFACE_STRING, "RIP Interface String");
+DEFINE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc));
+DEFINE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc));
 
 /* static prototypes */
 static void rip_enable_apply(struct interface *);
@@ -207,39 +207,6 @@ static void rip_request_interface(struct interface *ifp)
 	if (vsend & RIPv2)
 		rip_request_interface_send(ifp, RIPv2);
 }
-
-#if 0
-/* Send RIP request to the neighbor. */
-static void
-rip_request_neighbor (struct in_addr addr)
-{
-  struct sockaddr_in to;
-
-  memset (&to, 0, sizeof(struct sockaddr_in));
-  to.sin_port = htons (RIP_PORT_DEFAULT);
-  to.sin_addr = addr;
-
-  rip_request_send (&to, NULL, rip->version_send, NULL);
-}
-
-/* Request routes at all interfaces. */
-static void
-rip_request_neighbor_all (void)
-{
-  struct route_node *rp;
-
-  if (! rip)
-    return;
-
-  if (IS_RIP_DEBUG_EVENT)
-    zlog_debug ("request to the all neighbor");
-
-  /* Send request to all neighbor. */
-  for (rp = route_top (rip->neighbor); rp; rp = route_next (rp))
-    if (rp->info)
-      rip_request_neighbor (rp->p.u.prefix4);
-}
-#endif
 
 /* Multicast packet receive socket. */
 static int rip_multicast_join(struct interface *ifp, int sock)
@@ -526,6 +493,9 @@ int rip_if_down(struct interface *ifp)
 	struct listnode *listnode = NULL, *nextnode = NULL;
 
 	ri = ifp->info;
+
+	THREAD_OFF(ri->t_wakeup);
+
 	rip = ri->rip;
 	if (rip) {
 		for (rp = route_top(rip->table); rp; rp = route_next(rp))
@@ -1146,7 +1116,7 @@ static int rip_interface_config_write(struct vty *vty)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct lyd_node *dnode;
 
-			dnode = yang_dnode_get(
+			dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
 				ifp->name, vrf->name);

@@ -29,8 +29,8 @@
 #include "sockunion.h"
 #include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, ROUTE_TABLE, "Route table")
-DEFINE_MTYPE(LIB, ROUTE_NODE, "Route node")
+DEFINE_MTYPE_STATIC(LIB, ROUTE_TABLE, "Route table");
+DEFINE_MTYPE(LIB, ROUTE_NODE, "Route node");
 
 static void route_table_free(struct route_table *);
 
@@ -41,7 +41,7 @@ static int route_table_hash_cmp(const struct route_node *a,
 }
 
 DECLARE_HASH(rn_hash_node, struct route_node, nodehash, route_table_hash_cmp,
-	     prefix_hash_key)
+	     prefix_hash_key);
 /*
  * route_table_init_with_delegate
  */

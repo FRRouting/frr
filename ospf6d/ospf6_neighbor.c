@@ -26,6 +26,7 @@
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"
+#include "lib/bfd.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -46,9 +47,11 @@
 #include "ospf6_zebra.h"
 #include "lib/json.h"
 
+DEFINE_MTYPE(OSPF6D, OSPF6_NEIGHBOR, "OSPF6 neighbor");
+
 DEFINE_HOOK(ospf6_neighbor_change,
 	    (struct ospf6_neighbor * on, int state, int next_state),
-	    (on, state, next_state))
+	    (on, state, next_state));
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 
@@ -147,7 +150,7 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	THREAD_OFF(on->thread_send_lsupdate);
 	THREAD_OFF(on->thread_send_lsack);
 
-	ospf6_bfd_reg_dereg_nbr(on, ZEBRA_BFD_DEST_DEREGISTER);
+	bfd_sess_free(&on->bfd_session);
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
 }
 
@@ -874,8 +877,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		json_object_object_add(json_neighbor, "pendingLsaLsAck",
 				       json_array);
 
-		ospf6_bfd_show_info(vty, on->bfd_info, 0, json_neighbor,
-				    use_json);
+		bfd_sess_show(vty, json_neighbor, on->bfd_session);
 
 		json_object_object_add(json, on->name, json_neighbor);
 
@@ -963,39 +965,28 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
-		ospf6_bfd_show_info(vty, on->bfd_info, 0, NULL, use_json);
+		bfd_sess_show(vty, NULL, on->bfd_session);
 	}
 }
 
-DEFUN (show_ipv6_ospf6_neighbor,
-       show_ipv6_ospf6_neighbor_cmd,
-       "show ipv6 ospf6 neighbor [<detail|drchoice>] [json]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Neighbor list\n"
-       "Display details\n"
-       "Display DR choices\n"
-       JSON_STR)
+static void ospf6_neighbor_show_detail_common(struct vty *vty, int argc,
+					      struct cmd_token **argv,
+					      struct ospf6 *ospf6, int idx_type,
+					      int detail_idx, int json_idx)
 {
-	int idx_type = 4;
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
 	struct listnode *i, *j, *k;
-	struct ospf6 *ospf6;
 	json_object *json = NULL;
 	json_object *json_array = NULL;
 	bool uj = use_json(argc, argv);
 	void (*showfunc)(struct vty *, struct ospf6_neighbor *,
 			 json_object *json, bool use_json);
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
 	showfunc = ospf6_neighbor_show;
 
-	if ((uj && argc == 6) || (!uj && argc == 5)) {
+	if ((uj && argc == detail_idx) || (!uj && argc == json_idx)) {
 		if (!strncmp(argv[idx_type]->arg, "de", 2))
 			showfunc = ospf6_neighbor_show_detail;
 		else if (!strncmp(argv[idx_type]->arg, "dr", 2))
@@ -1035,21 +1026,50 @@ DEFUN (show_ipv6_ospf6_neighbor,
 				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
+}
+
+DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] neighbor [<detail|drchoice>] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "Neighbor list\n"
+      "Display details\n"
+      "Display DR choices\n" JSON_STR)
+{
+	int idx_type = 4;
+	int detail_idx = 5;
+	int json_idx = 6;
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0) {
+		idx_type += 2;
+		detail_idx += 2;
+		json_idx += 2;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ospf6_neighbor_show_detail_common(vty, argc, argv,
+							  ospf6, idx_type,
+							  detail_idx, json_idx);
+			if (!all_vrf)
+				break;
+		}
+	}
+
 	return CMD_SUCCESS;
 }
 
-
-DEFUN (show_ipv6_ospf6_neighbor_one,
-       show_ipv6_ospf6_neighbor_one_cmd,
-       "show ipv6 ospf6 neighbor A.B.C.D [json]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Neighbor list\n"
-       "Specify Router-ID as IPv4 address notation\n"
-       JSON_STR)
+static int ospf6_neighbor_show_common(struct vty *vty, int argc,
+				      struct cmd_token **argv,
+				      struct ospf6 *ospf6, int idx_ipv4)
 {
-	int idx_ipv4 = 4;
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
@@ -1057,12 +1077,9 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
 	void (*showfunc)(struct vty *, struct ospf6_neighbor *,
 			 json_object *json, bool use_json);
 	uint32_t router_id;
-	struct ospf6 *ospf6;
 	json_object *json = NULL;
 	bool uj = use_json(argc, argv);
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
 	showfunc = ospf6_neighbor_show_detail;
 	if (uj)
 		json = json_object_new_object();
@@ -1086,6 +1103,39 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
 				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] neighbor A.B.C.D [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "Neighbor list\n"
+      "Specify Router-ID as IPv4 address notation\n" JSON_STR)
+{
+	int idx_ipv4 = 4;
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0)
+		idx_ipv4 += 2;
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ospf6_neighbor_show_common(vty, argc, argv, ospf6,
+						   idx_ipv4);
+
+			if (!all_vrf)
+				break;
+		}
+	}
+
 	return CMD_SUCCESS;
 }
 

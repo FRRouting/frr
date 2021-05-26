@@ -118,7 +118,7 @@ static void lsp_print_flooding(struct vty *vty, struct isis_lsp *lsp,
 	char lspid[255];
 	char buf[MONOTIME_STRLEN];
 
-	lspid_print(lsp->hdr.lsp_id, lspid, true, true, isis);
+	lspid_print(lsp->hdr.lsp_id, lspid, sizeof(lspid), true, true, isis);
 	vty_out(vty, "Flooding information for %s\n", lspid);
 
 	if (!lsp->flooding_neighbors[TX_LSP_NORMAL]) {
@@ -229,10 +229,10 @@ DEFUN (ip_router_isis,
 
 	area = isis_area_lookup(area_tag, VRF_DEFAULT);
 	if (!area)
-		area = isis_area_create(area_tag, VRF_DEFAULT_NAME);
+		isis_area_create(area_tag, VRF_DEFAULT_NAME);
 
-	if (!circuit || !circuit->area) {
-		circuit = isis_circuit_create(area, ifp);
+	if (!circuit) {
+		circuit = isis_circuit_new(ifp, area_tag);
 
 		if (circuit->state != C_STATE_CONF
 		    && circuit->state != C_STATE_UP) {
@@ -288,7 +288,7 @@ DEFUN (no_ip_router_isis,
 		return CMD_ERR_NO_MATCH;
 	}
 
-	circuit = circuit_lookup_by_ifp(ifp, area->circuit_list);
+	circuit = circuit_scan_by_ifp(ifp);
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
 		return CMD_ERR_NO_MATCH;
@@ -301,6 +301,10 @@ DEFUN (no_ip_router_isis,
 		ip = false;
 
 	isis_circuit_af_set(circuit, ip, ipv6);
+
+	if (!ip && !ipv6)
+		isis_circuit_del(circuit);
+
 	return CMD_SUCCESS;
 }
 
@@ -315,13 +319,11 @@ DEFUN (isis_bfd,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	if (circuit->bfd_info
-	    && CHECK_FLAG(circuit->bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+	if (circuit->bfd_config.enabled)
 		return CMD_SUCCESS;
-	}
 
-	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-				   BFD_DEF_DETECT_MULT, NULL, true);
+	circuit->bfd_config.enabled = true;
+	isis_bfd_circuit_cmd(circuit);
 
 	return CMD_SUCCESS;
 }
@@ -339,11 +341,12 @@ DEFUN (no_isis_bfd,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	if (!circuit->bfd_info)
+	if (!circuit->bfd_config.enabled)
 		return CMD_SUCCESS;
 
-	isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
-	bfd_info_free(&circuit->bfd_info);
+	circuit->bfd_config.enabled = false;
+	isis_bfd_circuit_cmd(circuit);
+
 	return CMD_SUCCESS;
 }
 

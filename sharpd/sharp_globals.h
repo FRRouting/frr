@@ -22,7 +22,7 @@
 #ifndef __SHARP_GLOBAL_H__
 #define __SHARP_GLOBAL_H__
 
-DECLARE_MGROUP(SHARPD)
+DECLARE_MGROUP(SHARPD);
 
 struct sharp_routes {
 	/* The original prefix for route installation */
@@ -55,6 +55,9 @@ struct sharp_global {
 
 	/* The list of nexthops that we are watching and data about them */
 	struct list *nhs;
+
+	/* Traffic Engineering Database */
+	struct ls_ted *ted;
 };
 
 extern struct sharp_global sg;

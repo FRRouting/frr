@@ -384,6 +384,7 @@ reswitch:	switch (ch) {
 				goto error;
 			break;
 #endif /* !NO_FLOATING_POINT */
+#ifdef DANGEROUS_PERCENT_N
 		case 'n':
 			if (flags & INTMAXT)
 				error = addtype(&types, TP_INTMAXT);
@@ -404,6 +405,7 @@ reswitch:	switch (ch) {
 			if (error)
 				goto error;
 			continue;	/* no output */
+#endif
 		case 'O':
 			flags |= LONGINT;
 			/*FALLTHROUGH*/
@@ -576,6 +578,7 @@ reswitch:	switch (ch) {
 				goto error;
 			break;
 #endif /* !NO_FLOATING_POINT */
+#ifdef DANGEROUS_PERCENT_N
 		case 'n':
 			if (flags & INTMAXT)
 				error = addtype(&types, TP_INTMAXT);
@@ -596,6 +599,7 @@ reswitch:	switch (ch) {
 			if (error)
 				goto error;
 			continue;	/* no output */
+#endif
 		case 'O':
 			flags |= LONGINT;
 			/*FALLTHROUGH*/

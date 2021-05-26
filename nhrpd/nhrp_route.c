@@ -18,7 +18,7 @@
 #include "log.h"
 #include "zclient.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry");
 
 static struct zclient *zclient;
 static struct route_table *zebra_rib[AFI_MAX];
@@ -56,7 +56,7 @@ static void nhrp_route_update_put(struct route_node *rn)
 	struct route_info *ri = rn->info;
 
 	if (!ri->ifp && !ri->nhrp_ifp
-	    && sockunion_family(&ri->via) == AF_UNSPEC) {
+	    && sockunion_is_null(&ri->via)) {
 		XFREE(MTYPE_NHRP_ROUTE, rn->info);
 		route_unlock_node(rn);
 	}
@@ -70,14 +70,31 @@ static void nhrp_route_update_zebra(const struct prefix *p,
 	struct route_node *rn;
 	struct route_info *ri;
 
-	rn = nhrp_route_update_get(
-		p, (sockunion_family(nexthop) != AF_UNSPEC) || ifp);
+	rn = nhrp_route_update_get(p, !sockunion_is_null(nexthop) || ifp);
 	if (rn) {
 		ri = rn->info;
 		ri->via = *nexthop;
 		ri->ifp = ifp;
 		nhrp_route_update_put(rn);
 	}
+}
+
+static void nhrp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, reg ? ZEBRA_NHRP_NEIGH_REGISTER :
+			      ZEBRA_NHRP_NEIGH_UNREGISTER,
+			      vrf_id);
+	stream_putw(s, afi);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
 }
 
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
@@ -99,6 +116,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
+	union sockunion *nexthop_ref = (union sockunion *)nexthop;
 
 	if (zclient->sock < 0)
 		return;
@@ -134,8 +152,14 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 
 	switch (api.prefix.family) {
 	case AF_INET:
-		if (nexthop) {
-			api_nh->gate.ipv4 = nexthop->sin.sin_addr;
+		if (api.prefix.prefixlen == IPV4_MAX_BITLEN &&
+		    nexthop_ref &&
+		    memcmp(&nexthop_ref->sin.sin_addr, &api.prefix.u.prefix4,
+			   sizeof(struct in_addr)) == 0) {
+			nexthop_ref = NULL;
+		}
+		if (nexthop_ref) {
+			api_nh->gate.ipv4 = nexthop_ref->sin.sin_addr;
 			api_nh->type = NEXTHOP_TYPE_IPV4;
 		}
 		if (ifp) {
@@ -147,8 +171,14 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		}
 		break;
 	case AF_INET6:
-		if (nexthop) {
-			api_nh->gate.ipv6 = nexthop->sin6.sin6_addr;
+		if (api.prefix.prefixlen == IPV6_MAX_BITLEN &&
+		    nexthop_ref &&
+		    memcmp(&nexthop_ref->sin6.sin6_addr, &api.prefix.u.prefix6,
+			   sizeof(struct in6_addr)) == 0) {
+			nexthop_ref = NULL;
+		}
+		if (nexthop_ref) {
+			api_nh->gate.ipv6 = nexthop_ref->sin6.sin6_addr;
 			api_nh->type = NEXTHOP_TYPE_IPV6;
 		}
 		if (ifp) {
@@ -171,8 +201,9 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		zlog_debug(
 			"Zebra send: route %s %pFX nexthop %s metric %u count %d dev %s",
 			add ? "add" : "del", &api.prefix,
-			nexthop ? inet_ntop(api.prefix.family, &api_nh->gate,
-					    buf, sizeof(buf))
+			nexthop_ref ? inet_ntop(api.prefix.family,
+						&api_nh->gate,
+						buf, sizeof(buf))
 				: "<onlink>",
 			api.metric, api.nexthop_num, ifp ? ifp->name : "none");
 	}
@@ -187,7 +218,6 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	struct zapi_nexthop *api_nh;
 	struct interface *ifp = NULL;
 	union sockunion nexthop_addr;
-	char buf[PREFIX_STRLEN];
 	int added;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
@@ -220,12 +250,11 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	}
 
 	added = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
-	debugf(NHRP_DEBUG_ROUTE, "if-route-%s: %pFX via %s dev %s",
-	       added ? "add" : "del", &api.prefix,
-	       sockunion2str(&nexthop_addr, buf, sizeof(buf)),
+	debugf(NHRP_DEBUG_ROUTE, "if-route-%s: %pFX via %pSU dev %s",
+	       added ? "add" : "del", &api.prefix, &nexthop_addr,
 	       ifp ? ifp->name : "(none)");
 
-	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, ifp);
+	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, added ? ifp : NULL);
 	nhrp_shortcut_prefix_change(&api.prefix, !added);
 
 	return 0;
@@ -333,6 +362,8 @@ static void nhrp_zebra_connected(struct zclient *zclient)
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, true);
+	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, true);
 }
 
 void nhrp_zebra_init(void)
@@ -346,7 +377,10 @@ void nhrp_zebra_init(void)
 	zclient->interface_address_delete = nhrp_interface_address_delete;
 	zclient->redistribute_route_add = nhrp_route_read;
 	zclient->redistribute_route_del = nhrp_route_read;
-
+	zclient->neighbor_added = nhrp_neighbor_operation;
+	zclient->neighbor_removed = nhrp_neighbor_operation;
+	zclient->neighbor_get = nhrp_neighbor_operation;
+	zclient->gre_update = nhrp_gre_update;
 	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
 }
 
@@ -359,8 +393,79 @@ static void nhrp_table_node_cleanup(struct route_table *table,
 	XFREE(MTYPE_NHRP_ROUTE, node->info);
 }
 
+void nhrp_send_zebra_configure_arp(struct interface *ifp, int family)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0) {
+		debugf(NHRP_DEBUG_COMMON, "%s() : zclient not ready",
+		       __func__);
+		return;
+	}
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s,
+			      ZEBRA_CONFIGURE_ARP,
+			      ifp->vrf_id);
+	stream_putc(s, family);
+	stream_putl(s, ifp->ifindex);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+
+void nhrp_send_zebra_gre_source_set(struct interface *ifp,
+				    unsigned int link_idx,
+				    vrf_id_t link_vrf_id)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0) {
+		zlog_err("%s : zclient not ready", __func__);
+		return;
+	}
+	if (link_idx == IFINDEX_INTERNAL || link_vrf_id == VRF_UNKNOWN) {
+		/* silently ignore */
+		return;
+	}
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s,
+			      ZEBRA_GRE_SOURCE_SET,
+			      ifp->vrf_id);
+	stream_putl(s, ifp->ifindex);
+	stream_putl(s, link_idx);
+	stream_putl(s, link_vrf_id);
+	stream_putl(s, 0); /* mtu provisioning */
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+
+void nhrp_send_zebra_nbr(union sockunion *in,
+			 union sockunion *out,
+			 struct interface *ifp)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return;
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_neigh_ip_encode(s, out ? ZEBRA_NEIGH_IP_ADD :
+				ZEBRA_NEIGH_IP_DEL, in, out,
+				ifp);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+
+int nhrp_send_zebra_gre_request(struct interface *ifp)
+{
+	return zclient_send_zebra_gre_request(zclient, ifp);
+}
+
 void nhrp_zebra_terminate(void)
 {
+	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, false);
+	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, false);
 	zclient_stop(zclient);
 	zclient_free(zclient);
 
@@ -368,4 +473,49 @@ void nhrp_zebra_terminate(void)
 	zebra_rib[AFI_IP6]->cleanup = nhrp_table_node_cleanup;
 	route_table_finish(zebra_rib[AFI_IP]);
 	route_table_finish(zebra_rib[AFI_IP6]);
+}
+
+void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s;
+	struct nhrp_gre_info gre_info, *val;
+	struct interface *ifp;
+
+	/* result */
+	s = zclient->ibuf;
+	if (vrf_id != VRF_DEFAULT)
+		return;
+
+	/* read GRE information */
+	STREAM_GETL(s, gre_info.ifindex);
+	STREAM_GETL(s, gre_info.ikey);
+	STREAM_GETL(s, gre_info.okey);
+	STREAM_GETL(s, gre_info.ifindex_link);
+	STREAM_GETL(s, gre_info.vrfid_link);
+	STREAM_GETL(s, gre_info.vtep_ip.s_addr);
+	STREAM_GETL(s, gre_info.vtep_ip_remote.s_addr);
+	if (gre_info.ifindex == IFINDEX_INTERNAL)
+		val = NULL;
+	else
+		val = hash_lookup(nhrp_gre_list, &gre_info);
+	if (val) {
+		if (gre_info.vtep_ip.s_addr != val->vtep_ip.s_addr ||
+		    gre_info.vrfid_link != val->vrfid_link ||
+		    gre_info.ifindex_link != val->ifindex_link ||
+		    gre_info.ikey != val->ikey ||
+		    gre_info.okey != val->okey) {
+			/* update */
+			memcpy(val, &gre_info, sizeof(struct nhrp_gre_info));
+		}
+	} else {
+		val = nhrp_gre_info_alloc(&gre_info);
+	}
+	ifp = if_lookup_by_index(gre_info.ifindex, vrf_id);
+	debugf(NHRP_DEBUG_EVENT, "%s: gre interface %d vr %d obtained from system",
+	       ifp ? ifp->name : "<none>", gre_info.ifindex, vrf_id);
+	if (ifp)
+		nhrp_interface_update_nbma(ifp, val);
+	return;
+stream_failure:
+	zlog_err("%s(): error reading response ..", __func__);
 }

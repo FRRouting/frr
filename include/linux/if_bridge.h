@@ -293,15 +293,4 @@ struct br_mcast_stats {
 	__u64 mcast_bytes[BR_MCAST_DIR_SIZE];
 	__u64 mcast_packets[BR_MCAST_DIR_SIZE];
 };
-
-/* FDB notification bits for NDA_NOTIFY:
- * - BR_FDB_NFY_STATIC - notify on activity/expire even for a static entry
- * - BR_FDB_NFY_INACTIVE - mark as inactive to avoid double notification,
- *                         used with BR_FDB_NFY_STATIC (kernel controlled)
- */
-enum {
-	BR_FDB_NFY_STATIC,
-	BR_FDB_NFY_INACTIVE,
-	BR_FDB_NFY_MAX
-};
 #endif /* _UAPI_LINUX_IF_BRIDGE_H */

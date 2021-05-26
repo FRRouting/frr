@@ -111,6 +111,7 @@ struct ospf6_interface {
 	struct thread *thread_link_lsa;
 	struct thread *thread_intra_prefix_lsa;
 	struct thread *thread_as_extern_lsa;
+	struct thread *thread_wait_timer;
 
 	struct ospf6_route_table *route_connected;
 
@@ -118,7 +119,13 @@ struct ospf6_interface {
 	char *plist_name;
 
 	/* BFD information */
-	void *bfd_info;
+	struct {
+		bool enabled;
+		uint8_t detection_multiplier;
+		uint32_t min_rx;
+		uint32_t min_tx;
+		char *profile;
+	} bfd_config;
 
 	/* Statistics Fields */
 	uint32_t hello_in;
@@ -133,9 +140,9 @@ struct ospf6_interface {
 	uint32_t ls_ack_out;
 	uint32_t discarded;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ospf6_interface)
+DECLARE_QOBJ_TYPE(ospf6_interface);
 
 /* interface state */
 #define OSPF6_INTERFACE_NONE             0
@@ -181,6 +188,7 @@ extern void ospf6_interface_disable(struct ospf6_interface *);
 extern void ospf6_interface_if_add(struct interface *);
 extern void ospf6_interface_state_update(struct interface *);
 extern void ospf6_interface_connected_route_update(struct interface *);
+extern void ospf6_interface_connected_route_add(struct connected *);
 
 /* interface event */
 extern int interface_up(struct thread *);
@@ -198,6 +206,6 @@ extern void install_element_ospf6_debug_interface(void);
 
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
-	     (oi, state, old_state))
+	     (oi, state, old_state));
 
 #endif /* OSPF6_INTERFACE_H */

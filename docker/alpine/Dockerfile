@@ -1,10 +1,9 @@
 # This stage builds a dist tarball from the source
-FROM alpine:edge as source-builder
+FROM alpine:3.13 as source-builder
 
 RUN mkdir -p /src/alpine
 COPY alpine/APKBUILD.in /src/alpine
 RUN source /src/alpine/APKBUILD.in \
-	&& echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
 	&& apk add \
 		--no-cache \
 		--update-cache \
@@ -22,10 +21,9 @@ RUN cd /src \
 	&& make dist
 
 # This stage builds an apk from the dist tarball
-FROM alpine:edge as alpine-builder
+FROM alpine:3.13 as alpine-builder
 # Don't use nocache here so that abuild can use the cache
-RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
-	&& apk add \
+RUN apk add \
 		--update-cache \
 		abuild \
 		alpine-conf \
@@ -46,11 +44,10 @@ RUN cd /dist \
 	&& abuild -r -P /pkgs/apk
 
 # This stage installs frr from the apk
-FROM alpine:edge
+FROM alpine:3.13
 RUN mkdir -p /pkgs/apk
 COPY --from=alpine-builder /pkgs/apk/ /pkgs/apk/
-RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
-	&& apk add \
+RUN apk add \
 		--no-cache \
 		--update-cache \
 		tini \
@@ -59,4 +56,4 @@ RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/reposit
 		--allow-untrusted /pkgs/apk/*/*.apk \
 	&& rm -rf /pkgs
 COPY docker/alpine/docker-start /usr/lib/frr/docker-start
-ENTRYPOINT [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]
+CMD [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]

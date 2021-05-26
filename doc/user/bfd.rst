@@ -90,12 +90,10 @@ may also be specified (:ref:`common-invocation-options`).
 BFDd Commands
 =============
 
-.. index:: bfd
 .. clicmd:: bfd
 
    Opens the BFD daemon configuration node.
 
-.. index:: peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]
 .. clicmd:: peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]
 
    Creates and configures a new BFD peer to listen and talk to.
@@ -113,41 +111,27 @@ BFDd Commands
 
    `vrf` selects which domain we want to use.
 
-.. index:: peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
-.. clicmd:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
 
-    Stops and removes the selected peer.
-
-
-.. index:: profile WORD
 .. clicmd:: profile WORD
 
    Creates a peer profile that can be configured in multiple peers.
 
-
-.. index:: profile WORD
-.. clicmd:: no profile WORD
-
-   Deletes a peer profile. Any peer using the profile will have their
-   configurations reset to the default values.
+   Deleting the profile will cause all peers using it to reset to the default
+   values.
 
 
-.. index:: show bfd [vrf NAME] peers [json]
 .. clicmd:: show bfd [vrf NAME] peers [json]
 
     Show all configured BFD peers information and current status.
 
-.. index:: show bfd [vrf NAME$vrf_name] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]
 .. clicmd:: show bfd [vrf NAME$vrf_name] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]
 
     Show status for a specific BFD peer.
 
-.. index:: show bfd [vrf NAME] peers brief [json]
 .. clicmd:: show bfd [vrf NAME] peers brief [json]
 
     Show all configured BFD peers information and current status in brief.
 
-.. index:: show bfd distributed
 .. clicmd:: show bfd distributed
 
    Show the BFD data plane (distributed BFD) statistics.
@@ -160,7 +144,6 @@ Peer / Profile Configuration
 
 BFD peers and profiles share the same BFD session configuration commands.
 
-.. index:: detect-multiplier (2-255)
 .. clicmd:: detect-multiplier (2-255)
 
    Configures the detection multiplier to determine packet loss. The
@@ -173,29 +156,32 @@ BFD peers and profiles share the same BFD session configuration commands.
    detect failures only after 900 milliseconds without receiving
    packets.
 
-.. index:: receive-interval (10-60000)
 .. clicmd:: receive-interval (10-60000)
 
    Configures the minimum interval that this system is capable of
    receiving control packets. The default value is 300 milliseconds.
 
-.. index:: transmit-interval (10-60000)
 .. clicmd:: transmit-interval (10-60000)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD control packets. Defaults to 300ms.
 
-.. index:: echo-interval (10-60000)
-.. clicmd:: echo-interval (10-60000)
+.. clicmd:: echo receive-interval <disabled|(10-60000)>
 
-   Configures the minimal echo receive transmission interval that this
-   system is capable of handling.
+   Configures the minimum interval that this system is capable of
+   receiving echo packets. Disabled means that this system doesn't want
+   to receive echo packets. The default value is 50 milliseconds.
 
-.. index:: echo-mode
-.. clicmd:: [no] echo-mode
+.. clicmd:: echo transmit-interval (10-60000)
+
+   The minimum transmission interval (less jitter) that this system
+   wants to use to send BFD echo packets. Defaults to 50ms.
+
+.. clicmd:: echo-mode
 
    Enables or disables the echo transmission mode. This mode is disabled
-   by default.
+   by default. If you are not using distributed BFD then echo mode works
+   only when the peer is also FRR.
 
    It is recommended that the transmission interval of control packets
    to be increased after enabling echo-mode to reduce bandwidth usage.
@@ -204,15 +190,13 @@ BFD peers and profiles share the same BFD session configuration commands.
    Echo mode is not supported on multi-hop setups (see :rfc:`5883`
    section 3).
 
-.. index:: shutdown
-.. clicmd:: [no] shutdown
+.. clicmd:: shutdown
 
    Enables or disables the peer. When the peer is disabled an
    'administrative down' message is sent to the remote peer.
 
 
-.. index:: passive-mode
-.. clicmd:: [no] passive-mode
+.. clicmd:: passive-mode
 
    Mark session as passive: a passive session will not attempt to start
    the connection and will wait for control packets from peer before it
@@ -224,8 +208,7 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    The default is active-mode (or ``no passive-mode``).
 
-.. index:: minimum-ttl (1-254)
-.. clicmd:: [no] minimum-ttl (1-254)
+.. clicmd:: minimum-ttl (1-254)
 
    For multi hop sessions only: configure the minimum expected TTL for
    an incoming BFD control packet.
@@ -241,14 +224,12 @@ BFD peers and profiles share the same BFD session configuration commands.
 BFD Peer Specific Commands
 --------------------------
 
-.. index:: label WORD
 .. clicmd:: label WORD
 
    Labels a peer with the provided word. This word can be referenced
    later on other daemons to refer to a specific peer.
 
 
-.. index:: profile BFDPROF
 .. clicmd:: profile BFDPROF
 
    Configure peer to use the profile configurations.
@@ -270,7 +251,6 @@ BGP BFD Configuration
 
 The following commands are available inside the BGP configuration node.
 
-.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 
    Listen for BFD events registered on the same target as this BGP
@@ -278,12 +258,7 @@ The following commands are available inside the BGP configuration node.
    the connection with its neighbor and, when it goes back up, notify
    BGP to try to connect to it.
 
-.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd
-.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 
-   Removes any notification registration for this neighbor.
-
-.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
 
    Allow to write CBIT independence in BFD outgoing packets. Also allow to
@@ -293,24 +268,14 @@ The following commands are available inside the BGP configuration node.
    This is the case when graceful restart is enabled, and it is wished to
    ignore the BD event while waiting for the remote router to restart.
 
-.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
-.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
-
-   Disallow to write CBIT independence in BFD outgoing packets. Also disallow
-   to ignore BFD down notification. This is the default behaviour.
+   Disabling this disables presence of CBIT independence in BFD outgoing
+   packets and pays attention to BFD down notifications. This is the default.
 
 
-.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
 
    Same as command ``neighbor <A.B.C.D|X:X::X:X|WORD> bfd``, but applies the
    BFD profile to the sessions it creates or that already exist.
-
-
-.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
-.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
-
-   Removes the BFD profile configuration from peer session(s).
 
 
 .. _bfd-isis-peer-config:
@@ -320,31 +285,20 @@ IS-IS BFD Configuration
 
 The following commands are available inside the interface configuration node.
 
-.. index:: isis bfd
 .. clicmd:: isis bfd
 
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: isis bfd
-.. clicmd:: no isis bfd
-
-   Removes any notification registration for this interface peers.
-
    Note that there will be just one BFD session per interface. In case both
    IPv4 and IPv6 support are configured then just a IPv6 based session is
    created.
 
-.. index:: isis bfd profile BFDPROF
 .. clicmd:: isis bfd profile BFDPROF
 
    Use a BFD profile BFDPROF as provided in the BFD configuration.
 
-.. index:: isis bfd profile BFDPROF
-.. clicmd:: no isis bfd profile BFDPROF
-
-   Removes any BFD profile if present.
 
 .. _bfd-ospf-peer-config:
 
@@ -353,17 +307,16 @@ OSPF BFD Configuration
 
 The following commands are available inside the interface configuration node.
 
-.. index:: ip ospf bfd
 .. clicmd:: ip ospf bfd
 
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: ip ospf bfd
-.. clicmd:: no ip ospf bfd
+.. clicmd:: ip ospf bfd profile BFDPROF
 
-   Removes any notification registration for this interface peers.
+   Same as command ``ip ospf bfd``, but applies the BFD profile to the sessions
+   it creates or that already exist.
 
 
 .. _bfd-ospf6-peer-config:
@@ -373,17 +326,14 @@ OSPF6 BFD Configuration
 
 The following commands are available inside the interface configuration node.
 
-.. index:: ipv6 ospf6 bfd
-.. clicmd:: ipv6 ospf6 bfd
+.. clicmd:: ipv6 ospf6 bfd [profile BFDPROF]
 
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: ipv6 ospf6 bfd
-.. clicmd:: no ipv6 ospf6 bfd
-
-   Removes any notification registration for this interface peers.
+   Optionally uses the BFD profile ``BFDPROF`` in the created sessions under
+   that interface.
 
 
 .. _bfd-pim-peer-config:
@@ -393,17 +343,14 @@ PIM BFD Configuration
 
 The following commands are available inside the interface configuration node.
 
-.. index:: ip pim bfd
-.. clicmd:: ip pim bfd
+.. clicmd:: ip pim bfd [profile BFDPROF]
 
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: ip pim bfd
-.. clicmd:: no ip pim bfd
-
-   Removes any notification registration for this interface peers.
+   Optionally uses the BFD profile ``BFDPROF`` in the created sessions under
+   that interface.
 
 
 .. _bfd-configuration:
@@ -516,12 +463,13 @@ You can inspect the current BFD peer status with the following commands:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
+                           Echo receive interval: 50ms
                            Echo transmission interval: disabled
                    Remote timers:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
-                           Echo transmission interval: 50ms
+                           Echo receive interval: 50ms
 
            peer 192.168.1.1
                    label: router3-peer
@@ -536,12 +484,13 @@ You can inspect the current BFD peer status with the following commands:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
+                           Echo receive interval: 50ms
                            Echo transmission interval: disabled
                    Remote timers:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
-                           Echo transmission interval: 50ms
+                           Echo receive interval: 50ms
 
    frr# show bfd peer 192.168.1.1
    BFD Peer:
@@ -558,15 +507,16 @@ You can inspect the current BFD peer status with the following commands:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
+                           Echo receive interval: 50ms
                            Echo transmission interval: disabled
                    Remote timers:
                            Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
-                           Echo transmission interval: 50ms
+                           Echo receive interval: 50ms
 
    frr# show bfd peer 192.168.0.1 json
-   {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-interval":50,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
+   {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-receive-interval":50,"echo-transmit-interval":0,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-receive-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
 
 
 You can inspect the current BFD peer status in brief with the following commands:
@@ -721,8 +671,7 @@ sure you have `debugging` level enabled:
 You may also fine tune the debug messages by selecting one or more of the
 debug levels:
 
-.. index:: debug bfd distributed
-.. clicmd:: [no] debug bfd distributed
+.. clicmd:: debug bfd distributed
 
    Toggle BFD data plane (distributed BFD) debugging.
 
@@ -731,20 +680,17 @@ debug levels:
    * Data plane received / send messages
    * Connection events
 
-.. index:: debug bfd network
-.. clicmd:: [no] debug bfd network
+.. clicmd:: debug bfd network
 
    Toggle network events: show messages about socket failures and unexpected
    BFD messages that may not belong to registered peers.
 
-.. index:: debug bfd peer
-.. clicmd:: [no] debug bfd peer
+.. clicmd:: debug bfd peer
 
    Toggle peer event log messages: show messages about peer creation/removal
    and state changes.
 
-.. index:: debug bfd zebra
-.. clicmd:: [no] debug bfd zebra
+.. clicmd:: debug bfd zebra
 
    Toggle zebra message events: show messages about interfaces, local
    addresses, VRF and daemon peer registrations.

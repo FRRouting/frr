@@ -32,10 +32,10 @@
 
 #include "bfd.h"
 
-DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory")
-DEFINE_MTYPE_STATIC(BFDD, BFDD_PROFILE, "long-lived profile memory")
-DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer")
-DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF")
+DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory");
+DEFINE_MTYPE_STATIC(BFDD, BFDD_PROFILE, "long-lived profile memory");
+DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
+DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF");
 
 /*
  * Prototypes
@@ -85,12 +85,13 @@ struct bfd_profile *bfd_profile_lookup(const char *name)
 
 static void bfd_profile_set_default(struct bfd_profile *bp)
 {
-	bp->admin_shutdown = true;
+	bp->admin_shutdown = false;
 	bp->detection_multiplier = BFD_DEFDETECTMULT;
 	bp->echo_mode = false;
 	bp->passive = false;
 	bp->minimum_ttl = BFD_DEF_MHOP_TTL;
-	bp->min_echo_rx = BFD_DEF_REQ_MIN_ECHO;
+	bp->min_echo_rx = BFD_DEF_REQ_MIN_ECHO_RX;
+	bp->min_echo_tx = BFD_DEF_DES_MIN_ECHO_TX;
 	bp->min_rx = BFD_DEFREQUIREDMINRX;
 	bp->min_tx = BFD_DEFDESIREDMINTX;
 }
@@ -179,12 +180,18 @@ void bfd_session_apply(struct bfd_session *bs)
 
 	/* We can only apply echo options on single hop sessions. */
 	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		/* Configure remote echo if it was default. */
-		if (bs->peer_profile.min_echo_rx == BFD_DEF_REQ_MIN_ECHO)
-			bs->timers.required_min_echo = bp->min_echo_rx;
+		/* Configure echo timers if they were default. */
+		if (bs->peer_profile.min_echo_rx == BFD_DEF_REQ_MIN_ECHO_RX)
+			bs->timers.required_min_echo_rx = bp->min_echo_rx;
 		else
-			bs->timers.required_min_echo =
+			bs->timers.required_min_echo_rx =
 				bs->peer_profile.min_echo_rx;
+
+		if (bs->peer_profile.min_echo_tx == BFD_DEF_DES_MIN_ECHO_TX)
+			bs->timers.desired_min_echo_tx = bp->min_echo_tx;
+		else
+			bs->timers.desired_min_echo_tx =
+				bs->peer_profile.min_echo_tx;
 
 		/* Toggle echo if default value. */
 		if (bs->peer_profile.echo_mode == false)
@@ -206,7 +213,7 @@ void bfd_session_apply(struct bfd_session *bs)
 		bfd_set_passive_mode(bs, bs->peer_profile.passive);
 
 	/* Toggle 'no shutdown' if default value. */
-	if (bs->peer_profile.admin_shutdown)
+	if (bs->peer_profile.admin_shutdown == false)
 		bfd_set_shutdown(bs, bp->admin_shutdown);
 	else
 		bfd_set_shutdown(bs, bs->peer_profile.admin_shutdown);
@@ -313,6 +320,13 @@ int bfd_session_enable(struct bfd_session *bs)
 		}
 	}
 
+	if (!vrf_is_backend_netns() && vrf && vrf->vrf_id != VRF_DEFAULT
+	    && !if_lookup_by_name(vrf->name, vrf->vrf_id)) {
+		zlog_err("session-enable: vrf interface %s not available yet",
+			 vrf->name);
+		return 0;
+	}
+
 	if (bs->key.ifname[0]) {
 		if (vrf)
 			ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
@@ -320,14 +334,16 @@ int bfd_session_enable(struct bfd_session *bs)
 			ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
 		if (ifp == NULL) {
 			zlog_err(
-				"session-enable: specified interface doesn't exists.");
+				"session-enable: specified interface %s (VRF %s) doesn't exist.",
+				bs->key.ifname, vrf ? vrf->name : "<all>");
 			return 0;
 		}
 		if (bs->key.ifname[0] && !vrf) {
 			vrf = vrf_lookup_by_id(ifp->vrf_id);
 			if (vrf == NULL) {
 				zlog_err(
-					"session-enable: specified VRF doesn't exists.");
+					"session-enable: specified VRF %u doesn't exist.",
+					ifp->vrf_id);
 				return 0;
 			}
 		}
@@ -485,8 +501,10 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd)
 void ptm_bfd_echo_start(struct bfd_session *bfd)
 {
 	bfd->echo_detect_TO = (bfd->remote_detect_mult * bfd->echo_xmt_TO);
-	if (bfd->echo_detect_TO > 0)
+	if (bfd->echo_detect_TO > 0) {
+		bfd_echo_recvtimer_update(bfd);
 		ptm_bfd_echo_xmt_TO(bfd);
+	}
 }
 
 void ptm_bfd_sess_up(struct bfd_session *bfd)
@@ -691,7 +709,8 @@ struct bfd_session *bfd_session_new(void)
 
 	bs->timers.desired_min_tx = BFD_DEFDESIREDMINTX;
 	bs->timers.required_min_rx = BFD_DEFREQUIREDMINRX;
-	bs->timers.required_min_echo = BFD_DEF_REQ_MIN_ECHO;
+	bs->timers.required_min_echo_rx = BFD_DEF_REQ_MIN_ECHO_RX;
+	bs->timers.desired_min_echo_tx = BFD_DEF_DES_MIN_ECHO_TX;
 	bs->detect_mult = BFD_DEFDETECTMULT;
 	bs->mh_ttl = BFD_DEF_MHOP_TTL;
 	bs->ses_state = PTM_BFD_DOWN;
@@ -760,9 +779,14 @@ static void _bfd_session_update(struct bfd_session *bs,
 		bs->peer_profile.detection_multiplier = bs->detect_mult;
 	}
 
-	if (bpc->bpc_has_echointerval) {
-		bs->timers.required_min_echo = bpc->bpc_echointerval * 1000;
-		bs->peer_profile.min_echo_rx = bs->timers.required_min_echo;
+	if (bpc->bpc_has_echorecvinterval) {
+		bs->timers.required_min_echo_rx = bpc->bpc_echorecvinterval * 1000;
+		bs->peer_profile.min_echo_rx = bs->timers.required_min_echo_rx;
+	}
+
+	if (bpc->bpc_has_echotxinterval) {
+		bs->timers.desired_min_echo_tx = bpc->bpc_echotxinterval * 1000;
+		bs->peer_profile.min_echo_tx = bs->timers.desired_min_echo_tx;
 	}
 
 	if (bpc->bpc_has_label)
@@ -1180,10 +1204,10 @@ void bs_echo_timer_handler(struct bfd_session *bs)
 	 * RFC 5880, Section 6.8.9.
 	 */
 	old_timer = bs->echo_xmt_TO;
-	if (bs->remote_timers.required_min_echo > bs->timers.required_min_echo)
+	if (bs->remote_timers.required_min_echo > bs->timers.desired_min_echo_tx)
 		bs->echo_xmt_TO = bs->remote_timers.required_min_echo;
 	else
-		bs->echo_xmt_TO = bs->timers.required_min_echo;
+		bs->echo_xmt_TO = bs->timers.desired_min_echo_tx;
 
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO_ACTIVE) == 0
 	    || old_timer != bs->echo_xmt_TO)
@@ -1243,12 +1267,12 @@ void bs_final_handler(struct bfd_session *bs)
 	 * TODO: support sending/counting more packets inside detection
 	 * timeout.
 	 */
-	if (bs->remote_timers.required_min_rx > bs->timers.desired_min_tx)
+	if (bs->timers.required_min_rx > bs->remote_timers.desired_min_tx)
 		bs->detect_TO = bs->remote_detect_mult
-				* bs->remote_timers.required_min_rx;
+				* bs->timers.required_min_rx;
 	else
 		bs->detect_TO = bs->remote_detect_mult
-				* bs->timers.desired_min_tx;
+				* bs->remote_timers.desired_min_tx;
 
 	/* Apply new receive timer immediately. */
 	bfd_recvtimer_update(bs);
@@ -1663,15 +1687,54 @@ static bool bfd_id_hash_cmp(const void *n1, const void *n2)
 static unsigned int bfd_key_hash_do(const void *p)
 {
 	const struct bfd_session *bs = p;
+	struct bfd_key key = bs->key;
 
-	return jhash(&bs->key, sizeof(bs->key), 0);
+	/*
+	 * Local address and interface name are optional and
+	 * can be filled any time after session creation.
+	 * Hash key should not depend on these fields.
+	 */
+	memset(&key.local, 0, sizeof(key.local));
+	memset(key.ifname, 0, sizeof(key.ifname));
+
+	return jhash(&key, sizeof(key), 0);
 }
 
 static bool bfd_key_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
-	return memcmp(&bs1->key, &bs2->key, sizeof(bs1->key)) == 0;
+	if (bs1->key.family != bs2->key.family)
+		return false;
+	if (bs1->key.mhop != bs2->key.mhop)
+		return false;
+	if (memcmp(&bs1->key.peer, &bs2->key.peer, sizeof(bs1->key.peer)))
+		return false;
+	if (memcmp(bs1->key.vrfname, bs2->key.vrfname,
+		   sizeof(bs1->key.vrfname)))
+		return false;
+
+	/*
+	 * Local address is optional and can be empty.
+	 * If both addresses are not empty and different,
+	 * then the keys are different.
+	 */
+	if (memcmp(&bs1->key.local, &zero_addr, sizeof(bs1->key.local))
+	    && memcmp(&bs2->key.local, &zero_addr, sizeof(bs2->key.local))
+	    && memcmp(&bs1->key.local, &bs2->key.local, sizeof(bs1->key.local)))
+		return false;
+
+	/*
+	 * Interface name is optional and can be empty.
+	 * If both names are not empty and different,
+	 * then the keys are different.
+	 */
+	if (bs1->key.ifname[0] && bs2->key.ifname[0]
+	    && memcmp(bs1->key.ifname, bs2->key.ifname,
+		      sizeof(bs1->key.ifname)))
+		return false;
+
+	return true;
 }
 
 
@@ -1689,117 +1752,13 @@ struct bfd_session *bfd_id_lookup(uint32_t id)
 	return hash_lookup(bfd_id_hash, &bs);
 }
 
-struct bfd_key_walk_partial_lookup {
-	struct bfd_session *given;
-	struct bfd_session *result;
-};
-
-/* ignore some parameters */
-static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b,
-						void *data)
-{
-	struct bfd_key_walk_partial_lookup *ctx =
-		(struct bfd_key_walk_partial_lookup *)data;
-	struct bfd_session *given = ctx->given;
-	struct bfd_session *parsed = b->data;
-
-	if (given->key.family != parsed->key.family)
-		return HASHWALK_CONTINUE;
-	if (given->key.mhop != parsed->key.mhop)
-		return HASHWALK_CONTINUE;
-	if (memcmp(&given->key.peer, &parsed->key.peer,
-		   sizeof(struct in6_addr)))
-		return HASHWALK_CONTINUE;
-	if (memcmp(given->key.vrfname, parsed->key.vrfname, MAXNAMELEN))
-		return HASHWALK_CONTINUE;
-	ctx->result = parsed;
-	/* ignore localaddr or interface */
-	return HASHWALK_ABORT;
-}
-
 struct bfd_session *bfd_key_lookup(struct bfd_key key)
 {
-	struct bfd_session bs, *bsp;
-	struct bfd_key_walk_partial_lookup ctx;
-	char peer_buf[INET6_ADDRSTRLEN];
+	struct bfd_session bs;
 
 	bs.key = key;
-	bsp = hash_lookup(bfd_key_hash, &bs);
-	if (bsp)
-		return bsp;
 
-	inet_ntop(bs.key.family, &bs.key.peer, peer_buf,
-		  sizeof(peer_buf));
-	/* Handle cases where local-address is optional. */
-	if (memcmp(&bs.key.local, &zero_addr, sizeof(bs.key.local))) {
-		memset(&bs.key.local, 0, sizeof(bs.key.local));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-		if (bsp) {
-			if (bglobal.debug_peer_event) {
-				char addr_buf[INET6_ADDRSTRLEN];
-				inet_ntop(bs.key.family, &key.local, addr_buf,
-					  sizeof(addr_buf));
-				zlog_debug(
-					" peer %s found, but loc-addr %s ignored",
-					peer_buf, addr_buf);
-			}
-			return bsp;
-		}
-	}
-
-	bs.key = key;
-	/* Handle cases where ifname is optional. */
-	if (bs.key.ifname[0]) {
-		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-		if (bsp) {
-			if (bglobal.debug_peer_event)
-				zlog_debug(" peer %s found, but ifp %s ignored",
-					   peer_buf, key.ifname);
-			return bsp;
-		}
-	}
-
-	/* Handle cases where local-address and ifname are optional. */
-	if (bs.key.family == AF_INET) {
-		memset(&bs.key.local, 0, sizeof(bs.key.local));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-		if (bsp) {
-			if (bglobal.debug_peer_event) {
-				char addr_buf[INET6_ADDRSTRLEN];
-				inet_ntop(bs.key.family, &bs.key.local,
-					  addr_buf, sizeof(addr_buf));
-				zlog_debug(
-					" peer %s found, but ifp %s and loc-addr %s ignored",
-					peer_buf, key.ifname, addr_buf);
-			}
-			return bsp;
-		}
-	}
-	bs.key = key;
-
-	/* Handle case where a context more complex ctx is present.
-	 * input has no iface nor local-address, but a context may
-	 * exist.
-	 *
-	 * Only applies to IPv4, because IPv6 requires either
-	 * local-address or interface.
-	 */
-	if (!bs.key.mhop && bs.key.family == AF_INET) {
-		ctx.result = NULL;
-		ctx.given = &bs;
-		hash_walk(bfd_key_hash, &bfd_key_lookup_ignore_partial_walker,
-			  &ctx);
-		/* change key */
-		if (ctx.result) {
-			bsp = ctx.result;
-			if (bglobal.debug_peer_event)
-				zlog_debug(
-					" peer %s found, but ifp and/or loc-addr params ignored",
-					peer_buf);
-		}
-	}
-	return bsp;
+	return hash_lookup(bfd_key_hash, &bs);
 }
 
 /*
@@ -1823,16 +1782,11 @@ struct bfd_session *bfd_id_delete(uint32_t id)
 
 struct bfd_session *bfd_key_delete(struct bfd_key key)
 {
-	struct bfd_session bs, *bsp;
+	struct bfd_session bs;
 
 	bs.key = key;
-	bsp = hash_lookup(bfd_key_hash, &bs);
-	if (bsp == NULL && key.ifname[0]) {
-		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-	}
 
-	return hash_release(bfd_key_hash, bsp);
+	return hash_release(bfd_key_hash, &bs);
 }
 
 /* Iteration functions. */
@@ -1985,6 +1939,14 @@ static void _bfd_session_remove_manual(struct hash_bucket *hb,
 void bfd_sessions_remove_manual(void)
 {
 	hash_iterate(bfd_key_hash, _bfd_session_remove_manual, NULL);
+}
+
+void bfd_profiles_remove(void)
+{
+	struct bfd_profile *bp;
+
+	while ((bp = TAILQ_FIRST(&bplist)) != NULL)
+		bfd_profile_free(bp);
 }
 
 /*
@@ -2233,13 +2195,13 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']/vrf",
 			 bs->key.vrfname);
 
-		bfd_dnode = yang_dnode_get(running_config->dnode, xpath,
-					   bs->key.vrfname);
+		bfd_dnode = yang_dnode_getf(running_config->dnode, xpath,
+					    bs->key.vrfname);
 		if (bfd_dnode) {
-			yang_dnode_get_path(bfd_dnode->parent, oldpath,
+			yang_dnode_get_path(lyd_parent(bfd_dnode), oldpath,
 					    sizeof(oldpath));
 			yang_dnode_change_leaf(bfd_dnode, vrf->name);
-			yang_dnode_get_path(bfd_dnode->parent, newpath,
+			yang_dnode_get_path(lyd_parent(bfd_dnode), newpath,
 					    sizeof(newpath));
 			nb_running_move_tree(oldpath, newpath);
 			running_config->version++;

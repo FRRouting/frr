@@ -137,6 +137,9 @@ struct zserv {
 	/* Router-id information. */
 	vrf_bitmap_t ridinfo[AFI_MAX];
 
+	/* Router-id information. */
+	vrf_bitmap_t nhrp_neighinfo[AFI_MAX];
+
 	bool notify_owner;
 
 	/* Indicates if client is synchronous. */

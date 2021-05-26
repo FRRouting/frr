@@ -45,7 +45,7 @@
 
 DEFINE_HOOK(ospf_ism_change,
 	    (struct ospf_interface * oi, int state, int oldstate),
-	    (oi, state, oldstate))
+	    (oi, state, oldstate));
 
 /* elect DR and BDR. Refer to RFC2319 section 9.4 */
 static struct ospf_neighbor *ospf_dr_election_sub(struct list *routers)

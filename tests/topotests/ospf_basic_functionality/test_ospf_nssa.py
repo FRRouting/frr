@@ -30,6 +30,7 @@ from lib.ospf import (
     verify_ospf_rib,
     create_router_ospf,
     verify_ospf_interface,
+    redistribute_ospf,
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 from lib.topolog import logger
@@ -181,38 +182,6 @@ def teardown_module(mod):
     logger.info("=" * 40)
 
 
-def red_static(dut, config=True):
-    """Local def for Redstribute static routes inside ospf."""
-    global topo
-    tgen = get_topogen()
-    if config:
-        ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": "static"}]}}}
-    else:
-        ospf_red = {
-            dut: {"ospf": {"redistribute": [{"redist_type": "static", "delete": True}]}}
-        }
-    result = create_router_ospf(tgen, topo, ospf_red)
-    assert result is True, "Testcase : Failed \n Error: {}".format(result)
-
-
-def red_connected(dut, config=True):
-    """Local def for Redstribute connected routes inside ospf."""
-    global topo
-    tgen = get_topogen()
-    if config:
-        ospf_red = {dut: {"ospf": {"redistribute": [{"redist_type": "connected"}]}}}
-    else:
-        ospf_red = {
-            dut: {
-                "ospf": {
-                    "redistribute": [{"redist_type": "connected", "del_action": True}]
-                }
-            }
-        }
-    result = create_router_ospf(tgen, topo, ospf_red)
-    assert result is True, "Testcase: Failed \n Error: {}".format(result)
-
-
 # ##################################
 # Test cases start here.
 # ##################################
@@ -268,7 +237,7 @@ def test_ospf_learning_tc15_p0(request):
 
     step("Redistribute static route in R2 ospf.")
     dut = "r2"
-    red_static(dut)
+    redistribute_ospf(tgen, topo, dut, "static")
 
     step("Verify that Type 5 LSA is originated by R2.")
     dut = "r0"

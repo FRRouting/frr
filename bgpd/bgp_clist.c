@@ -654,86 +654,6 @@ static bool ecommunity_regexp_match(struct ecommunity *ecom, regex_t *reg)
 	return false;
 }
 
-#if 0
-/* Delete community attribute using regular expression match.  Return
-   modified communites attribute.  */
-static struct community *
-community_regexp_delete (struct community *com, regex_t * reg)
-{
-	int i;
-	uint32_t comval;
-	/* Maximum is "65535:65535" + '\0'. */
-	char c[12];
-	const char *str;
-
-	if (!com)
-		return NULL;
-
-	i = 0;
-	while (i < com->size)
-	{
-		memcpy (&comval, com_nthval (com, i), sizeof(uint32_t));
-		comval = ntohl (comval);
-
-		switch (comval) {
-		case COMMUNITY_INTERNET:
-			str = "internet";
-			break;
-		case COMMUNITY_ACCEPT_OWN:
-			str = "accept-own";
-			break;
-		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
-			str = "route-filter-translated-v4";
-			break;
-		case COMMUNITY_ROUTE_FILTER_v4:
-			str = "route-filter-v4";
-			break;
-		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
-			str = "route-filter-translated-v6";
-			break;
-		case COMMUNITY_ROUTE_FILTER_v6:
-			str = "route-filter-v6";
-			break;
-		case COMMUNITY_LLGR_STALE:
-			str = "llgr-stale";
-			break;
-		case COMMUNITY_NO_LLGR:
-			str = "no-llgr";
-			break;
-		case COMMUNITY_ACCEPT_OWN_NEXTHOP:
-			str = "accept-own-nexthop";
-			break;
-		case COMMUNITY_BLACKHOLE:
-			str = "blackhole";
-			break;
-		case COMMUNITY_NO_EXPORT:
-			str = "no-export";
-			break;
-		case COMMUNITY_NO_ADVERTISE:
-			str = "no-advertise";
-			break;
-		case COMMUNITY_LOCAL_AS:
-			str = "local-AS";
-			break;
-		case COMMUNITY_NO_PEER:
-			str = "no-peer";
-			break;
-		default:
-			sprintf (c, "%d:%d", (comval >> 16) & 0xFFFF,
-			 comval & 0xFFFF);
-			str = c;
-			break;
-		}
-
-		if (regexec (reg, str, 0, NULL, 0) == 0)
-			community_del_val (com, com_nthval (com, i));
-		else
-			i++;
-	}
-	return com;
-}
-#endif
-
 /* When given community attribute matches to the community-list return
    1 else return 0.  */
 bool community_list_match(struct community *com, struct community_list *list)
@@ -1110,11 +1030,14 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 }
 
 /* Helper to check if every octet do not exceed UINT_MAX */
-static bool lcommunity_list_valid(const char *community)
+bool lcommunity_list_valid(const char *community, int style)
 {
 	int octets;
 	char **splits, **communities;
+	char *endptr;
 	int num, num_communities;
+	regex_t *regres;
+	int invalid = 0;
 
 	frrstr_split(community, " ", &communities, &num_communities);
 
@@ -1123,25 +1046,43 @@ static bool lcommunity_list_valid(const char *community)
 		frrstr_split(communities[j], ":", &splits, &num);
 
 		for (int i = 0; i < num; i++) {
-			if (strtoul(splits[i], NULL, 10) > UINT_MAX)
-				return false;
-
 			if (strlen(splits[i]) == 0)
-				return false;
+				/* There is no digit to check */
+				invalid++;
+
+			if (style == LARGE_COMMUNITY_LIST_STANDARD) {
+				if (*splits[i] == '-')
+					/* Must not be negative */
+					invalid++;
+				else if (strtoul(splits[i], &endptr, 10)
+					 > UINT_MAX)
+					/* Larger than 4 octets */
+					invalid++;
+				else if (*endptr)
+					/* Not all characters were digits */
+					invalid++;
+			} else {
+				regres = bgp_regcomp(communities[j]);
+				if (!regres)
+					/* malformed regex */
+					invalid++;
+				else
+					bgp_regex_free(regres);
+			}
 
 			octets++;
 			XFREE(MTYPE_TMP, splits[i]);
 		}
 		XFREE(MTYPE_TMP, splits);
 
-		if (octets < 3)
-			return false;
+		if (octets != 3)
+			invalid++;
 
 		XFREE(MTYPE_TMP, communities[j]);
 	}
 	XFREE(MTYPE_TMP, communities);
 
-	return true;
+	return (invalid > 0) ? false : true;
 }
 
 /* Set lcommunity-list.  */
@@ -1176,9 +1117,6 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	}
 
 	if (str) {
-		if (!lcommunity_list_valid(str))
-			return COMMUNITY_LIST_ERR_MALFORMED_VAL;
-
 		if (style == LARGE_COMMUNITY_LIST_STANDARD)
 			lcom = lcommunity_str2com(str);
 		else

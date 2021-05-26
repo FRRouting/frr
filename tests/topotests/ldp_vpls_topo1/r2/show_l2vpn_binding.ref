@@ -1,0 +1,16 @@
+{
+  "1.1.1.1: 100":{
+    "destination":"1.1.1.1",
+    "vcId":100,
+    "localLabel":16,
+    "localControlWord":1,
+    "localVcType":"Ethernet",
+    "localGroupID":0,
+    "localIfMtu":1500,
+    "remoteLabel":16,
+    "remoteControlWord":1,
+    "remoteVcType":"Ethernet",
+    "remoteGroupID":0,
+    "remoteIfMtu":1500
+  }
+}

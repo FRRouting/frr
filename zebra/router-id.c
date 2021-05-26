@@ -29,7 +29,6 @@
 #include "stream.h"
 #include "command.h"
 #include "memory.h"
-#include "zebra_memory.h"
 #include "ioctl.h"
 #include "connected.h"
 #include "network.h"

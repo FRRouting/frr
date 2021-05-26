@@ -61,8 +61,8 @@
 
 #define PING_TOKEN	"PING"
 
-DEFINE_MGROUP(WATCHFRR, "watchfrr")
-DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry")
+DEFINE_MGROUP(WATCHFRR, "watchfrr");
+DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry");
 
 /* Needs to be global, referenced somewhere inside libfrr. */
 struct thread_master *master;
@@ -316,7 +316,7 @@ static pid_t run_background(char *shell_cmd)
 		/* Use separate process group so child processes can be killed
 		 * easily. */
 		if (setpgid(0, 0) < 0)
-			zlog_warn("warning: setpgid(0,0) failed: %s",
+			zlog_warn("setpgid(0,0) failed: %s",
 				  safe_strerror(errno));
 		{
 			char shell[] = "sh";
@@ -356,7 +356,7 @@ static int restart_kill(struct thread *t_kill)
 
 	time_elapsed(&delay, &restart->time);
 	zlog_warn(
-		"Warning: %s %s child process %d still running after %ld seconds, sending signal %d",
+		"%s %s child process %d still running after %ld seconds, sending signal %d",
 		restart->what, restart->name, (int)restart->pid,
 		(long)delay.tv_sec, (restart->kills ? SIGKILL : SIGTERM));
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
@@ -423,7 +423,7 @@ static void sigchild(void)
 		what = "background";
 	}
 	if (WIFSTOPPED(status))
-		zlog_warn("warning: %s %s process %d is stopped", what, name,
+		zlog_warn("%s %s process %d is stopped", what, name,
 			  (int)child);
 	else if (WIFSIGNALED(status))
 		zlog_warn("%s %s process %d terminated due to signal %d", what,
@@ -1080,6 +1080,9 @@ static int valid_command(const char *cmd)
 {
 	char *p;
 
+	if (cmd == NULL)
+		return 0;
+
 	return ((p = strchr(cmd, '%')) != NULL) && (*(p + 1) == 's')
 	       && !strchr(p + 1, '%');
 }
@@ -1333,7 +1336,8 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 		.signals = watchfrr_signals,
 		.n_signals = array_size(watchfrr_signals),
 
-		.privs = &watchfrr_privs, )
+		.privs = &watchfrr_privs,
+);
 
 #define DEPRECATED_OPTIONS "aAezR:"
 
@@ -1414,7 +1418,7 @@ int main(int argc, char **argv)
 		} break;
 		case OPTION_NETNS:
 			netns_en = true;
-			if (strchr(optarg, '/')) {
+			if (optarg && strchr(optarg, '/')) {
 				fprintf(stderr,
 					"invalid network namespace name \"%s\" (may not contain slashes)\n",
 					optarg);

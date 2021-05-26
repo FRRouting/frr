@@ -36,7 +36,6 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/router-id.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_vxlan.h"
@@ -48,8 +47,8 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
 					struct route_node *node);
 
-DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_VRF, "ZEBRA VRF")
-DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table")
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_VRF, "ZEBRA VRF");
+DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table");
 
 /* VRF information update. */
 static void zebra_vrf_add_update(struct zebra_vrf *zvrf)
@@ -104,9 +103,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
-	zvrf = zebra_vrf_alloc();
-	vrf->info = zvrf;
-	zvrf->vrf = vrf;
+	zvrf = zebra_vrf_alloc(vrf);
 	if (!vrf_is_backend_netns())
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 
@@ -339,20 +336,6 @@ static int zebra_vrf_update(struct vrf *vrf)
 	return 0;
 }
 
-
-/* Return if this VRF has any FRR configuration or not.
- * IMPORTANT: This function needs to be updated when additional configuration
- * is added for a VRF.
- */
-int zebra_vrf_has_config(struct zebra_vrf *zvrf)
-{
-	/* EVPN L3-VNI? */
-	if (zvrf->l3vni)
-		return 1;
-
-	return 0;
-}
-
 /* Lookup the routing table in a VRF based on both VRF-Id and table-id.
  * NOTE: Table-id is relevant on two modes:
  * - case VRF backend is default : on default VRF only
@@ -413,23 +396,6 @@ done:
 	return table;
 }
 
-void zebra_rtable_node_cleanup(struct route_table *table,
-			       struct route_node *node)
-{
-	struct route_entry *re, *next;
-
-	RNODE_FOREACH_RE_SAFE (node, re, next) {
-		rib_unlink(node, re);
-	}
-
-	if (node->info) {
-		rib_dest_t *dest = node->info;
-
-		rnh_list_fini(&dest->nht);
-		XFREE(MTYPE_RIB_DEST, node->info);
-	}
-}
-
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
 					struct route_node *node)
 {
@@ -459,11 +425,14 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 }
 
 /* Allocate new zebra VRF. */
-struct zebra_vrf *zebra_vrf_alloc(void)
+struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf;
 
 	zvrf = XCALLOC(MTYPE_ZEBRA_VRF, sizeof(struct zebra_vrf));
+
+	zvrf->vrf = vrf;
+	vrf->info = zvrf;
 
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);

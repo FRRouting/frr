@@ -1,0 +1,72 @@
+1.1.1.1
+ resolved via static
+ is directly connected, r1-eth1
+ Client list: pbr(fd XX)
+1.1.1.2
+ resolved via static
+ is directly connected, r1-eth2
+ Client list: pbr(fd XX)
+1.1.1.3
+ resolved via static
+ is directly connected, r1-eth3
+ Client list: pbr(fd XX)
+1.1.1.4
+ resolved via static
+ is directly connected, r1-eth4
+ Client list: pbr(fd XX)
+1.1.1.5
+ resolved via static
+ is directly connected, r1-eth5
+ Client list: pbr(fd XX)
+1.1.1.6
+ resolved via static
+ is directly connected, r1-eth6
+ Client list: pbr(fd XX)
+1.1.1.7
+ resolved via static
+ is directly connected, r1-eth7
+ Client list: pbr(fd XX)
+1.1.1.8
+ resolved via static
+ is directly connected, r1-eth8
+ Client list: pbr(fd XX)
+2.2.2.1
+ unresolved
+ Client list: pbr(fd XX)
+4.4.4.1
+ unresolved
+ Client list: pbr(fd XX)
+4.4.4.2
+ unresolved
+ Client list: pbr(fd XX)
+6.6.6.1
+ unresolved
+ Client list: pbr(fd XX)
+6.6.6.2
+ unresolved
+ Client list: pbr(fd XX)
+6.6.6.3
+ unresolved
+ Client list: pbr(fd XX)
+6.6.6.4
+ unresolved
+ Client list: pbr(fd XX)
+192.168.0.2
+ resolved via connected
+ is directly connected, r1-eth0
+ Client list: static(fd XX)
+192.168.0.4
+ resolved via connected
+ is directly connected, r1-eth0
+ Client list: static(fd XX)
+192.168.7.10
+ resolved via connected
+ is directly connected, r1-eth7
+ Client list: bgp(fd XX)
+192.168.7.20(Connected)
+ resolved via connected
+ is directly connected, r1-eth7
+ Client list: bgp(fd XX)
+192.168.161.4
+ unresolved
+ Client list: pbr(fd XX)

@@ -56,11 +56,14 @@
 #include "isis_csm.h"
 #include "isis_mt.h"
 #include "isis_tlvs.h"
+#include "isis_zebra.h"
 #include "fabricd.h"
 #include "isis_spf_private.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_ADJ, "ISIS SPF Adjacency");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPFTREE,    "ISIS SPFtree");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN,    "ISIS SPF Run Info");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_ADJ,    "ISIS SPF Adjacency");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_VERTEX,     "ISIS vertex");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_VERTEX_ADJ, "ISIS SPF Vertex Adjacency");
 
 static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
@@ -247,6 +250,20 @@ static struct isis_vertex *isis_vertex_new(struct isis_spftree *spftree,
 	return vertex;
 }
 
+void isis_vertex_del(struct isis_vertex *vertex)
+{
+	list_delete(&vertex->Adj_N);
+	list_delete(&vertex->parents);
+	if (vertex->firsthops) {
+		hash_clean(vertex->firsthops, NULL);
+		hash_free(vertex->firsthops);
+		vertex->firsthops = NULL;
+	}
+
+	memset(vertex, 0, sizeof(struct isis_vertex));
+	XFREE(MTYPE_ISIS_VERTEX, vertex);
+}
+
 struct isis_vertex_adj *
 isis_vertex_adj_add(struct isis_spftree *spftree, struct isis_vertex *vertex,
 		    struct list *vadj_list, struct isis_spf_adj *sadj,
@@ -354,7 +371,10 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area,
 	tree->tree_id = tree_id;
 	tree->family = (tree->tree_id == SPFTREE_IPV4) ? AF_INET : AF_INET6;
 	tree->flags = flags;
-	if (tree->type == SPF_TYPE_TI_LFA) {
+	isis_rlfa_list_init(tree);
+	tree->lfa.remote.pc_spftrees = list_new();
+	tree->lfa.remote.pc_spftrees->del = (void (*)(void *))isis_spftree_del;
+	if (tree->type == SPF_TYPE_RLFA || tree->type == SPF_TYPE_TI_LFA) {
 		isis_spf_node_list_init(&tree->lfa.p_space);
 		isis_spf_node_list_init(&tree->lfa.q_space);
 	}
@@ -366,7 +386,11 @@ void isis_spftree_del(struct isis_spftree *spftree)
 {
 	hash_clean(spftree->prefix_sids, NULL);
 	hash_free(spftree->prefix_sids);
-	if (spftree->type == SPF_TYPE_TI_LFA) {
+	isis_zebra_rlfa_unregister_all(spftree);
+	isis_rlfa_list_clear(spftree);
+	list_delete(&spftree->lfa.remote.pc_spftrees);
+	if (spftree->type == SPF_TYPE_RLFA
+	    || spftree->type == SPF_TYPE_TI_LFA) {
 		isis_spf_node_list_clear(&spftree->lfa.q_space);
 		isis_spf_node_list_clear(&spftree->lfa.p_space);
 	}
@@ -820,7 +844,8 @@ lspfragloop:
 #endif /* EXTREME_DEBUG */
 
 	if (no_overload) {
-		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST) {
+		if ((pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST)
+		    && spftree->area->oldmetric) {
 			struct isis_oldstyle_reach *r;
 			for (r = (struct isis_oldstyle_reach *)
 					 lsp->tlvs->oldstyle_reach.head;
@@ -848,42 +873,47 @@ lspfragloop:
 			}
 		}
 
-		struct isis_item_list *te_neighs = NULL;
-		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST)
-			te_neighs = &lsp->tlvs->extended_reach;
-		else
-			te_neighs = isis_lookup_mt_items(&lsp->tlvs->mt_reach,
-							 spftree->mtid);
+		if (spftree->area->newmetric) {
+			struct isis_item_list *te_neighs = NULL;
+			if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST)
+				te_neighs = &lsp->tlvs->extended_reach;
+			else
+				te_neighs = isis_lookup_mt_items(
+					&lsp->tlvs->mt_reach, spftree->mtid);
 
-		struct isis_extended_reach *er;
-		for (er = te_neighs
-				  ? (struct isis_extended_reach *)
-					    te_neighs->head
-				  : NULL;
-		     er; er = er->next) {
-			/* C.2.6 a) */
-			/* Two way connectivity */
-			if (!LSP_PSEUDO_ID(er->id)
-			    && !memcmp(er->id, root_sysid, ISIS_SYS_ID_LEN))
-				continue;
-			if (!pseudo_lsp
-			    && !memcmp(er->id, null_sysid, ISIS_SYS_ID_LEN))
-				continue;
-			dist = cost
-			       + (CHECK_FLAG(spftree->flags,
-					     F_SPFTREE_HOPCOUNT_METRIC)
-					  ? 1
-					  : er->metric);
-			process_N(spftree,
-				  LSP_PSEUDO_ID(er->id) ? VTYPE_PSEUDO_TE_IS
-							: VTYPE_NONPSEUDO_TE_IS,
-				  (void *)er->id, dist, depth + 1, NULL,
-				  parent);
+			struct isis_extended_reach *er;
+			for (er = te_neighs ? (struct isis_extended_reach *)
+						      te_neighs->head
+					    : NULL;
+			     er; er = er->next) {
+				/* C.2.6 a) */
+				/* Two way connectivity */
+				if (!LSP_PSEUDO_ID(er->id)
+				    && !memcmp(er->id, root_sysid,
+					       ISIS_SYS_ID_LEN))
+					continue;
+				if (!pseudo_lsp
+				    && !memcmp(er->id, null_sysid,
+					       ISIS_SYS_ID_LEN))
+					continue;
+				dist = cost
+				       + (CHECK_FLAG(spftree->flags,
+						     F_SPFTREE_HOPCOUNT_METRIC)
+						  ? 1
+						  : er->metric);
+				process_N(spftree,
+					  LSP_PSEUDO_ID(er->id)
+						  ? VTYPE_PSEUDO_TE_IS
+						  : VTYPE_NONPSEUDO_TE_IS,
+					  (void *)er->id, dist, depth + 1, NULL,
+					  parent);
+			}
 		}
 	}
 
 	if (!fabricd && !pseudo_lsp && spftree->family == AF_INET
-	    && spftree->mtid == ISIS_MT_IPV4_UNICAST) {
+	    && spftree->mtid == ISIS_MT_IPV4_UNICAST
+	    && spftree->area->oldmetric) {
 		struct isis_item_list *reachs[] = {
 			&lsp->tlvs->oldstyle_ip_reach,
 			&lsp->tlvs->oldstyle_ip_reach_ext};
@@ -907,6 +937,10 @@ lspfragloop:
 			}
 		}
 	}
+
+	/* we can skip all the rest if we're using metric style narrow */
+	if (!spftree->area->newmetric)
+		goto end;
 
 	if (!pseudo_lsp && spftree->family == AF_INET) {
 		struct isis_item_list *ipv4_reachs;
@@ -1025,6 +1059,35 @@ lspfragloop:
 				process_N(spftree, vtype, &ip_info, dist,
 					  depth + 1, NULL, parent);
 		}
+	}
+
+end:
+
+	/* if attach bit set in LSP, attached-bit receive ignore is
+	 * not configured, we are a level-1 area and we have no other
+	 * level-2 | level1-2 areas then add a default route toward
+	 * this neighbor
+	 */
+	if ((lsp->hdr.lsp_bits & LSPBIT_ATT) == LSPBIT_ATT
+	    && !spftree->area->attached_bit_rcv_ignore
+	    && spftree->area->is_type == IS_LEVEL_1
+	    && !isis_area_count(spftree->area->isis, IS_LEVEL_2)) {
+		struct prefix_pair ip_info = { {0} };
+		if (IS_DEBUG_RTE_EVENTS)
+			zlog_debug("ISIS-Spf (%s): add default %s route",
+				   rawlspid_print(lsp->hdr.lsp_id),
+				   spftree->family == AF_INET ? "ipv4"
+							      : "ipv6");
+
+		if (spftree->family == AF_INET) {
+			ip_info.dest.family = AF_INET;
+			vtype = VTYPE_IPREACH_INTERNAL;
+		} else {
+			ip_info.dest.family = AF_INET6;
+			vtype = VTYPE_IP6REACH_INTERNAL;
+		}
+		process_N(spftree, vtype, &ip_info, cost, depth + 1, NULL,
+			  parent);
 	}
 
 	if (fragnode == NULL)
@@ -1429,6 +1492,9 @@ static void init_spt(struct isis_spftree *spftree, int mtid)
 	list_delete_all_node(spftree->sadj_list);
 	isis_vertex_queue_clear(&spftree->tents);
 	isis_vertex_queue_clear(&spftree->paths);
+	isis_zebra_rlfa_unregister_all(spftree);
+	isis_rlfa_list_clear(spftree);
+	list_delete_all_node(spftree->lfa.remote.pc_spftrees);
 	memset(&spftree->lfa.protection_counters, 0,
 	       sizeof(spftree->lfa.protection_counters));
 
@@ -1502,12 +1568,13 @@ static void spf_path_process(struct isis_spftree *spftree,
 		priority = spf_prefix_priority(spftree, vertex);
 		vertex->N.ip.priority = priority;
 		if (vertex->depth == 1 || listcount(vertex->Adj_N) > 0) {
+			struct isis_spftree *pre_spftree;
 			struct route_table *route_table;
 			bool allow_ecmp;
 
-			if (spftree->type == SPF_TYPE_TI_LFA) {
-				struct isis_spftree *pre_spftree;
-
+			switch (spftree->type) {
+			case SPF_TYPE_RLFA:
+			case SPF_TYPE_TI_LFA:
 				if (priority
 				    > area->lfa_priority_limit[level - 1]) {
 					if (IS_DEBUG_LFA)
@@ -1520,7 +1587,16 @@ static void spf_path_process(struct isis_spftree *spftree,
 								sizeof(buff)));
 					return;
 				}
+				break;
+			default:
+				break;
+			}
 
+			switch (spftree->type) {
+			case SPF_TYPE_RLFA:
+				isis_rlfa_check(spftree, vertex);
+				return;
+			case SPF_TYPE_TI_LFA:
 				if (isis_tilfa_check(spftree, vertex) != 0)
 					return;
 
@@ -1529,7 +1605,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 				allow_ecmp = area->lfa_load_sharing[level - 1];
 				pre_spftree->lfa.protection_counters
 					.tilfa[vertex->N.ip.priority] += 1;
-			} else {
+				break;
+			default:
 				route_table = spftree->route_table;
 				allow_ecmp = true;
 
@@ -1544,6 +1621,7 @@ static void spf_path_process(struct isis_spftree *spftree,
 						spftree->lfa.protection_counters
 							.ecmp[priority] += 1;
 				}
+				break;
 			}
 
 			isis_route_create(
@@ -1759,6 +1837,7 @@ static int isis_run_spf_cb(struct thread *thread)
 	struct isis_spf_run *run = THREAD_ARG(thread);
 	struct isis_area *area = run->area;
 	int level = run->level;
+	int have_run = 0;
 
 	XFREE(MTYPE_ISIS_SPF_RUN, run);
 	area->spf_timer[level - 1] = NULL;
@@ -1777,15 +1856,24 @@ static int isis_run_spf_cb(struct thread *thread)
 		zlog_debug("ISIS-SPF (%s) L%d SPF needed, periodic SPF",
 			   area->area_tag, level);
 
-	if (area->ip_circuits)
+	if (area->ip_circuits) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_IPV4][level - 1]);
-	if (area->ipv6_circuits)
+		have_run = 1;
+	}
+	if (area->ipv6_circuits) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_IPV6][level - 1]);
-	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area))
+		have_run = 1;
+	}
+	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area)) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_DSTSRC][level - 1]);
+		have_run = 1;
+	}
+
+	if (have_run)
+		area->spf_run_count[level]++;
 
 	isis_area_verify_routes(area);
 
@@ -1834,6 +1922,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 			area->area_tag, level, diff, func, file, line);
 	}
 
+	thread_cancel(&area->t_rlfa_rib_update);
 	if (area->spf_delay_ietf[level - 1]) {
 		/* Need to call schedule function also if spf delay is running
 		 * to

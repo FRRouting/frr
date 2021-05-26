@@ -26,11 +26,11 @@
 
 #include "command_graph.h"
 
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
-DEFINE_MTYPE_STATIC(LIB, CMD_DESC, "Command Token Text")
-DEFINE_MTYPE_STATIC(LIB, CMD_TEXT, "Command Token Help")
-DEFINE_MTYPE(LIB, CMD_ARG, "Command Argument")
-DEFINE_MTYPE_STATIC(LIB, CMD_VAR, "Command Argument Name")
+DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens");
+DEFINE_MTYPE_STATIC(LIB, CMD_DESC, "Command Token Text");
+DEFINE_MTYPE_STATIC(LIB, CMD_TEXT, "Command Token Help");
+DEFINE_MTYPE(LIB, CMD_ARG, "Command Argument");
+DEFINE_MTYPE_STATIC(LIB, CMD_VAR, "Command Argument Name");
 
 struct cmd_token *cmd_token_new(enum cmd_token_type type, uint8_t attr,
 				const char *text, const char *desc)

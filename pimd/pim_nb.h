@@ -121,6 +121,8 @@ int lib_interface_pim_bfd_min_rx_interval_modify(struct nb_cb_modify_args *args)
 int lib_interface_pim_bfd_min_tx_interval_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_pim_bfd_detect_mult_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_bfd_profile_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_bsm_modify(struct nb_cb_modify_args *args);
 int lib_interface_pim_unicast_bsm_modify(struct nb_cb_modify_args *args);
 int lib_interface_pim_active_active_modify(struct nb_cb_modify_args *args);

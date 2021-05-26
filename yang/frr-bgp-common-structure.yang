@@ -25,8 +25,6 @@ submodule frr-bgp-common-structure {
     prefix frr-bt;
   }
 
-  include frr-bgp-common;
-
   organization
     "FRRouting";
   contact
@@ -118,7 +116,6 @@ submodule frr-bgp-common-structure {
       }
 
       leaf no-prepend {
-        when "../local-as != 0";
         type boolean;
         default "false";
         description
@@ -127,7 +124,7 @@ submodule frr-bgp-common-structure {
            set to 'false' it will prepend local-as to updates.";
       }
 
-      leaf no-replace-as {
+      leaf replace-as {
         type boolean;
         default "false";
         description

@@ -32,7 +32,7 @@
 
 /* Private AS range defined in RFC2270.  */
 #define BGP_PRIVATE_AS_MIN       64512U
-#define BGP_PRIVATE_AS_MAX       65535U
+#define BGP_PRIVATE_AS_MAX UINT16_MAX
 
 /* Private 4 byte AS range defined in RFC6996.  */
 #define BGP_PRIVATE_AS4_MIN     4200000000U
@@ -40,7 +40,7 @@
 
 /* we leave BGP_AS_MAX as the 16bit AS MAX number.  */
 #define BGP_AS_ZERO		          0
-#define BGP_AS_MAX		     65535U
+#define BGP_AS_MAX UINT16_MAX
 #define BGP_AS4_MAX		4294967295U
 /* Transition 16Bit AS as defined by IANA */
 #define BGP_AS_TRANS		 23456U

@@ -74,7 +74,8 @@ int isis_run_dr(struct thread *thread)
 
 	if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
 		zlog_warn("%s: scheduled for non broadcast circuit from %s:%d",
-			  __func__, thread->schedfrom, thread->schedfrom_line);
+			  __func__, thread->xref->xref.file,
+			  thread->xref->xref.line);
 		return ISIS_WARNING;
 	}
 
@@ -96,6 +97,7 @@ static int isis_check_dr_change(struct isis_adjacency *adj, int level)
 	/* was there a DIS state transition ? */
 	{
 		adj->dischanges[level - 1]++;
+		adj->circuit->desig_changes[level - 1]++;
 		/* ok rotate the history list through */
 		for (i = DIS_RECORDS - 1; i > 0; i--) {
 			adj->dis_record[(i * ISIS_LEVELS) + level - 1].dis =

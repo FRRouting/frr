@@ -56,9 +56,9 @@
 #include "ospfd/ospf_ext.h"
 #include "ospfd/ospf_errors.h"
 
-DEFINE_MTYPE_STATIC(OSPFD, OSPF_OPAQUE_FUNCTAB, "OSPF opaque function table")
-DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_TYPE, "OSPF opaque per-type info")
-DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_ID, "OSPF opaque per-ID info")
+DEFINE_MTYPE_STATIC(OSPFD, OSPF_OPAQUE_FUNCTAB, "OSPF opaque function table");
+DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_TYPE, "OSPF opaque per-type info");
+DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_ID, "OSPF opaque per-ID info");
 
 /*------------------------------------------------------------------------*
  * Followings are initialize/terminate functions for Opaque-LSAs handling.
@@ -1204,9 +1204,10 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 
 void ospf_opaque_lsa_dump(struct stream *s, uint16_t length)
 {
-	struct ospf_lsa lsa;
+	struct ospf_lsa lsa = {};
 
 	lsa.data = (struct lsa_header *)stream_pnt(s);
+	lsa.size = length;
 	show_opaque_info_detail(NULL, &lsa, NULL);
 	return;
 }

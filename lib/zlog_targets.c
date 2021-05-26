@@ -31,13 +31,13 @@
  * absolute end.
  */
 
-DECLARE_MGROUP(LOG)
-DEFINE_MGROUP_ACTIVEATEXIT(LOG, "logging subsystem")
+DECLARE_MGROUP(LOG);
+DEFINE_MGROUP_ACTIVEATEXIT(LOG, "logging subsystem");
 
-DEFINE_MTYPE_STATIC(LOG, LOG_FD,        "log file target")
-DEFINE_MTYPE_STATIC(LOG, LOG_FD_NAME,   "log file name")
-DEFINE_MTYPE_STATIC(LOG, LOG_FD_ROTATE, "log file rotate helper")
-DEFINE_MTYPE_STATIC(LOG, LOG_SYSL,      "syslog target")
+DEFINE_MTYPE_STATIC(LOG, LOG_FD,        "log file target");
+DEFINE_MTYPE_STATIC(LOG, LOG_FD_NAME,   "log file name");
+DEFINE_MTYPE_STATIC(LOG, LOG_FD_ROTATE, "log file rotate helper");
+DEFINE_MTYPE_STATIC(LOG, LOG_SYSL,      "syslog target");
 
 struct zlt_fd {
 	struct zlog_target zt;
@@ -78,40 +78,48 @@ void zlog_fd(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsgs)
 		struct zlog_msg *msg = msgs[i];
 		int prio = zlog_msg_prio(msg);
 
-		if (prio > zt->prio_min)
-			continue;
+		if (prio <= zt->prio_min) {
+			iov[iovpos].iov_base = ts_pos;
+			if (iovpos > 0)
+				*ts_pos++ = '\n';
+			ts_pos += zlog_msg_ts(msg, ts_pos,
+					      sizeof(ts_buf) - 1
+						      - (ts_pos - ts_buf),
+					      ZLOG_TS_LEGACY | zte->ts_subsec);
+			*ts_pos++ = ' ';
+			iov[iovpos].iov_len =
+				ts_pos - (char *)iov[iovpos].iov_base;
 
-		iov[iovpos].iov_base = ts_pos;
-		if (iovpos > 0)
-			*ts_pos++ = '\n';
-		ts_pos += zlog_msg_ts(msg, ts_pos, sizeof(ts_buf) - 1
-				      - (ts_pos - ts_buf),
-				      ZLOG_TS_LEGACY | zte->ts_subsec);
-		*ts_pos++ = ' ';
-		iov[iovpos].iov_len = ts_pos - (char *)iov[iovpos].iov_base;
+			iovpos++;
 
-		iovpos++;
+			if (zte->record_priority) {
+				iov[iovpos].iov_base = (char *)prionames[prio];
+				iov[iovpos].iov_len =
+					strlen(iov[iovpos].iov_base);
 
-		if (zte->record_priority) {
-			iov[iovpos].iov_base = (char *)prionames[prio];
-			iov[iovpos].iov_len = strlen(iov[iovpos].iov_base);
+				iovpos++;
+			}
+
+			iov[iovpos].iov_base = zlog_prefix;
+			iov[iovpos].iov_len = zlog_prefixsz;
+
+			iovpos++;
+
+			iov[iovpos].iov_base =
+				(char *)zlog_msg_text(msg, &textlen);
+			iov[iovpos].iov_len = textlen;
 
 			iovpos++;
 		}
 
-		iov[iovpos].iov_base = zlog_prefix;
-		iov[iovpos].iov_len = zlog_prefixsz;
-
-		iovpos++;
-
-		iov[iovpos].iov_base = (char *)zlog_msg_text(msg, &textlen);
-		iov[iovpos].iov_len = textlen;
-
-		iovpos++;
-
-		if (ts_buf + sizeof(ts_buf) - ts_pos < TS_LEN
-		    || i + 1 == nmsgs
-		    || array_size(iov) - iovpos < 5) {
+		/* conditions that trigger writing:
+		 *  - out of space for more timestamps/headers
+		 *  - this being the last message in the batch
+		 *  - not enough remaining iov entries
+		 */
+		if (iovpos > 0 && (ts_buf + sizeof(ts_buf) - ts_pos < TS_LEN
+				   || i + 1 == nmsgs
+				   || array_size(iov) - iovpos < 5)) {
 			iov[iovpos].iov_base = (char *)"\n";
 			iov[iovpos].iov_len = 1;
 

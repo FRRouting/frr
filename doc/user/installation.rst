@@ -1,15 +1,15 @@
+.. index::
+   single: How to install FRR
+   single: Installing FRR
+   single: Building FRR
+
 .. _installation:
 
 Installation
 ============
 
-.. index:: How to install FRR
-.. index:: Installation
-.. index:: Installing FRR
-.. index:: Building the system
-.. index:: Making FRR
-
 This section covers the basics of building, installing and setting up FRR.
+
 
 From Packages
 -------------
@@ -55,14 +55,18 @@ is the release version.
 In addition, release tarballs are published on the GitHub releases page
 `here <https://github.com/FRRouting/frr/releases>`_.
 
-Configuration
-^^^^^^^^^^^^^
 
-.. index:: Configuration options
-.. index:: Options for configuring
-.. index:: Build options
-.. index:: Distribution configuration
-.. index:: Options to `./configure`
+.. index::
+   single: Configuration options
+   single: Options for configuring
+   single: Build options
+   single: Distribution configuration
+   single: Options to `./configure`
+
+.. _build-configuration:
+
+Build Configuration
+^^^^^^^^^^^^^^^^^^^
 
 FRR has an excellent configure script which automatically detects most host
 configurations. There are several additional configure options to customize the
@@ -362,6 +366,10 @@ options from the list below.
 
    Set hardcoded rpaths in the executable [default=yes].
 
+.. option:: --enable-scripting
+
+   Enable Lua scripting [default=no].
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
@@ -381,6 +389,10 @@ options to the configuration script.
 
    Configure zebra to use `dir` for local state files, such as pid files and
    unix sockets.
+
+.. option:: --with-scriptdir <dir>
+
+   Look for Lua scripts in ``dir`` [``prefix``/etc/frr/scripts].
 
 .. option:: --with-yangmodelsdir <dir>
 
@@ -412,13 +424,14 @@ The `sphinx` and `pytest` dependencies can be avoided by not building
 documentation / not running ``make check``, but the CPython dependency is a
 hard dependency of the FRR build process (for the `clippy` tool.)
 
+.. index::
+   single: FRR Least-Privileges
+   single: FRR Privileges
+
 .. _least-privilege-support:
 
 Least-Privilege Support
 """""""""""""""""""""""
-
-.. index:: FRR Least-Privileges
-.. index:: FRR Privileges
 
 Additionally, you may configure zebra to drop its elevated privileges
 shortly after startup and switch to another user. The configure script will
@@ -452,11 +465,13 @@ only Linux), FRR will retain only minimal capabilities required and will only
 raise these capabilities for brief periods. On systems without libcap, FRR will
 run as the user specified and only raise its UID to 0 for brief periods.
 
+
+.. index::
+   pair: building; Linux
+   pair: configuration; Linux
+
 Linux Notes
 """""""""""
-
-.. index:: Building on Linux boxes
-.. index:: Linux configurations
 
 There are several options available only to GNU/Linux systems.  If you use
 GNU/Linux, make sure that the current kernel configuration is what you want.

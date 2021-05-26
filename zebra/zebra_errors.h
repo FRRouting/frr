@@ -134,6 +134,7 @@ enum zebra_log_refs {
 	EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
 	EC_ZEBRA_VRF_MISCONFIGURED,
 	EC_ZEBRA_ES_CREATE,
+	EC_ZEBRA_GRE_SET_UPDATE,
 };
 
 void zebra_error_init(void);

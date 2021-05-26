@@ -242,7 +242,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	if (!rn) {
 		flog_err(
 			EC_LIB_DEVELOPMENT,
-			"%s: BUG We should have found default group information\n",
+			"%s: BUG We should have found default group information",
 			__func__);
 		return best;
 	}
@@ -271,7 +271,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
  *
  * This is a placeholder function for now.
  */
-static void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
+void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 {
 	pim_msdp_i_am_rp_changed(pim);
 	pim_upstream_reeval_use_rpt(pim);
@@ -702,7 +702,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		bsgrp = pim_bsm_get_bsgrp_node(&pim->global_scope, &group);
 
 		if (bsgrp) {
-			bsrp = listnode_head(bsgrp->bsrp_list);
+			bsrp = bsm_rpinfos_first(bsgrp->bsrp_list);
 			if (bsrp) {
 				if (PIM_DEBUG_PIM_TRACE) {
 					char bsrp_str[INET_ADDRSTRLEN];
@@ -1159,7 +1159,7 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 bool pim_rp_check_is_my_ip_address(struct pim_instance *pim,
 				   struct in_addr dest_addr)
 {
-	if (if_lookup_exact_address(&dest_addr, AF_INET, pim->vrf_id))
+	if (if_lookup_exact_address(&dest_addr, AF_INET, pim->vrf->vrf_id))
 		return true;
 
 	return false;
@@ -1323,7 +1323,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 				continue;
 
 			struct interface *ifp1 = if_lookup_by_index(
-				nh_node->ifindex, pim->vrf_id);
+				nh_node->ifindex, pim->vrf->vrf_id);
 
 			if (nbr->interface != ifp1)
 				continue;

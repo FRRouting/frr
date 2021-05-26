@@ -5,7 +5,6 @@
 if ISISD
 noinst_LIBRARIES += isisd/libisis.a
 sbin_PROGRAMS += isisd/isisd
-dist_examples_DATA += isisd/isisd.conf.sample
 vtysh_scan += \
 	isisd/isis_cli.c \
 	isisd/isis_ldp_sync.c \
@@ -17,13 +16,15 @@ vtysh_scan += \
 	isisd/isisd.c \
 	# end
 vtysh_daemons += isisd
+if SNMP
+module_LTLIBRARIES += isisd/isisd_snmp.la
+endif
 man8 += $(MANBUILD)/frr-isisd.8
 endif
 
 if FABRICD
 noinst_LIBRARIES += isisd/libfabric.a
 sbin_PROGRAMS += isisd/fabricd
-dist_examples_DATA += isisd/fabricd.conf.sample
 if !ISISD
 vtysh_scan += \
 	isisd/isis_cli.c \
@@ -54,7 +55,6 @@ noinst_HEADERS += \
 	isisd/isis_ldp_sync.h \
 	isisd/isis_lfa.h \
 	isisd/isis_lsp.h \
-	isisd/isis_memory.h \
 	isisd/isis_misc.h \
 	isisd/isis_mt.h \
 	isisd/isis_nb.h \
@@ -89,7 +89,6 @@ LIBISIS_SOURCES = \
 	isisd/isis_ldp_sync.c \
 	isisd/isis_lfa.c \
 	isisd/isis_lsp.c \
-	isisd/isis_memory.c \
 	isisd/isis_misc.c \
 	isisd/isis_mt.c \
 	isisd/isis_pdu.c \
@@ -137,7 +136,12 @@ isisd_isisd_SOURCES = $(ISIS_SOURCES)
 nodist_isisd_isisd_SOURCES = \
 	yang/frr-isisd.yang.c \
 	# end
-	
+
+isisd_isisd_snmp_la_SOURCES = isisd/isis_snmp.c
+isisd_isisd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
+isisd_isisd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+isisd_isisd_snmp_la_LIBADD = lib/libfrrsnmp.la
+
 # Building fabricd
 
 FABRICD_CPPFLAGS = -DFABRICD=1 $(AM_CPPFLAGS)

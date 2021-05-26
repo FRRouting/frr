@@ -64,6 +64,15 @@ struct zebra_pbr_rule {
  *
  * This is a filter mapped on ipset entries
  */
+struct zebra_pbr_ipset_info {
+	/* type is encoded as uint32_t
+	 * but value is an enum ipset_type
+	 */
+	uint32_t type;
+
+	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
+};
+
 struct zebra_pbr_ipset {
 	/*
 	 * Originating zclient sock fd, so we can know who to send
@@ -84,6 +93,7 @@ struct zebra_pbr_ipset {
 
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
+
 
 /*
  * An IPSet Entry Filter
@@ -177,6 +187,9 @@ void zebra_pbr_del_ipset_entry(struct zebra_pbr_ipset_entry *ipset);
 
 void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable);
 void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable);
+void zebra_pbr_process_iptable(struct zebra_dplane_ctx *ctx);
+void zebra_pbr_process_ipset(struct zebra_dplane_ctx *ctx);
+void zebra_pbr_process_ipset_entry(struct zebra_dplane_ctx *ctx);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.
@@ -197,9 +210,6 @@ extern void kernel_pbr_ipset_add_del_status(struct zebra_pbr_ipset *ipset,
 extern void kernel_pbr_ipset_entry_add_del_status(
 				struct zebra_pbr_ipset_entry *ipset,
 				enum zebra_dplane_status res);
-
-extern void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
-			      enum zebra_dplane_status res);
 
 /*
  * Handle rule delete notification from kernel.
@@ -239,11 +249,11 @@ size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
 DECLARE_HOOK(zebra_pbr_ipset_entry_get_stat,
 	     (struct zebra_pbr_ipset_entry *ipset, uint64_t *pkts,
 	      uint64_t *bytes),
-	     (ipset, pkts, bytes))
+	     (ipset, pkts, bytes));
 DECLARE_HOOK(zebra_pbr_iptable_get_stat,
 	     (struct zebra_pbr_iptable *iptable, uint64_t *pkts,
 	      uint64_t *bytes),
-	     (iptable, pkts, bytes))
+	     (iptable, pkts, bytes));
 DECLARE_HOOK(zebra_pbr_iptable_update,
 	     (int cmd, struct zebra_pbr_iptable *iptable), (cmd, iptable));
 

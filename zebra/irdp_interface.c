@@ -34,7 +34,6 @@
 #include "prefix.h"
 #include "command.h"
 #include "memory.h"
-#include "zebra_memory.h"
 #include "stream.h"
 #include "ioctl.h"
 #include "connected.h"
@@ -57,7 +56,7 @@
 
 extern int irdp_sock;
 
-DEFINE_MTYPE_STATIC(ZEBRA, IRDP_IF, "IRDP interface data")
+DEFINE_MTYPE_STATIC(ZEBRA, IRDP_IF, "IRDP interface data");
 
 #define IRDP_CONFIGED                                                                 \
 	do {                                                                          \
@@ -93,10 +92,10 @@ static int irdp_if_delete(struct interface *ifp)
 	return 0;
 }
 
-static const char *inet_2a(uint32_t a, char *b)
+static const char *inet_2a(uint32_t a, char *b, size_t b_len)
 {
-	sprintf(b, "%u.%u.%u.%u", (a)&0xFF, (a >> 8) & 0xFF, (a >> 16) & 0xFF,
-		(a >> 24) & 0xFF);
+	snprintf(b, b_len, "%u.%u.%u.%u", (a)&0xFF, (a >> 8) & 0xFF,
+		 (a >> 16) & 0xFF, (a >> 24) & 0xFF);
 	return b;
 }
 
@@ -140,7 +139,8 @@ static int if_group(struct interface *ifp, int sock, uint32_t group,
 		flog_err_sys(EC_LIB_SOCKET, "IRDP: %s can't setsockopt %s: %s",
 			     add_leave == IP_ADD_MEMBERSHIP ? "join group"
 							    : "leave group",
-			     inet_2a(group, b1), safe_strerror(errno));
+			     inet_2a(group, b1, sizeof(b1)),
+			     safe_strerror(errno));
 
 	return ret;
 }
@@ -162,7 +162,8 @@ static int if_add_group(struct interface *ifp)
 
 	if (irdp->flags & IF_DEBUG_MISC)
 		zlog_debug("IRDP: Adding group %s for %s",
-			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1), ifp->name);
+			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1, sizeof(b1)),
+			   ifp->name);
 	return 0;
 }
 
@@ -183,7 +184,8 @@ static int if_drop_group(struct interface *ifp)
 
 	if (irdp->flags & IF_DEBUG_MISC)
 		zlog_debug("IRDP: Leaving group %s for %s",
-			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1), ifp->name);
+			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1, sizeof(b1)),
+			   ifp->name);
 	return 0;
 }
 
@@ -383,7 +385,8 @@ int irdp_config_write(struct vty *vty, struct interface *ifp)
 
 		for (ALL_LIST_ELEMENTS_RO(irdp->AdvPrefList, node, adv))
 			vty_out(vty, " ip irdp address %s preference %d\n",
-				inet_2a(adv->ip.s_addr, b1), adv->pref);
+				inet_2a(adv->ip.s_addr, b1, sizeof(b1)),
+				adv->pref);
 
 		vty_out(vty, " ip irdp holdtime %d\n", irdp->Lifetime);
 

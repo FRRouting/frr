@@ -32,8 +32,8 @@
 #include "sharp_globals.h"
 #include "sharp_zebra.h"
 
-DEFINE_MTYPE_STATIC(SHARPD, NH_TRACKER, "Nexthop Tracker")
-DEFINE_MTYPE_STATIC(SHARPD, NHG, "Nexthop Group")
+DEFINE_MTYPE_STATIC(SHARPD, NH_TRACKER, "Nexthop Tracker");
+DEFINE_MTYPE_STATIC(SHARPD, NHG, "Nexthop Group");
 
 struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p)
 {

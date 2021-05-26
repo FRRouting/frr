@@ -59,27 +59,30 @@ char nlpidstring[30];
 const char *isonet_print(const uint8_t *from, int len)
 {
 	int i = 0;
-	char *pos = isonet;
+	char tbuf[4];
+	isonet[0] = '\0';
 
 	if (!from)
 		return "unknown";
 
 	while (i < len) {
 		if (i & 1) {
-			sprintf(pos, "%02x", *(from + i));
-			pos += 2;
+			snprintf(tbuf, sizeof(tbuf), "%02x", *(from + i));
+			strlcat(isonet, tbuf, sizeof(isonet));
 		} else {
 			if (i == (len - 1)) { /* No dot at the end of address */
-				sprintf(pos, "%02x", *(from + i));
-				pos += 2;
+				snprintf(tbuf, sizeof(tbuf), "%02x",
+					 *(from + i));
+				strlcat(isonet, tbuf, sizeof(isonet));
 			} else {
-				sprintf(pos, "%02x.", *(from + i));
-				pos += 3;
+				snprintf(tbuf, sizeof(tbuf), "%02x.",
+					 *(from + i));
+				strlcat(isonet, tbuf, sizeof(isonet));
 			}
 		}
 		i++;
 	}
-	*(pos) = '\0';
+
 	return isonet;
 }
 
@@ -202,16 +205,17 @@ const char *nlpid2str(uint8_t nlpid)
 
 char *nlpid2string(struct nlpids *nlpids)
 {
-	char *pos = nlpidstring;
 	int i;
+	char tbuf[256];
+	nlpidstring[0] = '\0';
 
 	for (i = 0; i < nlpids->count; i++) {
-		pos += sprintf(pos, "%s", nlpid2str(nlpids->nlpids[i]));
+		snprintf(tbuf, sizeof(tbuf), "%s",
+			 nlpid2str(nlpids->nlpids[i]));
+		strlcat(nlpidstring, tbuf, sizeof(nlpidstring));
 		if (nlpids->count - i > 1)
-			pos += sprintf(pos, ", ");
+			strlcat(nlpidstring, ", ", sizeof(nlpidstring));
 	}
-
-	*(pos) = '\0';
 
 	return nlpidstring;
 }
@@ -359,34 +363,47 @@ const char *isis_format_id(const uint8_t *id, size_t len)
 
 const char *time2string(uint32_t time)
 {
-	char *pos = datestring;
 	uint32_t rest;
+	char tbuf[32];
+	datestring[0] = '\0';
 
 	if (time == 0)
 		return "-";
 
-	if (time / SECS_PER_YEAR)
-		pos += sprintf(pos, "%uY", time / SECS_PER_YEAR);
+	if (time / SECS_PER_YEAR) {
+		snprintf(tbuf, sizeof(tbuf), "%uY", time / SECS_PER_YEAR);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = time % SECS_PER_YEAR;
-	if (rest / SECS_PER_MONTH)
-		pos += sprintf(pos, "%uM", rest / SECS_PER_MONTH);
+	if (rest / SECS_PER_MONTH) {
+		snprintf(tbuf, sizeof(tbuf), "%uM", rest / SECS_PER_MONTH);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_MONTH;
-	if (rest / SECS_PER_WEEK)
-		pos += sprintf(pos, "%uw", rest / SECS_PER_WEEK);
+	if (rest / SECS_PER_WEEK) {
+		snprintf(tbuf, sizeof(tbuf), "%uw", rest / SECS_PER_WEEK);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_WEEK;
-	if (rest / SECS_PER_DAY)
-		pos += sprintf(pos, "%ud", rest / SECS_PER_DAY);
+	if (rest / SECS_PER_DAY) {
+		snprintf(tbuf, sizeof(tbuf), "%ud", rest / SECS_PER_DAY);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_DAY;
-	if (rest / SECS_PER_HOUR)
-		pos += sprintf(pos, "%uh", rest / SECS_PER_HOUR);
+	if (rest / SECS_PER_HOUR) {
+		snprintf(tbuf, sizeof(tbuf), "%uh", rest / SECS_PER_HOUR);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_HOUR;
-	if (rest / SECS_PER_MINUTE)
-		pos += sprintf(pos, "%um", rest / SECS_PER_MINUTE);
+	if (rest / SECS_PER_MINUTE) {
+		snprintf(tbuf, sizeof(tbuf), "%um", rest / SECS_PER_MINUTE);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_MINUTE;
-	if (rest)
-		pos += sprintf(pos, "%us", rest);
-
-	*(pos) = 0;
+	if (rest) {
+		snprintf(tbuf, sizeof(tbuf), "%us", rest);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 
 	return datestring;
 }

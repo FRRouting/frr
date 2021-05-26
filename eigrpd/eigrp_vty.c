@@ -59,25 +59,21 @@
 #include "eigrpd/eigrp_vty_clippy.c"
 #endif
 
-static void eigrp_vty_display_prefix_entry(struct vty *vty,
-					   struct eigrp *eigrp,
-					   struct eigrp_prefix_entry *pe,
+static void eigrp_vty_display_prefix_entry(struct vty *vty, struct eigrp *eigrp,
+					   struct eigrp_prefix_descriptor *pe,
 					   bool all)
 {
 	bool first = true;
-	struct eigrp_nexthop_entry *te;
+	struct eigrp_route_descriptor *te;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(pe->entries, node, te)) {
 		if (all
-		    || (((te->flags
-			  & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
-			 == EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
-			|| ((te->flags
-			     & EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG)
-			    == EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG))) {
-			show_ip_eigrp_nexthop_entry(vty, eigrp, te,
-						    &first);
+		    || (((te->flags & EIGRP_ROUTE_DESCRIPTOR_SUCCESSOR_FLAG)
+			 == EIGRP_ROUTE_DESCRIPTOR_SUCCESSOR_FLAG)
+			|| ((te->flags & EIGRP_ROUTE_DESCRIPTOR_FSUCCESSOR_FLAG)
+			    == EIGRP_ROUTE_DESCRIPTOR_FSUCCESSOR_FLAG))) {
+			show_ip_eigrp_route_descriptor(vty, eigrp, te, &first);
 			first = false;
 		}
 	}
@@ -104,7 +100,7 @@ static struct eigrp *eigrp_vty_get_eigrp(struct vty *vty, const char *vrf_name)
 static void eigrp_topology_helper(struct vty *vty, struct eigrp *eigrp,
 				  const char *all)
 {
-	struct eigrp_prefix_entry *tn;
+	struct eigrp_prefix_descriptor *tn;
 	struct route_node *rn;
 
 	show_ip_eigrp_topology_header(vty, eigrp);
@@ -168,7 +164,7 @@ DEFPY (show_ip_eigrp_topology,
        "For a specific prefix\n")
 {
 	struct eigrp *eigrp;
-	struct eigrp_prefix_entry *tn;
+	struct eigrp_prefix_descriptor *tn;
 	struct route_node *rn;
 	struct prefix cmp;
 

@@ -25,15 +25,14 @@
 #include "jhash.h"
 
 #include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_flags.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_tx_queue.h"
 
-DEFINE_MTYPE_STATIC(ISISD, TX_QUEUE, "ISIS TX Queue")
-DEFINE_MTYPE_STATIC(ISISD, TX_QUEUE_ENTRY, "ISIS TX Queue Entry")
+DEFINE_MTYPE_STATIC(ISISD, TX_QUEUE, "ISIS TX Queue");
+DEFINE_MTYPE_STATIC(ISISD, TX_QUEUE_ENTRY, "ISIS TX Queue Entry");
 
 struct isis_tx_queue {
 	struct isis_circuit *circuit;

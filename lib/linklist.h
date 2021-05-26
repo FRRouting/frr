@@ -295,19 +295,6 @@ extern void list_delete_all_node(struct list *list);
 extern void list_delete_node(struct list *list, struct listnode *node);
 
 /*
- * Delete all nodes which satisfy a condition from a list.
- * Deletes the node if cond function returns true for the node.
- * If function ptr passed is NULL, it deletes all nodes
- *
- * list
- *    list to operate on
- * cond
- *    function pointer which takes node data as input and return true or false
- */
-
-extern void list_filter_out_nodes(struct list *list, bool (*cond)(void *data));
-
-/*
  * Insert a new element into a list with insertion sort if there is no
  * duplicate element present in the list. This assumes the input list is
  * sorted. If unsorted, it will check for duplicate until it finds out

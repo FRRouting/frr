@@ -233,7 +233,6 @@ int bgp_md5_unset(struct peer *peer)
 
 int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 {
-	char buf[INET_ADDRSTRLEN];
 	int ret = 0;
 
 	/* In case of peer is EBGP, we should set TTL for this connection.  */
@@ -242,11 +241,8 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
-				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
-				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
-				errno);
+				"%s: Can't set TxTTL on peer (rtrid %pI4) socket, err = %d",
+				__func__, &peer->remote_id, errno);
 			return ret;
 		}
 	} else if (peer->gtsm_hops) {
@@ -258,11 +254,8 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
-				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
-				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
-				errno);
+				"%s: Can't set TxTTL on peer (rtrid %pI4) socket, err = %d",
+				__func__, &peer->remote_id, errno);
 			return ret;
 		}
 		ret = sockopt_minttl(peer->su.sa.sa_family, bgp_sock,
@@ -270,11 +263,8 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
-				"%s: Can't set MinTTL on peer (rtrid %s) socket, err = %d",
-				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
-				errno);
+				"%s: Can't set MinTTL on peer (rtrid %pI4) socket, err = %d",
+				__func__, &peer->remote_id, errno);
 			return ret;
 		}
 	}
@@ -386,7 +376,6 @@ static int bgp_accept(struct thread *thread)
 			     accept_sock);
 		return -1;
 	}
-	listener->thread = NULL;
 
 	thread_add_read(bm->master, bgp_accept, listener, accept_sock,
 			&listener->thread);
@@ -453,6 +442,11 @@ static int bgp_accept(struct thread *thread)
 		if (peer1) {
 			/* Dynamic neighbor has been created, let it proceed */
 			peer1->fd = bgp_sock;
+
+			/* Set the user configured MSS to TCP socket */
+			if (CHECK_FLAG(peer1->flags, PEER_FLAG_TCP_MSS))
+				sockopt_tcp_mss_set(bgp_sock, peer1->tcp_mss);
+
 			bgp_fsm_change_status(peer1, Active);
 			BGP_TIMER_OFF(
 				peer1->t_start); /* created in peer_create() */
@@ -554,7 +548,7 @@ static int bgp_accept(struct thread *thread)
 				peer1->host);
 
 	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
-			   peer1->as, peer1->as_type, 0, 0, NULL);
+			   peer1->as, peer1->as_type, NULL);
 	hash_release(peer->bgp->peerhash, peer);
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
@@ -578,7 +572,10 @@ static int bgp_accept(struct thread *thread)
 	peer->doppelganger = peer1;
 	peer1->doppelganger = peer;
 	peer->fd = bgp_sock;
-	vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(peer));
+	frr_with_privs(&bgpd_privs) {
+		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(peer));
+	}
+	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(peer, Active);
 	BGP_TIMER_OFF(peer->t_start); /* created in peer_create() */
 
@@ -723,6 +720,10 @@ int bgp_connect(struct peer *peer)
 
 	set_nonblocking(peer->fd);
 
+	/* Set the user configured MSS to TCP socket */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TCP_MSS))
+		sockopt_tcp_mss_set(peer->fd, peer->tcp_mss);
+
 	bgp_socket_set_buffer_size(peer->fd);
 
 	if (bgp_set_socket_ttl(peer, peer->fd) < 0)
@@ -847,7 +848,6 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 		listener->bgp = bgp;
 
 	memcpy(&listener->su, sa, salen);
-	listener->thread = NULL;
 	thread_add_read(bm->master, bgp_accept, listener, sock,
 			&listener->thread);
 	listnode_add(bm->listen_sockets, listener);

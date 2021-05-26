@@ -471,8 +471,8 @@ void igmp_anysource_forward_start(struct pim_instance *pim,
 	struct igmp_source *source;
 	struct in_addr src_addr = {.s_addr = 0};
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
-	zassert(group->group_filtermode_isexcl);
-	zassert(listcount(group->group_source_list) < 1);
+	assert(group->group_filtermode_isexcl);
+	assert(listcount(group->group_source_list) < 1);
 
 	source = source_new(group, src_addr);
 	if (!source) {

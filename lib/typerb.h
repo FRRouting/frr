@@ -65,7 +65,8 @@ struct typed_rb_entry *typed_rb_next(const struct typed_rb_entry *rbe);
 
 #define _PREDECL_RBTREE(prefix)                                                \
 struct prefix ## _head { struct typed_rb_root rr; };                           \
-struct prefix ## _item { struct typed_rb_entry re; };
+struct prefix ## _item { struct typed_rb_entry re; };                          \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_RBTREE_UNIQ(var)		{ }
 #define INIT_RBTREE_NONUNIQ(var)	{ }
@@ -116,6 +117,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	typed_rb_remove(&h->rr, re);                                           \
 	return container_of(re, type, field.re);                               \
 }                                                                              \
+TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	const struct typed_rb_entry *re;                                       \
@@ -140,7 +142,7 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->rr.count;                                                    \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define PREDECL_RBTREE_UNIQ(prefix)                                            \
 	_PREDECL_RBTREE(prefix)
@@ -161,8 +163,8 @@ macro_inline const type *prefix ## _const_find(const struct prefix##_head *h,  \
 }                                                                              \
 TYPESAFE_FIND(prefix, type)                                                    \
                                                                                \
-_DECLARE_RBTREE(prefix, type, field, prefix ## __cmp, prefix ## __cmp)         \
-/* ... */
+_DECLARE_RBTREE(prefix, type, field, prefix ## __cmp, prefix ## __cmp);        \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define PREDECL_RBTREE_NONUNIQ(prefix)                                         \
 	_PREDECL_RBTREE(prefix)
@@ -188,8 +190,8 @@ macro_inline int prefix ## __cmp_uq(const struct typed_rb_entry *a,            \
 	return 0;                                                              \
 }                                                                              \
                                                                                \
-_DECLARE_RBTREE(prefix, type, field, prefix ## __cmp, prefix ## __cmp_uq)      \
-/* ... */
+_DECLARE_RBTREE(prefix, type, field, prefix ## __cmp, prefix ## __cmp_uq);     \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #ifdef __cplusplus
 }

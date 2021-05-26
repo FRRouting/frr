@@ -61,7 +61,7 @@
 
 /* SID/Label Sub TLV - section 2.1 */
 #define SUBTLV_SID_LABEL		1
-#define SUBTLV_SID_LABEL_SIZE		8
+#define SUBTLV_SID_LABEL_SIZE		4
 struct subtlv_sid_label {
 	/* Length is 3 (20 rightmost bits MPLS label) or 4 (32 bits SID) */
 	struct tlv_header header;
@@ -88,6 +88,7 @@ struct ri_sr_tlv_sr_algorithm {
 /* RI SID/Label Range TLV used for SRGB & SRLB - section 3.2 & 3.3 */
 #define RI_SR_TLV_SRGB_LABEL_RANGE	9
 #define RI_SR_TLV_SRLB_LABEL_RANGE	14
+#define RI_SR_TLV_LABEL_RANGE_SIZE	12
 struct ri_sr_tlv_sid_label_range {
 	struct tlv_header header;
 /* Only 24 upper most bits are significant */
@@ -99,6 +100,7 @@ struct ri_sr_tlv_sid_label_range {
 
 /* RI Node/MSD TLV as per RFC 8476 */
 #define RI_SR_TLV_NODE_MSD		12
+#define RI_SR_TLV_NODE_MSD_SIZE		4
 struct ri_sr_tlv_node_msd {
 	struct tlv_header header;
 	uint8_t subtype; /* always = 1 */
@@ -233,9 +235,6 @@ struct ospf_sr_db {
 	/* List of neighbour SR nodes */
 	struct hash *neighbors;
 
-	/* List of SR prefix */
-	struct route_table *prefix;
-
 	/* Local SR info announced in Router Info LSA */
 
 	/* Algorithms supported by the node */
@@ -289,6 +288,9 @@ struct sr_link {
 	struct in_addr adv_router; /* used to identify sender of LSA */
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
+
+	/* Addressed (remote) router id */
+	struct in_addr remote_id;
 
 	/* Interface address */
 	struct in_addr itf_addr;
@@ -361,4 +363,11 @@ extern void ospf_sr_update_local_prefix(struct interface *ifp,
 					struct prefix *p);
 /* Segment Routing re-routing function */
 extern void ospf_sr_update_task(struct ospf *ospf);
+
+/* Support for TI-LFA */
+extern mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id);
+extern mpls_label_t ospf_sr_get_adj_sid_by_id(struct in_addr *root_id,
+					      struct in_addr *neighbor_id);
+extern struct sr_node *ospf_sr_node_create(struct in_addr *rid);
+
 #endif /* _FRR_OSPF_SR_H */

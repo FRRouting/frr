@@ -45,8 +45,9 @@ int lib_route_map_entry_match_destroy(struct nb_cb_destroy_args *args)
 	if (rhc->rhc_mhook == NULL)
 		return NB_OK;
 
-	rv = rhc->rhc_mhook(NULL, rhc->rhc_rmi, rhc->rhc_rule, NULL,
-			    rhc->rhc_event);
+	rv = rhc->rhc_mhook(rhc->rhc_rmi, rhc->rhc_rule, NULL,
+			    rhc->rhc_event,
+			    args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS)
 		return NB_ERR_INCONSISTENCY;
 
@@ -65,7 +66,8 @@ int lib_route_map_entry_set_destroy(struct nb_cb_destroy_args *args)
 	if (rhc->rhc_shook == NULL)
 		return NB_OK;
 
-	rv = rhc->rhc_shook(NULL, rhc->rhc_rmi, rhc->rhc_rule, NULL);
+	rv = rhc->rhc_shook(rhc->rhc_rmi, rhc->rhc_rule, NULL,
+			    args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS)
 		return NB_ERR_INCONSISTENCY;
 
@@ -132,6 +134,30 @@ static int lib_route_map_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_APPLY:
 		rm = nb_running_unset_entry(args->dnode);
 		route_map_delete(rm);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/optimization-disabled
+ */
+static int
+lib_route_map_optimization_disabled_modify(struct nb_cb_modify_args *args)
+{
+	struct route_map *rm;
+	bool disabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		rm = nb_running_get_entry(args->dnode, NULL, true);
+		rm->optimization_disabled = disabled;
 		break;
 	}
 
@@ -245,6 +271,7 @@ lib_route_map_entry_description_destroy(struct nb_cb_destroy_args *args)
 static int lib_route_map_entry_action_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
+	struct route_map *map;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -255,7 +282,15 @@ static int lib_route_map_entry_action_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		rmi = nb_running_get_entry(args->dnode, NULL, true);
 		rmi->type = yang_dnode_get_enum(args->dnode, NULL);
-		/* TODO: notify? */
+		map = rmi->map;
+
+		/* Execute event hook. */
+		if (route_map_master.event_hook) {
+			(*route_map_master.event_hook)(map->name);
+			route_map_notify_dependencies(map->name,
+						      RMAP_EVENT_CALL_ADDED);
+		}
+
 		break;
 	}
 
@@ -498,9 +533,10 @@ static int lib_route_map_entry_match_condition_interface_modify(
 	rhc->rhc_rule = "interface";
 	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
 
-	rv = rmap_match_set_hook.match_interface(NULL, rhc->rhc_rmi,
+	rv = rmap_match_set_hook.match_interface(rhc->rhc_rmi,
 						 "interface", ifname,
-						 RMAP_EVENT_MATCH_ADDED);
+						 RMAP_EVENT_MATCH_ADDED,
+						 args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -523,7 +559,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 {
 	struct routemap_hook_context *rhc;
 	const char *acl;
-	int condition;
+	const char *condition;
 	int rv;
 
 	if (args->event != NB_EV_APPLY)
@@ -532,19 +568,19 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 	/* Check for hook installation, otherwise we can just stop. */
 	acl = yang_dnode_get_string(args->dnode, NULL);
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	condition = yang_dnode_get_enum(args->dnode, "../condition");
-	switch (condition) {
-	case 1: /* ipv4-address-list */
+	condition = yang_dnode_get_string(args->dnode, "../../condition");
+
+	if (IS_MATCH_IPv4_ADDRESS_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_address == NULL)
 			return NB_OK;
 		rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_address;
 		rhc->rhc_rule = "ip address";
 		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
 		rv = rmap_match_set_hook.match_ip_address(
-			NULL, rhc->rhc_rmi, "ip address", acl,
-			RMAP_EVENT_FILTER_ADDED);
-		break;
-	case 2: /* ipv4-prefix-list */
+			rhc->rhc_rmi, "ip address", acl,
+			RMAP_EVENT_FILTER_ADDED,
+			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv4_PREFIX_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_address_prefix_list == NULL)
 			return NB_OK;
 		rhc->rhc_mhook =
@@ -552,20 +588,20 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rhc->rhc_rule = "ip address prefix-list";
 		rhc->rhc_event = RMAP_EVENT_PLIST_DELETED;
 		rv = rmap_match_set_hook.match_ip_address_prefix_list(
-			NULL, rhc->rhc_rmi, "ip address prefix-list", acl,
-			RMAP_EVENT_PLIST_ADDED);
-		break;
-	case 3: /* ipv4-next-hop-list */
+			rhc->rhc_rmi, "ip address prefix-list", acl,
+			RMAP_EVENT_PLIST_ADDED,
+			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv4_NEXTHOP_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_next_hop == NULL)
 			return NB_OK;
 		rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_next_hop;
 		rhc->rhc_rule = "ip next-hop";
 		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
 		rv = rmap_match_set_hook.match_ip_next_hop(
-			NULL, rhc->rhc_rmi, "ip next-hop", acl,
-			RMAP_EVENT_FILTER_ADDED);
-		break;
-	case 4: /* ipv4-next-hop-prefix-list */
+			rhc->rhc_rmi, "ip next-hop", acl,
+			RMAP_EVENT_FILTER_ADDED,
+			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv4_NEXTHOP_PREFIX_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_next_hop_prefix_list == NULL)
 			return NB_OK;
 		rhc->rhc_mhook =
@@ -573,20 +609,20 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rhc->rhc_rule = "ip next-hop prefix-list";
 		rhc->rhc_event = RMAP_EVENT_PLIST_DELETED;
 		rv = rmap_match_set_hook.match_ip_next_hop_prefix_list(
-			NULL, rhc->rhc_rmi, "ip next-hop prefix-list", acl,
-			RMAP_EVENT_PLIST_ADDED);
-		break;
-	case 6: /* ipv6-address-list */
+			rhc->rhc_rmi, "ip next-hop prefix-list", acl,
+			RMAP_EVENT_PLIST_ADDED,
+			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv6_ADDRESS_LIST(condition)) {
 		if (rmap_match_set_hook.match_ipv6_address == NULL)
 			return NB_OK;
 		rhc->rhc_mhook = rmap_match_set_hook.no_match_ipv6_address;
 		rhc->rhc_rule = "ipv6 address";
 		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
 		rv = rmap_match_set_hook.match_ipv6_address(
-			NULL, rhc->rhc_rmi, "ipv6 address", acl,
-			RMAP_EVENT_FILTER_ADDED);
-		break;
-	case 7: /* ipv6-prefix-list */
+			rhc->rhc_rmi, "ipv6 address", acl,
+			RMAP_EVENT_FILTER_ADDED,
+			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv6_PREFIX_LIST(condition)) {
 		if (rmap_match_set_hook.match_ipv6_address_prefix_list == NULL)
 			return NB_OK;
 		rhc->rhc_mhook =
@@ -594,13 +630,12 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rhc->rhc_rule = "ipv6 address prefix-list";
 		rhc->rhc_event = RMAP_EVENT_PLIST_DELETED;
 		rv = rmap_match_set_hook.match_ipv6_address_prefix_list(
-			NULL, rhc->rhc_rmi, "ipv6 address prefix-list", acl,
-			RMAP_EVENT_PLIST_ADDED);
-		break;
-	default:
+			rhc->rhc_rmi, "ipv6 address prefix-list", acl,
+			RMAP_EVENT_PLIST_ADDED,
+			args->errmsg, args->errmsg_len);
+	} else
 		rv = CMD_ERR_NO_MATCH;
-		break;
-	}
+
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -642,8 +677,9 @@ static int lib_route_map_entry_match_condition_ipv4_next_hop_type_modify(
 	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
 
 	rv = rmap_match_set_hook.match_ip_next_hop_type(
-		NULL, rhc->rhc_rmi, "ip next-hop type", type,
-		RMAP_EVENT_MATCH_ADDED);
+		rhc->rhc_rmi, "ip next-hop type", type,
+		RMAP_EVENT_MATCH_ADDED,
+		args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -685,8 +721,9 @@ static int lib_route_map_entry_match_condition_ipv6_next_hop_type_modify(
 	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
 
 	rv = rmap_match_set_hook.match_ipv6_next_hop_type(
-		NULL, rhc->rhc_rmi, "ipv6 next-hop type", type,
-		RMAP_EVENT_MATCH_ADDED);
+		rhc->rhc_rmi, "ipv6 next-hop type", type,
+		RMAP_EVENT_MATCH_ADDED,
+		args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -727,8 +764,9 @@ static int lib_route_map_entry_match_condition_metric_modify(
 	rhc->rhc_rule = "metric";
 	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
 
-	rv = rmap_match_set_hook.match_metric(NULL, rhc->rhc_rmi, "metric",
-					      type, RMAP_EVENT_MATCH_ADDED);
+	rv = rmap_match_set_hook.match_metric(rhc->rhc_rmi, "metric",
+					      type, RMAP_EVENT_MATCH_ADDED,
+					      args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -769,8 +807,9 @@ lib_route_map_entry_match_condition_tag_modify(struct nb_cb_modify_args *args)
 	rhc->rhc_rule = "tag";
 	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
 
-	rv = rmap_match_set_hook.match_tag(NULL, rhc->rhc_rmi, "tag", tag,
-					   RMAP_EVENT_MATCH_ADDED);
+	rv = rmap_match_set_hook.match_tag(rhc->rhc_rmi, "tag", tag,
+					   RMAP_EVENT_MATCH_ADDED,
+					   args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -850,8 +889,9 @@ static int lib_route_map_entry_set_action_ipv4_address_modify(
 	rhc->rhc_shook = rmap_match_set_hook.no_set_ip_nexthop;
 	rhc->rhc_rule = "ip next-hop";
 
-	rv = rmap_match_set_hook.set_ip_nexthop(NULL, rhc->rhc_rmi,
-						"ip next-hop", address);
+	rv = rmap_match_set_hook.set_ip_nexthop(rhc->rhc_rmi, "ip next-hop",
+						address,
+						args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_shook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -909,7 +949,8 @@ static int lib_route_map_entry_set_action_ipv6_address_modify(
 	rhc->rhc_rule = "ipv6 next-hop local";
 
 	rv = rmap_match_set_hook.set_ipv6_nexthop_local(
-		NULL, rhc->rhc_rmi, "ipv6 next-hop local", address);
+		rhc->rhc_rmi, "ipv6 next-hop local", address,
+		args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_shook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -928,7 +969,8 @@ static int lib_route_map_entry_set_action_ipv6_address_destroy(
  * XPath: /frr-route-map:lib/route-map/entry/set-action/value
  */
 static int set_action_modify(enum nb_event event, const struct lyd_node *dnode,
-			     union nb_resource *resource, const char *value)
+			     union nb_resource *resource, const char *value,
+			     char *errmsg, size_t errmsg_len)
 {
 	struct routemap_hook_context *rhc;
 	int rv;
@@ -952,8 +994,10 @@ static int set_action_modify(enum nb_event event, const struct lyd_node *dnode,
 	rhc->rhc_shook = rmap_match_set_hook.no_set_metric;
 	rhc->rhc_rule = "metric";
 
-	rv = rmap_match_set_hook.set_metric(NULL, rhc->rhc_rmi, "metric",
-					    value);
+	rv = rmap_match_set_hook.set_metric(rhc->rhc_rmi, "metric",
+					    value,
+					    errmsg, errmsg_len
+					    );
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_shook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -968,7 +1012,7 @@ lib_route_map_entry_set_action_value_modify(struct nb_cb_modify_args *args)
 	const char *metric = yang_dnode_get_string(args->dnode, NULL);
 
 	return set_action_modify(args->event, args->dnode, args->resource,
-				 metric);
+				 metric, args->errmsg, args->errmsg_len);
 }
 
 static int
@@ -995,7 +1039,8 @@ lib_route_map_entry_set_action_add_metric_modify(struct nb_cb_modify_args *args)
 	snprintf(metric_str, sizeof(metric_str), "+%s",
 		 yang_dnode_get_string(args->dnode, NULL));
 	return set_action_modify(args->event, args->dnode, args->resource,
-				 metric_str);
+				 metric_str,
+				 args->errmsg, args->errmsg_len);
 }
 
 static int lib_route_map_entry_set_action_add_metric_destroy(
@@ -1022,7 +1067,8 @@ static int lib_route_map_entry_set_action_subtract_metric_modify(
 	snprintf(metric_str, sizeof(metric_str), "-%s",
 		 yang_dnode_get_string(args->dnode, NULL));
 	return set_action_modify(args->event, args->dnode, args->resource,
-				 metric_str);
+				 metric_str,
+				 args->errmsg, args->errmsg_len);
 }
 
 static int lib_route_map_entry_set_action_subtract_metric_destroy(
@@ -1038,7 +1084,8 @@ static int lib_route_map_entry_set_action_use_round_trip_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	return set_action_modify(args->event, args->dnode, args->resource,
-				 "rtt");
+				 "rtt",
+				 args->errmsg, args->errmsg_len);
 }
 
 static int lib_route_map_entry_set_action_use_round_trip_time_destroy(
@@ -1054,7 +1101,8 @@ static int lib_route_map_entry_set_action_add_round_trip_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	return set_action_modify(args->event, args->dnode, args->resource,
-				 "+rtt");
+				 "+rtt",
+				 args->errmsg, args->errmsg_len);
 }
 
 static int lib_route_map_entry_set_action_add_round_trip_time_destroy(
@@ -1070,7 +1118,7 @@ static int lib_route_map_entry_set_action_subtract_round_trip_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	return set_action_modify(args->event, args->dnode, args->resource,
-				 "-rtt");
+				 "-rtt", args->errmsg, args->errmsg_len);
 }
 
 static int lib_route_map_entry_set_action_subtract_round_trip_time_destroy(
@@ -1109,7 +1157,8 @@ lib_route_map_entry_set_action_tag_modify(struct nb_cb_modify_args *args)
 	rhc->rhc_shook = rmap_match_set_hook.no_set_tag;
 	rhc->rhc_rule = "tag";
 
-	rv = rmap_match_set_hook.set_tag(NULL, rhc->rhc_rmi, "tag", tag);
+	rv = rmap_match_set_hook.set_tag(rhc->rhc_rmi, "tag", tag,
+					 args->errmsg, args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_shook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -1120,6 +1169,52 @@ lib_route_map_entry_set_action_tag_modify(struct nb_cb_modify_args *args)
 
 static int
 lib_route_map_entry_set_action_tag_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_set_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/set-action/policy
+ */
+static int
+lib_route_map_entry_set_action_policy_modify(struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *policy;
+	int rv;
+
+	/*
+	 * NOTE: validate if 'action' is 'tag', currently it is not
+	 * necessary because this is the only implemented action. Other
+	 * actions might have different validations.
+	 */
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Check for hook function. */
+	if (rmap_match_set_hook.set_srte_color == NULL)
+		return NB_OK;
+
+	/* Add configuration. */
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	policy = yang_dnode_get_string(args->dnode, NULL);
+
+	/* Set destroy information. */
+	rhc->rhc_shook = rmap_match_set_hook.no_set_tag;
+	rhc->rhc_rule = "sr-te color";
+
+	rv = rmap_match_set_hook.set_tag(rhc->rhc_rmi, "sr-te color", policy,
+			args->errmsg, args->errmsg_len);
+	if (rv != CMD_SUCCESS) {
+		rhc->rhc_shook = NULL;
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	return NB_OK;
+}
+
+static int
+lib_route_map_entry_set_action_policy_destroy(struct nb_cb_destroy_args *args)
 {
 	return lib_route_map_entry_set_destroy(args);
 }
@@ -1136,10 +1231,18 @@ const struct frr_yang_module_info frr_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/optimization-disabled",
+			.cbs = {
+				.modify = lib_route_map_optimization_disabled_modify,
+				.cli_show = route_map_optimization_disabled_show,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry",
 			.cbs = {
 				.create = lib_route_map_entry_create,
 				.destroy = lib_route_map_entry_destroy,
+				.cli_cmp = route_map_instance_cmp,
 				.cli_show = route_map_instance_show,
 				.cli_show_end = route_map_instance_show_end,
 			}
@@ -1189,42 +1292,42 @@ const struct frr_yang_module_info frr_route_map_info = {
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/interface",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/interface",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_interface_modify,
 				.destroy = lib_route_map_entry_match_condition_interface_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/list-name",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/list-name",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_list_name_modify,
 				.destroy = lib_route_map_entry_match_condition_list_name_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/ipv4-next-hop-type",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/ipv4-next-hop-type",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_ipv4_next_hop_type_modify,
 				.destroy = lib_route_map_entry_match_condition_ipv4_next_hop_type_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/ipv6-next-hop-type",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/ipv6-next-hop-type",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_ipv6_next_hop_type_modify,
 				.destroy = lib_route_map_entry_match_condition_ipv6_next_hop_type_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/metric",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_metric_modify,
 				.destroy = lib_route_map_entry_match_condition_metric_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/tag",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/tag",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_tag_modify,
 				.destroy = lib_route_map_entry_match_condition_tag_destroy,
@@ -1239,68 +1342,76 @@ const struct frr_yang_module_info frr_route_map_info = {
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/ipv4-address",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/ipv4-address",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_ipv4_address_modify,
 				.destroy = lib_route_map_entry_set_action_ipv4_address_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/ipv6-address",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/ipv6-address",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_ipv6_address_modify,
 				.destroy = lib_route_map_entry_set_action_ipv6_address_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/value",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/value",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_value_modify,
 				.destroy = lib_route_map_entry_set_action_value_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/add-metric",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/add-metric",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_add_metric_modify,
 				.destroy = lib_route_map_entry_set_action_add_metric_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/subtract-metric",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/subtract-metric",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_subtract_metric_modify,
 				.destroy = lib_route_map_entry_set_action_subtract_metric_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/use-round-trip-time",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/use-round-trip-time",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_use_round_trip_time_modify,
 				.destroy = lib_route_map_entry_set_action_use_round_trip_time_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/add-round-trip-time",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/add-round-trip-time",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_add_round_trip_time_modify,
 				.destroy = lib_route_map_entry_set_action_add_round_trip_time_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/subtract-round-trip-time",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/subtract-round-trip-time",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_subtract_round_trip_time_modify,
 				.destroy = lib_route_map_entry_set_action_subtract_round_trip_time_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/tag",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/tag",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_tag_modify,
 				.destroy = lib_route_map_entry_set_action_tag_destroy,
 			}
 		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/policy",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_policy_modify,
+				.destroy = lib_route_map_entry_set_action_policy_destroy,
+			}
+		},
+
 		{
 			.xpath = NULL,
 		},

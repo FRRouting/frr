@@ -24,8 +24,8 @@
 #include "wheel.h"
 #include "log.h"
 
-DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL, "Timer Wheel")
-DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL_LIST, "Timer Wheel Slot List")
+DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL, "Timer Wheel");
+DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL_LIST, "Timer Wheel Slot List");
 
 static int debug_timer_wheel = 0;
 
@@ -73,8 +73,7 @@ static int wheel_timer_thread(struct thread *t)
 
 	wheel = THREAD_ARG(t);
 
-	thread_execute_name(wheel->master, wheel_timer_thread_helper,
-			    wheel, 0, wheel->name);
+	thread_execute(wheel->master, wheel_timer_thread_helper, wheel, 0);
 
 	return 0;
 }

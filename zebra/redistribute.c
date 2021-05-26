@@ -41,7 +41,6 @@
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
 #include "zebra/zapi_msg.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 
@@ -92,8 +91,7 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 			continue;
 
 		RNODE_FOREACH_RE (rn, newre) {
-			if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED)
-			    && newre->distance != DISTANCE_INFINITY)
+			if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED))
 				zsend_redistribute_route(
 					ZEBRA_REDISTRIBUTE_ROUTE_ADD, client,
 					&rn->p, NULL, newre);
@@ -138,8 +136,6 @@ static void zebra_redistribute(struct zserv *client, int type,
 			if ((type != ZEBRA_ROUTE_ALL
 			     && (newre->type != type
 				 || newre->instance != instance)))
-				continue;
-			if (newre->distance == DISTANCE_INFINITY)
 				continue;
 			if (!zebra_check_addr(dst_p))
 				continue;
@@ -206,7 +202,7 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 	afi = family2afi(p->family);
 	if (!afi) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Unknown AFI/SAFI prefix received\n", __func__);
+			  "%s: Unknown AFI/SAFI prefix received", __func__);
 		return;
 	}
 	if (!zebra_check_addr(p)) {
@@ -266,17 +262,10 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 			   new_re ? zebra_route_string(new_re->type) : "None");
 	}
 
-	/* Add DISTANCE_INFINITY check. */
-	if (old_re && (old_re->distance == DISTANCE_INFINITY)) {
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("        Skipping due to Infinite Distance");
-		return;
-	}
-
 	afi = family2afi(p->family);
 	if (!afi) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Unknown AFI/SAFI prefix received\n",
+			  "%s: Unknown AFI/SAFI prefix received",
 			  __func__);
 		return;
 	}
@@ -374,6 +363,14 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 	STREAM_GETC(msg, afi);
 	STREAM_GETC(msg, type);
 	STREAM_GETW(msg, instance);
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug(
+			"%s: client proto %s afi=%d, no longer wants %s, vrf %s(%u), instance=%d",
+			__func__, zebra_route_string(client->proto), afi,
+			zebra_route_string(type), VRF_LOGNAME(zvrf->vrf),
+			zvrf_id(zvrf), instance);
+
 
 	if (afi == 0 || afi >= AFI_MAX) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
@@ -542,7 +539,7 @@ void zebra_interface_address_add_update(struct interface *ifp,
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		flog_warn(
 			EC_ZEBRA_ADVERTISING_UNUSABLE_ADDR,
-			"WARNING: advertising address to clients that is not yet usable.");
+			"advertising address to clients that is not yet usable.");
 
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 1);
 
@@ -715,7 +712,7 @@ int zebra_del_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE,
 		   re->table, re->flags, &p, NULL, re->nhe->nhg.nexthop,
 		   re->nhe_id, zvrf->table_id, re->metric, re->distance,
-		   false, false);
+		   false);
 
 	return 0;
 }

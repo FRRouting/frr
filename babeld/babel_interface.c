@@ -42,7 +42,7 @@ THE SOFTWARE.
 #include "xroute.h"
 #include "babel_errors.h"
 
-DEFINE_MTYPE_STATIC(BABELD, BABEL_IF, "Babel Interface")
+DEFINE_MTYPE_STATIC(BABELD, BABEL_IF, "Babel Interface");
 
 #define IS_ENABLE(ifp) (babel_enable_if_lookup(ifp->name) >= 0)
 
@@ -693,7 +693,7 @@ interface_recalculate(struct interface *ifp)
 
     rc = resize_receive_buffer(mtu);
     if(rc < 0)
-        zlog_warn("couldn't resize receive buffer for interface %s (%d) (%d bytes).\n",
+        zlog_warn("couldn't resize receive buffer for interface %s (%d) (%d bytes).",
                   ifp->name, ifp->ifindex, mtu);
 
     memset(&mreq, 0, sizeof(mreq));

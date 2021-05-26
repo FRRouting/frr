@@ -16,6 +16,8 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#include <zebra.h>
+
 #include "northbound.h"
 #include "libfrr.h"
 #include "log.h"
@@ -35,17 +37,40 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 {
 	struct route_node *rn;
 	struct static_path *pn;
+	const struct lyd_node *vrf_dnode;
+	const char *vrf;
 	uint8_t distance;
+	uint32_t table_id;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		vrf_dnode = yang_dnode_get_parent(args->dnode,
+						  "control-plane-protocol");
+		vrf = yang_dnode_get_string(vrf_dnode, "./vrf");
+		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+
+		/*
+		 * TableId is not applicable for VRF. Consider the case of
+		 * l3mdev, there is one uint32_t space to work with.
+		 * A l3mdev device points at a specific table that it
+		 * relates to and a set of interfaces it belongs to.
+		 */
+		if (table_id && (strcmp(vrf, vrf_get_default_name()) != 0)
+		    && !vrf_is_backend_netns()) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%% table param only available when running on netns-based vrfs");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_ABORT:
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
 		rn = nb_running_get_entry(args->dnode, NULL, true);
 		distance = yang_dnode_get_uint8(args->dnode, "./distance");
-		pn = static_add_path(rn, distance);
+		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+		pn = static_add_path(rn, table_id, distance);
 		nb_running_set_entry(args->dnode, pn);
 	}
 
@@ -80,48 +105,32 @@ static void static_path_list_tag_modify(struct nb_cb_modify_args *args,
 	static_install_path(rn, pn, info->safi, info->svrf);
 }
 
-static int static_path_list_tableid_modify(struct nb_cb_modify_args *args,
-					   const struct lyd_node *rn_dnode,
-					   struct stable_info *info)
+struct nexthop_iter {
+	int count;
+	bool blackhole;
+};
+
+static int nexthop_iter_cb(const struct lyd_node *dnode, void *arg)
 {
-	struct static_path *pn;
-	struct route_node *rn;
-	uint32_t table_id;
-	const struct lyd_node *vrf_dnode;
-	const char *vrf;
+	struct nexthop_iter *iter = arg;
+	int nh_type;
 
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		vrf_dnode = yang_dnode_get_parent(args->dnode,
-						  "control-plane-protocol");
-		vrf = yang_dnode_get_string(vrf_dnode, "./vrf");
-		table_id = yang_dnode_get_uint32(args->dnode, NULL);
-		if (table_id && (strcmp(vrf, vrf_get_default_name()) != 0)
-		    && !vrf_is_backend_netns()) {
-			snprintf(args->errmsg, args->errmsg_len,
-				"%% table param only available when running on netns-based vrfs");
-			return NB_ERR_VALIDATION;
-		}
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		table_id = yang_dnode_get_uint32(args->dnode, NULL);
-		pn = nb_running_get_entry(args->dnode, NULL, true);
-		pn->table_id = table_id;
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		static_install_path(rn, pn, info->safi, info->svrf);
-		break;
-	}
+	nh_type = yang_dnode_get_enum(dnode, "./nh-type");
 
-	return NB_OK;
+	if (nh_type == STATIC_BLACKHOLE)
+		iter->blackhole = true;
+
+	iter->count++;
+
+	return YANG_ITER_CONTINUE;
 }
 
 static bool static_nexthop_create(struct nb_cb_create_args *args,
 				  const struct lyd_node *rn_dnode,
 				  struct stable_info *info)
 {
+	const struct lyd_node *pn_dnode;
+	struct nexthop_iter iter;
 	struct route_node *rn;
 	struct static_path *pn;
 	struct ipaddr ipaddr;
@@ -143,6 +152,20 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 				return NB_ERR_VALIDATION;
 			}
 		}
+
+		iter.count = 0;
+		iter.blackhole = false;
+
+		pn_dnode = yang_dnode_get_parent(args->dnode, "path-list");
+		yang_dnode_iterate(nexthop_iter_cb, &iter, pn_dnode,
+				   "./frr-nexthops/nexthop");
+
+		if (iter.blackhole && iter.count > 1) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Route can not have blackhole and non-blackhole nexthops simultaneously");
+			return NB_ERR_VALIDATION;
+		}
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -155,7 +178,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 		pn = nb_running_get_entry(args->dnode, NULL, true);
 		rn = nb_running_get_entry(rn_dnode, NULL, true);
 
-		if (!static_add_nexthop_validate(info->svrf, nh_type, &ipaddr))
+		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
 				"Warning!! Local connected address is configured as Gateway IP((%s))",
@@ -163,18 +186,6 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 						      "./gateway"));
 		nh = static_add_nexthop(rn, pn, info->safi, info->svrf, nh_type,
 					&ipaddr, ifname, nh_vrf, 0);
-		if (!nh) {
-			char buf[SRCDEST2STR_BUFFER];
-
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_APPLY,
-				"%s : nh [%d:%s:%s:%s] nexthop creation failed",
-				srcdest_rnode2str(rn, buf, sizeof(buf)),
-				nh_type, ifname,
-				yang_dnode_get_string(args->dnode, "./gateway"),
-				nh_vrf);
-			return NB_ERR;
-		}
 		nb_running_set_entry(args->dnode, nh);
 		break;
 	}
@@ -286,7 +297,7 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 	uint8_t index;
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
-	pos = yang_get_list_pos(args->dnode->parent);
+	pos = yang_get_list_pos(lyd_parent(args->dnode));
 	if (!pos) {
 		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
 			  "libyang returns invalid label position");
@@ -302,9 +313,27 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
+	static_types nh_type;
 
-	nh = nb_running_get_entry(args->dnode, NULL, true);
-	nh->onlink = yang_dnode_get_bool(args->dnode, NULL);
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		nh_type = yang_dnode_get_enum(args->dnode, "../nh-type");
+		if ((nh_type != STATIC_IPV4_GATEWAY_IFNAME)
+		    && (nh_type != STATIC_IPV6_GATEWAY_IFNAME)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"nexthop type is not the ipv4 or ipv6 interface type");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_get_entry(args->dnode, NULL, true);
+		nh->onlink = yang_dnode_get_bool(args->dnode, NULL);
+		break;
+	}
 
 	return NB_OK;
 }
@@ -332,9 +361,25 @@ static int static_nexthop_color_destroy(struct nb_cb_destroy_args *args)
 static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
+	static_types nh_type;
 
-	nh = nb_running_get_entry(args->dnode, NULL, true);
-	nh->bh_type = yang_dnode_get_enum(args->dnode, NULL);
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		nh_type = yang_dnode_get_enum(args->dnode, "../nh-type");
+		if (nh_type != STATIC_BLACKHOLE) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "nexthop type is not the blackhole type");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_get_entry(args->dnode, NULL, true);
+		nh->bh_type = yang_dnode_get_enum(args->dnode, NULL);
+		break;
+	}
 
 	return NB_OK;
 }
@@ -412,7 +457,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	uint32_t count;
 
 	mls_dnode = yang_dnode_get(args->dnode, "./mpls-label-stack");
-	count = yang_get_list_elements_count(yang_dnode_get_child(mls_dnode));
+	count = yang_get_list_elements_count(lyd_child(mls_dnode));
 
 	if (count > MPLS_MAX_LABELS) {
 		snprintf(args->errmsg, args->errmsg_len,
@@ -580,38 +625,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/table-id
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_table_id_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (static_path_list_tableid_modify(args, NULL, NULL) != NB_OK)
-			return NB_ERR_VALIDATION;
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-
-		if (static_path_list_tableid_modify(args, rn_dnode, info)
-		    != NB_OK)
-			return NB_ERR_VALIDATION;
-		break;
-	}
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop
  */
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_create(
@@ -636,7 +649,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 		info = route_table_get_info(rn->table);
 
 		if (static_nexthop_create(args, rn_dnode, info) != NB_OK)
-			return NB_ERR_VALIDATION;
+			return NB_ERR_INCONSISTENCY;
 		break;
 	}
 	return NB_OK;
@@ -673,33 +686,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_bh_type_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		if (static_nexthop_bh_type_modify(args) != NB_OK)
-			return NB_ERR;
-		break;
-	}
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_bh_type_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	/* blackhole type has a boolean type with default value,
-	 * so no need to do any operations in destroy callback
-	 */
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-	return NB_OK;
+	return static_nexthop_bh_type_modify(args);
 }
 
 /*
@@ -709,33 +696,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_onlink_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		if (static_nexthop_onlink_modify(args) != NB_OK)
-			return NB_ERR;
-
-		break;
-	}
-	return NB_OK;
-}
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_onlink_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	/* onlink has a boolean type with default value,
-	 * so no need to do any operations in destroy callback
-	 */
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-	return NB_OK;
+	return static_nexthop_onlink_modify(args);
 }
 
 /*
@@ -1023,41 +984,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/table-id
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_table_id_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	const struct lyd_node *src_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (static_path_list_tableid_modify(args, NULL, NULL) != NB_OK)
-			return NB_ERR_VALIDATION;
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		src_dnode = yang_dnode_get_parent(args->dnode, "src-list");
-		rn_dnode = yang_dnode_get_parent(src_dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-
-		if (static_path_list_tableid_modify(args, src_dnode, info)
-		    != NB_OK)
-			return NB_ERR_VALIDATION;
-
-		break;
-	}
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop
  */
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_create(
@@ -1124,34 +1050,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_bh_type_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		if (static_nexthop_bh_type_modify(args) != NB_OK)
-			return NB_ERR;
-		break;
-	}
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_bh_type_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	/* blackhole type has a boolean type with default value,
-	 * so no need to do any operations in destroy callback
-	 */
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
+	return static_nexthop_bh_type_modify(args);
 }
 
 /*
@@ -1161,35 +1060,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_onlink_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		if (static_nexthop_onlink_modify(args) != NB_OK)
-			return NB_ERR;
-
-		break;
-	}
-	return NB_OK;
-}
-
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_onlink_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	/* onlink has a boolean type with default value,
-	 * so no need to do any operations in destroy callback
-	 */
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-	return NB_OK;
+	return static_nexthop_onlink_modify(args);
 }
 
 /*

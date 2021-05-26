@@ -50,7 +50,16 @@ struct nhg_hash_entry {
 	uint32_t id;
 	afi_t afi;
 	vrf_id_t vrf_id;
+
+	/* Time since last update */
+	time_t uptime;
+
+	/* Source protocol - zebra or another daemon */
 	int type;
+
+	/* zapi instance and session id, for groups from other daemons */
+	uint16_t zapi_instance;
+	uint32_t zapi_session;
 
 	struct nexthop_group nhg;
 
@@ -141,6 +150,8 @@ enum nhg_type {
 /* Is this an NHE owned by zebra and not an upper level protocol? */
 #define ZEBRA_OWNED(NHE) (NHE->type == ZEBRA_ROUTE_NHG)
 
+#define PROTO_OWNED(NHE) (NHE->id >= ZEBRA_NHG_PROTO_LOWER)
+
 /*
  * Backup nexthops: this is a group object itself, so
  * that the backup nexthops can use the same code as a normal object.
@@ -174,8 +185,9 @@ struct nhg_ctx {
 
 	vrf_id_t vrf_id;
 	afi_t afi;
+
 	/*
-	 * This should only every be ZEBRA_ROUTE_NHG unless we get a a kernel
+	 * This should only ever be ZEBRA_ROUTE_NHG unless we get a a kernel
 	 * created nexthop not made by us.
 	 */
 	int type;
@@ -204,6 +216,10 @@ bool zebra_nhg_kernel_nexthops_enabled(void);
 /* Global control for zebra to only use proto-owned nexthops */
 void zebra_nhg_set_proto_nexthops_only(bool set);
 bool zebra_nhg_proto_nexthops_only(void);
+
+/* Global control for use of activated backups for recursive resolution. */
+void zebra_nhg_set_recursive_use_backups(bool set);
+bool zebra_nhg_recursive_use_backups(void);
 
 /**
  * NHE abstracted tree functions.
@@ -258,6 +274,7 @@ extern bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2);
  * the rib meta queue.
  */
 extern int nhg_ctx_process(struct nhg_ctx *ctx);
+void nhg_ctx_free(struct nhg_ctx **ctx);
 
 /* Find via kernel nh creation */
 extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
@@ -292,6 +309,7 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
  * Returns allocated NHE on success, otherwise NULL.
  */
 struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
+					   uint16_t instance, uint32_t session,
 					   struct nexthop_group *nhg,
 					   afi_t afi);
 

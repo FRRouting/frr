@@ -1,0 +1,40 @@
+dist: focal
+os: linux
+language: c
+services:
+  - docker
+jobs:
+  include:
+   - script:
+       - docker/centos-7/build.sh
+       - docker images
+     name: centos7
+   - script:
+       - docker/centos-8/build.sh
+       - docker images
+     name: centos8
+   - script:
+       - sudo apt install -y linux-modules-extra-$(uname -r)
+       - docker build -t frr-ubuntu18:latest -f docker/ubuntu18-ci/Dockerfile .
+       - docker images
+       - uname -a
+       - docker run -d --privileged --name frr-ubuntu18 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu18:latest
+       - docker ps
+       - docker exec frr-ubuntu18 bash -c 'cd ~/frr ; make check'
+       - docker exec frr-ubuntu18 bash -c 'ps agxu ; lsmod | grep mpls || true'
+       - docker exec frr-ubuntu18 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
+       - docker exec frr-ubuntu18 bash -c 'cd ~/frr/tests/topotests/bgp_l3vpn_to_bgp_vrf ; sudo pytest test_bgp_l3vpn_to_bgp_vrf.py'
+     name: ubuntu18+minimalCI
+   - script:
+       - sudo apt install -y linux-modules-extra-$(uname -r)
+       - docker build -t frr-ubuntu20:latest -f docker/ubuntu20-ci/Dockerfile .
+       - docker images
+       - uname -a
+       - docker run -d --privileged --name frr-ubuntu20 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu20:latest
+       - docker ps
+       - docker exec frr-ubuntu20 bash -c 'cd ~/frr ; make check'
+       - docker exec frr-ubuntu20 bash -c 'ps agxu ; lsmod | grep mpls || true'
+       - docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
+       - docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/bgp_l3vpn_to_bgp_vrf ; sudo pytest test_bgp_l3vpn_to_bgp_vrf.py'
+     name: ubuntu20+minimalCI
+

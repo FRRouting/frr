@@ -42,7 +42,7 @@
 #include "ospf6_area.h"
 #include "lib/json.h"
 
-DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_DISTANCE, "OSPF6 distance")
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_DISTANCE, "OSPF6 distance");
 
 unsigned char conf_debug_ospf6_zebra = 0;
 
@@ -96,13 +96,9 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	o->router_id_zebra = router_id.u.prefix4;
-	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
-		char buf[INET_ADDRSTRLEN];
-
-		zlog_debug("%s: zebra router-id %s update", __func__,
-			   inet_ntop(AF_INET, &router_id.u.prefix4, buf,
-				     INET_ADDRSTRLEN));
-	}
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug("%s: zebra router-id %pI4 update", __func__,
+			   &router_id.u.prefix4);
 
 	ospf6_router_id_update(o);
 
@@ -134,16 +130,37 @@ void ospf6_zebra_no_redistribute(int type, vrf_id_t vrf_id)
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
+	struct ospf6_interface *oi;
+	int ipv6_count = 0;
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
 	if (c == NULL)
 		return 0;
 
+	oi = (struct ospf6_interface *)c->ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(c->ifp);
+	assert(oi);
+
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug("Zebra Interface address add: %s %5s %pFX",
 			   c->ifp->name, prefix_family_str(c->address),
 			   c->address);
+
+	ipv6_count = connected_count_by_family(c->ifp, AF_INET6);
+	if (oi->ifmtu == OSPF6_DEFAULT_MTU && ipv6_count > OSPF6_MAX_IF_ADDRS) {
+		zlog_warn(
+			"Zebra Interface : %s has too many interface addresses %d only support %d, increase MTU",
+			c->ifp->name, ipv6_count, OSPF6_MAX_IF_ADDRS);
+		return 0;
+	} else if (oi->ifmtu >= OSPF6_JUMBO_MTU
+		   && ipv6_count > OSPF6_MAX_IF_ADDRS_JUMBO) {
+		zlog_warn(
+			"Zebra Interface : %s has too many interface addresses %d only support %d",
+			c->ifp->name, ipv6_count, OSPF6_MAX_IF_ADDRS_JUMBO);
+		return 0;
+	}
 
 	if (c->address->family == AF_INET6) {
 		ospf6_interface_state_update(c->ifp);
@@ -176,12 +193,23 @@ static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int is_prefix_default(struct prefix_ipv6 *p)
+{
+	struct prefix_ipv6 q = {};
+
+	q.family = AF_INET6;
+	q.prefixlen = 0;
+
+	return prefix_same((struct prefix *)p, (struct prefix *)&q);
+}
+
 static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	unsigned long ifindex;
 	struct in6_addr *nexthop;
 	struct ospf6 *ospf6;
+	struct prefix_ipv6 p;
 
 	ospf6 = ospf6_lookup_by_vrf_id(vrf_id);
 
@@ -208,6 +236,10 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							     : "delete"),
 			zebra_route_string(api.type), &api.prefix, nexthop,
 			ifindex, api.tag);
+
+	memcpy(&p, &api.prefix, sizeof(p));
+	if (is_prefix_default(&p))
+		api.type = DEFAULT_ROUTE;
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ospf6_asbr_redistribute_add(api.type, ifindex, &api.prefix,
@@ -292,7 +324,7 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 	struct prefix *dest;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(SEND))
-		zlog_debug("Send %s route: %pFX",
+		zlog_debug("Zebra Send %s route: %pFX",
 			   (type == REM ? "remove" : "add"), &request->prefix);
 
 	if (zclient->sock < 0) {
@@ -343,7 +375,14 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 	api.safi = SAFI_UNICAST;
 	api.prefix = *dest;
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	api.nexthop_num = MIN(nhcount, MULTIPATH_NUM);
+
+	if (nhcount > ospf6->max_multipath) {
+		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
+			zlog_debug(
+				"  Nexthop count is greater than configured maximum-path, hence ignore the extra nexthops");
+	}
+	api.nexthop_num = MIN(nhcount, ospf6->max_multipath);
+
 	ospf6_route_zebra_copy_nexthops(request, api.nexthops, api.nexthop_num,
 					api.vrf_id);
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);

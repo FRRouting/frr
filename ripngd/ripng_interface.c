@@ -49,7 +49,7 @@
 #define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
 #endif
 
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface");
 
 /* Static utility function. */
 static void ripng_enable_apply(struct interface *);
@@ -169,6 +169,9 @@ static int ripng_if_down(struct interface *ifp)
 	struct listnode *listnode = NULL, *nextnode = NULL;
 
 	ri = ifp->info;
+
+	THREAD_OFF(ri->t_wakeup);
+
 	ripng = ri->ripng;
 
 	if (ripng)
@@ -933,7 +936,7 @@ static int interface_config_write(struct vty *vty)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct lyd_node *dnode;
 
-			dnode = yang_dnode_get(
+			dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
 				ifp->name, vrf->name);

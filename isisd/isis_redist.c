@@ -24,7 +24,6 @@
 #include "if.h"
 #include "linklist.h"
 #include "memory.h"
-#include "isis_memory.h"
 #include "prefix.h"
 #include "routemap.h"
 #include "stream.h"
@@ -42,6 +41,10 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_EXT_ROUTE, "ISIS redistributed route");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_EXT_INFO,  "ISIS redistributed route info");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_RMAP_NAME, "ISIS redistribute route-map name");
+
 static int redist_protocol(int family)
 {
 	if (family == AF_INET)
@@ -53,7 +56,7 @@ static int redist_protocol(int family)
 	return 0;
 }
 
-static afi_t afi_for_redist_protocol(int protocol)
+afi_t afi_for_redist_protocol(int protocol)
 {
 	if (protocol == 0)
 		return AFI_IP;
@@ -219,7 +222,7 @@ static void isis_redist_ensure_default(struct isis *isis, int family)
 /* Handle notification about route being added */
 void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, uint8_t distance,
-		     uint32_t metric)
+		     uint32_t metric, const route_tag_t tag)
 {
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
@@ -250,6 +253,7 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	info->origin = type;
 	info->distance = distance;
 	info->metric = metric;
+	info->tag = tag;
 
 	if (is_default_prefix(p)
 	    && (!src_p || !src_p->prefixlen)) {
@@ -288,7 +292,7 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 		 * "always" setting will ignore routes with origin
 		 * DEFAULT_ROUTE. */
 		isis_redist_add(isis, DEFAULT_ROUTE, p, NULL, 254,
-				MAX_WIDE_PATH_METRIC);
+				MAX_WIDE_PATH_METRIC, 0);
 		return;
 	}
 
@@ -326,13 +330,13 @@ static void isis_redist_routemap_set(struct isis_redist *redist,
 				     const char *routemap)
 {
 	if (redist->map_name) {
-		XFREE(MTYPE_ISIS, redist->map_name);
+		XFREE(MTYPE_ISIS_RMAP_NAME, redist->map_name);
 		route_map_counter_decrement(redist->map);
 		redist->map = NULL;
 	}
 
 	if (routemap && strlen(routemap)) {
-		redist->map_name = XSTRDUP(MTYPE_ISIS, routemap);
+		redist->map_name = XSTRDUP(MTYPE_ISIS_RMAP_NAME, routemap);
 		redist->map = route_map_lookup_by_name(routemap);
 		route_map_counter_increment(redist->map);
 	}
@@ -346,6 +350,9 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 	int level;
 	int protocol;
 
+	if (isis->vrf_id == VRF_UNKNOWN)
+		return;
+
 	char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
 
 	memset(do_subscribe, 0, sizeof(do_subscribe));
@@ -355,8 +362,9 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 			for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
 				for (level = 0; level < ISIS_LEVELS; level++)
 					if (area->redist_settings[protocol]
-								 [type]
-								 [level].redist)
+								 [type][level]
+									 .redist
+					    == 1)
 						do_subscribe[protocol][type] =
 							1;
 
@@ -373,19 +381,28 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 			afi_t afi = afi_for_redist_protocol(protocol);
 
 			if (do_subscribe[protocol][type])
-				isis_zebra_redistribute_set(afi, type);
+				isis_zebra_redistribute_set(afi, type,
+							    isis->vrf_id);
 			else
-				isis_zebra_redistribute_unset(afi, type);
+				isis_zebra_redistribute_unset(afi, type,
+							      isis->vrf_id);
 		}
 }
 
 void isis_redist_free(struct isis *isis)
 {
+	struct route_node *rn;
 	int i;
 
 	for (i = 0; i < REDIST_PROTOCOL_COUNT; i++) {
 		if (!isis->ext_info[i])
 			continue;
+
+		for (rn = route_top(isis->ext_info[i]); rn;
+		     rn = srcdest_route_next(rn)) {
+			if (rn->info)
+				XFREE(MTYPE_ISIS_EXT_INFO, rn->info);
+		}
 
 		route_table_finish(isis->ext_info[i]);
 		isis->ext_info[i] = NULL;
@@ -494,6 +511,7 @@ void isis_redist_unset(struct isis_area *area, int level, int family, int type)
 
 void isis_redist_area_finish(struct isis_area *area)
 {
+	struct route_node *rn;
 	int protocol;
 	int level;
 	int type;
@@ -506,9 +524,17 @@ void isis_redist_area_finish(struct isis_area *area)
 				redist = &area->redist_settings[protocol][type]
 							       [level];
 				redist->redist = 0;
-				XFREE(MTYPE_ISIS, redist->map_name);
+				XFREE(MTYPE_ISIS_RMAP_NAME, redist->map_name);
+			}
+			if (!area->ext_reach[protocol][level])
+				continue;
+			for (rn = route_top(area->ext_reach[protocol][level]);
+			     rn; rn = srcdest_route_next(rn)) {
+				if (rn->info)
+					XFREE(MTYPE_ISIS_EXT_INFO, rn->info);
 			}
 			route_table_finish(area->ext_reach[protocol][level]);
+			area->ext_reach[protocol][level] = NULL;
 		}
 
 	isis_redist_update_zebra_subscriptions(area->isis);

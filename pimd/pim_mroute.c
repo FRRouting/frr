@@ -56,7 +56,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	/*
 	 * We need to create the VRF table for the pim mroute_socket
 	 */
-	if (pim->vrf_id != VRF_DEFAULT) {
+	if (pim->vrf->vrf_id != VRF_DEFAULT) {
 		frr_with_privs(&pimd_privs) {
 
 			data = pim->vrf->data.l.table_id;
@@ -609,7 +609,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 		 * the source
 		 * of the IP packet.
 		 */
-		ifp = if_lookup_by_index(ifindex, pim->vrf_id);
+		ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
 
 		if (!ifp || !ifp->info)
 			return 0;
@@ -628,7 +628,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 		ifaddr = connected_src->u.prefix4;
 		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
 
-		if (PIM_DEBUG_MROUTE) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
 			zlog_debug(
 				"%s(%s): igmp kernel upcall on %s(%p) for %pI4 -> %pI4",
 				__func__, pim->vrf->name, ifp->name, igmp,
@@ -1221,10 +1221,9 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 			sg.src = c_oil->oil.mfcc_origin;
 			sg.grp = c_oil->oil.mfcc_mcastgrp;
-			if (PIM_DEBUG_MROUTE)
-				zlog_debug(
-					"Channel%s is not installed no need to collect data from kernel",
-					pim_str_sg_dump(&sg));
+			zlog_debug(
+				"Channel%s is not installed no need to collect data from kernel",
+				pim_str_sg_dump(&sg));
 		}
 		return;
 	}

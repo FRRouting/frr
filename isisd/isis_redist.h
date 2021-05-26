@@ -31,6 +31,7 @@ struct isis_ext_info {
 	int origin;
 	uint32_t metric;
 	uint8_t distance;
+	route_tag_t tag;
 };
 
 struct isis_redist {
@@ -46,11 +47,13 @@ struct prefix;
 struct prefix_ipv6;
 struct vty;
 
+afi_t afi_for_redist_protocol(int protocol);
+
 struct route_table *get_ext_reach(struct isis_area *area, int family,
 				  int level);
 void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, uint8_t distance,
-		     uint32_t metric);
+		     uint32_t metric, route_tag_t tag);
 void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 			struct prefix_ipv6 *src_p);
 int isis_redist_config_write(struct vty *vty, struct isis_area *area,

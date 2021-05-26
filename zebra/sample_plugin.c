@@ -92,7 +92,6 @@ static int sample_process(struct zebra_dplane_provider *prov)
 static int init_sample_plugin(struct thread_master *tm)
 {
 	int ret;
-	struct zebra_dplane_provider *prov = NULL;
 
 	/* Note that we don't use or store the thread_master 'tm'. We
 	 * don't use the zebra main pthread: our plugin code will run in
@@ -131,4 +130,4 @@ FRR_MODULE_SETUP(
 	.version = "0.0.1",
 	.description = "Dataplane Sample Plugin",
 	.init = module_init,
-	)
+);

@@ -34,8 +34,8 @@
 static struct memgroup *mg_first = NULL;
 struct memgroup **mg_insert = &mg_first;
 
-DEFINE_MGROUP(LIB, "libfrr")
-DEFINE_MTYPE(LIB, TMP, "Temporary memory")
+DEFINE_MGROUP(LIB, "libfrr");
+DEFINE_MTYPE(LIB, TMP, "Temporary memory");
 
 static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 {

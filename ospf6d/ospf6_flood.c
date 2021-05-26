@@ -381,7 +381,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		} else {
 			/* (d) add retrans-list, schedule retransmission */
 			if (is_debug)
-				zlog_debug("Add retrans-list of this neighbor");
+				zlog_debug("Add retrans-list of neighbor %s ",
+					   on->name);
 			ospf6_increment_retrans_count(lsa);
 			ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
 			thread_add_timer(master, ospf6_lsupdate_send_neighbor,
@@ -395,7 +396,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	if (retrans_added == 0) {
 		if (is_debug)
 			zlog_debug(
-				"No retransmission scheduled, next interface");
+				"No retransmission scheduled, next interface %s",
+				oi->interface->name);
 		return;
 	}
 
@@ -452,12 +454,6 @@ void ospf6_flood_area(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		    && oi != OSPF6_INTERFACE(lsa->lsdb->data))
 			continue;
 
-#if 0
-      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
-          ospf6_is_interface_virtual_link (oi))
-        continue;
-#endif /*0*/
-
 		ospf6_flood_interface(from, lsa, oi);
 	}
 }
@@ -469,6 +465,19 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 	struct ospf6_area *oa;
 
 	for (ALL_LIST_ELEMENTS(process->area_list, node, nnode, oa)) {
+
+		/* If unknown LSA and U-bit clear, treat as link local
+		 * flooding scope
+		 */
+		if (!OSPF6_LSA_IS_KNOWN(lsa->header->type)
+		    && !(ntohs(lsa->header->type) & OSPF6_LSTYPE_UBIT_MASK)
+		    && (oa != OSPF6_INTERFACE(lsa->lsdb->data)->area)) {
+
+			if (IS_OSPF6_DEBUG_FLOODING)
+				zlog_debug("Unknown LSA, do not flood");
+			continue;
+		}
+
 		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_AREA
 		    && oa != OSPF6_AREA(lsa->lsdb->data))
 			continue;
@@ -526,12 +535,6 @@ static void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL
 		    && oi != OSPF6_INTERFACE(lsa->lsdb->data))
 			continue;
-
-#if 0
-      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
-          ospf6_is_interface_virtual_link (oi))
-        continue;
-#endif /*0*/
 
 		ospf6_flood_clear_interface(lsa, oi);
 	}
@@ -1015,18 +1018,20 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					if (is_debug)
 						zlog_debug(
 							"%s: Current copy of LSA %s is MAXAGE, but new has recent age, flooding/installing.",
-							old->name, __PRETTY_FUNCTION__);
+							__PRETTY_FUNCTION__, old->name);
 					ospf6_lsa_purge(old);
 					ospf6_flood(from, new);
 					ospf6_install_lsa(new);
-				} else {
-					if (is_debug)
-						zlog_debug(
-							"%s: Current copy of self-originated LSA %s is MAXAGE, but new has recent age, ignoring new.",
-							old->name, __PRETTY_FUNCTION__);
-					ospf6_lsa_delete(new);
+					return;
 				}
-				return;
+				/* For self-originated LSA, only trust
+				 * ourselves. Fall through and send
+				 * LS Update with our current copy.
+				 */
+				if (is_debug)
+					zlog_debug(
+						"%s: Current copy of self-originated LSA %s is MAXAGE, but new has recent age, re-sending current one.",
+						__PRETTY_FUNCTION__, old->name);
 			}
 
 			/* XXX, MinLSArrival check !? RFC 2328 13 (8) */

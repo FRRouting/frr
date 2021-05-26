@@ -40,6 +40,15 @@ enum {
 
 struct ospf6_redist {
 	uint8_t instance;
+
+	/* Redistribute metric info. */
+	struct {
+		int type;  /* External metric type (E1 or E2).  */
+		int value; /* Value for static metric (24-bit).
+			    * -1 means metric value is not set.
+			    */
+	} dmetric;
+
 	/* For redistribute route map. */
 	struct {
 		char *name;
@@ -83,13 +92,18 @@ struct ospf6 {
 	uint32_t external_id;
 
 	/* OSPF6 redistribute configuration */
-	struct list *redist[ZEBRA_ROUTE_MAX];
+	struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
 	uint8_t flag;
 
+	int redistribute; /* Num of redistributed protocols. */
+
 	/* Configuration bitmask, refer to enum above */
 	uint8_t config_flags;
-
+	int default_originate; /* Default information originate. */
+#define DEFAULT_ORIGINATE_NONE 0
+#define DEFAULT_ORIGINATE_ZEBRA 1
+#define DEFAULT_ORIGINATE_ALWAYS 2
 	/* LSA timer parameters */
 	unsigned int lsa_minarrival; /* LSA minimum arrival in milliseconds. */
 
@@ -127,12 +141,22 @@ struct ospf6 {
 	 * update to neighbors immediatly */
 	uint8_t inst_shutdown;
 
-	QOBJ_FIELDS
+	/* Max number of multiple paths
+	 * to support ECMP.
+	 */
+	uint16_t max_multipath;
+
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ospf6)
+DECLARE_QOBJ_TYPE(ospf6);
 
 #define OSPF6_DISABLED    0x01
 #define OSPF6_STUB_ROUTER 0x02
+#define OSPF6_FLAG_ASBR   0x04
+#define OSPF6_MAX_IF_ADDRS 100
+#define OSPF6_MAX_IF_ADDRS_JUMBO 200
+#define OSPF6_DEFAULT_MTU 1500
+#define OSPF6_JUMBO_MTU 9000
 
 /* global pointer for OSPF top data structure */
 extern struct ospf6 *ospf6;
@@ -151,5 +175,5 @@ void ospf6_vrf_unlink(struct ospf6 *ospf6, struct vrf *vrf);
 struct ospf6 *ospf6_lookup_by_vrf_id(vrf_id_t vrf_id);
 struct ospf6 *ospf6_lookup_by_vrf_name(const char *name);
 const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id);
-
+void ospf6_vrf_init(void);
 #endif /* OSPF6_TOP_H */

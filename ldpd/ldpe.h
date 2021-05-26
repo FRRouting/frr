@@ -216,6 +216,7 @@ void		 ldpe_nbr_ctl(struct ctl_conn *);
 void		 ldpe_ldp_sync_ctl(struct ctl_conn *);
 void		 mapping_list_add(struct mapping_head *, struct map *);
 void		 mapping_list_clr(struct mapping_head *);
+void		 ldpe_set_config_change_time(void);
 
 /* interface.c */
 struct iface	*if_new(const char *);
@@ -266,6 +267,8 @@ struct nbr		*nbr_new(struct in_addr, int, int, union ldpd_addr *,
 			    uint32_t);
 void			 nbr_del(struct nbr *);
 struct nbr		*nbr_find_ldpid(uint32_t);
+struct nbr		*nbr_get_first_ldpid(void);
+struct nbr		*nbr_get_next_ldpid(uint32_t);
 struct nbr		*nbr_find_addr(int, union ldpd_addr *);
 struct nbr		*nbr_find_peerid(uint32_t);
 int			 nbr_adj_count(struct nbr *, int);
@@ -317,5 +320,8 @@ void	ldpe_l2vpn_init(struct l2vpn *);
 void	ldpe_l2vpn_exit(struct l2vpn *);
 void	ldpe_l2vpn_pw_init(struct l2vpn_pw *);
 void	ldpe_l2vpn_pw_exit(struct l2vpn_pw *);
+
+DECLARE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),
+	     (nbr, old_state));
 
 #endif	/* _LDPE_H_ */

@@ -1,0 +1,371 @@
+{
+    "address_types": [
+        "ipv4",
+        "ipv6"
+    ],
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 30,
+    "ipv6base": "fd00::",
+    "ipv6mask": 64,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 30,
+        "ipv6": "fd00::",
+        "v6mask": 64
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32,
+        "ipv6": "2001:db8:f::",
+        "v6mask": 128
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r2-link0": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link2": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link3": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link4": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link5": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link6": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link7": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            }
+        },
+        "r2": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r1-link0": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r1-link1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r1-link2": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r1-link3": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r1-link4": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r1-link5": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r1-link6": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r1-link7": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link0": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link2": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link3": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link4": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link5": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link6": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link7": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "bgp": {
+                "local_as": "100",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {
+
+
+                                    "dest_link": {
+                                        "r2-link0": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link1": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link2": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link3": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link4": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link5": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link6": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link7": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        }
+                                    }
+                                }
+                            },
+                            "redistribute": [{
+                                "redist_type": "static"
+                            }]
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {
+
+
+                                    "dest_link": {
+                                        "r2-link0": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link1": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link2": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link3": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link4": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link5": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link6": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r2-link7": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        }
+                                    }
+                                }
+                            },
+                            "redistribute": [{
+                                "redist_type": "static"
+                            }]
+                        }
+                    }
+                }
+            }
+        },
+        "r3": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r2-link0": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link2": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link3": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link4": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link5": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link6": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link7": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "bgp": {
+                "local_as": "100",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+
+
+                                    "dest_link": {
+                                        "r3-link0": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link1": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link2": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link3": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link4": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link5": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link6": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link7": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+
+
+                                    "dest_link": {
+                                        "r3-link0": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link1": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link2": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link3": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link4": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link5": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link6": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        },
+                                        "r3-link7": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

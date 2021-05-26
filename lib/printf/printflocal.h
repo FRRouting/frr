@@ -100,6 +100,8 @@ int	_frr_find_arguments(const char *, va_list, union arg **) DSO_LOCAL;
 int	_frr_find_warguments(const wchar_t *, va_list, union arg **) DSO_LOCAL;
 #endif
 
-/* returns number of bytes consumed for extended specifier */
-ssize_t printfrr_extp(char *, size_t, const char *, int, const void *) DSO_LOCAL;
-ssize_t printfrr_exti(char *, size_t, const char *, int, uintmax_t) DSO_LOCAL;
+/* returns number of bytes needed for full output, or -1 */
+ssize_t printfrr_extp(struct fbuf *, struct printfrr_eargs *ea, const void *)
+	DSO_LOCAL;
+ssize_t printfrr_exti(struct fbuf *, struct printfrr_eargs *ea, uintmax_t)
+	DSO_LOCAL;

@@ -132,6 +132,7 @@ if [ -z "$TOPOTEST_FRR" ]; then
 		echo "frr-topotests only works if you have your tree in git." >&2
 		exit 1
 	fi
+	git -C "$TOPOTEST_FRR" ls-files -z > "${TOPOTEST_LOGS}/git-ls-files"
 fi
 
 if [ -z "$TOPOTEST_BUILDCACHE" ]; then
