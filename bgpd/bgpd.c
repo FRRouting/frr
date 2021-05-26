@@ -2315,13 +2315,6 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 		peer->afc[afi][safi] = 0;
 		group = peer->group;
 
-		if (peer_af_delete(peer, afi, safi) != 0) {
-			flog_err(
-				EC_BGP_PEER_DELETE,
-				"couldn't delete af structure for peer %s(%s, %s)",
-				peer->host, afi2str(afi), safi2str(safi));
-		}
-
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
 			ret |= non_peergroup_deactivate_af(tmp_peer, afi, safi);
 		}
