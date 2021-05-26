@@ -131,7 +131,7 @@ static int zebra_vrf_enable(struct vrf *vrf)
 	else
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 #if defined(HAVE_RTADV)
-	rtadv_init(zvrf);
+	rtadv_vrf_init(zvrf);
 #endif
 
 	/* Inform clients that the VRF is now active. This is an

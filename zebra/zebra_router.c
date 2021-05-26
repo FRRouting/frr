@@ -268,8 +268,6 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
 
-	zrouter.rtadv_sock = -1;
-
 	zebra_vxlan_init();
 	zebra_mlag_init();
 
