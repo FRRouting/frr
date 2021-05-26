@@ -288,16 +288,30 @@ DECLARE_LIST(re_list, struct route_entry, next);
 #define RNODE_NEXT_RE(rn, re) RE_DEST_NEXT_ROUTE(rib_dest_from_rnode(rn), re)
 
 #if defined(HAVE_RTADV)
+PREDECL_SORTLIST_UNIQ(adv_if_list);
 /* Structure which hold status of router advertisement. */
 struct rtadv {
 	int sock;
 
-	int adv_if_count;
-	int adv_msec_if_count;
+	struct adv_if_list_head adv_if;
+	struct adv_if_list_head adv_msec_if;
 
 	struct thread *ra_read;
 	struct thread *ra_timer;
 };
+
+/* adv list node */
+struct adv_if {
+	char name[INTERFACE_NAMSIZ];
+	struct adv_if_list_item list_item;
+};
+
+static int adv_if_cmp(const struct adv_if *a, const struct adv_if *b)
+{
+	return if_cmp_name_func(a->name, b->name);
+}
+
+DECLARE_SORTLIST_UNIQ(adv_if_list, struct adv_if, list_item, adv_if_cmp);
 #endif /* HAVE_RTADV */
 
 /*
