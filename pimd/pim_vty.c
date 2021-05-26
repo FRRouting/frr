@@ -206,11 +206,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			pim->rp_keep_alive_time);
 		++writes;
 	}
-	if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
-		vty_out(vty, "%sip pim packets %d\n", spaces,
-			router->packet_process);
-		++writes;
-	}
+
 	if (ssm->plist_name) {
 		vty_out(vty, "%sip pim ssm prefix-list %s\n", spaces,
 			ssm->plist_name);
@@ -257,6 +253,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			vty_out(vty, "%sip ssmpingd %s\n", spaces, source_str);
 			++writes;
 		}
+	}
+
+	if (pim->ssm_enabled) {
+		vty_out(vty, "%sip pim ssm enable\n", spaces);
+		++writes;
 	}
 
 	return writes;

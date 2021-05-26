@@ -205,6 +205,9 @@ struct pim_instance {
 	int64_t nexthop_lookups;
 	int64_t nexthop_lookups_avoided;
 	int64_t last_route_change_time;
+
+	/* to check whether the PIM SSM is enabled */
+	bool ssm_enabled;
 };
 
 void pim_vrf_init(void);

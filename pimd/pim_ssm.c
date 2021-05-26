@@ -85,25 +85,28 @@ static int pim_is_grp_standard_ssm(struct prefix *group)
 
 int pim_is_grp_ssm(struct pim_instance *pim, struct in_addr group_addr)
 {
-	struct pim_ssm *ssm;
-	struct prefix group;
-	struct prefix_list *plist;
+	if (pim->ssm_enabled) {
+		struct pim_ssm *ssm;
+		struct prefix group;
+		struct prefix_list *plist;
 
-	memset(&group, 0, sizeof(group));
-	group.family = AF_INET;
-	group.u.prefix4 = group_addr;
-	group.prefixlen = 32;
+		memset(&group, 0, sizeof(group));
+		group.family = AF_INET;
+		group.u.prefix4 = group_addr;
+		group.prefixlen = 32;
 
-	ssm = pim->ssm_info;
-	if (!ssm->plist_name) {
-		return pim_is_grp_standard_ssm(&group);
-	}
+		ssm = pim->ssm_info;
+		if (!ssm->plist_name) {
+			return pim_is_grp_standard_ssm(&group);
+		}
 
-	plist = prefix_list_lookup(AFI_IP, ssm->plist_name);
-	if (!plist)
-		return 0;
+		plist = prefix_list_lookup(AFI_IP, ssm->plist_name);
+		if (!plist)
+			return 0;
 
-	return (prefix_list_apply(plist, &group) == PREFIX_PERMIT);
+		return (prefix_list_apply(plist, &group) == PREFIX_PERMIT);
+	} else
+		return false;
 }
 
 int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,

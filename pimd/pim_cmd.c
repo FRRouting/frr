@@ -7545,6 +7545,61 @@ DEFUN (no_ip_pim_rp_prefix_list,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static int ip_pim_enable_ssm(struct pim_instance *pim,
+			     struct vrf *vrf, bool set)
+{
+	struct pim_interface *pim_ifp;
+	struct interface *ifp;
+
+	if (set == pim->ssm_enabled)
+		return CMD_SUCCESS;
+
+	if (set)
+		pim->ssm_enabled = true;
+
+	else
+		pim->ssm_enabled = false;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+		pim_ifchannel_delete_all(ifp);
+	}
+
+	/* clear route */
+	clear_mroute(vrf->info);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (ip_pim_ssm_enable,
+       ip_pim_ssm_enable_cmd,
+       "ip pim ssm enable",
+       IP_STR
+       PIM_STR
+       "Source Specific Multicast\n"
+       "Enable ssm feature for PIM\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return ip_pim_enable_ssm(pim, vrf, true);
+}
+
+DEFPY (no_ip_pim_ssm_enable,
+       no_ip_pim_ssm_enable_cmd,
+       "no ip pim ssm enable",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Source Specific Multicast\n"
+       "Disable ssm feature for PIM\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return ip_pim_enable_ssm(pim, vrf, false);
+}
+
+
 DEFUN (ip_pim_ssm_prefix_list,
        ip_pim_ssm_prefix_list_cmd,
        "ip pim ssm prefix-list WORD",
@@ -11223,6 +11278,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ip_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_rp_prefix_list_cmd);
 	install_element(VRF_NODE, &no_ip_pim_rp_prefix_list_cmd);
+	install_element(CONFIG_NODE, &ip_pim_ssm_enable_cmd);
+	install_element(VRF_NODE, &ip_pim_ssm_enable_cmd);
+	install_element(CONFIG_NODE, &no_ip_pim_ssm_enable_cmd);
+	install_element(VRF_NODE, &no_ip_pim_ssm_enable_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ssm_prefix_list_cmd);
 	install_element(VRF_NODE, &no_ip_pim_ssm_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ssm_prefix_list_name_cmd);

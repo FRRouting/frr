@@ -89,6 +89,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->ecmp_enable = false;
 	pim->ecmp_rebalance_enable = false;
+	pim->ssm_enabled = false;
 
 	pim->vrf_id = vrf->vrf_id;
 	pim->vrf = vrf;
