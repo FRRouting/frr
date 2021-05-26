@@ -2669,23 +2669,23 @@ int config_write_ospf6_debug_message(struct vty *vty)
 
 	for (i = 1; i < 6; i++) {
 		if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, SEND)
-		    && IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, RECV))
+		    && IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, RECV)) {
 			vty_out(vty, "debug ospf6 message %s\n", type_str[i]);
-		else if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, SEND))
+			continue;
+		}
+
+		if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, SEND))
 			vty_out(vty, "debug ospf6 message %s send\n",
-				type_str[i]);
-		else if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, RECV))
-			vty_out(vty, "debug ospf6 message %s recv\n",
-				type_str[i]);
-		else if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, SEND_HDR)
-			 && IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, RECV_HDR))
-			vty_out(vty, "debug ospf6 message %s; header only\n",
-				type_str[i]);
-		else if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, RECV_HDR))
-			vty_out(vty, "debug ospf6 message %s recv-hdr\n",
 				type_str[i]);
 		else if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, SEND_HDR))
 			vty_out(vty, "debug ospf6 message %s send-hdr\n",
+				type_str[i]);
+
+		if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, RECV))
+			vty_out(vty, "debug ospf6 message %s recv\n",
+				type_str[i]);
+		else if (IS_OSPF6_DEBUG_MESSAGE_ENABLED(i, RECV_HDR))
+			vty_out(vty, "debug ospf6 message %s recv-hdr\n",
 				type_str[i]);
 	}
 
