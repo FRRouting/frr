@@ -124,6 +124,12 @@ int routing_control_plane_protocols_name_validate(
 	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']/"          \
 	"path-list[table-id='%u'][distance='%u']"
 
+#define FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_XPATH                            \
+	"/frr-routing:routing/control-plane-protocols/"                        \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
+	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']/"          \
+	"path-list[table-id='%u']"
+
 
 #define FRR_STATIC_ROUTE_PATH_TAG_XPATH "/tag"
 
@@ -149,14 +155,30 @@ int routing_control_plane_protocols_name_validate(
 	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']/"          \
 	"src-list[src-prefix='%s']/path-list[table-id='%u'][distance='%u']"
 
+#define FRR_S_ROUTE_SRC_INFO_KEY_NO_DISTANCE_XPATH                             \
+	"/frr-routing:routing/control-plane-protocols/"                        \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
+	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']/"          \
+	"src-list[src-prefix='%s']/path-list[table-id='%u']"
+
 /* route-list/frr-nexthops */
 #define FRR_DEL_S_ROUTE_NH_KEY_XPATH                                           \
 	FRR_STATIC_ROUTE_INFO_KEY_XPATH                                        \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
+/* route-list/frr-nexthops */
+#define FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH                               \
+	FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_XPATH                            \
+	FRR_STATIC_ROUTE_NH_KEY_XPATH
+
 /* route-list/src/src-list/frr-nexthops*/
 #define FRR_DEL_S_ROUTE_SRC_NH_KEY_XPATH                                       \
 	FRR_S_ROUTE_SRC_INFO_KEY_XPATH                                         \
+	FRR_STATIC_ROUTE_NH_KEY_XPATH
+
+/* route-list/src/src-list/frr-nexthops*/
+#define FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH                           \
+	FRR_S_ROUTE_SRC_INFO_KEY_NO_DISTANCE_XPATH                             \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
 #endif
