@@ -325,9 +325,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode) {
-			vty_out(vty,
-				"%% Refusing to remove a non-existent route\n");
-			return ret;
+			/* Silently return */
+			return CMD_SUCCESS;
 		}
 
 		dnode = yang_get_subtree_with_no_sibling(dnode);
