@@ -31,9 +31,9 @@ RUN apt-get install -y cmake libpcre2-dev
 
 USER frr:frr
 
-# build and install libyang1
+# build and install libyang2
 RUN cd && pwd && ls -al && \
-    git clone https://github.com/CESNET/libyang.git -b libyang2 && \
+    git clone https://github.com/CESNET/libyang.git && \
     cd libyang && \
     git checkout v2.0.0 && \
     mkdir build; cd build && \
