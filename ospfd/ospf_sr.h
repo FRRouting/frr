@@ -221,7 +221,7 @@ struct sr_local_block {
 enum sid_type { PREF_SID, LOCAL_SID, ADJ_SID, LAN_ADJ_SID };
 
 /* Status of Segment Routing: Off (Disable), On (Enable), (Up) Started */
-enum sr_status { SR_OFF, SR_ON, SR_UP, SR_DOWN };
+enum sr_status { SR_OFF, SR_ON, SR_UP };
 
 /* Structure aggregating all OSPF Segment Routing information for the node */
 struct ospf_sr_db {
