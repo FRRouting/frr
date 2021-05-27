@@ -1020,13 +1020,6 @@ def test_bgp_summary():
                     diff,
                 )
 
-                # Actual output from router
-                actual = (
-                    net["r%s" % i]
-                    .cmd('vtysh -c "show ip bgp summary" 2> /dev/null')
-                    .rstrip()
-                )
-
     # Make sure that all daemons are running
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
