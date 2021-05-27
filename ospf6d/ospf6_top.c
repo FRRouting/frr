@@ -413,6 +413,7 @@ void ospf6_delete(struct ospf6 *o)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_area *oa;
+	struct vrf *vrf;
 
 	QOBJ_UNREG(o);
 
@@ -441,6 +442,12 @@ void ospf6_delete(struct ospf6 *o)
 
 	ospf6_distance_reset(o);
 	route_table_finish(o->distance_table);
+
+	if (o->vrf_id != VRF_UNKNOWN) {
+		vrf = vrf_lookup_by_id(o->vrf_id);
+		if (vrf)
+			ospf6_vrf_unlink(o, vrf);
+	}
 
 	XFREE(MTYPE_OSPF6_TOP, o->name);
 	XFREE(MTYPE_OSPF6_TOP, o);
