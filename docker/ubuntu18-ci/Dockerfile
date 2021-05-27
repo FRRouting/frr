@@ -5,13 +5,19 @@ ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn
 # Update Ubuntu Software repository
 RUN apt update && \
     apt-get install -y \
-      git autoconf automake libtool make libreadline-dev texinfo \
+      git autoconf automake curl libtool make libreadline-dev texinfo \
       pkg-config libpam0g-dev libjson-c-dev bison flex python3-pytest \
       libc-ares-dev python3-dev libsystemd-dev python-ipaddress python3-sphinx \
       install-info build-essential libsystemd-dev libsnmp-dev perl libcap-dev \
       libelf-dev \
       sudo gdb iputils-ping time \
-      mininet python-pip iproute2 iperf && \
+      mininet python-pip iproute2 iperf libpcre2-dev \
+      libpcre3-dev \
+      && \
+    curl -fLO https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/Ubuntu-18.04-x86_64-Packages/libyang2_2.0.0.10.g2eb910e4-1_amd64.deb && \
+    curl -fLO https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/Ubuntu-18.04-x86_64-Packages/libyang2-dev_2.0.0.10.g2eb910e4-1_amd64.deb && \
+    dpkg -i libyang2_2.0.0.10.g2eb910e4-1_amd64.deb libyang2-dev_2.0.0.10.g2eb910e4-1_amd64.deb && \
+    rm -f libyang2_2.0.0.10.g2eb910e4-1_amd64.deb libyang2-dev_2.0.0.10.g2eb910e4-1_amd64.deb && \
       pip install ipaddr && \
       pip install "pytest<5" && \
       pip install "scapy>=2.4.2" && \
@@ -26,21 +32,7 @@ RUN groupadd -r -g 92 frr && \
       echo 'frr ALL = NOPASSWD: ALL' | tee /etc/sudoers.d/frr && \
       mkdir -p /home/frr && chown frr.frr /home/frr
 
-#for libyang 2
-RUN apt-get install -y cmake libpcre2-dev
-
 USER frr:frr
-
-# build and install libyang1
-RUN cd && pwd && ls -al && \
-    git clone https://github.com/CESNET/libyang.git -b libyang2 && \
-    cd libyang && \
-    git checkout v2.0.0 && \
-    mkdir build; cd build && \
-    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
-          -DCMAKE_BUILD_TYPE:String="Release" .. && \
-    make -j $(nproc) && \
-    sudo make install
 
 COPY --chown=frr:frr . /home/frr/frr/
 
