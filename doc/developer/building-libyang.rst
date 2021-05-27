@@ -14,8 +14,7 @@ DEB packages are available as CI artifacts `here
 
 .. warning::
 
-   ``libyang`` version 2.0.0 or newer is required to build FRR. Currently a tag
-   (``v2.0.0``) is used from the libyang2 branch.
+   ``libyang`` version 2.0.0 or newer is required to build FRR.
 
 .. note::
 
@@ -25,20 +24,20 @@ DEB packages are available as CI artifacts `here
    packages.
 
    Depending on your platform, you may also need to install the PCRE
-   development package. Typically this is ``libpcre-dev`` or ``pcre-devel``.
+   development package. Typically this is ``libpcre2-dev`` or ``pcre2-devel``.
 
 **Option 2: Source Install**
 
 .. note::
 
    Ensure that the `libyang build requirements
-   <https://github.com/CESNET/libyang/tree/libyang2#build-requirements>`_
+   <https://github.com/CESNET/libyang/#build-requirements>`_
    are met before continuing. Usually this entails installing ``cmake`` and
-   ``libpcre-dev`` or ``pcre-devel``.
+   ``libpcre2-dev`` or ``pcre2-devel``.
 
 .. code-block:: console
 
-   git clone https://github.com/CESNET/libyang.git -b libyang2
+   git clone https://github.com/CESNET/libyang.git
    cd libyang
    git checkout v2.0.0
    mkdir build; cd build
