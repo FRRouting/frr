@@ -656,7 +656,7 @@ int bfd_recv_cb(struct thread *t)
 	 * If no interface was detected, save the interface where the
 	 * packet came in.
 	 */
-	if (bfd->ifp == NULL)
+	if (!is_mhop && bfd->ifp == NULL)
 		bfd->ifp = if_lookup_by_index(ifindex, vrfid);
 
 	/* Log remote discriminator changes. */
