@@ -46,6 +46,52 @@ struct ospf6_external_info {
 	route_tag_t tag;
 
 	ifindex_t ifindex;
+
+};
+
+/* OSPF6 ASBR Summarisation */
+typedef enum {
+	OSPF6_ROUTE_AGGR_NONE = 0,
+	OSPF6_ROUTE_AGGR_ADD,
+	OSPF6_ROUTE_AGGR_DEL,
+	OSPF6_ROUTE_AGGR_MODIFY
+}ospf6_aggr_action_t;
+
+#define OSPF6_EXTERNAL_AGGRT_NO_ADVERTISE 0x1
+#define OSPF6_EXTERNAL_AGGRT_ORIGINATED 0x2
+
+#define OSPF6_EXTERNAL_RT_COUNT(aggr)    \
+        (((struct ospf6_external_aggr_rt *)aggr)->match_extnl_hash->count)
+
+struct ospf6_external_aggr_rt {
+	/* range address and masklen */
+	struct prefix p;
+
+	/* use bits for OSPF6_EXTERNAL_AGGRT_NO_ADVERTISE and
+	 * OSPF6_EXTERNAL_AGGRT_ORIGINATED
+	 */
+	uint16_t aggrflags;
+
+	/* To store external metric-type */
+	uint8_t mtype;
+
+	/* Route tag for summary address */
+	route_tag_t tag;
+
+	/* To store aggregated metric config */
+	int metric;
+
+	/* To Store the LS ID when LSA is originated */
+	uint32_t id;
+
+	/* How many prefixes are using this range */
+	uint32_t refcount;
+
+	/* Action to be done after delay timer expiry */
+	int action;
+
+	/* Hash table of matching external routes */
+	struct hash *match_extnl_hash;
 };
 
 /* AS-External-LSA */
@@ -110,8 +156,28 @@ extern void ospf6_asbr_distribute_list_update(struct ospf6 *ospf6,
 struct ospf6_redist *ospf6_redist_lookup(struct ospf6 *ospf6, int type,
 					 unsigned short instance);
 extern void ospf6_asbr_routemap_update(const char *mapname);
-extern void ospf6_as_external_lsa_originate(struct ospf6_route *route,
+extern struct ospf6_lsa *ospf6_as_external_lsa_originate(struct ospf6_route *route,
 					    struct ospf6 *ospf6);
 extern void ospf6_asbr_status_update(struct ospf6 *ospf6, int status);
 
+int ospf6_asbr_external_rt_advertise(struct ospf6 *ospf6,
+                                struct prefix *p);
+int ospf6_external_aggr_delay_timer_set(struct ospf6 *ospf6,
+                        unsigned int interval);
+int ospf6_asbr_external_rt_no_advertise(struct ospf6 *ospf6,
+                                struct prefix *p);
+
+struct ospf6_external_aggr_rt *
+ospf6_external_aggr_config_lookup(struct ospf6 *ospf6, struct prefix *p);
+
+int ospf6_external_aggr_config_set(struct ospf6 *ospf6, struct prefix *p,
+                                      route_tag_t tag, int metric, int mtype);
+
+int ospf6_external_aggr_config_unset(struct ospf6 *ospf6,
+					struct prefix *p);
+void ospf6_handle_external_lsa_origination(struct ospf6 *ospf6,
+					       struct ospf6_route *rt,
+					       struct prefix *p);
+void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr);
+void ospf6_unset_all_aggr_flag(struct ospf6 *ospf6);
 #endif /* OSPF6_ASBR_H */

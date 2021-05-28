@@ -30,6 +30,7 @@
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6_asbr.h"
 #include "ospf6_route.h"
 #include "ospf6d.h"
 #include "bitfield.h"
@@ -192,6 +193,28 @@ struct ospf6_lsa *ospf6_lsdb_lookup(uint16_t type, uint32_t id,
 
 	route_unlock_node(node);
 	return (struct ospf6_lsa *)node->info;
+}
+
+struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6, struct prefix *p)
+{
+	struct ospf6_route *match;
+	struct ospf6_lsa *lsa;
+	struct ospf6_external_info *info;
+
+	match = ospf6_route_lookup(p, ospf6->external_table);
+	if (match == NULL) {
+		if (IS_OSPF6_DEBUG_ASBR)
+			zlog_debug("No such route %pFX to withdraw", p);
+
+		return NULL;
+	}
+
+	info = (struct ospf6_external_info *)(match->route_option);
+	assert(info);
+
+	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
+				htonl(info->id), ospf6->router_id, ospf6->lsdb);
+	return lsa;
 }
 
 struct ospf6_lsa *ospf6_lsdb_lookup_next(uint16_t type, uint32_t id,
