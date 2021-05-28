@@ -721,6 +721,9 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 
 	detect_address_change(ifp, force_prim_as_any, __func__);
 
+	if (!ifp->info)
+		return;
+
 	pim_if_addr_del_igmp(ifc);
 	pim_if_addr_del_pim(ifc);
 }
@@ -855,8 +858,10 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	struct connected *ifc;
 	struct listnode *node;
 	struct in_addr addr = {0};
+#ifdef WRONG_UNNUM_SUPPORT
 	int v4_addrs = 0;
 	int v6_addrs = 0;
+#endif
 	struct pim_interface *pim_ifp = ifp->info;
 	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
@@ -871,7 +876,9 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 		struct prefix *p = ifc->address;
 
 		if (p->family != AF_INET) {
+#ifdef WRONG_UNNUM_SUPPORT
 			v6_addrs++;
+#endif
 			continue;
 		}
 
@@ -882,8 +889,9 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 			continue;
 		}
 
+#ifdef WRONG_UNNUM_SUPPORT
 		v4_addrs++;
-
+#endif
 		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 
@@ -896,6 +904,15 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	 * So let's grab the loopbacks v4 address
 	 * and use that as the primary address
 	 */
+	/* The following assumption of unnumbered interface is wrong.
+	 * Currently we do not have proper unnum config and dont claim
+	 * support for pim on unnum interface. Commenting the following block.
+	 * Re-enable the block when unnumbered support is properly done using
+	 * exclusive API to check if this is unnumbered interface.
+	 * connected_is_unnumbered API which is available currently is also
+	 * not a proper implementation. Retaining code under MACRO for ref.
+	 */
+#ifdef WRONG_UNNUM_SUPPORT
 	if (!v4_addrs && v6_addrs) {
 		struct interface *lo_ifp;
 
@@ -908,6 +925,7 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 		if (lo_ifp && (lo_ifp != ifp))
 			return pim_find_primary_addr(lo_ifp);
 	}
+#endif
 
 	addr.s_addr = PIM_NET_INADDR_ANY;
 

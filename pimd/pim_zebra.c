@@ -141,20 +141,6 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 #endif
 	}
 
-	if (!CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)) {
-		/* trying to add primary address */
-
-		struct in_addr primary_addr = pim_find_primary_addr(c->ifp);
-		if (p->family != AF_INET
-		    || primary_addr.s_addr != p->u.prefix4.s_addr) {
-			if (PIM_DEBUG_ZEBRA)
-				zlog_warn(
-					"%s: %s : forcing secondary flag on %pFX",
-					__func__, c->ifp->name, p);
-			SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
-		}
-	}
-
 	pim_if_addr_add(c);
 	if (pim_ifp) {
 		pim = pim_get_pim_instance(vrf_id);
