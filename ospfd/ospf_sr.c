@@ -278,16 +278,20 @@ static int sr_local_block_init(uint32_t lower_bound, uint32_t upper_bound)
 	 * an error to disable SR until a new SRLB is successfully allocated.
 	 */
 	size = upper_bound - lower_bound + 1;
-	if (ospf_zebra_request_label_range(lower_bound, size))
+	if (ospf_zebra_request_label_range(lower_bound, size)) {
+		zlog_err("SR: Error reserving SRLB [%u/%u] %u labels",
+			 lower_bound, upper_bound, size);
 		return -1;
+	}
 
-	osr_debug("SR (%s): Got new SRLB [%u/%u]", __func__, lower_bound,
-		  upper_bound);
+	osr_debug("SR: Got new SRLB [%u/%u], %u labels", lower_bound,
+		  upper_bound, size);
 
 	/* Initialize the SRLB */
 	srlb->start = lower_bound;
 	srlb->end = upper_bound;
 	srlb->current = 0;
+
 	/* Compute the needed Used Mark number and allocate them */
 	srlb->max_block = size / SRLB_BLOCK_SIZE;
 	if ((size % SRLB_BLOCK_SIZE) != 0)
@@ -296,6 +300,31 @@ static int sr_local_block_init(uint32_t lower_bound, uint32_t upper_bound)
 				  srlb->max_block * SRLB_BLOCK_SIZE);
 	srlb->reserved = true;
 
+	return 0;
+}
+
+static int sr_global_block_init(uint32_t start, uint32_t size)
+{
+	struct sr_global_block *srgb = &OspfSR.srgb;
+
+	/* Check if already configured */
+	if (srgb->reserved)
+		return 0;
+
+	/* request chunk */
+	uint32_t end = start + size - 1;
+	if (ospf_zebra_request_label_range(start, size) < 0) {
+		zlog_err("SR: Error reserving SRGB [%u/%u], %u labels", start,
+			 end, size);
+		return -1;
+	}
+
+	osr_debug("SR: Got new SRGB [%u/%u], %u labels", start, end, size);
+
+	/* success */
+	srgb->start = start;
+	srgb->size = size;
+	srgb->reserved = true;
 	return 0;
 }
 
@@ -488,16 +517,11 @@ static int ospf_sr_start(struct ospf *ospf)
 	 * If the allocation fails, return an error to disable SR until a new
 	 * SRLB and/or SRGB are successfully allocated.
 	 */
-	sr_local_block_init(OspfSR.srlb.start, OspfSR.srlb.end);
-	if (!OspfSR.srgb.reserved) {
-		if (ospf_zebra_request_label_range(OspfSR.srgb.start,
-						   OspfSR.srgb.size)
-		    < 0) {
-			OspfSR.srgb.reserved = false;
-			return -1;
-		} else
-			OspfSR.srgb.reserved = true;
-	}
+	if (sr_local_block_init(OspfSR.srlb.start, OspfSR.srlb.end) < 0)
+		return -1;
+
+	if (sr_global_block_init(OspfSR.srgb.start, OspfSR.srgb.size) < 0)
+		return -1;
 
 	/* SR is UP and ready to flood LSA */
 	OspfSR.status = SR_UP;
@@ -2187,18 +2211,11 @@ static int update_sr_blocks(uint32_t gb_lower, uint32_t gb_upper,
 	 * allocated.
 	 */
 	if (gb_changed) {
-		if (ospf_zebra_request_label_range(OspfSR.srgb.start,
-						   OspfSR.srgb.size)
+		if (sr_global_block_init(OspfSR.srgb.start, OspfSR.srgb.size)
 		    < 0) {
-			OspfSR.srgb.reserved = false;
 			ospf_sr_stop();
 			return -1;
-		} else
-			OspfSR.srgb.reserved = true;
-
-		osr_debug("SR(%s): Got new SRGB [%u/%u]", __func__,
-			  OspfSR.srgb.start,
-			  OspfSR.srgb.start + OspfSR.srgb.size - 1);
+		}
 	}
 
 	/* Update Self SR-Node */
