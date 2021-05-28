@@ -2151,6 +2151,13 @@ static bool ranges_overlap(uint32_t r1_lower, uint32_t r1_upper,
 	return !((r1_upper < r2_lower) || (r1_lower > r2_upper));
 }
 
+
+/* tell if a range is valid */
+static bool sr_range_is_valid(uint32_t lower, uint32_t upper, uint32_t min_size)
+{
+	return (upper >= lower + min_size);
+}
+
 /**
  * Update SRGB and/or SRLB using new CLI values.
  *
@@ -2268,11 +2275,24 @@ DEFUN(sr_global_label_range, sr_global_label_range_cmd,
 	/* Get lower and upper bound for mandatory global-block */
 	gb_lower = strtoul(argv[idx_gb_low]->arg, NULL, 10);
 	gb_upper = strtoul(argv[idx_gb_up]->arg, NULL, 10);
+
 	/* SRLB values are taken from vtysh if there, else use the known ones */
 	lb_upper = argc > idx_lb_up ? strtoul(argv[idx_lb_up]->arg, NULL, 10)
 				    : OspfSR.srlb.end;
 	lb_lower = argc > idx_lb_low ? strtoul(argv[idx_lb_low]->arg, NULL, 10)
 				     : OspfSR.srlb.start;
+
+	/* check correctness of input SRGB */
+	if (!sr_range_is_valid(gb_lower, gb_upper, MIN_SRGB_SIZE)) {
+		vty_out(vty, "Invalid SRGB range\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* check correctness of SRLB */
+	if (!sr_range_is_valid(lb_lower, lb_upper, MIN_SRLB_SIZE)) {
+		vty_out(vty, "Invalid SRLB range\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Validate SRGB against SRLB */
 	if (ranges_overlap(gb_lower, gb_upper, lb_lower, lb_upper)) {
@@ -2327,6 +2347,12 @@ DEFUN_HIDDEN(sr_local_label_range, sr_local_label_range_cmd,
 	/* Get lower and upper bound */
 	lower = strtoul(argv[idx_low]->arg, NULL, 10);
 	upper = strtoul(argv[idx_up]->arg, NULL, 10);
+
+	/* check correctness of SRLB */
+	if (!sr_range_is_valid(lower, upper, MIN_SRLB_SIZE)) {
+		vty_out(vty, "Invalid SRLB range\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Check if values have changed */
 	if ((OspfSR.srlb.start == lower)
