@@ -278,10 +278,8 @@ static int sr_local_block_init(uint32_t lower_bound, uint32_t upper_bound)
 	 * an error to disable SR until a new SRLB is successfully allocated.
 	 */
 	size = upper_bound - lower_bound + 1;
-	if (ospf_zebra_request_label_range(lower_bound, size)) {
-		srlb->reserved = false;
+	if (ospf_zebra_request_label_range(lower_bound, size))
 		return -1;
-	}
 
 	osr_debug("SR (%s): Got new SRLB [%u/%u]", __func__, lower_bound,
 		  upper_bound);
