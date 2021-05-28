@@ -2139,6 +2139,13 @@ static int ospf_sr_enabled(struct vty *vty)
 	return 0;
 }
 
+/* tell if two ranges [r1_lower, r1_upper] and [r2_lower,r2_upper] overlap */
+static bool ranges_overlap(uint32_t r1_lower, uint32_t r1_upper,
+			   uint32_t r2_lower, uint32_t r2_upper)
+{
+	return !((r1_upper < r2_lower) || (r1_lower > r2_upper));
+}
+
 /**
  * Update SRGB and/or SRLB using new CLI values.
  *
@@ -2263,9 +2270,9 @@ DEFUN(sr_global_label_range, sr_global_label_range_cmd,
 				     : OspfSR.srlb.start;
 
 	/* Validate SRGB against SRLB */
-	if (!((gb_upper < lb_lower) || (gb_lower > lb_upper))) {
+	if (ranges_overlap(gb_lower, gb_upper, lb_lower, lb_upper)) {
 		vty_out(vty,
-			"New SR Global Block (%u/%u) conflict with Local Block (%u/%u)\n",
+			"New SR Global Block (%u/%u) conflicts with Local Block (%u/%u)\n",
 			gb_lower, gb_upper, lb_lower, lb_upper);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -2323,9 +2330,10 @@ DEFUN_HIDDEN(sr_local_label_range, sr_local_label_range_cmd,
 
 	/* Validate SRLB against SRGB */
 	srgb_upper = OspfSR.srgb.start + OspfSR.srgb.size - 1;
-	if (!((upper < OspfSR.srgb.start) || (lower > srgb_upper))) {
+
+	if (ranges_overlap(OspfSR.srgb.start, srgb_upper, lower, upper)) {
 		vty_out(vty,
-			"New SR Local Block (%u/%u) conflict with Global Block (%u/%u)\n",
+			"New SR Local Block (%u/%u) conflicts with Global Block (%u/%u)\n",
 			lower, upper, OspfSR.srgb.start, srgb_upper);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -2348,10 +2356,10 @@ DEFUN_HIDDEN(no_sr_local_label_range, no_sr_local_label_range_cmd,
 
 	/* Validate SRLB against SRGB */
 	srgb_end = OspfSR.srgb.start + OspfSR.srgb.size - 1;
-	if (!((DEFAULT_SRLB_END < OspfSR.srgb.start)
-	      || (DEFAULT_SRLB_LABEL > srgb_end))) {
+	if (ranges_overlap(OspfSR.srgb.start, srgb_end, DEFAULT_SRLB_LABEL,
+			   DEFAULT_SRLB_END)) {
 		vty_out(vty,
-			"New SR Local Block (%u/%u) conflict with Global Block (%u/%u)\n",
+			"New SR Local Block (%u/%u) conflicts with Global Block (%u/%u)\n",
 			DEFAULT_SRLB_LABEL, DEFAULT_SRLB_END, OspfSR.srgb.start,
 			srgb_end);
 		return CMD_WARNING_CONFIG_FAILED;
