@@ -905,8 +905,8 @@ connected_log(struct connected *connected, char *str)
 
 	p = connected->destination;
 	if (p) {
-		strncat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-			BUFSIZ - strlen(logbuf));
+		strlcat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
+			BUFSIZ);
 	}
 	zlog_info("%s", logbuf);
 }
@@ -1238,7 +1238,7 @@ DEFPY_YANG_NOSH (interface,
 		 vrf_name);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-	ret = nb_cli_apply_changes(vty, xpath_list);
+	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(INTERFACE_NODE, xpath_list);
 
@@ -1248,7 +1248,6 @@ DEFPY_YANG_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
-		nb_cli_pending_commit_check(vty);
 		ifp = if_lookup_by_name(ifname, vrf_id);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);

@@ -79,7 +79,7 @@ DEFPY_YANG(
 		 as_str, vrf ? vrf : VRF_DEFAULT_NAME);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
 void eigrp_cli_show_header(struct vty *vty, struct lyd_node *dnode,

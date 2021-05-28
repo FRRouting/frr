@@ -704,6 +704,7 @@ extern struct debug nb_dbg_cbs_state;
 extern struct debug nb_dbg_cbs_rpc;
 extern struct debug nb_dbg_notif;
 extern struct debug nb_dbg_events;
+extern struct debug nb_dbg_libyang;
 
 /* Global running configuration. */
 extern struct nb_config *running_config;

@@ -512,6 +512,7 @@ static int nb_lyd_diff_get_op(const struct lyd_node *dnode)
 	return 'n';
 }
 
+#if 0 /* Used below in nb_config_diff inside normally disabled code */
 static inline void nb_config_diff_dnode_log_path(const char *context,
 						 const char *path,
 						 const struct lyd_node *dnode)
@@ -535,6 +536,7 @@ static inline void nb_config_diff_dnode_log(const char *context,
 	nb_config_diff_dnode_log_path(context, path, dnode);
 	free(path);
 }
+#endif
 
 /* Calculate the delta between two different configurations. */
 static void nb_config_diff(const struct nb_config *config1,
@@ -548,8 +550,7 @@ static void nb_config_diff(const struct nb_config *config1,
 	LY_ERR err;
 	char *path;
 
-#if 0 /* Useful (but noisy) when debugging diff code, and for improving later  \
-       */
+#if 0 /* Useful (noisy) when debugging diff code, and for improving later */
 	if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
 		LY_LIST_FOR(config1->dnode, root) {
 			LYD_TREE_DFS_BEGIN(root, dnode) {
@@ -570,18 +571,25 @@ static void nb_config_diff(const struct nb_config *config1,
 				LYD_DIFF_DEFAULTS, &diff);
 	assert(!err);
 
-	if (diff && DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL))
-		nb_config_diff_dnode_log("iterating diff", diff);
+	if (diff && DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
+		char *s;
+
+		if (!lyd_print_mem(&s, diff, LYD_JSON,
+				   LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL)) {
+			zlog_debug("%s: %s", __func__, s);
+			free(s);
+		}
+	}
 
 	uint32_t seq = 0;
+
 	LY_LIST_FOR (diff, root) {
 		LYD_TREE_DFS_BEGIN (root, dnode) {
 			op = nb_lyd_diff_get_op(dnode);
 
 			path = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
 
-#if 0 /* Useful (but noisy) when debugging diff code, and for improving later  \
-       */
+#if 0 /* Useful (noisy) when debugging diff code, and for improving later */
 			if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
 				char context[80];
 				snprintf(context, sizeof(context),
@@ -631,7 +639,7 @@ static void nb_config_diff(const struct nb_config *config1,
 		}
 	}
 
-	lyd_free_tree(diff);
+	lyd_free_all(diff);
 }
 
 int nb_candidate_edit(struct nb_config *candidate,
@@ -664,6 +672,14 @@ int nb_candidate_edit(struct nb_config *candidate,
 				  xpath_edit, err);
 			return NB_ERR;
 		} else if (dnode) {
+			/* Create default nodes */
+			LY_ERR err = lyd_new_implicit_tree(
+				dnode, LYD_IMPLICIT_NO_STATE, NULL);
+			if (err) {
+				flog_warn(EC_LIB_LIBYANG,
+					  "%s: lyd_new_implicit_all failed: %d",
+					  __func__, err);
+			}
 			/*
 			 * create dependency
 			 *
@@ -679,6 +695,11 @@ int nb_candidate_edit(struct nb_config *candidate,
 						   ly_native_ctx, dep_xpath,
 						   NULL, LYD_NEW_PATH_UPDATE,
 						   &dep_dnode);
+				/* Create default nodes */
+				if (!err)
+					err = lyd_new_implicit_tree(
+						dep_dnode,
+						LYD_IMPLICIT_NO_STATE, NULL);
 				if (err) {
 					flog_warn(
 						EC_LIB_LIBYANG,
