@@ -80,7 +80,7 @@ DEFPY_YANG (no_router_rip,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
 void cli_show_router_rip(struct vty *vty, struct lyd_node *dnode,
