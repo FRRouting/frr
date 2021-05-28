@@ -435,7 +435,7 @@ module frr-bfdd {
         }
 
         list multi-hop {
-          key "source-addr dest-addr interface vrf";
+          key "source-addr dest-addr vrf";
           description "List of multi hop sessions";
 
           leaf source-addr {
@@ -446,11 +446,6 @@ module frr-bfdd {
           leaf dest-addr {
             type inet:ip-address;
             description "IP address of the peer";
-          }
-
-          leaf interface {
-            type frr-interface:interface-ref;
-            description "Interface to use to contact peer";
           }
 
           leaf vrf {
