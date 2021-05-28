@@ -88,6 +88,9 @@ static void show_nexthop_detail_helper(struct vty *vty,
 				       const struct nexthop *nexthop,
 				       bool is_backup);
 
+static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table);
+static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
+				   struct route_entry *re, unsigned int num);
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
@@ -2082,6 +2085,207 @@ DEFPY (show_route_summary,
 	}
 
 	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (show_route_zebra_dump,
+              show_route_zebra_dump_cmd,
+              "show <ip|ipv6> zebra route dump [vrf VRFNAME]",
+              SHOW_STR
+              IP_STR
+              IP6_STR
+              "Zebra daemon\n"
+              "Routing table\n"
+              "All information\n"
+              VRF_CMD_HELP_STR)
+{
+	afi_t afi = AFI_IP;
+	struct route_table *table;
+	const char *vrf_name = NULL;
+	int idx = 0;
+
+	afi = strmatch(argv[1]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+
+	if (argv_find(argv, argc, "vrf", &idx))
+		vrf_name = argv[++idx]->arg;
+
+	if (!vrf_name) {
+		struct vrf *vrf;
+		struct zebra_vrf *zvrf;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			zvrf = vrf->info;
+			if ((zvrf == NULL)
+			    || (zvrf->table[afi][SAFI_UNICAST] == NULL))
+				continue;
+
+			table = zvrf->table[afi][SAFI_UNICAST];
+			show_ip_route_dump_vty(vty, table);
+		}
+	} else {
+		vrf_id_t vrf_id = VRF_DEFAULT;
+
+		VRF_GET_ID(vrf_id, vrf_name, true);
+
+		table = zebra_vrf_table(afi, SAFI_UNICAST, vrf_id);
+		if (!table)
+			return CMD_SUCCESS;
+
+		show_ip_route_dump_vty(vty, table);
+	}
+
+	return CMD_SUCCESS;
+}
+
+static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
+				   struct route_entry *re, unsigned int num)
+{
+
+	char buf[SRCDEST2STR_BUFFER];
+
+	vty_out(vty, "   Nexthop %u:\n", num);
+	vty_out(vty, "      type: %u\n", nexthop->type);
+	vty_out(vty, "      flags: %u\n", nexthop->flags);
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		vty_out(vty, "      ip address: %s\n",
+			inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
+				  sizeof(buf)));
+		vty_out(vty, "      afi: ipv4\n");
+
+		if (nexthop->ifindex) {
+			vty_out(vty, "      interface index: %d\n",
+				nexthop->ifindex);
+			vty_out(vty, "      interface name: %s\n",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		}
+
+		if (nexthop->src.ipv4.s_addr
+		    && (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
+				  sizeof(buf))))
+			vty_out(vty, "      source: %s\n", buf);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		vty_out(vty, "      ip: %s\n",
+			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+				  sizeof(buf)));
+		vty_out(vty, "      afi: ipv6\n");
+
+		if (nexthop->ifindex) {
+			vty_out(vty, "      interface index: %d\n",
+				nexthop->ifindex);
+			vty_out(vty, "      interface name: %s\n",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		}
+
+		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
+			if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
+				      sizeof(buf)))
+				vty_out(vty, "      source: %s\n", buf);
+		}
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		vty_out(vty,
+			"      Nexthop is an interface (directly connected).\n");
+		vty_out(vty, "      interface index: %d\n", nexthop->ifindex);
+		vty_out(vty, "      interface name: %s\n",
+			ifindex2ifname(nexthop->ifindex, nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		vty_out(vty, "      Nexthop type is blackhole.\n");
+
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_REJECT:
+			vty_out(vty, "      Blackhole type: reject\n");
+			break;
+		case BLACKHOLE_ADMINPROHIB:
+			vty_out(vty,
+				"      Blackhole type: admin-prohibited\n");
+			break;
+		case BLACKHOLE_NULL:
+			vty_out(vty, "      Blackhole type: NULL0\n");
+			break;
+		case BLACKHOLE_UNSPEC:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table)
+{
+	struct route_node *rn;
+	struct route_entry *re;
+	char buf[SRCDEST2STR_BUFFER];
+	char time[20];
+	time_t uptime;
+	struct tm tm;
+	struct timeval tv;
+	struct nexthop *nexthop = NULL;
+	int nexthop_num = 0;
+
+	vty_out(vty, "\nIPv4/IPv6 Routing table dump\n");
+	vty_out(vty, "----------------------------\n");
+
+	for (rn = route_top(table); rn; rn = route_next(rn)) {
+		RNODE_FOREACH_RE (rn, re) {
+			vty_out(vty, "Route: %s\n",
+				srcdest_rnode2str(rn, buf, sizeof(buf)));
+			vty_out(vty, "   protocol: %s\n",
+				zebra_route_string(re->type));
+			vty_out(vty, "   instance: %u\n", re->instance);
+			vty_out(vty, "   VRF ID: %u\n", re->vrf_id);
+			vty_out(vty, "   VRF name: %s\n",
+				vrf_id_to_name(re->vrf_id));
+			vty_out(vty, "   flags: %u\n", re->flags);
+
+			if (re->type != ZEBRA_ROUTE_CONNECT) {
+				vty_out(vty, "   distance: %u\n", re->distance);
+				vty_out(vty, "   metric: %u\n", re->metric);
+			}
+
+			vty_out(vty, "   tag: %u\n", re->tag);
+
+			uptime = monotime(&tv);
+			uptime -= re->uptime;
+			gmtime_r(&uptime, &tm);
+
+			if (uptime < ONE_DAY_SECOND)
+				snprintf(time, sizeof(time), "%02d:%02d:%02d",
+					 tm.tm_hour, tm.tm_min, tm.tm_sec);
+			else if (uptime < ONE_WEEK_SECOND)
+				snprintf(time, sizeof(time), "%dd%02dh%02dm",
+					 tm.tm_yday, tm.tm_hour, tm.tm_min);
+			else
+				snprintf(time, sizeof(time), "%02dw%dd%02dh",
+					 tm.tm_yday / 7,
+					 tm.tm_yday - ((tm.tm_yday / 7) * 7),
+					 tm.tm_hour);
+
+			vty_out(vty, "   status: %u\n", re->status);
+			vty_out(vty, "   nexthop_num: %u\n",
+				nexthop_group_nexthop_num(&(re->nhe->nhg)));
+			vty_out(vty, "   nexthop_active_num: %u\n",
+				nexthop_group_active_nexthop_num(
+					&(re->nhe->nhg)));
+			vty_out(vty, "   table: %u\n", re->table);
+			vty_out(vty, "   uptime: %s\n", time);
+
+			for (ALL_NEXTHOPS_PTR(&(re->nhe->nhg), nexthop)) {
+				nexthop_num++;
+				show_ip_route_nht_dump(vty, nexthop, re,
+						       nexthop_num);
+			}
+
+			nexthop_num = 0;
+			vty_out(vty, "\n");
+		}
+	}
 }
 
 static void vty_show_ip_route_summary(struct vty *vty,
@@ -4191,6 +4395,7 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_pbr_ipset_cmd);
 	install_element(VIEW_NODE, &show_pbr_iptable_cmd);
+	install_element(VIEW_NODE, &show_route_zebra_dump_cmd);
 
 	install_element(CONFIG_NODE, &evpn_mh_mac_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
