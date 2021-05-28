@@ -38,7 +38,6 @@
 #define SET_LABEL(label) ((label << 8) & SET_LABEL_MASK)
 #define GET_LABEL(label) ((label >> 8) & GET_LABEL_MASK)
 
-#define OSPF_SR_DEFAULT_METRIC		1
 
 /* Segment Routing TLVs as per RFC 8665 */
 
