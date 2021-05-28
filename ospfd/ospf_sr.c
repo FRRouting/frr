@@ -320,8 +320,29 @@ static void sr_local_block_delete(void)
 	/* Then reset SRLB structure */
 	if (srlb->used_mark != NULL)
 		XFREE(MTYPE_OSPF_SR_PARAMS, srlb->used_mark);
+
 	srlb->reserved = false;
 }
+
+/**
+ * Remove Segment Routing Global block
+ */
+static void sr_global_block_delete(void)
+{
+	struct sr_global_block *srgb = &OspfSR.srgb;
+
+	if (!srgb->reserved)
+		return;
+
+	osr_debug("SR (%s): Remove SRGB [%u/%u]", __func__, srgb->start,
+		  srgb->start + srgb->size - 1);
+
+	ospf_zebra_release_label_range(srgb->start,
+				       srgb->start + srgb->size - 1);
+
+	srgb->reserved = false;
+}
+
 
 /**
  * Request a label from the Segment Routing Local Block.
@@ -532,13 +553,10 @@ static void ospf_sr_stop(void)
 	/* Disable any re-attempt to connect to Label Manager */
 	THREAD_OFF(OspfSR.t_start_lm);
 
-	/* Release SRGB & SRLB if active. */
-	if (OspfSR.srgb.reserved) {
-		ospf_zebra_release_label_range(
-			OspfSR.srgb.start,
-			OspfSR.srgb.start + OspfSR.srgb.size - 1);
-		OspfSR.srgb.reserved = false;
-	}
+	/* Release SRGB if active */
+	sr_global_block_delete();
+
+	/* Release SRLB if active */
 	sr_local_block_delete();
 
 	/*
@@ -2134,12 +2152,8 @@ static int update_sr_blocks(uint32_t gb_lower, uint32_t gb_upper,
 
 	/* Release old SRGB if it has changed and is active. */
 	if (gb_changed) {
-		if (OspfSR.srgb.reserved) {
-			ospf_zebra_release_label_range(
-				OspfSR.srgb.start,
-				OspfSR.srgb.start + OspfSR.srgb.size - 1);
-			OspfSR.srgb.reserved = false;
-		}
+
+		sr_global_block_delete();
 
 		/* Set new SRGB values - but do not reserve yet (we need to
 		 * release the SRLB too) */
@@ -2153,8 +2167,8 @@ static int update_sr_blocks(uint32_t gb_lower, uint32_t gb_upper,
 	/* Release old SRLB if it has changed and reserve new block as needed.
 	 */
 	if (lb_changed) {
-		if (OspfSR.srlb.reserved)
-			sr_local_block_delete();
+
+		sr_local_block_delete();
 
 		/* Set new SRLB values */
 		if (sr_local_block_init(lb_lower, lb_upper) < 0) {
@@ -2463,6 +2477,7 @@ DEFUN (sr_prefix_sid,
 	if (srp == new && CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
 	    && !CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
 		ospf_zebra_delete_prefix_sid(srp);
+
 	/* Then, reset Flag & labels to handle flag update */
 	new->flags = 0;
 	new->label_in = 0;
