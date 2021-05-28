@@ -38,6 +38,9 @@
 #define SET_LABEL(label) ((label << 8) & SET_LABEL_MASK)
 #define GET_LABEL(label) ((label >> 8) & GET_LABEL_MASK)
 
+/* smallest configurable SRGB / SRLB sizes */
+#define MIN_SRLB_SIZE 16
+#define MIN_SRGB_SIZE 16
 
 /* Segment Routing TLVs as per RFC 8665 */
 
