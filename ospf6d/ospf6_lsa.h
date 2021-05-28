@@ -28,6 +28,7 @@
 #define OSPF6_LSA_DEBUG_ORIGINATE 0x02
 #define OSPF6_LSA_DEBUG_EXAMIN    0x04
 #define OSPF6_LSA_DEBUG_FLOOD     0x08
+#define OSPF6_LSA_DEBUG_AGGR      0x10
 
 /* OSPF LSA Default metric values */
 #define DEFAULT_DEFAULT_METRIC 20
@@ -51,6 +52,8 @@
 	(ospf6_lstype_debug(type) & OSPF6_LSA_DEBUG_EXAMIN)
 #define IS_OSPF6_DEBUG_FLOOD_TYPE(type)                                        \
 	(ospf6_lstype_debug(type) & OSPF6_LSA_DEBUG_FLOOD)
+#define IS_OSPF6_DEBUG_AGGR                                       	       \
+	(ospf6_lstype_debug(OSPF6_LSTYPE_AS_EXTERNAL) & OSPF6_LSA_DEBUG_AGGR)  \
 
 /* LSA definition */
 
@@ -263,4 +266,5 @@ extern void install_element_ospf6_debug_lsa(void);
 extern void ospf6_lsa_age_set(struct ospf6_lsa *lsa);
 extern void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6);
 extern struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa);
+struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6, struct prefix *p);
 #endif /* OSPF6_LSA_H */

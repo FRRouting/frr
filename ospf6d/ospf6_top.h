@@ -91,6 +91,7 @@ struct ospf6 {
 
 	struct ospf6_route_table *external_table;
 	struct route_table *external_id_table;
+#define OSPF6_EXT_INIT_LS_ID 1
 	uint32_t external_id;
 
 	/* OSPF6 redistribute configuration */
@@ -130,6 +131,7 @@ struct ospf6 {
 	struct thread *maxage_remover;
 	struct thread *t_distribute_update; /* Distirbute update timer. */
 	struct thread *t_ospf6_receive; /* OSPF6 receive timer */
+	struct thread *t_external_aggr; /* OSPF6 aggregation timer */
 #define OSPF6_WRITE_INTERFACE_COUNT_DEFAULT 20
 	struct thread *t_write;
 
@@ -158,6 +160,16 @@ struct ospf6 {
 	struct list *oi_write_q;
 
 	uint32_t redist_count;
+
+	/* Action for aggregation of external LSAs */
+	int aggr_action;
+
+#define OSPF6_EXTL_AGGR_DEFAULT_DELAY 5
+	/* For ASBR summary delay timer */
+	int aggr_delay_interval;
+	/* Table of configured Aggregate addresses */
+	struct route_table *rt_aggr_tbl;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(ospf6);
@@ -188,4 +200,5 @@ struct ospf6 *ospf6_lookup_by_vrf_id(vrf_id_t vrf_id);
 struct ospf6 *ospf6_lookup_by_vrf_name(const char *name);
 const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id);
 void ospf6_vrf_init(void);
+bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p);
 #endif /* OSPF6_TOP_H */

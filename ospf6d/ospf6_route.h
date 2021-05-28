@@ -161,6 +161,12 @@ struct ospf6_route {
 
 	/* nexthop */
 	struct list *nh_list;
+
+	/* points to the summarised route */
+	struct ospf6_external_aggr_rt *aggr_route;
+
+	/* For Aggr routes */
+	bool to_be_processed;
 };
 
 #define OSPF6_DEST_TYPE_NONE       0

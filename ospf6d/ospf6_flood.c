@@ -106,7 +106,7 @@ void ospf6_lsa_originate(struct ospf6_lsa *lsa)
 	lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
 	ospf6_lsdb_add(ospf6_lsa_copy(lsa), lsdb_self);
 
-	lsa->refresh = NULL;
+	THREAD_OFF(lsa->refresh);
 	thread_add_timer(master, ospf6_lsa_refresh, lsa, OSPF_LS_REFRESH_TIME,
 			 &lsa->refresh);
 
@@ -137,6 +137,31 @@ void ospf6_lsa_originate_interface(struct ospf6_lsa *lsa,
 {
 	lsa->lsdb = oi->lsdb;
 	ospf6_lsa_originate(lsa);
+}
+
+void ospf6_remove_id_from_external_id_table(struct ospf6 *ospf6,
+						uint32_t id)
+{
+	struct prefix prefix_id;
+	struct route_node *node;
+
+	/* remove binding in external_id_table */
+	prefix_id.family = AF_INET;
+	prefix_id.prefixlen = 32;
+	prefix_id.u.prefix4.s_addr = id;
+	node = route_node_lookup(ospf6->external_id_table, &prefix_id);
+	assert(node);
+	node->info = NULL;
+	route_unlock_node(node); /* to free the lookup lock */
+	route_unlock_node(node); /* to free the original lock */
+
+}
+
+void ospf6_external_lsa_purge(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
+{
+	ospf6_lsa_purge(lsa);
+
+	ospf6_remove_id_from_external_id_table(ospf6, lsa->header->id);
 }
 
 void ospf6_lsa_purge(struct ospf6_lsa *lsa)

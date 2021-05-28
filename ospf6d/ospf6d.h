@@ -49,6 +49,10 @@ extern struct thread_master *master;
 #define MSG_OK    0
 #define MSG_NG    1
 
+#define OSPF6_SUCCESS 1
+#define OSPF6_FAILURE 0
+#define OSPF6_INVALID -1
+
 /* cast macro: XXX - these *must* die, ick ick. */
 #define OSPF6_PROCESS(x) ((struct ospf6 *) (x))
 #define OSPF6_AREA(x) ((struct ospf6_area *) (x))
