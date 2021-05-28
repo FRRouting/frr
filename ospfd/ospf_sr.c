@@ -581,7 +581,7 @@ int ospf_sr_init(void)
 	OspfSR.srgb.reserved = false;
 
 	OspfSR.srlb.start = DEFAULT_SRLB_LABEL;
-	OspfSR.srlb.end = DEFAULT_SRLB_LABEL + DEFAULT_SRLB_SIZE - 1;
+	OspfSR.srlb.end = DEFAULT_SRLB_END;
 	OspfSR.srlb.reserved = false;
 	OspfSR.msd = 0;
 
