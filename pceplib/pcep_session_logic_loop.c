@@ -332,7 +332,7 @@ void *session_logic_loop(void *data)
 					session_logic_handle
 						->session_event_queue);
 				pthread_mutex_unlock(
-					&(session_logic_handle_
+					&(session_logic_handle
 						  ->session_list_mutex));
 				continue;
 			}
@@ -350,7 +350,7 @@ void *session_logic_loop(void *data)
 				session_logic_handle->session_event_queue);
 
 			pthread_mutex_unlock(
-				&(session_logic_handle_->session_list_mutex));
+				&(session_logic_handle->session_list_mutex));
 		}
 
 		session_logic_handle->session_logic_condition = false;
