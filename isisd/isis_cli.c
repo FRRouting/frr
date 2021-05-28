@@ -126,7 +126,7 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(
+	return nb_cli_apply_changes_clear_pending(
 		vty, "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
 		vrf_name);
 }

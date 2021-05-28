@@ -37,6 +37,7 @@
 #include "module.h"
 #include "defaults.h"
 #include "lib_vty.h"
+#include "northbound_cli.h"
 
 /* Looking up memory status from vty interface. */
 #include "vector.h"
@@ -231,6 +232,8 @@ DEFUN_HIDDEN (start_config,
 {
 	callback.readin_time = monotime(NULL);
 
+	vty->pending_allowed = 1;
+
 	if (callback.start_config)
 		(*callback.start_config)();
 
@@ -244,6 +247,7 @@ DEFUN_HIDDEN (end_config,
 {
 	time_t readin_time;
 	char readin_time_str[MONOTIME_STRLEN];
+	int ret;
 
 	readin_time = monotime(NULL);
 	readin_time -= callback.readin_time;
@@ -251,12 +255,15 @@ DEFUN_HIDDEN (end_config,
 	frrtime_to_interval(readin_time, readin_time_str,
 			    sizeof(readin_time_str));
 
+	vty->pending_allowed = 0;
+	ret = nb_cli_pending_commit_check(vty);
+
 	zlog_info("Configuration Read in Took: %s", readin_time_str);
 
 	if (callback.end_config)
 		(*callback.end_config)();
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
 void cmd_init_config_callbacks(void (*start_config_cb)(void),

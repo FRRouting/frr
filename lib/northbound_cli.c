@@ -74,7 +74,7 @@ static int nb_cli_classic_commit(struct vty *vty)
 	default:
 		vty_out(vty, "%% Configuration failed.\n\n");
 		vty_show_nb_errors(vty, ret, errmsg);
-		if (vty->t_pending_commit)
+		if (vty->pending_commit)
 			vty_out(vty,
 				"The following commands were dynamically grouped into the same transaction and rejected:\n%s",
 				vty->pending_cmds_buf);
@@ -89,49 +89,22 @@ static int nb_cli_classic_commit(struct vty *vty)
 
 static void nb_cli_pending_commit_clear(struct vty *vty)
 {
-	THREAD_OFF(vty->t_pending_commit);
-	vty->backoff_cmd_count = 0;
+	vty->pending_commit = 0;
 	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
 	vty->pending_cmds_buflen = 0;
 	vty->pending_cmds_bufpos = 0;
 }
 
-static int nb_cli_pending_commit_cb(struct thread *thread)
+int nb_cli_pending_commit_check(struct vty *vty)
 {
-	struct vty *vty = THREAD_ARG(thread);
+	int ret = CMD_SUCCESS;
 
-	(void)nb_cli_classic_commit(vty);
-	nb_cli_pending_commit_clear(vty);
-
-	return 0;
-}
-
-void nb_cli_pending_commit_check(struct vty *vty)
-{
-	if (vty->t_pending_commit) {
-		(void)nb_cli_classic_commit(vty);
+	if (vty->pending_commit) {
+		ret = nb_cli_classic_commit(vty);
 		nb_cli_pending_commit_clear(vty);
 	}
-}
 
-static bool nb_cli_backoff_start(struct vty *vty)
-{
-	struct timeval now, delta;
-
-	/*
-	 * Start the configuration backoff timer only if 100 YANG-modeled
-	 * commands or more were entered within the last second.
-	 */
-	monotime(&now);
-	if (monotime_since(&vty->backoff_start, &delta) >= 1000000) {
-		vty->backoff_start = now;
-		vty->backoff_cmd_count = 1;
-		return false;
-	}
-	if (++vty->backoff_cmd_count < 100)
-		return false;
-
-	return true;
+	return ret;
 }
 
 static int nb_cli_schedule_command(struct vty *vty)
@@ -154,9 +127,7 @@ static int nb_cli_schedule_command(struct vty *vty)
 					   vty->pending_cmds_buflen);
 
 	/* Schedule the commit operation. */
-	THREAD_OFF(vty->t_pending_commit);
-	thread_add_timer_msec(master, nb_cli_pending_commit_cb, vty, 100,
-			      &vty->t_pending_commit);
+	vty->pending_commit = 1;
 
 	return CMD_SUCCESS;
 }
@@ -180,21 +151,16 @@ void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 	change->value = value;
 }
 
-int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
+static int nb_cli_apply_changes_internal(struct vty *vty,
+					 const char *xpath_base,
+					 bool clear_pending)
 {
-	char xpath_base[XPATH_MAXLEN] = {};
 	bool error = false;
 
+	if (xpath_base == NULL)
+		xpath_base = "";
+
 	VTY_CHECK_XPATH;
-
-	/* Parse the base XPath format string. */
-	if (xpath_base_fmt) {
-		va_list ap;
-
-		va_start(ap, xpath_base_fmt);
-		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
-		va_end(ap);
-	}
 
 	/* Edit candidate configuration. */
 	for (size_t i = 0; i < vty->num_cfg_changes; i++) {
@@ -207,10 +173,9 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		/* Handle relative XPaths. */
 		memset(xpath, 0, sizeof(xpath));
 		if (vty->xpath_index > 0
-		    && ((xpath_base_fmt && xpath_base[0] == '.')
-			|| change->xpath[0] == '.'))
+		    && (xpath_base[0] == '.' || change->xpath[0] == '.'))
 			strlcpy(xpath, VTY_CURR_XPATH, sizeof(xpath));
-		if (xpath_base_fmt) {
+		if (xpath_base[0]) {
 			if (xpath_base[0] == '.')
 				strlcat(xpath, xpath_base + 1, sizeof(xpath));
 			else
@@ -267,7 +232,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	}
 
 	/*
-	 * Do an implicit commit when using the classic CLI mode.
+	 * Maybe do an implicit commit when using the classic CLI mode.
 	 *
 	 * NOTE: the implicit commit might be scheduled to run later when
 	 * too many commands are being sent at the same time. This is a
@@ -276,12 +241,47 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	 * faster.
 	 */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
-		if (vty->t_pending_commit || nb_cli_backoff_start(vty))
+		if (clear_pending) {
+			if (vty->pending_commit)
+				return nb_cli_pending_commit_check(vty);
+		} else if (vty->pending_allowed)
 			return nb_cli_schedule_command(vty);
+		assert(!vty->pending_commit);
 		return nb_cli_classic_commit(vty);
 	}
 
 	return CMD_SUCCESS;
+}
+
+int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+	return nb_cli_apply_changes_internal(vty, xpath_base, false);
+}
+
+int nb_cli_apply_changes_clear_pending(struct vty *vty,
+				       const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+	return nb_cli_apply_changes_internal(vty, xpath_base, true);
 }
 
 int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,

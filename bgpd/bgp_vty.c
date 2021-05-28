@@ -1386,7 +1386,7 @@ DEFUN_YANG_NOSH(router_bgp,
 					      NB_OP_MODIFY, "false");
 		}
 
-		ret = nb_cli_apply_changes(vty, base_xpath);
+		ret = nb_cli_apply_changes_clear_pending(vty, base_xpath);
 		if (ret == CMD_SUCCESS) {
 			VTY_PUSH_XPATH(BGP_NODE, base_xpath);
 
@@ -1394,7 +1394,6 @@ DEFUN_YANG_NOSH(router_bgp,
 			 * For backward compatibility with old commands we still
 			 * need to use the qobj infrastructure.
 			 */
-			nb_cli_pending_commit_check(vty);
 			bgp = bgp_lookup(as, name);
 			if (bgp)
 				VTY_PUSH_CONTEXT(BGP_NODE, bgp);
@@ -1444,7 +1443,8 @@ DEFUN_YANG(no_router_bgp,
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	/* We want to finish any classic config after a no router */
+	return nb_cli_apply_changes_clear_pending(vty, base_xpath);
 }
 
 void cli_show_router_bgp(struct vty *vty, struct lyd_node *dnode,
@@ -4675,7 +4675,11 @@ DEFUN_YANG(no_neighbor,
 
 	nb_cli_enqueue_change(vty, base_xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	/*
+	 * Need to commit any pending so this command doesn't merge with a
+	 * create into a modify, which BGP can't handle
+	 */
+	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
 DEFUN_YANG(no_neighbor_interface_config,
@@ -4699,7 +4703,11 @@ DEFUN_YANG(no_neighbor_interface_config,
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	/*
+	 * Need to commit any pending so this command doesn't merge with a
+	 * create into a modify, which BGP can't handle
+	 */
+	return nb_cli_apply_changes_clear_pending(vty, base_xpath);
 }
 
 DEFUN_YANG(no_neighbor_peer_group,
@@ -4717,7 +4725,11 @@ DEFUN_YANG(no_neighbor_peer_group,
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	/*
+	 * Need to commit any pending so this command doesn't merge with a
+	 * create into a modify, which BGP can't handle
+	 */
+	return nb_cli_apply_changes_clear_pending(vty, base_xpath);
 }
 
 DEFUN_YANG(no_neighbor_interface_peer_group_remote_as,
@@ -4756,7 +4768,11 @@ DEFUN_YANG(no_neighbor_interface_peer_group_remote_as,
 
 	nb_cli_enqueue_change(vty, base_xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	/*
+	 * Need to commit any pending so this command doesn't merge with a
+	 * create into a modify, which BGP can't handle
+	 */
+	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
 DEFUN_YANG(neighbor_local_as,
@@ -5087,7 +5103,11 @@ DEFUN_YANG (no_neighbor_set_peer_group,
 
 	nb_cli_enqueue_change(vty, "./peer-group", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	/*
+	 * Need to commit any pending so this command doesn't merge with a
+	 * create into a modify, which BGP can't handle
+	 */
+	return nb_cli_apply_changes_clear_pending(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,

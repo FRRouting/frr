@@ -57,7 +57,26 @@ extern void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 				  const char *value);
 
 /*
- * Apply enqueued changes to the candidate configuration.
+ * Apply enqueued changes to the candidate configuration, do not batch,
+ * and apply any pending commits along with the currently enqueued.
+ *
+ * vty
+ *    The vty context.
+ *
+ * xpath_base_fmt
+ *    Prepend the given XPath (absolute or relative) to all enqueued
+ *    configuration changes. This is an optional parameter.
+ *
+ * Returns:
+ *    CMD_SUCCESS on success, CMD_WARNING_CONFIG_FAILED otherwise.
+ */
+extern int nb_cli_apply_changes_clear_pending(struct vty *vty,
+					      const char *xpath_base_fmt, ...);
+
+/*
+ * Apply enqueued changes to the candidate configuration, this function
+ * may not immediately apply the changes, instead adding them to a pending
+ * queue.
  *
  * vty
  *    The vty context.
@@ -116,8 +135,12 @@ extern void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *dnode,
  *
  * vty
  *    The vty context.
+ *
+ * Returns
+ *    CMD_SUCCESS on success (or no pending), CMD_WARNING_CONFIG_FAILED
+ *    otherwise.
  */
-extern void nb_cli_pending_commit_check(struct vty *vty);
+extern int nb_cli_pending_commit_check(struct vty *vty);
 
 /* Prototypes of internal functions. */
 extern void nb_cli_show_config_prepare(struct nb_config *config,

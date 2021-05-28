@@ -776,14 +776,16 @@ static void test_execute(struct test *test, const char *fmt, ...)
 
 	/* Execute command (non-strict). */
 	ret = cmd_execute_command(vline, test->vty, NULL, 0);
+	if (ret == CMD_SUCCESS) {
+		/* Commit any pending changes, irnore error */
+		ret = nb_cli_pending_commit_check(test->vty);
+	}
 	if (ret != CMD_SUCCESS) {
 		test->state = TEST_COMMAND_ERROR;
 		test->error = str_printf(
 			"execution of command [%s] has failed with code [%d]",
 			cmd, ret);
 	}
-
-	nb_cli_pending_commit_check(test->vty);
 
 	/* Free memory. */
 	cmd_free_strvec(vline);
