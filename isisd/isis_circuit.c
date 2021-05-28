@@ -497,7 +497,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
 	} else if (if_is_pointopoint(ifp)) {
 		circuit->circ_type = CIRCUIT_T_P2P;
-	} else if (if_is_loopback(ifp)) {
+	} else if (if_is_loopback_or_vrf(ifp)) {
 		circuit->circ_type = CIRCUIT_T_LOOPBACK;
 		circuit->is_passive = 1;
 	} else {
@@ -1350,7 +1350,7 @@ ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)
 	if (circuit->is_passive == passive)
 		return ferr_ok();
 
-	if (if_is_loopback(circuit->interface) && !passive)
+	if (if_is_loopback_or_vrf(circuit->interface) && !passive)
 		return ferr_cfg_invalid("loopback is always passive");
 
 	if (circuit->state != C_STATE_UP) {

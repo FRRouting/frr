@@ -2966,7 +2966,7 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 		ifp = circuit->interface;
 		if (!ifp)
 			return NB_OK;
-		if (if_is_loopback(ifp)) {
+		if (if_is_loopback_or_vrf(ifp)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Loopback is always passive");
 			return NB_ERR_VALIDATION;
