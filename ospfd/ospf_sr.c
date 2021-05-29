@@ -385,9 +385,10 @@ mpls_label_t ospf_sr_local_block_request_label(void)
 	mpls_label_t label;
 	uint32_t index;
 	uint32_t pos;
+	uint32_t size = srlb->end - srlb->start + 1;
 
 	/* Check if we ran out of available labels */
-	if (srlb->current >= srlb->end)
+	if (srlb->current >= size)
 		return MPLS_INVALID_LABEL;
 
 	/* Get first available label and mark it used */
@@ -399,7 +400,7 @@ mpls_label_t ospf_sr_local_block_request_label(void)
 	/* Jump to the next free position */
 	srlb->current++;
 	pos = srlb->current % SRLB_BLOCK_SIZE;
-	while (srlb->current < srlb->end) {
+	while (srlb->current < size) {
 		if (pos == 0)
 			index++;
 		if (!((1ULL << pos) & srlb->used_mark[index]))
@@ -409,6 +410,10 @@ mpls_label_t ospf_sr_local_block_request_label(void)
 			pos = srlb->current % SRLB_BLOCK_SIZE;
 		}
 	}
+
+	if (srlb->current == size)
+		zlog_warn(
+			"SR: Warning, SRLB is depleted and next label request will fail");
 
 	return label;
 }
