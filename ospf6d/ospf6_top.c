@@ -54,6 +54,7 @@
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
+#include "ospf6_auth_trailer.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_TOP, "OSPF6 top");
 
@@ -444,6 +445,17 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	/* Make ospf protocol socket. */
 	ospf6_serv_sock(o);
+
+	/* If sequence number is stored in persistent storage, read it.
+	 */
+	if (ospf6_auth_nvm_file_exist() == OSPF6_AUTH_FILE_EXIST) {
+		ospf6_auth_seqno_nvm_read(o);
+		o->seqnum_h = o->seqnum_h + 1;
+		ospf6_auth_seqno_nvm_update(o);
+	} else {
+		o->seqnum_l = o->seqnum_h = 0;
+		ospf6_auth_seqno_nvm_update(o);
+	}
 
 	return o;
 }
@@ -1386,6 +1398,10 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		json_object_int_add(json, "numberOfAreaInRouter",
 				    listcount(o->area_list));
 
+		json_object_int_add(json, "AuthTrailerHigherSeqNo",
+				    o->seqnum_h);
+		json_object_int_add(json, "AuthTrailerLowerSeqNo", o->seqnum_l);
+
 		if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
 			if (CHECK_FLAG(o->config_flags,
 				       OSPF6_LOG_ADJACENCY_DETAIL))
@@ -1465,6 +1481,10 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		/* Areas */
 		vty_out(vty, " Number of areas in this router is %u\n",
 			listcount(o->area_list));
+
+		vty_out(vty, " Authentication Sequence number info\n");
+		vty_out(vty, "  Higher sequence no %u, Lower sequence no %u\n",
+			o->seqnum_h, o->seqnum_l);
 
 		if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
 			if (CHECK_FLAG(o->config_flags,

@@ -1260,10 +1260,6 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 					      OSPF6_AUTH_TRAILER_MANUAL_KEY))
 				json_object_string_add(json_auth, "authType",
 						       "manualkey");
-			json_object_int_add(json_auth, "higherSegNo",
-					    oi->at_data.seqnum_h);
-			json_object_int_add(json_auth, "lowerSegNo",
-					    oi->at_data.seqnum_l);
 			json_object_int_add(json_auth, "txPktDrop",
 					    oi->at_data.tx_drop);
 			json_object_int_add(json_auth, "rxPktDrop",
@@ -1278,20 +1274,15 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 					    OSPF6_AUTH_TRAILER_MANUAL_KEY))
 				vty_out(vty,
 					"  Authentication trailer is enabled with manual key\n");
-
-			vty_out(vty,
-				"    Higher sequence no %u, Lower sequence no %u\n",
-				oi->at_data.seqnum_h, oi->at_data.seqnum_l);
 			vty_out(vty,
 				"    Packet drop Tx %u, Packet drop Rx %u\n",
 				oi->at_data.tx_drop, oi->at_data.rx_drop);
 		}
 	} else {
-		if (use_json) {
+		if (use_json)
 			json_object_string_add(json_auth, "authType", "NULL");
-		} else {
+		else
 			vty_out(vty, "  Authentication Trailer is disabled\n");
-		}
 	}
 
 	if (use_json)

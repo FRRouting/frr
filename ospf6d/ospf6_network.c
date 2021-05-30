@@ -33,6 +33,7 @@
 #include "ospf6_top.h"
 #include "ospf6_network.h"
 #include "ospf6d.h"
+#include "ospf6_message.h"
 
 struct in6_addr allspfrouters6;
 struct in6_addr alldrouters6;
@@ -58,20 +59,6 @@ static void ospf6_set_transport_class(int ospf6_sock)
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	setsockopt_ipv6_tclass(ospf6_sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
-}
-
-static void ospf6_set_checksum(int ospf6_sock)
-{
-	int offset = 12;
-#ifndef DISABLE_IPV6_CHECKSUM
-	if (setsockopt(ospf6_sock, IPPROTO_IPV6, IPV6_CHECKSUM, &offset,
-		       sizeof(offset))
-	    < 0)
-		zlog_warn("Network: set IPV6_CHECKSUM failed: %s",
-			  safe_strerror(errno));
-#else
-	zlog_warn("Network: Don't set IPV6_CHECKSUM");
-#endif /* DISABLE_IPV6_CHECKSUM */
 }
 
 void ospf6_serv_close(int *ospf6_sock)
@@ -113,7 +100,6 @@ int ospf6_serv_sock(struct ospf6 *ospf6)
 	ospf6_reset_mcastloop(ospf6_sock);
 	ospf6_set_pktinfo(ospf6_sock);
 	ospf6_set_transport_class(ospf6_sock);
-	ospf6_set_checksum(ospf6_sock);
 
 	ospf6->fd = ospf6_sock;
 	/* setup global in6_addr, allspf6 and alldr6 for later use */
