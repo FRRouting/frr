@@ -23,6 +23,8 @@
 
 #define OSPF6_MESSAGE_BUFSIZ  4096
 
+extern const struct message ospf6_message_type_str[];
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_message[];
 #define OSPF6_ACTION_SEND 0x01
