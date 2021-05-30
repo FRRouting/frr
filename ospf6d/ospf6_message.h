@@ -23,10 +23,9 @@
 
 #define OSPF6_MESSAGE_BUFSIZ  4096
 
-extern const struct message ospf6_message_type_str[];
-
 /* Debug option */
 extern unsigned char conf_debug_ospf6_message[];
+
 #define OSPF6_ACTION_SEND 0x01
 #define OSPF6_ACTION_RECV 0x02
 #define OSPF6_DEBUG_MESSAGE_SEND 0x01
@@ -64,6 +63,7 @@ extern unsigned char conf_debug_ospf6_message[];
 #define OSPF6_MESSAGE_TYPE_LSUPDATE 0x4  /* Database update */
 #define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
 #define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
+#define OSPF6_MESSAGE_TYPE_MAX 0x6       /* same as OSPF6_MESSAGE_TYPE_ALL */
 
 struct ospf6_packet {
 	struct ospf6_packet *next;
@@ -148,8 +148,16 @@ struct ospf6_lsupdate {
 	/* Followed by LSAs */
 };
 
+/* LLS is not supported, but used to derive
+ * offset of Auth_trailer
+ */
+struct ospf6_lls_hdr {
+	uint16_t checksum;
+	uint16_t length;
+};
+
 /* Link State Acknowledgement */
-#define OSPF6_LS_ACK_MIN_SIZE                  0U
+#define OSPF6_LS_ACK_MIN_SIZE 0U
 /* It is just a sequence of LSA Headers */
 
 /* Function definition */
@@ -178,5 +186,5 @@ extern int ospf6_lsack_send_neighbor(struct thread *thread);
 
 extern int config_write_ospf6_debug_message(struct vty *);
 extern void install_element_ospf6_debug_message(void);
-
+extern const char *ospf6_message_type(int type);
 #endif /* OSPF6_MESSAGE_H */

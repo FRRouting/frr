@@ -144,6 +144,14 @@ struct ospf6_neighbor {
 
 	/* ospf6 graceful restart HELPER info */
 	struct ospf6_helper_info gr_helper_info;
+
+	/* seqnum_h/l is used to compare sequence
+	 * number in received packet Auth header
+	 */
+	uint32_t seqnum_h[OSPF6_MESSAGE_TYPE_MAX];
+	uint32_t seqnum_l[OSPF6_MESSAGE_TYPE_MAX];
+	bool auth_present;
+	bool lls_present;
 };
 
 /* Neighbor state */

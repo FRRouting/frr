@@ -228,6 +228,8 @@ struct ospf6 {
 	/* Action for aggregation of external LSAs */
 	int aggr_action;
 
+	uint32_t seqnum_l; /* lower order Sequence Number */
+	uint32_t seqnum_h; /* higher order Sequence Number */
 #define OSPF6_EXTL_AGGR_DEFAULT_DELAY 5
 	/* For ASBR summary delay timer */
 	uint16_t aggr_delay_interval;
