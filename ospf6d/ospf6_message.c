@@ -530,7 +530,8 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		}
 
 		if (ntohs(his->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(on->ospf6_if->area)) {
+		    && (IS_AREA_STUB(on->ospf6_if->area)
+			|| IS_AREA_NSSA(on->ospf6_if->area))) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 				zlog_debug(
 					"SeqNumMismatch (E-bit mismatch), discard");
@@ -750,7 +751,8 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		}
 
 		if (OSPF6_LSA_SCOPE(his->header->type) == OSPF6_SCOPE_AS
-		    && IS_AREA_STUB(on->ospf6_if->area)) {
+		    && (IS_AREA_STUB(on->ospf6_if->area)
+			|| IS_AREA_NSSA(on->ospf6_if->area))) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 				zlog_debug("E-bit mismatch with LSA Headers");
 			ospf6_lsa_delete(his);
@@ -1927,7 +1929,8 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 	size = sizeof(struct ospf6_lsa_header) + sizeof(struct ospf6_dbdesc);
 	for (ALL_LSDB(on->summary_list, lsa, lsanext)) {
 		/* if stub area then don't advertise AS-External LSAs */
-		if (IS_AREA_STUB(on->ospf6_if->area)
+		if ((IS_AREA_STUB(on->ospf6_if->area)
+		     || IS_AREA_NSSA(on->ospf6_if->area))
 		    && ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL) {
 			ospf6_lsdb_remove(lsa, on->summary_list);
 			continue;
