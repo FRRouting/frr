@@ -35,32 +35,18 @@ extern unsigned char conf_debug_ospf6_interface;
 #define IS_OSPF6_DEBUG_INTERFACE (conf_debug_ospf6_interface)
 
 struct ospf6_auth_data {
-	/* higher order Sequence Number */
-	uint32_t seqnum_h;
+	/* config data */
+	uint8_t hash_algo; /* hash algorithm type */
+	uint16_t key_id;   /* key-id used as SA in auth packet */
+	char *auth_key;    /* Auth key */
+	char *keychain;    /* keychain name */
 
-	/* lower order Sequence Number */
-	uint32_t seqnum_l;
+	/* operational data */
+	uint8_t flags; /* Flags related to auth config */
 
-	/* Packet drop due to auth failure while sending */
-	uint32_t tx_drop;
-
-	/* Packet drop due to auth failure while reading */
-	uint32_t rx_drop;
-
-	/* hash algorithm type */
-	uint8_t hash_algo;
-
-	/* Flags related to auth config */
-	uint8_t flags;
-
-	/* key-id used as security association in auth packet */
-	uint16_t key_id;
-
-	/* Auth key */
-	char *auth_key;
-
-	/* keychain name */
-	char *keychain;
+	/* Counters and Statistics */
+	uint32_t tx_drop; /* Pkt drop due to auth fail while sending */
+	uint32_t rx_drop; /* Pkt drop due to auth fail while reading */
 };
 
 /* Interface structure */

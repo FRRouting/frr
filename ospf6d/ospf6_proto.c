@@ -82,12 +82,16 @@ void ospf6_capability_printbuf(char capability, char *buf, int size)
 
 void ospf6_options_printbuf(uint8_t *options, char *buf, int size)
 {
-	const char *dc, *r, *n, *mc, *e, *v6;
+	const char *dc, *r, *n, *mc, *e, *v6, *af, *at, *l;
 	dc = (OSPF6_OPT_ISSET(options, OSPF6_OPT_DC) ? "DC" : "--");
 	r = (OSPF6_OPT_ISSET(options, OSPF6_OPT_R) ? "R" : "-");
 	n = (OSPF6_OPT_ISSET(options, OSPF6_OPT_N) ? "N" : "-");
 	mc = (OSPF6_OPT_ISSET(options, OSPF6_OPT_MC) ? "MC" : "--");
 	e = (OSPF6_OPT_ISSET(options, OSPF6_OPT_E) ? "E" : "-");
 	v6 = (OSPF6_OPT_ISSET(options, OSPF6_OPT_V6) ? "V6" : "--");
-	snprintf(buf, size, "%s|%s|%s|%s|%s|%s", dc, r, n, mc, e, v6);
+	af = (OSPF6_OPT_ISSET_EXT(options, OSPF6_OPT_AF) ? "AF" : "--");
+	at = (OSPF6_OPT_ISSET_EXT(options, OSPF6_OPT_AT) ? "AT" : "--");
+	l = (OSPF6_OPT_ISSET_EXT(options, OSPF6_OPT_L) ? "L" : "-");
+	snprintf(buf, size, "%s|%s|%s|-|-|%s|%s|%s|%s|%s|%s", at, l, af, dc, r,
+		 n, mc, e, v6);
 }
