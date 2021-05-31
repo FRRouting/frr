@@ -147,6 +147,11 @@ sub scan_file {
            $protocol = "VTYSH_" . uc $protocol;
         }
 
+        if ($protocol =~ /VTYSH_BGPD$/) {
+            # Move all BGP commands to new CMGD daemon
+            $protocol = "VTYSH_CMGD";
+        }
+
         # Append _vtysh to structure then build DEFUN again
         $defun_array[1] = $cmd . "_vtysh";
         $defun_body = join (", ", @defun_array);

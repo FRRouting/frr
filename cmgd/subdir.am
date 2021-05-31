@@ -1,0 +1,51 @@
+#
+# cmgd -- Centralised Mangagement Daemon
+#
+
+# if CMGD
+noinst_LIBRARIES += cmgd/libcmgd.a
+sbin_PROGRAMS += cmgd/cmgd
+dist_examples_DATA += \
+	# end
+# vtysh_scan += \
+	# cmgd/cmgd_vty.c \
+	# endif
+
+vtysh_daemons += cmgd
+
+if ENABLE_BGP_VNC
+# vtysh_scan += \
+	# bgpd/rfapi/bgp_rfapi_cfg.c \
+	# bgpd/rfapi/rfapi.c \
+	# bgpd/rfapi/rfapi_vty.c \
+	# bgpd/rfapi/vnc_debug.c \
+	# end
+endif
+
+# man8 += $(MANBUILD)/frr-cmgd.8
+# endif
+
+cmgd_libcmgd_a_SOURCES = \
+	cmgd/cmgd.c \
+	cmgd/cmgd_memory.c \
+	cmgd/cmgd_vty.c \
+	# end
+
+
+noinst_HEADERS += \
+	cmgd/cmgd.h \
+	cmgd/cmgd_vty.h \
+	# end
+
+cmgd_cmgd_SOURCES = cmgd/cmgd_main.c
+
+cmgd_cmgd_CFLAGS = $(AM_CFLAGS)
+
+cmgd_cmgd_LDADD = cmgd/libcmgd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
+
+# clippy_scan += \
+	# cmgd/cmgd_vty.c \
+	# end
+
+nodist_cmgd_cmgd_SOURCES = \
+	# end

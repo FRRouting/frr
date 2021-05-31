@@ -532,6 +532,8 @@ AC_ARG_ENABLE([zebra],
   AS_HELP_STRING([--disable-zebra], [do not build zebra daemon]))
 AC_ARG_ENABLE([bgpd],
   AS_HELP_STRING([--disable-bgpd], [do not build bgpd]))
+AC_ARG_ENABLE([cmgd],
+  AS_HELP_STRING([--disable-cmgd], [do not build cmgd]))
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -1605,6 +1607,10 @@ AS_IF([test "$enable_bgpd" != "no"], [
   AC_DEFINE([HAVE_BGPD], [1], [bgpd])
 ])
 
+AS_IF([test "$enable_cmgd" != "no"], [
+  AC_DEFINE([HAVE_CMGD], [1], [cmgd])
+])
+
 AS_IF([test "$enable_ripd" != "no"], [
   AC_DEFINE([HAVE_RIPD], [1], [ripd])
 ])
@@ -2503,6 +2509,7 @@ dnl daemons
 AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
 AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
+AM_CONDITIONAL([CMGD], [test "$enable_cmgd" != "no"])
 AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
@@ -2538,7 +2545,7 @@ AC_CONFIG_FILES([
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
-	  tests/lib/cli/test_cli.refout
+	  tests/lib/cli/test_cli.refout pkgsrc/cmgd.sh
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
 	  pkgsrc/eigrpd.sh])
