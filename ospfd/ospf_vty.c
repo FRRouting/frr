@@ -4435,21 +4435,27 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 
 				ospf_nbr_state_message(nbr, msgbuf, 16);
 
-				long time_store;
-
-				time_store =
-					monotime_until(
-						&nbr->t_inactivity->u.sands,
-						NULL)
-					/ 1000LL;
-
 				json_object_int_add(json_neighbor, "priority",
 						    nbr->priority);
 				json_object_string_add(json_neighbor, "state",
 						       msgbuf);
-				json_object_int_add(json_neighbor,
-						    "deadTimeMsecs",
-						    time_store);
+
+				if (nbr->t_inactivity) {
+					long time_store;
+
+					time_store = monotime_until(
+							     &nbr->t_inactivity
+								      ->u.sands,
+							     NULL)
+						     / 1000LL;
+					json_object_int_add(json_neighbor,
+							    "deadTimeMsecs",
+							    time_store);
+				} else {
+					json_object_string_add(json_neighbor,
+							       "deadTimeMsecs",
+							       "inactive");
+				}
 				json_object_string_add(
 					json_neighbor, "address",
 					inet_ntop(AF_INET, &nbr->src,
