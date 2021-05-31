@@ -420,6 +420,12 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 
 	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
 
+	/*
+	 * Read from non-volatile memory whether this instance is performing a
+	 * graceful restart or not.
+	 */
+	ospf_gr_nvm_read(new);
+
 	return new;
 }
 
@@ -708,7 +714,8 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	ospf_opaque_finish();
 
-	ospf_flush_self_originated_lsas_now(ospf);
+	if (!ospf->gr_info.prepare_in_progress)
+		ospf_flush_self_originated_lsas_now(ospf);
 
 	/* Unregister redistribution */
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
@@ -805,6 +812,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	OSPF_TIMER_OFF(ospf->t_sr_update);
 	OSPF_TIMER_OFF(ospf->t_default_routemap_timer);
 	OSPF_TIMER_OFF(ospf->t_external_aggr);
+	OSPF_TIMER_OFF(ospf->gr_info.t_grace_period);
 
 	LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
@@ -826,7 +834,8 @@ static void ospf_finish_final(struct ospf *ospf)
 	if (ospf->old_table)
 		ospf_route_table_free(ospf->old_table);
 	if (ospf->new_table) {
-		ospf_route_delete(ospf, ospf->new_table);
+		if (!ospf->gr_info.prepare_in_progress)
+			ospf_route_delete(ospf, ospf->new_table);
 		ospf_route_table_free(ospf->new_table);
 	}
 	if (ospf->old_rtrs)
@@ -834,11 +843,13 @@ static void ospf_finish_final(struct ospf *ospf)
 	if (ospf->new_rtrs)
 		ospf_rtrs_free(ospf->new_rtrs);
 	if (ospf->new_external_route) {
-		ospf_route_delete(ospf, ospf->new_external_route);
+		if (!ospf->gr_info.prepare_in_progress)
+			ospf_route_delete(ospf, ospf->new_external_route);
 		ospf_route_table_free(ospf->new_external_route);
 	}
 	if (ospf->old_external_route) {
-		ospf_route_delete(ospf, ospf->old_external_route);
+		if (!ospf->gr_info.prepare_in_progress)
+			ospf_route_delete(ospf, ospf->old_external_route);
 		ospf_route_table_free(ospf->old_external_route);
 	}
 	if (ospf->external_lsas) {

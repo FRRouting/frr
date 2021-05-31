@@ -30,6 +30,9 @@ extern int ospf_flood_through_area(struct ospf_area *, struct ospf_neighbor *,
 				   struct ospf_lsa *);
 extern int ospf_flood_through_as(struct ospf *, struct ospf_neighbor *,
 				 struct ospf_lsa *);
+extern int ospf_flood_through_interface(struct ospf_interface *oi,
+					struct ospf_neighbor *inbr,
+					struct ospf_lsa *lsa);
 
 extern unsigned long ospf_ls_request_count(struct ospf_neighbor *);
 extern int ospf_ls_request_isempty(struct ospf_neighbor *);

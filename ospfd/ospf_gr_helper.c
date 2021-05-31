@@ -72,6 +72,7 @@ static const char * const ospf_rejected_reason_desc[] = {
 	"Supports only planned restart but received unplanned",
 	"Topo change due to change in lsa rxmt list",
 	"LSA age is more than Grace interval",
+	"Router is in the process of graceful restart",
 };
 
 static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa);
@@ -486,6 +487,16 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 				__func__, lsa->data->ls_age, grace_interval);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_LSA_AGE_MORE;
+		return OSPF_GR_NOT_HELPER;
+	}
+
+	if (ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"%s: router is in the process of graceful restart",
+				__func__);
+		restarter->gr_helper_info.rejected_reason =
+			OSPF_HELPER_RESTARTING;
 		return OSPF_GR_NOT_HELPER;
 	}
 

@@ -54,6 +54,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_bfd.h"
+#include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_routemap_nb.h"
@@ -225,6 +226,7 @@ int main(int argc, char **argv)
 
 	ospf_route_map_init();
 	ospf_opaque_init();
+	ospf_gr_init();
 	ospf_gr_helper_init();
 
 	/* OSPF errors init */

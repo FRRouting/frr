@@ -49,6 +49,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_bfd.h"
+#include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
 
 DEFINE_HOOK(ospf_nsm_change,
@@ -727,6 +728,9 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 					ospf_network_lsa_update(oi);
 			}
 		}
+
+		if (state == NSM_Full && oi->ospf->gr_info.restart_in_progress)
+			ospf_gr_check_adjs(oi->ospf);
 	}
 
 	ospf_opaque_nsm_change(nbr, old_state);

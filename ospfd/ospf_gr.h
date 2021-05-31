@@ -32,6 +32,7 @@
 
 #define OSPF_MAX_GRACE_INTERVAL 1800
 #define OSPF_MIN_GRACE_INTERVAL 1
+#define OSPF_DFLT_GRACE_INTERVAL 120
 
 enum ospf_helper_exit_reason {
 	OSPF_GR_HELPER_EXIT_NONE = 0,
@@ -55,7 +56,8 @@ enum ospf_gr_helper_rejected_reason {
 	OSPF_HELPER_NOT_A_VALID_NEIGHBOUR,
 	OSPF_HELPER_PLANNED_ONLY_RESTART,
 	OSPF_HELPER_TOPO_CHANGE_RTXMT_LIST,
-	OSPF_HELPER_LSA_AGE_MORE
+	OSPF_HELPER_LSA_AGE_MORE,
+	OSPF_HELPER_RESTARTING,
 };
 
 /* Ref RFC3623 appendex-A */
@@ -179,4 +181,11 @@ extern void ospf_gr_helper_supported_gracetime_set(struct ospf *ospf,
 						   uint32_t interval);
 extern void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
 							     bool planned_only);
+
+extern void ospf_gr_check_lsdb_consistency(struct ospf *ospf,
+						  struct ospf_area *area);
+extern void ospf_gr_check_adjs(struct ospf *ospf);
+extern void ospf_gr_nvm_read(struct ospf *ospf);
+extern void ospf_gr_init(void);
+
 #endif /* _ZEBRA_OSPF_GR_H */

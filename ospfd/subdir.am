@@ -8,6 +8,7 @@ sbin_PROGRAMS += ospfd/ospfd
 vtysh_scan += \
 	ospfd/ospf_bfd.c \
 	ospfd/ospf_dump.c \
+	ospfd/ospf_gr.c \
 	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_opaque.c \
 	ospfd/ospf_ri.c \
@@ -35,6 +36,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_errors.c \
 	ospfd/ospf_ext.c \
 	ospfd/ospf_flood.c \
+	ospfd/ospf_gr.c \
 	ospfd/ospf_ia.c \
 	ospfd/ospf_interface.c \
 	ospfd/ospf_ism.c \
@@ -82,6 +84,7 @@ clippy_scan += \
 	ospfd/ospf_vty.c \
 	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_dump.c \
+	ospfd/ospf_gr.c \
 	# end
 
 noinst_HEADERS += \

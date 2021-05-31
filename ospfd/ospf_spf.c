@@ -1903,6 +1903,8 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 			strlcat(rbuf, "ASBR, ",	sizeof(rbuf));
 		if (spf_reason_flags & (1 << SPF_FLAG_MAXAGE))
 			strlcat(rbuf, "M, ", sizeof(rbuf));
+		if (spf_reason_flags & (1 << SPF_FLAG_GR_FINISH))
+			strlcat(rbuf, "GR, ", sizeof(rbuf));
 
 		size_t rbuflen = strlen(rbuf);
 		if (rbuflen >= 2)

@@ -2025,9 +2025,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 				ospf_ls_ack_send(nbr, lsa);
 
-				ospf_opaque_self_originated_lsa_received(nbr,
-									 lsa);
-				continue;
+				if (!ospf->gr_info.restart_in_progress) {
+					ospf_opaque_self_originated_lsa_received(
+						nbr, lsa);
+					continue;
+				}
 			}
 		}
 
@@ -2213,6 +2215,9 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 	assert(listcount(lsas) == 0);
 	list_delete(&lsas);
+
+	if (ospf->gr_info.restart_in_progress)
+		ospf_gr_check_lsdb_consistency(oi->ospf, oi->area);
 }
 
 /* OSPF Link State Acknowledgment message read -- RFC2328 Section 13.7. */

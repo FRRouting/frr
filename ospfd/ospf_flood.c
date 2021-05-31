@@ -379,8 +379,8 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	SET_FLAG(new->flags, OSPF_LSA_RECEIVED);
 	(void)ospf_lsa_is_self_originated(ospf, new); /* Let it set the flag */
 
-	/* Received Grace LSA */
-	if (IS_GRACE_LSA(new)) {
+	/* Received non-self-originated Grace LSA */
+	if (IS_GRACE_LSA(new) && !IS_LSA_SELF(new)) {
 
 		if (IS_LSA_MAXAGE(new)) {
 
@@ -445,9 +445,9 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 }
 
 /* OSPF LSA flooding -- RFC2328 Section 13.3. */
-static int ospf_flood_through_interface(struct ospf_interface *oi,
-					struct ospf_neighbor *inbr,
-					struct ospf_lsa *lsa)
+int ospf_flood_through_interface(struct ospf_interface *oi,
+				 struct ospf_neighbor *inbr,
+				 struct ospf_lsa *lsa)
 {
 	struct ospf_neighbor *onbr;
 	struct route_node *rn;
@@ -1031,6 +1031,18 @@ void ospf_ls_retransmit_delete_nbr_as(struct ospf *ospf, struct ospf_lsa *lsa)
    flushing an LSA from the whole domain. */
 void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 {
+	struct ospf *ospf = area->ospf;
+
+	if (ospf_lsa_is_self_originated(ospf, lsa)
+	    && ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"%s:LSA[Type%d:%pI4]: Graceful Restart in progress -- not flushing self-originated LSA",
+				ospf_get_name(ospf), lsa->data->type,
+				&lsa->data->id);
+		return;
+	}
+
 	/* Reset the lsa origination time such that it gives
 	   more time for the ACK to be received and avoid
 	   retransmissions */
@@ -1041,11 +1053,21 @@ void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 	monotime(&lsa->tv_recv);
 	lsa->tv_orig = lsa->tv_recv;
 	ospf_flood_through_area(area, NULL, lsa);
-	ospf_lsa_maxage(area->ospf, lsa);
+	ospf_lsa_maxage(ospf, lsa);
 }
 
 void ospf_lsa_flush_as(struct ospf *ospf, struct ospf_lsa *lsa)
 {
+	if (ospf_lsa_is_self_originated(ospf, lsa)
+	    && ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"%s:LSA[Type%d:%pI4]: Graceful Restart in progress -- not flushing self-originated LSA",
+				ospf_get_name(ospf), lsa->data->type,
+				&lsa->data->id);
+		return;
+	}
+
 	/* Reset the lsa origination time such that it gives
 	   more time for the ACK to be received and avoid
 	   retransmissions */

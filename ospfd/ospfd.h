@@ -134,6 +134,16 @@ enum protection_type {
 	OSPF_TI_LFA_NODE_PROTECTION,
 };
 
+/* OSPF nonstop forwarding aka Graceful Restart */
+struct ospf_gr_info {
+	bool restart_support;
+	bool restart_in_progress;
+	bool prepare_in_progress;
+	bool finishing_restart;
+	uint32_t grace_period;
+	struct thread *t_grace_period;
+};
+
 /* OSPF instance structure. */
 struct ospf {
 	/* OSPF's running state based on the '[no] router ospf [<instance>]'
@@ -383,6 +393,9 @@ struct ospf {
 
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
+
+	/* OSPF Graceful Restart info */
+	struct ospf_gr_info gr_info;
 
 	/* TI-LFA support for all interfaces. */
 	bool ti_lfa_enabled;
