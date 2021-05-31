@@ -100,6 +100,7 @@ noinst_HEADERS += \
 	ospfd/ospf_network.h \
 	ospfd/ospf_packet.h \
 	ospfd/ospf_ri.h \
+	ospfd/ospf_gr.h \
 	ospfd/ospf_route.h \
 	ospfd/ospf_routemap_nb.h \
 	ospfd/ospf_spf.h \
@@ -108,7 +109,6 @@ noinst_HEADERS += \
 	ospfd/ospf_te.h \
 	ospfd/ospf_vty.h \
 	ospfd/ospf_zebra.h \
-	ospfd/ospf_gr_helper.h \
 	# end
 
 ospfd_ospfd_LDADD = ospfd/libfrrospf.a lib/libfrr.la $(LIBCAP) $(LIBM)

@@ -44,7 +44,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
-#include "ospfd/ospf_gr_helper.h"
+#include "ospfd/ospf_gr.h"
 
 /* Fill in the the 'key' as appropriate to retrieve the entry for nbr
  * from the ospf_interface's nbrs table. Indexed by interface address

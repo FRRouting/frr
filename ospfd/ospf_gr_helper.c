@@ -48,7 +48,7 @@
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_nsm.h"
 #include "ospfd/ospf_ism.h"
-#include "ospfd/ospf_gr_helper.h"
+#include "ospfd/ospf_gr.h"
 
 static const char * const ospf_exit_reason_desc[] = {
 	"Unknown reason",

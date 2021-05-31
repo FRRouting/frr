@@ -21,8 +21,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _ZEBRA_OSPF_GR_HELPER_H
-#define _ZEBRA_OSPF_GR_HELPER_H
+#ifndef _ZEBRA_OSPF_GR_H
+#define _ZEBRA_OSPF_GR_H
 
 #define OSPF_GR_NOT_HELPER 0
 #define OSPF_GR_ACTIVE_HELPER 1
@@ -101,7 +101,8 @@ struct ospf_helper_info {
 
 	/* Grace timer,This Router acts as
 	 * helper until this timer until
-	 * this timer expires*/
+	 * this timer expires.
+	 */
 	struct thread *t_grace_timer;
 
 	/* Helper status */
@@ -178,4 +179,4 @@ extern void ospf_gr_helper_supported_gracetime_set(struct ospf *ospf,
 						   uint32_t interval);
 extern void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
 							     bool planned_only);
-#endif /* _ZEBRA_OSPF_HELPER_H */
+#endif /* _ZEBRA_OSPF_GR_H */

@@ -60,7 +60,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_ldp_sync.h"
-#include "ospfd/ospf_gr_helper.h"
+#include "ospfd/ospf_gr.h"
 
 
 DEFINE_QOBJ_TYPE(ospf);

@@ -54,7 +54,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_zebra.h"
-#include "ospfd/ospf_gr_helper.h"
+#include "ospfd/ospf_gr.h"
 
 /*
  * OSPF Fragmentation / fragmented writes

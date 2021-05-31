@@ -22,7 +22,7 @@
 #ifndef _ZEBRA_OSPF_NEIGHBOR_H
 #define _ZEBRA_OSPF_NEIGHBOR_H
 
-#include <ospfd/ospf_gr_helper.h>
+#include <ospfd/ospf_gr.h>
 #include <ospfd/ospf_packet.h>
 
 /* Neighbor Data Structure */
