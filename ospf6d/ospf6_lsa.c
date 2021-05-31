@@ -623,8 +623,8 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 		vty_out(vty, "Flag: %x \n", lsa->flag);
 		vty_out(vty, "Lock: %d \n", lsa->lock);
 		vty_out(vty, "ReTx Count: %d\n", lsa->retrans_count);
-		vty_out(vty, "Threads: Expire: 0x%p, Refresh: 0x%p \n",
-			(void *)lsa->expire, (void *)lsa->refresh);
+		vty_out(vty, "Threads: Expire: %p, Refresh: %p\n", lsa->expire,
+			lsa->refresh);
 		vty_out(vty, "\n");
 	}
 	return;
