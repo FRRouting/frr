@@ -159,10 +159,8 @@ const char *ospf_rejected_reason2str(unsigned int reason)
  * Returns:
  *    Nothing
  */
-void ospf_gr_helper_init(struct ospf *ospf)
+void ospf_gr_helper_instance_init(struct ospf *ospf)
 {
-	int rc;
-
 	if (IS_DEBUG_OSPF_GR_HELPER)
 		zlog_debug("%s, GR Helper init.", __func__);
 
@@ -176,6 +174,37 @@ void ospf_gr_helper_init(struct ospf *ospf)
 	ospf->enable_rtr_list =
 		hash_create(ospf_enable_rtr_hash_key, ospf_enable_rtr_hash_cmp,
 			    "OSPF enable router hash");
+}
+
+/*
+ * De-Initialize GR helper config data structures.
+ *
+ * OSPF
+ *    OSPF pointer
+ *
+ * Returns:
+ *    Nothing
+ */
+void ospf_gr_helper_instance_stop(struct ospf *ospf)
+{
+	if (IS_DEBUG_OSPF_GR_HELPER)
+		zlog_debug("%s, GR helper deinit.", __func__);
+
+	ospf_enable_rtr_hash_destroy(ospf);
+}
+
+/*
+ * Initialize GR helper config data structures.
+ *
+ * Returns:
+ *    Nothing
+ */
+void ospf_gr_helper_init(void)
+{
+	int rc;
+
+	if (IS_DEBUG_OSPF_GR_HELPER)
+		zlog_debug("%s, GR Helper init.", __func__);
 
 	rc = ospf_register_opaque_functab(
 		OSPF_OPAQUE_LINK_LSA, OPAQUE_TYPE_GRACE_LSA, NULL, NULL, NULL,
@@ -191,19 +220,14 @@ void ospf_gr_helper_init(struct ospf *ospf)
 /*
  * De-Initialize GR helper config data structures.
  *
- * OSPF
- *    OSPF pointer
- *
  * Returns:
  *    Nothing
  */
-void ospf_gr_helper_stop(struct ospf *ospf)
+void ospf_gr_helper_stop(void)
 {
 
 	if (IS_DEBUG_OSPF_GR_HELPER)
 		zlog_debug("%s, GR helper deinit.", __func__);
-
-	ospf_enable_rtr_hash_destroy(ospf);
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_LINK_LSA, OPAQUE_TYPE_GRACE_LSA);
 }
