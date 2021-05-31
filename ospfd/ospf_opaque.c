@@ -2119,14 +2119,11 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 		goto out;
 	}
 
+	/* This lsa will be flushed and removed eventually. */
+	ospf_lsa_flush(top, lsa);
+
 	/* Dequeue listnode entry from the list. */
 	listnode_delete(oipt->id_list, oipi);
-
-	/* Disassociate internal control information with the given lsa. */
-	free_opaque_info_per_id((void *)oipi);
-
-	/* Force given lsa's age to MaxAge. */
-	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
@@ -2135,8 +2132,8 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 			GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
 			GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)));
 
-	/* This lsa will be flushed and removed eventually. */
-	ospf_lsa_flush(top, lsa);
+	/* Disassociate internal control information with the given lsa. */
+	free_opaque_info_per_id((void *)oipi);
 
 out:
 	return;
