@@ -225,6 +225,7 @@ int main(int argc, char **argv)
 
 	ospf_route_map_init();
 	ospf_opaque_init();
+	ospf_gr_helper_init();
 
 	/* OSPF errors init */
 	ospf_error_init();
