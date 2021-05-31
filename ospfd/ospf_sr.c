@@ -2480,11 +2480,15 @@ DEFUN (sr_prefix_sid,
        "Upstream neighbor must replace prefix-sid with explicit null label\n")
 {
 	int idx = 0;
-	struct prefix p;
+	struct prefix p, pexist;
 	uint32_t index;
 	struct listnode *node;
-	struct sr_prefix *srp, *new = NULL;
+	struct sr_prefix *srp, *exist = NULL;
 	struct interface *ifp;
+	bool no_php_flag = false;
+	bool exp_null = false;
+	bool index_in_use = false;
+	uint8_t desired_flags = 0;
 
 	if (!ospf_sr_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2505,54 +2509,67 @@ DEFUN (sr_prefix_sid,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* Get options */
+	no_php_flag = argv_find(argv, argc, "no-php-flag", &idx);
+	exp_null = argv_find(argv, argc, "explicit-null", &idx);
+
+	desired_flags |= no_php_flag ? EXT_SUBTLV_PREFIX_SID_NPFLG : 0;
+	desired_flags |= exp_null ? EXT_SUBTLV_PREFIX_SID_NPFLG : 0;
+	desired_flags |= exp_null ? EXT_SUBTLV_PREFIX_SID_EFLG : 0;
+
 	/* Search for an existing Prefix-SID */
 	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp)) {
+		if (prefix_same((struct prefix *)&srp->prefv4, &p))
+			exist = srp;
 		if (srp->sid == index) {
-			if (prefix_same((struct prefix *)&srp->prefv4, &p)) {
-				new = srp;
-				break;
-			} else {
-				vty_out(vty, "Index %u is already used\n",
-					index);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
+			index_in_use = true;
+			pexist = p;
 		}
 	}
 
-	/* Create new Extended Prefix to SRDB if not found */
-	if (new == NULL) {
-		new = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
-		IPV4_ADDR_COPY(&new->prefv4.prefix, &p.u.prefix4);
-		new->prefv4.prefixlen = p.prefixlen;
-		new->prefv4.family = p.family;
-		new->sid = index;
-		new->type = LOCAL_SID;
+	/* done if prefix segment already there with same index and flags */
+	if (exist && exist->sid == index && exist->flags == desired_flags)
+		return CMD_SUCCESS;
+
+	/* deny if index is already in use by a distinct prefix */
+	if (!exist && index_in_use) {
+		vty_out(vty, "Index %u is already used by %pFX\n", index,
+			&pexist);
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* First, remove old NHLFE if installed */
-	if (srp == new && CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
-	    && !CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
-		ospf_zebra_delete_prefix_sid(srp);
+	if (exist && CHECK_FLAG(exist->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
+	    && !CHECK_FLAG(exist->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
+		ospf_zebra_delete_prefix_sid(exist);
 
-	/* Then, reset Flag & labels to handle flag update */
-	new->flags = 0;
-	new->label_in = 0;
-	new->nhlfe.label_out = 0;
-
-	/* Set NO PHP flag if present and compute NHLFE */
-	if (argv_find(argv, argc, "no-php-flag", &idx)) {
-		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
-		new->label_in = index2label(new->sid, OspfSR.self->srgb);
-		new->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
+	/* Create new Extended Prefix to SRDB if not found */
+	if (exist == NULL) {
+		srp = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
+		IPV4_ADDR_COPY(&srp->prefv4.prefix, &p.u.prefix4);
+		srp->prefv4.prefixlen = p.prefixlen;
+		srp->prefv4.family = p.family;
+		srp->sid = index;
+		srp->type = LOCAL_SID;
+	} else {
+		/* we work on the existing SR prefix */
+		srp = exist;
 	}
-	/* Set EXPLICIT NULL flag is present */
-	if (argv_find(argv, argc, "explicit-null", &idx)) {
-		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
-		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG);
+
+	/* Reset labels to handle flag update */
+	srp->label_in = 0;
+	srp->nhlfe.label_out = 0;
+	srp->sid = index;
+	srp->flags = desired_flags;
+
+	/* If NO PHP flag is present, compute NHLFE and set label */
+	if (no_php_flag) {
+		srp->label_in = index2label(srp->sid, OspfSR.self->srgb);
+		srp->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 	}
 
 	osr_debug("SR (%s): Add new index %u to Prefix %pFX", __func__, index,
-		  (struct prefix *)&new->prefv4);
+		  (struct prefix *)&srp->prefv4);
 
 	/* Get Interface and check if it is a Loopback */
 	ifp = if_lookup_prefix(&p, VRF_DEFAULT);
@@ -2563,7 +2580,8 @@ DEFUN (sr_prefix_sid,
 		 * ready. In this case, store the prefix SID for latter
 		 * update of this Extended Prefix
 		 */
-		listnode_add(OspfSR.self->ext_prefix, new);
+		if (exist == NULL)
+			listnode_add(OspfSR.self->ext_prefix, srp);
 		zlog_info(
 			"Interface for prefix %pFX not found. Deferred LSA flooding",
 			&p);
@@ -2572,27 +2590,26 @@ DEFUN (sr_prefix_sid,
 
 	if (!if_is_loopback(ifp)) {
 		vty_out(vty, "interface %s is not a Loopback\n", ifp->name);
-		XFREE(MTYPE_OSPF_SR_PARAMS, new);
+		XFREE(MTYPE_OSPF_SR_PARAMS, srp);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	new->nhlfe.ifindex = ifp->ifindex;
+	srp->nhlfe.ifindex = ifp->ifindex;
 
-	/* Add this new SR Prefix if not already found */
-	if (srp != new)
-		listnode_add(OspfSR.self->ext_prefix, new);
+	/* Add SR Prefix if new */
+	if (!exist)
+		listnode_add(OspfSR.self->ext_prefix, srp);
 
 	/* Update Prefix SID if SR is UP */
 	if (OspfSR.status == SR_UP) {
-		if (CHECK_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
-		    && !CHECK_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
-			ospf_zebra_update_prefix_sid(new);
+		if (no_php_flag && !exp_null)
+			ospf_zebra_update_prefix_sid(srp);
 	} else
 		return CMD_SUCCESS;
 
 	/* Finally, update Extended Prefix LSA id SR is UP */
-	new->instance = ospf_ext_schedule_prefix_index(
-		ifp, new->sid, &new->prefv4, new->flags);
-	if (new->instance == 0) {
+	srp->instance = ospf_ext_schedule_prefix_index(
+		ifp, srp->sid, &srp->prefv4, srp->flags);
+	if (srp->instance == 0) {
 		vty_out(vty, "Unable to set index %u for prefix %pFX\n",
 			index, &p);
 		return CMD_WARNING;
