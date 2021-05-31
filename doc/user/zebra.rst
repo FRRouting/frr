@@ -1058,7 +1058,6 @@ zebra Terminal Mode Commands
    nexthop groups that do have an afi. [type] allows you to filter those
    only coming from a specific NHG type (protocol).
 
-.. index:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 
    It dumps all the routes from RIB with detailed information including
