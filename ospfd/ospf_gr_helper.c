@@ -721,7 +721,7 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 			zlog_debug(
 				"%s, Failed GR exit, so bringing down the neighbour",
 				__func__);
-		OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_KillNbr);
 	}
 
 	/*Recalculate the DR for the network segment */
