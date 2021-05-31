@@ -725,7 +725,8 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 	}
 
 	/*Recalculate the DR for the network segment */
-	ospf_dr_election(oi);
+	if (oi->type == OSPF_IFTYPE_BROADCAST || oi->type == OSPF_IFTYPE_NBMA)
+		ospf_dr_election(oi);
 
 	/* Originate a router LSA */
 	ospf_router_lsa_update_area(oi->area);
