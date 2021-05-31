@@ -1020,72 +1020,115 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 	lsah = (struct lsa_header *)lsa->data;
 
 	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
-		vty_out(vty, "%% Invalid LSA length: %d\n", length);
+		if (vty)
+			vty_out(vty, "%% Invalid LSA length: %d\n", length);
+		else
+			zlog_debug("%% Invalid LSA length: %d", length);
 		return;
 	}
 
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 
-	vty_out(vty, "  TLV info:\n");
+	if (vty)
+		vty_out(vty, "  TLV info:\n");
+	else
+		zlog_debug("  TLV info:");
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		/* Check TLV len */
 		if (sum + TLV_SIZE(tlvh) > length) {
-			vty_out(vty, "%% Invalid TLV length: %u\n",
-				TLV_SIZE(tlvh));
+			if (vty)
+				vty_out(vty, "%% Invalid TLV length: %u\n",
+					TLV_SIZE(tlvh));
+			else
+				zlog_debug("%% Invalid TLV length: %u",
+					   TLV_SIZE(tlvh));
 			return;
 		}
 
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
-			if (TLV_SIZE(tlvh) <
-			    sizeof(struct grace_tlv_graceperiod)) {
-				vty_out(vty,
-					"%% Invalid grace TLV length %u\n",
-					TLV_SIZE(tlvh));
+			if (TLV_SIZE(tlvh)
+			    < sizeof(struct grace_tlv_graceperiod)) {
+				if (vty)
+					vty_out(vty,
+						"%% Invalid grace TLV length %u\n",
+						TLV_SIZE(tlvh));
+				else
+					zlog_debug(
+						"%% Invalid grace TLV length %u",
+						TLV_SIZE(tlvh));
 				return;
 			}
 
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
-			vty_out(vty, "   Grace period:%d\n",
-				ntohl(gracePeriod->interval));
+			if (vty)
+				vty_out(vty, "   Grace period:%d\n",
+					ntohl(gracePeriod->interval));
+			else
+				zlog_debug("   Grace period:%d",
+					   ntohl(gracePeriod->interval));
 			break;
 		case RESTART_REASON_TYPE:
-			if (TLV_SIZE(tlvh) <
-			    sizeof(struct grace_tlv_restart_reason)) {
-				vty_out(vty,
-					"%% Invalid reason TLV length %u\n",
-					TLV_SIZE(tlvh));
+			if (TLV_SIZE(tlvh)
+			    < sizeof(struct grace_tlv_restart_reason)) {
+				if (vty)
+					vty_out(vty,
+						"%% Invalid reason TLV length %u\n",
+						TLV_SIZE(tlvh));
+				else
+					zlog_debug(
+						"%% Invalid reason TLV length %u",
+						TLV_SIZE(tlvh));
 				return;
 			}
 
 			grReason = (struct grace_tlv_restart_reason *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
-			vty_out(vty, "   Restart reason:%s\n",
-				ospf_restart_reason2str(grReason->reason));
+			if (vty)
+				vty_out(vty, "   Restart reason:%s\n",
+					ospf_restart_reason2str(
+						grReason->reason));
+			else
+				zlog_debug("   Restart reason:%s",
+					   ospf_restart_reason2str(
+						   grReason->reason));
 			break;
 		case RESTARTER_IP_ADDR_TYPE:
-			if (TLV_SIZE(tlvh) <
-			    sizeof(struct grace_tlv_restart_addr)) {
-				vty_out(vty,
-					"%% Invalid addr TLV length %u\n",
-					TLV_SIZE(tlvh));
+			if (TLV_SIZE(tlvh)
+			    < sizeof(struct grace_tlv_restart_addr)) {
+				if (vty)
+					vty_out(vty,
+						"%% Invalid addr TLV length %u\n",
+						TLV_SIZE(tlvh));
+				else
+					zlog_debug(
+						"%% Invalid addr TLV length %u",
+						TLV_SIZE(tlvh));
 				return;
 			}
 
 			restartAddr = (struct grace_tlv_restart_addr *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
-			vty_out(vty, "   Restarter address:%pI4\n",
-				&restartAddr->addr);
+			if (vty)
+				vty_out(vty, "   Restarter address:%pI4\n",
+					&restartAddr->addr);
+			else
+				zlog_debug("   Restarter address:%pI4",
+					   &restartAddr->addr);
 			break;
 		default:
-			vty_out(vty, "   Unknown TLV type %d\n",
-				ntohs(tlvh->type));
+			if (vty)
+				vty_out(vty, "   Unknown TLV type %d\n",
+					ntohs(tlvh->type));
+			else
+				zlog_debug("   Unknown TLV type %d",
+					   ntohs(tlvh->type));
 
 			break;
 		}
