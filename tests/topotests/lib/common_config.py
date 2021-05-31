@@ -365,7 +365,7 @@ def create_common_configuration(
     return True
 
 
-def kill_router_daemons(tgen, router, daemons):
+def kill_router_daemons(tgen, router, daemons, save_config=True):
     """
     Router's current config would be saved to /etc/frr/ for each daemon
     and daemon would be killed forcefully using SIGKILL.
@@ -379,9 +379,10 @@ def kill_router_daemons(tgen, router, daemons):
     try:
         router_list = tgen.routers()
 
-        # Saving router config to /etc/frr, which will be loaded to router
-        # when it starts
-        router_list[router].vtysh_cmd("write memory")
+        if save_config:
+            # Saving router config to /etc/frr, which will be loaded to router
+            # when it starts
+            router_list[router].vtysh_cmd("write memory")
 
         # Kill Daemons
         result = router_list[router].killDaemons(daemons)
