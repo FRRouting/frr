@@ -1890,7 +1890,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		struct ospf_lsa *ls_ret, *current;
 		int ret = 1;
 
-		if (IS_DEBUG_OSPF_NSSA)
+		if (IS_DEBUG_OSPF(lsa, LSA))
 			zlog_debug("LSA Type-%d from %pI4, ID: %pI4, ADV: %pI4",
 				   lsa->data->type, &ospfh->router_id,
 				   &lsa->data->id, &lsa->data->adv_router);
