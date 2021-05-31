@@ -1862,9 +1862,9 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		return;
 	}
 
-	/* Get list of LSAs from Link State Update packet. - Also perorms Stages
-	 * 1 (validate LSA checksum) and 2 (check for LSA consistent type)
-	 * of section 13.
+	/* Get list of LSAs from Link State Update packet. - Also performs
+	 * Stages 1 (validate LSA checksum) and 2 (check for LSA consistent
+	 * type) of section 13.
 	 */
 	lsas = ospf_ls_upd_list_lsa(nbr, s, oi, size);
 
