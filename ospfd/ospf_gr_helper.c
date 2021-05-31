@@ -623,9 +623,8 @@ void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
 		return;
 
 	if (IS_DEBUG_OSPF_GR_HELPER)
-		zlog_debug(
-			"%s, Topo change detected due to lsa LSID:%pI4 type:%d",
-			__func__, &lsa->data->id, lsa->data->type);
+		zlog_debug("%s: Topo change detected due to LSA[%s]", __func__,
+			   dump_lsa_key(lsa));
 
 	lsa->to_be_acknowledged = OSPF_GR_TRUE;
 

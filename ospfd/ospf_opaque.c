@@ -2147,6 +2147,11 @@ void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 	if ((top = oi_to_top(nbr->oi)) == NULL)
 		return;
 
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug(
+			"LSA[Type%d:%pI4]: processing self-originated Opaque-LSA",
+			lsa->data->type, &lsa->data->id);
+
 	/*
 	 * Since these LSA entries are not yet installed into corresponding
 	 * LSDB, just flush them without calling ospf_ls_maxage() afterward.

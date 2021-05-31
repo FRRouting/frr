@@ -2791,8 +2791,8 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	 */
 	if (IS_LSA_MAXAGE(new)) {
 		if (IS_DEBUG_OSPF(lsa, LSA_INSTALL))
-			zlog_debug("LSA[Type%d:%pI4]: Install LSA %p, MaxAge",
-				   new->data->type, &new->data->id, lsa);
+			zlog_debug("LSA[%s]: Install LSA %p, MaxAge",
+				   dump_lsa_key(new), lsa);
 		ospf_lsa_maxage(ospf, lsa);
 	}
 
@@ -2874,9 +2874,8 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 
 			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 				zlog_debug(
-					"LSA[Type%d:%pI4]: MaxAge LSA removed from list",
-					lsa->data->type,
-					&lsa->data->id);
+					"LSA[%s]: MaxAge LSA removed from list",
+					dump_lsa_key(lsa));
 
 			if (CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
@@ -2894,9 +2893,8 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 				 */
 				if (old != lsa) {
 					flog_err(EC_OSPF_LSA_MISSING,
-						 "%s: LSA[Type%d:%pI4]: LSA not in LSDB",
-						 __func__, lsa->data->type,
-						 &lsa->data->id);
+						 "%s: LSA[%s]: LSA not in LSDB",
+						 __func__, dump_lsa_key(lsa));
 
 					continue;
 				}
@@ -2905,9 +2903,8 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 			} else {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"%s: LSA[Type%d:%pI4]: No associated LSDB!",
-						__func__, lsa->data->type,
-						&lsa->data->id);
+						"%s: LSA[%s]: No associated LSDB!",
+						__func__, dump_lsa_key(lsa));
 			}
 		}
 
@@ -2964,9 +2961,8 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE)) {
 		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 			zlog_debug(
-				"LSA[Type%d:%pI4]: %p already exists on MaxAge LSA list",
-				lsa->data->type, &lsa->data->id,
-				(void *)lsa);
+				"LSA[%s]: %p already exists on MaxAge LSA list",
+				dump_lsa_key(lsa), lsa);
 		return;
 	}
 

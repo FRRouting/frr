@@ -1036,8 +1036,8 @@ void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 	   retransmissions */
 	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: MAXAGE set to LSA %pI4", __func__,
-			   &lsa->data->id);
+		zlog_debug("%s: MaxAge set to LSA[%s]", __func__,
+			   dump_lsa_key(lsa));
 	monotime(&lsa->tv_recv);
 	lsa->tv_orig = lsa->tv_recv;
 	ospf_flood_through_area(area, NULL, lsa);
@@ -1050,6 +1050,9 @@ void ospf_lsa_flush_as(struct ospf *ospf, struct ospf_lsa *lsa)
 	   more time for the ACK to be received and avoid
 	   retransmissions */
 	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: MaxAge set to LSA[%s]", __func__,
+			   dump_lsa_key(lsa));
 	monotime(&lsa->tv_recv);
 	lsa->tv_orig = lsa->tv_recv;
 	ospf_flood_through_as(ospf, NULL, lsa);

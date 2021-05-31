@@ -3575,13 +3575,12 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 		struct lsa_header *lsah;
 		uint16_t ls_age;
 
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("ospf_make_ls_upd: List Iteration %d",
-				   count);
-
 		lsa = listgetdata(node);
-
 		assert(lsa->data);
+
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("%s: List Iteration %d LSA[%s]", __func__,
+				   count, dump_lsa_key(lsa));
 
 		/* Will it fit? Minimum it has to fit atleast one */
 		if ((length + delta + ntohs(lsa->data->length) > size_noauth) &&
