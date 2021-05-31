@@ -1276,9 +1276,6 @@ static void update_ext_prefix_sid(struct sr_node *srn, struct sr_prefix *srp)
 				/* Replace Segment Prefix */
 				listnode_delete(srn->ext_prefix, pref);
 				XFREE(MTYPE_OSPF_SR_PARAMS, pref);
-				srp->srn = srn;
-				IPV4_ADDR_COPY(&srp->adv_router,
-					       &srn->adv_router);
 				listnode_add(srn->ext_prefix, srp);
 				ospf_zebra_update_prefix_sid(srp);
 			} else {
