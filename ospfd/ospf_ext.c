@@ -256,10 +256,10 @@ static uint32_t get_ext_link_instance_value(void)
 /* Lookup Extended Prefix/Links by ifp from OspfEXT struct iflist */
 static struct ext_itf *lookup_ext_by_ifp(struct interface *ifp)
 {
-	struct listnode *node, *nnode;
+	struct listnode *node;
 	struct ext_itf *exti;
 
-	for (ALL_LIST_ELEMENTS(OspfEXT.iflist, node, nnode, exti))
+	for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti))
 		if (exti->ifp == ifp)
 			return exti;
 
