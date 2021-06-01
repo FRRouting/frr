@@ -519,8 +519,11 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n mroutes are"
-        " still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
@@ -727,8 +730,11 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n mroutes are"
-        " still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
@@ -802,8 +808,9 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \nError: {}".format(
+        tc_name, result
+    )
 
     result = iperfSendTraffic(tgen, "i2", _IGMP_JOIN_RANGE, 32, 2500)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -885,8 +892,9 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \nError: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -1167,8 +1175,11 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n mroutes are "
-        "still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
@@ -1718,8 +1729,11 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
             data["oil"],
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n mroutes are"
-        " still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected Behavior: {}".format(result))
 
     step(
