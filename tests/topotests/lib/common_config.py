@@ -1859,7 +1859,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     )
                 if "ospf6" in data:
                     interface_data += _create_interfaces_ospf_cfg(
-                        "ospf6", c_data, data, ospf_keywords
+                        "ospf6", c_data, data, ospf_keywords + ["area"]
                     )
 
             result = create_common_configuration(
