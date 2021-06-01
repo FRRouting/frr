@@ -393,7 +393,7 @@ struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
 
 	/* Set defaults. */
 	bsp->args.detection_multiplier = BFD_DEF_DETECT_MULT;
-	bsp->args.ttl = BFD_SINGLE_HOP_TTL;
+	bsp->args.ttl = 1;
 	bsp->args.min_rx = BFD_DEF_MIN_RX;
 	bsp->args.min_tx = BFD_DEF_MIN_TX;
 	bsp->args.vrf_id = VRF_DEFAULT;
