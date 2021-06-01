@@ -1245,7 +1245,9 @@ static void update_ext_prefix_sid(struct sr_node *srn, struct sr_prefix *srp)
 
 	/* Search for existing Segment Prefix */
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, pref))
-		if (pref->instance == srp->instance) {
+		if (pref->instance == srp->instance
+		    && prefix_same((struct prefix *)&srp->prefv4,
+				   &pref->prefv4)) {
 			found = true;
 			break;
 		}
