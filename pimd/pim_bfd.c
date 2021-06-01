@@ -96,6 +96,7 @@ void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
 		pim_ifp->bfd_config.min_rx, pim_ifp->bfd_config.min_tx);
 	bfd_sess_set_ipv4_addrs(neigh->bfd_session, NULL, &neigh->source_addr);
 	bfd_sess_set_interface(neigh->bfd_session, neigh->interface->name);
+	bfd_sess_set_vrf(neigh->bfd_session, neigh->interface->vrf_id);
 	bfd_sess_set_profile(neigh->bfd_session, pim_ifp->bfd_config.profile);
 	bfd_sess_install(neigh->bfd_session);
 }
