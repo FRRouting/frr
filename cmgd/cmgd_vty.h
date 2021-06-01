@@ -150,6 +150,7 @@ struct cmgd;
 #endif
 
 extern void cmgd_vty_init(void);
+extern void cmgd_init_bcknd_cmd(void);
 
 #if 0
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);

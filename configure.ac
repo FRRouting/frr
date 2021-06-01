@@ -2551,6 +2551,7 @@ AC_CONFIG_FILES([
 	  pkgsrc/eigrpd.sh])
 
 AC_CONFIG_FILES([vtysh/extract.pl], [chmod +x vtysh/extract.pl])
+AC_CONFIG_FILES([cmgd/cmgd_extract.pl], [chmod +x cmgd/cmgd_extract.pl])
 AC_CONFIG_FILES([tools/frr], [chmod +x tools/frr])
 AC_CONFIG_FILES([tools/watchfrr.sh], [chmod +x tools/watchfrr.sh])
 AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])

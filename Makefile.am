@@ -114,6 +114,8 @@ man_MANS =
 vtysh_scan =
 vtysh_daemons =
 clippy_scan =
+cmgd_daemons =
+cmgd_scan = 
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking

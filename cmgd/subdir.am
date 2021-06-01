@@ -25,6 +25,37 @@ endif
 # man8 += $(MANBUILD)/frr-cmgd.8
 # endif
 
+EXTRA_DIST += cmgd/cmgd_daemons.pl
+
+BUILT_SOURCES += cmgd/cmgd_daemons.h
+
+# force cmgd_daemons.h
+$(cmgd_cmgd_OBJECTS): cmgd/cmgd_daemons.h cmgd/cmgd_bcknd_cmd.c
+CLEANFILES += cmgd/cmgd_daemons.h
+
+cmgd/cmgd_daemons.h:
+	$(PERL) $(top_srcdir)/cmgd/cmgd_daemons.pl $(cmgd_daemons) > cmgd/cmgd_daemons.h
+	
+AM_CMGD_EXTRACT = $(am__cmgd_EXTRACT_$(V))
+am__cmgd_EXTRACT_ = $(am__cmgd_EXTRACT_$(AM_DEFAULT_VERBOSITY))
+am__cmgd_EXTRACT_0 = @echo "  EXTRACT " $@;
+am__cmgd_EXTRACT_1 =
+
+if ISISD
+CMGD_HAVE_ISISD = --have-isisd
+else
+CMGD_HAVE_ISISD =
+endif
+
+if FABRICD
+CMGD_HAVE_FABRICD = --have-fabricd
+else
+CMGD_HAVE_FABRICD =
+endif
+
+cmgd/cmgd_bcknd_cmd.c: cmgd/cmgd_extract.pl $(cmgd_scan)
+	$(AM_CMGD_EXTRACT) $^ $(CMGD_HAVE_ISISD) $(CMGD_HAVE_FABRICD) > cmgd/cmgd_bcknd_cmd.c
+
 cmgd_libcmgd_a_SOURCES = \
 	cmgd/cmgd.c \
 	cmgd/cmgd_memory.c \
@@ -37,7 +68,15 @@ noinst_HEADERS += \
 	cmgd/cmgd_vty.h \
 	# end
 
-cmgd_cmgd_SOURCES = cmgd/cmgd_main.c
+cmgd_cmgd_SOURCES = \
+	cmgd/cmgd_main.c \
+	# end
+
+nodist_cmgd_cmgd_SOURCES = \
+	cmgd/cmgd_bcknd_cmd.c \
+	# end
+CLEANFILES += cmgd/cmgd_bcknd_cmd.c
+
 
 cmgd_cmgd_CFLAGS = $(AM_CFLAGS)
 
@@ -47,5 +86,3 @@ cmgd_cmgd_LDADD = cmgd/libcmgd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
 	# cmgd/cmgd_vty.c \
 	# end
 
-nodist_cmgd_cmgd_SOURCES = \
-	# end
