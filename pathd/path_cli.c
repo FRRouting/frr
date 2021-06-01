@@ -351,8 +351,6 @@ static int segment_list_has_src_dst(
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 				      "ipv6_adjacency");
 		node_src_id = adj_src_ipv6_str;
-	} else {
-		return CMD_ERR_NO_MATCH;
 	}
 	/* addresses */
 	snprintf(xpath, XPATH_MAXLEN, "./segment[index='%s']/nai/local-address",
@@ -421,8 +419,6 @@ int segment_list_has_prefix(
 			  sizeof(buf_prefix));
 		pre_ipaddr.ipa_type = IPADDR_V6;
 		pre_ipaddr.ip._v6_addr = prefix_cli.u.prefix6;
-	} else {
-		return CMD_ERR_NO_MATCH;
 	}
 	snprintf(xpath, XPATH_MAXLEN, "./segment[index='%s']/nai/local-address",
 		 index_str);
@@ -524,7 +520,7 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
 		if (status != CMD_SUCCESS)
 			return status;
 	} else {
-		segment_list_has_prefix(
+		status = segment_list_has_prefix(
 			vty, xpath, index, index_str, prefix_ipv4,
 			prefix_ipv4_str, prefix_ipv6, prefix_ipv6_str, has_algo,
 			algo, algo_str, has_iface_id, iface_id, iface_id_str);
@@ -821,9 +817,8 @@ DEFPY(srte_candidate_no_bandwidth,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_affinity_filter,
-      srte_candidate_affinity_filter_cmd,
-      "affinity {exclude-any|include-any|include-all}$type BITPATTERN$value",
+DEFPY(srte_candidate_affinity_filter, srte_candidate_affinity_filter_cmd,
+      "affinity <exclude-any|include-any|include-all>$type BITPATTERN$value",
       "Affinity constraint\n"
       "Exclude any matching link\n"
       "Include any matching link\n"
@@ -846,9 +841,8 @@ DEFPY(srte_candidate_affinity_filter,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_no_affinity_filter,
-      srte_candidate_no_affinity_filter_cmd,
-      "no affinity {exclude-any|include-any|include-all}$type [BITPATTERN$value]",
+DEFPY(srte_candidate_no_affinity_filter, srte_candidate_no_affinity_filter_cmd,
+      "no affinity <exclude-any|include-any|include-all>$type [BITPATTERN$value]",
       NO_STR
       "Affinity constraint\n"
       "Exclude any matching link\n"

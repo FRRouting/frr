@@ -369,7 +369,7 @@ static int pim_sock_read(struct thread *t)
 		 * the right ifindex, so just use it.  We know
 		 * it's the right interface because we bind to it
 		 */
-		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf_id);
+		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf->vrf_id);
 		if (!ifp || !ifp->info) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(

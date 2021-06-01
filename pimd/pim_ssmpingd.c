@@ -267,7 +267,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 		return -1;
 	}
 
-	ifp = if_lookup_by_index(ifindex, ss->pim->vrf_id);
+	ifp = if_lookup_by_index(ifindex, ss->pim->vrf->vrf_id);
 
 	if (buf[0] != PIM_SSMPINGD_REQUEST) {
 		char source_str[INET_ADDRSTRLEN];

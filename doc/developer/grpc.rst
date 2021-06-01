@@ -4,6 +4,17 @@
 Northbound gRPC
 ***************
 
+To enable gRPC support one needs to add `--enable-grpc` when running
+`configure`. Additionally, when launching each daemon one needs to request
+the gRPC module be loaded and which port to bind to. This can be done by adding
+`-M grpc:<port>` to the daemon's CLI arguments.
+
+Currently there is no gRPC "routing" so you will need to bind your gRPC
+`channel` to the particular daemon's gRPC port to interact with that daemon's
+gRPC northbound interface.
+
+The minimum version of gRPC known to work is 1.16.1.
+
 .. _grpc-languages-bindings:
 
 Programming Language Bindings
@@ -17,14 +28,277 @@ next step is to generate the FRR northbound bindings. To generate the
 northbound bindings you'll need the programming language binding
 generator tools and those are language specific.
 
-Next sections will use Ruby as an example for writing scripts to use
+C++ Example
+-----------
+
+The next sections will use C++ as an example for accessing FRR
+northbound through gRPC.
+
+.. _grpc-c++-generate:
+
+Generating C++ FRR Bindings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generating FRR northbound bindings for C++ example:
+
+::
+   # Install gRPC (e.g., on Ubuntu 20.04)
+   sudo apt-get install libgrpc++-dev libgrpc-dev
+
+   mkdir /tmp/frr-cpp
+   cd grpc
+
+   protoc --cpp_out=/tmp/frr-cpp \
+          --grpc_out=/tmp/frr-cpp \
+          -I $(pwd) \
+          --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
+           frr-northbound.proto
+
+
+.. _grpc-c++-if-sample:
+
+Using C++ To Get Version and Interfaces State
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Below is a sample program to print all interfaces discovered.
+
+::
+
+  # test.cpp
+  #include <string>
+  #include <sstream>
+  #include <grpc/grpc.h>
+  #include <grpcpp/create_channel.h>
+  #include "frr-northbound.pb.h"
+  #include "frr-northbound.grpc.pb.h"
+
+  int main() {
+      frr::GetRequest request;
+      frr::GetResponse reply;
+      grpc::ClientContext context;
+      grpc::Status status;
+
+      auto channel = grpc::CreateChannel("localhost:50051",
+  				       grpc::InsecureChannelCredentials());
+      auto stub = frr::Northbound::NewStub(channel);
+
+      request.set_type(frr::GetRequest::ALL);
+      request.set_encoding(frr::JSON);
+      request.set_with_defaults(true);
+      request.add_path("/frr-interface:lib");
+      auto stream = stub->Get(&context, request);
+
+      std::ostringstream ss;
+      while (stream->Read(&reply))
+        ss << reply.data().data() << std::endl;
+
+      status = stream->Finish();
+      assert(status.ok());
+      std::cout << "Interface Info:\n" << ss.str() << std::endl;
+  }
+
+Below is how to compile and run the program, with the example output:
+
+::
+
+  $ g++ -o test test.cpp frr-northbound.grpc.pb.cc frr-northbound.pb.cc -lgrpc++ -lprotobuf
+  $ ./test
+  Interface Info:
+  {
+    "frr-interface:lib": {
+      "interface": [
+        {
+          "name": "lo",
+          "vrf": "default",
+          "state": {
+            "if-index": 1,
+            "mtu": 0,
+            "mtu6": 65536,
+            "speed": 0,
+            "metric": 0,
+            "phy-address": "00:00:00:00:00:00"
+          },
+          "frr-zebra:zebra": {
+            "state": {
+              "up-count": 0,
+              "down-count": 0,
+              "ptm-status": "disabled"
+            }
+          }
+        },
+        {
+          "name": "r1-eth0",
+          "vrf": "default",
+          "state": {
+            "if-index": 2,
+            "mtu": 1500,
+            "mtu6": 1500,
+            "speed": 10000,
+            "metric": 0,
+            "phy-address": "02:37:ac:63:59:b9"
+          },
+          "frr-zebra:zebra": {
+            "state": {
+              "up-count": 0,
+              "down-count": 0,
+              "ptm-status": "disabled"
+            }
+          }
+        }
+      ]
+    },
+    "frr-zebra:zebra": {
+      "mcast-rpf-lookup": "mrib-then-urib",
+      "workqueue-hold-timer": 10,
+      "zapi-packets": 1000,
+      "import-kernel-table": {
+        "distance": 15
+      },
+      "dplane-queue-limit": 200
+    }
+  }
+
+
+
+.. _grpc-python-example:
+
+Python Example
+--------------
+
+The next sections will use Python as an example for writing scripts to use
 the northbound.
 
+.. _grpc-python-generate:
+
+Generating Python FRR Bindings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generating FRR northbound bindings for Python example:
+
+::
+
+   # Install python3 virtual environment capability e.g.,
+   sudo apt-get install python3-venv
+
+   # Create a virtual environment for python grpc and activate
+   python3 -m venv venv-grpc
+   source venv-grpc/bin/activate
+
+   # Install grpc requirements
+   pip install grpcio grpcio-tools
+
+   mkdir /tmp/frr-python
+   cd grpc
+
+   python3 -m grpc_tools.protoc  \
+           --python_out=/tmp/frr-python \
+           --grpc_python_out=/tmp/frr-python \
+           -I $(pwd) \
+           frr-northbound.proto
+
+.. _grpc-python-if-sample:
+
+Using Python To Get Capabilities and Interfaces State
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Below is a sample script to print capabilities and all interfaces Python
+discovered. This demostrates the 2 different RPC results one gets from gRPC,
+Unary (`GetCapabilities`) and Streaming (`Get`) for the interface state.
+
+::
+
+  import grpc
+  import frr_northbound_pb2
+  import frr_northbound_pb2_grpc
+
+  channel = grpc.insecure_channel('localhost:50051')
+  stub = frr_northbound_pb2_grpc.NorthboundStub(channel)
+
+  # Print Capabilities
+  request = frr_northbound_pb2.GetCapabilitiesRequest()
+  response = stub.GetCapabilities(request)
+  print(response)
+
+  # Print Interface State and Config
+  request = frr_northbound_pb2.GetRequest()
+  request.path.append("/frr-interface:lib")
+  request.type=frr_northbound_pb2.GetRequest.ALL
+  request.encoding=frr_northbound_pb2.XML
+
+  for r in stub.Get(request):
+      print(r.data.data)
+
+The previous script will output something like:
+
+::
+
+  frr_version: "7.7-dev-my-manual-build"
+  rollback_support: true
+  supported_modules {
+    name: "frr-filter"
+    organization: "FRRouting"
+    revision: "2019-07-04"
+  }
+  supported_modules {
+    name: "frr-interface"
+    organization: "FRRouting"
+    revision: "2020-02-05"
+  }
+  [...]
+  supported_encodings: JSON
+  supported_encodings: XML
+
+  <lib xmlns="http://frrouting.org/yang/interface">
+    <interface>
+      <name>lo</name>
+      <vrf>default</vrf>
+      <state>
+        <if-index>1</if-index>
+        <mtu>0</mtu>
+        <mtu6>65536</mtu6>
+        <speed>0</speed>
+        <metric>0</metric>
+        <phy-address>00:00:00:00:00:00</phy-address>
+      </state>
+      <zebra xmlns="http://frrouting.org/yang/zebra">
+        <state>
+          <up-count>0</up-count>
+          <down-count>0</down-count>
+        </state>
+      </zebra>
+    </interface>
+    <interface>
+      <name>r1-eth0</name>
+      <vrf>default</vrf>
+      <state>
+        <if-index>2</if-index>
+        <mtu>1500</mtu>
+        <mtu6>1500</mtu6>
+        <speed>10000</speed>
+        <metric>0</metric>
+        <phy-address>f2:62:2e:f3:4c:e4</phy-address>
+      </state>
+      <zebra xmlns="http://frrouting.org/yang/zebra">
+        <state>
+          <up-count>0</up-count>
+          <down-count>0</down-count>
+        </state>
+      </zebra>
+    </interface>
+  </lib>
+
+.. _grpc-ruby-example:
+
+Ruby Example
+------------
+
+Next sections will use Ruby as an example for writing scripts to use
+the northbound.
 
 .. _grpc-ruby-generate:
 
 Generating Ruby FRR Bindings
-----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Generating FRR northbound bindings for Ruby example:
 
@@ -52,7 +326,7 @@ Generating FRR northbound bindings for Ruby example:
 .. _grpc-ruby-if-sample:
 
 Using Ruby To Get Interfaces State
-----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Here is a sample script to print all interfaces FRR discovered:
 
@@ -141,7 +415,7 @@ The previous script will output something like this:
 .. _grpc-ruby-bfd-profile-sample:
 
 Using Ruby To Create BFD Profiles
----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this example you'll learn how to edit configuration using JSON
 and programmatic (XPath) format.

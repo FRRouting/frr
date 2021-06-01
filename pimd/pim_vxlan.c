@@ -1076,7 +1076,7 @@ void pim_vxlan_add_vif(struct interface *ifp)
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
 
-	if (pim->vrf_id != VRF_DEFAULT)
+	if (pim->vrf->vrf_id != VRF_DEFAULT)
 		return;
 
 	if (if_is_loopback_or_vrf(ifp))
@@ -1095,7 +1095,7 @@ void pim_vxlan_del_vif(struct interface *ifp)
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
 
-	if (pim->vrf_id != VRF_DEFAULT)
+	if (pim->vrf->vrf_id != VRF_DEFAULT)
 		return;
 
 	if (pim->vxlan.default_iif == ifp)

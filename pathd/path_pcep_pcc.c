@@ -1273,7 +1273,8 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 	 * pathd API is thread safe, we could get a new path */
 	if (pcc_state->caps.is_stateful) {
 		PCEP_DEBUG("%s Delegating undefined dynamic path %s to PCE %s",
-			   pcc_state->tag, path->name, pcc_state->originator);
+			   pcc_state->tag, req->path->name,
+			   pcc_state->originator);
 		path = pcep_copy_path(req->path);
 		path->is_delegated = true;
 		send_report(pcc_state, path);

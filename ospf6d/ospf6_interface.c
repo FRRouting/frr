@@ -499,6 +499,9 @@ static int ospf6_interface_state_change(uint8_t next_state,
 	if (prev_state == next_state)
 		return -1;
 
+	if (!oi->area)
+		return -1;
+
 	/* log */
 	if (IS_OSPF6_DEBUG_INTERFACE) {
 		zlog_debug("Interface state change %s: %s -> %s",
@@ -507,7 +510,8 @@ static int ospf6_interface_state_change(uint8_t next_state,
 			   ospf6_interface_state_str[next_state]);
 	}
 	oi->state_change++;
-	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
+
+	ospf6 = oi->area->ospf6;
 
 	if ((prev_state == OSPF6_INTERFACE_DR
 	     || prev_state == OSPF6_INTERFACE_BDR)
@@ -772,10 +776,8 @@ int interface_up(struct thread *thread)
 		return 0;
 	}
 #endif /* __FreeBSD__ */
-	if (oi->area->ospf6)
-		ospf6 = oi->area->ospf6;
-	else
-		ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
+
+	ospf6 = oi->area->ospf6;
 
 	/* Join AllSPFRouters */
 	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP,
@@ -890,13 +892,6 @@ int interface_down(struct thread *thread)
 
 	/* Stop trying to set socket options. */
 	THREAD_OFF(oi->thread_sso);
-	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
-	/* Leave AllSPFRouters */
-	if (oi->state > OSPF6_INTERFACE_DOWN)
-		ospf6_sso(oi->interface->ifindex, &allspfrouters6,
-			  IPV6_LEAVE_GROUP, ospf6->fd);
-
-	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
 		ospf6_neighbor_delete(on);
@@ -907,6 +902,18 @@ int interface_down(struct thread *thread)
 	 * DR election, as it is no longer valid. */
 	oi->drouter = oi->prev_drouter = htonl(0);
 	oi->bdrouter = oi->prev_bdrouter = htonl(0);
+
+	if (oi->area == NULL)
+		return 0;
+
+	ospf6 = oi->area->ospf6;
+	/* Leave AllSPFRouters */
+	if (oi->state > OSPF6_INTERFACE_DOWN)
+		ospf6_sso(oi->interface->ifindex, &allspfrouters6,
+			  IPV6_LEAVE_GROUP, ospf6->fd);
+
+	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
+
 	return 0;
 }
 

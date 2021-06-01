@@ -56,7 +56,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	/*
 	 * We need to create the VRF table for the pim mroute_socket
 	 */
-	if (pim->vrf_id != VRF_DEFAULT) {
+	if (pim->vrf->vrf_id != VRF_DEFAULT) {
 		frr_with_privs(&pimd_privs) {
 
 			data = pim->vrf->data.l.table_id;
@@ -609,7 +609,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 		 * the source
 		 * of the IP packet.
 		 */
-		ifp = if_lookup_by_index(ifindex, pim->vrf_id);
+		ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
 
 		if (!ifp || !ifp->info)
 			return 0;

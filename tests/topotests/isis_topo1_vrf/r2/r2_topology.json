@@ -33,7 +33,7 @@
         },
         {
           "interface": "r2-eth0",
-          "metric": "20",
+          "metric": "10",
           "next-hop": "r4",
           "parent": "r4(4)",
           "type": "IP TE",
@@ -41,7 +41,7 @@
         },
         {
           "interface": "r2-eth0",
-          "metric": "20",
+          "metric": "10",
           "next-hop": "r4",
           "parent": "r4(4)",
           "type": "IP TE",
@@ -67,8 +67,8 @@
           "vertex": "r4"
         },
         {
+          "metric": "10",
           "interface": "r2-eth0",
-          "metric": "20",
           "next-hop": "r4",
           "parent": "r4(4)",
           "type": "IP6 internal",

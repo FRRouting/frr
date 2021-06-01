@@ -84,8 +84,9 @@ struct ospf_lsa {
 #define OSPF_LSA_PREMATURE_AGE	  0x40
 #define OSPF_LSA_IN_MAXAGE	  0x80
 
-	/* LSA data. */
+	/* LSA data. and size */
 	struct lsa_header *data;
+	size_t size;
 
 	/* Received time stamp. */
 	struct timeval tv_recv;
@@ -168,7 +169,7 @@ struct router_lsa {
 	uint8_t flags;
 	uint8_t zero;
 	uint16_t links;
-	struct {
+	struct router_link {
 		struct in_addr link_id;
 		struct in_addr link_data;
 		uint8_t type;
@@ -199,7 +200,7 @@ struct summary_lsa {
 struct as_external_lsa {
 	struct lsa_header header;
 	struct in_addr mask;
-	struct {
+	struct as_route {
 		uint8_t tos;
 		uint8_t metric[3];
 		struct in_addr fwd_addr;

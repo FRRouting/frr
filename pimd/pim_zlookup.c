@@ -544,7 +544,8 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 		return -1;
 
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS, c_oil->pim->vrf_id);
+	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS,
+			      c_oil->pim->vrf->vrf_id);
 	stream_put_in_addr(s, &c_oil->oil.mfcc_origin);
 	stream_put_in_addr(s, &c_oil->oil.mfcc_mcastgrp);
 	stream_putl(s, ifp->ifindex);

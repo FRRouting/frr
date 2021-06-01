@@ -198,13 +198,11 @@ original multicast packet.
    iptables -A OUTPUT -d 224.0.0.0/24 -o gre1 -j NFLOG --nflog-group 2
    iptables -A OUTPUT -d 224.0.0.0/24 -o gre1 -j DROP
 
-.. index::  nhrp multicast-nflog-group (1-65535)
 .. clicmd:: nhrp multicast-nflog-group (1-65535)
 
    Sets the nflog group that nhrpd will listen on for multicast packets. This
    value must match the nflog-group value set in the iptables rule.
 
-.. index::  ip nhrp map multicast A.B.C.D|X:X::X:X A.B.C.D|dynamic
 .. clicmd:: ip nhrp map multicast A.B.C.D|X:X::X:X A.B.C.D|dynamic
 
    Sends multicast packets to the specified NBMA address. If dynamic is

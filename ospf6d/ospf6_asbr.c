@@ -579,7 +579,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	if (ospf6_is_router_abr(ospf6))
 		oa = ospf6->backbone;
 	else
-		oa = listgetdata(listhead(ospf6->area_list));
+		oa = listnode_head(ospf6->area_list);
 
 	if (oa == NULL)
 		return;
@@ -1282,7 +1282,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	/* create new entry */
 	route = ospf6_route_create();
 	route->type = OSPF6_DEST_TYPE_NETWORK;
-	memcpy(&route->prefix, prefix, sizeof(struct prefix));
+	prefix_copy(&route->prefix, prefix);
 
 	info = (struct ospf6_external_info *)XCALLOC(
 		MTYPE_OSPF6_EXTERNAL_INFO, sizeof(struct ospf6_external_info));
@@ -2009,6 +2009,9 @@ static void ospf6_routemap_init(void)
 	route_map_set_metric_hook(generic_set_add);
 	route_map_no_set_metric_hook(generic_set_delete);
 
+	route_map_set_tag_hook(generic_set_add);
+	route_map_no_set_tag_hook(generic_set_delete);
+
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
@@ -2302,10 +2305,14 @@ void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
 			continue;
 		if (type == ZEBRA_ROUTE_OSPF6)
 			continue;
-		if (ospf6_zebra_is_redistribute(type, ospf6->vrf_id)) {
-			ospf6_asbr_redistribute_unset(ospf6, red, type);
-			ospf6_redist_del(ospf6, red, type);
-		}
+		ospf6_asbr_redistribute_unset(ospf6, red, type);
+		ospf6_redist_del(ospf6, red, type);
+	}
+	red = ospf6_redist_lookup(ospf6, DEFAULT_ROUTE, 0);
+	if (red) {
+		ospf6_asbr_routemap_unset(red);
+		ospf6_redist_del(ospf6, red, type);
+		ospf6_redistribute_default_set(ospf6, DEFAULT_ORIGINATE_NONE);
 	}
 }
 

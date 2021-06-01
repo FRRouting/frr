@@ -336,7 +336,7 @@ int nb_config_merge(struct nb_config *config_dst, struct nb_config *config_src,
 {
 	int ret;
 
-	ret = lyd_merge_tree(&config_dst->dnode, config_src->dnode, 0);
+	ret = lyd_merge_siblings(&config_dst->dnode, config_src->dnode, 0);
 	if (ret != 0)
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_merge() failed", __func__);
 
@@ -599,6 +599,7 @@ static void nb_config_diff(const struct nb_config *config1,
 				   * the diff tree.
 				   */
 				target = yang_dnode_get(config2->dnode, path);
+				assert(target);
 				nb_config_diff_created(target, &seq, changes);
 
 				/* Skip rest of sub-tree, move to next sibling
@@ -607,6 +608,7 @@ static void nb_config_diff(const struct nb_config *config1,
 				break;
 			case 'd': /* delete */
 				target = yang_dnode_get(config1->dnode, path);
+				assert(target);
 				nb_config_diff_deleted(target, &seq, changes);
 
 				/* Skip rest of sub-tree, move to next sibling

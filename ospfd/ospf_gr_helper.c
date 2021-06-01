@@ -233,19 +233,17 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 
 	lsah = (struct lsa_header *)lsa->data;
 
-	length = ntohs(lsah->length);
-
 	/* Check LSA len */
-	if (length <= OSPF_LSA_HEADER_SIZE) {
+	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF_GR_HELPER)
 			zlog_debug("%s: Malformed packet: Invalid LSA len:%d",
 				   __func__, length);
 		return OSPF_GR_FAILURE;
 	}
 
-	length -= OSPF_LSA_HEADER_SIZE;
+	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 
 		/* Check TLV len against overall LSA */
@@ -996,18 +994,16 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 
 	lsah = (struct lsa_header *)lsa->data;
 
-	length = ntohs(lsah->length);
-
-	if (length <= OSPF_LSA_HEADER_SIZE) {
+	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
 		vty_out(vty, "%% Invalid LSA length: %d\n", length);
 		return;
 	}
 
-	length -= OSPF_LSA_HEADER_SIZE;
+	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 
 	vty_out(vty, "  TLV info:\n");
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		/* Check TLV len */
 		if (sum + TLV_SIZE(tlvh) > length) {

@@ -42,14 +42,14 @@ extern unsigned char conf_debug_ospf6_message[];
 	(conf_debug_ospf6_message[type] &= ~(level))
 
 #define IS_OSPF6_DEBUG_MESSAGE(t, e)                                           \
-	((OSPF6_DEBUG_MESSAGE_##e) == OSPF6_DEBUG_MESSAGE_RECV_HDR)            \
+	(((OSPF6_DEBUG_MESSAGE_##e) == OSPF6_DEBUG_MESSAGE_RECV_HDR)           \
 		? (conf_debug_ospf6_message[t]                                 \
 		   & (OSPF6_DEBUG_MESSAGE_RECV_BOTH))                          \
 		: (((OSPF6_DEBUG_MESSAGE_##e) == OSPF6_DEBUG_MESSAGE_SEND_HDR) \
 			   ? (conf_debug_ospf6_message[t]                      \
 			      & (OSPF6_DEBUG_MESSAGE_SEND_BOTH))               \
 			   : (conf_debug_ospf6_message[t]                      \
-			      & (OSPF6_DEBUG_MESSAGE_##e)))
+			      & (OSPF6_DEBUG_MESSAGE_##e))))
 
 #define IS_OSPF6_DEBUG_MESSAGE_ENABLED(type, e)                                \
 	(conf_debug_ospf6_message[type] & (OSPF6_DEBUG_MESSAGE_##e))
