@@ -281,6 +281,396 @@ def red_connected(dut, config=True):
 # ##################################
 # Test cases start here.
 # ##################################
+def test_ospfv3_redistribution_tc5_p0(request):
+    """Test OSPF intra area route calculations."""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+
+    step("Verify that OSPF neighbors are FULL.")
+    ospf_covergence = verify_ospf6_neighbor(tgen, topo)
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
+
+    step("verify intra area route is calculated for r0-r3 interface ip in R1")
+    ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
+    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+
+    llip = get_llip("r0", "r1")
+    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
+
+    nh = llip
+    input_dict = {
+        "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
+    }
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Delete the ip address on newly configured loopback of R0")
+    topo1 = {
+        "r0": {
+            "links": {
+                "r3": {
+                    "ipv6": topo["routers"]["r0"]["links"]["r3"]["ipv6"],
+                    "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
+                    "delete": True,
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route present in RIB. Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route present in RIB. Error: {}".format(tc_name, result)
+
+    step("Add back the deleted ip address on newly configured interface of R0")
+    topo1 = {
+        "r0": {
+            "links": {
+                "r3": {
+                    "ipv6": topo["routers"]["r0"]["links"]["r3"]["ipv6"],
+                    "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Shut no shut interface on R0")
+    dut = "r0"
+    intf = topo["routers"]["r0"]["links"]["r3"]["interface"]
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    step("un shut the OSPF interface on R0")
+    dut = "r0"
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_ospfv3_redistribution_tc6_p0(request):
+    """Test OSPF inter area route calculations."""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+
+    step("Verify that OSPF neighbors are FULL.")
+    ospf_covergence = verify_ospf6_neighbor(tgen, topo)
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
+
+    step("verify intra area route is calculated for r0-r3 interface ip in R1")
+    ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
+    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    llip = get_llip("r0", "r1")
+    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
+    nh = llip
+    input_dict = {
+        "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
+    }
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Delete the ip address on newly configured loopback of R0")
+    topo1 = {
+        "r0": {
+            "links": {
+                "r3": {
+                    "ipv6": topo["routers"]["r0"]["links"]["r3"]["ipv6"],
+                    "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
+                    "delete": True,
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route present in RIB. Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route present in RIB. Error: {}".format(tc_name, result)
+
+    step("Add back the deleted ip address on newly configured interface of R0")
+    topo1 = {
+        "r0": {
+            "links": {
+                "r3": {
+                    "ipv6": topo["routers"]["r0"]["links"]["r3"]["ipv6"],
+                    "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Shut no shut interface on R0")
+    dut = "r0"
+    intf = topo["routers"]["r0"]["links"]["r3"]["interface"]
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    step("Verify that intraroute calculated for R1 intf on R0 is deleted.")
+    dut = "r1"
+
+    step("un shut the OSPF interface on R0")
+    dut = "r0"
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+
+def test_ospfv3_redistribution_tc8_p1(request):
+    """
+    Test OSPF redistribution of connected routes.
+
+    Verify OSPF redistribution of connected routes when bgp multi hop
+    neighbor is configured using ospf routes
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+    step(
+        "Configure loopback interface on all routers, and redistribut"
+        "e connected routes into ospf")
+    reset_config_on_routers(tgen)
+
+    step(
+        "verify that connected routes -loopback is found in all routers"
+        "advertised/exchaged via ospf")
+    for rtr in topo['routers']:
+        red_static(rtr)
+        red_connected(rtr)
+    for node in topo['routers']:
+        input_dict = {
+            "r0": {
+                "static_routes": [
+                    {
+                        "network": topo['routers'][
+                            node]['links']['lo']['ipv6'],
+                        "no_of_ip": 1
+                    }
+                ]
+            }
+        }
+        for rtr in topo['routers']:
+            result = verify_rib(tgen, "ipv6", rtr, input_dict)
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
+                tc_name, result)
+
+    step("Configure E BGP multi hop using the loopback addresses.")
+    as_num = 100
+    for node in topo['routers']:
+        as_num += 1
+        topo['routers'][node].update({
+            "bgp": {
+                "local_as": as_num,
+                "address_family": {
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                            }
+                        }
+                    }
+                }
+            }})
+    for node in topo['routers']:
+        for rtr in topo['routers']:
+            if node is not rtr:
+                topo['routers'][node]['bgp']['address_family']['ipv6'][
+                    'unicast']['neighbor'].update({rtr: {
+                        "dest_link": {
+                            'lo': {
+                                "source_link": "lo",
+                                "ebgp_multihop": 2
+                            }
+                        }
+                        }})
+
+    result = create_router_bgp(tgen, topo, topo['routers'])
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, result)
+
+    step("Verify that BGP neighbor is ESTABLISHED")
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+    step(
+        "Configure couple of static routes in R0 and "
+        "Redistribute static routes in R1 bgp.")
+
+    for rtr in topo['routers']:
+        ospf_red = {
+                    rtr: {
+                        "ospf6": {
+                            "redistribute": [{
+                                "redist_type": "static",
+                                "delete": True
+                                }]
+                        }
+                    }
+                }
+        result = create_router_ospf(tgen, topo, ospf_red)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK['ipv6'][0],
+                    "no_of_ip": 5,
+                    "next_hop": 'Null0',
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, result)
+
+    configure_bgp_on_r0 = {
+        "r0": {
+            "bgp": {
+                "address_family": {
+                    "ipv6": {
+                        "unicast": {
+                            "redistribute": [{
+                                "redist_type": "static"
+                            }]
+                        }
+                    }
+                }
+            }
+        }
+    }
+    result = create_router_bgp(tgen, topo, configure_bgp_on_r0)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, result)
+    protocol = 'bgp'
+    for rtr in ['r1', 'r2', 'r3']:
+        result = verify_rib(
+            tgen, 'ipv6', rtr, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result)
+
+    step("Clear ospf neighbours in R0")
+    for rtr in topo['routers']:
+        clear_ospf(tgen, rtr)
+
+    step("Verify that OSPF neighbours are reset and forms new adjacencies.")
+    # Api call verify whether OSPF is converged
+    ospf_covergence = verify_ospf6_neighbor(tgen, topo)
+    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
+                                      " {}".format(ospf_covergence))
+
+    step("Verify that BGP neighbours are reset and forms new adjacencies.")
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    protocol = 'bgp'
+    for rtr in ['r1', 'r2', 'r3']:
+        result = verify_rib(
+            tgen, 'ipv6', rtr, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result)
+
+    write_test_footer(tc_name)
+
+
 def test_ospfv3_cost_tc52_p0(request):
     """OSPF Cost - verifying ospf interface cost functionality"""
     tc_name = request.node.name
@@ -366,7 +756,6 @@ def test_ospfv3_cost_tc52_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
-
 
 
 if __name__ == "__main__":
