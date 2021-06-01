@@ -123,6 +123,17 @@ DEBUG_LOGS = {
         "debug ospf te",
         "debug ospf zebra",
     ],
+    "ospf6": [
+        "debug ospf6 event",
+        "debug ospf6 ism",
+        "debug ospf6 lsa",
+        "debug ospf6 nsm",
+        "debug ospf6 nssa",
+        "debug ospf6 packet all",
+        "debug ospf6 sr",
+        "debug ospf6 te",
+        "debug ospf6 zebra",
+    ],
 }
 
 if config.has_option("topogen", "verbosity"):
@@ -422,7 +433,10 @@ def check_router_status(tgen):
                     daemons.append("zebra")
                 if "pimd" in result:
                     daemons.append("pimd")
-
+                if "ospfd" in result:
+                    daemons.append("ospfd")
+                if "ospf6d" in result:
+                    daemons.append("ospf6d")
                 rnode.startDaemons(daemons)
 
     except Exception as e:
@@ -890,6 +904,10 @@ def topo_daemons(tgen, topo):
         for val in topo["routers"][rtr]["links"].values():
             if "pim" in val and "pimd" not in daemon_list:
                 daemon_list.append("pimd")
+            if "ospf" in val and "ospfd" not in daemon_list:
+                daemon_list.append("ospfd")
+            if "ospf6" in val and "ospf6d" not in daemon_list:
+                daemon_list.append("ospf6d")
                 break
 
     return daemon_list
