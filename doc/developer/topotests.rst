@@ -883,7 +883,7 @@ Example:
 Requirements:
 
 - Directory name for a new topotest must not contain hyphen (``-``) characters.
-  To separate words, use underscores (``_``). For example, `tests/topotests/bgp_new_example`.
+  To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``.
 - Test code should always be declared inside functions that begin with the
   ``test_`` prefix. Functions beginning with different prefixes will not be run
   by pytest.
