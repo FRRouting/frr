@@ -1378,8 +1378,13 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 			if (troute.path.metric_type)
 				match->path.metric_type =
 					troute.path.metric_type;
+			else
+				match->path.metric_type =
+					metric_type(ospf6, type, 0);
 			if (troute.path.cost)
 				match->path.cost = troute.path.cost;
+			else
+				match->path.cost = metric_value(ospf6, type, 0);
 			if (!IN6_IS_ADDR_UNSPECIFIED(&tinfo.forwarding))
 				memcpy(&info->forwarding, &tinfo.forwarding,
 				       sizeof(struct in6_addr));
@@ -1440,8 +1445,12 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	if (ROUTEMAP(red)) {
 		if (troute.path.metric_type)
 			route->path.metric_type = troute.path.metric_type;
+		else
+			route->path.metric_type = metric_type(ospf6, type, 0);
 		if (troute.path.cost)
 			route->path.cost = troute.path.cost;
+		else
+			route->path.cost = metric_value(ospf6, type, 0);
 		if (!IN6_IS_ADDR_UNSPECIFIED(&tinfo.forwarding))
 			memcpy(&info->forwarding, &tinfo.forwarding,
 			       sizeof(struct in6_addr));
