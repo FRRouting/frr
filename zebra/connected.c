@@ -198,7 +198,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
 	afi_t afi;
-	struct prefix p = {0};
+	struct prefix p;
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
@@ -225,7 +225,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	/* Ensure 'down' flag is cleared */
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
-	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
+	prefix_copy(&p, CONNECTED_PREFIX(ifc));
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
@@ -277,9 +277,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	 * resolve to the same network and mask
 	 */
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-		struct prefix cp = {0};
+		struct prefix cp;
 
-		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
+		prefix_copy(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
 
 		if (prefix_same(&cp, &p) &&
@@ -412,7 +412,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		return;
 	}
 
-	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
+	prefix_copy(&p, CONNECTED_PREFIX(ifc));
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
@@ -450,7 +450,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 		struct prefix cp;
 
-		PREFIX_COPY(&cp, CONNECTED_PREFIX(c));
+		prefix_copy(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
 
 		if (prefix_same(&p, &cp) &&
