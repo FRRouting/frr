@@ -2240,11 +2240,7 @@ DEFUN (no_banner_motd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(find,
-      find_cmd,
-      "find REGEX...",
-      "Find CLI command matching a regular expression\n"
-      "Search pattern (POSIX regex)\n")
+int cmd_find_cmds(struct vty *vty, struct cmd_token **argv, int argc)
 {
 	const struct cmd_node *node;
 	const struct cmd_element *cli;
@@ -2320,6 +2316,15 @@ DEFUN(find,
 done:
 	regfree(&exp);
 	return CMD_SUCCESS;
+}
+
+DEFUN(find,
+      find_cmd,
+      "find REGEX...",
+      "Find CLI command matching a regular expression\n"
+      "Search pattern (POSIX regex)\n")
+{
+	return cmd_find_cmds(vty, argv, argc);
 }
 
 #if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)
