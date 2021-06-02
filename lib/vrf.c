@@ -690,10 +690,9 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 			 vrfname);
 
 		nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
-		ret = nb_cli_apply_changes(vty, xpath_list);
+		ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
 		if (ret == CMD_SUCCESS) {
 			VTY_PUSH_XPATH(VRF_NODE, xpath_list);
-			nb_cli_pending_commit_check(vty);
 			vrfp = vrf_lookup_by_name(vrfname);
 			if (vrfp)
 				VTY_PUSH_CONTEXT(VRF_NODE, vrfp);

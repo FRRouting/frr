@@ -135,9 +135,8 @@ struct vty {
 	struct nb_config *candidate_config_base;
 
 	/* Dynamic transaction information. */
-	struct timeval backoff_start;
-	size_t backoff_cmd_count;
-	struct thread *t_pending_commit;
+	bool pending_allowed;
+	bool pending_commit;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;
