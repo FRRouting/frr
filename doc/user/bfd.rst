@@ -124,7 +124,7 @@ BFDd Commands
 
     Show all configured BFD peers information and current status.
 
-.. clicmd:: show bfd [vrf NAME$vrf_name] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]
+.. clicmd:: show bfd [vrf NAME] peer <WORD|<A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME}]> [json]
 
     Show status for a specific BFD peer.
 
