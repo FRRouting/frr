@@ -197,23 +197,23 @@ Link Parameters Commands
    this interface. MPLS-TE must be enable at the OSPF
    (:ref:`ospf-traffic-engineering`) or ISIS
    (:ref:`isis-traffic-engineering`) router level in complement to
-   this.  Disable link parameters for this interface.
+   this.
 
    Under link parameter statement, the following commands set the different TE values:
 
-.. clicmd:: link-params [enable]
+.. clicmd:: enable
 
    Enable link parameters for this interface.
 
-.. clicmd:: link-params [metric (0-4294967295)]
+.. clicmd:: metric (0-4294967295)
 
-.. clicmd:: link-params max-bw BANDWIDTH
+.. clicmd:: max-bw BANDWIDTH
 
-.. clicmd:: link-params max-rsv-bw BANDWIDTH
+.. clicmd:: max-rsv-bw BANDWIDTH
 
-.. clicmd:: link-params unrsv-bw (0-7) BANDWIDTH
+.. clicmd:: unrsv-bw (0-7) BANDWIDTH
 
-.. clicmd:: link-params admin-grp BANDWIDTH
+.. clicmd:: admin-grp BANDWIDTH
 
    These commands specifies the Traffic Engineering parameters of the interface
    in conformity to RFC3630 (OSPF) or RFC5305 (ISIS).  There are respectively
@@ -225,17 +225,17 @@ Link Parameters Commands
    Note that BANDIWDTH is specified in IEEE floating point format and express
    in Bytes/second.
 
-.. clicmd:: link-param delay (0-16777215) [min (0-16777215) | max (0-16777215)]
+.. clicmd:: delay (0-16777215) [min (0-16777215) | max (0-16777215)]
 
-.. clicmd:: link-param delay-variation (0-16777215)
+.. clicmd:: delay-variation (0-16777215)
 
-.. clicmd:: link-param packet-loss PERCENTAGE
+.. clicmd:: packet-loss PERCENTAGE
 
-.. clicmd:: link-param res-bw BANDWIDTH
+.. clicmd:: res-bw BANDWIDTH
 
-.. clicmd:: link-param ava-bw BANDWIDTH
+.. clicmd:: ava-bw BANDWIDTH
 
-.. clicmd:: link-param use-bw BANDWIDTH
+.. clicmd:: use-bw BANDWIDTH
 
    These command specifies additional Traffic Engineering parameters of the
    interface in conformity to draft-ietf-ospf-te-metrics-extension-05.txt and
@@ -248,9 +248,7 @@ Link Parameters Commands
    (µs). Loss is specified in PERCENTAGE ranging from 0 to 50.331642% by step
    of 0.000003.
 
-.. clicmd:: link-param neighbor <A.B.C.D> as (0-65535)
-
-.. clicmd:: link-param no neighbor
+.. clicmd:: neighbor <A.B.C.D> as (0-65535)
 
    Specifies the remote ASBR IP address and Autonomous System (AS) number
    for InterASv2 link in OSPF (RFC5392).  Note that this option is not yet
