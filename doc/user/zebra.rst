@@ -254,10 +254,22 @@ Link Parameters Commands
    for InterASv2 link in OSPF (RFC5392).  Note that this option is not yet
    supported for ISIS (RFC5316).
 
+Nexthop Tracking
+================
+
+Nexthop tracking doesn't resolve nexthops via the default route by default.
+Allowing this might be useful when e.g. you want to allow BGP to peer across
+the default route.
+
 .. clicmd:: ip nht resolve-via-default
 
-   Allows nexthop tracking to resolve via the default route. This is useful
-   when e.g. you want to allow BGP to peer across the default route.
+   Allow IPv4 nexthop tracking to resolve via the default route. This parameter
+   is configured per-VRF, so the command is also available in the VRF subnode.
+
+.. clicmd:: ipv6 nht resolve-via-default
+
+   Allow IPv6 nexthop tracking to resolve via the default route. This parameter
+   is configured per-VRF, so the command is also available in the VRF subnode.
 
 Administrative Distance
 =======================
