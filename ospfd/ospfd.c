@@ -688,10 +688,11 @@ void ospf_finish(struct ospf *ospf)
 /* Final cleanup of ospf instance */
 static void ospf_finish_final(struct ospf *ospf)
 {
-	struct vrf *vrf;
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct route_node *rn;
 	struct ospf_nbr_nbma *nbr_nbma;
 	struct ospf_lsa *lsa;
+	struct interface *ifp;
 	struct ospf_interface *oi;
 	struct ospf_area *area;
 	struct ospf_vl_data *vl_data;
@@ -738,6 +739,15 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* shutdown LDP-Sync */
 	if (ospf->vrf_id == VRF_DEFAULT)
 		ospf_ldp_sync_gbl_exit(ospf, true);
+
+	/* Remove ospf interface config params: only passive-interface */
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		struct ospf_if_params *params;
+
+		params = IF_DEF_PARAMS(ifp);
+		if (OSPF_IF_PARAM_CONFIGURED(params, passive_interface))
+			UNSET_IF_PARAM(params, passive_interface);
+	}
 
 	/* Reset interface. */
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi))
@@ -898,17 +908,11 @@ static void ospf_finish_final(struct ospf *ospf)
 	ospf->max_multipath = MULTIPATH_NUM;
 	ospf_delete(ospf);
 
-	if (ospf->name) {
-		vrf = vrf_lookup_by_name(ospf->name);
-		if (vrf)
-			ospf_vrf_unlink(ospf, vrf);
-		XFREE(MTYPE_OSPF_TOP, ospf->name);
-	} else {
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-		if (vrf)
-			ospf_vrf_unlink(ospf, vrf);
-	}
+	if (vrf)
+		ospf_vrf_unlink(ospf, vrf);
 
+	if (ospf->name)
+		XFREE(MTYPE_OSPF_TOP, ospf->name);
 	XFREE(MTYPE_OSPF_TOP, ospf);
 }
 
