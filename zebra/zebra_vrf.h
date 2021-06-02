@@ -192,8 +192,13 @@ struct zebra_vrf {
  * special macro to allow us to get the correct zebra_vrf
  */
 #define ZEBRA_DECLVAR_CONTEXT(A, B)                                            \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct zebra_vrf *B = (A) ? A->info : vrf_info_lookup(VRF_DEFAULT)
+	struct vrf *A;                                                         \
+	if (vty->node == CONFIG_NODE)                                          \
+		A = vrf_lookup_by_id(VRF_DEFAULT);                             \
+	else                                                                   \
+		A = VTY_GET_CONTEXT(vrf);                                      \
+	VTY_CHECK_CONTEXT(A);                                                  \
+	struct zebra_vrf *B = A->info
 
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {
