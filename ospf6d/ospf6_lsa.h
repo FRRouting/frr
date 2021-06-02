@@ -28,6 +28,9 @@
 #define OSPF6_LSA_DEBUG_ORIGINATE 0x02
 #define OSPF6_LSA_DEBUG_EXAMIN    0x04
 #define OSPF6_LSA_DEBUG_FLOOD     0x08
+#define OSPF6_LSA_DEBUG_ALL                                                    \
+	(OSPF6_LSA_DEBUG | OSPF6_LSA_DEBUG_ORIGINATE | OSPF6_LSA_DEBUG_EXAMIN  \
+	 | OSPF6_LSA_DEBUG_FLOOD)
 #define OSPF6_LSA_DEBUG_AGGR      0x10
 
 /* OSPF LSA Default metric values */

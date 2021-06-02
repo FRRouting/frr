@@ -1021,6 +1021,30 @@ static char *ospf6_lsa_handler_name(const struct ospf6_lsa_handler *h)
 	return buf;
 }
 
+DEFPY (debug_ospf6_lsa_all,
+       debug_ospf6_lsa_all_cmd,
+       "[no$no] debug ospf6 lsa all",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug Link State Advertisements (LSAs)\n"
+       "Display for all types of LSAs\n")
+{
+	unsigned int i;
+	struct ospf6_lsa_handler *handler = NULL;
+
+	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
+		handler = vector_slot(ospf6_lsa_handler_vector, i);
+		if (handler == NULL)
+			continue;
+		if (!no)
+			SET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ALL);
+		else
+			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ALL);
+	}
+	return CMD_SUCCESS;
+}
+
 DEFPY (debug_ospf6_lsa_aggregation,
        debug_ospf6_lsa_aggregation_cmd,
        "[no] debug ospf6 lsa aggregation",
@@ -1152,6 +1176,8 @@ DEFUN (no_debug_ospf6_lsa_type,
 
 void install_element_ospf6_debug_lsa(void)
 {
+	install_element(ENABLE_NODE, &debug_ospf6_lsa_all_cmd);
+	install_element(CONFIG_NODE, &debug_ospf6_lsa_all_cmd);
 	install_element(ENABLE_NODE, &debug_ospf6_lsa_hex_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf6_lsa_hex_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_lsa_hex_cmd);
@@ -1165,6 +1191,23 @@ int config_write_ospf6_debug_lsa(struct vty *vty)
 {
 	unsigned int i;
 	const struct ospf6_lsa_handler *handler;
+	bool debug_all = true;
+
+	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
+		handler = vector_slot(ospf6_lsa_handler_vector, i);
+		if (handler == NULL)
+			continue;
+		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ALL)
+		    < OSPF6_LSA_DEBUG_ALL) {
+			debug_all = false;
+			break;
+		}
+	}
+
+	if (debug_all) {
+		vty_out(vty, "debug ospf6 lsa all\n");
+		return 0;
+	}
 
 	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
 		handler = vector_slot(ospf6_lsa_handler_vector, i);
