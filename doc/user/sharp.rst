@@ -108,14 +108,14 @@ keyword. At present, no sharp commands will be preserved in the config.
    Send opaque ZAPI messages with subtype ``type``. Sharpd will send
    a stream of messages if the count is greater than one.
 
-.. clicmd:: sharp send opaque unicast type (1-255) $proto_str [{instance (0-1000) | session (1-1000)}] (1-1000)
+.. clicmd:: sharp send opaque unicast type (1-255) PROTOCOL [{instance (0-1000) | session (1-1000)}] (1-1000)
 
    Send unicast opaque ZAPI messages with subtype ``type``. The
    protocol, instance, and session_id identify a single target zapi
    client. Sharpd will send a stream of messages if the count is
    greater than one.
 
-.. clicmd:: sharp send opaque <reg | unreg> $proto_str [{instance (0-1000) | session (1-1000)}] type (1-1000)
+.. clicmd:: sharp send opaque <reg | unreg> PROTOCOL [{instance (0-1000) | session (1-1000)}] type (1-1000)
 
    Send opaque ZAPI registration and unregistration messages for a
    single subtype. The messages must specify a protocol daemon by
