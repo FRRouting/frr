@@ -251,15 +251,14 @@ extern int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 				const char *name);
 
 /*
- * Binds a socket to a VRF device.
+ * Binds a socket to an interface (ifname) in a VRF (vrf_id).
  *
- * If name is null, the socket is not bound, irrespective of any other
- * arguments.
+ * If ifname is NULL or is equal to the VRF name then bind to a VRF device.
+ * Otherwise, bind to the specified interface in the specified VRF.
  *
- * name should be the name of the VRF device. vrf_id should be the
- * corresponding vrf_id (the ifindex of the device).
+ * Returns 0 on success and -1 on failure.
  */
-extern int vrf_bind(vrf_id_t vrf_id, int fd, const char *name);
+extern int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname);
 
 /* VRF ioctl operations */
 extern int vrf_getaddrinfo(const char *node, const char *service,

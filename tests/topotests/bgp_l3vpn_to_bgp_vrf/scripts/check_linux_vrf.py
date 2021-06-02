@@ -1,24 +1,4 @@
 from lib.lutil import luCommand
-from lib.common_config import kernel_requires_l3mdev_adjustment
-
-l3mdev_accept = kernel_requires_l3mdev_adjustment()
-l3mdev_rtrs = ["r1", "r3", "r4", "ce4"]
-for rtr in l3mdev_rtrs:
-    luCommand(rtr, "sysctl net.ipv4.tcp_l3mdev_accept", " = \d*", "none", "")
-    found = luLast()
-    luCommand(
-        rtr, "ss -naep", ":179", "pass", "IPv4:bgp, l3mdev{}".format(found.group(0))
-    )
-    luCommand(rtr, "ss -naep", ":.*:179", "pass", "IPv6:bgp")
-    luCommand(
-        rtr,
-        "sysctl net.ipv4.tcp_l3mdev_accept",
-        " = {}".format(l3mdev_accept),
-        "pass",
-        "l3mdev matches expected (real/expected{}/{})".format(
-            found.group(0), l3mdev_accept
-        ),
-    )
 
 rtrs = ["r1", "r3", "r4"]
 for rtr in rtrs:

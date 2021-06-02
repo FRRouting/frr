@@ -92,10 +92,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import (
-    required_linux_kernel_version,
-    adjust_router_l3mdev,
-)
+from lib.common_config import required_linux_kernel_version
 
 #####################################################
 ##
@@ -159,6 +156,11 @@ class NetworkTopo(Topo):
 def setup_module(mod):
     "Sets up the pytest environment"
 
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("5.0")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
     tgen = Topogen(NetworkTopo, mod.__name__)
     tgen.start_topology()
 
@@ -196,9 +198,6 @@ def setup_module(mod):
         if rname == "r3" or rname == "r4":
             for cmd in cmds2:
                 output = tgen.net[rname].cmd(cmd.format(rname))
-
-        # adjust handling of vrf traffic
-        adjust_router_l3mdev(tgen, rname)
 
     for rname, router in tgen.routers().items():
         router.load_config(
