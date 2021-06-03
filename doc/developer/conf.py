@@ -395,8 +395,11 @@ def setup(app):
     # printfrr extensions
     app.add_object_type("frrfmt", "frrfmt", parse_node=parse_frrfmt)
 
-    # css overrides for HTML theme
-    app.add_stylesheet("overrides.css")
+    if "add_css_file" in dir(app):
+        app.add_css_file("overrides.css")
+    else:
+        app.add_stylesheet("overrides.css")
+
     # load Pygments lexer for FRR config syntax
     #
     # NB: in Pygments 2.2+ this can be done with `load_lexer_from_file`, but we
