@@ -15125,7 +15125,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		else
 			json_object_string_add(json_neigh, "readThread", "off");
 
-		if (CHECK_FLAG(p->thread_flags, PEER_THREAD_WRITES_ON))
+		if (CHECK_FLAG(p->connection.thread_flags,
+			       PEER_THREAD_WRITES_ON))
 			json_object_string_add(json_neigh, "writeThread", "on");
 		else
 			json_object_string_add(json_neigh, "writeThread",
@@ -15157,7 +15158,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		vty_out(vty, "Read thread: %s  Write thread: %s  FD used: %d\n",
 			p->connection.t_read ? "on" : "off",
-			CHECK_FLAG(p->thread_flags, PEER_THREAD_WRITES_ON)
+			CHECK_FLAG(p->connection.thread_flags,
+				   PEER_THREAD_WRITES_ON)
 				? "on"
 				: "off",
 			p->connection.fd);

@@ -1657,8 +1657,10 @@ static void bgp_connect_check(struct event *thread)
 	struct peer *peer;
 
 	peer = EVENT_ARG(thread);
-	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
-	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!CHECK_FLAG(peer->connection.thread_flags,
+			   PEER_THREAD_READS_ON));
+	assert(!CHECK_FLAG(peer->connection.thread_flags,
+			   PEER_THREAD_WRITES_ON));
 	assert(!peer->connection.t_read);
 	assert(!peer->connection.t_write);
 
@@ -1896,8 +1898,10 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 
 	assert(!peer->connection.t_write);
 	assert(!peer->connection.t_read);
-	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
-	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
+	assert(!CHECK_FLAG(peer->connection.thread_flags,
+			   PEER_THREAD_WRITES_ON));
+	assert(!CHECK_FLAG(peer->connection.thread_flags,
+			   PEER_THREAD_READS_ON));
 	status = bgp_connect(peer);
 
 	switch (status) {

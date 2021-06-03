@@ -2567,8 +2567,10 @@ int peer_delete(struct peer *peer)
 	event_cancel_event_ready(bm->master, peer);
 	FOREACH_AFI_SAFI (afi, safi)
 		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
-	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
-	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
+	assert(!CHECK_FLAG(peer->connection.thread_flags,
+			   PEER_THREAD_WRITES_ON));
+	assert(!CHECK_FLAG(peer->connection.thread_flags,
+			   PEER_THREAD_READS_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON));
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
