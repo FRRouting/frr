@@ -904,74 +904,128 @@ def test_bgp_summary():
         refTableFile = "%s/r%s/show_ip_bgp_summary.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
-            # Fix newlines (make them all the same)
-            expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+            expected_original = open(refTableFile).read().rstrip()
 
-            # Actual output from router
-            actual = (
-                net["r%s" % i]
-                .cmd('vtysh -c "show ip bgp summary" 2> /dev/null')
-                .rstrip()
-            )
-            # Mask out "using XXiXX bytes" portion. They are random...
-            actual = re.sub(r"using [0-9]+ bytes", "using XXXX bytes", actual)
-            # Mask out "using XiXXX KiB" portion. They are random...
-            actual = re.sub(r"using [0-9]+ KiB", "using XXXX KiB", actual)
-            #
-            # Remove extra summaries which exist with newer versions
-            #
-            # Remove summary lines (changed recently)
-            actual = re.sub(r"Total number.*", "", actual)
-            actual = re.sub(r"Displayed.*", "", actual)
-            # Remove IPv4 Unicast Summary (Title only)
-            actual = re.sub(r"IPv4 Unicast Summary:", "", actual)
-            # Remove IPv4 Multicast Summary (all of it)
-            actual = re.sub(r"IPv4 Multicast Summary:", "", actual)
-            actual = re.sub(r"No IPv4 Multicast neighbor is configured", "", actual)
-            # Remove IPv4 VPN Summary (all of it)
-            actual = re.sub(r"IPv4 VPN Summary:", "", actual)
-            actual = re.sub(r"No IPv4 VPN neighbor is configured", "", actual)
-            # Remove IPv4 Encap Summary (all of it)
-            actual = re.sub(r"IPv4 Encap Summary:", "", actual)
-            actual = re.sub(r"No IPv4 Encap neighbor is configured", "", actual)
-            # Remove Unknown Summary (all of it)
-            actual = re.sub(r"Unknown Summary:", "", actual)
-            actual = re.sub(r"No Unknown neighbor is configured", "", actual)
-
-            actual = re.sub(r"IPv4 labeled-unicast Summary:", "", actual)
-            actual = re.sub(
-                r"No IPv4 labeled-unicast neighbor is configured", "", actual
-            )
-
-            # Strip empty lines
-            actual = actual.lstrip()
-            actual = actual.rstrip()
-            #
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
-
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual SHOW IP BGP SUMMARY",
-                title2="expected SHOW IP BGP SUMMARY",
-            )
-
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write(
-                    "r%s failed SHOW IP BGP SUMMARY check:\n%s\n" % (i, diff)
+            for filter in ["", "remote-as internal", "remote-as external",
+                           "remote-as 100", "remote-as 123",
+                           "neighbor 192.168.7.10", "neighbor 192.168.7.10",
+                           "neighbor fc00:0:0:8::1000",
+                           "neighbor 10.0.0.1"]:
+                # Actual output from router
+                actual = (
+                    net["r%s" % i]
+                    .cmd('vtysh -c "show ip bgp summary ' + filter + '" 2> /dev/null')
+                    .rstrip()
                 )
-                failures += 1
-            else:
-                print("r%s ok" % i)
+                # Mask out "using XXiXX bytes" portion. They are random...
+                actual = re.sub(r"using [0-9]+ bytes", "using XXXX bytes", actual)
+                # Mask out "using XiXXX KiB" portion. They are random...
+                actual = re.sub(r"using [0-9]+ KiB", "using XXXX KiB", actual)
 
-            assert failures == 0, "SHOW IP BGP SUMMARY failed for router r%s:\n%s" % (
-                i,
-                diff,
-            )
+                # Remove extra summaries which exist with newer versions
+
+                # Remove summary lines (changed recently)
+                actual = re.sub(r"Total number.*", "", actual)
+                actual = re.sub(r"Displayed.*", "", actual)
+                # Remove IPv4 Unicast Summary (Title only)
+                actual = re.sub(r"IPv4 Unicast Summary:", "", actual)
+                # Remove IPv4 Multicast Summary (all of it)
+                actual = re.sub(r"IPv4 Multicast Summary:", "", actual)
+                actual = re.sub(r"No IPv4 Multicast neighbor is configured", "", actual)
+                # Remove IPv4 VPN Summary (all of it)
+                actual = re.sub(r"IPv4 VPN Summary:", "", actual)
+                actual = re.sub(r"No IPv4 VPN neighbor is configured", "", actual)
+                # Remove IPv4 Encap Summary (all of it)
+                actual = re.sub(r"IPv4 Encap Summary:", "", actual)
+                actual = re.sub(r"No IPv4 Encap neighbor is configured", "", actual)
+                # Remove Unknown Summary (all of it)
+                actual = re.sub(r"Unknown Summary:", "", actual)
+                actual = re.sub(r"No Unknown neighbor is configured", "", actual)
+
+                actual = re.sub(r"IPv4 labeled-unicast Summary:", "", actual)
+                actual = re.sub(
+                    r"No IPv4 labeled-unicast neighbor is configured", "", actual
+                )
+
+                expected = expected_original
+                # apply filters on expected output
+                if "internal" in filter or "remote-as 100" in filter:
+                    expected = re.sub(r".+\s+200\s+.+", "", expected)
+                elif "external" in filter:
+                    expected = re.sub(r".+\s+100\s+.+Active.+", "", expected)
+                elif "remote-as 123" in filter:
+                    expected = re.sub(
+                        r"(192.168.7.(1|2)0|fc00:0:0:8::(1|2)000).+Active.+",
+                        "", expected
+                    )
+                elif "192.168.7.10" in filter:
+                    expected = re.sub(
+                        r"(192.168.7.20|fc00:0:0:8::(1|2)000).+Active.+",
+                        "", expected
+                    )
+                elif "fc00:0:0:8::1000" in filter:
+                    expected = re.sub(
+                        r"(192.168.7.(1|2)0|fc00:0:0:8::2000).+Active.+",
+                        "", expected
+                    )
+                elif "10.0.0.1" in filter:
+                    expected = "No such neighbor in this view/vrf"
+
+                # Strip empty lines
+                actual = actual.lstrip().rstrip()
+                expected = expected.lstrip().rstrip()
+                actual = re.sub(r"\n+", "\n", actual)
+                expected = re.sub(r"\n+", "\n", expected)
+
+                # reapply initial formatting
+                actual = re.sub(r"KiB of memory\n", "KiB of memory\n\n", actual)
+                expected = re.sub(r"KiB of memory\n", "KiB of memory\n\n", expected)
+
+                # realign expected neighbor columns if needed
+                try:
+                    idx_actual = re.search(r"\n(Neighbor\s+V\s+)", actual).group(1).find("V")
+                    idx_expected = re.search(r"\n(Neighbor\s+V\s+)", expected).group(1).find("V")
+                    idx_diff = idx_expected - idx_actual
+                    if idx_diff > 0:
+                        # Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd
+                        expected = re.sub(" " * idx_diff + "V ", "V ", expected)
+                        # 192.168.7.10    4        100       0       0        0    0    0    never       Active
+                        expected = re.sub(" " * idx_diff + "4 ", "4 ", expected)
+                except AttributeError:
+                    pass
+
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW IP BGP SUMMARY " + filter.upper() ,
+                    title2="expected SHOW IP BGP SUMMARY " + filter.upper(),
+                )
+
+                # Empty string if it matches, otherwise diff contains unified diff
+                if diff:
+                    sys.stderr.write(
+                        "r%s failed SHOW IP BGP SUMMARY check:\n%s\n" % (i, diff)
+                    )
+                    failures += 1
+                else:
+                    print("r%s ok" % i)
+
+                assert failures == 0, "SHOW IP BGP SUMMARY failed for router r%s:\n%s" % (
+                    i,
+                    diff,
+                )
+
+                # Actual output from router
+                actual = (
+                    net["r%s" % i]
+                    .cmd('vtysh -c "show ip bgp summary" 2> /dev/null')
+                    .rstrip()
+                )
 
     # Make sure that all daemons are running
     for i in range(1, 2):

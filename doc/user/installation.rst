@@ -541,20 +541,15 @@ Additional kernel modules are also needed to support MPLS forwarding.
 
 :makevar:`VRF forwarding`
    General information on Linux VRF support can be found in
-   https://www.kernel.org/doc/Documentation/networking/vrf.txt. Kernel
-   support for VRFs was introduced in 4.3 and improved upon through
-   4.13, which is the version most used in FRR testing (as of June
-   2018).  Additional background on using Linux VRFs and kernel specific
-   features can be found in
-   http://schd.ws/hosted_files/ossna2017/fe/vrf-tutorial-oss.pdf.
+   https://www.kernel.org/doc/Documentation/networking/vrf.txt.
 
-   A separate BGP TCP socket is opened per VRF.
+   Kernel support for VRFs was introduced in 4.3, but there are known issues
+   in versions up to 4.15 (for IPv4) and 5.0 (for IPv6). The FRR CI system
+   doesn't perform VRF tests on older kernel versions, and VRFs may not work
+   on them. If you experience issues with VRF support, you should upgrade your
+   kernel version.
 
-   **Important note** as of June 2018, Kernel versions 4.14-4.18 have a
-   known bug where VRF-specific TCP sockets are not properly handled. When
-   running these kernel versions, if unable to establish any VRF BGP
-   adjacencies, downgrade to 4.13. The issue was fixed in 4.14.57, 4.17.9
-   and more recent kernel versions.
+   .. seealso:: :ref:`zebra-vrf`
 
 Building
 ^^^^^^^^

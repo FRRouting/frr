@@ -690,10 +690,9 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 			 vrfname);
 
 		nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
-		ret = nb_cli_apply_changes(vty, xpath_list);
+		ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
 		if (ret == CMD_SUCCESS) {
 			VTY_PUSH_XPATH(VRF_NODE, xpath_list);
-			nb_cli_pending_commit_check(vty);
 			vrfp = vrf_lookup_by_name(vrfname);
 			if (vrfp)
 				VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
@@ -994,25 +993,50 @@ const char *vrf_get_default_name(void)
 	return vrf_default_name;
 }
 
-int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
+int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 {
 	int ret = 0;
 	struct interface *ifp;
+	struct vrf *vrf;
 
-	if (fd < 0 || name == NULL)
-		return fd;
-	/* the device should exist
-	 * otherwise we should return
-	 * case ifname = vrf in netns mode => return
-	 */
-	ifp = if_lookup_by_name(name, vrf_id);
-	if (!ifp)
-		return fd;
+	if (fd < 0)
+		return -1;
+
+	if (vrf_id == VRF_UNKNOWN)
+		return -1;
+
+	/* can't bind to a VRF that doesn't exist */
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf_is_enabled(vrf))
+		return -1;
+
+	if (ifname && strcmp(ifname, vrf->name)) {
+		/* binding to a regular interface */
+
+		/* can't bind to an interface that doesn't exist */
+		ifp = if_lookup_by_name(ifname, vrf_id);
+		if (!ifp)
+			return -1;
+	} else {
+		/* binding to a VRF device */
+
+		/* nothing to do for netns */
+		if (vrf_is_backend_netns())
+			return 0;
+
+		/* nothing to do for default vrf */
+		if (vrf_id == VRF_DEFAULT)
+			return 0;
+
+		ifname = vrf->name;
+	}
+
 #ifdef SO_BINDTODEVICE
-	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);
+	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname,
+			 strlen(ifname) + 1);
 	if (ret < 0)
-		zlog_debug("bind to interface %s failed, errno=%d", name,
-			   errno);
+		zlog_err("bind to interface %s failed, errno=%d", ifname,
+			 errno);
 #endif /* SO_BINDTODEVICE */
 	return ret;
 }

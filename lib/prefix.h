@@ -315,10 +315,12 @@ struct prefix_sg {
 #ifndef __cplusplus
 #define prefixtype(uname, typename, fieldname) \
 	typename *fieldname;
+#define TRANSPARENT_UNION __attribute__((transparent_union))
 #else
 #define prefixtype(uname, typename, fieldname) \
 	typename *fieldname; \
 	uname(typename *x) { this->fieldname = x; }
+#define TRANSPARENT_UNION
 #endif
 
 union prefixptr {
@@ -328,7 +330,7 @@ union prefixptr {
 	prefixtype(prefixptr, struct prefix_evpn, evp)
 	prefixtype(prefixptr, struct prefix_fs,   fs)
 	prefixtype(prefixptr, struct prefix_rd,   rd)
-} __attribute__((transparent_union));
+} TRANSPARENT_UNION;
 
 union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix,      p)
@@ -337,7 +339,10 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_evpn, evp)
 	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
 	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
-} __attribute__((transparent_union));
+} TRANSPARENT_UNION;
+
+#undef prefixtype
+#undef TRANSPARENT_UNION
 
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16

@@ -4309,24 +4309,30 @@ DEFPY(show_bgp_l2vpn_evpn_nh,
 /*
  * Display EVPN neighbor summary.
  */
-DEFUN(show_bgp_l2vpn_evpn_summary,
-      show_bgp_l2vpn_evpn_summary_cmd,
-      "show bgp [vrf VRFNAME] l2vpn evpn summary [established|failed] [wide] [json]",
-      SHOW_STR
-      BGP_STR
+DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
+      "show bgp [vrf VRFNAME] l2vpn evpn summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <(1-4294967295)|internal|external>>] [wide] [json]",
+      SHOW_STR BGP_STR
       "bgp vrf\n"
-      "vrf name\n"
-      L2VPN_HELP_STR
-      EVPN_HELP_STR
+      "vrf name\n" L2VPN_HELP_STR EVPN_HELP_STR
       "Summary of BGP neighbor status\n"
       "Show only sessions in Established state\n"
       "Show only sessions not in Established state\n"
-      "Increase table width for longer output\n"
-      JSON_STR)
+      "Show only the specified neighbor session\n"
+      "Neighbor to display information about\n"
+      "Neighbor to display information about\n"
+      "Neighbor on BGP configured interface\n"
+      "Show only the specified remote AS sessions\n"
+      "AS number\n"
+      "Internal (iBGP) AS sessions\n"
+      "External (eBGP) AS sessions\n"
+      "Increase table width for longer output\n" JSON_STR)
 {
 	int idx_vrf = 0;
 	int idx = 0;
 	char *vrf = NULL;
+	char *neighbor = NULL;
+	as_t as = 0; /* 0 means AS filter not set */
+	int as_type = AS_UNSPECIFIED;
 	uint8_t show_flags = 0;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf))
@@ -4338,13 +4344,27 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
 	if (argv_find(argv, argc, "established", &idx))
 		SET_FLAG(show_flags, BGP_SHOW_OPT_ESTABLISHED);
 
+
+	if (argv_find(argv, argc, "neighbor", &idx))
+		neighbor = argv[idx + 1]->arg;
+
+	if (argv_find(argv, argc, "remote-as", &idx)) {
+		if (argv[idx + 1]->arg[0] == 'i')
+			as_type = AS_INTERNAL;
+		else if (argv[idx + 1]->arg[0] == 'e')
+			as_type = AS_EXTERNAL;
+		else
+			as = (as_t)atoi(argv[idx + 1]->arg);
+	}
+
 	if (argv_find(argv, argc, "wide", &idx))
 		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
 
 	if (use_json(argc, argv))
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 
-	return bgp_show_summary_vty(vty, vrf, AFI_L2VPN, SAFI_EVPN, show_flags);
+	return bgp_show_summary_vty(vty, vrf, AFI_L2VPN, SAFI_EVPN, neighbor,
+				    as_type, as, show_flags);
 }
 
 int bgp_evpn_cli_parse_type(int *type, struct cmd_token **argv, int argc)

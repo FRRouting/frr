@@ -261,8 +261,6 @@ Link Parameters Commands
    Allows nexthop tracking to resolve via the default route. This is useful
    when e.g. you want to allow BGP to peer across the default route.
 
-.. _zebra-vrf:
-
 Administrative Distance
 =======================
 
@@ -337,6 +335,8 @@ the linux kernel offers.  In order for Route Replacement semantics to
 work FRR must use the same metric when issuing the replace command.
 Currently FRR only supports Route Replace semantics using the Linux
 Kernel.
+
+.. _zebra-vrf:
 
 Virtual Routing and Forwarding
 ==============================
@@ -1057,6 +1057,11 @@ zebra Terminal Mode Commands
    If you specify singleton you would like to see the singleton
    nexthop groups that do have an afi. [type] allows you to filter those
    only coming from a specific NHG type (protocol).
+
+.. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
+
+   It dumps all the routes from RIB with detailed information including
+   internal flags, status etc. This is defined as a hidden command.
 
 
 Router-id

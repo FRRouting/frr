@@ -84,7 +84,6 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.ltemplate import ltemplateRtrCmd
-from lib.common_config import adjust_router_l3mdev
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -176,9 +175,6 @@ def ltemplatePreRouterStartHook():
         "ip link set dev {0}-cust1 up",
     ]
     for rtr in rtrs:
-        # adjust handling of VRF traffic
-        adjust_router_l3mdev(tgen, rtr)
-
         for cmd in cmds:
             cc.doCmd(tgen, rtr, cmd.format(rtr))
         cc.doCmd(tgen, rtr, "ip link set dev {0}-eth4 master {0}-cust1".format(rtr))
@@ -219,9 +215,6 @@ def ltemplatePreRouterStartHook():
         "ip link set dev {0}-cust2 up",
     ]
     for rtr in rtrs:
-        # adjust handling of VRF traffic
-        adjust_router_l3mdev(tgen, rtr)
-
         for cmd in cmds:
             cc.doCmd(tgen, rtr, cmd.format(rtr))
         cc.doCmd(tgen, rtr, "ip link set dev {0}-eth0 master {0}-cust2".format(rtr))
