@@ -1123,6 +1123,10 @@ struct llgr_info {
 struct peer_connection {
 	struct peer *peer;
 
+	/* Status of the peer connection. */
+	enum bgp_fsm_status status;
+	enum bgp_fsm_status ostatus;
+
 	int fd;
 
 	/* Packet receive and send buffer. */
@@ -1186,10 +1190,6 @@ struct peer {
 
 	/* the doppelganger peer structure, due to dual TCP conn setup */
 	struct peer *doppelganger;
-
-	/* Status of the peer. */
-	enum bgp_fsm_status status;
-	enum bgp_fsm_status ostatus;
 
 	/* FSM events, stored for debug purposes.
 	 * Note: uchar used for reduced memory usage.
@@ -2594,7 +2594,7 @@ static inline char *timestamp_string(time_t ts)
 
 static inline bool peer_established(struct peer *peer)
 {
-	return peer->status == Established;
+	return peer->connection.status == Established;
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)

@@ -265,7 +265,7 @@ static uint8_t *bgpv2PeerTable(struct variable *v, oid name[], size_t *length,
 		else
 			return SNMP_INTEGER(BGP_PEER_ADMIN_STATUS_RUNNING);
 	case BGP4V2_PEER_STATE:
-		return SNMP_INTEGER(peer->status);
+		return SNMP_INTEGER(peer->connection.status);
 	case BGP4V2_PEER_DESCRIPTION:
 		if (peer->desc)
 			return SNMP_STRING(peer->desc);

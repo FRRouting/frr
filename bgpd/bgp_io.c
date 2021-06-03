@@ -49,7 +49,7 @@ void bgp_writes_on(struct peer_connection *connection)
 
 	assert(fpt->running);
 
-	assert(peer->status != Deleted);
+	assert(connection->status != Deleted);
 	assert(connection->obuf);
 	assert(connection->ibuf);
 	assert(connection->ibuf_work);
@@ -80,7 +80,7 @@ void bgp_reads_on(struct peer_connection *connection)
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
-	assert(peer->status != Deleted);
+	assert(connection->status != Deleted);
 	assert(connection->ibuf);
 	assert(connection->fd);
 	assert(connection->ibuf_work);

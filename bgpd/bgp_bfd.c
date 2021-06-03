@@ -56,7 +56,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
 
 		/* rfc9384 */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection.status))
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_BFD_DOWN);
 

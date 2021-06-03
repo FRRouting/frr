@@ -6462,7 +6462,7 @@ void bgp_reimport_evpn_routes_upon_martian_change(
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 			continue;
 
-		if (peer->status != Established)
+		if (peer->connection.status != Established)
 			continue;
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi],

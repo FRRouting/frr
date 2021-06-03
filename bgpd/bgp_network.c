@@ -482,11 +482,11 @@ static void bgp_accept(struct event *thread)
 	 * Established and then the Clearing_Completed event is generated. Also,
 	 * block incoming connection in Deleted state.
 	 */
-	if (peer1->status == Clearing || peer1->status == Deleted) {
+	if (peer1->connection.status == Clearing ||
+	    peer1->connection.status == Deleted) {
 		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug(
-				"[Event] Closing incoming conn for %s (%p) state %d",
-				peer1->host, peer1, peer1->status);
+			zlog_debug("[Event] Closing incoming conn for %s (%p) state %d",
+				   peer1->host, peer1, peer1->connection.status);
 		close(bgp_sock);
 		return;
 	}
@@ -522,8 +522,8 @@ static void bgp_accept(struct event *thread)
 
 	if (bgp_debug_neighbor_events(peer1))
 		zlog_debug("[Event] connection from %s fd %d, active peer status %d fd %d",
-			   inet_sutop(&su, buf), bgp_sock, peer1->status,
-			   peer1->connection.fd);
+			   inet_sutop(&su, buf), bgp_sock,
+			   peer1->connection.status, peer1->connection.fd);
 
 	if (peer1->doppelganger) {
 		/* We have an existing connection. Kill the existing one and run
