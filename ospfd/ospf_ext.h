@@ -155,10 +155,30 @@ struct ospf_ext_lp {
 	struct list *iflist;
 };
 
-/* Structure to aggregate interfaces information for Extended Prefix/Link */
-struct ext_itf {
+/* Structure to aggregate prefix-sid LSA information */
+struct prefix_sid_lsa {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
+	/* prefix in standard format so we can do lookups with prefix_same */
+	struct prefix_ipv4 p;
+	/* extended prefix TLV information */
+	struct ext_tlv_prefix tlv_prefix;
+	struct ext_subtlv_prefix_sid node_sid;
+	uint32_t flags;
+};
+
+/* structure to aggregate extended link LSA information*/
+struct link_lsa {
+	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
+	uint32_t instance;
+	struct ext_tlv_link link;
+	struct ext_subtlv_adj_sid adj_sid[2];
+	struct ext_subtlv_lan_adj_sid lan_sid[2];
+	uint32_t flags;
+};
+
+/* Structure to aggregate interfaces information for Extended Prefix/Link */
+struct ext_itf {
 	uint8_t type; /* Extended Prefix (7) or Link (8) */
 
 	/* Reference pointer to a Zebra-interface. */
@@ -167,18 +187,15 @@ struct ext_itf {
 	/* Area info in which this SR link belongs to. */
 	struct ospf_area *area;
 
-	/* Flags to manage this link parameters. */
-	uint32_t flags;
-
 	/* SID type: Node, Adjacency or LAN Adjacency */
 	enum sid_type stype;
 
-	/* extended link/prefix TLV information */
-	struct ext_tlv_prefix prefix;
-	struct ext_subtlv_prefix_sid node_sid;
-	struct ext_tlv_link link;
-	struct ext_subtlv_adj_sid adj_sid[2];
-	struct ext_subtlv_lan_adj_sid lan_sid[2];
+	union {
+		/* list of extended prefix TLV information */
+		struct list *prefix_sid_list;
+		/* extended link TLV information */
+		struct link_lsa link_lsa;
+	} lsa;
 
 	/* cisco experimental subtlv */
 	struct ext_subtlv_rmt_itf_addr rmt_itf_addr;
@@ -193,5 +210,5 @@ extern void ospf_ext_link_srlb_update(void);
 extern uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp,
 					       uint32_t index,
 					       struct prefix_ipv4 *p,
-					       uint8_t flags);
+					       uint8_t flags, bool add);
 #endif /* _FRR_OSPF_EXT_PREF_H_ */
