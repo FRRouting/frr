@@ -85,6 +85,12 @@ struct pbr_map_sequence {
 	uint32_t ruleno;
 
 	/*
+	 * src and dst ports
+	 */
+	uint16_t src_prt;
+	uint16_t dst_prt;
+
+	/*
 	 * Our policy Catchers
 	 */
 	struct prefix *src;
