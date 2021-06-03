@@ -1195,9 +1195,10 @@ void cli_show_srte_policy_candidate_path(struct vty *vty,
 				dnode, "./constraints/bandwidth/value");
 			required = yang_dnode_get_bool(
 				dnode, "./constraints/bandwidth/required");
-			vty_out(vty, "    %sbandwidth",
-				required ? "required " : "");
+			vty_out(vty, "    bandwidth");
 			config_write_float(vty, bandwidth);
+			if (required)
+				vty_out(vty, " required");
 			vty_out(vty, "\n");
 		}
 		if (yang_dnode_exists(dnode,
