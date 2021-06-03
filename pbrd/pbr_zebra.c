@@ -535,9 +535,9 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putl(s, pbrms->ruleno);
 	stream_putl(s, pbrms->unique);
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->src, family);
-	stream_putw(s, 0);  /* src port */
+	stream_putw(s, pbrms->src_prt);
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->dst, family);
-	stream_putw(s, 0);  /* dst port */
+	stream_putw(s, pbrms->dst_prt);
 	stream_putc(s, pbrms->dsfield);
 	stream_putl(s, pbrms->mark);
 
