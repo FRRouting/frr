@@ -68,6 +68,9 @@ struct pbr_filter {
 
 	/* Filter with fwmark */
 	uint32_t fwmark;
+
+	/* Filter with the ip protocol */
+	uint8_t ip_proto;
 };
 
 /*
