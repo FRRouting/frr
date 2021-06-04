@@ -9252,6 +9252,78 @@ DEFPY (af_label_vpn_export,
 	return CMD_SUCCESS;
 }
 
+DEFPY (af_sid_vpn_export,
+       af_sid_vpn_export_cmd,
+       "[no] sid vpn export <(1-255)$sid_idx|auto$sid_auto>",
+       NO_STR
+       "sid value for VRF\n"
+       "Between current address-family and vpn\n"
+       "For routes leaked from current address-family to vpn\n"
+       "Sid allocation index\n"
+       "Automatically assign a label\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi;
+	int debug = 0;
+	int idx = 0;
+	bool yes = true;
+
+	if (argv_find(argv, argc, "no", &idx))
+		yes = false;
+	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
+		 BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
+
+	afi = vpn_policy_getafi(vty, bgp, false);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!yes) {
+		/* implement me */
+		vty_out(vty, "It's not implemented");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* skip when it's already configured */
+	if ((sid_idx != 0 && bgp->vpn_policy[afi].tovpn_sid_index != 0)
+	    || (sid_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				       BGP_VPN_POLICY_TOVPN_SID_AUTO)))
+		return CMD_SUCCESS;
+
+	/*
+	 * mode change between sid_idx and sid_auto isn't supported.
+	 * user must negate sid vpn export when they want to change the mode
+	 */
+	if ((sid_auto && bgp->vpn_policy[afi].tovpn_sid_index != 0)
+	    || (sid_idx != 0 && CHECK_FLAG(bgp->vpn_policy[afi].flags,
+					   BGP_VPN_POLICY_TOVPN_SID_AUTO))) {
+		vty_out(vty, "it's already configured as %s.\n",
+			sid_auto ? "auto-mode" : "idx-mode");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* pre-change */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+			   bgp_get_default(), bgp);
+
+	if (sid_auto) {
+		/* SID allocation auto-mode */
+		if (debug)
+			zlog_debug("%s: auto sid alloc.", __func__);
+		SET_FLAG(bgp->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_SID_AUTO);
+	} else {
+		/* SID allocation index-mode */
+		if (debug)
+			zlog_debug("%s: idx %ld sid alloc.", __func__, sid_idx);
+		bgp->vpn_policy[afi].tovpn_sid_index = sid_idx;
+	}
+
+	/* post-change */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+			    bgp_get_default(), bgp);
+	return CMD_SUCCESS;
+}
+
 ALIAS (af_label_vpn_export,
        af_no_label_vpn_export_cmd,
        "no label vpn export",
@@ -9875,6 +9947,102 @@ DEFUN_NOSH (address_family_evpn,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	vty->node = BGP_EVPN_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (bgp_segment_routing_srv6,
+            bgp_segment_routing_srv6_cmd,
+            "segment-routing srv6",
+            "Segment-Routing configuration\n"
+            "Segment-Routing SRv6 configuration\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->srv6_enabled = true;
+	vty->node = BGP_SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_srv6_locator,
+       bgp_srv6_locator_cmd,
+       "locator NAME$name",
+       "Specify SRv6 locator\n"
+       "Specify SRv6 locator\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int ret;
+
+	if (strlen(bgp->srv6_locator_name) > 0
+	    && strcmp(name, bgp->srv6_locator_name) != 0) {
+		vty_out(vty, "srv6 locator is already configured\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(bgp->srv6_locator_name,
+		 sizeof(bgp->srv6_locator_name), "%s", name);
+
+	ret = bgp_zebra_srv6_manager_get_locator_chunk(name);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_bgp_srv6,
+       show_bgp_srv6_cmd,
+       "show bgp segment-routing srv6",
+       SHOW_STR
+       BGP_STR
+       "BGP Segment Routing\n"
+       "BGP Segment Routing SRv6\n")
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	struct prefix_ipv6 *chunk;
+	struct bgp_srv6_function *func;
+	struct in6_addr *tovpn4_sid;
+	struct in6_addr *tovpn6_sid;
+	char buf[256];
+	char buf_tovpn4_sid[256];
+	char buf_tovpn6_sid[256];
+
+	bgp = bgp_get_default();
+	if (!bgp)
+		return CMD_SUCCESS;
+
+	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
+	vty_out(vty, "locator_chunks:\n");
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+		prefix2str(chunk, buf, sizeof(buf));
+		vty_out(vty, "- %s\n", buf);
+	}
+
+	vty_out(vty, "functions:\n");
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {
+		inet_ntop(AF_INET6, &func->sid, buf, sizeof(buf));
+		vty_out(vty, "- sid: %s\n", buf);
+		vty_out(vty, "  locator: %s\n", func->locator_name);
+	}
+
+	vty_out(vty, "bgps:\n");
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		vty_out(vty, "- name: %s\n",
+			bgp->name ? bgp->name : "default");
+
+		tovpn4_sid = bgp->vpn_policy[AFI_IP].tovpn_sid;
+		tovpn6_sid = bgp->vpn_policy[AFI_IP6].tovpn_sid;
+		if (tovpn4_sid)
+			inet_ntop(AF_INET6, tovpn4_sid, buf_tovpn4_sid,
+				  sizeof(buf_tovpn4_sid));
+		if (tovpn6_sid)
+			inet_ntop(AF_INET6, tovpn6_sid, buf_tovpn6_sid,
+				  sizeof(buf_tovpn6_sid));
+
+		vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %s\n",
+			tovpn4_sid ? buf_tovpn4_sid : "none");
+		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %s\n",
+			tovpn6_sid ? buf_tovpn6_sid : "none");
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -17895,6 +18063,14 @@ int bgp_config_write(struct vty *vty)
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
 			vty_out(vty, " bgp shutdown\n");
 
+		if (bgp->srv6_enabled) {
+			vty_frame(vty, " !\n segment-routing srv6\n");
+			if (strlen(bgp->srv6_locator_name))
+				vty_out(vty, "  locator %s\n",
+					bgp->srv6_locator_name);
+		}
+
+
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
 
@@ -18040,6 +18216,13 @@ static struct cmd_node bgp_flowspecv6_node = {
 	.prompt = "%s(config-router-af-vpnv6)# ",
 };
 
+static struct cmd_node bgp_srv6_node = {
+	.name = "bgp srv6",
+	.node = BGP_SRV6_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-srv6)# ",
+};
+
 static void community_list_vty(void);
 
 static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
@@ -18114,6 +18297,7 @@ void bgp_vty_init(void)
 	install_node(&bgp_evpn_vni_node);
 	install_node(&bgp_flowspecv4_node);
 	install_node(&bgp_flowspecv6_node);
+	install_node(&bgp_srv6_node);
 
 	/* Install default VTY commands to new nodes.  */
 	install_default(BGP_NODE);
@@ -18129,6 +18313,7 @@ void bgp_vty_init(void)
 	install_default(BGP_FLOWSPECV6_NODE);
 	install_default(BGP_EVPN_NODE);
 	install_default(BGP_EVPN_VNI_NODE);
+	install_default(BGP_SRV6_NODE);
 
 	/* "bgp local-mac" hidden commands. */
 	install_element(CONFIG_NODE, &bgp_local_mac_cmd);
@@ -19457,6 +19642,13 @@ void bgp_vty_init(void)
 	/* tcp-mss command */
 	install_element(BGP_NODE, &neighbor_tcp_mss_cmd);
 	install_element(BGP_NODE, &no_neighbor_tcp_mss_cmd);
+
+	/* srv6 commands */
+	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
+	install_element(BGP_NODE, &bgp_segment_routing_srv6_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
+	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
+	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 }
 
 #include "memory.h"

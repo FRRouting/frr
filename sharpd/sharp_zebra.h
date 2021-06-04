@@ -39,7 +39,8 @@ extern void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 					uint8_t instance, uint32_t nhgid,
 					const struct nexthop_group *nhg,
 					const struct nexthop_group *backup_nhg,
-					uint32_t routes, char *opaque);
+					uint32_t routes, uint32_t flags,
+					char *opaque);
 extern void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 				       uint8_t instance, uint32_t routes);
 
@@ -64,5 +65,12 @@ extern void sharp_zebra_send_arp(const struct interface *ifp,
 extern void sharp_zebra_register_te(void);
 
 extern void sharp_redistribute_vrf(struct vrf *vrf, int source);
+
+extern int sharp_zebra_srv6_manager_get_locator_chunk(const char *lname);
+extern int sharp_zebra_srv6_manager_release_locator_chunk(const char *lname);
+extern void sharp_install_seg6local_route_helper(struct prefix *p,
+						 uint8_t instance,
+						 enum seg6local_action_t act,
+						 struct seg6local_context *ctx);
 
 #endif

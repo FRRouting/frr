@@ -120,6 +120,7 @@ enum node_type {
 	BGP_VNC_L2_GROUP_NODE,   /* BGP VNC L2 group */
 	RFP_DEFAULTS_NODE,       /* RFP defaults node */
 	BGP_EVPN_NODE,		 /* BGP EVPN node. */
+	BGP_SRV6_NODE,		 /* BGP SRv6 node. */
 	OSPF_NODE,		 /* OSPF protocol mode */
 	OSPF6_NODE,		 /* OSPF protocol for IPv6 mode */
 	LDP_NODE,		 /* LDP protocol mode */
@@ -155,6 +156,9 @@ enum node_type {
 	PCEP_PCE_CONFIG_NODE,	 /* PCE shared configuration node */
 	PCEP_PCE_NODE,		 /* PCE configuration node */
 	PCEP_PCC_NODE,		 /* PCC configuration node */
+	SRV6_NODE,		 /* SRv6 node */
+	SRV6_LOCS_NODE,		 /* SRv6 locators node */
+	SRV6_LOC_NODE,		 /* SRv6 locator node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */

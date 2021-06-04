@@ -60,6 +60,7 @@
 #include "zebra/connected.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
+#include "zebra/zebra_srv6.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
 
@@ -1747,6 +1748,27 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					   &api_nh->labels[0]);
 		}
 
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL)
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (IS_ZEBRA_DEBUG_RECV)
+				zlog_debug("%s: adding seg6local action %s",
+					   __func__,
+					   seg6local_action2str(
+						   api_nh->seg6local_action));
+
+			nexthop_add_srv6_seg6local(nexthop,
+						   api_nh->seg6local_action,
+						   &api_nh->seg6local_ctx);
+		}
+
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (IS_ZEBRA_DEBUG_RECV)
+				zlog_debug("%s: adding seg6", __func__);
+
+			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs);
+		}
+
 		if (IS_ZEBRA_DEBUG_RECV) {
 			labelbuf[0] = '\0';
 			nhbuf[0] = '\0';
@@ -2612,6 +2634,29 @@ int zsend_client_close_notify(struct zserv *client, struct zserv *closed_client)
 	return zserv_send_message(client, s);
 }
 
+int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
+						  vrf_id_t vrf_id,
+						  struct srv6_locator *loc)
+{
+	struct srv6_locator_chunk chunk = {};
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	strlcpy(chunk.locator_name, loc->name, sizeof(chunk.locator_name));
+	chunk.prefix = loc->prefix;
+	chunk.block_bits_length = loc->block_bits_length;
+	chunk.node_bits_length = loc->node_bits_length;
+	chunk.function_bits_length = loc->function_bits_length;
+	chunk.argument_bits_length = loc->argument_bits_length;
+	chunk.keep = 0;
+	chunk.proto = client->proto;
+	chunk.instance = client->instance;
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK, vrf_id);
+	zapi_srv6_locator_chunk_encode(s, &chunk);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zserv_send_message(client, s);
+}
+
 /* Send response to a table manager connect request to client */
 static void zread_table_manager_connect(struct zserv *client,
 					struct stream *msg, vrf_id_t vrf_id)
@@ -2818,6 +2863,62 @@ static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 			zread_get_table_chunk(client, msg, zvrf_id(zvrf));
 		else if (hdr->command == ZEBRA_RELEASE_TABLE_CHUNK)
 			zread_release_table_chunk(client, msg);
+	}
+}
+
+static void zread_srv6_manager_get_locator_chunk(struct zserv *client,
+						 struct stream *msg,
+						 vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = {0};
+
+	/* Get data. */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* call hook to get a chunk using wrapper */
+	struct srv6_locator *loc = NULL;
+	srv6_manager_get_locator_chunk_call(&loc, client, locator_name, vrf_id);
+
+stream_failure:
+	return;
+}
+
+static void zread_srv6_manager_release_locator_chunk(struct zserv *client,
+						     struct stream *msg,
+						     vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = {0};
+
+	/* Get data. */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* call hook to release a chunk using wrapper */
+	srv6_manager_release_locator_chunk_call(client, locator_name, vrf_id);
+
+stream_failure:
+	return;
+}
+
+static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
+{
+	switch (hdr->command) {
+	case ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK:
+		zread_srv6_manager_get_locator_chunk(client, msg,
+						     zvrf_id(zvrf));
+		break;
+	case ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK:
+		zread_srv6_manager_release_locator_chunk(client, msg,
+							 zvrf_id(zvrf));
+		break;
+	default:
+		zlog_err("%s: unknown SRv6 Manager command", __func__);
+		break;
 	}
 }
 
@@ -3580,6 +3681,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK] = zread_srv6_manager_request,
 	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,

@@ -113,4 +113,5 @@ extern void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 extern int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable);
 extern int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type);
 extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
+extern int bgp_zebra_srv6_manager_get_locator_chunk(const char *name);
 #endif /* _QUAGGA_BGP_ZEBRA_H */

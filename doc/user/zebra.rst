@@ -630,6 +630,137 @@ presence of the entry.
    21     Static       10.125.0.2  IPv4 Explicit Null
 
 
+.. _zebra-srv6:
+
+Segment-Routing IPv6
+====================
+
+Segment-Routing is source routing paradigm that allows
+network operator to encode network intent into the packets.
+SRv6 is an implementation of Segment-Routing
+with application of IPv6 and segment-routing-header.
+
+All routing daemon can use the Segment-Routing base
+framework implemented on zebra to use SRv6 routing mechanism.
+In that case, user must configure initial srv6 setting on
+FRR's cli or frr.conf or zebra.conf. This section shows how
+to configure SRv6 on FRR. Of course SRv6 can be used as standalone,
+and this section also helps that case.
+
+.. index:: show segment-routing srv6 locator [json]
+.. clicmd:: show segment-routing srv6 locator [json]
+
+   This command dump SRv6-locator configured on zebra.  SRv6-locator is used
+   to route to the node before performing the SRv6-function. and that works as
+   aggregation of SRv6-function's IDs.  Following console log shows two
+   SRv6-locators loc1 and loc2.  All locators are identified by unique IPv6
+   prefix.  User can get that information as JSON string when ``json`` key word
+   at the end of cli is presented.
+
+::
+
+   router# sh segment-routing srv6 locator
+   Locator:
+   Name                 ID      Prefix                   Status
+   -------------------- ------- ------------------------ -------
+   loc1                       1 2001:db8:1:1::/64        Up
+   loc2                       2 2001:db8:2:2::/64        Up
+
+.. index:: show segment-routing srv6 locator NAME detail [json]
+.. clicmd:: show segment-routing srv6 locator NAME detail [json]
+
+   As shown in the example, by specifying the name of the locator, you
+   can see the detailed information for each locator.  Locator can be
+   represented by a single IPv6 prefix, but SRv6 is designed to share this
+   Locator among multiple Routing Protocols. For this purpose, zebra divides
+   the IPv6 prefix block that makes the Locator unique into multiple chunks,
+   and manages the ownership of each chunk.
+
+   For example, loc1 has system as its owner. For example, loc1 is owned by
+   system, which means that it is not yet proprietary to any routing protocol.
+   For example, loc2 has sharp as its owner. This means that the shaprd for
+   function development holds the owner of the chunk of this locator, and no
+   other routing protocol will use this area.
+
+::
+
+   router# show segment-routing srv6 locator loc1 detail
+   Name: loc1
+   Prefix: 2001:db8:1:1::/64
+   Chunks:
+   - prefix: 2001:db8:1:1::/64, owner: system
+
+   router# show segment-routing srv6 locator loc2 detail
+   Name: loc2
+   Prefix: 2001:db8:2:2::/64
+   Chunks:
+   - prefix: 2001:db8:2:2::/64, owner: sharp
+
+.. index:: segment-routing
+.. clicmd:: segment-routing
+
+   Move from configure mode to segment-routing node.
+
+.. index:: srv6
+.. clicmd:: srv6
+
+   Move from segment-routing node to srv6 node.
+
+.. index:: locators
+.. clicmd:: locators
+
+   Move from srv6 node to locator node. In this locator node, user can
+   configure detailed settings such as the actual srv6 locator.
+
+.. index:: locator NAME
+.. clicmd:: locator NAME
+
+   Create a new locator. If the name of an existing locator is specified,
+   move to specified locator's configuration node to change the settings it.
+
+.. index:: prefix X:X::X:X/M [function-bits-length 32]
+.. clicmd:: prefix X:X::X:X/M [function-bits-length 32]
+
+   Set the ipv6 prefix block of the locator. SRv6 locator is defined by
+   RFC8986. The actual routing protocol specifies the locator and allocates a
+   SID to be used by each routing protocol. This SID is included in the locator
+   as an IPv6 prefix.
+
+   Following example console log shows the typical configuration of SRv6
+   data-plane. After a new SRv6 locator, named loc1, is created, loc1's prefix
+   is configured as ``2001:db8:1:1::/64``.  If user or some routing daemon
+   allocates new SID on this locator, new SID will allocated in range of this
+   prefix. For example, if some routing daemon creates new SID on locator
+   (``2001:db8:1:1::/64``), Then new SID will be ``2001:db8:1:1:7::/80``,
+   ``2001:db8:1:1:8::/80``, and so on.  Each locator has default SID that is
+   SRv6 local function "End".  Usually default SID is allocated as
+   ``PREFIX:1::``.  (``PREFIX`` is locator's prefix) For example, if user
+   configure the locator's prefix as ``2001:db8:1:1::/64``, then default SID
+   will be ``2001:db8:1:1:1::``)
+
+   The function bits range is 16bits by default.  If operator want to change
+   function bits range, they can configure with ``function-bits-length``
+   option.
+
+::
+
+   router# configure terminal
+   router(config)# segment-routinig
+   router(config-sr)# srv6
+   router(config-srv6)# locators
+   router(config-srv6-locs)# locator loc1
+   router(config-srv6-loc)# prefix 2001:db8:1:1::/64
+
+   router(config-srv6-loc)# show run
+   ...
+   segment-routing
+    srv6
+     locators
+      locator loc1
+       prefix 2001:db8:1:1::/64
+      !
+   ...
+
 .. _multicast-rib-commands:
 
 Multicast RIB Commands

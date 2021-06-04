@@ -230,6 +230,7 @@ struct buffer_delay {
 	vrf_id_t vrf_id;
 	uint8_t instance;
 	uint32_t nhgid;
+	uint32_t flags;
 	const struct nexthop_group *nhg;
 	const struct nexthop_group *backup_nhg;
 	enum where_to_restart restart;
@@ -244,7 +245,8 @@ struct buffer_delay {
  */
 static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		      uint32_t nhgid, const struct nexthop_group *nhg,
-		      const struct nexthop_group *backup_nhg, char *opaque)
+		      const struct nexthop_group *backup_nhg, uint32_t flags,
+		      char *opaque)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -258,6 +260,7 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
 
+	api.flags = flags;
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
@@ -335,7 +338,8 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 					 uint32_t nhgid,
 					 const struct nexthop_group *nhg,
 					 const struct nexthop_group *backup_nhg,
-					 uint32_t routes, char *opaque)
+					 uint32_t routes, uint32_t flags,
+					 char *opaque)
 {
 	uint32_t temp, i;
 	bool v4 = false;
@@ -348,7 +352,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 
 	for (i = count; i < routes; i++) {
 		bool buffered = route_add(p, vrf_id, (uint8_t)instance, nhgid,
-					  nhg, backup_nhg, opaque);
+					  nhg, backup_nhg, flags, opaque);
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -362,6 +366,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 			wb.instance = instance;
 			wb.nhgid = nhgid;
 			wb.nhg = nhg;
+			wb.flags = flags;
 			wb.backup_nhg = backup_nhg;
 			wb.opaque = opaque;
 			wb.restart = SHARP_INSTALL_ROUTES_RESTART;
@@ -375,7 +380,7 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 				 uint8_t instance, uint32_t nhgid,
 				 const struct nexthop_group *nhg,
 				 const struct nexthop_group *backup_nhg,
-				 uint32_t routes, char *opaque)
+				 uint32_t routes, uint32_t flags, char *opaque)
 {
 	zlog_debug("Inserting %u routes", routes);
 
@@ -385,7 +390,7 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 
 	monotime(&sg.r.t_start);
 	sharp_install_routes_restart(p, 0, vrf_id, instance, nhgid, nhg,
-				     backup_nhg, routes, opaque);
+				     backup_nhg, routes, flags, opaque);
 }
 
 static void sharp_remove_routes_restart(struct prefix *p, uint32_t count,
@@ -451,7 +456,8 @@ static void handle_repeated(bool installed)
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
 					    sg.r.nhgid, &sg.r.nhop_group,
 					    &sg.r.backup_nhop_group,
-					    sg.r.total_routes, sg.r.opaque);
+					    sg.r.total_routes, sg.r.flags,
+					    sg.r.opaque);
 	}
 }
 
@@ -461,7 +467,8 @@ static void sharp_zclient_buffer_ready(void)
 	case SHARP_INSTALL_ROUTES_RESTART:
 		sharp_install_routes_restart(
 			&wb.p, wb.count, wb.vrf_id, wb.instance, wb.nhgid,
-			wb.nhg, wb.backup_nhg, wb.routes, wb.opaque);
+			wb.nhg, wb.backup_nhg, wb.routes, wb.flags,
+			wb.opaque);
 		return;
 	case SHARP_DELETE_ROUTES_RESTART:
 		sharp_remove_routes_restart(&wb.p, wb.count, wb.vrf_id,
@@ -918,6 +925,50 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+int sharp_zebra_srv6_manager_get_locator_chunk(const char *locator_name)
+{
+	return srv6_manager_get_locator_chunk(zclient, locator_name);
+}
+
+int sharp_zebra_srv6_manager_release_locator_chunk(const char *locator_name)
+{
+	return srv6_manager_release_locator_chunk(zclient, locator_name);
+}
+
+static void sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s = NULL;
+	struct srv6_locator_chunk s6c = {};
+	struct listnode *node, *nnode;
+	struct sharp_srv6_locator *loc;
+
+	s = zclient->ibuf;
+	zapi_srv6_locator_chunk_decode(s, &s6c);
+
+	for (ALL_LIST_ELEMENTS(sg.srv6_locators, node, nnode, loc)) {
+		struct prefix_ipv6 *chunk = NULL;
+		struct listnode *chunk_node;
+		struct prefix_ipv6 *c;
+
+		if (strcmp(loc->name, s6c.locator_name) != 0) {
+			zlog_err("%s: Locator name unmatch %s:%s", __func__,
+				 loc->name, s6c.locator_name);
+			continue;
+		}
+
+		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, c))
+			if (!prefix_cmp(c, &s6c.prefix))
+				return;
+
+		chunk = prefix_ipv6_new();
+		*chunk = s6c.prefix;
+		listnode_add(loc->chunks, chunk);
+		return;
+	}
+
+	zlog_err("%s: can't get locator_chunk!!", __func__);
+}
+
 void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
@@ -939,4 +990,6 @@ void sharp_zebra_init(void)
 	zclient->redistribute_route_add = sharp_redistribute_route;
 	zclient->redistribute_route_del = sharp_redistribute_route;
 	zclient->opaque_msg_handler = sharp_opaque_handler;
+	zclient->process_srv6_locator_chunk =
+		sharp_zebra_process_srv6_locator_chunk;
 }

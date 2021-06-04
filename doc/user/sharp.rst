@@ -147,4 +147,143 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    Show imported Traffic Engineering Data Base
 
+.. clicmd:: sharp install seg6-routes [vrf NAME] <A.B.C.D|X:X::X:X> nexthop-seg6 X:X::X:X encap X:X::X:X (1-1000000)
 
+   This command installs a route for SRv6 Transit behavior (on Linux it is
+   known as seg6 route). The count, destination, vrf, etc. have the same
+   meaning as in the ``sharp install routes`` command.  With this command,
+   sharpd will request zebra to configure seg6 route via ZEBRA_ROUTE_ADD
+   ZAPI. As in the following example.
+
+::
+
+   router# sharp install seg6-routes 1::A nexthop-seg6 2001::2 encap A:: 1
+   router# sharp install seg6-routes 1::B nexthop-seg6 2001::2 encap B:: 1
+
+   router# show ipv6 route
+   D>* 1::A/128 [150/0] via 2001::2, dum0, seg6 a::, weight 1, 00:00:01
+   D>* 1::B/128 [150/0] via 2001::2, dum0, seg6 b::, weight 1, 00:00:01
+
+   bash# ip -6 route list
+   1::A  encap seg6 mode encap segs 1 [ a:: ] via 2001::2 dev dum0 proto 194 metric 20 pref medium
+   1::B  encap seg6 mode encap segs 1 [ b:: ] via 2001::2 dev dum0 proto 194 metric 20 pref medium
+
+.. clicmd:: sharp install seg6local-routes [vrf NAME] X:X::X:X nexthop-seg6local NAME ACTION ARGS.. (1-1000000)
+
+   This command installs a route for SRv6 Endpoint behavior (on Linux it is
+   known as seg6local route). The count, destination, vrf, etc. have the same
+   meaning as in the ``sharp install routes`` command.  With this command,
+   sharpd will request zebra to configure seg6local route via ZEBRA_ROUTE_ADD
+   ZAPI. As in the following example.
+
+   There are many End Functions defined in SRv6, which have been standardized
+   in RFC 8986. The current implementation supports End, End.X, End.T, End.DX4,
+   and End.DT6, which can be configured as follows.
+
+::
+
+   router# sharp install seg6local-routes 1::1 nexthop-seg6local dum0 End 1
+   router# sharp install seg6local-routes 1::2 nexthop-seg6local dum0 End_X 2001::1 1
+   router# sharp install seg6local-routes 1::3 nexthop-seg6local dum0 End_T 10 1
+   router# sharp install seg6local-routes 1::4 nexthop-seg6local dum0 End_DX4 10.0.0.1 1
+   router# sharp install seg6local-routes 1::5 nexthop-seg6local dum0 End_DT6 10 1
+
+   router# show ipv6 route
+   D>* 1::1/128 [150/0] is directly connected, dum0, seg6local End USP, weight 1, 00:00:05
+   D>* 1::2/128 [150/0] is directly connected, dum0, seg6local End.X nh6 2001::1, weight 1, 00:00:05
+   D>* 1::3/128 [150/0] is directly connected, dum0, seg6local End.T table 10, weight 1, 00:00:05
+   D>* 1::4/128 [150/0] is directly connected, dum0, seg6local End.DX4 nh4 10.0.0.1, weight 1, 00:00:05
+   D>* 1::5/128 [150/0] is directly connected, dum0, seg6local End.DT6 table 10, weight 1, 00:00:05
+
+   bash# ip -6 route
+   1::1  encap seg6local action End dev dum0 proto 194 metric 20 pref medium
+   1::2  encap seg6local action End.X nh6 2001::1 dev dum0 proto 194 metric 20 pref medium
+   1::3  encap seg6local action End.T table 10 dev dum0 proto 194 metric 20 pref medium
+   1::4  encap seg6local action End.DX4 nh4 10.0.0.1 dev dum0 proto 194 metric 20 pref medium
+   1::5  encap seg6local action End.DT6 table 10 dev dum0 proto 194 metric 20 pref medium
+
+.. clicmd:: show sharp segment-routing srv6
+
+   This command shows us what SRv6 locator chunk, sharp is holding as zclient.
+   An SRv6 locator is defined for each SRv6 router, and a single locator may
+   be shared by multiple protocols.
+
+   In the FRRouting implementation, the Locator chunk get request is executed
+   by a routing protocol daemon such as sharpd or bgpd, And then Zebra
+   allocates a Locator Chunk, which is a subset of the Locator Prefix, and
+   notifies the requesting protocol daemon of this information.
+
+   This command example shows how the locator chunk of sharpd itself is
+   allocated.
+
+::
+
+   router# show segment-routing srv6 locator
+   Locator:
+   Name                 ID            2 2001:db8:2:2::/64        Up
+
+   router# show sharp segment-routing srv6
+   Locator loc1 has 1 prefix chunks
+     2001:db8:1:1::/64
+
+.. clicmd:: sharp srv6-manager get-locator-chunk
+
+   This command requests the SRv6 locator to allocate a locator chunk via ZAPI.
+   This chunk can be owned by the protocol daemon, and the chunk obtained by
+   sharpd will not be used by the SRv6 mechanism of another routing protocol.
+
+   Since this request is made asynchronously, it can be issued before the SRv6
+   locator is configured on the zebra side, and as soon as it is ready on the
+   zebra side, sharpd can check the allocated locator chunk via zapi.
+
+::
+
+   router# show segment-routing srv6 locator loc1 detail
+   Name: loc1
+   Prefix: 2001:db8:1:1::/64
+   Chunks:
+   - prefix: 2001:db8:1:1::/64, owner: system
+
+   router# show sharp segment-routing srv6
+   (nothing)
+
+   router# sharp srv6-manager get-locator-chunk loc1
+
+   router# show segment-routing srv6 locator loc1 detail
+   Name: loc1
+   Prefix: 2001:db8:1:1::/64
+   Chunks:
+   - prefix: 2001:db8:1:1::/64, owner: sharp
+
+   router# show sharp segment-routing srv6
+   Locator loc1 has 1 prefix chunks
+     2001:db8:1:1::/64
+
+.. clicmd:: sharp srv6-manager release-locator-chunk
+
+   This command releases a locator chunk that has already been allocated by
+   ZAPI. The freed chunk will have its owner returned to the system and will
+   be available to another protocol daemon.
+
+::
+
+   router# show segment-routing srv6 locator loc1 detail
+   Name: loc1
+   Prefix: 2001:db8:1:1::/64
+   Chunks:
+   - prefix: 2001:db8:1:1::/64, owner: sharp
+
+   router# show sharp segment-routing srv6
+   Locator loc1 has 1 prefix chunks
+     2001:db8:1:1::/64
+
+   router# sharp srv6-manager release-locator-chunk loc1
+
+   router# show segment-routing srv6 locator loc1 detail
+   Name: loc1
+   Prefix: 2001:db8:1:1::/64
+   Chunks:
+   - prefix: 2001:db8:1:1::/64, owner: system
+
+   router# show sharp segment-routing srv6
+   (nothing)
