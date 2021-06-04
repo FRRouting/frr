@@ -38,6 +38,8 @@ extern "C" {
  */
 extern bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 			const void *data, unsigned int alen);
+extern bool nl_attr_put8(struct nlmsghdr *n, unsigned int maxlen, int type,
+			 uint8_t data);
 extern bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint16_t data);
 extern bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
