@@ -1333,7 +1333,7 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
 	int num_labels = 0;
 
 	for (int i = 0; nh_label && i < nh_label->num_labels; i++) {
-		if (nh_label_type == ZEBRA_LSP_EVPN
+		if (nh_label_type != ZEBRA_LSP_EVPN
 		    && nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
 			continue;
 
