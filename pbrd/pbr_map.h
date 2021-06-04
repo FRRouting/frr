@@ -91,6 +91,11 @@ struct pbr_map_sequence {
 	uint16_t dst_prt;
 
 	/*
+	 * The ip protocol we want to match on
+	 */
+	uint8_t ip_proto;
+
+	/*
 	 * Our policy Catchers
 	 */
 	struct prefix *src;
