@@ -2876,7 +2876,7 @@ EVPN L3 Route-Targets
 
 .. clicmd:: route-target <import|export|both> <RTLIST|auto>
 
-Modifty the route-target set for EVPN advertised type-2/type-5 routes.
+Modify the route-target set for EVPN advertised type-2/type-5 routes.
 RTLIST is a list of any of matching
 ``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)`` where ``*`` indicates wildcard
 matching for the AS number. It will be set to match any AS number. This is
