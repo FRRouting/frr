@@ -171,7 +171,8 @@ static ssize_t netlink_rule_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 		dplane_ctx_rule_get_table(ctx), dplane_ctx_rule_get_src_ip(ctx),
 		dplane_ctx_rule_get_dst_ip(ctx),
 		dplane_ctx_rule_get_fwmark(ctx),
-		dplane_ctx_rule_get_dsfield(ctx), 0, buf, buflen);
+		dplane_ctx_rule_get_dsfield(ctx),
+		dplane_ctx_rule_get_ipproto(ctx), buf, buflen);
 }
 
 static ssize_t netlink_oldrule_msg_encoder(struct zebra_dplane_ctx *ctx,
@@ -184,7 +185,8 @@ static ssize_t netlink_oldrule_msg_encoder(struct zebra_dplane_ctx *ctx,
 		dplane_ctx_rule_get_old_src_ip(ctx),
 		dplane_ctx_rule_get_old_dst_ip(ctx),
 		dplane_ctx_rule_get_old_fwmark(ctx),
-		dplane_ctx_rule_get_old_dsfield(ctx), 0, buf, buflen);
+		dplane_ctx_rule_get_old_dsfield(ctx),
+		dplane_ctx_rule_get_old_ipproto(ctx), buf, buflen);
 }
 
 /* Public functions */

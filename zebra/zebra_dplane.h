@@ -493,6 +493,8 @@ uint32_t dplane_ctx_rule_get_fwmark(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_rule_get_old_fwmark(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_rule_get_dsfield(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_rule_get_old_dsfield(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_rule_get_ipproto(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_rule_get_old_ipproto(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
 dplane_ctx_rule_get_src_ip(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
