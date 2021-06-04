@@ -101,7 +101,7 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 	o->router_id_zebra = router_id.u.prefix4.s_addr;
 
-	ospf6_router_id_update(o);
+	ospf6_router_id_update(o, false);
 
 	return 0;
 }

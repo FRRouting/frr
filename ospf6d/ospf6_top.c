@@ -225,7 +225,7 @@ static int ospf6_vrf_enable(struct vrf *vrf)
 			thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 					&ospf6->t_ospf6_receive);
 
-			ospf6_router_id_update(ospf6);
+			ospf6_router_id_update(ospf6, true);
 		}
 	}
 
@@ -440,7 +440,7 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
 		SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
 	if (ospf6->router_id == 0)
-		ospf6_router_id_update(ospf6);
+		ospf6_router_id_update(ospf6, true);
 	ospf6_add(ospf6);
 	if (ospf6->vrf_id != VRF_UNKNOWN) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
@@ -594,15 +594,34 @@ void ospf6_maxage_remove(struct ospf6 *o)
 				 &o->maxage_remover);
 }
 
-void ospf6_router_id_update(struct ospf6 *ospf6)
+void ospf6_router_id_update(struct ospf6 *ospf6, bool init)
 {
+	in_addr_t new_router_id;
+	struct listnode *node;
+	struct ospf6_area *oa;
+
 	if (!ospf6)
 		return;
 
 	if (ospf6->router_id_static != 0)
-		ospf6->router_id = ospf6->router_id_static;
+		new_router_id = ospf6->router_id_static;
 	else
-		ospf6->router_id = ospf6->router_id_zebra;
+		new_router_id = ospf6->zebra_router_id;
+
+	if (ospf6->router_id == new_router_id)
+		return;
+
+	if (!init)
+		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
+			if (oa->full_nbrs) {
+				zlog_err(
+					"%s: cannot update router-id. Save config and restart ospf6d\n",
+					__func__);
+				return;
+			}
+		}
+
+	ospf6->router_id = new_router_id;
 }
 
 /* start ospf6 */
@@ -694,7 +713,7 @@ static void ospf6_process_reset(struct ospf6 *ospf6)
 	ospf6->inst_shutdown = 0;
 	ospf6_db_clear(ospf6);
 
-	ospf6_router_id_update(ospf6);
+	ospf6_router_id_update(ospf6, true);
 
 	ospf6_asbr_redistribute_reset(ospf6);
 	FOR_ALL_INTERFACES (vrf, ifp)
