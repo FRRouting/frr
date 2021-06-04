@@ -3524,7 +3524,8 @@ peer_init:
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
 	bgp_tcp_keepalive_unset(bgp);
-	bgp_timers_unset(bgp);
+	if (!hidden)
+		bgp_timers_unset(bgp);
 	bgp->default_min_holdtime = 0;
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
@@ -3781,16 +3782,29 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
 			hidden = true;
 		/* Handle AS number change */
 		if (bgp->as != *as) {
-			if (hidden)
-				bgp_create(as, name, inst_type, as_pretty,
-					   asnotation, bgp, hidden);
+			if (hidden || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO)) {
+				if (hidden) {
+					bgp_create(as, name, inst_type,
+						   as_pretty, asnotation, bgp,
+						   hidden);
+					UNSET_FLAG(bgp->flags,
+						   BGP_FLAG_INSTANCE_HIDDEN);
+				} else {
+					bgp->as = *as;
+					UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
+				}
 
-			/* Set all peer's local as number with this ASN */
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				peer->local_as = *as;
-			UNSET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
+				/* Set all peer's local AS with this ASN */
+				for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode,
+						       peer))
+					peer->local_as = *as;
+				*bgp_val = bgp;
+				return BGP_INSTANCE_EXISTS;
+			}
+
+			*as = bgp->as;
 			*bgp_val = bgp;
-			return BGP_INSTANCE_EXISTS;
+			return BGP_ERR_INSTANCE_MISMATCH;
 		}
 		if (bgp->inst_type != inst_type)
 			return BGP_ERR_INSTANCE_MISMATCH;
