@@ -550,6 +550,12 @@ bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 	return true;
 }
 
+bool nl_attr_put8(struct nlmsghdr *n, unsigned int maxlen, int type,
+		  uint8_t data)
+{
+	return nl_attr_put(n, maxlen, type, &data, sizeof(uint8_t));
+}
+
 bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
 		   uint16_t data)
 {
