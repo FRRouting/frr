@@ -720,6 +720,8 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 		nexthop_add_labels(copy, nexthop->nh_label_type,
 				   nexthop->nh_label->num_labels,
 				   &nexthop->nh_label->label[0]);
+	memcpy(&copy->nh_encap.encap_data.rmac,
+	       &nexthop->nh_encap.encap_data.rmac, ETH_ALEN);
 }
 
 void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
