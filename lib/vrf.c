@@ -1010,6 +1010,10 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 	if (!vrf_is_enabled(vrf))
 		return -1;
 
+	/* nothing to do for default vrf */
+	if (vrf_id == VRF_DEFAULT)
+		return 0;
+
 	if (ifname && strcmp(ifname, vrf->name)) {
 		/* binding to a regular interface */
 
@@ -1022,10 +1026,6 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 
 		/* nothing to do for netns */
 		if (vrf_is_backend_netns())
-			return 0;
-
-		/* nothing to do for default vrf */
-		if (vrf_id == VRF_DEFAULT)
 			return 0;
 
 		ifname = vrf->name;
