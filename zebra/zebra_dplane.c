@@ -157,12 +157,17 @@ struct dplane_pw_info {
 	int af;
 	int status;
 	uint32_t flags;
+	uint32_t nhg_id;
 	union g_addr dest;
 	mpls_label_t local_label;
 	mpls_label_t remote_label;
 
-	/* Nexthops */
-	struct nexthop_group nhg;
+	/* Nexthops that are valid and installed */
+	struct nexthop_group fib_nhg;
+
+	/* Primary and backup nexthop sets, copied from the resolving route. */
+	struct nexthop_group primary_nhg;
+	struct nexthop_group backup_nhg;
 
 	union pw_protocol_fields fields;
 };
@@ -664,11 +669,21 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 		/* Free allocated nexthops */
-		if (ctx->u.pw.nhg.nexthop) {
+		if (ctx->u.pw.fib_nhg.nexthop) {
 			/* This deals with recursive nexthops too */
-			nexthops_free(ctx->u.pw.nhg.nexthop);
+			nexthops_free(ctx->u.pw.fib_nhg.nexthop);
 
-			ctx->u.pw.nhg.nexthop = NULL;
+			ctx->u.pw.fib_nhg.nexthop = NULL;
+		}
+		if (ctx->u.pw.primary_nhg.nexthop) {
+			nexthops_free(ctx->u.pw.primary_nhg.nexthop);
+
+			ctx->u.pw.primary_nhg.nexthop = NULL;
+		}
+		if (ctx->u.pw.backup_nhg.nexthop) {
+			nexthops_free(ctx->u.pw.backup_nhg.nexthop);
+
+			ctx->u.pw.backup_nhg.nexthop = NULL;
 		}
 		break;
 
@@ -1630,7 +1645,23 @@ dplane_ctx_get_pw_nhg(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.pw.nhg);
+	return &(ctx->u.pw.fib_nhg);
+}
+
+const struct nexthop_group *
+dplane_ctx_get_pw_primary_nhg(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.primary_nhg);
+}
+
+const struct nexthop_group *
+dplane_ctx_get_pw_backup_nhg(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.backup_nhg);
 }
 
 /* Accessors for interface information */
@@ -2461,12 +2492,14 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 			      enum dplane_op_e op,
 			      struct zebra_pw *pw)
 {
+	int ret = EINVAL;
 	struct prefix p;
 	afi_t afi;
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *re;
 	const struct nexthop_group *nhg;
+	struct nexthop *nh, *newnh, *last_nh;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init dplane ctx %s: pw '%s', loc %u, rem %u",
@@ -2509,31 +2542,83 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 	afi = (pw->af == AF_INET) ? AFI_IP : AFI_IP6;
 	table = zebra_vrf_table(afi, SAFI_UNICAST, pw->vrf_id);
-	if (table) {
-		rn = route_node_match(table, &p);
-		if (rn) {
-			RNODE_FOREACH_RE(rn, re) {
-				if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
-					break;
-			}
+	if (table == NULL)
+		goto done;
 
-			if (re) {
-				nhg = rib_get_fib_nhg(re);
-				if (nhg && nhg->nexthop)
-					copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-						      nhg->nexthop, NULL);
+	rn = route_node_match(table, &p);
+	if (rn == NULL)
+		goto done;
 
-				/* Include any installed backup nexthops */
-				nhg = rib_get_fib_backup_nhg(re);
-				if (nhg && nhg->nexthop)
-					copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-						      nhg->nexthop, NULL);
-			}
-			route_unlock_node(rn);
-		}
+	re = NULL;
+	RNODE_FOREACH_RE(rn, re) {
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
+			break;
 	}
 
-	return AOK;
+	if (re) {
+		/* We'll capture a 'fib' list of nexthops that meet our
+		 * criteria: installed, and labelled.
+		 */
+		nhg = rib_get_fib_nhg(re);
+		last_nh = NULL;
+
+		if (nhg && nhg->nexthop) {
+			for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+				if (!CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
+				    || CHECK_FLAG(nh->flags,
+						  NEXTHOP_FLAG_RECURSIVE)
+				    || nh->nh_label == NULL)
+					continue;
+
+				newnh = nexthop_dup(nh, NULL);
+
+				if (last_nh)
+					NEXTHOP_APPEND(last_nh, newnh);
+				else
+					ctx->u.pw.fib_nhg.nexthop = newnh;
+				last_nh = newnh;
+			}
+		}
+
+		/* Include any installed backup nexthops also. */
+		nhg = rib_get_fib_backup_nhg(re);
+		if (nhg && nhg->nexthop) {
+			for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+				if (!CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
+				    || CHECK_FLAG(nh->flags,
+						  NEXTHOP_FLAG_RECURSIVE)
+				    || nh->nh_label == NULL)
+					continue;
+
+				newnh = nexthop_dup(nh, NULL);
+
+				if (last_nh)
+					NEXTHOP_APPEND(last_nh, newnh);
+				else
+					ctx->u.pw.fib_nhg.nexthop = newnh;
+				last_nh = newnh;
+			}
+		}
+
+		/* Copy primary nexthops; recursive info is included too */
+		assert(re->nhe != NULL); /* SA warning */
+		copy_nexthops(&(ctx->u.pw.primary_nhg.nexthop),
+			      re->nhe->nhg.nexthop, NULL);
+		ctx->u.pw.nhg_id = re->nhe->id;
+
+		/* Copy backup nexthop info, if present */
+		if (re->nhe->backup_info && re->nhe->backup_info->nhe) {
+			copy_nexthops(&(ctx->u.pw.backup_nhg.nexthop),
+				      re->nhe->backup_info->nhe->nhg.nexthop,
+				      NULL);
+		}
+	}
+	route_unlock_node(rn);
+
+	ret = AOK;
+
+done:
+	return ret;
 }
 
 /**

@@ -437,6 +437,10 @@ const union pw_protocol_fields *dplane_ctx_get_pw_proto(
 	const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_pw_nhg(
 	const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *
+dplane_ctx_get_pw_primary_nhg(const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *
+dplane_ctx_get_pw_backup_nhg(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for interface information */
 uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx);
