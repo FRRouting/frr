@@ -2576,6 +2576,7 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 		stream_putl(s, pbr->unique);
 	else
 		stream_putl(s, pbra->unique);
+	stream_putc(s, 0); /* ip protocol being used */
 	if (pbr && pbr->flags & MATCH_IP_SRC_SET)
 		memcpy(&pfx, &(pbr->src), sizeof(struct prefix));
 	else {

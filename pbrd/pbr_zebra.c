@@ -534,6 +534,7 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putl(s, pbrms->seqno);
 	stream_putl(s, pbrms->ruleno);
 	stream_putl(s, pbrms->unique);
+	stream_putc(s, 0); /* The ip_proto */
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->src, family);
 	stream_putw(s, pbrms->src_prt);
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->dst, family);
