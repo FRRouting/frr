@@ -35,6 +35,28 @@
 
 #define BGP_EVPN_MH_USE_ES_L3NHG_DEF true
 
+/* XXX - tune this */
+#define BGP_EVPN_MAX_EVI_PER_ES_FRAG 128
+
+/* An ES can result in multiple EAD-per-ES route. Each EAD fragment is
+ * associated with an unique RD
+ */
+struct bgp_evpn_es_frag {
+	/* frag is associated with a parent ES */
+	struct bgp_evpn_es *es;
+
+	/* Id for deriving the RD automatically for this ES fragment */
+	uint16_t rd_id;
+	/* RD for this ES fragment */
+	struct prefix_rd prd;
+
+	/* Memory used for linking bgp_evpn_es_rd to bgp_evpn_es->rd_list */
+	struct listnode es_listnode;
+
+	/* List of ES-EVIs associated with this fragment */
+	struct list *es_evi_frag_list;
+};
+
 /* Ethernet Segment entry -
  * - Local and remote ESs are maintained in a global RB tree,
  * bgp_mh_info->es_rb_tree using ESI as key
@@ -79,11 +101,9 @@ struct bgp_evpn_es {
 	 */
 	struct listnode pend_es_listnode;
 
-	/* [EVPNES_LOCAL] Id for deriving the RD automatically for this ESI */
-	uint16_t rd_id;
-
-	/* [EVPNES_LOCAL] RD for this ES */
-	struct prefix_rd prd;
+	/* [EVPNES_LOCAL] List of RDs for this ES (bgp_evpn_es_rd) */
+	struct list *es_frag_list;
+	struct bgp_evpn_es_frag *es_base_frag;
 
 	/* [EVPNES_LOCAL] originator ip address  */
 	struct in_addr originator_ip;
@@ -203,6 +223,8 @@ struct bgp_evpn_es_vrf {
  */
 struct bgp_evpn_es_evi {
 	struct bgp_evpn_es *es;
+	/* Only applicableif EVI_LOCAL */
+	struct bgp_evpn_es_frag *es_frag;
 	struct bgpevpn *vpn;
 
 	/* ES-EVI flags */
@@ -224,6 +246,10 @@ struct bgp_evpn_es_evi {
 	 */
 	struct listnode es_listnode;
 
+	/* memory used for linking the es_evi to
+	 * es_evi->es_frag->es_evi_frag_list
+	 */
+	struct listnode es_frag_listnode;
 	/* list of PEs (bgp_evpn_es_evi_vtep) attached to the ES for this VNI */
 	struct list *es_evi_vtep_list;
 
