@@ -975,18 +975,6 @@ const char *format_pcep_message(struct pcep_message *msg)
 	return PATHD_FORMAT_FINI();
 }
 
-const char *format_yang_dnode(struct lyd_node *dnode)
-{
-	char *buff;
-	int len;
-
-	lyd_print_mem(&buff, dnode, LYD_JSON, LYD_PRINT_WD_ALL);
-	len = strlen(buff);
-	memcpy(_debug_buff, buff, len);
-	free(buff);
-	return _debug_buff;
-}
-
 void _format_pcc_opts(int ps, struct pcc_opts *opts)
 {
 	if (opts == NULL) {
