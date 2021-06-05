@@ -285,7 +285,7 @@ called `intra-area routes`.
 
     Stub links may also be used as a way to describe links on which OSPF is
     *not* spoken, known as `passive interfaces`, see
-    :clicmd:`passive-interface INTERFACE`.
+    :clicmd:`ip ospf passive [A.B.C.D]`.
 
 - Network LSA
 
