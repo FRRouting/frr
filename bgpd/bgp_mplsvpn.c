@@ -583,7 +583,7 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 	 * skip when bgp vpn instance ins't allocated
 	 * or srv6 locator chunk isn't allocated
 	 */
-	if (!bgp_vpn || !bgp_vpn->srv6_locator_chunks || !bgp_vrf)
+	if (!bgp_vpn || !bgp_vpn->srv6_locator_chunks)
 		return;
 
 	tovpn_sid_index = bgp_vrf->vpn_policy[afi].tovpn_sid_index;
