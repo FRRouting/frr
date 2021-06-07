@@ -578,6 +578,7 @@ extern void cmd_init_config_callbacks(void (*start_config_cb)(void),
 extern void cmd_terminate(void);
 extern void cmd_exit(struct vty *vty);
 extern int cmd_list_cmds(struct vty *vty, int do_permute);
+extern int cmd_find_cmds(struct vty *vty, struct cmd_token **argv, int argc);
 
 extern int cmd_domainname_set(const char *domainname);
 extern int cmd_hostname_set(const char *hostname);
