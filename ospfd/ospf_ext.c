@@ -686,12 +686,23 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 					exti, psid, REORIGINATE_THIS_LSA);
 		}
 	} else {
-		osr_debug(
-			"EXT (%s): Remove prefix %pFX with index %u from interface %s",
-			__func__, p, index, ifp->name);
+		osr_debug("EXT (%s): Remove prefix %pFX from interface %s",
+			  __func__, p, ifp->name);
 		psid = del_ext_prefix(exti, p);
-		if (psid && CHECK_FLAG(psid->flags, EXT_LPFLG_LSA_ENGAGED))
+		if (!psid)
+			zlog_warn(
+				"EXT (%s): prefix %pFX not found in extended interface info struct",
+				__func__, p);
+		else if (CHECK_FLAG(psid->flags, EXT_LPFLG_LSA_ENGAGED)) {
+			osr_debug(
+				"EXT (%s): schedule flushing of LSA for prefix %pFX",
+				__func__, p);
 			ospf_ext_pref_lsa_schedule(exti, psid, FLUSH_THIS_LSA);
+		} else {
+			osr_debug("EXT (%s): LSA not engaged, deleting node",
+				  __func__);
+			listnode_delete(exti->lsa.prefix_sid_list, psid);
+		}
 	}
 
 	/* return value only really matter for an add - else we only care that's
@@ -1667,13 +1678,13 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 			  "EXT (%s): Invalid parameter LSA ID", __func__);
 		/* Flush it anyway. */
 		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	} else {
+		psid = lookup_psid_lsa_by_instance(exti, lsa_id);
+		assert(psid != NULL);
 	}
 
-	psid = lookup_psid_lsa_by_instance(exti, lsa_id);
-	assert(psid != NULL);
-
 	/* Check if Interface was not disable in the interval */
-	if ((exti != NULL) && !CHECK_FLAG(psid->flags, EXT_LPFLG_LSA_ACTIVE)) {
+	if ((psid != NULL) && !CHECK_FLAG(psid->flags, EXT_LPFLG_LSA_ACTIVE)) {
 		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
 			  "EXT (%s): Interface was Disabled: Flush it!",
 			  __func__);
@@ -1683,7 +1694,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 
 	/* If the lsa's age reached to MaxAge, start flushing procedure. */
 	if (IS_LSA_MAXAGE(lsa)) {
-		if (exti)
+		if (psid)
 			UNSET_FLAG(psid->flags, EXT_LPFLG_LSA_ENGAGED);
 		ospf_opaque_lsa_flush_schedule(lsa);
 		return NULL;
@@ -1805,6 +1816,20 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 	return new;
 }
 
+static const char *ext_lsa_op_name(enum lsa_opcode opcode)
+{
+	switch (opcode) {
+	case REORIGINATE_THIS_LSA:
+		return "Re-Originate";
+	case REFRESH_THIS_LSA:
+		return "Refresh";
+	case FLUSH_THIS_LSA:
+		return "Flush";
+	}
+	/* not reached */
+	return "Unknown";
+}
+
 /* Schedule Extended Prefix Opaque LSA origination/refreshment/flushing */
 static void ospf_ext_pref_lsa_schedule(struct ext_itf *exti,
 				       struct prefix_sid_lsa *psid,
@@ -1823,14 +1848,23 @@ static void ospf_ext_pref_lsa_schedule(struct ext_itf *exti,
 		return;
 
 	/* Check if the corresponding link is ready to be flooded */
-	if (!(CHECK_FLAG(psid->flags, EXT_LPFLG_LSA_ACTIVE)))
+	if ((opcode == REORIGINATE_THIS_LSA || opcode == REFRESH_THIS_LSA)
+	    && !(CHECK_FLAG(psid->flags, EXT_LPFLG_LSA_ACTIVE))) {
+		osr_debug(
+			"EXT (%s): Not scheduling %s for prefix %pFX, not active",
+			__func__, ext_lsa_op_name(opcode), &psid->p);
 		return;
+	} else if (opcode == FLUSH_THIS_LSA
+		   && !(CHECK_FLAG(psid->flags, EXT_LPFLG_LSA_ENGAGED))) {
+		osr_debug(
+			"EXT (%s): Not scheduling %s for prefix %pFX, not engaged",
+			__func__, ext_lsa_op_name(opcode), &psid->p);
+		return;
+	}
 
-	osr_debug("EXT (%s): Schedule %s%s%s LSA for interface %s", __func__,
-		  opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
-		  opcode == REFRESH_THIS_LSA ? "Refresh" : "",
-		  opcode == FLUSH_THIS_LSA ? "Flush" : "",
-		  exti->ifp ? exti->ifp->name : "-");
+	osr_debug("EXT (%s): Schedule %s LSA for interface %s prefix %pFX",
+		  __func__, ext_lsa_op_name(opcode),
+		  exti->ifp ? exti->ifp->name : "-", &psid->p);
 
 	/* Verify Area */
 	if (exti->area == NULL) {
@@ -1866,6 +1900,8 @@ static void ospf_ext_pref_lsa_schedule(struct ext_itf *exti,
 	case FLUSH_THIS_LSA:
 		UNSET_FLAG(psid->flags, EXT_LPFLG_LSA_ENGAGED);
 		ospf_opaque_lsa_flush_schedule(&lsa);
+		/* delete prefix-sid from list */
+		listnode_delete(exti->lsa.prefix_sid_list, psid);
 		break;
 	}
 }
@@ -1890,11 +1926,8 @@ static void ospf_ext_link_lsa_schedule(struct ext_itf *exti,
 	if (!(CHECK_FLAG(exti->lsa.link_lsa.flags, EXT_LPFLG_LSA_ACTIVE)))
 		return;
 
-	osr_debug("EXT (%s): Schedule %s%s%s LSA for interface %s", __func__,
-		  opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
-		  opcode == REFRESH_THIS_LSA ? "Refresh" : "",
-		  opcode == FLUSH_THIS_LSA ? "Flush" : "",
-		  exti->ifp ? exti->ifp->name : "-");
+	osr_debug("EXT (%s): Schedule %s LSA for interface %s", __func__,
+		  ext_lsa_op_name(opcode), exti->ifp ? exti->ifp->name : "-");
 
 	/* Verify Area */
 	if (exti->area == NULL) {

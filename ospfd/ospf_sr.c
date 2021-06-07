@@ -2690,9 +2690,6 @@ DEFUN (no_sr_prefix_sid,
 		return CMD_WARNING;
 	}
 
-	osr_debug("SR (%s): Remove Prefix %pFX with index %u", __func__,
-		  (struct prefix *)&srp->prefv4, srp->sid);
-
 	/* Delete NHLFE if NO-PHP is set and EXPLICIT NULL not set */
 	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
 	    && !CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
