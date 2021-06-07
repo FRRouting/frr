@@ -2848,7 +2848,7 @@ stream_failure:
 
 static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 {
-	/* to avoid sending other messages like ZERBA_INTERFACE_UP */
+	/* to avoid sending other messages like ZEBRA_INTERFACE_UP */
 	if (hdr->command == ZEBRA_TABLE_MANAGER_CONNECT)
 		zread_table_manager_connect(client, msg, zvrf_id(zvrf));
 	else {
@@ -2856,7 +2856,7 @@ static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 		if (!client->proto) {
 			flog_err(
 				EC_ZEBRA_TM_ALIENS,
-				"Got table request from an unidentified client");
+				"Got SRv6 request from an unidentified client");
 			return;
 		}
 		if (hdr->command == ZEBRA_GET_TABLE_CHUNK)
