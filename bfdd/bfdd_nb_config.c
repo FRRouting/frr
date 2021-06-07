@@ -45,11 +45,13 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	if (yang_dnode_exists(dnode, "./source-addr"))
 		strtosa(yang_dnode_get_string(dnode, "./source-addr"), &lsa);
 
-	ifname = yang_dnode_get_string(dnode, "./interface");
 	vrfname = yang_dnode_get_string(dnode, "./vrf");
 
-	if (strcmp(ifname, "*") == 0)
-		ifname = NULL;
+	if (!mhop) {
+		ifname = yang_dnode_get_string(dnode, "./interface");
+		if (strcmp(ifname, "*") == 0)
+			ifname = NULL;
+	}
 
 	/* Generate the corresponding key. */
 	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname);
@@ -80,7 +82,6 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 	const struct lyd_node *sess_dnode;
 	struct session_iter iter;
 	struct bfd_session *bs;
-	const char *source;
 	const char *dest;
 	const char *ifname;
 	const char *vrfname;
@@ -89,13 +90,27 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		yang_dnode_get_prefix(&p, args->dnode, "./dest-addr");
+
+		if (mhop) {
+			/*
+			 * Do not allow IPv6 link-local address for multihop.
+			 */
+			if (p.family == AF_INET6
+			    && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
+				snprintf(
+					args->errmsg, args->errmsg_len,
+					"Cannot use link-local address for multihop sessions");
+				return NB_ERR_VALIDATION;
+			}
+			return NB_OK;
+		}
+
 		/*
 		 * When `dest-addr` is IPv6 and link-local we must
 		 * require interface name, otherwise we can't figure
 		 * which interface to use to send the packets.
 		 */
-		yang_dnode_get_prefix(&p, args->dnode, "./dest-addr");
-
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
 
 		if (p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
@@ -114,17 +129,9 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 		dest = yang_dnode_get_string(args->dnode, "./dest-addr");
 		vrfname = yang_dnode_get_string(args->dnode, "./vrf");
 
-		if (mhop) {
-			source = yang_dnode_get_string(args->dnode, "./source-addr");
-
-			yang_dnode_iterate(session_iter_cb, &iter, sess_dnode,
-					   "./multi-hop[source-addr='%s'][dest-addr='%s'][vrf='%s']",
-					   source, dest, vrfname);
-		} else {
-			yang_dnode_iterate(session_iter_cb, &iter, sess_dnode,
-					   "./single-hop[dest-addr='%s'][vrf='%s']",
-					   dest, vrfname);
-		}
+		yang_dnode_iterate(session_iter_cb, &iter, sess_dnode,
+				   "./single-hop[dest-addr='%s'][vrf='%s']",
+				   dest, vrfname);
 
 		if (iter.wildcard && iter.count > 1) {
 			snprintf(

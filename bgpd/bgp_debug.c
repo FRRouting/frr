@@ -2112,10 +2112,13 @@ DEFPY(debug_bgp_bfd, debug_bgp_bfd_cmd,
 			bfd_protocol_integration_set_debug(true);
 		}
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(bfd, BFD_LIB);
-		else
+			bfd_protocol_integration_set_debug(false);
+		} else {
 			TERM_DEBUG_ON(bfd, BFD_LIB);
+			bfd_protocol_integration_set_debug(true);
+		}
 	}
 
 	return CMD_SUCCESS;
