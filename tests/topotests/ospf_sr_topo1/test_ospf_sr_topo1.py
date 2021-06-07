@@ -432,13 +432,7 @@ def test_rib_ipv4_step6():
     tgen.net["rt6"].cmd('vtysh -c "conf t" -c "router ospf" -c "segment-routing on"')
 
     # FIXME: This is currently necessary because the CLI is not yet yang based.
-    logger.info("Re-do rt6's SR config")
-    tgen.net["rt6"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "segment-routing global-block 18000 25999"'
-    )
-    tgen.net["rt6"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "segment-routing node-msd 8"'
-    )
+    logger.info("Re-do rt6's SR prefix-sid config")
     tgen.net["rt6"].cmd(
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing prefix 6.6.6.6/32 index 60 explicit-null"'
     )

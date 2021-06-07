@@ -186,10 +186,12 @@ struct ext_subtlv_lan_adj_sid {
 /* Default min and size of SR Global Block label range */
 #define DEFAULT_SRGB_LABEL        16000
 #define DEFAULT_SRGB_SIZE         8000
+#define DEFAULT_SRGB_END (DEFAULT_SRGB_LABEL + DEFAULT_SRGB_SIZE - 1)
 
 /* Default min and size of SR Local Block label range */
 #define DEFAULT_SRLB_LABEL        15000
 #define DEFAULT_SRLB_SIZE         1000
+#define DEFAULT_SRLB_END (DEFAULT_SRLB_LABEL + DEFAULT_SRLB_SIZE - 1)
 
 /* Structure aggregating SR Range Block info retrieved from an lsa */
 struct sr_block {
