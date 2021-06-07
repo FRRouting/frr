@@ -2347,7 +2347,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (BGP_PATH_HOLDDOWN(pi1))
 				continue;
 			if (pi1->peer != bgp->peer_self)
-				if (pi1->peer->status != Established)
+				if (!peer_established(pi1->peer))
 					continue;
 
 			new_select = pi1;
@@ -2432,7 +2432,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 		if (pi->peer && pi->peer != bgp->peer_self
 		    && !CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT))
-			if (pi->peer->status != Established) {
+			if (!peer_established(pi->peer)) {
 
 				if (debug)
 					zlog_debug(
@@ -2502,7 +2502,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (pi->peer && pi->peer != bgp->peer_self
 			    && !CHECK_FLAG(pi->peer->sflags,
 					   PEER_STATUS_NSF_WAIT))
-				if (pi->peer->status != Established)
+				if (!peer_established(pi->peer))
 					continue;
 
 			if (!bgp_path_info_nexthop_cmp(pi, new_select)) {
@@ -4524,7 +4524,7 @@ static int bgp_announce_route_timer_expired(struct thread *t)
 	paf = THREAD_ARG(t);
 	peer = paf->peer;
 
-	if (peer->status != Established)
+	if (!peer_established(peer))
 		return 0;
 
 	if (!peer->afc_nego[paf->afi][paf->safi])
@@ -4646,7 +4646,7 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 	struct bgp_dest *dest;
 	struct bgp_table *table;
 
-	if (peer->status != Established)
+	if (!peer_established(peer))
 		return;
 
 	if ((safi != SAFI_MPLS_VPN) && (safi != SAFI_ENCAP)
