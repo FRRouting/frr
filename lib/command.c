@@ -1496,7 +1496,7 @@ static void permute(struct graph_node *start, struct vty *vty)
 static void print_cmd(struct vty *vty, const char *cmd)
 {
 	int i, j, len = strlen(cmd);
-	char buf[len];
+	char buf[len + 1];
 	bool skip = false;
 
 	j = 0;
