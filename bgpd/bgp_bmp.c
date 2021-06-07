@@ -365,7 +365,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 #define BGP_BMP_MAX_PACKET_SIZE	1024
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
-	if (peer->status == Established && !down) {
+	if (peer_established(peer) && !down) {
 		struct bmp_bgp_peer *bbpeer;
 
 		bmp_common_hdr(s, BMP_VERSION_3,
@@ -1146,7 +1146,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 		zlog_info("bmp: skipping queued item for deleted peer");
 		goto out;
 	}
-	if (peer->status != Established)
+	if (!peer_established(peer))
 		goto out;
 
 	bn = bgp_node_lookup(bmp->targets->bgp->rib[afi][safi], &bqe->p);
@@ -1323,7 +1323,7 @@ static int bmp_stats(struct thread *thread)
 	for (ALL_LIST_ELEMENTS_RO(bt->bgp->peer, node, peer)) {
 		size_t count = 0, count_pos, len;
 
-		if (peer->status != Established)
+		if (!peer_established(peer))
 			continue;
 
 		s = stream_new(BGP_MAX_PACKET_SIZE);
