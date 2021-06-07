@@ -780,8 +780,6 @@ DEFUN_NOSH(vrf_exit,
 	   "exit-vrf",
 	   "Exit current mode and down to previous mode\n")
 {
-	/* We have to set vrf context to default vrf */
-	VTY_PUSH_CONTEXT(VRF_NODE, vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME));
 	cmd_exit(vty);
 	return CMD_SUCCESS;
 }
