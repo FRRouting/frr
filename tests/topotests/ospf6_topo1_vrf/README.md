@@ -54,10 +54,12 @@ Simplified `R1` config (R1 is similar)
 	hostname r1
 	!
 	interface r1-stubnet vrf r1-cust1
+	 ipv6 ospf6 area 0.0.0.0
 	 ipv6 address fc00:1:1:1::1/64
 	 ipv6 ospf6 network broadcast
 	!
 	interface r1-sw5 vrf r1-cust1
+	 ipv6 ospf6 area 0.0.0.0
 	 ipv6 address fc00:a:a:a::1/64
 	 ipv6 ospf6 network broadcast
 	!
@@ -65,8 +67,6 @@ Simplified `R1` config (R1 is similar)
 	 router-id 10.0.0.1
 	 log-adjacency-changes detail
 	 redistribute static
-	 interface r1-stubnet area 0.0.0.0
-	 interface r1-sw5 area 0.0.0.0
 	!
 	ipv6 route fc00:1111:1111:1111::/64 fc00:1:1:1::1234 vrf r1-cust1
 
@@ -75,14 +75,17 @@ Simplified `R3` config
 	hostname r3
 	!
 	interface r3-stubnet vrf r3-cust1
+	 ipv6 ospf6 area 0.0.0.0
 	 ipv6 address fc00:3:3:3::3/64
 	 ipv6 ospf6 network broadcast
 	!
 	interface r3-sw5 vrf r3-cust1
+	 ipv6 ospf6 area 0.0.0.0
 	 ipv6 address fc00:a:a:a::3/64
 	 ipv6 ospf6 network broadcast
 	!
 	interface r3-sw6 vrf r3-cust1
+	 ipv6 ospf6 area 0.0.0.1
 	 ipv6 address fc00:b:b:b::3/64
 	 ipv6 ospf6 network broadcast
 	!
@@ -90,9 +93,6 @@ Simplified `R3` config
 	 router-id 10.0.0.3
 	 log-adjacency-changes detail
 	 redistribute static
-	 interface r3-stubnet area 0.0.0.0
-	 interface r3-sw5 area 0.0.0.0
-	 interface r3-sw6 area 0.0.0.1
 	!
 	ipv6 route fc00:3333:3333:3333::/64 fc00:3:3:3::1234 vrf r3-cust1
 
