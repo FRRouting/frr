@@ -303,6 +303,21 @@ lookup_psid_lsa_by_instance(const struct ext_itf *exti, const uint32_t instance)
 	return NULL;
 }
 
+static struct prefix_sid_lsa *
+lookup_psid_lsa_by_prefix(const struct ext_itf *exti, const struct prefix *p)
+{
+	struct listnode *node;
+	struct prefix_sid_lsa *psid;
+
+	if (exti->type != OPAQUE_TYPE_EXTENDED_PREFIX_LSA)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(exti->lsa.prefix_sid_list, node, psid))
+		if (prefix_same(&psid->p, p))
+			return psid;
+
+	return NULL;
+}
 /* Lookup Extended Prefix/Links by LSA ID from OspfEXT struct iflist */
 static struct ext_itf *lookup_ext_by_instance(struct ospf_lsa *lsa)
 {
@@ -948,6 +963,7 @@ static int ospf_ext_link_del_if(struct interface *ifp)
 static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 {
 	struct ext_itf *exti;
+	struct prefix_sid_lsa *psid;
 
 	/* Get interface information for Segment Routing */
 	exti = lookup_ext_by_ifp(oi->ifp);
@@ -960,9 +976,29 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 
 	/* Reset Extended information if ospf interface goes Down */
 	if (oi->state == ISM_Down) {
-		ospf_extended_lsa_delete(exti);
-		exti->area = NULL;
-		exti->lsa.link_lsa.flags = EXT_LPFLG_LSA_INACTIVE;
+		/* is this an extended prefix or extended link? */
+		if (exti->type == OPAQUE_TYPE_EXTENDED_PREFIX_LSA) {
+			/* An ospf_interface going down is not the same as the
+			 * interface going down. Each connected route which is
+			 * advertised as part of the network for a zebra
+			 * interface will have an associated ospf_interface.
+			 * Find the prefix that we care about, instead of
+			 * deleting all prefix-SIDs for this ifp
+			 */
+			psid = lookup_psid_lsa_by_prefix(
+				exti, oi->connected->address);
+			if (psid) {
+				osr_debug(
+					"EXT (%s): Flushing extended prefix LSA for interface %s prefix %pFX",
+					__func__, IF_NAME(oi), &psid->p);
+				ospf_ext_pref_lsa_schedule(exti, psid,
+							   FLUSH_THIS_LSA);
+			}
+		} else {
+			/* extended link */
+			exti->area = NULL;
+			exti->lsa.link_lsa.flags = EXT_LPFLG_LSA_INACTIVE;
+		}
 		return;
 	}
 
