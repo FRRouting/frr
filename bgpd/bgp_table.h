@@ -31,6 +31,7 @@
 #include "linklist.h"
 #include "bgpd.h"
 #include "bgp_advertise.h"
+#include "bgpd/bgp_trace.h"
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -175,6 +176,7 @@ static inline struct bgp_dest *bgp_dest_parent_nolock(struct bgp_dest *dest)
  */
 static inline void bgp_dest_unlock_node(struct bgp_dest *dest)
 {
+	frrtrace(1, frr_bgp, bgp_dest_unlock, dest);
 	bgp_delete_listnode(dest);
 	route_unlock_node(bgp_dest_to_rnode(dest));
 }
@@ -248,6 +250,7 @@ bgp_node_lookup(const struct bgp_table *const table, const struct prefix *p)
  */
 static inline struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest)
 {
+	frrtrace(1, frr_bgp, bgp_dest_lock, dest);
 	struct route_node *rn = route_lock_node(bgp_dest_to_rnode(dest));
 
 	return bgp_dest_from_rnode(rn);
