@@ -1705,13 +1705,13 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);
-		if (peer->status == Established)
+		if (peer_established(peer))
 			bgp_announce_route_all(peer);
 	} else {
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			peer_lonesoul_or_not(peer, set);
-			if (peer->status == Established)
+			if (peer_established(peer))
 				bgp_announce_route_all(peer);
 		}
 	}
@@ -1901,7 +1901,7 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 	 * will trigger a write job on the I/O thread.
 	 */
 	SUBGRP_FOREACH_PEER (subgrp, paf)
-		if (paf->peer->status == Established)
+		if (peer_established(paf->peer))
 			thread_add_timer_msec(
 				bm->master, bgp_generate_updgrp_packets,
 				paf->peer, 0,
