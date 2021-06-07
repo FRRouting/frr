@@ -964,8 +964,9 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 
 		/* Complete SRDB if the interface belongs to a Prefix */
 		if (OspfEXT.enabled) {
-			osr_debug("EXT (%s): Set Prefix SID to interface %s ",
-				  __func__, oi->ifp->name);
+			osr_debug(
+				"EXT (%s): Check if we have a Prefix SID for interface %s address %pFX",
+				__func__, oi->ifp->name, oi->address);
 			ospf_sr_update_local_prefix(oi->ifp, oi->address);
 		}
 	} else {

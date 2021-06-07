@@ -1930,15 +1930,10 @@ void ospf_sr_update_local_prefix(struct interface *ifp, struct prefix *p)
 	 * interface or prefix, and update it if found
 	 */
 	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp)) {
-		if ((srp->nhlfe.ifindex == ifp->ifindex)
-		    || ((IPV4_ADDR_SAME(&srp->prefv4.prefix, &p->u.prefix4))
-			&& (srp->prefv4.prefixlen == p->prefixlen))) {
+		if (prefix_same(&srp->prefv4, p)) {
 
 			/* Update Interface & Prefix info */
 			srp->nhlfe.ifindex = ifp->ifindex;
-			IPV4_ADDR_COPY(&srp->prefv4.prefix, &p->u.prefix4);
-			srp->prefv4.prefixlen = p->prefixlen;
-			srp->prefv4.family = p->family;
 			IPV4_ADDR_COPY(&srp->nhlfe.nexthop, &p->u.prefix4);
 
 			/* OK. Let's Schedule Extended Prefix LSA */
@@ -1958,6 +1953,7 @@ void ospf_sr_update_local_prefix(struct interface *ifp, struct prefix *p)
 				srp->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 				ospf_zebra_update_prefix_sid(srp);
 			}
+			return;
 		}
 	}
 }
@@ -2590,7 +2586,7 @@ DEFUN (sr_prefix_sid,
 		/*
 		 * Interface could be not yet available i.e. when this
 		 * command is in the configuration file, OSPF is not yet
-		 * ready. In this case, store the prefix SID for latter
+		 * ready. In this case, store the prefix SID for later
 		 * update of this Extended Prefix
 		 */
 		if (srp_exist == NULL)
