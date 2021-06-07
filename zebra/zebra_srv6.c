@@ -181,13 +181,13 @@ assign_srv6_locator_chunk(uint8_t proto,
 
 		loc->status_up = false;
 		chunk = srv6_locator_chunk_alloc();
-		chunk->proto = 0;
+		chunk->proto = NO_PROTO;
 		listnode_add(loc->chunks, chunk);
 		zebra_srv6_locator_add(loc);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
-		if (chunk->proto != 0 && chunk->proto != proto)
+		if (chunk->proto != NO_PROTO && chunk->proto != proto)
 			continue;
 		chunk_found = true;
 		break;
@@ -199,6 +199,8 @@ assign_srv6_locator_chunk(uint8_t proto,
 	}
 
 	chunk->proto = proto;
+	chunk->instance = instance;
+	chunk->session_id = session_id;
 	return loc;
 }
 
