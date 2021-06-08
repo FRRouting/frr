@@ -882,7 +882,7 @@ static void adv_if_free(struct adv_if *adv_if)
 	XFREE(MTYPE_ADV_IF, adv_if);
 }
 
-static bool adv_if_is_empty_internal(struct adv_if_list_head *adv_if_head)
+static bool adv_if_is_empty_internal(const struct adv_if_list_head *adv_if_head)
 {
 	return adv_if_list_count(adv_if_head) ? false : true;
 }
@@ -1383,6 +1383,76 @@ void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
 void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
 {
 	zebra_interface_radv_set(client, hdr, msg, zvrf, 1);
+}
+
+static void show_zvrf_rtadv_adv_if_helper(struct vty *vty,
+					  struct adv_if_list_head *adv_if_head)
+{
+	struct adv_if *node = NULL;
+
+	if (!adv_if_is_empty_internal(adv_if_head)) {
+		frr_each (adv_if_list, adv_if_head, node) {
+			vty_out(vty, "    %s\n", node->name);
+		}
+	}
+
+	vty_out(vty, "\n");
+}
+
+static void show_zvrf_rtadv_helper(struct vty *vty, struct zebra_vrf *zvrf)
+{
+	vty_out(vty, "VRF: %s\n", zvrf_name(zvrf));
+	vty_out(vty, "  Interfaces:\n");
+	show_zvrf_rtadv_adv_if_helper(vty, &zvrf->rtadv.adv_if);
+
+	vty_out(vty, "  Interfaces(msec):\n");
+	show_zvrf_rtadv_adv_if_helper(vty, &zvrf->rtadv.adv_msec_if);
+}
+
+DEFPY(show_ipv6_nd_ra_if, show_ipv6_nd_ra_if_cmd,
+      "show ipv6 nd ra-interfaces [vrf<NAME$vrf_name|all$vrf_all>]",
+      SHOW_STR IP6_STR
+      "Neighbor discovery\n"
+      "Route Advertisement Interfaces\n" VRF_FULL_CMD_HELP_STR)
+{
+	struct zebra_vrf *zvrf = NULL;
+
+	if (!vrf_is_backend_netns() && (vrf_name || vrf_all)) {
+		vty_out(vty,
+			"%% VRF subcommand only applicable for netns-based vrfs.\n");
+		return CMD_WARNING;
+	}
+
+	if (vrf_all) {
+		struct vrf *vrf;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			struct zebra_vrf *zvrf;
+
+			zvrf = vrf->info;
+			if (!zvrf)
+				continue;
+
+			show_zvrf_rtadv_helper(vty, zvrf);
+		}
+
+		return CMD_SUCCESS;
+	}
+
+	if (vrf_name)
+		zvrf = zebra_vrf_lookup_by_name(vrf_name);
+	else
+		zvrf = zebra_vrf_lookup_by_name(VRF_DEFAULT_NAME);
+
+	if (!zvrf) {
+		vty_out(vty, "%% VRF '%s' specified does not exist\n",
+			vrf_name);
+		return CMD_WARNING;
+	}
+
+	show_zvrf_rtadv_helper(vty, zvrf);
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (ipv6_nd_ra_fast_retrans,
@@ -2736,6 +2806,8 @@ void rtadv_cmd_init(void)
 {
 	hook_register(zebra_if_extra_info, nd_dump_vty);
 	hook_register(zebra_if_config_wr, rtadv_config_write);
+
+	install_element(VIEW_NODE, &show_ipv6_nd_ra_if_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_fast_retrans_cmd);
