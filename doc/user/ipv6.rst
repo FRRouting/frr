@@ -17,6 +17,11 @@ no longer possible.
 Router Advertisement
 ====================
 
+.. clicmd:: show ipv6 nd ra-interfaces [vrf <VRFNAME|all>]
+
+   Show configured route advertisement interfaces. VRF subcommand only
+   applicable for netns-based vrfs.
+
 .. clicmd:: ipv6 nd suppress-ra
 
    Don't send router advertisement messages. The ``no`` form of this command
