@@ -2627,6 +2627,53 @@ DEFUN (sr_prefix_sid,
 	return CMD_SUCCESS;
 }
 
+struct sr_prefix* ospf_sr_lookup_prefix(struct prefix *p)
+{
+	struct listnode *node;
+	struct sr_prefix *srp;
+
+	if (!p)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp))
+		if (prefix_same(&srp->prefv4, p))
+			return srp;
+
+	return NULL;
+}
+
+int ospf_sr_remove_prefix(struct sr_prefix *srp)
+{
+	struct interface *ifp;
+
+	if (!srp) {
+		assert(0);
+		return -1;
+	}
+
+	/* Get Interface */
+	ifp = if_lookup_by_index(srp->nhlfe.ifindex, VRF_DEFAULT);
+	if (ifp == NULL) {
+		osr_debug("SR (%s): could not find interface with ifindex %u from SRP",
+				__func__, srp->nhlfe.ifindex);
+		return -1;
+	}
+
+	/* Flush LSA */
+	ospf_ext_schedule_prefix_index(ifp, 0, &srp->prefv4, 0, false);
+
+	/* Delete NHLFE if NO-PHP is set and EXPLICIT NULL not set */
+	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
+	    && !CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
+		ospf_zebra_delete_prefix_sid(srp);
+
+	/* OK, all is clean, remove SRP from SRDB */
+	listnode_delete(OspfSR.self->ext_prefix, srp);
+	XFREE(MTYPE_OSPF_SR_PARAMS, srp);
+
+	return 0;
+}
+
 DEFUN (no_sr_prefix_sid,
        no_sr_prefix_sid_cmd,
        "no segment-routing prefix A.B.C.D/M [index (0-65535)|no-php-flag|explicit-null]",
@@ -2641,10 +2688,7 @@ DEFUN (no_sr_prefix_sid,
 {
 	int idx = 0;
 	struct prefix p;
-	struct listnode *node;
 	struct sr_prefix *srp;
-	struct interface *ifp;
-	bool found = false;
 	int rc;
 
 	if (!ospf_sr_enabled(vty))
@@ -2661,43 +2705,18 @@ DEFUN (no_sr_prefix_sid,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* check that the prefix is already set */
-	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp))
-		if (IPV4_ADDR_SAME(&srp->prefv4.prefix, &p.u.prefix4)
-		    && (srp->prefv4.prefixlen == p.prefixlen)) {
-			found = true;
-			break;
-		}
-
-	if (!found) {
+	srp = ospf_sr_lookup_prefix(&p);
+	if (!srp) {
 		vty_out(vty, "Prefix %s is not found. Abort!\n",
 			argv[idx]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* Get Interface */
-	ifp = if_lookup_by_index(srp->nhlfe.ifindex, VRF_DEFAULT);
-	if (ifp == NULL) {
-		vty_out(vty, "interface for prefix %s not found.\n",
-			argv[idx]->arg);
+	rc = ospf_sr_remove_prefix(srp);
+	if (rc < 0) {
+		vty_out(vty, "Could not find interface corresponding to the prefix\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-
-	/* Update Extended Prefix LSA */
-	if (!ospf_ext_schedule_prefix_index(ifp, 0, (struct prefix_ipv4 *)&p, 0,
-					    false)) {
-		vty_out(vty, "No corresponding loopback interface. Abort!\n");
-		return CMD_WARNING;
-	}
-
-	/* Delete NHLFE if NO-PHP is set and EXPLICIT NULL not set */
-	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
-	    && !CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
-		ospf_zebra_delete_prefix_sid(srp);
-
-	/* OK, all is clean, remove SRP from SRDB */
-	listnode_delete(OspfSR.self->ext_prefix, srp);
-	XFREE(MTYPE_OSPF_SR_PARAMS, srp);
 
 	return CMD_SUCCESS;
 }

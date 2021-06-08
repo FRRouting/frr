@@ -361,6 +361,9 @@ extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa);
 struct ext_itf;
 extern void ospf_sr_ext_itf_add(struct ext_itf *exti);
 extern void ospf_sr_ext_itf_delete(struct ext_itf *exti);
+/* Segment Routing Prefix-SID management */
+struct sr_prefix* ospf_sr_lookup_prefix(struct prefix *p);
+int ospf_sr_remove_prefix(struct sr_prefix *srp);
 /* Segment Routing configuration functions */
 extern void ospf_sr_config_write_router(struct vty *vty);
 extern void ospf_sr_update_local_prefix(struct interface *ifp,

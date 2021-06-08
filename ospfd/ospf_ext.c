@@ -303,6 +303,7 @@ lookup_psid_lsa_by_instance(const struct ext_itf *exti, const uint32_t instance)
 	return NULL;
 }
 
+__attribute__((unused))
 static struct prefix_sid_lsa *
 lookup_psid_lsa_by_prefix(const struct ext_itf *exti, const struct prefix *p)
 {
@@ -963,7 +964,7 @@ static int ospf_ext_link_del_if(struct interface *ifp)
 static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 {
 	struct ext_itf *exti;
-	struct prefix_sid_lsa *psid;
+	struct sr_prefix *srp;
 
 	/* Get interface information for Segment Routing */
 	exti = lookup_ext_by_ifp(oi->ifp);
@@ -985,14 +986,12 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 			 * Find the prefix that we care about, instead of
 			 * deleting all prefix-SIDs for this ifp
 			 */
-			psid = lookup_psid_lsa_by_prefix(
-				exti, oi->connected->address);
-			if (psid) {
+			srp = ospf_sr_lookup_prefix(oi->connected->address);
+			if (srp) {
 				osr_debug(
-					"EXT (%s): Flushing extended prefix LSA for interface %s prefix %pFX",
-					__func__, IF_NAME(oi), &psid->p);
-				ospf_ext_pref_lsa_schedule(exti, psid,
-							   FLUSH_THIS_LSA);
+					"EXT (%s): Removing prefix-SID for interface %s prefix %pFX",
+					__func__, IF_NAME(oi), &srp->prefv4);
+				ospf_sr_remove_prefix(srp);
 			}
 		} else {
 			/* extended link */
