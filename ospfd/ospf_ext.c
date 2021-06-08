@@ -1191,6 +1191,7 @@ static int ospf_ext_link_lsa_update(struct ospf_lsa *lsa)
 /* Callbacks to handle Extended Prefix Segment Routing LSA information */
 static int ospf_ext_pref_lsa_update(struct ospf_lsa *lsa)
 {
+	uint8_t type;
 
 	/* Sanity Check */
 	if (lsa == NULL) {
@@ -1201,21 +1202,34 @@ static int ospf_ext_pref_lsa_update(struct ospf_lsa *lsa)
 
 	/* Process only Opaque LSA */
 	if ((lsa->data->type != OSPF_OPAQUE_AREA_LSA)
-	    && (lsa->data->type != OSPF_OPAQUE_AS_LSA))
+	    && (lsa->data->type != OSPF_OPAQUE_AS_LSA)) {
+		osr_debug(
+			"EXT (%s): LSA type (%u) not of type OPAQUE_AREA or OPAQUE_AS, ignoring",
+			__func__, lsa->data->type);
 		return 0;
+	}
 
 	/* Process only Extended Prefix LSA */
-	if (GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr))
-	    != OPAQUE_TYPE_EXTENDED_PREFIX_LSA)
+	type = GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr));
+	if (type != OPAQUE_TYPE_EXTENDED_PREFIX_LSA) {
+		osr_debug(
+			"EXT (%s): LSA Opaque type (%u) not of type EXTENDED_PREFIX_LSA (%u), ignoring",
+			__func__, type, OPAQUE_TYPE_EXTENDED_PREFIX_LSA);
+
 		return 0;
+	}
 
 	/* Check if it is not my LSA */
-	if (IS_LSA_SELF(lsa))
+	if (IS_LSA_SELF(lsa)) {
+		osr_debug("EXT (%s): IS_LSA_SELF is true, ignoring", __func__);
 		return 0;
+	}
 
 	/* Check if Extended is enable */
-	if (!OspfEXT.enabled)
+	if (!OspfEXT.enabled) {
+		osr_debug("EXT (%s): OspfEXT is disabled, ignoring", __func__);
 		return 0;
+	}
 
 	/* Call Segment Routing LSA update or deletion */
 	if (!IS_LSA_MAXAGE(lsa))
