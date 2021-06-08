@@ -490,7 +490,7 @@ def redistribute_ospf(tgen, topo, dut, route_type, **kwargs):
 # Verification procs
 ################################
 @retry(attempts=40, wait=2, return_is_str=True)
-def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
+def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False, expected=True):
     """
     This API is to verify ospf neighborship by running
     show ip ospf neighbour command,
@@ -502,6 +502,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
     * `dut`: device under test
     * `input_dict` : Input dict data, required when configuring from testcase
     * `lan` : verify neighbors in lan topology
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -684,7 +685,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
 # Verification procs
 ################################
 @retry(attempts=40, wait=2, return_is_str=True)
-def verify_ospf6_neighbor(tgen, topo):
+def verify_ospf6_neighbor(tgen, topo, expected=True):
     """
     This API is to verify ospf neighborship by running
     show ip ospf neighbour command,
@@ -693,6 +694,7 @@ def verify_ospf6_neighbor(tgen, topo):
     ----------
     * `tgen` : Topogen object
     * `topo` : json file data
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -746,7 +748,7 @@ def verify_ospf6_neighbor(tgen, topo):
 
 @retry(attempts=21, wait=2, return_is_str=True)
 def verify_ospf_rib(
-    tgen, dut, input_dict, next_hop=None, tag=None, metric=None, fib=None
+    tgen, dut, input_dict, next_hop=None, tag=None, metric=None, fib=None, expected=True
 ):
     """
     This API is to verify ospf routes by running
@@ -761,6 +763,7 @@ def verify_ospf_rib(
     * `tag` : tag to be verified
     * `metric` : metric to be verified
     * `fib` : True if the route is installed in FIB.
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -1021,7 +1024,7 @@ def verify_ospf_rib(
 
 
 @retry(attempts=10, wait=2, return_is_str=True)
-def verify_ospf_interface(tgen, topo, dut=None, lan=False, input_dict=None):
+def verify_ospf_interface(tgen, topo, dut=None, lan=False, input_dict=None, expected=True):
     """
     This API is to verify ospf routes by running
     show ip ospf interface command.
@@ -1033,6 +1036,7 @@ def verify_ospf_interface(tgen, topo, dut=None, lan=False, input_dict=None):
     * `dut`: device under test
     * `lan`: if set to true this interface belongs to LAN.
     * `input_dict` : Input dict data, required when configuring from testcase
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -1110,7 +1114,7 @@ def verify_ospf_interface(tgen, topo, dut=None, lan=False, input_dict=None):
 
 
 @retry(attempts=11, wait=2, return_is_str=True)
-def verify_ospf_database(tgen, topo, dut, input_dict):
+def verify_ospf_database(tgen, topo, dut, input_dict, expected=True):
     """
     This API is to verify ospf lsa's by running
     show ip ospf database command.
@@ -1121,6 +1125,7 @@ def verify_ospf_database(tgen, topo, dut, input_dict):
     * `dut`: device under test
     * `input_dict` : Input dict data, required when configuring from testcase
     * `topo` : next to be verified
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -1273,7 +1278,7 @@ def verify_ospf_database(tgen, topo, dut, input_dict):
 
 
 @retry(attempts=10, wait=2, return_is_str=True)
-def verify_ospf_summary(tgen, topo, dut, input_dict):
+def verify_ospf_summary(tgen, topo, dut, input_dict, expected=True):
     """
     This API is to verify ospf routes by running
     show ip ospf interface command.
@@ -1284,6 +1289,7 @@ def verify_ospf_summary(tgen, topo, dut, input_dict):
     * `topo` : topology descriptions
     * `dut`: device under test
     * `input_dict` : Input dict data, required when configuring from testcase
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
