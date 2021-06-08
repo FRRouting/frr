@@ -953,7 +953,7 @@ static struct adv_if *adv_if_add(struct zebra_vrf *zvrf, const char *name)
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		struct vrf *vrf = zvrf->vrf;
 
-		zlog_debug("%s: %s:%u IF %s count: %lu", __func__,
+		zlog_debug("%s: %s:%u IF %s count: %zu", __func__,
 			   VRF_LOGNAME(vrf), zvrf_id(zvrf), name,
 			   adv_if_list_count(&zvrf->rtadv.adv_if));
 	}
@@ -977,7 +977,7 @@ static struct adv_if *adv_if_del(struct zebra_vrf *zvrf, const char *name)
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		struct vrf *vrf = zvrf->vrf;
 
-		zlog_debug("%s: %s:%u IF %s count: %lu", __func__,
+		zlog_debug("%s: %s:%u IF %s count: %zu", __func__,
 			   VRF_LOGNAME(vrf), zvrf_id(zvrf), name,
 			   adv_if_list_count(&zvrf->rtadv.adv_if));
 	}
@@ -1001,7 +1001,7 @@ static struct adv_if *adv_msec_if_add(struct zebra_vrf *zvrf, const char *name)
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		struct vrf *vrf = zvrf->vrf;
 
-		zlog_debug("%s: %s:%u IF %s count: %lu", __func__,
+		zlog_debug("%s: %s:%u IF %s count: %zu", __func__,
 			   VRF_LOGNAME(vrf), zvrf_id(zvrf), name,
 			   adv_if_list_count(&zvrf->rtadv.adv_msec_if));
 	}
@@ -1025,7 +1025,7 @@ static struct adv_if *adv_msec_if_del(struct zebra_vrf *zvrf, const char *name)
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		struct vrf *vrf = zvrf->vrf;
 
-		zlog_debug("%s: %s:%u IF %s count: %lu", __func__,
+		zlog_debug("%s: %s:%u IF %s count: %zu", __func__,
 			   VRF_LOGNAME(vrf), zvrf_id(zvrf), name,
 			   adv_if_list_count(&zvrf->rtadv.adv_msec_if));
 	}
@@ -1039,7 +1039,7 @@ static void adv_if_clean(struct zebra_vrf *zvrf)
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		struct vrf *vrf = zvrf->vrf;
 
-		zlog_debug("%s: %s:%u count: %lu -> 0", __func__,
+		zlog_debug("%s: %s:%u count: %zu -> 0", __func__,
 			   VRF_LOGNAME(vrf), zvrf_id(zvrf),
 			   adv_if_list_count(&zvrf->rtadv.adv_if));
 	}
@@ -1053,7 +1053,7 @@ static void adv_msec_if_clean(struct zebra_vrf *zvrf)
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		struct vrf *vrf = zvrf->vrf;
 
-		zlog_debug("%s: %s:%u count: %lu -> 0", __func__,
+		zlog_debug("%s: %s:%u count: %zu -> 0", __func__,
 			   VRF_LOGNAME(vrf), zvrf_id(zvrf),
 			   adv_if_list_count(&zvrf->rtadv.adv_msec_if));
 	}
