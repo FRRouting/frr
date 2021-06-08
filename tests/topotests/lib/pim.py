@@ -496,7 +496,7 @@ def configure_pim_force_expire(tgen, topo, input_dict, build=False):
 # Verification APIs
 #############################################
 @retry(attempts=6, wait=2, return_is_str=True)
-def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None):
+def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None, expected=True):
     """
     Verify all PIM neighbors are up and running, config is verified
     using "show ip pim neighbor" cli
@@ -508,6 +508,7 @@ def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None):
     * `dut` : dut info
     * `iface` : link for which PIM nbr need to check
     * `nbr_ip` : neighbor ip of interface
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -619,7 +620,7 @@ def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None):
 
 
 @retry(attempts=21, wait=2, return_is_str=True)
-def verify_igmp_groups(tgen, dut, interface, group_addresses):
+def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     """
     Verify IGMP groups are received from an intended interface
     by running "show ip igmp groups" command
@@ -630,6 +631,7 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses):
     * `dut`: device under test
     * `interface`: interface, from which IGMP groups would be received
     * `group_addresses`: IGMP group address
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -693,7 +695,7 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses):
 
 @retry(attempts=31, wait=2, return_is_str=True)
 def verify_upstream_iif(
-    tgen, dut, iif, src_address, group_addresses, joinState=None, refCount=1
+    tgen, dut, iif, src_address, group_addresses, joinState=None, refCount=1, expected=True
 ):
     """
     Verify upstream inbound interface  is updated correctly
@@ -708,6 +710,7 @@ def verify_upstream_iif(
     * `group_addresses`: IGMP group address
     * `joinState`: upstream join state
     * `refCount`: refCount value
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -845,7 +848,7 @@ def verify_upstream_iif(
 
 
 @retry(attempts=6, wait=2, return_is_str=True)
-def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses):
+def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, expected=True):
     """
     Verify  join state is updated correctly and join timer is
     running with the help of "show ip pim upstream" cli
@@ -857,6 +860,7 @@ def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses):
     * `iif`: inbound interface
     * `src_address`: source address
     * `group_addresses`: IGMP group address
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -964,7 +968,7 @@ def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses):
 
 @retry(attempts=41, wait=2, return_is_dict=True)
 def verify_ip_mroutes(
-    tgen, dut, src_address, group_addresses, iif, oil, return_uptime=False, mwait=0
+    tgen, dut, src_address, group_addresses, iif, oil, return_uptime=False, mwait=0, expected=True
 ):
     """
     Verify ip mroutes and make sure (*, G)/(S, G) is present in mroutes
@@ -980,7 +984,7 @@ def verify_ip_mroutes(
     * `oil`: Outgoing interface
     * `return_uptime`: If True, return uptime dict, default is False
     * `mwait`: Wait time, default is 0
-
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -1161,7 +1165,7 @@ def verify_ip_mroutes(
 
 @retry(attempts=31, wait=2, return_is_str=True)
 def verify_pim_rp_info(
-    tgen, topo, dut, group_addresses, oif=None, rp=None, source=None, iamrp=None
+    tgen, topo, dut, group_addresses, oif=None, rp=None, source=None, iamrp=None, expected=True
 ):
     """
     Verify pim rp info by running "show ip pim rp-info" cli
@@ -1176,6 +1180,7 @@ def verify_pim_rp_info(
     * `rp`: RP address
     * `source`: Source of RP
     * `iamrp`: User defined RP
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -1317,7 +1322,7 @@ def verify_pim_rp_info(
 
 @retry(attempts=31, wait=2, return_is_str=True)
 def verify_pim_state(
-    tgen, dut, iif, oil, group_addresses, src_address=None, installed_fl=None
+    tgen, dut, iif, oil, group_addresses, src_address=None, installed_fl=None, expected=True
 ):
     """
     Verify pim state by running "show ip pim state" cli
@@ -1331,6 +1336,7 @@ def verify_pim_state(
     * `group_addresses`: IGMP group address
     * `src_address`: source address, default = None
     * installed_fl` : Installed flag
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -1485,7 +1491,7 @@ def verify_pim_interface_traffic(tgen, input_dict):
 
 
 @retry(attempts=21, wait=2, return_is_str=True)
-def verify_pim_interface(tgen, topo, dut, interface=None, interface_ip=None):
+def verify_pim_interface(tgen, topo, dut, interface=None, interface_ip=None, expected=True):
     """
     Verify all PIM interface are up and running, config is verified
     using "show ip pim interface" cli
@@ -1497,6 +1503,7 @@ def verify_pim_interface(tgen, topo, dut, interface=None, interface_ip=None):
     * `dut` : device under test
     * `interface` : interface name
     * `interface_ip` : interface ip address
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -1791,7 +1798,7 @@ def clear_ip_igmp_interfaces(tgen, dut):
 
 
 @retry(attempts=10, wait=2, return_is_str=True)
-def clear_ip_mroute_verify(tgen, dut):
+def clear_ip_mroute_verify(tgen, dut, expected=True):
     """
     Clear ip mroute by running "clear ip mroute" cli and verify
     mroutes are up again after mroute clear
@@ -1800,6 +1807,8 @@ def clear_ip_mroute_verify(tgen, dut):
     ----------
     * `tgen`: topogen object
     * `dut`: Device Under Test
+    * `expected` : expected results from API, by-default True
+
     Usage
     -----
 
@@ -2165,7 +2174,7 @@ def find_rp_from_bsrp_info(tgen, dut, bsr, grp=None):
 
 
 @retry(attempts=6, wait=2, return_is_str=True)
-def verify_pim_grp_rp_source(tgen, topo, dut, grp_addr, rp_source, rpadd=None):
+def verify_pim_grp_rp_source(tgen, topo, dut, grp_addr, rp_source, rpadd=None, expected=True):
     """
     Verify pim rp info by running "show ip pim rp-info" cli
 
@@ -2177,6 +2186,7 @@ def verify_pim_grp_rp_source(tgen, topo, dut, grp_addr, rp_source, rpadd=None):
     * `grp_addr`: IGMP group address
     * 'rp_source': source from which rp installed
     * 'rpadd': rp address
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -2267,7 +2277,7 @@ def verify_pim_grp_rp_source(tgen, topo, dut, grp_addr, rp_source, rpadd=None):
 
 
 @retry(attempts=31, wait=2, return_is_str=True)
-def verify_pim_bsr(tgen, topo, dut, bsr_ip):
+def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
     """
     Verify all PIM interface are up and running, config is verified
     using "show ip pim interface" cli
@@ -2278,6 +2288,7 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip):
     * `topo` : json file data
     * `dut` : device under test
     * 'bsr' : bsr ip to be verified
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -2322,7 +2333,7 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip):
 
 
 @retry(attempts=31, wait=2, return_is_str=True)
-def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=None):
+def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=None, expected=True):
     """
     Verify IP PIM upstream rpf, config is verified
     using "show ip pim neighbor" cli
@@ -2336,6 +2347,7 @@ def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=N
     * `group_addresses` : list of group address for which upstream info
                           needs to be checked
     * `rp` : RP address
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -2519,7 +2531,7 @@ def enable_disable_pim_bsm(tgen, router, intf, enable=True):
 
 
 @retry(attempts=31, wait=2, return_is_str=True)
-def verify_ip_pim_join(tgen, topo, dut, interface, group_addresses, src_address=None):
+def verify_ip_pim_join(tgen, topo, dut, interface, group_addresses, src_address=None, expected=True):
     """
     Verify ip pim join by running "show ip pim join" cli
 
@@ -2531,6 +2543,7 @@ def verify_ip_pim_join(tgen, topo, dut, interface, group_addresses, src_address=
     * `interface`: interface name, from which PIM join would come
     * `group_addresses`: IGMP group address
     * `src_address`: Source address
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -2609,7 +2622,7 @@ def verify_ip_pim_join(tgen, topo, dut, interface, group_addresses, src_address=
 
 
 @retry(attempts=31, wait=2, return_is_dict=True)
-def verify_igmp_config(tgen, input_dict, stats_return=False):
+def verify_igmp_config(tgen, input_dict, stats_return=False, expected=True):
     """
     Verify igmp interface details, verifying following configs:
     timerQueryInterval
@@ -2623,6 +2636,7 @@ def verify_igmp_config(tgen, input_dict, stats_return=False):
     * `input_dict` : Input dict data, required to verify
                      timer
     * `stats_return`: If user wants API to return statistics
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -2898,7 +2912,7 @@ def verify_igmp_config(tgen, input_dict, stats_return=False):
 
 
 @retry(attempts=31, wait=2, return_is_str=True)
-def verify_pim_config(tgen, input_dict):
+def verify_pim_config(tgen, input_dict, expected=True):
     """
     Verify pim interface details, verifying following configs:
     drPriority
@@ -2912,6 +2926,7 @@ def verify_pim_config(tgen, input_dict):
     * `tgen`: topogen object
     * `input_dict` : Input dict data, required to verify
                      timer
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -3023,7 +3038,7 @@ def verify_pim_config(tgen, input_dict):
 
 
 @retry(attempts=21, wait=2, return_is_dict=True)
-def verify_multicast_traffic(tgen, input_dict, return_traffic=False):
+def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=True):
     """
     Verify multicast traffic by running
     "show multicast traffic count json" cli
@@ -3034,6 +3049,8 @@ def verify_multicast_traffic(tgen, input_dict, return_traffic=False):
     * `input_dict(dict)`: defines DUT, what and for which interfaces
                           traffic needs to be verified
     * `return_traffic`: returns traffic stats
+    * `expected` : expected results from API, by-default True
+
     Usage
     -----
     input_dict = {
@@ -3264,7 +3281,7 @@ def get_refCount_for_mroute(tgen, dut, iif, src_address, group_addresses):
 
 
 @retry(attempts=21, wait=2, return_is_str=True)
-def verify_multicast_flag_state(tgen, dut, src_address, group_addresses, flag):
+def verify_multicast_flag_state(tgen, dut, src_address, group_addresses, flag, expected=True):
     """
     Verify flag state for mroutes and make sure (*, G)/(S, G) are having
     coorect flags by running "show ip mroute" cli
@@ -3276,6 +3293,7 @@ def verify_multicast_flag_state(tgen, dut, src_address, group_addresses, flag):
     * `src_address`: source address
     * `group_addresses`: IGMP group address
     * `flag`: flag state, needs to be verified
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -3358,7 +3376,7 @@ def verify_multicast_flag_state(tgen, dut, src_address, group_addresses, flag):
 
 
 @retry(attempts=21, wait=2, return_is_str=True)
-def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip):
+def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip, expected=True):
     """
     Verify all IGMP interface are up and running, config is verified
     using "show ip igmp interface" cli
@@ -3370,6 +3388,7 @@ def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip):
     * `dut` : device under test
     * `igmp_iface` : interface name
     * `interface_ip` : interface ip address
+    * `expected` : expected results from API, by-default True
 
     Usage
     -----
