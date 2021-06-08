@@ -23,10 +23,13 @@
 #ifndef _STATIC_DEBUG_H
 #define _STATIC_DEBUG_H
 
-
 #include <zebra.h>
 
 #include "lib/debug.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* staticd debugging records */
 extern struct debug static_dbg_events;
@@ -70,5 +73,8 @@ int static_debug_status_write(struct vty *vty);
  */
 void static_debug_set(int vtynode, bool onoff, bool events, bool route);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _STATIC_DEBUG_H */
