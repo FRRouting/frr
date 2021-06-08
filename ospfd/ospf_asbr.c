@@ -508,7 +508,6 @@ static void ospf_external_aggr_delete(struct ospf *ospf, struct route_node *rn)
 
 	rn->info = NULL;
 	route_unlock_node(rn);
-	route_unlock_node(rn);
 }
 
 struct ospf_external_aggr_rt *
@@ -1160,6 +1159,7 @@ int ospf_asbr_external_aggregator_unset(struct ospf *ospf,
 	rn = route_node_lookup(ospf->rt_aggr_tbl, (struct prefix *)p);
 	if (!rn)
 		return OSPF_INVALID;
+	route_unlock_node(rn);
 
 	aggr = rn->info;
 
@@ -1217,6 +1217,7 @@ int ospf_asbr_external_rt_advertise(struct ospf *ospf, struct prefix_ipv4 *p)
 	rn = route_node_lookup(ospf->rt_aggr_tbl, (struct prefix *)p);
 	if (!rn)
 		return OSPF_INVALID;
+	route_unlock_node(rn);
 
 	aggr = rn->info;
 
