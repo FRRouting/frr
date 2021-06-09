@@ -1072,7 +1072,7 @@ int pim_msdp_mesh_group_source_modify(struct nb_cb_modify_args *args)
 		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
 		yang_dnode_get_ip(&ip, args->dnode, NULL);
 
-		pim_msdp_mg_change_source(vrf->info, mg, &ip.ip._v4_addr);
+		pim_msdp_mg_src_add(vrf->info, mg, &ip.ip._v4_addr);
 		break;
 	}
 	return NB_OK;
@@ -1097,7 +1097,7 @@ int pim_msdp_mesh_group_source_destroy(struct nb_cb_destroy_args *args)
 		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
 
 		addr.s_addr = INADDR_ANY;
-		pim_msdp_mg_change_source(vrf->info, mg, &addr);
+		pim_msdp_mg_src_add(vrf->info, mg, &addr);
 		break;
 	}
 	return NB_OK;
@@ -1128,7 +1128,7 @@ int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args)
 		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
 		yang_dnode_get_ip(&ip, args->dnode, "address");
 
-		mbr = pim_msdp_mg_add_peer(vrf->info, mg, &ip.ip._v4_addr);
+		mbr = pim_msdp_mg_mbr_add(vrf->info, mg, &ip.ip._v4_addr);
 		nb_running_set_entry(args->dnode, mbr);
 		break;
 	}
@@ -1150,7 +1150,7 @@ int pim_msdp_mesh_group_members_destroy(struct nb_cb_destroy_args *args)
 		mbr = nb_running_get_entry(args->dnode, NULL, true);
 		mg = nb_running_get_entry(args->dnode, "../", true);
 
-		pim_msdp_mg_mbr_do_del(mg, mbr);
+		pim_msdp_mg_mbr_del(mg, mbr);
 		break;
 	}
 
