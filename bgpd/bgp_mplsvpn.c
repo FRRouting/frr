@@ -34,6 +34,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_aspath.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -2059,6 +2060,9 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	struct bgp *src_vrf;
 	struct interface *ifp;
 	char rd_buf[RD_ADDRSTRLEN];
+	struct aspath *new_aspath;
+	struct bgp_path_info *bpi;
+
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
@@ -2112,6 +2116,32 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 			zlog_debug(
 				"%s: skipping import, match RD (%s) of src VRF (%s) and the prefix (%pFX)",
 				__func__, rd_buf, to_bgp->name_pretty, p);
+		return;
+	}
+
+	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
+
+	/* Check if leaked route has our asn. If so, don't import it. */
+	if (aspath_loop_check(path_vpn->attr->aspath, to_bgp->as)) {
+		for (bpi = bgp_dest_get_bgp_path_info(bn); bpi;
+		     bpi = bpi->next) {
+			if (bpi->extra && bpi->extra->vrfleak &&
+			    (struct bgp_path_info *)bpi->extra->vrfleak->parent ==
+				    path_vpn) {
+				break;
+			}
+		}
+
+		if (bpi) {
+			if (debug)
+				zlog_debug("%s: blocking import of %p, as-path match",
+					   __func__, bpi);
+			bgp_aggregate_decrement(to_bgp, p, bpi, afi, safi);
+			bgp_path_info_delete(bn, bpi);
+			bgp_process(to_bgp, bn, afi, safi);
+		}
+		bgp_dest_unlock_node(bn);
+
 		return;
 	}
 
@@ -2233,10 +2263,22 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 			nexthop_self_flag = 0;
 	}
 
+	/*
+	 * if the asn values are different, copy the asn of the source vrf
+	 * into the entry before importing. This helps with as-path loop
+	 * detection
+	 */
+	if (path_vpn->extra && path_vpn->extra->vrfleak &&
+	    (to_bgp->as != path_vpn->extra->vrfleak->bgp_orig->as)) {
+		new_aspath = aspath_dup(static_attr.aspath);
+		new_aspath =
+			aspath_add_seq(new_aspath,
+				       path_vpn->extra->vrfleak->bgp_orig->as);
+		static_attr.aspath = new_aspath;
+	}
+
 	new_attr = bgp_attr_intern(&static_attr);
 	bgp_attr_flush(&static_attr);
-
-	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
 
 	/*
 	 * ensure labels are copied
