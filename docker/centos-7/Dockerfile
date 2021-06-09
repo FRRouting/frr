@@ -39,5 +39,19 @@ COPY --from=centos-7-builder /rpmbuild/RPMS/ /pkgs/rpm/
 
 RUN yum install -y /pkgs/rpm/*/*.rpm \
     && rm -rf /pkgs
+
+# Own the config / PID files
+RUN mkdir -p /var/run/frr
+RUN chown -R frr:frr /etc/frr /var/run/frr
+
+# Add tini because no CentOS7 package
+ENV TINI_VERSION v0.19.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /sbin/tini
+RUN chmod +x /sbin/tini
+
+# Simple init manager for reaping processes and forwarding signals
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Default CMD starts watchfrr
 COPY docker/centos-7/docker-start /usr/lib/frr/docker-start
-CMD [ "/usr/lib/frr/docker-start" ]
+CMD ["/usr/lib/frr/docker-start"]
