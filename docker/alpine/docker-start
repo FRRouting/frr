@@ -1,12 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 
-set -e
-
-##
-# For volume mounts...
-##
-chown -R frr:frr /etc/frr || true
-/usr/lib/frr/frrinit.sh start
-
-# Sleep forever
-exec tail -f /dev/null
+source /usr/lib/frr/frrcommon.sh
+/usr/lib/frr/watchfrr $(daemon_list)
