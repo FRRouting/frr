@@ -272,21 +272,20 @@ void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg **mgp);
  * - Recreate peers data structure
  * - Start TCP connections with new local address.
  */
-void pim_msdp_mg_change_source(struct pim_instance *pim, struct pim_msdp_mg *mg,
-			       struct in_addr *ai);
+void pim_msdp_mg_src_add(struct pim_instance *pim, struct pim_msdp_mg *mg,
+			 struct in_addr *ai);
 
 /**
  * Add new peer to mesh group and starts the connection if source address is
  * configured.
  */
-struct pim_msdp_mg_mbr *pim_msdp_mg_add_peer(struct pim_instance *pim,
-					     struct pim_msdp_mg *mg,
-					     struct in_addr *ia);
+struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
+					    struct pim_msdp_mg *mg,
+					    struct in_addr *ia);
 
 /**
  * Stops the connection and removes the peer data structures.
  */
-void pim_msdp_mg_mbr_do_del(struct pim_msdp_mg *mg,
-			    struct pim_msdp_mg_mbr *mbr);
+void pim_msdp_mg_mbr_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr);
 
 #endif

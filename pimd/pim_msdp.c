@@ -1260,7 +1260,7 @@ void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg **mgp)
 
 	/* SIP is being removed - tear down all active peer sessions */
 	for (ALL_LIST_ELEMENTS((*mgp)->mbr_list, n, nn, mbr))
-		pim_msdp_mg_mbr_do_del((*mgp), mbr);
+		pim_msdp_mg_mbr_del((*mgp), mbr);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP mesh-group %s deleted",
@@ -1315,7 +1315,7 @@ static void pim_msdp_mg_mbr_free(struct pim_msdp_mg_mbr *mbr)
 	XFREE(MTYPE_PIM_MSDP_MG_MBR, mbr);
 }
 
-void pim_msdp_mg_mbr_do_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr)
+void pim_msdp_mg_mbr_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr)
 {
 	/* Delete active peer session if any */
 	if (mbr->mp) {
@@ -1335,7 +1335,7 @@ void pim_msdp_mg_mbr_do_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr)
 	}
 }
 
-static void pim_msdp_mg_src_do_del(struct pim_msdp_mg *mg)
+static void pim_msdp_src_del(struct pim_msdp_mg *mg)
 {
 	struct pim_msdp_mg_mbr *mbr;
 	struct listnode *mbr_node;
@@ -1482,14 +1482,14 @@ void pim_msdp_exit(struct pim_instance *pim)
 	pim->msdp.work_obuf = NULL;
 }
 
-void pim_msdp_mg_change_source(struct pim_instance *pim, struct pim_msdp_mg *mg,
-			       struct in_addr *ai)
+void pim_msdp_mg_src_add(struct pim_instance *pim, struct pim_msdp_mg *mg,
+			 struct in_addr *ai)
 {
 	struct pim_msdp_mg_mbr *mbr;
 	struct listnode *mbr_node;
 
 	/* Stop all connections and remove data structures. */
-	pim_msdp_mg_src_do_del(mg);
+	pim_msdp_src_del(mg);
 
 	/* Set new address. */
 	mg->src_ip = *ai;
@@ -1512,9 +1512,9 @@ void pim_msdp_mg_change_source(struct pim_instance *pim, struct pim_msdp_mg *mg,
 			   mg->mesh_group_name, &mg->src_ip);
 }
 
-struct pim_msdp_mg_mbr *pim_msdp_mg_add_peer(struct pim_instance *pim,
-					     struct pim_msdp_mg *mg,
-					     struct in_addr *ia)
+struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
+					    struct pim_msdp_mg *mg,
+					    struct in_addr *ia)
 {
 	struct pim_msdp_mg_mbr *mbr;
 
