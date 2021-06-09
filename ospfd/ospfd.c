@@ -386,7 +386,7 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 
 	new->proactive_arp = OSPF_PROACTIVE_ARP_DEFAULT;
 
-	ospf_gr_helper_init(new);
+	ospf_gr_helper_instance_init(new);
 
 	ospf_asbr_external_aggregator_init(new);
 
@@ -651,6 +651,9 @@ void ospf_terminate(void)
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
 
+	/* Cleanup GR */
+	ospf_gr_helper_stop();
+
 	/* Cleanup route maps */
 	route_map_finish();
 
@@ -815,8 +818,8 @@ static void ospf_finish_final(struct ospf *ospf)
 		if ((lsa = rn->info) != NULL) {
 			ospf_lsa_unlock(&lsa);
 			rn->info = NULL;
+			route_unlock_node(rn);
 		}
-		route_unlock_node(rn);
 	}
 	route_table_finish(ospf->maxage_lsa);
 
@@ -890,7 +893,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	list_delete(&ospf->oi_write_q);
 
 	/* Reset GR helper data structers */
-	ospf_gr_helper_stop(ospf);
+	ospf_gr_helper_instance_stop(ospf);
 
 	close(ospf->fd);
 	stream_free(ospf->ibuf);

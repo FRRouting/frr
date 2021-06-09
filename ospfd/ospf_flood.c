@@ -597,7 +597,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		   Designated Router, chances are that all the neighbors have
 		   received the LSA already. */
 		if (NBR_IS_DR(inbr) || NBR_IS_BDR(inbr)) {
-			if (IS_DEBUG_OSPF_NSSA)
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 				zlog_debug("%s: DR/BDR NOT SEND to int %s (%s)",
 					   __func__, IF_NAME(oi),
 					   ospf_get_name(oi->ospf));
@@ -611,7 +611,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		   end up retransmitting the updates. */
 
 		if (oi->state == ISM_Backup) {
-			if (IS_DEBUG_OSPF_NSSA)
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 				zlog_debug(
 					"%s: ISM_Backup NOT SEND to int %s (%s)",
 					__func__, IF_NAME(oi),
@@ -626,8 +626,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 	   (which	must be	> 0) when it is copied into the outgoing Link
 	   State Update packet (until the LS age field reaches the maximum
 	   value of MaxAge). */
-	/* XXX HASSO: Is this IS_DEBUG_OSPF_NSSA really correct? */
-	if (IS_DEBUG_OSPF_NSSA)
+	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 		zlog_debug("%s: DR/BDR sending upd to int %s (%s)", __func__,
 			   IF_NAME(oi), ospf_get_name(oi->ospf));
 

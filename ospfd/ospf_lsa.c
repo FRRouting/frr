@@ -2670,15 +2670,16 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 
 			if (IS_DEBUG_OSPF(lsa, LSA_REFRESH)) {
 				zlog_debug(
-					"ospf_lsa_install() Premature Aging lsa 0x%p, seqnum 0x%x",
-					(void *)lsa,
+					"%s() Premature Aging lsa %p, seqnum 0x%x",
+					__func__, lsa,
 					ntohl(lsa->data->ls_seqnum));
 				ospf_lsa_header_dump(lsa->data);
 			}
 		} else {
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 				zlog_debug(
-					"ospf_lsa_install() got an lsa with seq 0x80000000 that was not self originated. Ignoring");
+					"%s() got an lsa with seq 0x80000000 that was not self originated. Ignoring",
+					__func__);
 				ospf_lsa_header_dump(lsa->data);
 			}
 			return old;
@@ -2764,9 +2765,8 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	 */
 	if (IS_LSA_MAXAGE(new)) {
 		if (IS_DEBUG_OSPF(lsa, LSA_INSTALL))
-			zlog_debug("LSA[Type%d:%pI4]: Install LSA 0x%p, MaxAge",
-				   new->data->type, &new->data->id,
-				   (void *)lsa);
+			zlog_debug("LSA[Type%d:%pI4]: Install LSA %p, MaxAge",
+				   new->data->type, &new->data->id, lsa);
 		ospf_lsa_maxage(ospf, lsa);
 	}
 
@@ -2855,8 +2855,8 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 			if (CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"originating new lsa for lsa 0x%p",
-						(void *)lsa);
+						"originating new lsa for lsa %p",
+						lsa);
 				ospf_lsa_refresh(ospf, lsa);
 			}
 
