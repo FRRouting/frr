@@ -129,6 +129,8 @@ struct srv6_locator *srv6_locator_alloc(const char *name)
 	locator = XCALLOC(MTYPE_SRV6_LOCATOR, sizeof(struct srv6_locator));
 	strlcpy(locator->name, name, sizeof(locator->name));
 	locator->chunks = list_new();
+	locator->chunks->del = (void (*)(void *))srv6_locator_chunk_free;
+
 	QOBJ_REG(locator, srv6_locator);
 	return locator;
 }
@@ -144,7 +146,12 @@ struct srv6_locator_chunk *srv6_locator_chunk_alloc(void)
 
 void srv6_locator_free(struct srv6_locator *locator)
 {
-	XFREE(MTYPE_SRV6_LOCATOR, locator);
+	if (locator) {
+		QOBJ_UNREG(locator);
+		list_delete(&locator->chunks);
+
+		XFREE(MTYPE_SRV6_LOCATOR, locator);
+	}
 }
 
 void srv6_locator_chunk_free(struct srv6_locator_chunk *chunk)
