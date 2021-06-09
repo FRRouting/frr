@@ -901,6 +901,12 @@ void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp)
 	double_linked_list_node *node;
 	struct pcep_object_tlv_header *tlv;
 
+	if (tlvs == NULL) {
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
+			  "Unexpected Empty RP's TLV plsp-id:(%d)",
+			  path ? (int32_t)path->plsp_id : -1);
+		return;
+	}
 	/* We ignore the other flags and priority for now */
 	path->req_id = rp->request_id;
 	path->has_pce_objfun = false;
@@ -930,6 +936,12 @@ void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp)
 	path->do_remove = srp->flag_lsp_remove;
 	path->srp_id = srp->srp_id_number;
 
+	if (tlvs == NULL) {
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
+			  "Unexpected Empty SRP's TLV plsp-id:(%d)",
+			  path ? (int32_t)path->plsp_id : -1);
+		return;
+	}
 	for (node = tlvs->head; node != NULL; node = node->next_node) {
 		tlv = (struct pcep_object_tlv_header *)node->data;
 		switch (tlv->type) {
@@ -961,8 +973,12 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 	path->is_synching = lsp->flag_s;
 	path->is_delegated = lsp->flag_d;
 
-	if (tlvs == NULL)
+	if (tlvs == NULL) {
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
+			  "Unexpected Empty LSP's TLV plsp-id:(%d)",
+			  path ? (int32_t)path->plsp_id : -1);
 		return;
+	}
 
 	for (node = tlvs->head; node != NULL; node = node->next_node) {
 		tlv = (struct pcep_object_tlv_header *)node->data;
@@ -1056,6 +1072,12 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 	double_linked_list_node *node;
 	struct pcep_object_ro_subobj *obj;
 
+	if (objs == NULL) {
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
+			  "Unexpected Empty ERO's sub_obj plsp-id:(%d)",
+			  path ? (int32_t)path->plsp_id : -1);
+		return;
+	}
 	for (node = objs->tail; node != NULL; node = node->prev_node) {
 		obj = (struct pcep_object_ro_subobj *)node->data;
 		switch (obj->ro_subobj_type) {
