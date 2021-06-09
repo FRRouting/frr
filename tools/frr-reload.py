@@ -595,6 +595,7 @@ end
             "ip ",
             "ipv6 ",
             "log ",
+            "mac access-list ",
             "mpls lsp",
             "mpls label",
             "no ",
