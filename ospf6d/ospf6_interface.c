@@ -1640,7 +1640,7 @@ void ospf6_interface_start(struct ospf6_interface *oi)
 	ospf6_interface_enable(oi);
 
 	/* If the router is ABR, originate summary routes */
-	if (ospf6_is_router_abr(ospf6))
+	if (ospf6_check_and_set_router_abr(ospf6))
 		ospf6_abr_enable_area(oa);
 }
 
