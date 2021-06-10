@@ -2857,10 +2857,10 @@ The conditional BGP announcements are sent in addition to the normal
 announcements that a BGP router sends to its peer.
 
 The conditional advertisement process is triggered by the BGP scanner process,
-which runs every 60 seconds. This means that the maximum time for the conditional
-advertisement to take effect is 60 seconds. The conditional advertisement can take
-effect depending on when the tracked route is removed from the BGP table and
-when the next instance of the BGP scanner occurs.
+which is controller by ``bgp route-map delay-timer``. Default is every 5 seconds.
+The conditional advertisement can take effect depending on when the tracked
+route is removed from the BGP table and when the next instance of the BGP
+scanner occurs.
 
 .. clicmd:: neighbor A.B.C.D advertise-map NAME [exist-map|non-exist-map] NAME
 
