@@ -50,18 +50,26 @@
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_AREA,      "OSPF6 area");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PLISTNAME, "Prefix list name");
 
-/* Utility functions. */
-int str2area_id(const char *str, struct in_addr *area_id, int *area_id_fmt)
+int str2area_id(const char *str, uint32_t *area_id, int *area_id_fmt)
 {
 	char *ep;
 
-	area_id->s_addr = htonl(strtoul(str, &ep, 10));
-	if (*ep && !inet_aton(str, area_id))
+	*area_id = htonl(strtoul(str, &ep, 10));
+	if (*ep && inet_pton(AF_INET, str, area_id) != 1)
 		return -1;
 
-	*area_id_fmt = *ep ? OSPF6_AREA_FMT_DECIMAL : OSPF6_AREA_FMT_DOTTEDQUAD;
+	*area_id_fmt =
+		!*ep ? OSPF6_AREA_FMT_DECIMAL : OSPF6_AREA_FMT_DOTTEDQUAD;
 
 	return 0;
+}
+
+void area_id2str(char *buf, int len, uint32_t area_id, int area_id_fmt)
+{
+	if (area_id_fmt == OSPF6_AREA_FMT_DECIMAL)
+		snprintf(buf, len, "%u", ntohl(area_id));
+	else
+		inet_ntop(AF_INET, &area_id, buf, len);
 }
 
 int ospf6_area_cmp(void *va, void *vb)
