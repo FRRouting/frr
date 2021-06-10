@@ -268,6 +268,13 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 	else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
 		oa = (struct ospf6_area *)route->table->scope;
 		ospf6 = oa->ospf6;
+	} else {
+		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)
+		    || IS_OSPF6_DEBUG_BROUTER)
+			zlog_debug(
+				"%s: Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
+				__func__, &route->prefix);
+		return;
 	}
 
 	ospf6_abr_originate_summary(route, ospf6);
@@ -284,6 +291,13 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 	else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
 		oa = (struct ospf6_area *)route->table->scope;
 		ospf6 = oa->ospf6;
+	} else {
+		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)
+		    || IS_OSPF6_DEBUG_BROUTER)
+			zlog_debug(
+				"%s: Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
+				__func__, &route->prefix);
+		return;
 	}
 
 	route->flag |= OSPF6_ROUTE_REMOVE;
