@@ -582,29 +582,38 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	cmd_variable_handler_register(vrf_var_handlers);
 }
 
+static void vrf_terminate_single(struct vrf *vrf)
+{
+	/* Clear configured flag and invoke delete. */
+	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
+	vrf_delete(vrf);
+}
+
 /* Terminate VRF module. */
 void vrf_terminate(void)
 {
-	struct vrf *vrf;
+	struct vrf *vrf, *tmp;
 
 	if (debug_vrf)
 		zlog_debug("%s: Shutting down vrf subsystem", __func__);
 
-	while (!RB_EMPTY(vrf_id_head, &vrfs_by_id)) {
-		vrf = RB_ROOT(vrf_id_head, &vrfs_by_id);
+	RB_FOREACH_SAFE (vrf, vrf_id_head, &vrfs_by_id, tmp) {
+		if (vrf->vrf_id == VRF_DEFAULT)
+			continue;
 
-		/* Clear configured flag and invoke delete. */
-		UNSET_FLAG(vrf->status, VRF_CONFIGURED);
-		vrf_delete(vrf);
+		vrf_terminate_single(vrf);
 	}
 
-	while (!RB_EMPTY(vrf_name_head, &vrfs_by_name)) {
-		vrf = RB_ROOT(vrf_name_head, &vrfs_by_name);
+	RB_FOREACH_SAFE (vrf, vrf_name_head, &vrfs_by_name, tmp) {
+		if (vrf->vrf_id == VRF_DEFAULT)
+			continue;
 
-		/* Clear configured flag and invoke delete. */
-		UNSET_FLAG(vrf->status, VRF_CONFIGURED);
-		vrf_delete(vrf);
+		vrf_terminate_single(vrf);
 	}
+
+	/* Finally terminate default VRF */
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	vrf_terminate_single(vrf);
 }
 
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
