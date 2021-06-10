@@ -58,7 +58,13 @@ Basic Config Commands
 
 .. clicmd:: hostname HOSTNAME
 
-   Set hostname of the router.
+   Set hostname of the router. It is only for current ``vtysh``, it will not be
+   saved to any configuration file even with ``write file``.
+
+.. clicmd:: domainname DOMAINNAME
+
+   Set domainname of the router. It is only for current ``vtysh``, it will not
+   be saved to any configuration file even with ``write file``.
 
 .. clicmd:: password PASSWORD
 
