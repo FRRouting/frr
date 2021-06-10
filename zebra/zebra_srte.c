@@ -161,7 +161,6 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	client->nh_last_upd_time = monotime(NULL);
-	client->last_write_cmd = ZEBRA_NEXTHOP_UPDATE;
 	return zserv_send_message(client, s);
 
 failure:
