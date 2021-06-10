@@ -60,6 +60,10 @@ Basic Config Commands
 
    Set hostname of the router.
 
+.. clicmd:: domainname DOMAINNAME
+
+   Set domainname of the router.
+
 .. clicmd:: password PASSWORD
 
    Set password for vty interface. The ``no`` form of the command deletes the
