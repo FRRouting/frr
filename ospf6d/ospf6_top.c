@@ -73,6 +73,8 @@ struct ospf6_master *om6;
 
 static void ospf6_disable(struct ospf6 *o);
 
+static void ospf6_process_reset(struct ospf6 *ospf6);
+
 static void ospf6_add(struct ospf6 *ospf6)
 {
 	listnode_add(om6->ospf6, ospf6);
@@ -628,6 +630,9 @@ void ospf6_router_id_update(struct ospf6 *ospf6, bool init, struct vty *vty)
 		}
 
 	ospf6->router_id = new_router_id;
+
+	if (!init)
+		ospf6_process_reset(ospf6);
 }
 
 /* start ospf6 */
