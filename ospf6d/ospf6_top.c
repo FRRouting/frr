@@ -743,8 +743,6 @@ static void ospf6_process_reset(struct ospf6 *ospf6)
 	ospf6->inst_shutdown = 0;
 	ospf6_db_clear(ospf6);
 
-	ospf6_router_id_update(ospf6, true);
-
 	ospf6_asbr_redistribute_reset(ospf6);
 	FOR_ALL_INTERFACES (vrf, ifp)
 		ospf6_interface_clear(ifp);
@@ -766,10 +764,12 @@ DEFPY (clear_router_ospf6,
 		vrf_name = name;
 
 	ospf6 = ospf6_lookup_by_vrf_name(vrf_name);
-	if (ospf6 == NULL)
+	if (ospf6 == NULL) {
 		vty_out(vty, "OSPFv3 is not configured\n");
-	else
+	} else {
+		ospf6_router_id_update(ospf6, true);
 		ospf6_process_reset(ospf6);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -799,7 +799,9 @@ DEFUN(ospf6_router_id,
 
 	o->router_id_static = router_id;
 
-	if (!ospf6_router_id_update(o, false, vty)
+	if (ospf6_router_id_update(o, false))
+		ospf6_process_reset(o);
+	else
 		vty_out(vty,
 			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
 
@@ -817,7 +819,10 @@ DEFUN(no_ospf6_router_id,
 
 	o->router_id_static = 0;
 
-	if (!ospf6_router_id_update(o, false, vty)
+
+	if (ospf6_router_id_update(o, false))
+		ospf6_process_reset(o);
+	else
 		vty_out(vty,
 			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
 
