@@ -54,6 +54,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
 DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
 
 int mpls_enabled;
+bool mpls_pw_reach_strict; /* Strict reachability checking */
 
 /* static function declarations */
 
@@ -3977,6 +3978,7 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 void zebra_mpls_init(void)
 {
 	mpls_enabled = 0;
+	mpls_pw_reach_strict = false;
 
 	if (mpls_kernel_init() < 0) {
 		flog_warn(EC_ZEBRA_MPLS_SUPPORT_DISABLED,
