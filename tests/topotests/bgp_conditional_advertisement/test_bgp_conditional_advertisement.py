@@ -378,7 +378,7 @@ def test_bgp_conditional_advertisement():
     # TC11: R3 BGP convergence, without advertise-map configuration.
     # All routes are advertised to R3.
     test_func = functools.partial(_all_routes_advertised, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
 
     msg = 'TC11: "router3" BGP convergence - '
     assert result is None, msg + failed
@@ -397,7 +397,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_present, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = 'TC21: exist-map routes present in "router2" BGP table - '
     assert result is None, msg + failed
@@ -416,7 +416,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_not_present, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = 'TC22: exist-map routes not present in "router2" BGP table - '
     assert result is None, msg + failed
@@ -435,7 +435,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_non_exist_map_routes_not_present, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = 'TC31: non-exist-map routes not present in "router2" BGP table - '
     assert result is None, msg + failed
@@ -454,7 +454,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_non_exist_map_routes_present, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = 'TC32: non-exist-map routes present in "router2" BGP table - '
     assert result is None, msg + failed
@@ -471,7 +471,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_non_exist_map_no_condition_route_map, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = 'TC41: non-exist-map route-map removed in "router2" - '
     assert result is None, msg + failed
@@ -490,7 +490,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_no_condition_route_map, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = 'TC42: exist-map route-map removed in "router2" - '
     assert result is None, msg + failed
@@ -513,7 +513,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_present_rmap_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC51: exist-map routes present with route-map filter - "
     assert result is None, msg + failed
@@ -532,7 +532,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_present_no_rmap_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC52: exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
@@ -552,7 +552,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_non_exist_map_routes_present_rmap_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC53: non-exist-map routes present, with route-map filter - "
     assert result is None, msg + failed
@@ -571,7 +571,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_non_exist_map_routes_present_no_rmap_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC54: non-exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
@@ -599,7 +599,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_not_present_rmap_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC61: exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
@@ -618,7 +618,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_not_present_no_rmap_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC62: exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
@@ -640,7 +640,7 @@ def test_bgp_conditional_advertisement():
     test_func = functools.partial(
         _non_exist_map_routes_not_present_rmap_filter, router3
     )
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC63: non-exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
@@ -661,7 +661,7 @@ def test_bgp_conditional_advertisement():
     test_func = functools.partial(
         _non_exist_map_routes_not_present_no_rmap_filter, router3
     )
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC64: non-exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
@@ -689,7 +689,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_present_rmap2_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC71: exist-map routes present, route-map filter - "
     assert result is None, msg + failed
@@ -708,7 +708,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_present_no_rmap2_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC72: exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
@@ -728,7 +728,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_non_exist_map_routes_present_rmap2_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC73: non-exist-map routes present, route-map filter - "
     assert result is None, msg + failed
@@ -749,7 +749,7 @@ def test_bgp_conditional_advertisement():
     test_func = functools.partial(
         _non_exist_map_routes_present_no_rmap2_filter, router3
     )
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC74: non-exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
@@ -777,7 +777,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_not_present_rmap2_filter, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC81: exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
@@ -798,7 +798,7 @@ def test_bgp_conditional_advertisement():
     test_func = functools.partial(
         _exist_map_routes_not_present_no_rmap2_filter, router3
     )
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC82: exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
@@ -820,7 +820,7 @@ def test_bgp_conditional_advertisement():
     test_func = functools.partial(
         _non_exist_map_routes_not_present_rmap2_filter, router3
     )
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC83: non-exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
@@ -841,7 +841,7 @@ def test_bgp_conditional_advertisement():
     test_func = functools.partial(
         _non_exist_map_routes_not_present_no_rmap2_filter, router3
     )
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC84: non-exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
@@ -869,7 +869,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_present_rmap2_network, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC91: exist-map routes present, route-map filter and network - "
     assert result is None, msg + failed
@@ -888,7 +888,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(_exist_map_routes_present_rmap2_no_network, router3)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC92: exist-map routes present, route-map filter and no network - "
     assert result is None, msg + failed
@@ -918,7 +918,7 @@ def test_bgp_conditional_advertisement():
     test_func = functools.partial(
         _non_exist_map_routes_not_present_rmap2_network, router3
     )
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC93: non-exist-map routes not present, route-map filter and network - "
     assert result is None, msg + failed
@@ -939,7 +939,7 @@ def test_bgp_conditional_advertisement():
     test_func = functools.partial(
         _non_exist_map_routes_not_present_rmap2_no_network, router3
     )
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
     msg = "TC94: non-exist-map routes not present, route-map filter and no network - "
     assert result is None, msg + failed
