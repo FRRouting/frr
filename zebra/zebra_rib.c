@@ -332,7 +332,8 @@ void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 }
 
 struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
-			      union g_addr *addr, struct route_node **rn_out)
+			      const union g_addr *addr,
+			      struct route_node **rn_out)
 {
 	struct prefix p;
 	struct route_table *table;
