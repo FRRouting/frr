@@ -182,7 +182,7 @@ static void ospf6_router_lsa_options_set(struct ospf6_area *oa,
 	OSPF6_OPT_CLEAR_ALL(router_lsa->options);
 	memcpy(router_lsa->options, oa->options, 3);
 
-	if (ospf6_is_router_abr(oa->ospf6))
+	if (ospf6_check_and_set_router_abr(oa->ospf6))
 		SET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_B);
 	else
 		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_B);

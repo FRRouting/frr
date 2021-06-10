@@ -973,7 +973,7 @@ DEFUN_HIDDEN (ospf6_interface_area,
 	ospf6_interface_enable(oi);
 
 	/* If the router is ABR, originate summary routes */
-	if (ospf6_is_router_abr(ospf6)) {
+	if (ospf6_check_and_set_router_abr(ospf6)) {
 		ospf6_abr_enable_area(oa);
 		ospf6_schedule_abr_task(oa->ospf6);
 	}

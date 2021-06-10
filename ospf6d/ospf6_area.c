@@ -546,7 +546,7 @@ DEFUN (area_range,
 		ospf6_route_add(range, oa->range_table);
 	}
 
-	if (ospf6_is_router_abr(ospf6)) {
+	if (ospf6_check_and_set_router_abr(ospf6)) {
 		/* Redo summaries if required */
 		ospf6_abr_prefix_resummarize(ospf6);
 	}
@@ -592,7 +592,7 @@ DEFUN (no_area_range,
 		return CMD_SUCCESS;
 	}
 
-	if (ospf6_is_router_abr(oa->ospf6)) {
+	if (ospf6_check_and_set_router_abr(oa->ospf6)) {
 		/* Blow away the aggregated LSA and route */
 		SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
 
