@@ -576,6 +576,7 @@ static inline int mpls_should_lsps_be_processed(struct route_node *rn)
 
 /* Global variables. */
 extern int mpls_enabled;
+extern bool mpls_pw_reach_strict; /* Strict pseudowire reachability checking */
 
 #ifdef __cplusplus
 }
