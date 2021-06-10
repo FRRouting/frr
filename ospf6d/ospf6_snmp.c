@@ -664,9 +664,10 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 		return SNMP_INTEGER(3);
 	case OSPFv3AREABDRRTRSTATUS:
 		if (ospf6)
-			return SNMP_INTEGER(ospf6_is_router_abr(ospf6)
-						    ? SNMP_TRUE
-						    : SNMP_FALSE);
+			return SNMP_INTEGER(
+				ospf6_check_and_set_router_abr(ospf6)
+					? SNMP_TRUE
+					: SNMP_FALSE);
 		return SNMP_INTEGER(SNMP_FALSE);
 	case OSPFv3ASBDRRTRSTATUS:
 		if (ospf6)

@@ -53,7 +53,7 @@
 
 unsigned char conf_debug_ospf6_abr;
 
-int ospf6_is_router_abr(struct ospf6 *o)
+bool ospf6_check_and_set_router_abr(struct ospf6 *o)
 {
 	struct listnode *node;
 	struct ospf6_area *oa;
@@ -74,12 +74,12 @@ int ospf6_is_router_abr(struct ospf6 *o)
 		if (IS_OSPF6_DEBUG_ABR)
 			zlog_debug("%s : set flag OSPF6_FLAG_ABR", __func__);
 		SET_FLAG(o->flag, OSPF6_FLAG_ABR);
-		return 1;
+		return true;
 	} else {
 		if (IS_OSPF6_DEBUG_ABR)
 			zlog_debug("%s : reset flag OSPF6_FLAG_ABR", __func__);
 		UNSET_FLAG(o->flag, OSPF6_FLAG_ABR);
-		return 0;
+		return false;
 	}
 }
 
@@ -1359,7 +1359,7 @@ void ospf6_abr_reexport(struct ospf6_area *oa)
 	struct ospf6_route *route;
 
 	/* if not a ABR return success */
-	if (!ospf6_is_router_abr(oa->ospf6))
+	if (!ospf6_check_and_set_router_abr(oa->ospf6))
 		return;
 
 	/* Redo summaries if required */

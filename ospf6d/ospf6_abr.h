@@ -58,7 +58,7 @@ struct ospf6_inter_router_lsa {
 #define OSPF6_ABR_RANGE_CLEAR_COST(range) (range->path.cost = OSPF_AREA_RANGE_COST_UNSPEC)
 #define IS_OSPF6_ABR(o) ((o)->flag & OSPF6_FLAG_ABR)
 
-extern int ospf6_is_router_abr(struct ospf6 *o);
+extern bool ospf6_check_and_set_router_abr(struct ospf6 *o);
 
 extern void ospf6_abr_enable_area(struct ospf6_area *oa);
 extern void ospf6_abr_disable_area(struct ospf6_area *oa);
