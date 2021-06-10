@@ -442,7 +442,7 @@ Require policy on EBGP
 
       exit1# show bgp summary
 
-      IPv4 Unicast Summary:
+      IPv4 Unicast Summary (VRF default):
       BGP router identifier 10.10.10.1, local AS number 65001 vrf-id 0
       BGP table version 4
       RIB entries 7, using 1344 bytes of memory
@@ -3258,7 +3258,7 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
       exit1# show ip bgp summary wide
 
-      IPv4 Unicast Summary:
+      IPv4 Unicast Summary (VRF default):
       BGP router identifier 192.168.100.1, local AS number 65534 vrf-id 0
       BGP table version 3
       RIB entries 5, using 920 bytes of memory
@@ -3309,6 +3309,13 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    for iBGP and ``external`` for eBGP sessions), address family, and subsequent
    address-family. The remote-as filter can be used in combination with the
    failed, established filters.
+
+.. clicmd:: show bgp [afi] [safi] [all] summary terse [json]
+
+   Shorten the output. Do not show the following information about the BGP
+   instances: the number of RIB entries, the table version and the used memory.
+   The ``terse`` option can be used in combination with the remote-as, neighbor,
+   failed and established filters, and with the ``wide`` option as well.
 
 .. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [json]
 
