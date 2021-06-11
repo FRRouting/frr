@@ -229,7 +229,6 @@ static void bgp_reuse_timer(struct event *t)
 	 * list head entry. */
 	assert(bdc->reuse_offset < bdc->reuse_list_size);
 	plist = bdc->reuse_list[bdc->reuse_offset];
-	node = SLIST_FIRST(&plist);
 	SLIST_INIT(&bdc->reuse_list[bdc->reuse_offset]);
 
 	/* 2.  set offset = modulo reuse-list-size ( offset + 1 ), thereby
