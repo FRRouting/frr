@@ -7225,7 +7225,7 @@ static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,
 
 	/* Increment condition_filter_count and/or create timer. */
 	if (!filter_exists) {
-		filter->advmap.update_type = ADVERTISE;
+		filter->advmap.update_type = UPDATE_TYPE_ADVERTISE;
 		bgp_conditional_adv_enable(peer, afi, safi);
 	}
 }
