@@ -3197,16 +3197,16 @@ DEFUN (show_evpn_nh_vni_ip,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_nh_svd_ip,
-       show_evpn_nh_svd_ip_cmd,
-       "show evpn next-hops svd ip WORD [json]",
-       SHOW_STR
-       "EVPN\n"
-       "Remote Vteps\n"
-       "Single Vxlan Device\n"
-       "Ip address\n"
-       "Host address (ipv4 or ipv6)\n"
-       JSON_STR)
+DEFUN_HIDDEN (show_evpn_nh_svd_ip,
+              show_evpn_nh_svd_ip_cmd,
+              "show evpn next-hops svd ip WORD [json]",
+              SHOW_STR
+              "EVPN\n"
+              "Remote Vteps\n"
+              "Single Vxlan Device\n"
+              "Ip address\n"
+              "Host address (ipv4 or ipv6)\n"
+              JSON_STR)
 {
 	struct ipaddr ip;
 	bool uj = use_json(argc, argv);
@@ -3240,14 +3240,14 @@ DEFUN (show_evpn_nh_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_nh_svd,
-       show_evpn_nh_svd_cmd,
-       "show evpn next-hops svd [json]",
-       SHOW_STR
-       "EVPN\n"
-       "Remote VTEPs\n"
-       "Single Vxlan Device\n"
-       JSON_STR)
+DEFUN_HIDDEN (show_evpn_nh_svd,
+              show_evpn_nh_svd_cmd,
+              "show evpn next-hops svd [json]",
+              SHOW_STR
+              "EVPN\n"
+              "Remote VTEPs\n"
+              "Single Vxlan Device\n"
+              JSON_STR)
 {
 	bool uj = use_json(argc, argv);
 
