@@ -173,6 +173,29 @@ extern "C" {
 #define MACRO_REPEAT(NAME, ...) \
 	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(NAME, ##__VA_ARGS__)
 
+/* per-arglist repeat macro, use like this:
+ * #define SEP_SEMICOLON   ;
+ * #define foo(...) MAP_LISTS(F, SEP_SEMICOLON, ##__VA_ARGS__)
+ * where F is a n-ary function where n is the number of args in each arglist.
+ * e.g.: MAP_LISTS(f, SEP_SEMICOLON, (a, b), (c, d, e))
+ * expands to: f(a, b); f(c, d, e)
+ */
+
+#define ESC(...) __VA_ARGS__
+#define MAP_LISTS(M, ...)                                                      \
+	_CONCAT(_MAP_LISTS_, PP_NARG(__VA_ARGS__))(M, ##__VA_ARGS__)
+#define _MAP_LISTS_0(M)
+#define _MAP_LISTS_1(M, _1) ESC(M _1)
+#define _MAP_LISTS_2(M, _1, _2) ESC(M _1; M _2)
+#define _MAP_LISTS_3(M, _1, _2, _3) ESC(M _1; M _2; M _3)
+#define _MAP_LISTS_4(M, _1, _2, _3, _4) ESC(M _1; M _2; M _3; M _4)
+#define _MAP_LISTS_5(M, _1, _2, _3, _4, _5) ESC(M _1; M _2; M _3; M _4; M _5)
+#define _MAP_LISTS_6(M, _1, _2, _3, _4, _5, _6)                                \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6)
+#define _MAP_LISTS_7(M, _1, _2, _3, _4, _5, _6, _7)                            \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7)
+#define _MAP_LISTS_8(M, _1, _2, _3, _4, _5, _6, _7, _8)                        \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7; M _8)
 /*
  * for warnings on macros, put in the macro content like this:
  *   #define MACRO BLA CPP_WARN("MACRO has been deprecated")
