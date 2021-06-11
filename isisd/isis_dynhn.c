@@ -77,8 +77,6 @@ static int dyn_cache_cleanup(struct thread *thread)
 
 	isis = THREAD_ARG(thread);
 
-	isis->t_dync_clean = NULL;
-
 	for (ALL_LIST_ELEMENTS(dyn_cache, node, nnode, dyn)) {
 		if ((now - dyn->refresh) < MAX_LSP_LIFETIME)
 			continue;

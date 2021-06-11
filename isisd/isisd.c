@@ -229,6 +229,8 @@ void isis_finish(struct isis *isis)
 
 	isis_redist_free(isis);
 	list_delete(&isis->area_list);
+
+	thread_cancel(&isis->t_dync_clean);
 	XFREE(MTYPE_ISIS, isis);
 }
 
