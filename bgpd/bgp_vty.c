@@ -12115,11 +12115,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					       filter->advmap.cname);
 			json_object_string_add(json_advmap, "advertiseMap",
 					       filter->advmap.aname);
-			json_object_string_add(json_advmap, "advertiseStatus",
-					       filter->advmap.update_type
-							       == ADVERTISE
-						       ? "Advertise"
-						       : "Withdraw");
+			json_object_string_add(
+				json_advmap, "advertiseStatus",
+				filter->advmap.update_type ==
+						UPDATE_TYPE_ADVERTISE
+					? "Advertise"
+					: "Withdraw");
 			json_object_object_add(json_addr, "advertiseMap",
 					       json_advmap);
 		}
@@ -12429,7 +12430,8 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				filter->advmap.cname,
 				filter->advmap.amap ? "*" : "",
 				filter->advmap.aname,
-				filter->advmap.update_type == ADVERTISE
+				filter->advmap.update_type ==
+						UPDATE_TYPE_ADVERTISE
 					? "Advertise"
 					: "Withdraw");
 
