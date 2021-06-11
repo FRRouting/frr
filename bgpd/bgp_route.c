@@ -4822,10 +4822,8 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 		while (ain) {
 			ain_next = ain->next;
 
-			if (ain->peer == peer) {
+			if (ain->peer == peer)
 				bgp_adj_in_remove(dest, ain);
-				bgp_dest_unlock_node(dest);
-			}
 
 			ain = ain_next;
 		}
@@ -4931,10 +4929,8 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 		while (ain) {
 			ain_next = ain->next;
 
-			if (ain->peer == peer) {
+			if (ain->peer == peer)
 				bgp_adj_in_remove(dest, ain);
-				bgp_dest_unlock_node(dest);
-			}
 
 			ain = ain_next;
 		}
