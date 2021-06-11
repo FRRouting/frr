@@ -95,6 +95,7 @@ struct isis {
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 	int snmp_notifications;
+	struct list *dyn_cache;
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
 };
