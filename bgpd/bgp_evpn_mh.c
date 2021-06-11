@@ -2070,9 +2070,8 @@ int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi)
 	/* Lookup ESI hash - should exist. */
 	es = bgp_evpn_es_find(esi);
 	if (!es) {
-		flog_warn(EC_BGP_EVPN_ESI,
-			  "%u: ES %s missing at local ES DEL",
-			  bgp->vrf_id, es->esi_str);
+		flog_warn(EC_BGP_EVPN_ESI, "%u: ES missing at local ES DEL",
+			  bgp->vrf_id);
 		return -1;
 	}
 
