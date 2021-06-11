@@ -284,9 +284,7 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 
 	oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 	if (oi == NULL) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("Can't find interface in SPF: ifindex %d",
-				   ifindex);
+		zlog_warn("Can't find interface in SPF: ifindex %d", ifindex);
 		return;
 	}
 
@@ -475,9 +473,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 	/* construct root vertex */
 	lsa = ospf6_create_single_router_lsa(oa, oa->lsdb_self, router_id);
 	if (lsa == NULL) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("%s: No router LSA for area %s", __func__,
-				   oa->name);
+		zlog_warn("%s: No router LSA for area %s", __func__, oa->name);
 		return;
 	}
 

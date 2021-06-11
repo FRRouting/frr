@@ -289,9 +289,8 @@ int ospf6_router_lsa_originate(struct thread *thread)
 			if ((caddr_t)lsdesc
 			    == (caddr_t)router_lsa
 				       + sizeof(struct ospf6_router_lsa)) {
-				if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
-					zlog_debug(
-						"Size limit setting for Router-LSA too short");
+				zlog_warn(
+					"Size limit setting for Router-LSA too short");
 				return 0;
 			}
 
