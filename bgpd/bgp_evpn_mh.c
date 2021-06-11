@@ -3316,9 +3316,6 @@ bgp_evpn_es_evi_local_info_clear(struct bgp_evpn_es_evi *es_evi)
 {
 	struct bgpevpn *vpn = es_evi->vpn;
 
-	if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
-		return es_evi;
-
 	UNSET_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL);
 	list_delete_node(vpn->local_es_evi_list, &es_evi->l2vni_listnode);
 
