@@ -434,7 +434,8 @@ FRR_DAEMON_INFO(cmgd, CMGD, .vty_port = CMGD_VTY_PORT,
 		.signals = cmgd_signals, .n_signals = array_size(cmgd_signals),
 
 		.privs = &cmgd_privs, .yang_modules = cmgd_yang_modules,
-		.n_yang_modules = array_size(cmgd_yang_modules), )
+		.n_yang_modules = array_size(cmgd_yang_modules), 
+);
 
 #define DEPRECATED_OPTIONS ""
 

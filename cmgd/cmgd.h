@@ -137,10 +137,10 @@ struct cmgd {
 };
 // DECLARE_QOBJ_TYPE(cmgd)
 
-DECLARE_HOOK(cmgd_inst_delete, (struct cmgd *cmgd), (cmgd))
-DECLARE_HOOK(cmgd_inst_config_write,
-		(struct cmgd *cmgd, struct vty *vty),
-		(cmgd, vty))
+// DECLARE_HOOK(cmgd_inst_delete, (struct cmgd *cmgd), (cmgd))
+// DECLARE_HOOK(cmgd_inst_config_write,
+// 		(struct cmgd *cmgd, struct vty *vty),
+// 		(cmgd, vty))
 
 extern struct cmgd_master *cm;
 

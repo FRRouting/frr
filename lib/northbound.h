@@ -35,6 +35,7 @@ extern "C" {
 struct vty;
 struct debug;
 
+#if 0
 struct nb_xpath_tag {
 	uint32_t	ns;
 	uint32_t	id;
@@ -66,6 +67,7 @@ struct nb_xpath {
 	((__xpath->num_tags > __indx1) && 			\
 	 (__xpath->tags[__indx1].num_keys > __indx2) ?		\
 	 &__xpath->tags[__indx1].keys[__indx2] : NULL)
+#endif
 
 /* Northbound events. */
 enum nb_event {
