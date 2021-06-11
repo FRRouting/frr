@@ -696,14 +696,14 @@ int nb_candidate_edit(struct nb_config *candidate,
 						   NULL, LYD_NEW_PATH_UPDATE,
 						   &dep_dnode);
 				/* Create default nodes */
-				if (!err)
+				if (!err && dep_dnode)
 					err = lyd_new_implicit_tree(
 						dep_dnode,
 						LYD_IMPLICIT_NO_STATE, NULL);
 				if (err) {
 					flog_warn(
 						EC_LIB_LIBYANG,
-						"%s: lyd_new_path(%s) failed: %d",
+						"%s: dependency: lyd_new_path(%s) failed: %d",
 						__func__, dep_xpath, err);
 					return NB_ERR;
 				}
