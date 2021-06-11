@@ -2179,7 +2179,7 @@ int rfapi_close(void *handle)
 		vnc_zlog_debug_verbose("%s administrative close rfd=%p",
 				       __func__, rfd);
 
-		if (h && h->rfp_methods.close_cb) {
+		if (h->rfp_methods.close_cb) {
 			vnc_zlog_debug_verbose(
 				"%s calling close callback rfd=%p", __func__,
 				rfd);
