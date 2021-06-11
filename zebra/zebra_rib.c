@@ -5644,6 +5644,8 @@ static void rib_process_dplane_results(struct event *event)
 				break;
 
 			/* Some op codes not handled here */
+			case DPLANE_OP_MROUTE_INSTALL:
+			case DPLANE_OP_MROUTE_DELETE:
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:
 			case DPLANE_OP_VTEP_ADD:

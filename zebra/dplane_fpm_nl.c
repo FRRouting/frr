@@ -1013,6 +1013,19 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len += (size_t)rv;
 		break;
 
+	case DPLANE_OP_MROUTE_INSTALL:
+	case DPLANE_OP_MROUTE_DELETE:
+		rv = netlink_mroute_encode(ctx, nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_mroute_encode failed",
+				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+			return 0;
+		}
+
+		nl_buf_len += (size_t)rv;
+		break;
+
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
 		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf));

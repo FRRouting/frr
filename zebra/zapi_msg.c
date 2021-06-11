@@ -50,6 +50,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_mlag.h"
 #include "zebra/connected.h"
+#include "zebra/zebra_mroute.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
@@ -4216,6 +4217,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
 	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
 	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
+	[ZEBRA_MROUTE_EVENT] = zmroute_event,
 };
 
 /*

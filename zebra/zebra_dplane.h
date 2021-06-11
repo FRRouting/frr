@@ -19,6 +19,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_nhg.h"
 #include "zebra/ge_netlink.h"
+#include "zebra/zebra_mroute.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -234,6 +235,10 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/* Multicast route */
+	DPLANE_OP_MROUTE_INSTALL,
+	DPLANE_OP_MROUTE_DELETE,
 };
 
 /* Operational status of Bridge Ports */
@@ -1309,6 +1314,19 @@ enum zebra_dplane_result
 dplane_pbr_ipset_entry_add(struct zebra_pbr_ipset_entry *ipset);
 enum zebra_dplane_result
 dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset);
+
+/* Multicast routing. */
+const struct ipaddr *dplane_ctx_get_mroute_source(const struct zebra_dplane_ctx *ctx);
+const struct ipaddr *dplane_ctx_get_mroute_group(const struct zebra_dplane_ctx *ctx);
+int32_t dplane_ctx_get_mroute_spt_threshold(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_mroute_flags(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_get_mroute_if_input(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_get_mroute_if_notif_idx(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_get_mroute_if_output(const struct zebra_dplane_ctx *ctx,
+				     const struct mroute_oif_list **output, size_t *amount);
+const struct ipaddr *dplane_ctx_get_mroute_local(const struct zebra_dplane_ctx *ctx);
+const struct ipaddr *dplane_ctx_get_mroute_remote(const struct zebra_dplane_ctx *ctx);
+enum zebra_dplane_result dplane_mroute_enqueue(const struct mroute_args *args);
 
 /* Encode route information into data plane context. */
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,

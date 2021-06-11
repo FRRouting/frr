@@ -190,6 +190,22 @@ struct dplane_route_info {
 	struct ipaddr zd_gateway;
 };
 
+/**
+ * Multicast route information for data plane.
+ */
+struct dplane_mroute_info {
+	struct ipaddr source;
+	struct ipaddr group;
+	uint32_t flags;
+	ifindex_t input;
+	size_t output_amount;
+	struct mroute_oif_list oif_list;
+	ifindex_t notif_idx;
+	int32_t spt_threshold;
+	struct ipaddr local;
+	struct ipaddr remote;
+};
+
 /*
  * Pseudowire info for the dataplane
  */
@@ -554,6 +570,7 @@ struct zebra_dplane_ctx {
 	union {
 		struct dplane_route_info rinfo;
 		struct zebra_lsp lsp;
+		struct dplane_mroute_info mrinfo;
 		struct dplane_pw_info pw;
 		struct dplane_br_port_info br_port;
 		struct dplane_intf_info intf;
@@ -771,6 +788,9 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_srv6_encap_srcaddr_set_in;
 	_Atomic uint32_t dg_srv6_encap_srcaddr_set_errors;
+
+	_Atomic uint32_t dg_mroutes_in;
+	_Atomic uint32_t dg_mroute_errors;
 
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
@@ -994,6 +1014,11 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			XFREE(MTYPE_DP_CTX, ctx->u.intf.label);
 			ctx->u.intf.label = NULL;
 		}
+		break;
+
+	case DPLANE_OP_MROUTE_INSTALL:
+	case DPLANE_OP_MROUTE_DELETE:
+		mroute_oif_list_free_all(&ctx->u.mrinfo.oif_list);
 		break;
 
 	case DPLANE_OP_MAC_INSTALL:
@@ -1251,6 +1276,12 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "ROUTE_DELETE";
 	case DPLANE_OP_ROUTE_NOTIFY:
 		return "ROUTE_NOTIFY";
+
+	/* Multicast routes */
+	case DPLANE_OP_MROUTE_INSTALL:
+		return "MROUTE_INSTALL";
+	case DPLANE_OP_MROUTE_DELETE:
+		return "MROUTE_DELETE";
 
 	/* Nexthop update */
 	case DPLANE_OP_NH_INSTALL:
@@ -7445,6 +7476,11 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 				    memory_order_relaxed);
 	vty_out(vty, "GRE set updates:       %"PRIu64"\n", incoming);
 	vty_out(vty, "GRE set errors:        %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_mroutes_in, memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_mroute_errors, memory_order_relaxed);
+	vty_out(vty, "Mroute updates:           %" PRIu64 "\n", incoming);
+	vty_out(vty, "Mroute errors:            %" PRIu64 "\n", errs);
 	return CMD_SUCCESS;
 }
 
@@ -7889,6 +7925,13 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   ctx, dplane_op2str(dplane_ctx_get_op(ctx)));
 		break;
 
+	case DPLANE_OP_MROUTE_INSTALL:
+	case DPLANE_OP_MROUTE_DELETE:
+		zlog_debug("%u:SG(%pIA, %pIA) dplane mroute op %s", dplane_ctx_get_vrf(ctx),
+			   dplane_ctx_get_mroute_source(ctx), dplane_ctx_get_mroute_group(ctx),
+			   dplane_op2str(dplane_ctx_get_op(ctx)));
+		break;
+
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE:
@@ -8147,6 +8190,13 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 			}
 		}
 #endif /* HAVE_NETLINK */
+		break;
+
+	case DPLANE_OP_MROUTE_INSTALL:
+	case DPLANE_OP_MROUTE_DELETE:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(&zdplane_info.dg_mroute_errors, 1,
+						  memory_order_relaxed);
 		break;
 
 	case DPLANE_OP_NH_INSTALL:
@@ -9261,4 +9311,122 @@ void zebra_dplane_init(int (*results_fp)(struct dplane_ctx_list_head *))
 {
 	zebra_dplane_init_internal();
 	zdplane_info.dg_results_cb = results_fp;
+}
+
+
+/*
+ * Multicast route functions.
+ */
+const struct ipaddr *dplane_ctx_get_mroute_source(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.mrinfo.source;
+}
+
+const struct ipaddr *dplane_ctx_get_mroute_group(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.mrinfo.group;
+}
+
+uint32_t dplane_ctx_get_mroute_flags(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.mrinfo.flags;
+}
+
+int32_t dplane_ctx_get_mroute_spt_threshold(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.mrinfo.spt_threshold;
+}
+
+ifindex_t dplane_ctx_get_mroute_if_input(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.mrinfo.input;
+}
+
+ifindex_t dplane_ctx_get_mroute_if_notif_idx(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.mrinfo.notif_idx;
+}
+
+void dplane_ctx_get_mroute_if_output(const struct zebra_dplane_ctx *ctx,
+				     const struct mroute_oif_list **output, size_t *amount)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	*output = &ctx->u.mrinfo.oif_list;
+	*amount = ctx->u.mrinfo.output_amount;
+}
+
+const struct ipaddr *dplane_ctx_get_mroute_local(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.mrinfo.local;
+}
+
+const struct ipaddr *dplane_ctx_get_mroute_remote(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.mrinfo.remote;
+}
+
+enum zebra_dplane_result dplane_mroute_enqueue(const struct mroute_args *args)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	struct mroute_oif_arg *oif;
+	struct zebra_vrf *zvrf;
+	int ret;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = args->mroute_op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_is_update = false;
+	ctx->zd_vrf_id = args->vrf_id;
+	/* Let the data plane know which VRF the route belongs to. */
+	zvrf = vrf_info_lookup(args->vrf_id);
+	if (zvrf)
+		ctx->zd_table_id = zvrf->table_id;
+	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
+
+	ctx->u.mrinfo.source = args->source;
+	ctx->u.mrinfo.group = args->group;
+	ctx->u.mrinfo.flags = args->flags;
+	ctx->u.mrinfo.input = args->input;
+	ctx->u.mrinfo.notif_idx = args->notif_idx;
+	ctx->u.mrinfo.spt_threshold = args->spt_threshold;
+	ctx->u.mrinfo.local = args->local;
+	ctx->u.mrinfo.remote = args->remote;
+	ctx->u.mrinfo.output_amount = args->output_amount;
+	SLIST_FOREACH (oif, &args->oif_list, entry) {
+		struct mroute_oif_arg *oif_copy = mroute_oif_arg_new(&ctx->u.mrinfo.oif_list);
+
+		oif_copy->index = oif->index;
+	}
+
+	/* Don't attempt to install in kernel. */
+	dplane_ctx_set_skip_kernel(ctx);
+
+	ret = dplane_update_enqueue(ctx);
+	atomic_fetch_add_explicit(&zdplane_info.dg_mroutes_in, 1, memory_order_relaxed);
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_mroute_errors, 1, memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
 }
