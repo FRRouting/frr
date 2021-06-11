@@ -1074,6 +1074,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->vrfdel_cnt);
 	vty_out(vty, "Connected   %-12u%-12u%-12u\n", client->ifadd_cnt, 0,
 		client->ifdel_cnt);
+	vty_out(vty, "Interface   %-12u%-12u%-12u\n", client->ifup_cnt, 0,
+		client->ifdown_cnt);
 	vty_out(vty, "Intf Addr   %-12u%-12u%-12u\n",
 		client->connected_rt_add_cnt, 0, client->connected_rt_del_cnt);
 	vty_out(vty, "BFD peer    %-12u%-12u%-12u\n", client->bfd_peer_add_cnt,
@@ -1084,20 +1086,16 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->v6_nh_watch_add_cnt, 0, client->v6_nh_watch_rem_cnt);
 	vty_out(vty, "VxLAN SG    %-12u%-12u%-12u\n", client->vxlan_sg_add_cnt,
 		0, client->vxlan_sg_del_cnt);
-	vty_out(vty, "Interface Up Notifications: %u\n", client->ifup_cnt);
-	vty_out(vty, "Interface Down Notifications: %u\n", client->ifdown_cnt);
-	vty_out(vty, "VNI add notifications: %u\n", client->vniadd_cnt);
-	vty_out(vty, "VNI delete notifications: %u\n", client->vnidel_cnt);
-	vty_out(vty, "L3-VNI add notifications: %u\n", client->l3vniadd_cnt);
-	vty_out(vty, "L3-VNI delete notifications: %u\n", client->l3vnidel_cnt);
-	vty_out(vty, "MAC-IP add notifications: %u\n", client->macipadd_cnt);
-	vty_out(vty, "MAC-IP delete notifications: %u\n", client->macipdel_cnt);
-	vty_out(vty, "ES add notifications: %u\n", client->local_es_add_cnt);
-	vty_out(vty, "ES delete notifications: %u\n", client->local_es_del_cnt);
-	vty_out(vty, "ES-EVI add notifications: %u\n",
-			client->local_es_evi_add_cnt);
-	vty_out(vty, "ES-EVI delete notifications: %u\n",
-			client->local_es_evi_del_cnt);
+	vty_out(vty, "VNI         %-12u%-12u%-12u\n", client->vniadd_cnt, 0,
+		client->vnidel_cnt);
+	vty_out(vty, "L3-VNI      %-12u%-12u%-12u\n", client->l3vniadd_cnt, 0,
+		client->l3vnidel_cnt);
+	vty_out(vty, "MAC-IP      %-12u%-12u%-12u\n", client->macipadd_cnt, 0,
+		client->macipdel_cnt);
+	vty_out(vty, "ES          %-12u%-12u%-12u\n", client->local_es_add_cnt,
+		0, client->local_es_del_cnt);
+	vty_out(vty, "ES-EVI      %-12u%-12u%-12u\n",
+		client->local_es_evi_add_cnt, 0, client->local_es_evi_del_cnt);
 	vty_out(vty, "Errors: %u\n", client->error_cnt);
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
