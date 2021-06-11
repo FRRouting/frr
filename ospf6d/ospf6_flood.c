@@ -974,11 +974,12 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		/* if no database copy, should go above state (5) */
 		assert(old);
 
-		if (is_debug) {
-			zlog_debug(
-				"Received is not newer, on the neighbor's request-list");
-			zlog_debug("BadLSReq, discard the received LSA");
-		}
+		zlog_warn(
+			"Received is not newer, on the neighbor %s request-list",
+			from->name);
+		zlog_warn(
+			"BadLSReq, discard the received LSA lsa %s send badLSReq",
+			new->name);
 
 		/* BadLSReq */
 		thread_add_event(master, bad_lsreq, from, 0, NULL);

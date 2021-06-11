@@ -701,20 +701,17 @@ int interface_up(struct thread *thread)
 
 	/* check physical interface is up */
 	if (!if_is_operative(oi->interface)) {
-		if (IS_OSPF6_DEBUG_INTERFACE)
-			zlog_debug(
-				"Interface %s is down, can't execute [InterfaceUp]",
-				oi->interface->name);
+		zlog_warn("Interface %s is down, can't execute [InterfaceUp]",
+			  oi->interface->name);
 		return 0;
 	}
 
 	/* check interface has a link-local address */
 	if (!(ospf6_interface_get_linklocal_address(oi->interface)
 	      || if_is_loopback_or_vrf(oi->interface))) {
-		if (IS_OSPF6_DEBUG_INTERFACE)
-			zlog_debug(
-				"Interface %s has no link local address, can't execute [InterfaceUp]",
-				oi->interface->name);
+		zlog_warn(
+			"Interface %s has no link local address, can't execute [InterfaceUp]",
+			oi->interface->name);
 		return 0;
 	}
 
@@ -731,7 +728,7 @@ int interface_up(struct thread *thread)
 
 	/* If no area assigned, return */
 	if (oi->area == NULL) {
-		zlog_debug(
+		zlog_warn(
 			"%s: Not scheduleing Hello for %s as there is no area assigned yet",
 			__func__, oi->interface->name);
 		return 0;

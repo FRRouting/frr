@@ -442,34 +442,34 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		}
 
 		if (CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MSBIT)) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-				zlog_debug("Master/Slave bit mismatch");
+			zlog_warn(
+				"DbDesc recv: Master/Slave bit mismatch Nbr %s",
+				on->name);
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
 		}
 
 		if (CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_IBIT)) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-				zlog_debug("Initialize bit mismatch");
+			zlog_warn("DbDesc recv: Initialize bit mismatch Nbr %s",
+				  on->name);
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
 		}
 
 		if (memcmp(on->options, dbdesc->options, sizeof(on->options))) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-				zlog_debug("Option field mismatch");
+			zlog_warn("DbDesc recv: Option field mismatch Nbr %s",
+				  on->name);
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
 		}
 
 		if (ntohl(dbdesc->seqnum) != on->dbdesc_seqnum) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-				zlog_debug(
-					"Sequence number mismatch (%#lx expected)",
-					(unsigned long)on->dbdesc_seqnum);
+			zlog_warn(
+				"DbDesc recv: Sequence number mismatch Nbr %s (%#lx expected)",
+				on->name, (unsigned long)on->dbdesc_seqnum);
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
@@ -488,9 +488,9 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 			return;
 		}
 
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-			zlog_debug("Not duplicate dbdesc in state %s",
-				   ospf6_neighbor_state_str[on->state]);
+		zlog_warn(
+			"DbDesc recv: Not duplicate dbdesc in state %s Nbr %s",
+			ospf6_neighbor_state_str[on->state], on->name);
 		thread_add_event(master, seqnumber_mismatch, on, 0, NULL);
 		return;
 
@@ -663,34 +663,36 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		}
 
 		if (!CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MSBIT)) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-				zlog_debug("Master/Slave bit mismatch");
+			zlog_warn(
+				"DbDesc slave recv: Master/Slave bit mismatch Nbr %s",
+				on->name);
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
 		}
 
 		if (CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_IBIT)) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-				zlog_debug("Initialize bit mismatch");
+			zlog_warn(
+				"DbDesc slave recv: Initialize bit mismatch Nbr %s",
+				on->name);
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
 		}
 
 		if (memcmp(on->options, dbdesc->options, sizeof(on->options))) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-				zlog_debug("Option field mismatch");
+			zlog_warn(
+				"DbDesc slave recv: Option field mismatch Nbr %s",
+				on->name);
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
 		}
 
 		if (ntohl(dbdesc->seqnum) != on->dbdesc_seqnum + 1) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-				zlog_debug(
-					"Sequence number mismatch (%#lx expected)",
-					(unsigned long)on->dbdesc_seqnum + 1);
+			zlog_warn(
+				"DbDesc slave recv: Sequence number mismatch Nbr %s (%#lx expected)",
+				on->name, (unsigned long)on->dbdesc_seqnum + 1);
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
@@ -712,9 +714,9 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			return;
 		}
 
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
-			zlog_debug("Not duplicate dbdesc in state %s",
-				   ospf6_neighbor_state_str[on->state]);
+		zlog_warn(
+			"DbDesc slave recv: Not duplicate dbdesc in state %s Nbr %s",
+			ospf6_neighbor_state_str[on->state], on->name);
 		thread_add_event(master, seqnumber_mismatch, on, 0, NULL);
 		return;
 
@@ -888,12 +890,10 @@ static void ospf6_lsreq_recv(struct in6_addr *src, struct in6_addr *dst,
 		/* Find database copy */
 		lsa = ospf6_lsdb_lookup(e->type, e->id, e->adv_router, lsdb);
 		if (lsa == NULL) {
-			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV)) {
-				zlog_debug(
-					"Can't find requested [%s Id:%pI4 Adv:%pI4]",
-					ospf6_lstype_name(e->type), &e->id,
-					&e->adv_router);
-			}
+			zlog_warn(
+				"Can't find requested lsa [%s Id:%pI4 Adv:%pI4] send badLSReq",
+				ospf6_lstype_name(e->type), &e->id,
+				&e->adv_router);
 			thread_add_event(master, bad_lsreq, on, 0, NULL);
 			return;
 		}
@@ -923,18 +923,14 @@ static unsigned ospf6_prefixes_examin(
 
 	while (length) {
 		if (length < OSPF6_PREFIX_MIN_SIZE) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug("%s: undersized IPv6 prefix header",
-					   __func__);
+			zlog_warn("%s: undersized IPv6 prefix header",
+				  __func__);
 			return MSG_NG;
 		}
 		/* safe to look deeper */
 		if (current->prefix_length > IPV6_MAX_BITLEN) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug("%s: invalid PrefixLength (%u bits)",
-					   __func__, current->prefix_length);
+			zlog_warn("%s: invalid PrefixLength (%u bits)",
+				  __func__, current->prefix_length);
 			return MSG_NG;
 		}
 		/* covers both fixed- and variable-sized fields */
@@ -942,10 +938,7 @@ static unsigned ospf6_prefixes_examin(
 			OSPF6_PREFIX_MIN_SIZE
 			+ OSPF6_PREFIX_SPACE(current->prefix_length);
 		if (requested_pfx_bytes > length) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug("%s: undersized IPv6 prefix",
-					   __func__);
+			zlog_warn("%s: undersized IPv6 prefix", __func__);
 			return MSG_NG;
 		}
 		/* next prefix */
@@ -955,11 +948,9 @@ static unsigned ospf6_prefixes_examin(
 		real_num_pfxs++;
 	}
 	if (real_num_pfxs != req_num_pfxs) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug(
-				"%s: IPv6 prefix number mismatch (%u required, %u real)",
-				__func__, req_num_pfxs, real_num_pfxs);
+		zlog_warn(
+			"%s: IPv6 prefix number mismatch (%u required, %u real)",
+			__func__, req_num_pfxs, real_num_pfxs);
 		return MSG_NG;
 	}
 	return MSG_OK;
@@ -988,10 +979,7 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 	ltindex = lsatype & OSPF6_LSTYPE_FCODE_MASK;
 	if (ltindex < OSPF6_LSTYPE_SIZE && ospf6_lsa_minlen[ltindex]
 	    && lsalen < ospf6_lsa_minlen[ltindex] + OSPF6_LSA_HEADER_SIZE) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug("%s: undersized (%u B) LSA", __func__,
-				   lsalen);
+		zlog_warn("%s: undersized (%u B) LSA", __func__, lsalen);
 		return MSG_NG;
 	}
 	switch (lsatype) {
@@ -1001,11 +989,9 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   by N>=0 interface descriptions. */
 		if ((lsalen - OSPF6_LSA_HEADER_SIZE - OSPF6_ROUTER_LSA_MIN_SIZE)
 		    % OSPF6_ROUTER_LSDESC_FIX_SIZE) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug(
-					"%s: interface description alignment error",
-					__func__);
+			zlog_warn(
+				"%s: Router LSA interface description alignment error",
+				__func__);
 			return MSG_NG;
 		}
 		break;
@@ -1015,11 +1001,9 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		if ((lsalen - OSPF6_LSA_HEADER_SIZE
 		     - OSPF6_NETWORK_LSA_MIN_SIZE)
 		    % OSPF6_NETWORK_LSDESC_FIX_SIZE) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug(
-					"%s: router description alignment error",
-					__func__);
+			zlog_warn(
+				"%s: Network LSA router description alignment error",
+				__func__);
 			return MSG_NG;
 		}
 		break;
@@ -1040,10 +1024,8 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		/* RFC5340 A.4.6, fixed-size LSA. */
 		if (lsalen
 		    > OSPF6_LSA_HEADER_SIZE + OSPF6_INTER_ROUTER_LSA_FIX_SIZE) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug("%s: oversized (%u B) LSA", __func__,
-					   lsalen);
+			zlog_warn("%s: Inter Router LSA oversized (%u B) LSA",
+				  __func__, lsalen);
 			return MSG_NG;
 		}
 		break;
@@ -1069,10 +1051,9 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   IPv6
 		   prefix before ospf6_prefix_examin() confirms its sizing. */
 		if (exp_length + OSPF6_PREFIX_MIN_SIZE > lsalen) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug("%s: undersized (%u B) LSA header",
-					   __func__, lsalen);
+			zlog_warn(
+				"%s: AS External undersized (%u B) LSA header",
+				__func__, lsalen);
 			return MSG_NG;
 		}
 		/* forwarding address */
@@ -1088,10 +1069,9 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   I.e.,
 		   this check does not include any IPv6 prefix fields. */
 		if (exp_length > lsalen) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug("%s: undersized (%u B) LSA header",
-					   __func__, lsalen);
+			zlog_warn(
+				"%s: AS External undersized (%u B) LSA header",
+				__func__, lsalen);
 			return MSG_NG;
 		}
 		/* The last call completely covers the remainder (IPv6 prefix).
@@ -1157,34 +1137,26 @@ ospf6_lsaseq_examin(struct ospf6_lsa_header *lsah, /* start of buffered data */
 	while (length) {
 		uint16_t lsalen;
 		if (length < OSPF6_LSA_HEADER_SIZE) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug(
-					"%s: undersized (%zu B) trailing (#%u) LSA header",
-					__func__, length, counted_lsas);
+			zlog_warn(
+				"%s: undersized (%zu B) trailing (#%u) LSA header",
+				__func__, length, counted_lsas);
 			return MSG_NG;
 		}
 		/* save on ntohs() calls here and in the LSA validator */
 		lsalen = OSPF6_LSA_SIZE(lsah);
 		if (lsalen < OSPF6_LSA_HEADER_SIZE) {
-			if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-						   RECV_HDR))
-				zlog_debug(
-					"%s: malformed LSA header #%u, declared length is %u B",
-					__func__, counted_lsas, lsalen);
+			zlog_warn(
+				"%s: malformed LSA header #%u, declared length is %u B",
+				__func__, counted_lsas, lsalen);
 			return MSG_NG;
 		}
 		if (headeronly) {
 			/* less checks here and in ospf6_lsa_examin() */
 			if (MSG_OK != ospf6_lsa_examin(lsah, lsalen, 1)) {
-				if (IS_OSPF6_DEBUG_MESSAGE(
-					    OSPF6_MESSAGE_TYPE_UNKNOWN,
-					    RECV_HDR))
-					zlog_debug(
-						"%s: anomaly in header-only %s LSA #%u",
-						__func__,
-						ospf6_lstype_name(lsah->type),
-						counted_lsas);
+				zlog_warn(
+					"%s: anomaly in header-only %s LSA #%u",
+					__func__, ospf6_lstype_name(lsah->type),
+					counted_lsas);
 				return MSG_NG;
 			}
 			lsah = (struct ospf6_lsa_header
@@ -1195,25 +1167,16 @@ ospf6_lsaseq_examin(struct ospf6_lsa_header *lsah, /* start of buffered data */
 			/* make sure the input buffer is deep enough before
 			 * further checks */
 			if (lsalen > length) {
-				if (IS_OSPF6_DEBUG_MESSAGE(
-					    OSPF6_MESSAGE_TYPE_UNKNOWN,
-					    RECV_HDR))
-					zlog_debug(
-						"%s: anomaly in %s LSA #%u: declared length is %u B, buffered length is %zu B",
-						__func__,
-						ospf6_lstype_name(lsah->type),
-						counted_lsas, lsalen, length);
+				zlog_warn(
+					"%s: anomaly in %s LSA #%u: declared length is %u B, buffered length is %zu B",
+					__func__, ospf6_lstype_name(lsah->type),
+					counted_lsas, lsalen, length);
 				return MSG_NG;
 			}
 			if (MSG_OK != ospf6_lsa_examin(lsah, lsalen, 0)) {
-				if (IS_OSPF6_DEBUG_MESSAGE(
-					    OSPF6_MESSAGE_TYPE_UNKNOWN,
-					    RECV_HDR))
-					zlog_debug(
-						"%s: anomaly in %s LSA #%u",
-						__func__,
-						ospf6_lstype_name(lsah->type),
-						counted_lsas);
+				zlog_warn("%s: anomaly in %s LSA #%u", __func__,
+					  ospf6_lstype_name(lsah->type),
+					  counted_lsas);
 				return MSG_NG;
 			}
 			lsah = (struct ospf6_lsa_header *)((caddr_t)lsah
@@ -1224,11 +1187,8 @@ ospf6_lsaseq_examin(struct ospf6_lsa_header *lsah, /* start of buffered data */
 	}
 
 	if (declared_num_lsas && counted_lsas != declared_num_lsas) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug(
-				"%s: #LSAs declared (%u) does not match actual (%u)",
-				__func__, declared_num_lsas, counted_lsas);
+		zlog_warn("%s: #LSAs declared (%u) does not match actual (%u)",
+			  __func__, declared_num_lsas, counted_lsas);
 		return MSG_NG;
 	}
 	return MSG_OK;
@@ -1243,41 +1203,31 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 
 	/* length, 1st approximation */
 	if (bytesonwire < OSPF6_HEADER_SIZE) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug("%s: undersized (%u B) packet", __func__,
-				   bytesonwire);
+		zlog_warn("%s: undersized (%u B) packet", __func__,
+			  bytesonwire);
 		return MSG_NG;
 	}
 	/* Now it is safe to access header fields. */
 	if (bytesonwire != ntohs(oh->length)) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug(
-				"%s: %s packet length error (%u real, %u declared)",
-				__func__, lookup_msg(ospf6_message_type_str,
-						     oh->type, NULL),
-				bytesonwire, ntohs(oh->length));
+		zlog_warn("%s: %s packet length error (%u real, %u declared)",
+			  __func__,
+			  lookup_msg(ospf6_message_type_str, oh->type, NULL),
+			  bytesonwire, ntohs(oh->length));
 		return MSG_NG;
 	}
 	/* version check */
 	if (oh->version != OSPFV3_VERSION) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug("%s: invalid (%u) protocol version",
-				   __func__, oh->version);
+		zlog_warn("%s: invalid (%u) protocol version", __func__,
+			  oh->version);
 		return MSG_NG;
 	}
 	/* length, 2nd approximation */
 	if (oh->type < OSPF6_MESSAGE_TYPE_ALL && ospf6_packet_minlen[oh->type]
 	    && bytesonwire
 		       < OSPF6_HEADER_SIZE + ospf6_packet_minlen[oh->type]) {
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug("%s: undersized (%u B) %s packet", __func__,
-				   bytesonwire,
-				   lookup_msg(ospf6_message_type_str, oh->type,
-					      NULL));
+		zlog_warn("%s: undersized (%u B) %s packet", __func__,
+			  bytesonwire,
+			  lookup_msg(ospf6_message_type_str, oh->type, NULL));
 		return MSG_NG;
 	}
 	/* type-specific deeper validation */
@@ -1290,11 +1240,8 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 		    == (bytesonwire - OSPF6_HEADER_SIZE - OSPF6_HELLO_MIN_SIZE)
 			       % 4)
 			return MSG_OK;
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug("%s: alignment error in %s packet", __func__,
-				   lookup_msg(ospf6_message_type_str, oh->type,
-					      NULL));
+		zlog_warn("%s: alignment error in %s packet", __func__,
+			  lookup_msg(ospf6_message_type_str, oh->type, NULL));
 		return MSG_NG;
 	case OSPF6_MESSAGE_TYPE_DBDESC:
 		/* RFC5340 A.3.3, packet header + OSPF6_DB_DESC_MIN_SIZE bytes
@@ -1314,11 +1261,8 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 		    == (bytesonwire - OSPF6_HEADER_SIZE - OSPF6_LS_REQ_MIN_SIZE)
 			       % OSPF6_LSREQ_LSDESC_FIX_SIZE)
 			return MSG_OK;
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug("%s: alignment error in %s packet", __func__,
-				   lookup_msg(ospf6_message_type_str, oh->type,
-					      NULL));
+		zlog_warn("%s: alignment error in %s packet", __func__,
+			  lookup_msg(ospf6_message_type_str, oh->type, NULL));
 		return MSG_NG;
 	case OSPF6_MESSAGE_TYPE_LSUPDATE:
 		/* RFC5340 A.3.5, packet header + OSPF6_LS_UPD_MIN_SIZE bytes
@@ -1343,16 +1287,12 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 			1, 0);
 		break;
 	default:
-		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
-					   RECV_HDR))
-			zlog_debug("%s: invalid (%u) message type", __func__,
-				   oh->type);
+		zlog_warn("%s: invalid (%u) message type", __func__, oh->type);
 		return MSG_NG;
 	}
-	if (test != MSG_OK
-	    && IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, RECV_HDR))
-		zlog_debug("%s: anomaly in %s packet", __func__,
-			   lookup_msg(ospf6_message_type_str, oh->type, NULL));
+	if (test != MSG_OK)
+		zlog_warn("%s: anomaly in %s packet", __func__,
+			  lookup_msg(ospf6_message_type_str, oh->type, NULL));
 	return test;
 }
 
