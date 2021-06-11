@@ -2212,6 +2212,32 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
 	bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
+	if (filter->advmap.update_type == UPDATE_TYPE_WITHDRAW &&
+	    filter->advmap.aname &&
+	    route_map_lookup_by_name(filter->advmap.aname)) {
+		struct bgp_path_info rmap_path = {0};
+		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
+		struct attr dummy_attr = *attr;
+
+		/* Fill temp path_info */
+		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest,
+				    pi, peer, &dummy_attr);
+
+		struct route_map *amap =
+			route_map_lookup_by_name(filter->advmap.aname);
+
+		ret = route_map_apply(amap, p, &rmap_path);
+
+		bgp_attr_flush(&dummy_attr);
+
+		/*
+		 * The conditional advertisement mode is Withdraw and this
+		 * prefix is a conditional prefix. Don't advertise it
+		 */
+		if (ret == RMAP_PERMITMATCH)
+			return false;
+	}
+
 	/* Route map & unsuppress-map apply. */
 	if (!post_attr &&
 	    (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi))) {
