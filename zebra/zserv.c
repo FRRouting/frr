@@ -1070,8 +1070,12 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		0, client->redist_v4_del_cnt);
 	vty_out(vty, "Redist:v6   %-12u%-12u%-12u\n", client->redist_v6_add_cnt,
 		0, client->redist_v6_del_cnt);
+	vty_out(vty, "VRF         %-12u%-12u%-12u\n", client->vrfadd_cnt, 0,
+		client->vrfdel_cnt);
 	vty_out(vty, "Connected   %-12u%-12u%-12u\n", client->ifadd_cnt, 0,
 		client->ifdel_cnt);
+	vty_out(vty, "Intf Addr   %-12u%-12u%-12u\n",
+		client->connected_rt_add_cnt, 0, client->connected_rt_del_cnt);
 	vty_out(vty, "BFD peer    %-12u%-12u%-12u\n", client->bfd_peer_add_cnt,
 		client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt);
 	vty_out(vty, "NHT v4      %-12u%-12u%-12u\n",
@@ -1094,6 +1098,7 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 			client->local_es_evi_add_cnt);
 	vty_out(vty, "ES-EVI delete notifications: %u\n",
 			client->local_es_evi_del_cnt);
+	vty_out(vty, "Errors: %u\n", client->error_cnt);
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
 		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
