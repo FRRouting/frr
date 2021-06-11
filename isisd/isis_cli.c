@@ -72,13 +72,19 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 
 struct if_iter {
 	struct vty *vty;
+	const char *vrf;
 	const char *tag;
 };
 
 static int if_iter_cb(const struct lyd_node *dnode, void *arg)
 {
 	struct if_iter *iter = arg;
+	const char *vrf;
 	const char *tag;
+
+	vrf = yang_dnode_get_string(dnode, "vrf");
+	if (strcmp(vrf, iter->vrf))
+		return YANG_ITER_CONTINUE;
 
 	if (!yang_dnode_exists(dnode, "frr-isisd:isis/area-tag"))
 		return YANG_ITER_CONTINUE;
@@ -87,12 +93,10 @@ static int if_iter_cb(const struct lyd_node *dnode, void *arg)
 	if (strmatch(tag, iter->tag)) {
 		char xpath[XPATH_MAXLEN];
 		const char *name = yang_dnode_get_string(dnode, "name");
-		const char *vrf = yang_dnode_get_string(dnode, "vrf");
 
-		snprintf(
-			xpath, XPATH_MAXLEN,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis",
-			name, vrf);
+		interface_xpath(xpath, name, vrf);
+		strlcat(xpath, "/frr-isisd:isis", sizeof(xpath));
+
 		nb_cli_enqueue_change(iter->vty, xpath, NB_OP_DESTROY, NULL);
 	}
 
@@ -119,10 +123,11 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 	}
 
 	iter.vty = vty;
+	iter.vrf = vrf_name;
 	iter.tag = tag;
 
 	yang_dnode_iterate(if_iter_cb, &iter, vty->candidate_config->dnode,
-			   "/frr-interface:lib/interface[vrf='%s']", vrf_name);
+			   "/frr-interface:lib/interface");
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 

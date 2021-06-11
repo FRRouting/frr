@@ -1258,6 +1258,9 @@ struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
 	       "northbound callback (get_elem): xpath [%s] list_entry [%p]",
 	       xpath, list_entry);
 
+	if (!nb_node->cbs.get_elem)
+		return NULL;
+
 	args.xpath = xpath;
 	args.list_entry = list_entry;
 	return nb_node->cbs.get_elem(&args);
@@ -1626,9 +1629,6 @@ static int nb_oper_data_iter_leaf(const struct nb_node *nb_node,
 				  uint32_t flags, nb_oper_data_cb cb, void *arg)
 {
 	struct yang_data *data;
-
-	if (CHECK_FLAG(nb_node->snode->flags, LYS_CONFIG_W))
-		return NB_OK;
 
 	/* Ignore list keys. */
 	if (lysc_is_key(nb_node->snode))

@@ -597,6 +597,8 @@ struct if_link_params *if_link_params_get(struct interface *);
 void if_link_params_free(struct interface *);
 
 /* Northbound. */
+void interface_xpath(char *xpath, const char *ifname, const char *vrfname);
+
 extern void if_cmd_init(void);
 extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
 			      int (*up)(struct interface *ifp),

@@ -873,6 +873,7 @@ static struct cmd_node eigrp_interface_node = {
 
 static int eigrp_write_interface(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
 	struct lyd_node *dnode;
 	struct interface *ifp;
 	struct vrf *vrf;
@@ -880,10 +881,8 @@ static int eigrp_write_interface(struct vty *vty)
 
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES(vrf, ifp) {
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
+			interface_xpath(xpath, ifp->name, vrf->name);
+			dnode = yang_dnode_get(running_config->dnode, xpath);
 			if (dnode == NULL)
 				continue;
 

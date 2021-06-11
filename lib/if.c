@@ -262,22 +262,32 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	 * several implications.
 	 */
 	if (yang_module_find("frr-interface")) {
-		struct lyd_node *if_dnode;
+		struct lyd_node *dnode;
 		char oldpath[XPATH_MAXLEN];
 		char newpath[XPATH_MAXLEN];
 
-		if_dnode = yang_dnode_getf(
-			running_config->dnode,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
-			ifp->name, old_vrf->name);
+		interface_xpath(oldpath, ifp->name, old_vrf->name);
+		interface_xpath(newpath, ifp->name, vrf->name);
 
-		if (if_dnode) {
-			yang_dnode_get_path(lyd_parent(if_dnode), oldpath,
-					    sizeof(oldpath));
-			yang_dnode_change_leaf(if_dnode, vrf->name);
-			yang_dnode_get_path(lyd_parent(if_dnode), newpath,
-					    sizeof(newpath));
-			nb_running_move_tree(oldpath, newpath);
+		dnode = yang_dnode_getf(running_config->dnode, "%s/vrf",
+					oldpath);
+		if (dnode) {
+			yang_dnode_change_leaf(dnode, vrf->name);
+
+			if (vrf_is_backend_netns()) {
+				dnode = yang_dnode_getf(running_config->dnode,
+							"%s/name", oldpath);
+				if (dnode) {
+					char name[XPATH_MAXLEN];
+
+					snprintf(name, sizeof(name), "%s:%s",
+						 ifp->name, vrf->name);
+
+					yang_dnode_change_leaf(dnode, name);
+					nb_running_move_tree(oldpath, newpath);
+				}
+			}
+
 			running_config->version++;
 		}
 	}
@@ -1182,6 +1192,34 @@ void if_link_params_free(struct interface *ifp)
 
 /* ----------- CLI commands ----------- */
 
+void interface_xpath(char *xpath, const char *ifname, const char *vrfname)
+{
+	if (vrf_is_backend_netns())
+		snprintf(xpath, XPATH_MAXLEN,
+			 "/frr-interface:lib/interface[name='%s:%s']",
+			 vrfname, ifname);
+	else
+		snprintf(xpath, XPATH_MAXLEN,
+			 "/frr-interface:lib/interface[name='%s']", ifname);
+}
+
+static void netns_ifname_split(const char *xpath, char *ifname, char *vrfname)
+{
+	char *delim;
+	int len;
+
+	assert(vrf_is_backend_netns());
+
+	delim = strchr(xpath, ':');
+	assert(delim);
+
+	len = delim - xpath;
+	memcpy(vrfname, xpath, len);
+	vrfname[len] = 0;
+
+	strlcpy(ifname, delim + 1, XPATH_MAXLEN);
+}
+
 /*
  * XPath: /frr-interface:lib/interface
  */
@@ -1233,11 +1271,10 @@ DEFPY_YANG_NOSH (interface,
 		vrf_name = vrf->name;
 	}
 
-	snprintf(xpath_list, sizeof(xpath_list),
-		 "/frr-interface:lib/interface[name='%s'][vrf='%s']", ifname,
-		 vrf_name);
+	interface_xpath(xpath_list, ifname, vrf_name);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./vrf", NB_OP_MODIFY, vrf_name);
 	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(INTERFACE_NODE, xpath_list);
@@ -1264,14 +1301,16 @@ DEFPY_YANG (no_interface,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 {
+	char xpath_list[XPATH_MAXLEN];
+
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
 
+	interface_xpath(xpath_list, ifname, vrf_name);
+
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(
-		vty, "/frr-interface:lib/interface[name='%s'][vrf='%s']",
-		ifname, vrf_name);
+	return nb_cli_apply_changes(vty, xpath_list);
 }
 
 static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
@@ -1282,7 +1321,19 @@ static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
 	vrf = yang_dnode_get_string(dnode, "./vrf");
 
 	vty_out(vty, "!\n");
-	vty_out(vty, "interface %s", yang_dnode_get_string(dnode, "./name"));
+	if (vrf_is_backend_netns()) {
+		char ifname[XPATH_MAXLEN];
+		char vrfname[XPATH_MAXLEN];
+
+		netns_ifname_split(yang_dnode_get_string(dnode, "./name"),
+				   ifname, vrfname);
+
+		vty_out(vty, "interface %s", ifname);
+	} else {
+		const char *ifname = yang_dnode_get_string(dnode, "./name");
+
+		vty_out(vty, "interface %s", ifname);
+	}
 	if (!strmatch(vrf, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf);
 	vty_out(vty, "\n");
@@ -1370,7 +1421,6 @@ void if_zapi_callbacks(int (*create)(struct interface *ifp),
 }
 
 /* ------- Northbound callbacks ------- */
-
 /*
  * XPath: /frr-interface:lib/interface
  */
@@ -1418,7 +1468,17 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
-		ifp = if_get_by_name(ifname, vrf->vrf_id);
+
+		if (vrf_is_backend_netns()) {
+			char ifname_ns[XPATH_MAXLEN];
+			char vrfname_ns[XPATH_MAXLEN];
+
+			netns_ifname_split(ifname, ifname_ns, vrfname_ns);
+
+			ifp = if_get_by_name(ifname_ns, vrf->vrf_id);
+		} else {
+			ifp = if_get_by_name(ifname, vrf->vrf_id);
+		}
 
 		ifp->configured = true;
 		nb_running_set_entry(args->dnode, ifp);
@@ -1487,13 +1547,19 @@ static int lib_interface_get_keys(struct nb_cb_get_keys_args *args)
 {
 	const struct interface *ifp = args->list_entry;
 
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+	args->keys->num = 1;
 
-	assert(vrf);
+	if (vrf_is_backend_netns()) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
-	args->keys->num = 2;
-	strlcpy(args->keys->key[0], ifp->name, sizeof(args->keys->key[0]));
-	strlcpy(args->keys->key[1], vrf->name, sizeof(args->keys->key[1]));
+		assert(vrf);
+
+		snprintf(args->keys->key[0], sizeof(args->keys->key[0]),
+			 "%s:%s", vrf->name, ifp->name);
+	} else {
+		snprintf(args->keys->key[0], sizeof(args->keys->key[0]),
+			 "%s", ifp->name);
+	}
 
 	return NB_OK;
 }
@@ -1501,11 +1567,38 @@ static int lib_interface_get_keys(struct nb_cb_get_keys_args *args)
 static const void *
 lib_interface_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
-	const char *ifname = args->keys->key[0];
-	const char *vrfname = args->keys->key[1];
-	struct vrf *vrf = vrf_lookup_by_name(vrfname);
+	if (vrf_is_backend_netns()) {
+		char ifname[XPATH_MAXLEN];
+		char vrfname[XPATH_MAXLEN];
+		struct vrf *vrf;
 
-	return vrf ? if_lookup_by_name(ifname, vrf->vrf_id) : NULL;
+		netns_ifname_split(args->keys->key[0], ifname, vrfname);
+
+		vrf = vrf_lookup_by_name(vrfname);
+
+		return vrf ? if_lookup_by_name(ifname, vrf->vrf_id) : NULL;
+	} else {
+		return if_lookup_by_name_all_vrf(args->keys->key[0]);
+	}
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/vrf
+ */
+static int lib_interface_vrf_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+static struct yang_data *
+lib_interface_vrf_get_elem(struct nb_cb_get_elem_args *args)
+{
+	const struct interface *ifp = args->list_entry;
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
+	assert(vrf);
+
+	return yang_data_new_string(args->xpath, vrf->name);
 }
 
 /*
@@ -1642,6 +1735,13 @@ const struct frr_yang_module_info frr_interface_info = {
 				.get_next = lib_interface_get_next,
 				.get_keys = lib_interface_get_keys,
 				.lookup_entry = lib_interface_lookup_entry,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/vrf",
+			.cbs = {
+				.modify = lib_interface_vrf_modify,
+				.get_elem = lib_interface_vrf_get_elem,
 			},
 		},
 		{
