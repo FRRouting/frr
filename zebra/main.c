@@ -386,6 +386,8 @@ int main(int argc, char **argv)
 	char *vrf_default_name_configured = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
+	bool asic_offload = false;
+	bool notify_on_ack = true;
 
 #ifdef FUZZING
 	FuzzingInit();
