@@ -4,5 +4,4 @@
 !LICENCE
 !Makefile
 !subdir.am
-!babeld.conf.sample
 !.gitignore

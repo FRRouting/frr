@@ -22,6 +22,13 @@
 
 #include "lib/mpls.h"
 #include "table.h"
+#include "memory.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+DECLARE_MGROUP(STATIC);
 
 /* Static route label information */
 struct static_nh_label {
@@ -217,11 +224,14 @@ extern void static_del_path(struct route_node *rn, struct static_path *pn,
 			    safi_t safi, struct static_vrf *svrf);
 
 extern void static_get_nh_type(static_types stype, char *type, size_t size);
-extern bool static_add_nexthop_validate(struct static_vrf *svrf,
+extern bool static_add_nexthop_validate(const char *nh_vrf_name,
 					static_types type,
 					struct ipaddr *ipaddr);
 extern struct stable_info *static_get_stable_info(struct route_node *rn);
 extern void static_route_info_init(struct static_route_info *si);
+
+extern void zebra_stable_node_cleanup(struct route_table *table,
+				      struct route_node *node);
 
 /*
  * Max string return via API static_get_nh_str in size_t
@@ -235,4 +245,9 @@ extern void static_route_info_init(struct static_route_info *si);
  */
 extern void static_get_nh_str(struct static_nexthop *nh, char *nexthop,
 			      size_t size);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

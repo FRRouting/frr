@@ -1,0 +1,14 @@
+{
+  "vni":101,
+  "type":"L2",
+  "vrf":"default",
+  "vxlanInterface":"vxlan101",
+  "vtepIp":"10.30.30.30",
+  "mcastGroup":"0.0.0.0",
+  "advertiseGatewayMacip":"No",
+  "numMacs":6,
+  "numArpNd":6,
+  "numRemoteVteps":[
+    "10.10.10.10"
+  ]
+}

@@ -26,8 +26,6 @@
 extern "C" {
 #endif
 
-enum prefix_name_type { PREFIX_TYPE_STRING, PREFIX_TYPE_NUMBER };
-
 struct pltrie_table;
 
 struct prefix_list {
@@ -35,8 +33,6 @@ struct prefix_list {
 	char *desc;
 
 	struct prefix_master *master;
-
-	enum prefix_name_type type;
 
 	int count;
 	int rangecount;

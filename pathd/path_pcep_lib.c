@@ -16,15 +16,20 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <zebra.h>
+
+#include "memory.h"
+
 #include <debug.h>
-#include <pcep_utils_counters.h>
-#include <pcep_timers.h>
+#include "pceplib/pcep_utils_counters.h"
+#include "pceplib/pcep_timers.h"
 #include "pathd/path_errors.h"
-#include "pathd/path_memory.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_debug.h"
-#include "pathd/path_pcep_memory.h"
+
+DEFINE_MTYPE_STATIC(PATHD, PCEPLIB_INFRA,    "PCEPlib Infrastructure");
+DEFINE_MTYPE_STATIC(PATHD, PCEPLIB_MESSAGES, "PCEPlib PCEP Messages");
 
 #define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
 #define DEFAULT_LSAP_SETUP_PRIO 4
@@ -176,11 +181,11 @@ pcep_lib_connect(struct ipaddr *src_addr, int src_port, struct ipaddr *dst_addr,
 	/* TODO when available in the pceplib, set it here
 	 pcep_options->state_timeout_inteval_seconds;*/
 
-	if (pcep_options->tcp_md5_auth != NULL
-	    && pcep_options->tcp_md5_auth[0] != '\0') {
+	if (pcep_options->tcp_md5_auth[0] != '\0') {
 		config->is_tcp_auth_md5 = true;
-		strncpy(config->tcp_authentication_str,
-			pcep_options->tcp_md5_auth, TCP_MD5SIG_MAXKEYLEN);
+		strlcpy(config->tcp_authentication_str,
+			pcep_options->tcp_md5_auth,
+			sizeof(config->tcp_authentication_str));
 	} else {
 		config->is_tcp_auth_md5 = false;
 	}

@@ -4,7 +4,6 @@
 
 if VTYSH
 bin_PROGRAMS += vtysh/vtysh
-dist_examples_DATA += vtysh/vtysh.conf.sample
 man1 += $(MANBUILD)/vtysh.1
 endif
 

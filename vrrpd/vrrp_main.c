@@ -40,7 +40,7 @@
 #include "vrrp_vty.h"
 #include "vrrp_zebra.h"
 
-DEFINE_MGROUP(VRRPD, "vrrpd")
+DEFINE_MGROUP(VRRPD, "vrrpd");
 
 char backup_config_file[256];
 
@@ -128,7 +128,7 @@ FRR_DAEMON_INFO(vrrpd, VRRP, .vty_port = VRRP_VTY_PORT,
 		.privs = &vrrp_privs,
 		.yang_modules = vrrp_yang_modules,
 		.n_yang_modules = array_size(vrrp_yang_modules),
-)
+);
 
 int main(int argc, char **argv, char **envp)
 {

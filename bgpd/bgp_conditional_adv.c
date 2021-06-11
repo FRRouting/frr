@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <zebra.h>
+
 #include "bgpd/bgp_conditional_adv.h"
 #include "bgpd/bgp_vty.h"
 
@@ -193,7 +195,7 @@ static int bgp_conditional_adv_timer(struct thread *t)
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
 
-		if (peer->status != Established)
+		if (!peer_established(peer))
 			continue;
 
 		FOREACH_AFI_SAFI (afi, safi) {

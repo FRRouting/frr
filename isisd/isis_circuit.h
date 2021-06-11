@@ -31,6 +31,7 @@
 
 #include "isis_constants.h"
 #include "isis_common.h"
+#include "isis_csm.h"
 
 DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
 
@@ -69,16 +70,15 @@ struct isis_p2p_info {
 	struct thread *t_send_p2p_hello; /* send P2P IIHs in this thread  */
 };
 
-struct bfd_info;
-
 struct isis_circuit_arg {
 	int level;
 	struct isis_circuit *circuit;
 };
 
 struct isis_circuit {
-	int state;
+	enum isis_circuit_state state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
+	time_t last_uptime;
 	struct isis *isis;
 	struct isis_area *area;      /* back pointer to the area */
 	struct interface *interface; /* interface info from z */
@@ -115,9 +115,12 @@ struct isis_circuit {
 	int pad_hellos;     /* add padding to Hello PDUs ? */
 	char ext_domain;    /* externalDomain   (boolean) */
 	int lsp_regenerate_pending[ISIS_LEVELS];
+	uint64_t lsp_error_counter;
+
 	/*
 	 * Configurables
 	 */
+	char *tag;		       /* area tag */
 	struct isis_passwd passwd;     /* Circuit rx/tx password */
 	int is_type;		       /* circuit is type == level of circuit
 					* differentiated from circuit type (media) */
@@ -139,7 +142,10 @@ struct isis_circuit {
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 	uint8_t flags;
 	bool disable_threeway_adj;
-	struct bfd_info *bfd_info;
+	struct {
+		bool enabled;
+		char *profile;
+	} bfd_config;
 	struct ldp_sync_info *ldp_sync_info;
 	bool lfa_protection[ISIS_LEVELS];
 	bool rlfa_protection[ISIS_LEVELS];
@@ -147,6 +153,7 @@ struct isis_circuit {
 	struct hash *lfa_excluded_ifaces[ISIS_LEVELS];
 	bool tilfa_protection[ISIS_LEVELS];
 	bool tilfa_node_protection[ISIS_LEVELS];
+	bool tilfa_link_fallback[ISIS_LEVELS];
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */
@@ -165,12 +172,18 @@ struct isis_circuit {
 	uint32_t auth_type_failures; /*authentication-type-fails */
 	uint32_t auth_failures; /* authentication-fails */
 
-	QOBJ_FIELDS
+	uint32_t snmp_id; /* Circuit id in snmp */
+
+	uint32_t snmp_adj_idx_gen; /* Create unique id for adjacency on creation
+				    */
+	struct list *snmp_adj_list; /* List in id order */
+
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(isis_circuit)
+DECLARE_QOBJ_TYPE(isis_circuit);
 
 void isis_circuit_init(void);
-struct isis_circuit *isis_circuit_new(struct isis *isis);
+struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag);
 void isis_circuit_del(struct isis_circuit *circuit);
 struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
 					   struct list *list);
@@ -197,8 +210,6 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
 
-struct isis_circuit *isis_circuit_create(struct isis_area *area,
-					 struct interface *ifp);
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 			 bool ipv6_router);
 ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);
@@ -222,10 +233,13 @@ int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
 #ifdef FABRICD
 DECLARE_HOOK(isis_circuit_config_write,
 	    (struct isis_circuit *circuit, struct vty *vty),
-	    (circuit, vty))
+	    (circuit, vty));
 #endif
 
 DECLARE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
-	     (circuit))
+	     (circuit));
+
+DECLARE_HOOK(isis_circuit_new_hook, (struct isis_circuit *circuit), (circuit));
+DECLARE_HOOK(isis_circuit_del_hook, (struct isis_circuit *circuit), (circuit));
 
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

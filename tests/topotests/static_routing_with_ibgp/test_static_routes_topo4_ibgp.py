@@ -69,6 +69,7 @@ from lib.bgp import (
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 from lib.topotest import version_cmp
+
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/static_routes_topo4_ibgp.json".format(CWD)
 try:
@@ -82,6 +83,8 @@ BGP_CONVERGENCE = False
 ADDR_TYPES = check_address_types()
 NETWORK = {"ipv4": "2.2.2.2/32", "ipv6": "22:22::2/128"}
 NEXT_HOP_IP = {}
+
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 
 class CreateTopo(Topo):
@@ -122,9 +125,11 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('These tests will not run. (have kernel "{}", '
-            'requires kernel >= 4.19)'.format(platform.release()))
+    if version_cmp(platform.release(), "4.19") < 0:
+        error_msg = (
+            'These tests will not run. (have kernel "{}", '
+            "requires kernel >= 4.19)".format(platform.release())
+        )
         pytest.skip(error_msg)
 
     # Checking BGP convergence
@@ -234,8 +239,11 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
     step(" All BGP nbrs are down as authentication is mismatch on both" " the sides")
 
     bgp_convergence = verify_bgp_convergence(tgen, topo, expected=False)
-    assert bgp_convergence is not True, "Testcase {} : "
-    "Failed \n BGP nbrs must be down. Error: {}".format(tc_name, bgp_convergence)
+    assert (
+        bgp_convergence is not True
+    ), "Testcase {} : " "Failed \n BGP nbrs must be down. Error: {}".format(
+        tc_name, bgp_convergence
+    )
 
     step(
         "Configure 4 IPv4 and 4 IPv6 nbrs with macthing password  "
@@ -330,8 +338,9 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
             "show ip prefix list"
         )
         result = verify_prefix_lists(tgen, input_dict_2)
-        assert result is not True, "Testcase {} : Failed \n"
-        " Error: {}".format(tc_name, result)
+        assert result is not True, "Testcase {} : Failed \n" " Error: {}".format(
+            tc_name, result
+        )
 
         step("Redistribute all the routes (connected, static)")
         input_dict_2_r1 = {
@@ -581,8 +590,10 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         result4 = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result4 is not True, "Testcase {} : Failed , VM1 route is "
-        "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        assert result4 is not True, (
+            "Testcase {} : Failed , VM1 route is "
+            "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        )
 
         step(
             "VM4 and VM6 IPV4 and IPv6 address are present in local and "
@@ -942,7 +953,9 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         result4 = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result4 is not True, "Testcase {} : Failed \n" "Error: {}".format(
+        assert (
+            result4 is not True
+        ), "Testcase {} : Failed \n" "routes are still present \n Error: {}".format(
             tc_name, result4
         )
 
@@ -955,8 +968,10 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
         result4 = verify_rib(tgen, addr_type, dut, input_dict)
-        assert result4 is True, "Testcase {} : Failed , VM1 route is "
-        "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        assert result4 is True, (
+            "Testcase {} : Failed , VM1 route is "
+            "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        )
 
         step("vm4 should be present in FRR2")
         dut = "r2"
@@ -967,8 +982,10 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
         result4 = verify_rib(tgen, addr_type, dut, input_dict)
-        assert result4 is True, "Testcase {} : Failed , VM1 route is "
-        "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        assert result4 is True, (
+            "Testcase {} : Failed , VM1 route is "
+            "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        )
 
         dut = "r3"
         protocol = "bgp"

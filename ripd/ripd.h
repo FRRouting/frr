@@ -97,7 +97,7 @@
 #define RIP_INSTANCE	"/frr-ripd:ripd/instance"
 #define RIP_IFACE	"/frr-interface:lib/interface/frr-ripd:rip"
 
-DECLARE_MGROUP(RIPD)
+DECLARE_MGROUP(RIPD);
 
 /* RIP structure. */
 struct rip {
@@ -529,7 +529,7 @@ extern struct rip_instance_head rip_instances;
 /* Master thread strucutre. */
 extern struct thread_master *master;
 
-DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
-DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
+DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc));
+DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc));
 
 #endif /* _ZEBRA_RIP_H */

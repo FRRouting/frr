@@ -27,6 +27,7 @@ dev_RSTFILES = \
 	doc/developer/building.rst \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
+	doc/developer/cross-compiling.rst \
 	doc/developer/frr-release-procedure.rst \
 	doc/developer/grpc.rst \
 	doc/developer/hooks.rst \
@@ -56,8 +57,10 @@ dev_RSTFILES = \
 	doc/developer/tracing.rst \
 	doc/developer/testing.rst \
 	doc/developer/topotests-snippets.rst \
+	doc/developer/topotests-markers.rst \
 	doc/developer/topotests.rst \
 	doc/developer/workflow.rst \
+	doc/developer/xrefs.rst \
 	doc/developer/zebra.rst \
 	# end
 

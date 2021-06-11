@@ -67,12 +67,6 @@ uint8_t *readbuff = NULL;
 
 static const uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
 static const uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-#if 0
-/* missing support for P2P-over-LAN / ES-IS on BSD */
-static const uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-static const uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
-#endif
-
 static char sock_buff[16384];
 
 static int open_bpf_dev(struct isis_circuit *circuit)

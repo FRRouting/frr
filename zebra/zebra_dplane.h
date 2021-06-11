@@ -155,6 +155,23 @@ enum dplane_op_e {
 
 	/* bridge port update */
 	DPLANE_OP_BR_PORT_UPDATE,
+
+	/* Policy based routing iptable update */
+	DPLANE_OP_IPTABLE_ADD,
+	DPLANE_OP_IPTABLE_DELETE,
+
+	/* Policy based routing ipset update */
+	DPLANE_OP_IPSET_ADD,
+	DPLANE_OP_IPSET_DELETE,
+	DPLANE_OP_IPSET_ENTRY_ADD,
+	DPLANE_OP_IPSET_ENTRY_DELETE,
+
+	/* LINK LAYER IP address update */
+	DPLANE_OP_NEIGH_IP_INSTALL,
+	DPLANE_OP_NEIGH_IP_DELETE,
+
+	DPLANE_OP_NEIGH_TABLE_UPDATE,
+	DPLANE_OP_GRE_SET,
 };
 
 /*
@@ -174,6 +191,8 @@ enum dplane_op_e {
 #define DPLANE_NUD_NOARP          0x04
 #define DPLANE_NUD_PROBE          0x08
 #define DPLANE_NUD_INCOMPLETE     0x10
+#define DPLANE_NUD_PERMANENT      0x20
+#define DPLANE_NUD_FAILED         0x40
 
 /* MAC update flags - dplane_mac_info.update_flags */
 #define DPLANE_MAC_REMOTE       (1 << 0)
@@ -186,6 +205,7 @@ enum dplane_op_e {
 #define DPLANE_NEIGH_WAS_STATIC   (1 << 1)
 #define DPLANE_NEIGH_SET_STATIC   (1 << 2)
 #define DPLANE_NEIGH_SET_INACTIVE (1 << 3)
+#define DPLANE_NEIGH_NO_EXTENSION (1 << 4)
 
 #define DPLANE_BR_PORT_NON_DF (1 << 0)
 
@@ -448,6 +468,8 @@ const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
 	const struct zebra_dplane_ctx *ctx);
 const struct ethaddr *dplane_ctx_neigh_get_mac(
 	const struct zebra_dplane_ctx *ctx);
+const struct ipaddr *
+dplane_ctx_neigh_get_link_ip(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx);
@@ -475,7 +497,19 @@ const struct prefix *
 dplane_ctx_rule_get_dst_ip(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
 dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx);
-
+/* Accessors for policy based routing iptable information */
+struct zebra_pbr_iptable;
+bool
+dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
+			   struct zebra_pbr_iptable *table);
+struct zebra_pbr_ipset;
+bool
+dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
+			 struct zebra_pbr_ipset *ipset);
+struct zebra_pbr_ipset_entry;
+bool
+dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
+			       struct zebra_pbr_ipset_entry *entry);
 /* Accessors for bridge port information */
 uint32_t dplane_ctx_get_br_port_flags(const struct zebra_dplane_ctx *ctx);
 uint32_t
@@ -484,6 +518,23 @@ const struct in_addr *
 dplane_ctx_get_br_port_sph_filters(const struct zebra_dplane_ctx *ctx);
 uint32_t
 dplane_ctx_get_br_port_backup_nhg_id(const struct zebra_dplane_ctx *ctx);
+
+/* Accessors for neighbor table information */
+uint8_t dplane_ctx_neightable_get_family(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_app_probes(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_mcast_probes(const struct zebra_dplane_ctx *ctx);
+uint32_t
+dplane_ctx_neightable_get_ucast_probes(const struct zebra_dplane_ctx *ctx);
+
+/* Accessor for GRE set */
+uint32_t
+dplane_ctx_gre_get_link_ifindex(const struct zebra_dplane_ctx *ctx);
+unsigned int
+dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx);
+const struct zebra_l2info_gre *
+dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx);
 
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
@@ -563,6 +614,16 @@ enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 						const struct connected *ifc);
 
 /*
+ * Link layer operations for the dataplane.
+ */
+enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
+						const struct interface *ifp,
+						struct ipaddr *link_ip,
+						struct ipaddr *ip,
+						uint32_t ndm_state,
+						int protocol);
+
+/*
  * Enqueue evpn mac operations for the dataplane.
  */
 enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
@@ -581,6 +642,11 @@ enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					bool sticky,
 					uint32_t set_static,
 					uint32_t set_inactive);
+
+enum zebra_dplane_result
+dplane_local_mac_del(const struct interface *ifp,
+		     const struct interface *bridge_ifp, vlanid_t vid,
+		     const struct ethaddr *mac);
 
 enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 					const struct interface *bridge_ifp,
@@ -629,6 +695,22 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 enum zebra_dplane_result dplane_neigh_discover(const struct interface *ifp,
 					       const struct ipaddr *ip);
 
+/*
+ * Enqueue a neighbor table parameter set
+ */
+enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
+						   const uint8_t family,
+						   const uint32_t app_probes,
+						   const uint32_t ucast_probes,
+						   const uint32_t mcast_probes);
+
+/*
+ * Enqueue a GRE set
+ */
+enum zebra_dplane_result
+dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
+	       unsigned int mtu, const struct zebra_l2info_gre *gre_info);
+
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;
 
@@ -643,6 +725,23 @@ enum zebra_dplane_result dplane_pbr_rule_delete(struct zebra_pbr_rule *rule);
 enum zebra_dplane_result
 dplane_pbr_rule_update(struct zebra_pbr_rule *old_rule,
 		       struct zebra_pbr_rule *new_rule);
+/* iptable */
+enum zebra_dplane_result
+dplane_pbr_iptable_add(struct zebra_pbr_iptable *iptable);
+enum zebra_dplane_result
+dplane_pbr_iptable_delete(struct zebra_pbr_iptable *iptable);
+
+/* ipset */
+struct zebra_pbr_ipset;
+enum zebra_dplane_result dplane_pbr_ipset_add(struct zebra_pbr_ipset *ipset);
+enum zebra_dplane_result dplane_pbr_ipset_delete(struct zebra_pbr_ipset *ipset);
+
+/* ipset entry */
+struct zebra_pbr_ipset_entry;
+enum zebra_dplane_result
+dplane_pbr_ipset_entry_add(struct zebra_pbr_ipset_entry *ipset);
+enum zebra_dplane_result
+dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset);
 
 /* Encode route information into data plane context. */
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,

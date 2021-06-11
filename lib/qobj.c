@@ -43,7 +43,7 @@ static int qobj_cmp(const struct qobj_node *na, const struct qobj_node *nb)
 }
 
 DECLARE_HASH(qobj_nodes, struct qobj_node, nodehash,
-			qobj_cmp, qobj_hash)
+			qobj_cmp, qobj_hash);
 
 static pthread_rwlock_t nodes_lock;
 static struct qobj_nodes_head nodes = { };

@@ -506,6 +506,23 @@ struct nb_callbacks {
 	int (*rpc)(struct nb_cb_rpc_args *args);
 
 	/*
+	 * Optional callback to compare the data nodes when printing
+	 * the CLI commands associated with them.
+	 *
+	 * dnode1
+	 *    The first data node to compare.
+	 *
+	 * dnode2
+	 *    The second data node to compare.
+	 *
+	 * Returns:
+	 *    <0 when the CLI command for the dnode1 should be printed first
+	 *    >0 when the CLI command for the dnode2 should be printed first
+	 *     0 when there is no difference
+	 */
+	int (*cli_cmp)(struct lyd_node *dnode1, struct lyd_node *dnode2);
+
+	/*
 	 * Optional callback to show the CLI command associated to the given
 	 * YANG data node.
 	 *
@@ -541,19 +558,26 @@ struct nb_callbacks {
 	void (*cli_show_end)(struct vty *vty, struct lyd_node *dnode);
 };
 
+struct nb_dependency_callbacks {
+	void (*get_dependant_xpath)(const struct lyd_node *dnode, char *xpath);
+	void (*get_dependency_xpath)(const struct lyd_node *dnode, char *xpath);
+};
+
 /*
  * Northbound-specific data that is allocated for each schema node of the native
  * YANG modules.
  */
 struct nb_node {
 	/* Back pointer to the libyang schema node. */
-	const struct lys_node *snode;
+	const struct lysc_node *snode;
 
 	/* Data path of this YANG node. */
 	char xpath[XPATH_MAXLEN];
 
 	/* Priority - lower priorities are processed first. */
 	uint32_t priority;
+
+	struct nb_dependency_callbacks dep_cbs;
 
 	/* Callbacks implemented for this node. */
 	struct nb_callbacks cbs;
@@ -693,7 +717,7 @@ struct nb_transaction {
 };
 
 /* Callback function used by nb_oper_data_iterate(). */
-typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
+typedef int (*nb_oper_data_cb)(const struct lysc_node *snode,
 			       struct yang_translator *translator,
 			       struct yang_data *data, void *arg);
 
@@ -702,9 +726,9 @@ typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
 
 /* Hooks. */
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
-	     (xpath, arguments))
-DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty))
-DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set))
+	     (xpath, arguments));
+DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
+DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
 
 /* Northbound debugging records */
 extern struct debug nb_dbg_cbs_config;
@@ -712,6 +736,7 @@ extern struct debug nb_dbg_cbs_state;
 extern struct debug nb_dbg_cbs_rpc;
 extern struct debug nb_dbg_notif;
 extern struct debug nb_dbg_events;
+extern struct debug nb_dbg_libyang;
 
 /* Global running configuration. */
 extern struct nb_config *running_config;
@@ -753,6 +778,12 @@ void nb_nodes_delete(void);
  *    Pointer to northbound node if found, NULL otherwise.
  */
 extern struct nb_node *nb_node_find(const char *xpath);
+
+extern void nb_node_set_dependency_cbs(const char *dependency_xpath,
+				       const char *dependant_xpath,
+				       struct nb_dependency_callbacks *cbs);
+
+bool nb_node_has_dependency(struct nb_node *node);
 
 /*
  * Create a new northbound configuration.
@@ -1116,7 +1147,7 @@ extern int nb_oper_data_iterate(const char *xpath,
  *    true if the operation is valid, false otherwise.
  */
 extern bool nb_operation_is_valid(enum nb_operation operation,
-				  const struct lys_node *snode);
+				  const struct lysc_node *snode);
 
 /*
  * Send a YANG notification. This is a no-op unless the 'nb_notification_send'
@@ -1285,15 +1316,6 @@ extern const char *nb_client_name(enum nb_client client);
  * module, making mandatory the implementation of additional callbacks.
  */
 void nb_validate_callbacks(void);
-
-/*
- * Load a YANG module with its corresponding northbound callbacks.
- *
- * module_info
- *    Pointer to structure containing the module name and its northbound
- *    callbacks.
- */
-void nb_load_module(const struct frr_yang_module_info *module_info);
 
 /*
  * Initialize the northbound layer. Should be called only once during the

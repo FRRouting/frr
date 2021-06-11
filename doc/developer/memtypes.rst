@@ -15,15 +15,15 @@ Example:
 .. code-block:: c
    :caption: mydaemon.h
 
-   DECLARE_MGROUP(MYDAEMON)
-   DECLARE_MTYPE(MYNEIGHBOR)
+   DECLARE_MGROUP(MYDAEMON);
+   DECLARE_MTYPE(MYNEIGHBOR);
 
 .. code-block:: c
    :caption: mydaemon.c
 
-   DEFINE_MGROUP(      MYDAEMON, "My daemon's memory")
-   DEFINE_MTYPE(       MYDAEMON, MYNEIGHBOR,     "Neighbor entry")
-   DEFINE_MTYPE_STATIC(MYDAEMON, MYNEIGHBORNAME, "Neighbor name")
+   DEFINE_MGROUP(      MYDAEMON, "My daemon's memory");
+   DEFINE_MTYPE(       MYDAEMON, MYNEIGHBOR,     "Neighbor entry");
+   DEFINE_MTYPE_STATIC(MYDAEMON, MYNEIGHBORNAME, "Neighbor name");
 
    struct neigh *neighbor_new(const char *name)
    {

@@ -26,12 +26,12 @@
 DECLARE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
 			struct stream *s),
-		(peer, type, size, s))
+		(peer, type, size, s));
 
 DECLARE_HOOK(bgp_packet_send,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
 			struct stream *s),
-		(peer, type, size, s))
+		(peer, type, size, s));
 
 #define BGP_NLRI_LENGTH       1U
 #define BGP_TOTAL_ATTR_LEN    2U
@@ -83,4 +83,8 @@ extern int bgp_generate_updgrp_packets(struct thread *);
 extern int bgp_process_packet(struct thread *);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
+
+/* Task callback to handle socket error encountered in the io pthread */
+int bgp_packet_process_error(struct thread *thread);
+
 #endif /* _QUAGGA_BGP_PACKET_H */

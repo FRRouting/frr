@@ -26,6 +26,9 @@
 #include "lde.h"
 #include "log.h"
 
+DEFINE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),
+	    (nbr, old_state));
+
 static __inline int	 nbr_id_compare(const struct nbr *, const struct nbr *);
 static __inline int	 nbr_addr_compare(const struct nbr *,
 			    const struct nbr *);
@@ -157,6 +160,8 @@ nbr_fsm(struct nbr *nbr, enum nbr_event event)
 		    nbr_action_names[nbr_fsm_tbl[i].action],
 		    &nbr->id, nbr_state_name(old_state),
 		    nbr_state_name(nbr->state));
+
+		hook_call(ldp_nbr_state_change, nbr, old_state);
 
 		if (nbr->state == NBR_STA_OPER) {
 			gettimeofday(&now, NULL);
@@ -353,6 +358,23 @@ nbr_find_ldpid(uint32_t lsr_id)
 	n.id.s_addr = lsr_id;
 	return (RB_FIND(nbr_id_head, &nbrs_by_id, &n));
 }
+
+struct nbr *
+nbr_get_first_ldpid()
+{
+	return (RB_MIN(nbr_id_head, &nbrs_by_id));
+}
+
+struct nbr *
+nbr_get_next_ldpid(uint32_t lsr_id)
+{
+	struct nbr		*nbr;
+	nbr = nbr_find_ldpid(lsr_id);
+	if (nbr)
+		return (RB_NEXT(nbr_id_head, nbr));
+	return NULL;
+}
+
 
 struct nbr *
 nbr_find_addr(int af, union ldpd_addr *addr)
@@ -831,14 +853,20 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.af = nbr->af;
 	nctl.id = nbr->id;
 	nctl.laddr = nbr->laddr;
-	nctl.lport = nbr->tcp->lport;
+	nctl.lport = nbr->tcp ? nbr->tcp->lport : 0;
 	nctl.raddr = nbr->raddr;
-	nctl.rport = nbr->tcp->rport;
+	nctl.rport = nbr->tcp ? nbr->tcp->rport : 0;
 	nctl.auth_method = nbr->auth.method;
 	nctl.holdtime = nbr->keepalive;
 	nctl.nbr_state = nbr->state;
 	nctl.stats = nbr->stats;
 	nctl.flags = nbr->flags;
+	nctl.max_pdu_len = nbr->max_pdu_len;
+	if (nbr->keepalive_timer)
+		nctl.hold_time_remaining =
+		    thread_timer_remain_second(nbr->keepalive_timer);
+	else
+		nctl.hold_time_remaining = 0;
 
 	gettimeofday(&now, NULL);
 	if (nbr->state == NBR_STA_OPER) {

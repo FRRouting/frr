@@ -384,18 +384,19 @@ def vparse(s):
 def setup(app):
     # object type for FRR CLI commands, can be extended to document parent CLI
     # node later on
-    app.add_object_type("clicmd", "clicmd")
+    app.add_object_type("clicmd", "clicmd", indextemplate="pair: %s; configuration command")
 
-    # css overrides for HTML theme
-    # Note sphinx version differences
-    sver = vparse(sphinx.__version__)
-
-    if sver < vparse("1.8.0"):
-        app.add_stylesheet("overrides.css")
-        app.add_javascript("overrides.js")
-    else:
-        app.add_css_file("overrides.css")
+    # I dont care how stupid this is
+    if "add_js_file" in dir(app):
         app.add_js_file("overrides.js")
+    else:
+        app.add_javascript("overrides.js")
+
+    if "add_css_file" in dir(app):
+        app.add_css_file("overrides.css")
+    else:
+        app.add_stylesheet("overrides.css")
+
 
     # load Pygments lexer for FRR config syntax
     #

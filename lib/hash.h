@@ -76,7 +76,7 @@ struct hash {
 	/* Data compare function. */
 	bool (*hash_cmp)(const void *, const void *);
 
-	/* Backet alloc. */
+	/* Bucket alloc. */
 	unsigned long count;
 
 	struct hashstats stats;

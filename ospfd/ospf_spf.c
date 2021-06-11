@@ -89,7 +89,7 @@ static int vertex_cmp(const struct vertex *v1, const struct vertex *v2)
 	}
 	return 0;
 }
-DECLARE_SKIPLIST_NONUNIQ(vertex_pqueue, struct vertex, pqi, vertex_cmp)
+DECLARE_SKIPLIST_NONUNIQ(vertex_pqueue, struct vertex, pqi, vertex_cmp);
 
 static void lsdb_clean_stat(struct ospf_lsdb *lsdb)
 {
@@ -251,15 +251,11 @@ static void ospf_vertex_dump(const char *msg, struct vertex *v,
 		struct vertex_parent *vp;
 
 		for (ALL_LIST_ELEMENTS_RO(v->parents, node, vp)) {
-			char buf1[BUFSIZ];
-
 			if (vp) {
 				zlog_debug(
-					"parent %pI4 backlink %d nexthop %s  lsa pos %d",
-					&vp->parent->lsa->id,
-					vp->backlink,
-					inet_ntop(AF_INET, &vp->nexthop->router,
-						  buf1, BUFSIZ),
+					"parent %pI4 backlink %d nexthop %pI4 lsa pos %d",
+					&vp->parent->lsa->id, vp->backlink,
+					&vp->nexthop->router,
 					vp->nexthop->lsa_pos);
 			}
 		}
@@ -707,14 +703,9 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 	else
 		w->distance = distance;
 
-	if (IS_DEBUG_OSPF_EVENT) {
-		char buf[2][INET_ADDRSTRLEN];
-		zlog_debug(
-			"%s: Adding %s as parent of %s", __func__,
-			inet_ntop(AF_INET, &v->lsa->id, buf[0], sizeof(buf[0])),
-			inet_ntop(AF_INET, &w->lsa->id, buf[1],
-				  sizeof(buf[1])));
-	}
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Adding %pI4 as parent of %pI4", __func__,
+			   &v->lsa->id, &w->lsa->id);
 
 	/*
 	 * Adding parent for a new, better path: flush existing parents from W.
@@ -805,8 +796,6 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 	struct vertex_nexthop *nh, *lnh;
 	struct vertex_parent *vp;
 	unsigned int added = 0;
-	char buf1[BUFSIZ];
-	char buf2[BUFSIZ];
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_debug("ospf_nexthop_calculation(): Start");
@@ -828,14 +817,11 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 		/* we *must* be supplied with the link data */
 		assert(l != NULL);
 
-		if (IS_DEBUG_OSPF_EVENT) {
+		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: considering link type:%d link_id:%s link_data:%s",
-				__func__, l->m[0].type,
-				inet_ntop(AF_INET, &l->link_id, buf1, BUFSIZ),
-				inet_ntop(AF_INET, &l->link_data, buf2,
-					  BUFSIZ));
-		}
+				"%s: considering link type:%d link_id:%pI4 link_data:%pI4",
+				__func__, l->m[0].type, &l->link_id,
+				&l->link_data);
 
 		if (w->type == OSPF_VERTEX_ROUTER) {
 			/*
@@ -852,15 +838,10 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 								       lsa_pos);
 					if (!oi) {
 						zlog_debug(
-							"%s: OI not found in LSA: lsa_pos: %d link_id:%s link_data:%s",
+							"%s: OI not found in LSA: lsa_pos: %d link_id:%pI4 link_data:%pI4",
 							__func__, lsa_pos,
-							inet_ntop(AF_INET,
-								  &l->link_id,
-								  buf1, BUFSIZ),
-							inet_ntop(AF_INET,
-								  &l->link_data,
-								  buf2,
-								  BUFSIZ));
+							&l->link_id,
+							&l->link_data);
 						return 0;
 					}
 				}
@@ -924,7 +905,9 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 				 * somehow.
 				 */
 				if (area->ospf->ti_lfa_enabled
-				    || (oi && oi->type == OSPF_IFTYPE_POINTOPOINT)) {
+				    || (oi && oi->type == OSPF_IFTYPE_POINTOPOINT)
+				    || (oi && oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
+					   && oi->address->prefixlen == IPV4_MAX_BITLEN)) {
 					struct ospf_neighbor *nbr_w = NULL;
 
 					/* Calculating node is root node, link
@@ -1683,68 +1666,6 @@ void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list)
 		list_delete(&vertex_list);
 }
 
-#if 0
-static void
-ospf_rtrs_print (struct route_table *rtrs)
-{
-  struct route_node *rn;
-  struct list *or_list;
-  struct listnode *ln;
-  struct listnode *pnode;
-  struct ospf_route *or;
-  struct ospf_path *path;
-  char buf1[BUFSIZ];
-  char buf2[BUFSIZ];
-
-  if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("ospf_rtrs_print() start");
-
-  for (rn = route_top (rtrs); rn; rn = route_next (rn))
-    if ((or_list = rn->info) != NULL)
-      for (ALL_LIST_ELEMENTS_RO (or_list, ln, or))
-        {
-          switch (or->path_type)
-            {
-            case OSPF_PATH_INTRA_AREA:
-              if (IS_DEBUG_OSPF_EVENT)
-                zlog_debug ("%s   [%d] area: %s",
-                           inet_ntop (AF_INET, &or->id, buf1, BUFSIZ),
-                           or->cost, inet_ntop (AF_INET, &or->u.std.area_id,
-                                                buf2, BUFSIZ));
-              break;
-            case OSPF_PATH_INTER_AREA:
-              if (IS_DEBUG_OSPF_EVENT)
-                zlog_debug ("%s IA [%d] area: %s",
-                           inet_ntop (AF_INET, &or->id, buf1, BUFSIZ),
-                           or->cost, inet_ntop (AF_INET, &or->u.std.area_id,
-                                                buf2, BUFSIZ));
-              break;
-            default:
-              break;
-            }
-
-          for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
-            {
-              if (path->nexthop.s_addr == INADDR_ANY)
-                {
-                  if (IS_DEBUG_OSPF_EVENT)
-                    zlog_debug ("   directly attached to %s\r",
-				ifindex2ifname (path->ifindex), VRF_DEFAULT);
-                }
-              else
-                {
-                  if (IS_DEBUG_OSPF_EVENT)
-                    zlog_debug ("   via %pI4, %s\r",
-				&path->nexthop,
-				ifindex2ifname (path->ifindex), VRF_DEFAULT);
-                }
-            }
-        }
-
-  zlog_debug ("ospf_rtrs_print() end");
-}
-#endif
-
 /* Calculating the shortest-path tree for an area, see RFC2328 16.1. */
 void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 			struct route_table *new_table,
@@ -1968,19 +1889,19 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 
 	rbuf[0] = '\0';
 	if (spf_reason_flags) {
-		if (spf_reason_flags & SPF_FLAG_ROUTER_LSA_INSTALL)
+		if (spf_reason_flags & (1 << SPF_FLAG_ROUTER_LSA_INSTALL))
 			strlcat(rbuf, "R, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_NETWORK_LSA_INSTALL)
+		if (spf_reason_flags & (1 << SPF_FLAG_NETWORK_LSA_INSTALL))
 			strlcat(rbuf, "N, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_SUMMARY_LSA_INSTALL)
+		if (spf_reason_flags & (1 << SPF_FLAG_SUMMARY_LSA_INSTALL))
 			strlcat(rbuf, "S, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL)
+		if (spf_reason_flags & (1 << SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL))
 			strlcat(rbuf, "AS, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_ABR_STATUS_CHANGE)
+		if (spf_reason_flags & (1 << SPF_FLAG_ABR_STATUS_CHANGE))
 			strlcat(rbuf, "ABR, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_ASBR_STATUS_CHANGE)
+		if (spf_reason_flags & (1 << SPF_FLAG_ASBR_STATUS_CHANGE))
 			strlcat(rbuf, "ASBR, ",	sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_MAXAGE)
+		if (spf_reason_flags & (1 << SPF_FLAG_MAXAGE))
 			strlcat(rbuf, "M, ", sizeof(rbuf));
 
 		size_t rbuflen = strlen(rbuf);
@@ -2067,4 +1988,28 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 	ospf->t_spf_calc = NULL;
 	thread_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
 			      delay, &ospf->t_spf_calc);
+}
+
+/* Restart OSPF SPF algorithm*/
+void ospf_restart_spf(struct ospf *ospf)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Restart SPF.", __func__);
+
+	/* Handling inter area and intra area routes*/
+	if (ospf->new_table) {
+		ospf_route_delete(ospf, ospf->new_table);
+		ospf_route_table_free(ospf->new_table);
+		ospf->new_table = route_table_init();
+	}
+
+	/* Handling of TYPE-5 lsa(external routes) */
+	if (ospf->old_external_route) {
+		ospf_route_delete(ospf, ospf->old_external_route);
+		ospf_route_table_free(ospf->old_external_route);
+		ospf->old_external_route = route_table_init();
+	}
+
+	/* Trigger SPF */
+	ospf_spf_calculate_schedule(ospf, SPF_FLAG_CONFIG_CHANGE);
 }

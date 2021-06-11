@@ -21,6 +21,7 @@
 /lib/cli/test_commands_defun.c
 /lib/northbound/test_oper_data
 /lib/cxxcompat
+/lib/test_assert
 /lib/test_atomlist
 /lib/test_buffer
 /lib/test_checksum
@@ -30,6 +31,7 @@
 /lib/test_heavy_wq
 /lib/test_idalloc
 /lib/test_memory
+/lib/test_nexthop
 /lib/test_nexthop_iter
 /lib/test_ntop
 /lib/test_prefix2str
@@ -47,6 +49,7 @@
 /lib/test_ttable
 /lib/test_typelist
 /lib/test_versioncmp
+/lib/test_xref
 /lib/test_zlog
 /lib/test_zmq
 /ospf6d/test_lsdb

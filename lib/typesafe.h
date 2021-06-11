@@ -78,6 +78,19 @@ macro_inline type *prefix ## _find_gteq(struct prefix##_head *h,               \
 }                                                                              \
 /* ... */
 
+/* SWAP_ALL_SIMPLE = for containers where the items don't point back to the
+ * head *AND* the head doesn'T points to itself (= everything except LIST,
+ * DLIST and SKIPLIST), just switch out the entire head
+ */
+#define TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                       \
+macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
+				      struct prefix##_head *b)                 \
+{                                                                              \
+	struct prefix##_head tmp = *a;                                         \
+	*a = *b;                                                               \
+	*b = tmp;                                                              \
+}                                                                              \
+/* ... */
 
 /* single-linked list, unsorted/arbitrary.
  * can be used as queue with add_tail / pop
@@ -105,15 +118,16 @@ static inline void typesafe_list_add(struct slist_head *head,
 
 /* use as:
  *
- * PREDECL_LIST(namelist)
+ * PREDECL_LIST(namelist);
  * struct name {
  *   struct namelist_item nlitem;
  * }
- * DECLARE_LIST(namelist, struct name, nlitem)
+ * DECLARE_LIST(namelist, struct name, nlitem);
  */
 #define PREDECL_LIST(prefix)                                                   \
 struct prefix ## _head { struct slist_head sh; };                              \
-struct prefix ## _item { struct slist_item si; };
+struct prefix ## _item { struct slist_item si; };                              \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_LIST(var) { .sh = { .last_next = &var.sh.first, }, }
 
@@ -168,6 +182,17 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 		h->sh.last_next = &h->sh.first;                                \
 	return container_of(sitem, type, field.si);                            \
 }                                                                              \
+macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
+				      struct prefix##_head *b)                 \
+{                                                                              \
+	struct prefix##_head tmp = *a;                                         \
+	*a = *b;                                                               \
+	*b = tmp;                                                              \
+	if (a->sh.last_next == &b->sh.first)                                   \
+		a->sh.last_next = &a->sh.first;                                \
+	if (b->sh.last_next == &a->sh.first)                                   \
+		b->sh.last_next = &b->sh.first;                                \
+}                                                                              \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	return container_of_null(h->sh.first, type, field.si);                 \
@@ -191,7 +216,7 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* don't use these structs directly */
 struct dlist_item {
@@ -214,11 +239,40 @@ static inline void typesafe_dlist_add(struct dlist_head *head,
 	head->count++;
 }
 
+static inline void typesafe_dlist_swap_all(struct dlist_head *a,
+					   struct dlist_head *b)
+{
+	struct dlist_head tmp = *a;
+
+	a->count = b->count;
+	if (a->count) {
+		a->hitem.next = b->hitem.next;
+		a->hitem.prev = b->hitem.prev;
+		a->hitem.next->prev = &a->hitem;
+		a->hitem.prev->next = &a->hitem;
+	} else {
+		a->hitem.next = &a->hitem;
+		a->hitem.prev = &a->hitem;
+	}
+
+	b->count = tmp.count;
+	if (b->count) {
+		b->hitem.next = tmp.hitem.next;
+		b->hitem.prev = tmp.hitem.prev;
+		b->hitem.next->prev = &b->hitem;
+		b->hitem.prev->next = &b->hitem;
+	} else {
+		b->hitem.next = &b->hitem;
+		b->hitem.prev = &b->hitem;
+	}
+}
+
 /* double-linked list, for fast item deletion
  */
 #define PREDECL_DLIST(prefix)                                                  \
 struct prefix ## _head { struct dlist_head dh; };                              \
-struct prefix ## _item { struct dlist_item di; };
+struct prefix ## _item { struct dlist_item di; };                              \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_DLIST(var) { .dh = { \
 	.hitem = { &var.dh.hitem, &var.dh.hitem }, }, }
@@ -269,6 +323,11 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	h->dh.count--;                                                         \
 	return container_of(ditem, type, field.di);                            \
 }                                                                              \
+macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
+				      struct prefix##_head *b)                 \
+{                                                                              \
+	typesafe_dlist_swap_all(&a->dh, &b->dh);                               \
+}                                                                              \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	const struct dlist_item *ditem = h->dh.hitem.next;                     \
@@ -295,7 +354,7 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->dh.count;                                                    \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* note: heap currently caps out at 4G items */
 
@@ -319,7 +378,8 @@ struct heap_head {
 
 #define PREDECL_HEAP(prefix)                                                   \
 struct prefix ## _head { struct heap_head hh; };                               \
-struct prefix ## _item { struct heap_item hi; };
+struct prefix ## _item { struct heap_item hi; };                               \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_HEAP(var)		{ }
 
@@ -377,6 +437,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 		typesafe_heap_resize(&h->hh, false);                           \
 	return container_of(hitem, type, field.hi);                            \
 }                                                                              \
+TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	if (h->hh.count == 0)                                                  \
@@ -402,7 +463,7 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->hh.count;                                                    \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 extern void typesafe_heap_resize(struct heap_head *head, bool grow);
 extern void typesafe_heap_pushdown(struct heap_head *head, uint32_t index,
@@ -438,7 +499,8 @@ struct ssort_head {
  */
 #define _PREDECL_SORTLIST(prefix)                                              \
 struct prefix ## _head { struct ssort_head sh; };                              \
-struct prefix ## _item { struct ssort_item si; };
+struct prefix ## _item { struct ssort_item si; };                              \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_SORTLIST_UNIQ(var)		{ }
 #define INIT_SORTLIST_NONUNIQ(var)	{ }
@@ -514,6 +576,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	h->sh.first = sitem->next;                                             \
 	return container_of(sitem, type, field.si);                            \
 }                                                                              \
+TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	return container_of_null(h->sh.first, type, field.si);                 \
@@ -537,10 +600,10 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DECLARE_SORTLIST_UNIQ(prefix, type, field, cmpfn)                      \
-	_DECLARE_SORTLIST(prefix, type, field, cmpfn, cmpfn)                   \
+	_DECLARE_SORTLIST(prefix, type, field, cmpfn, cmpfn);                  \
 									       \
 macro_inline const type *prefix ## _const_find(const struct prefix##_head *h,  \
 					       const type *item)               \
@@ -555,7 +618,7 @@ macro_inline const type *prefix ## _const_find(const struct prefix##_head *h,  \
 	return container_of(sitem, type, field.si);                            \
 }                                                                              \
 TYPESAFE_FIND(prefix, type)                                                    \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DECLARE_SORTLIST_NONUNIQ(prefix, type, field, cmpfn)                   \
 macro_inline int _ ## prefix ## _cmp(const type *a, const type *b)             \
@@ -569,8 +632,8 @@ macro_inline int _ ## prefix ## _cmp(const type *a, const type *b)             \
 		return 1;                                                      \
 	return 0;                                                              \
 }                                                                              \
-	_DECLARE_SORTLIST(prefix, type, field, cmpfn, _ ## prefix ## _cmp)     \
-/* ... */
+	_DECLARE_SORTLIST(prefix, type, field, cmpfn, _ ## prefix ## _cmp);    \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 
 /* hash, "sorted" by hash value
@@ -616,7 +679,8 @@ extern void typesafe_hash_shrink(struct thash_head *head);
  */
 #define PREDECL_HASH(prefix)                                                   \
 struct prefix ## _head { struct thash_head hh; };                              \
-struct prefix ## _item { struct thash_item hi; };
+struct prefix ## _item { struct thash_item hi; };                              \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_HASH(var)	{ }
 
@@ -703,6 +767,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 		}                                                              \
 	return NULL;                                                           \
 }                                                                              \
+TYPESAFE_SWAP_ALL_SIMPLE(prefix)                                               \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	uint32_t i;                                                            \
@@ -734,7 +799,7 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->hh.count;                                                    \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* skiplist, sorted.
  * can be used as priority queue with add / pop
@@ -769,7 +834,8 @@ struct sskip_head {
  */
 #define _PREDECL_SKIPLIST(prefix)                                              \
 struct prefix ## _head { struct sskip_head sh; };                              \
-struct prefix ## _item { struct sskip_item si; };
+struct prefix ## _item { struct sskip_item si; };                              \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define INIT_SKIPLIST_UNIQ(var)		{ }
 #define INIT_SKIPLIST_NONUNIQ(var)	{ }
@@ -818,6 +884,17 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	struct sskip_item *sitem = typesafe_skiplist_pop(&h->sh);              \
 	return container_of_null(sitem, type, field.si);                       \
 }                                                                              \
+macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
+				      struct prefix##_head *b)                 \
+{                                                                              \
+	struct prefix##_head tmp = *a;                                         \
+	*a = *b;                                                               \
+	*b = tmp;                                                              \
+	a->sh.hitem.next[SKIPLIST_OVERFLOW] = (struct sskip_item *)            \
+		((uintptr_t)a->sh.overflow | 1);                               \
+	b->sh.hitem.next[SKIPLIST_OVERFLOW] = (struct sskip_item *)            \
+		((uintptr_t)b->sh.overflow | 1);                               \
+}                                                                              \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
 	const struct sskip_item *first = h->sh.hitem.next[0];                  \
@@ -840,7 +917,7 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
 }                                                                              \
-/* ... */
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define PREDECL_SKIPLIST_UNIQ(prefix)                                          \
 	_PREDECL_SKIPLIST(prefix)
@@ -862,8 +939,8 @@ macro_inline const type *prefix ## _const_find(const struct prefix##_head *h,  \
 TYPESAFE_FIND(prefix, type)                                                    \
                                                                                \
 _DECLARE_SKIPLIST(prefix, type, field,                                         \
-		prefix ## __cmp, prefix ## __cmp)                              \
-/* ... */
+		prefix ## __cmp, prefix ## __cmp);                             \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define PREDECL_SKIPLIST_NONUNIQ(prefix)                                       \
 	_PREDECL_SKIPLIST(prefix)
@@ -890,8 +967,8 @@ macro_inline int prefix ## __cmp_uq(const struct sskip_item *a,                \
 }                                                                              \
                                                                                \
 _DECLARE_SKIPLIST(prefix, type, field,                                         \
-		prefix ## __cmp, prefix ## __cmp_uq)                           \
-/* ... */
+		prefix ## __cmp, prefix ## __cmp_uq);                          \
+MACRO_REQUIRE_SEMICOLON() /* end */
 
 
 extern struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,

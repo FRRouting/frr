@@ -24,7 +24,6 @@
 #include "lib/stream.h"
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_opaque.h"
 
 /* Mem type */

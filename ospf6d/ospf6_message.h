@@ -25,14 +25,34 @@
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_message[];
+#define OSPF6_ACTION_SEND 0x01
+#define OSPF6_ACTION_RECV 0x02
 #define OSPF6_DEBUG_MESSAGE_SEND 0x01
 #define OSPF6_DEBUG_MESSAGE_RECV 0x02
+#define OSPF6_DEBUG_MESSAGE_SEND_HDR 0x04
+#define OSPF6_DEBUG_MESSAGE_RECV_HDR 0x08
+#define OSPF6_DEBUG_MESSAGE_SEND_BOTH                                          \
+	OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_SEND_HDR
+#define OSPF6_DEBUG_MESSAGE_RECV_BOTH                                          \
+	OSPF6_DEBUG_MESSAGE_RECV | OSPF6_DEBUG_MESSAGE_RECV_HDR
+
 #define OSPF6_DEBUG_MESSAGE_ON(type, level)                                    \
 	(conf_debug_ospf6_message[type] |= (level))
 #define OSPF6_DEBUG_MESSAGE_OFF(type, level)                                   \
 	(conf_debug_ospf6_message[type] &= ~(level))
+
 #define IS_OSPF6_DEBUG_MESSAGE(t, e)                                           \
-	(conf_debug_ospf6_message[t] & OSPF6_DEBUG_MESSAGE_##e)
+	(((OSPF6_DEBUG_MESSAGE_##e) == OSPF6_DEBUG_MESSAGE_RECV_HDR)           \
+		? (conf_debug_ospf6_message[t]                                 \
+		   & (OSPF6_DEBUG_MESSAGE_RECV_BOTH))                          \
+		: (((OSPF6_DEBUG_MESSAGE_##e) == OSPF6_DEBUG_MESSAGE_SEND_HDR) \
+			   ? (conf_debug_ospf6_message[t]                      \
+			      & (OSPF6_DEBUG_MESSAGE_SEND_BOTH))               \
+			   : (conf_debug_ospf6_message[t]                      \
+			      & (OSPF6_DEBUG_MESSAGE_##e))))
+
+#define IS_OSPF6_DEBUG_MESSAGE_ENABLED(type, e)                                \
+	(conf_debug_ospf6_message[type] & (OSPF6_DEBUG_MESSAGE_##e))
 
 /* Type */
 #define OSPF6_MESSAGE_TYPE_UNKNOWN  0x0
@@ -110,11 +130,11 @@ struct ospf6_lsupdate {
 /* It is just a sequence of LSA Headers */
 
 /* Function definition */
-extern void ospf6_hello_print(struct ospf6_header *);
-extern void ospf6_dbdesc_print(struct ospf6_header *);
-extern void ospf6_lsreq_print(struct ospf6_header *);
-extern void ospf6_lsupdate_print(struct ospf6_header *);
-extern void ospf6_lsack_print(struct ospf6_header *);
+extern void ospf6_hello_print(struct ospf6_header *, int action);
+extern void ospf6_dbdesc_print(struct ospf6_header *, int action);
+extern void ospf6_lsreq_print(struct ospf6_header *, int action);
+extern void ospf6_lsupdate_print(struct ospf6_header *, int action);
+extern void ospf6_lsack_print(struct ospf6_header *, int action);
 
 extern int ospf6_iobuf_size(unsigned int size);
 extern void ospf6_message_terminate(void);

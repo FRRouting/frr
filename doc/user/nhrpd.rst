@@ -77,7 +77,6 @@ command defines the GRE subnet):
 Configuring NHRP
 ================
 
-.. index::  ip nhrp holdtime (1-65000)
 .. clicmd:: ip nhrp holdtime (1-65000)
 
    Holdtime is the number of seconds that have to pass before stopping to
@@ -85,12 +84,10 @@ Configuring NHRP
    registration requests are sent. By default registrations are sent every one
    third of the holdtime.
 
-.. index::  ip nhrp map A.B.C.D|X:X::X:X A.B.C.D|local
 .. clicmd:: ip nhrp map A.B.C.D|X:X::X:X A.B.C.D|local
 
    Map an IP address of a station to the station's NBMA address.
 
-.. index::  ip nhrp network-id (1-4294967295)
 .. clicmd:: ip nhrp network-id (1-4294967295)
 
    Enable NHRP on this interface and set the interface's network ID.  The
@@ -101,30 +98,25 @@ Configuring NHRP
    different nodes do not need to match. When NHRP packets are received on an
    interface they are assigned to the local NHRP domain for that interface.
 
-.. index::  ip nhrp nhs A.B.C.D nbma A.B.C.D|FQDN
 .. clicmd:: ip nhrp nhs A.B.C.D nbma A.B.C.D|FQDN
 
    Configure the Next Hop Server address and its NBMA address.
 
-.. index::  ip nhrp nhs dynamic nbma A.B.C.D
 .. clicmd:: ip nhrp nhs dynamic nbma A.B.C.D
 
    Configure the Next Hop Server to have a dynamic address and set its NBMA
    address.
 
-.. index::  ip nhrp registration no-unique
 .. clicmd:: ip nhrp registration no-unique
 
    Allow the client to not set the unique flag in the NHRP packets. This is
    useful when a station has a dynamic IP address that could change over time.
 
-.. index::  ip nhrp shortcut
 .. clicmd:: ip nhrp shortcut
 
    Enable shortcut (spoke-to-spoke) tunnels to allow NHC to talk to each others
    directly after establishing a connection without going through the hub.
 
-.. index::  ip nhrp mtu
 .. clicmd:: ip nhrp mtu
 
    Configure NHRP advertised MTU.
@@ -159,13 +151,11 @@ However, the above should be good in most cases.
 This kernel NFLOG target's nflog-group is configured in global nhrp config
 with:
 
-.. index::  nhrp nflog-group (1-65535)
 .. clicmd:: nhrp nflog-group (1-65535)
 
 To start sending these traffic notices out from hubs, use the nhrp
 per-interface directive:
 
-.. index::  ip nhrp redirect
 .. clicmd:: ip nhrp redirect
 
 This enable redirect replies on the NHS similar to ICMP redirects except this
@@ -180,21 +170,50 @@ Integration with IKE
 nhrpd needs tight integration with IKE daemon for various reasons.
 Currently only strongSwan is supported as IKE daemon.
 
-nhrpd connects to strongSwan using VICI protocol based on UNIX socket
-(hardcoded now as /var/run/charon.vici).
+nhrpd connects to strongSwan using VICI protocol based on UNIX socket which
+can be configured using the command below (default to /var/run/charon.vici).
 
 strongSwan currently needs few patches applied. Please check out the
-https://git.alpinelinux.org/user/tteras/strongswan/log/?h=tteras-release
-and
-https://git.alpinelinux.org/user/tteras/strongswan/log/?h=tteras
-git repositories for the patches.
+original patches at:
+https://git-old.alpinelinux.org/user/tteras/strongswan/
+
+Actively maintained patches are also available at:
+https://gitlab.alpinelinux.org/alpine/aports/-/tree/master/main/strongswan
+
+.. _multicast-functionality:
+
+Multicast Functionality
+=======================
+
+nhrpd can be configured to forward multicast packets, allowing routing
+protocols that use multicast (such as OSPF) to be supported in the DMVPN
+network.
+
+This support requires an iptables NFLOG rule to allow nhrpd to intercept
+multicast packets. A second iptables rule is also usually used to drop the
+original multicast packet.
+
+ .. code-block:: shell
+
+   iptables -A OUTPUT -d 224.0.0.0/24 -o gre1 -j NFLOG --nflog-group 2
+   iptables -A OUTPUT -d 224.0.0.0/24 -o gre1 -j DROP
+
+.. clicmd:: nhrp multicast-nflog-group (1-65535)
+
+   Sets the nflog group that nhrpd will listen on for multicast packets. This
+   value must match the nflog-group value set in the iptables rule.
+
+.. clicmd:: ip nhrp map multicast A.B.C.D|X:X::X:X A.B.C.D|dynamic
+
+   Sends multicast packets to the specified NBMA address. If dynamic is
+   specified then destination NBMA address (or addresses) are learnt
+   dynamically.
 
 .. _nhrp-events:
 
 NHRP Events
 ===========
 
-.. index::  nhrp event socket SOCKET
 .. clicmd:: nhrp event socket SOCKET
 
    Configure the Unix path for the event socket.
@@ -204,22 +223,18 @@ NHRP Events
 Show  NHRP
 ==========
 
-.. index::  show [ip|ipv6] nhrp cache [json]
 .. clicmd:: show [ip|ipv6] nhrp cache [json]
 
    Dump the cache entries.
 
-.. index::  show [ip|ipv6] nhrp opennhrp [json]
 .. clicmd:: show [ip|ipv6] nhrp opennhrp [json]
 
    Dump the cache entries with opennhrp format.
 
-.. index::  show [ip|ipv6] nhrp nhs [json]
 .. clicmd:: show [ip|ipv6] nhrp nhs [json]
 
    Dump the hub context.
 
-.. index::  show dmvpn [json]
 .. clicmd:: show dmvpn [json]
 
    Dump the security contexts.

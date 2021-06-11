@@ -45,7 +45,7 @@ listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
    are used to are allowed here.  The syntax was intentionally kept the same as
    creating nexthops as you would for static routes.
 
-.. clicmd:: [no] pbr table range (10000-4294966272) (10000-4294966272)
+.. clicmd:: pbr table range (10000-4294966272) (10000-4294966272)
 
    Set or unset the range used to assign numeric table ID's to new
    nexthop-group tables. Existing tables will not be modified to fit in this
@@ -220,6 +220,10 @@ end destination.
    | installedInternally | Do we think this group is installed? | Integer |
    +---------------------+--------------------------------------+---------+
 
+
+.. index::
+   pair: policy; PBR
+
 .. _pbr-policy:
 
 PBR Policy
@@ -229,7 +233,6 @@ After you have specified a PBR map, in order for it to be turned on, you must
 apply the PBR map to an interface.  This policy application to an interface
 causes the policy to be installed into the kernel.
 
-.. index:: pbr-policy
 .. clicmd:: pbr-policy NAME
 
    This command is available under interface sub-mode.  This turns
@@ -258,6 +261,19 @@ causes the policy to be installed into the kernel.
    | valid  | Is the map well-formed?    | Boolean |
    +--------+----------------------------+---------+
 
+.. _pbr-debugs:
+
+PBR Debugs
+===========
+
+.. clicmd:: debug pbr events|map|nht|zebra
+
+   Debug pbr in pbrd daemon. You specify what types of debugs to turn on.
+
+.. clicmd:: debug zebra pbr
+
+   Debug pbr in zebra daemon.
+
 .. _pbr-details:
 
 PBR Details
@@ -266,13 +282,30 @@ PBR Details
 Under the covers a PBR map is translated into two separate constructs in the
 Linux kernel.
 
-.. index:: PBR Rules
 
 The PBR map specified creates a `ip rule ...` that is inserted into the Linux
 kernel that points to a table to use for forwarding once the rule matches.
 
-.. index:: PBR Tables
 
 The creation of a nexthop or nexthop-group is translated to a default route in a
 table with the nexthops specified as the nexthops for the default route.
+
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+   nexthop-group TEST
+     nexthop 4.5.6.7
+     nexthop 5.6.7.8
+   !
+   pbr-map BLUE seq 100
+     match dst-ip 9.9.9.0/24
+     match src-ip 10.10.10.0/24
+     set nexthop-group TEST
+   !
+   int swp1
+     pbr-policy BLUE
+
 

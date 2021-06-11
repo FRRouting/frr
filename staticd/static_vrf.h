@@ -20,6 +20,10 @@
 #ifndef __STATIC_VRF_H__
 #define __STATIC_VRF_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct static_vrf {
 	struct vrf *vrf;
 
@@ -37,13 +41,14 @@ struct stable_info {
 struct static_vrf *static_vrf_lookup_by_name(const char *vrf_name);
 struct static_vrf *static_vrf_lookup_by_id(vrf_id_t vrf_id);
 
-int static_vrf_has_config(struct static_vrf *svrf);
-
 void static_vrf_init(void);
 
 struct route_table *static_vrf_static_table(afi_t afi, safi_t safi,
 					    struct static_vrf *svrf);
 extern void static_vrf_terminate(void);
 
-struct static_vrf *static_vty_get_unknown_vrf(const char *vrf_name);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

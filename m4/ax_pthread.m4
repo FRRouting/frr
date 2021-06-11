@@ -219,7 +219,7 @@ for flag in $ax_pthread_flags; do
         # functions on Solaris that doesn't have a non-functional libc stub.
         # We try pthread_create on general principles.
         AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <pthread.h>
-                        static void routine(void *a) { a = 0; }
+                        static void routine(void *a) { if (a) a = 0; }
                         static void *start_routine(void *a) { return a; }],
                        [pthread_t th; pthread_attr_t attr;
                         pthread_create(&th, 0, start_routine, 0);

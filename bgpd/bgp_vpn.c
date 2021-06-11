@@ -229,8 +229,9 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 				}
 				rd_header = 0;
 			}
-			route_vty_out_tmp(vty, bgp_dest_get_prefix(rm), attr,
-					  safi, use_json, json_routes, false);
+			route_vty_out_tmp(vty, rm, bgp_dest_get_prefix(rm),
+					  attr, safi, use_json, json_routes,
+					  false);
 			output_count++;
 		}
 

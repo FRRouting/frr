@@ -78,10 +78,12 @@ extern struct ospf_redist *ospf_redist_add(struct ospf *, uint8_t,
 					   unsigned short);
 extern void ospf_redist_del(struct ospf *, uint8_t, unsigned short);
 
-extern int ospf_redistribute_set(struct ospf *, int, unsigned short, int, int);
+extern int ospf_redistribute_update(struct ospf *, struct ospf_redist *, int,
+				    unsigned short, int, int);
+extern int ospf_redistribute_set(struct ospf *, struct ospf_redist *, int,
+				 unsigned short, int, int);
 extern int ospf_redistribute_unset(struct ospf *, int, unsigned short);
 extern int ospf_redistribute_default_set(struct ospf *, int, int, int);
-extern int ospf_redistribute_default_unset(struct ospf *);
 extern int ospf_distribute_list_out_set(struct ospf *, int, const char *);
 extern int ospf_distribute_list_out_unset(struct ospf *, int, const char *);
 extern void ospf_routemap_set(struct ospf_redist *, const char *);

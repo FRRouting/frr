@@ -51,13 +51,17 @@
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
 #include "ospf6d.h"
+#include "lib/json.h"
+#include "ospf6_nssa.h"
 
-DEFINE_QOBJ_TYPE(ospf6)
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_TOP, "OSPF6 top");
+
+DEFINE_QOBJ_TYPE(ospf6);
 
 FRR_CFG_DEFAULT_BOOL(OSPF6_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
-)
+);
 
 /* global ospf6d variable */
 static struct ospf6_master ospf6_master;
@@ -121,6 +125,114 @@ struct ospf6 *ospf6_lookup_by_vrf_name(const char *name)
 	return NULL;
 }
 
+/* This is hook function for vrf create called as part of vrf_init */
+static int ospf6_vrf_new(struct vrf *vrf)
+{
+	return 0;
+}
+
+/* This is hook function for vrf delete call as part of vrf_init */
+static int ospf6_vrf_delete(struct vrf *vrf)
+{
+	return 0;
+}
+
+static void ospf6_set_redist_vrf_bitmaps(struct ospf6 *ospf6, bool set)
+{
+	int type;
+	struct list *red_list;
+
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		red_list = ospf6->redist[type];
+		if (!red_list)
+			continue;
+		if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+			zlog_debug(
+				"%s: setting redist vrf %d bitmap for type %d",
+				__func__, ospf6->vrf_id, type);
+		if (set)
+			vrf_bitmap_set(zclient->redist[AFI_IP6][type],
+				       ospf6->vrf_id);
+		else
+			vrf_bitmap_unset(zclient->redist[AFI_IP6][type],
+					 ospf6->vrf_id);
+	}
+
+	red_list = ospf6->redist[DEFAULT_ROUTE];
+	if (red_list) {
+		if (set)
+			vrf_bitmap_set(zclient->default_information[AFI_IP6],
+				       ospf6->vrf_id);
+		else
+			vrf_bitmap_unset(zclient->default_information[AFI_IP6],
+					 ospf6->vrf_id);
+	}
+}
+
+/* Disable OSPF6 VRF instance */
+static int ospf6_vrf_disable(struct vrf *vrf)
+{
+	struct ospf6 *ospf6 = NULL;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+
+	ospf6 = ospf6_lookup_by_vrf_name(vrf->name);
+	if (ospf6) {
+		ospf6_zebra_vrf_deregister(ospf6);
+
+		ospf6_set_redist_vrf_bitmaps(ospf6, false);
+
+		/* We have instance configured, unlink
+		 * from VRF and make it "down".
+		 */
+		ospf6_vrf_unlink(ospf6, vrf);
+		thread_cancel(&ospf6->t_ospf6_receive);
+		close(ospf6->fd);
+		ospf6->fd = -1;
+	}
+
+	/* Note: This is a callback, the VRF will be deleted by the caller. */
+	return 0;
+}
+
+/* Enable OSPF6 VRF instance */
+static int ospf6_vrf_enable(struct vrf *vrf)
+{
+	struct ospf6 *ospf6 = NULL;
+	vrf_id_t old_vrf_id;
+	int ret = 0;
+
+	ospf6 = ospf6_lookup_by_vrf_name(vrf->name);
+	if (ospf6) {
+		old_vrf_id = ospf6->vrf_id;
+		/* We have instance configured, link to VRF and make it "up". */
+		ospf6_vrf_link(ospf6, vrf);
+
+		if (old_vrf_id != ospf6->vrf_id) {
+			ospf6_set_redist_vrf_bitmaps(ospf6, true);
+
+			/* start zebra redist to us for new vrf */
+			ospf6_zebra_vrf_register(ospf6);
+
+			ret = ospf6_serv_sock(ospf6);
+			if (ret < 0 || ospf6->fd <= 0)
+				return 0;
+			thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
+					&ospf6->t_ospf6_receive);
+
+			ospf6_router_id_update(ospf6);
+		}
+	}
+
+	return 0;
+}
+
+void ospf6_vrf_init(void)
+{
+	vrf_init(ospf6_vrf_new, ospf6_vrf_enable, ospf6_vrf_disable,
+		 ospf6_vrf_delete, ospf6_vrf_enable);
+}
 
 static void ospf6_top_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
@@ -148,7 +260,22 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa *lsa)
 
 static void ospf6_top_route_hook_add(struct ospf6_route *route)
 {
-	struct ospf6 *ospf6 = route->table->scope;
+	struct ospf6 *ospf6 = NULL;
+	struct ospf6_area *oa = NULL;
+
+	if (route->table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL)
+		ospf6 = route->table->scope;
+	else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
+		oa = (struct ospf6_area *)route->table->scope;
+		ospf6 = oa->ospf6;
+	} else {
+		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)
+		    || IS_OSPF6_DEBUG_BROUTER)
+			zlog_debug(
+				"%s: Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
+				__func__, &route->prefix);
+		return;
+	}
 
 	ospf6_abr_originate_summary(route, ospf6);
 	ospf6_zebra_route_update_add(route, ospf6);
@@ -156,7 +283,22 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 
 static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 {
-	struct ospf6 *ospf6 = route->table->scope;
+	struct ospf6 *ospf6 = NULL;
+	struct ospf6_area *oa = NULL;
+
+	if (route->table->scope_type == OSPF6_SCOPE_TYPE_GLOBAL)
+		ospf6 = route->table->scope;
+	else if (route->table->scope_type == OSPF6_SCOPE_TYPE_AREA) {
+		oa = (struct ospf6_area *)route->table->scope;
+		ospf6 = oa->ospf6;
+	} else {
+		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)
+		    || IS_OSPF6_DEBUG_BROUTER)
+			zlog_debug(
+				"%s: Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
+				__func__, &route->prefix);
+		return;
+	}
 
 	route->flag |= OSPF6_ROUTE_REMOVE;
 	ospf6_abr_originate_summary(route, ospf6);
@@ -244,6 +386,8 @@ static struct ospf6 *ospf6_create(const char *name)
 	o->spf_max_holdtime = OSPF_SPF_MAX_HOLDTIME_DEFAULT;
 	o->spf_hold_multiplier = 1;
 
+	o->default_originate = DEFAULT_ORIGINATE_NONE;
+	o->redistribute = 0;
 	/* LSA timers value init */
 	o->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
 
@@ -267,6 +411,8 @@ static struct ospf6 *ospf6_create(const char *name)
 	o->distance_table = route_table_init();
 	o->fd = -1;
 
+	o->max_multipath = MULTIPATH_NUM;
+
 	QOBJ_REG(o, ospf6);
 
 	/* Make ospf protocol socket. */
@@ -278,6 +424,8 @@ static struct ospf6 *ospf6_create(const char *name)
 struct ospf6 *ospf6_instance_create(const char *name)
 {
 	struct ospf6 *ospf6;
+	struct vrf *vrf;
+	struct interface *ifp;
 
 	ospf6 = ospf6_create(name);
 	if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
@@ -285,6 +433,16 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	if (ospf6->router_id == 0)
 		ospf6_router_id_update(ospf6);
 	ospf6_add(ospf6);
+	if (ospf6->vrf_id != VRF_UNKNOWN) {
+		vrf = vrf_lookup_by_id(ospf6->vrf_id);
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->info)
+				ospf6_interface_start(ifp->info);
+		}
+	}
+	if (ospf6->fd < 0)
+		return ospf6;
+
 	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 			&ospf6->t_ospf6_receive);
 
@@ -295,12 +453,15 @@ void ospf6_delete(struct ospf6 *o)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_area *oa;
+	struct vrf *vrf;
 
 	QOBJ_UNREG(o);
 
 	ospf6_flush_self_originated_lsas_now(o);
 	ospf6_disable(o);
 	ospf6_del(o);
+
+	ospf6_zebra_vrf_deregister(o);
 
 	ospf6_serv_close(&o->fd);
 
@@ -321,6 +482,12 @@ void ospf6_delete(struct ospf6 *o)
 
 	ospf6_distance_reset(o);
 	route_table_finish(o->distance_table);
+
+	if (o->vrf_id != VRF_UNKNOWN) {
+		vrf = vrf_lookup_by_id(o->vrf_id);
+		if (vrf)
+			ospf6_vrf_unlink(o, vrf);
+	}
 
 	XFREE(MTYPE_OSPF6_TOP, o->name);
 	XFREE(MTYPE_OSPF6_TOP, o);
@@ -429,17 +596,20 @@ void ospf6_router_id_update(struct ospf6 *ospf6)
 }
 
 /* start ospf6 */
-DEFUN_NOSH (router_ospf6,
-       router_ospf6_cmd,
-       "router ospf6",
-       ROUTER_STR
-       OSPF6_STR)
+DEFUN_NOSH(router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
+	   ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	struct ospf6 *ospf6;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	int idx_vrf = 0;
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
+		vrf_name = argv[idx_vrf + 1]->arg;
+	}
+
+	ospf6 = ospf6_lookup_by_vrf_name(vrf_name);
 	if (ospf6 == NULL)
-		ospf6 = ospf6_instance_create(VRF_DEFAULT_NAME);
+		ospf6 = ospf6_instance_create(vrf_name);
 
 	/* set current ospf point. */
 	VTY_PUSH_CONTEXT(OSPF6_NODE, ospf6);
@@ -448,16 +618,18 @@ DEFUN_NOSH (router_ospf6,
 }
 
 /* stop ospf6 */
-DEFUN (no_router_ospf6,
-       no_router_ospf6_cmd,
-       "no router ospf6",
-       NO_STR
-       ROUTER_STR
-       OSPF6_STR)
+DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
+      NO_STR ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	struct ospf6 *ospf6;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	int idx_vrf = 0;
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
+		vrf_name = argv[idx_vrf + 1]->arg;
+	}
+
+	ospf6 = ospf6_lookup_by_vrf_name(vrf_name);
 	if (ospf6 == NULL)
 		vty_out(vty, "OSPFv3 is not configured\n");
 	else {
@@ -718,40 +890,7 @@ DEFUN (no_ospf6_distance_ospf6,
 	return CMD_SUCCESS;
 }
 
-#if 0
-DEFUN (ospf6_distance_source,
-       ospf6_distance_source_cmd,
-       "distance (1-255) X:X::X:X/M [WORD]",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf6, o);
-  char *alname = (argc == 4) ? argv[3]->arg : NULL;
-  ospf6_distance_set (vty, o, argv[1]->arg, argv[2]->arg, alname);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf6_distance_source,
-       no_ospf6_distance_source_cmd,
-       "no distance (1-255) X:X::X:X/M [WORD]",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-  VTY_DECLVAR_CONTEXT(ospf6, o);
-  char *alname = (argc == 5) ? argv[4]->arg : NULL;
-  ospf6_distance_unset (vty, o, argv[2]->arg, argv[3]->arg, alname);
-
-  return CMD_SUCCESS;
-}
-#endif
-
-DEFUN (ospf6_interface_area,
+DEFUN_HIDDEN (ospf6_interface_area,
        ospf6_interface_area_cmd,
        "interface IFNAME area <A.B.C.D|(0-4294967295)>",
        "Enable routing on an IPv6 interface\n"
@@ -761,16 +900,27 @@ DEFUN (ospf6_interface_area,
        "OSPF6 area ID in decimal notation\n"
       )
 {
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 	int idx_ifname = 1;
 	int idx_ipv4 = 3;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	int ipv6_count = 0;
+	uint32_t area_id;
+	int format;
 
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	vty_out(vty,
+		"This command is deprecated, because it is not VRF-aware.\n");
+	vty_out(vty,
+		"Please, use \"ipv6 ospf6 area\" on an interface instead.\n");
+
+	if (ospf6->vrf_id != VRF_UNKNOWN)
+		vrf_id = ospf6->vrf_id;
 
 	/* find/create ospf6 interface */
-	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
+	ifp = if_get_by_name(argv[idx_ifname]->arg, vrf_id);
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
@@ -780,8 +930,34 @@ DEFUN (ospf6_interface_area,
 		return CMD_SUCCESS;
 	}
 
-	/* parse Area-ID */
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, oa, ospf6);
+	/* if more than OSPF6_MAX_IF_ADDRS are configured on this interface
+	 * then don't allow ospfv3 to be configured
+	 */
+	ipv6_count = connected_count_by_family(ifp, AF_INET6);
+	if (oi->ifmtu == OSPF6_DEFAULT_MTU && ipv6_count > OSPF6_MAX_IF_ADDRS) {
+		vty_out(vty,
+			"can not configure OSPFv3 on if %s, must have less than %d interface addresses but has %d addresses\n",
+			ifp->name, OSPF6_MAX_IF_ADDRS, ipv6_count);
+		return CMD_WARNING_CONFIG_FAILED;
+	} else if (oi->ifmtu >= OSPF6_JUMBO_MTU
+		   && ipv6_count > OSPF6_MAX_IF_ADDRS_JUMBO) {
+		vty_out(vty,
+			"can not configure OSPFv3 on if %s, must have less than %d interface addresses but has %d addresses\n",
+			ifp->name, OSPF6_MAX_IF_ADDRS_JUMBO, ipv6_count);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (str2area_id(argv[idx_ipv4]->arg, &area_id, &format)) {
+		vty_out(vty, "Malformed Area-ID: %s\n", argv[idx_ipv4]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	oi->area_id = area_id;
+	oi->area_id_format = format;
+
+	oa = ospf6_area_lookup(area_id, ospf6);
+	if (oa == NULL)
+		oa = ospf6_area_create(area_id, ospf6, format);
 
 	/* attach interface to area */
 	listnode_add(oa->if_list, oi); /* sort ?? */
@@ -797,13 +973,15 @@ DEFUN (ospf6_interface_area,
 	ospf6_interface_enable(oi);
 
 	/* If the router is ABR, originate summary routes */
-	if (ospf6_is_router_abr(ospf6))
+	if (ospf6_check_and_set_router_abr(ospf6)) {
 		ospf6_abr_enable_area(oa);
+		ospf6_schedule_abr_task(oa->ospf6);
+	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ospf6_interface_area,
+DEFUN_HIDDEN (no_ospf6_interface_area,
        no_ospf6_interface_area_cmd,
        "no interface IFNAME area <A.B.C.D|(0-4294967295)>",
        NO_STR
@@ -814,14 +992,26 @@ DEFUN (no_ospf6_interface_area,
        "OSPF6 area ID in decimal notation\n"
        )
 {
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 	int idx_ifname = 2;
 	int idx_ipv4 = 4;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
 	struct interface *ifp;
 	uint32_t area_id;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
+	vty_out(vty,
+		"This command is deprecated, because it is not VRF-aware.\n");
+	vty_out(vty,
+		"Please, use \"no ipv6 ospf6 area\" on an interface instead.\n");
+
+	if (ospf6->vrf_id != VRF_UNKNOWN)
+		vrf_id = ospf6->vrf_id;
+
+	/* find/create ospf6 interface */
+	ifp = if_get_by_name(argv[idx_ifname]->arg, vrf_id);
+
 	if (ifp == NULL) {
 		vty_out(vty, "No such interface %s\n", argv[idx_ifname]->arg);
 		return CMD_SUCCESS;
@@ -839,7 +1029,8 @@ DEFUN (no_ospf6_interface_area,
 
 	/* Verify Area */
 	if (oi->area == NULL) {
-		vty_out(vty, "No such Area-ID: %s\n", argv[idx_ipv4]->arg);
+		vty_out(vty, "%s not attached to area %s\n",
+			oi->interface->name, argv[idx_ipv4]->arg);
 		return CMD_SUCCESS;
 	}
 
@@ -860,7 +1051,9 @@ DEFUN (no_ospf6_interface_area,
 		UNSET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
 		ospf6_abr_disable_area(oa);
 	}
-	ospf6_interface_delete(oi);
+
+	oi->area_id = 0;
+	oi->area_id_format = OSPF6_AREA_FMT_UNSET;
 
 	return CMD_SUCCESS;
 }
@@ -911,54 +1104,60 @@ DEFUN (no_ospf6_stub_router_admin,
 	return CMD_SUCCESS;
 }
 
-#if 0
-DEFUN (ospf6_stub_router_startup,
-       ospf6_stub_router_startup_cmd,
-       "stub-router on-startup (5-86400)",
-       "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
-       "Automatically advertise as stub-router on startup of OSPF6\n"
-       "Time (seconds) to advertise self as stub-router\n")
+/* Restart OSPF SPF algorithm*/
+static void ospf6_restart_spf(struct ospf6 *ospf6)
 {
-  return CMD_SUCCESS;
+	ospf6_route_remove_all(ospf6->route_table);
+	ospf6_route_remove_all(ospf6->brouter_table);
+
+	/* Trigger SPF */
+	ospf6_spf_schedule(ospf6, OSPF6_SPF_FLAGS_CONFIG_CHANGE);
 }
 
-DEFUN (no_ospf6_stub_router_startup,
-       no_ospf6_stub_router_startup_cmd,
-       "no stub-router on-startup",
-       NO_STR
-       "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
-       "Automatically advertise as stub-router on startup of OSPF6\n"
-       "Time (seconds) to advertise self as stub-router\n")
+/* Set the max paths */
+static void ospf6_maxpath_set(struct ospf6 *ospf6, uint16_t paths)
 {
-  return CMD_SUCCESS;
+	if (ospf6->max_multipath == paths)
+		return;
+
+	ospf6->max_multipath = paths;
+
+	/* Send deletion to zebra to delete all
+	 * ospf specific routes and reinitiate
+	 * SPF to reflect the new max multipath.
+	 */
+	ospf6_restart_spf(ospf6);
 }
 
-DEFUN (ospf6_stub_router_shutdown,
-       ospf6_stub_router_shutdown_cmd,
-       "stub-router on-shutdown (5-86400)",
-       "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
-       "Automatically advertise as stub-router before shutdown\n"
-       "Time (seconds) to advertise self as stub-router\n")
+/* Ospf Maximum-paths config support */
+DEFUN(ospf6_max_multipath,
+      ospf6_max_multipath_cmd,
+      "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+      "Max no of multiple paths for ECMP support\n"
+      "Number of paths\n")
 {
-  return CMD_SUCCESS;
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	int idx_number = 1;
+	int maximum_paths = strtol(argv[idx_number]->arg, NULL, 10);
+
+	ospf6_maxpath_set(ospf6, maximum_paths);
+
+	return CMD_SUCCESS;
 }
 
-DEFUN (no_ospf6_stub_router_shutdown,
-       no_ospf6_stub_router_shutdown_cmd,
-       "no stub-router on-shutdown",
-       NO_STR
-       "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
-       "Automatically advertise as stub-router before shutdown\n"
-       "Time (seconds) to advertise self as stub-router\n")
+DEFUN(no_ospf6_max_multipath,
+      no_ospf6_max_multipath_cmd,
+     "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM)"]",
+      NO_STR
+      "Max no of multiple paths for ECMP support\n"
+      "Number of paths\n")
 {
-  return CMD_SUCCESS;
-}
-#endif
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
+	ospf6_maxpath_set(ospf6, MULTIPATH_NUM);
+
+	return CMD_SUCCESS;
+}
 
 static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		       bool use_json)
@@ -998,6 +1197,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		json_object_int_add(json, "holdTimeMultiplier",
 				    o->spf_hold_multiplier);
 
+		json_object_int_add(json, "maximumPaths", o->max_multipath);
 
 		if (o->ts_spf.tv_sec || o->ts_spf.tv_usec) {
 			timersub(&now, &o->ts_spf, &result);
@@ -1080,6 +1280,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		vty_out(vty, " LSA minimum arrival %d msecs\n",
 			o->lsa_minarrival);
 
+		vty_out(vty, " Maximum-paths %u\n", o->max_multipath);
 
 		/* Show SPF parameters */
 		vty_out(vty,
@@ -1137,120 +1338,255 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 	}
 }
 
+DEFUN(show_ipv6_ospf6_vrfs, show_ipv6_ospf6_vrfs_cmd,
+      "show ipv6 ospf6 vrfs [json]",
+      SHOW_STR IP6_STR OSPF6_STR "Show OSPF6 VRFs \n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+	json_object *json_vrfs = NULL;
+	struct ospf6 *ospf6 = NULL;
+	struct listnode *node = NULL;
+	int count = 0;
+	char buf[PREFIX_STRLEN];
+	static const char header[] =
+		"Name                       Id     RouterId  ";
+
+	if (uj) {
+		json = json_object_new_object();
+		json_vrfs = json_object_new_object();
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		json_object *json_vrf = NULL;
+		const char *name = NULL;
+		int64_t vrf_id_ui = 0;
+		struct in_addr router_id;
+
+		router_id.s_addr = ospf6->router_id;
+		count++;
+
+		if (!uj && count == 1)
+			vty_out(vty, "%s\n", header);
+		if (uj)
+			json_vrf = json_object_new_object();
+
+		if (ospf6->vrf_id == VRF_DEFAULT)
+			name = VRF_DEFAULT_NAME;
+		else
+			name = ospf6->name;
+
+		vrf_id_ui = (ospf6->vrf_id == VRF_UNKNOWN)
+				    ? -1
+				    : (int64_t)ospf6->vrf_id;
+
+		if (uj) {
+			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
+			json_object_string_add(json_vrf, "routerId",
+					       inet_ntop(AF_INET, &router_id,
+							 buf, sizeof(buf)));
+			json_object_object_add(json_vrfs, name, json_vrf);
+
+		} else {
+			vty_out(vty, "%-25s  %-5d  %-16s  \n", name,
+				ospf6->vrf_id,
+				inet_ntop(AF_INET, &router_id, buf,
+					  sizeof(buf)));
+		}
+	}
+
+	if (uj) {
+		json_object_object_add(json, "vrfs", json_vrfs);
+		json_object_int_add(json, "totalVrfs", count);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		if (count)
+			vty_out(vty, "\nTotal number of OSPF VRFs: %d\n",
+				count);
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* show top level structures */
-DEFUN(show_ipv6_ospf6,
-      show_ipv6_ospf6_cmd,
-      "show ipv6 ospf6 [json]",
-      SHOW_STR
-      IP6_STR
-      OSPF6_STR
-      JSON_STR)
+DEFUN(show_ipv6_ospf6, show_ipv6_ospf6_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR "All VRFs\n" JSON_STR)
 {
 	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
-	if (uj)
-		json = json_object_new_object();
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			if (uj)
+				json = json_object_new_object();
+			ospf6_show(vty, ospf6, json, uj);
 
-	ospf6_show(vty, ospf6, json, uj);
+			if (!all_vrf)
+				break;
+		}
+	}
 
 	if (uj)
 		json_object_free(json);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ipv6_ospf6_route,
-       show_ipv6_ospf6_route_cmd,
-       "show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       ROUTE_STR
-       "Display Intra-Area routes\n"
-       "Display Inter-Area routes\n"
-       "Display Type-1 External routes\n"
-       "Display Type-2 External routes\n"
-       "Specify IPv6 address\n"
-       "Specify IPv6 prefix\n"
-       "Detailed information\n"
-       "Summary of route table\n")
-{
-	struct ospf6 *ospf6;
-
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
-
-	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ipv6_ospf6_route_match,
-       show_ipv6_ospf6_route_match_cmd,
-       "show ipv6 ospf6 route X:X::X:X/M <match|longer>",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       ROUTE_STR
-       "Specify IPv6 prefix\n"
-       "Display routes which match the specified route\n"
-       "Display routes longer than the specified route\n")
-{
-	struct ospf6 *ospf6;
-
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
-
-	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_route_match_detail,
-       show_ipv6_ospf6_route_match_detail_cmd,
-       "show ipv6 ospf6 route X:X::X:X/M match detail",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       ROUTE_STR
-       "Specify IPv6 prefix\n"
-       "Display routes which match the specified route\n"
-       "Detailed information\n"
-       )
+DEFUN(show_ipv6_ospf6_route, show_ipv6_ospf6_route_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" ROUTE_STR
+      "Display Intra-Area routes\n"
+      "Display Inter-Area routes\n"
+      "Display Type-1 External routes\n"
+      "Display Type-2 External routes\n"
+      "Specify IPv6 address\n"
+      "Specify IPv6 prefix\n"
+      "Detailed information\n"
+      "Summary of route table\n" JSON_STR)
 {
 	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+	int idx_arg_start = 4;
+	bool uj = use_json(argc, argv);
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0)
+		idx_arg_start += 2;
 
-	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ospf6_route_table_show(vty, idx_arg_start, argc, argv,
+					       ospf6->route_table, uj);
+
+			if (!all_vrf)
+				break;
+		}
+	}
+
 	return CMD_SUCCESS;
 }
 
-
-DEFUN (show_ipv6_ospf6_route_type_detail,
-       show_ipv6_ospf6_route_type_detail_cmd,
-       "show ipv6 ospf6 route <intra-area|inter-area|external-1|external-2> detail",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       ROUTE_STR
-       "Display Intra-Area routes\n"
-       "Display Inter-Area routes\n"
-       "Display Type-1 External routes\n"
-       "Display Type-2 External routes\n"
-       "Detailed information\n"
-       )
+DEFUN(show_ipv6_ospf6_route_match, show_ipv6_ospf6_route_match_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] route X:X::X:X/M <match|longer> [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" ROUTE_STR
+      "Specify IPv6 prefix\n"
+      "Display routes which match the specified route\n"
+      "Display routes longer than the specified route\n" JSON_STR)
 {
 	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+	int idx_start_arg = 4;
+	bool uj = use_json(argc, argv);
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	OSPF6_CMD_CHECK_RUNNING(ospf6);
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0)
+		idx_start_arg += 2;
 
-	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ospf6_route_table_show(vty, idx_start_arg, argc, argv,
+					       ospf6->route_table, uj);
+
+			if (!all_vrf)
+				break;
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_ipv6_ospf6_route_match_detail,
+      show_ipv6_ospf6_route_match_detail_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] route X:X::X:X/M match detail [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" ROUTE_STR
+      "Specify IPv6 prefix\n"
+      "Display routes which match the specified route\n"
+      "Detailed information\n" JSON_STR)
+{
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+	int idx_start_arg = 4;
+	bool uj = use_json(argc, argv);
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0)
+		idx_start_arg += 2;
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ospf6_route_table_show(vty, idx_start_arg, argc, argv,
+					       ospf6->route_table, uj);
+
+			if (!all_vrf)
+				break;
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_ipv6_ospf6_route_type_detail, show_ipv6_ospf6_route_type_detail_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] route <intra-area|inter-area|external-1|external-2> detail [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" ROUTE_STR
+      "Display Intra-Area routes\n"
+      "Display Inter-Area routes\n"
+      "Display Type-1 External routes\n"
+      "Display Type-2 External routes\n"
+      "Detailed information\n" JSON_STR)
+{
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+	int idx_start_arg = 4;
+	bool uj = use_json(argc, argv);
+
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0)
+		idx_start_arg += 2;
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ospf6_route_table_show(vty, idx_start_arg, argc, argv,
+					       ospf6->route_table, uj);
+
+			if (!all_vrf)
+				break;
+		}
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -1296,9 +1632,6 @@ static int ospf6_distance_config_write(struct vty *vty, struct ospf6 *ospf6)
 /* OSPF configuration write function. */
 static int config_write_ospf6(struct vty *vty)
 {
-	struct listnode *j, *k;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	struct ospf6 *ospf6;
 	struct listnode *node, *nnode;
 
@@ -1307,7 +1640,11 @@ static int config_write_ospf6(struct vty *vty)
 		return CMD_SUCCESS;
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
-		vty_out(vty, "router ospf6\n");
+		if (ospf6->name && strcmp(ospf6->name, VRF_DEFAULT_NAME))
+			vty_out(vty, "router ospf6 vrf %s\n", ospf6->name);
+		else
+			vty_out(vty, "router ospf6\n");
+
 		if (ospf6->router_id_static != 0)
 			vty_out(vty, " ospf6 router-id %pI4\n",
 				&ospf6->router_id_static);
@@ -1333,17 +1670,18 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " timers lsa min-arrival %d\n",
 				ospf6->lsa_minarrival);
 
+		/* ECMP max path config */
+		if (ospf6->max_multipath != MULTIPATH_NUM)
+			vty_out(vty, " maximum-paths %d\n",
+				ospf6->max_multipath);
+
 		ospf6_stub_router_config_write(vty, ospf6);
 		ospf6_redistribute_config_write(vty, ospf6);
 		ospf6_area_config_write(vty, ospf6);
 		ospf6_spf_config_write(vty, ospf6);
 		ospf6_distance_config_write(vty, ospf6);
+		ospf6_distribute_config_write(vty, ospf6);
 
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, j, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, k, oi))
-				vty_out(vty, " interface %s area %s\n",
-					oi->interface->name, oa->name);
-		}
 		vty_out(vty, "!\n");
 	}
 	return 0;
@@ -1366,6 +1704,7 @@ void ospf6_top_init(void)
 	install_node(&ospf6_node);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_vrfs_cmd);
 	install_element(CONFIG_NODE, &router_ospf6_cmd);
 	install_element(CONFIG_NODE, &no_router_ospf6_cmd);
 
@@ -1390,20 +1729,13 @@ void ospf6_top_init(void)
 	install_element(OSPF6_NODE, &no_ospf6_interface_area_cmd);
 	install_element(OSPF6_NODE, &ospf6_stub_router_admin_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_stub_router_admin_cmd);
-/* For a later time */
-#if 0
-  install_element (OSPF6_NODE, &ospf6_stub_router_startup_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_stub_router_startup_cmd);
-  install_element (OSPF6_NODE, &ospf6_stub_router_shutdown_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_stub_router_shutdown_cmd);
-#endif
+
+	/* maximum-paths command */
+	install_element(OSPF6_NODE, &ospf6_max_multipath_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_max_multipath_cmd);
 
 	install_element(OSPF6_NODE, &ospf6_distance_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_distance_cmd);
 	install_element(OSPF6_NODE, &ospf6_distance_ospf6_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_distance_ospf6_cmd);
-#if 0
-  install_element (OSPF6_NODE, &ospf6_distance_source_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_distance_source_cmd);
-#endif
 }

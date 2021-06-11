@@ -307,7 +307,9 @@ def test_ospf_lan_ecmp_tc18_p0(request):
     result = verify_ospf_rib(
         tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -322,7 +324,9 @@ def test_ospf_lan_ecmp_tc18_p0(request):
         attempts=5,
         expected=False,
     )
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 

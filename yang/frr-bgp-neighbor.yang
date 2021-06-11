@@ -5,9 +5,6 @@ submodule frr-bgp-neighbor {
     prefix "bgp";
   }
 
-  include frr-bgp-common-structure;
-  include frr-bgp-common-multiprotocol;
-
   organization
     "FRRouting";
   contact
@@ -92,8 +89,6 @@ submodule frr-bgp-neighbor {
       description
         "Don't send open messages to this neighbor.";
     }
-
-    uses structure-neighbor-group-capability-options;
 
     uses neighbor-update-source;
 

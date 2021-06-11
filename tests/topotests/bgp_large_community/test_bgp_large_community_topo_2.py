@@ -598,8 +598,11 @@ def test_large_community_lists_with_rmap_apply_and_remove(request):
         result = verify_bgp_community(
             tgen, adt, dut, NETWORKS[adt], input_dict_4, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "largeCommunity is still present after deleting route-map \n Error: {}".format(
+                tc_name, result
+            )
         )
 
     write_test_footer(tc_name)
@@ -898,8 +901,9 @@ def test_large_community_lists_with_rmap_set_none(request):
     dut = "r6"
     for adt in ADDR_TYPES:
         result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], expected=False)
-        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Community-list is still present \n Error: {}".format(tc_name, result)
         )
 
     write_test_footer(tc_name)
@@ -2236,8 +2240,9 @@ def test_large_community_lists_with_rmap_match_regex(request):
         result = verify_bgp_community(
             tgen, adt, dut, NETWORKS[adt], input_dict_7, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "largeCommunity is still present \n Error: {}".format(tc_name, result)
         )
 
     write_test_footer(tc_name)

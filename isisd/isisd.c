@@ -41,6 +41,7 @@
 #include "vrf.h"
 #include "spf_backoff.h"
 #include "lib/northbound_cli.h"
+#include "bfd.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -81,13 +82,25 @@ unsigned long debug_sr;
 unsigned long debug_ldp_sync;
 unsigned long debug_lfa;
 
-DEFINE_QOBJ_TYPE(isis_area)
+DEFINE_MGROUP(ISISD, "isisd");
+
+DEFINE_MTYPE_STATIC(ISISD, ISIS,      "ISIS process");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_NAME, "ISIS process name");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_AREA, "ISIS area");
+DEFINE_MTYPE(ISISD, ISIS_AREA_ADDR,   "ISIS area address");
+DEFINE_MTYPE(ISISD, ISIS_ACL_NAME,    "ISIS access-list name");
+
+DEFINE_QOBJ_TYPE(isis_area);
 
 /* ISIS process wide configuration. */
 static struct isis_master isis_master;
 
 /* ISIS process wide configuration pointer to export. */
 struct isis_master *im;
+
+#ifndef FABRICD
+DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
+#endif /* ifndef FABRICD */
 
 /*
  * Prototypes.
@@ -101,16 +114,6 @@ int show_isis_neighbor_common(struct vty *, const char *id, char,
 			      const char *vrf_name, bool all_vrf);
 int clear_isis_neighbor_common(struct vty *, const char *id, const char *vrf_name,
 			       bool all_vrf);
-
-static void isis_add(struct isis *isis)
-{
-	listnode_add(im->isis, isis);
-}
-
-static void isis_delete(struct isis *isis)
-{
-	listnode_delete(im->isis, isis);
-}
 
 /* Link ISIS instance to VRF. */
 void isis_vrf_link(struct isis *isis, struct vrf *vrf)
@@ -172,33 +175,23 @@ void isis_master_init(struct thread_master *master)
 	im->master = master;
 }
 
-void isis_global_instance_create(const char *vrf_name)
-{
-	struct isis *isis;
-
-	isis = isis_lookup_by_vrfname(vrf_name);
-	if (isis == NULL) {
-		isis = isis_new(vrf_name);
-		isis_add(isis);
-	}
-}
-
 struct isis *isis_new(const char *vrf_name)
 {
 	struct vrf *vrf;
 	struct isis *isis;
 
 	isis = XCALLOC(MTYPE_ISIS, sizeof(struct isis));
+
+	isis->name = XSTRDUP(MTYPE_ISIS_NAME, vrf_name);
+
 	vrf = vrf_lookup_by_name(vrf_name);
 
-	if (vrf) {
-		isis->vrf_id = vrf->vrf_id;
+	if (vrf)
 		isis_vrf_link(isis, vrf);
-		isis->name = XSTRDUP(MTYPE_ISIS, vrf->name);
-	} else {
+	else
 		isis->vrf_id = VRF_UNKNOWN;
-		isis->name = XSTRDUP(MTYPE_ISIS, vrf_name);
-	}
+
+	isis_zebra_vrf_register(isis);
 
 	if (IS_DEBUG_EVENTS)
 		zlog_debug(
@@ -212,11 +205,63 @@ struct isis *isis_new(const char *vrf_name)
 	isis->process_id = getpid();
 	isis->router_id = 0;
 	isis->area_list = list_new();
-	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
+	isis->snmp_notifications = 1;
 	dyn_cache_init(isis);
 
+	listnode_add(im->isis, isis);
+
 	return isis;
+}
+
+void isis_finish(struct isis *isis)
+{
+	struct vrf *vrf = NULL;
+
+	listnode_delete(im->isis, isis);
+
+	isis_zebra_vrf_deregister(isis);
+
+	vrf = vrf_lookup_by_name(isis->name);
+	if (vrf)
+		isis_vrf_unlink(isis, vrf);
+	XFREE(MTYPE_ISIS_NAME, isis->name);
+
+	isis_redist_free(isis);
+	list_delete(&isis->area_list);
+	XFREE(MTYPE_ISIS, isis);
+}
+
+void isis_area_add_circuit(struct isis_area *area, struct isis_circuit *circuit)
+{
+	isis_csm_state_change(ISIS_ENABLE, circuit, area);
+
+	area->ip_circuits += circuit->ip_router;
+	area->ipv6_circuits += circuit->ipv6_router;
+
+	area->lfa_protected_links[0] += circuit->lfa_protection[0];
+	area->rlfa_protected_links[0] += circuit->rlfa_protection[0];
+	area->tilfa_protected_links[0] += circuit->tilfa_protection[0];
+
+	area->lfa_protected_links[1] += circuit->lfa_protection[1];
+	area->rlfa_protected_links[1] += circuit->rlfa_protection[1];
+	area->tilfa_protected_links[1] += circuit->tilfa_protection[1];
+}
+
+void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
+{
+	area->ip_circuits -= circuit->ip_router;
+	area->ipv6_circuits -= circuit->ipv6_router;
+
+	area->lfa_protected_links[0] -= circuit->lfa_protection[0];
+	area->rlfa_protected_links[0] -= circuit->rlfa_protection[0];
+	area->tilfa_protected_links[0] -= circuit->tilfa_protection[0];
+
+	area->lfa_protected_links[1] -= circuit->lfa_protection[1];
+	area->rlfa_protected_links[1] -= circuit->rlfa_protection[1];
+	area->tilfa_protected_links[1] -= circuit->tilfa_protection[1];
+
+	isis_csm_state_change(ISIS_DISABLE, circuit, area);
 }
 
 struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
@@ -224,30 +269,19 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	struct isis_area *area;
 	struct isis *isis = NULL;
 	struct vrf *vrf = NULL;
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
 	area = XCALLOC(MTYPE_ISIS_AREA, sizeof(struct isis_area));
 
-	if (vrf_name) {
-		vrf = vrf_lookup_by_name(vrf_name);
-		if (vrf) {
-			isis = isis_lookup_by_vrfid(vrf->vrf_id);
-			if (isis == NULL) {
-				isis = isis_new(vrf_name);
-				isis_add(isis);
-			}
-		} else {
-			isis = isis_lookup_by_vrfid(VRF_UNKNOWN);
-			if (isis == NULL) {
-				isis = isis_new(vrf_name);
-				isis_add(isis);
-			}
-		}
-	} else {
-		isis = isis_lookup_by_vrfid(VRF_DEFAULT);
-		if (isis == NULL) {
-			isis = isis_new(VRF_DEFAULT_NAME);
-			isis_add(isis);
-		}
-	}
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+
+	vrf = vrf_lookup_by_name(vrf_name);
+	isis = isis_lookup_by_vrfname(vrf_name);
+
+	if (isis == NULL)
+		isis = isis_new(vrf_name);
 
 	listnode_add(isis->area_list, area);
 	area->isis = isis;
@@ -360,8 +394,18 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->bfd_signalled_down = false;
 	area->bfd_force_spf_refresh = false;
 
-
 	QOBJ_REG(area, isis_area);
+
+	if (vrf) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->ifindex == IFINDEX_INTERNAL)
+				continue;
+
+			circuit = ifp->info;
+			if (circuit)
+				isis_area_add_circuit(area, circuit);
+		}
+	}
 
 	return area;
 }
@@ -424,6 +468,22 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
+/* return the number of Level1 and level-1-2 routers or
+ * the number of Level2 and level-1-2 routers configured
+ */
+int isis_area_count(const struct isis *isis, int levels)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	int count = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		if (area->is_type & levels)
+			count++;
+
+	return count;
+}
+
 void isis_area_destroy(struct isis_area *area)
 {
 	struct listnode *node, *nnode;
@@ -441,11 +501,9 @@ void isis_area_destroy(struct isis_area *area)
 
 	if (area->circuit_list) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
-				       circuit)) {
-			circuit->ip_router = 0;
-			circuit->ipv6_router = 0;
-			isis_csm_state_change(ISIS_DISABLE, circuit, area);
-		}
+				       circuit))
+			isis_area_del_circuit(area, circuit);
+
 		list_delete(&area->circuit_list);
 	}
 	list_delete(&area->adjacency_list);
@@ -504,8 +562,7 @@ void isis_area_destroy(struct isis_area *area)
 	area_mt_finish(area);
 
 	if (listcount(area->isis->area_list) == 0) {
-		memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
-		area->isis->sysid_set = 0;
+		isis_finish(area->isis);
 	}
 
 	XFREE(MTYPE_ISIS_AREA, area);
@@ -532,6 +589,68 @@ static int isis_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
+static void isis_set_redist_vrf_bitmaps(struct isis *isis, bool set)
+{
+	struct listnode *node;
+	struct isis_area *area;
+	int type;
+	int level;
+	int protocol;
+
+	char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
+
+	memset(do_subscribe, 0, sizeof(do_subscribe));
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
+			for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
+				for (level = 0; level < ISIS_LEVELS; level++)
+					if (area->redist_settings[protocol]
+								 [type][level]
+									 .redist
+					    == 1)
+						do_subscribe[protocol][type] =
+							1;
+
+	for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
+		for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++) {
+			/* This field is actually controlling transmission of
+			 * the IS-IS
+			 * routes to Zebra and has nothing to do with
+			 * redistribution,
+			 * so skip it. */
+			if (type == PROTO_TYPE)
+				continue;
+
+			if (!do_subscribe[protocol][type])
+				continue;
+
+			afi_t afi = afi_for_redist_protocol(protocol);
+
+			if (type == DEFAULT_ROUTE) {
+				if (set)
+					vrf_bitmap_set(
+						zclient->default_information
+							[afi],
+						isis->vrf_id);
+				else
+					vrf_bitmap_unset(
+						zclient->default_information
+							[afi],
+						isis->vrf_id);
+			} else {
+				if (set)
+					vrf_bitmap_set(
+						zclient->redist[afi][type],
+						isis->vrf_id);
+				else
+					vrf_bitmap_unset(
+						zclient->redist[afi][type],
+						isis->vrf_id);
+			}
+		}
+}
+
 static int isis_vrf_enable(struct vrf *vrf)
 {
 	struct isis *isis;
@@ -543,10 +662,6 @@ static int isis_vrf_enable(struct vrf *vrf)
 
 	isis = isis_lookup_by_vrfname(vrf->name);
 	if (isis) {
-		if (isis->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_ISIS, isis->name);
-			isis->name = NULL;
-		}
 		old_vrf_id = isis->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		isis_vrf_link(isis, vrf);
@@ -555,13 +670,10 @@ static int isis_vrf_enable(struct vrf *vrf)
 				"%s: isis linked to vrf %s vrf_id %u (old id %u)",
 				__func__, vrf->name, isis->vrf_id, old_vrf_id);
 		if (old_vrf_id != isis->vrf_id) {
-			frr_with_privs (&isisd_privs) {
-				/* stop zebra redist to us for old vrf */
-				zclient_send_dereg_requests(zclient,
-							    old_vrf_id);
-				/* start zebra redist to us for new vrf */
-				isis_zebra_vrf_register(isis);
-			}
+			/* start zebra redist to us for new vrf */
+			isis_set_redist_vrf_bitmaps(isis, true);
+
+			isis_zebra_vrf_register(isis);
 		}
 	}
 
@@ -583,6 +695,10 @@ static int isis_vrf_disable(struct vrf *vrf)
 	if (isis) {
 		old_vrf_id = isis->vrf_id;
 
+		isis_zebra_vrf_deregister(isis);
+
+		isis_set_redist_vrf_bitmaps(isis, false);
+
 		/* We have instance configured, unlink
 		 * from VRF and make it "down".
 		 */
@@ -601,32 +717,12 @@ void isis_vrf_init(void)
 		 isis_vrf_delete, isis_vrf_enable);
 }
 
-void isis_finish(struct isis *isis)
-{
-	struct vrf *vrf = NULL;
-
-	isis_delete(isis);
-	if (isis->name) {
-		vrf = vrf_lookup_by_name(isis->name);
-		if (vrf)
-			isis_vrf_unlink(isis, vrf);
-		XFREE(MTYPE_ISIS, isis->name);
-	} else {
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-		if (vrf)
-			isis_vrf_unlink(isis, vrf);
-	}
-
-	isis_redist_free(isis);
-	list_delete(&isis->area_list);
-	list_delete(&isis->init_circ_list);
-	XFREE(MTYPE_ISIS, isis);
-}
-
 void isis_terminate()
 {
 	struct isis *isis;
 	struct listnode *node, *nnode;
+
+	bfd_protocol_integration_set_shutdown(true);
 
 	if (listcount(im->isis) == 0)
 		return;
@@ -1340,6 +1436,9 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_BFD, 1);
 	if (IS_DEBUG_LDP_SYNC)
 		print_debug(vty, DEBUG_LDP_SYNC, 1);
+	if (IS_DEBUG_LFA)
+		print_debug(vty, DEBUG_LFA, 1);
+
 	return CMD_SUCCESS;
 }
 
@@ -1821,9 +1920,9 @@ DEFUN(no_debug_isis_ldp_sync, no_debug_isis_ldp_sync_cmd,
 
 DEFUN (show_hostname,
        show_hostname_cmd,
-       "show " PROTO_NAME " hostname",
-       SHOW_STR
-       PROTO_HELP
+       "show " PROTO_NAME " [vrf <NAME|all>] hostname",
+       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
+       "All VRFs\n"
        "IS-IS Dynamic hostname mapping\n")
 {
 	struct listnode *node;
@@ -2547,6 +2646,14 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 
 	if (new_overload_bit != area->overload_bit) {
 		area->overload_bit = new_overload_bit;
+
+		if (new_overload_bit)
+			area->overload_counter++;
+
+#ifndef FABRICD
+		hook_call(isis_hook_db_overload, area);
+#endif /* ifndef FABRICD */
+
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 	}
 #ifndef FABRICD

@@ -2343,7 +2343,7 @@ check_argument_type (const format_char_info *fci,
       /* note printf extension type checks are *additional* - %p must always
        * be pointer compatible, %d always int compatible.
        */
-      if (!kef)
+      if (first_wanted_type->kind != CF_KIND_FORMAT || !kef)
 	return true;
 
       const struct kernel_ext_fmt *kef_now;
@@ -4241,6 +4241,11 @@ handle_finish_parse (void *event_data, void *data)
 		  continue;
 		}
 	      node = TREE_TYPE (node);
+
+	      if (etab->t_unsigned)
+		node = c_common_unsigned_type (node);
+	      else if (etab->t_signed)
+		node = c_common_signed_type (node);
 	    }
 
 	  etab->type = node;
@@ -4357,9 +4362,17 @@ handle_pragma_printfrr_ext (cpp_reader *dummy)
   ttype = pragma_lex (&token, &loc);
 
   /* qualifiers */
-  if (ttype == CPP_NAME && !strcmp (IDENTIFIER_POINTER (token), "const"))
+  while (ttype == CPP_NAME)
     {
-      etab->t_const = true;
+      if (!strcmp (IDENTIFIER_POINTER (token), "const"))
+        etab->t_const = true;
+      else if (!strcmp (IDENTIFIER_POINTER (token), "signed"))
+        etab->t_signed = true;
+      else if (!strcmp (IDENTIFIER_POINTER (token), "unsigned"))
+        etab->t_unsigned = true;
+      else
+        break;
+
       ttype = pragma_lex (&token, &loc);
     }
 

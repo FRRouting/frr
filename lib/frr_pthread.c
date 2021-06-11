@@ -28,10 +28,11 @@
 #include "memory.h"
 #include "linklist.h"
 #include "zlog.h"
+#include "libfrr.h"
 #include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread")
-DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")
+DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread");
+DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives");
 
 /* default frr_pthread start/stop routine prototypes */
 static void *fpt_run(void *arg);
@@ -161,6 +162,8 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 {
 	int ret;
 	sigset_t oldsigs, blocksigs;
+
+	assert(frr_is_after_fork || !"trying to start thread before fork()");
 
 	/* Ensure we never handle signals on a background thread by blocking
 	 * everything here (new thread inherits signal mask)

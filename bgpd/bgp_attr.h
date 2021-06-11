@@ -243,6 +243,15 @@ struct attr {
 	 */
 #define ATTR_ES_PEER_ROUTER (1 << 4)
 
+	/* These two flags are only set on L3 routes installed in a
+	 * VRF as a result of EVPN MAC-IP route
+	 * XXX - while splitting up per-family attrs these need to be
+	 * classified as non-EVPN
+	 */
+#define ATTR_ES_L3_NHG_USE (1 << 5)
+#define ATTR_ES_L3_NHG_ACTIVE (1 << 6)
+#define ATTR_ES_L3_NHG (ATTR_ES_L3_NHG_USE | ATTR_ES_L3_NHG_ACTIVE)
+
 	/* route tag */
 	route_tag_t tag;
 

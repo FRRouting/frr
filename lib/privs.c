@@ -28,7 +28,7 @@
 #include "lib_errors.h"
 #include "lib/queue.h"
 
-DEFINE_MTYPE_STATIC(LIB, PRIVS, "Privilege information")
+DEFINE_MTYPE_STATIC(LIB, PRIVS, "Privilege information");
 
 /*
  * Different capabilities/privileges apis have different characteristics: some
@@ -158,6 +158,10 @@ static struct {
 		[ZCAP_FOWNER] =
 			{
 				1, (pvalue_t[]){CAP_FOWNER},
+			},
+		[ZCAP_IPC_LOCK] =
+			{
+				1, (pvalue_t[]){CAP_IPC_LOCK},
 			},
 #endif /* HAVE_LCAPS */
 };
@@ -587,6 +591,8 @@ void zprivs_preinit(struct zebra_privs_t *zprivs)
 	}
 }
 
+struct zebra_privs_t *lib_privs;
+
 void zprivs_init(struct zebra_privs_t *zprivs)
 {
 	gid_t groups[NGROUPS_MAX] = {};
@@ -597,6 +603,8 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 	if (!(zprivs->user || zprivs->group || zprivs->cap_num_p
 	      || zprivs->cap_num_i))
 		return;
+
+	lib_privs = zprivs;
 
 	if (zprivs->user) {
 		ngroups = array_size(groups);
@@ -700,6 +708,8 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 void zprivs_terminate(struct zebra_privs_t *zprivs)
 {
 	struct zebra_privs_refs_t *refs;
+
+	lib_privs = NULL;
 
 	if (!zprivs) {
 		fprintf(stderr, "%s: no privs struct given, terminating",

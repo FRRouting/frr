@@ -42,6 +42,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import required_linux_kernel_version
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -65,28 +66,18 @@ class BGPIPV6RTADVVRFTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("5.0")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
     tgen = Topogen(BGPIPV6RTADVVRFTopo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
 
     logger.info("Testing with VRF Lite support")
-    krel = platform.release()
-
-    # May need to adjust handling of vrf traffic depending on kernel version
-    l3mdev_accept = 0
-    if (
-        topotest.version_cmp(krel, "4.15") >= 0
-        and topotest.version_cmp(krel, "4.18") <= 0
-    ):
-        l3mdev_accept = 1
-
-    if topotest.version_cmp(krel, "5.0") >= 0:
-        l3mdev_accept = 1
-
-    logger.info(
-        "krel '{0}' setting net.ipv4.tcp_l3mdev_accept={1}".format(krel, l3mdev_accept)
-    )
 
     cmds = [
         "ip link add {0}-cust1 type vrf table 1001",
@@ -98,16 +89,6 @@ def setup_module(mod):
     for rname, router in router_list.items():
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
-
-        output = tgen.net[rname].cmd("sysctl -n net.ipv4.tcp_l3mdev_accept")
-        logger.info(
-            "router {0}: existing tcp_l3mdev_accept was {1}".format(rname, output)
-        )
-
-        if l3mdev_accept:
-            output = tgen.net[rname].cmd(
-                "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept)
-            )
 
     for rname, router in router_list.items():
         router.load_config(

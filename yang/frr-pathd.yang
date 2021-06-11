@@ -84,51 +84,71 @@ module frr-pathd {
           leaf index {
             type uint32;
             description "Segment index";
-          }
-          leaf sid-value {
-            type rt-types:mpls-label;
+	  }
+        leaf sid-value {
+          type rt-types:mpls-label;
+          description "MPLS label value";
+        }
+        container nai {
+          presence "The segment has a Node or Adjacency Identifier";
+          leaf type {
+            description "NAI type";
             mandatory true;
-            description "MPLS label value";
-          }
-          container nai {
-            presence "The segement has a Node or Adjacency Identifier";
-            leaf type {
-              description "NAI type";
-              mandatory true;
-              type enumeration {
-                enum ipv4_node {
-                  value 1;
-                  description "IPv4 node identifier";
-                }
-                enum ipv6_node {
-                  value 2;
-                  description "IPv6 node identifier";
-                }
-                enum ipv4_adjacency {
-                  value 3;
-                  description "IPv4 adjacency";
-                }
-                enum ipv6_adjacency {
-                  value 4;
-                  description "IPv6 adjacency";
-                }
-                enum ipv4_unnumbered_adjacency {
-                  value 5;
-                  description "IPv4 unnumbered adjacency";
-                }
+            type enumeration {
+              enum ipv4_node {
+                value 1;
+                description "IPv4 node identifier";
+              }
+              enum ipv6_node {
+                value 2;
+                description "IPv6 node identifier";
+              }
+              enum ipv4_adjacency {
+                value 3;
+                description "IPv4 adjacency";
+              }
+              enum ipv6_adjacency {
+                value 4;
+                description "IPv6 adjacency";
+              }
+              enum ipv4_unnumbered_adjacency {
+                value 5;
+                description "IPv4 unnumbered adjacency";
+              }
+              enum ipv4_local_iface {
+                value 7;
+                description "IPv4 prefix with local interface id";
+              }
+              enum ipv6_local_iface {
+                value 8;
+                description "IPv6 prefix with local interface id";
+              }
+              enum ipv4_algo {
+                value 9;
+                description "IPv4 prefix with optional algorithm";
+              }
+              enum ipv6_algo {
+                value 10;
+                description "IPv6 prefix with optional algorithm";
               }
             }
-            leaf local-address {
-              type inet:ip-address;
-              mandatory true;
-            }
-            leaf local-interface {
-              type uint32;
-              mandatory true;
-              when "../type = 'ipv4_unnumbered_adjacency'";
-            }
-            leaf remote-address {
-              type inet:ip-address;
+          }
+          leaf local-address {
+            type inet:ip-address;
+            mandatory true;
+          }
+          leaf local-prefix-len {
+            type uint8;
+            mandatory true;
+            when "../type = 'ipv4_local_iface' or ../type = 'ipv6_local_iface' or ../type = 'ipv4_algo' or ../type = 'ipv6_algo'";
+          }
+          leaf local-interface {
+            type uint32;
+            mandatory true;
+            when "../type = 'ipv4_local_iface' or ../type = 'ipv6_local_iface' or ../type = 'ipv4_unnumbered_adjacency'";
+          }
+          leaf remote-address {
+            type inet:ip-address;
               mandatory true;
               when "../type = 'ipv4_adjacency' or ../type = 'ipv6_adjacency' or ../type = 'ipv4_unnumbered_adjacency'";
             }
@@ -137,6 +157,11 @@ module frr-pathd {
               mandatory true;
               when "../type = 'ipv4_unnumbered_adjacency'";
             }
+          leaf algorithm {
+            type uint8;
+            mandatory true;
+            when "../type = 'ipv4_algo' or ../type = 'ipv6_algo'";
+          }
           }
         }
       }

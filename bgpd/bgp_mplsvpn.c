@@ -47,6 +47,7 @@
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_memory.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -356,6 +357,83 @@ void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi)
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent = label;
 }
 
+/*
+ * This function informs zebra of the srv6-function this vrf sets on routes
+ * leaked to VPN. Zebra should install this srv6-function in the kernel with
+ * an action of "End.DT4/6's IP FIB to route the PDU."
+ */
+void vpn_leak_zebra_vrf_sid_update(struct bgp *bgp, afi_t afi)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	enum seg6local_action_t act;
+	struct seg6local_context ctx = {};
+	struct in6_addr *tovpn_sid = NULL;
+	struct in6_addr *tovpn_sid_ls = NULL;
+	struct vrf *vrf;
+	char buf[256] = {0};
+
+	if (bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, can't set zebra vrf label",
+				   __func__, bgp->name_pretty, afi2str(afi));
+		return;
+	}
+
+	tovpn_sid = bgp->vpn_policy[afi].tovpn_sid;
+	if (!tovpn_sid) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: sid not set", __func__,
+				   bgp->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug) {
+		inet_ntop(AF_INET6, tovpn_sid, buf, sizeof(buf));
+		zlog_debug("%s: vrf %s: afi %s: setting sid %s for vrf id %d",
+			   __func__, bgp->name_pretty, afi2str(afi), buf,
+			   bgp->vrf_id);
+	}
+
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (!vrf)
+		return;
+
+	ctx.table = vrf->data.l.table_id;
+	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+		: ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx);
+
+	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	*tovpn_sid_ls = *tovpn_sid;
+	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent = tovpn_sid_ls;
+}
+
+/*
+ * If zebra tells us vrf has become unconfigured, tell zebra not to
+ * use this srv6-function to forward to the vrf anymore
+ */
+void vpn_leak_zebra_vrf_sid_withdraw(struct bgp *bgp, afi_t afi)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+
+	if (bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, can't set zebra vrf label",
+				   __func__, bgp->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug)
+		zlog_debug("%s: deleting sid for vrf %s afi (id=%d)", __func__,
+			   bgp->name_pretty, bgp->vrf_id);
+
+	zclient_send_localsid(zclient,
+		bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent,
+		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
+	XFREE(MTYPE_BGP_SRV6_SID,
+	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
+}
+
 int vpn_leak_label_callback(
 	mpls_label_t label,
 	void *labelid,
@@ -415,6 +493,129 @@ int vpn_leak_label_callback(
 		vp->afi, bgp_get_default(), vp->bgp);
 
 	return 0;
+}
+
+static void sid_register(struct bgp *bgp, const struct in6_addr *sid,
+			 const char *locator_name)
+{
+	struct bgp_srv6_function *func;
+	func = XCALLOC(MTYPE_BGP_SRV6_FUNCTION,
+		       sizeof(struct bgp_srv6_function));
+	func->sid = *sid;
+	snprintf(func->locator_name, sizeof(func->locator_name),
+		 "%s", locator_name);
+	listnode_add(bgp->srv6_functions, func);
+}
+
+static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct bgp_srv6_function *func;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func))
+		if (sid_same(&func->sid, sid))
+			return true;
+	return false;
+}
+
+/*
+ * if index != 0: try to allocate as index-mode
+ * else: try to allocate as auto-mode
+ */
+static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
+			  struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct prefix_ipv6 *chunk;
+	struct in6_addr sid_buf;
+	bool alloced = false;
+
+	if (!bgp || !sid)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+		sid_buf = chunk->prefix;
+		if (index != 0) {
+			sid_buf.s6_addr[15] = index;
+			if (sid_exist(bgp, &sid_buf))
+				return false;
+			alloced = true;
+			break;
+		}
+
+		for (size_t i = 1; i < 255; i++) {
+			sid_buf.s6_addr[15] = (i & 0xff00) >> 8;
+			sid_buf.s6_addr[14] = (i & 0x00ff);
+
+			if (sid_exist(bgp, &sid_buf))
+				continue;
+			alloced = true;
+			break;
+		}
+	}
+
+	if (!alloced)
+		return false;
+
+	sid_register(bgp, &sid_buf, bgp->srv6_locator_name);
+	*sid = sid_buf;
+	return true;
+}
+
+void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	bool alloced = false;
+	char buf[256];
+	struct in6_addr *sid;
+	uint32_t tovpn_sid_index = 0;
+	bool tovpn_sid_auto = false;
+
+	if (debug)
+		zlog_debug("%s: try to allocate new SID for vrf %s: afi %s",
+			   __func__, bgp_vrf->name_pretty, afi2str(afi));
+
+	/* skip when tovpn sid is already allocated on vrf instance */
+	if (bgp_vrf->vpn_policy[afi].tovpn_sid)
+		return;
+
+	/*
+	 * skip when bgp vpn instance ins't allocated
+	 * or srv6 locator chunk isn't allocated
+	 */
+	if (!bgp_vpn || !bgp_vpn->srv6_locator_chunks)
+		return;
+
+	tovpn_sid_index = bgp_vrf->vpn_policy[afi].tovpn_sid_index;
+	tovpn_sid_auto = CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+				    BGP_VPN_POLICY_TOVPN_SID_AUTO);
+
+	/* skip when VPN isn't configured on vrf-instance */
+	if (tovpn_sid_index == 0 && !tovpn_sid_auto)
+		return;
+
+	/* check invalid case both configured index and auto */
+	if (tovpn_sid_index != 0 && tovpn_sid_index) {
+		zlog_err("%s: index-mode and auto-mode both selected. ignored.",
+			 __func__);
+		return;
+	}
+
+	sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	alloced = alloc_new_sid(bgp_vpn, tovpn_sid_index, sid);
+	if (!alloced) {
+		zlog_debug("%s: not allocated new sid for vrf %s: afi %s",
+			   __func__, bgp_vrf->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug) {
+		inet_ntop(AF_INET6, sid, buf, sizeof(buf));
+		zlog_debug("%s: new sid %s allocated for vrf %s: afi %s",
+			   __func__, buf, bgp_vrf->name_pretty,
+			   afi2str(afi));
+	}
+	bgp_vrf->vpn_policy[afi].tovpn_sid = sid;
 }
 
 static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
@@ -488,6 +689,32 @@ static void setlabels(struct bgp_path_info *bpi,
 }
 
 /*
+ * make encoded route SIDs match specified encoded sid set
+ */
+static void setsids(struct bgp_path_info *bpi,
+		      struct in6_addr *sid,
+		      uint32_t num_sids)
+{
+	uint32_t i;
+	struct bgp_path_info_extra *extra;
+
+	if (num_sids)
+		assert(sid);
+	assert(num_sids <= BGP_MAX_SIDS);
+
+	if (!num_sids) {
+		if (bpi->extra)
+			bpi->extra->num_sids = 0;
+		return;
+	}
+
+	extra = bgp_path_info_extra_get(bpi);
+	for (i = 0; i < num_sids; i++)
+		memcpy(&extra->sid[i], &sid[i], sizeof(struct in6_addr));
+	extra->num_sids = num_sids;
+}
+
+/*
  * returns pointer to new bgp_path_info upon success
  */
 static struct bgp_path_info *
@@ -502,6 +729,10 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	struct bgp_path_info *bpi;
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp_path_info *new;
+	uint32_t num_sids = 0;
+
+	if (new_attr->srv6_l3vpn || new_attr->srv6_vpn)
+		num_sids = 1;
 
 	if (debug)
 		zlog_debug(
@@ -540,6 +771,17 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	if (bpi) {
 		bool labelssame = labels_same(bpi, label, num_labels);
 
+		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)
+		    && CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
+			if (debug) {
+				zlog_debug(
+					"%s: ->%s(s_flags: 0x%x b_flags: 0x%x): %pFX: Found route, being removed, not leaking",
+					__func__, bgp->name_pretty,
+					source_bpi->flags, bpi->flags, p);
+			}
+			return NULL;
+		}
+
 		if (attrhash_cmp(bpi->attr, new_attr) && labelssame
 		    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
 
@@ -569,6 +811,18 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		if (!labelssame)
 			setlabels(bpi, label, num_labels);
 
+		/*
+		 * rewrite sid
+		 */
+		if (num_sids) {
+			if (new_attr->srv6_l3vpn)
+				setsids(bpi, &new_attr->srv6_l3vpn->sid,
+					num_sids);
+			else if (new_attr->srv6_vpn)
+				setsids(bpi, &new_attr->srv6_vpn->sid,
+					num_sids);
+		}
+
 		if (nexthop_self_flag)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
 
@@ -590,8 +844,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			 * TBD do we need to do anything about the
 			 * 'connected' parameter?
 			 */
-			nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop,
-							   afi, bpi, NULL, 0);
+			nh_valid = bgp_find_or_add_nexthop(
+				bgp, bgp_nexthop, afi, safi, bpi, NULL, 0);
 
 		if (debug)
 			zlog_debug("%s: nexthop is %svalid (in vrf %s)",
@@ -613,6 +867,16 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		return bpi;
 	}
 
+	if (CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)) {
+		if (debug) {
+			zlog_debug(
+				"%s: ->%s(s_flags: 0x%x): %pFX: New route, being removed, not leaking",
+				__func__, bgp->name_pretty,
+				source_bpi->flags, p);
+		}
+		return NULL;
+	}
+
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_IMPORTED, 0,
 		bgp->peer_self, new_attr, bn);
 
@@ -620,6 +884,16 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		bgp_path_info_set_flag(bn, new, BGP_PATH_ANNC_NH_SELF);
 
 	bgp_path_info_extra_get(new);
+
+	/*
+	 * rewrite sid
+	 */
+	if (num_sids) {
+		if (new_attr->srv6_l3vpn)
+			setsids(new, &new_attr->srv6_l3vpn->sid, num_sids);
+		else if (new_attr->srv6_vpn)
+			setsids(new, &new_attr->srv6_vpn->sid, num_sids);
+	}
 
 	if (num_labels)
 		setlabels(new, label, num_labels);
@@ -656,8 +930,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		 * TBD do we need to do anything about the
 		 * 'connected' parameter?
 		 */
-		nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop,
-						afi, new, NULL, 0);
+		nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
+						   new, NULL, 0);
 
 	if (debug)
 		zlog_debug("%s: nexthop is %svalid (in vrf %s)",
@@ -877,6 +1151,17 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
 	static_attr.originator_id = bgp_vpn->router_id;
 
+	/* Set SID for SRv6 VPN */
+	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
+		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
+				sizeof(struct bgp_attr_srv6_l3vpn));
+		static_attr.srv6_l3vpn->sid_flags = 0x00;
+		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
+		memcpy(&static_attr.srv6_l3vpn->sid,
+		       bgp_vrf->vpn_policy[afi].tovpn_sid,
+		       sizeof(static_attr.srv6_l3vpn->sid));
+	}
+
 
 	new_attr = bgp_attr_intern(
 		&static_attr);	/* hashed refcounted everything */
@@ -1027,6 +1312,8 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn, /* to */
 					if (debug)
 						zlog_debug("%s: deleting it",
 							   __func__);
+					/* withdraw from leak-to vrfs as well */
+					vpn_leak_to_vrf_withdraw(bgp_vpn, bpi);
 					bgp_aggregate_decrement(
 						bgp_vpn,
 						bgp_dest_get_prefix(bn), bpi,
@@ -1101,7 +1388,10 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	if (!ecom_intersect(
 		    bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
 		    path_vpn->attr->ecommunity)) {
-
+		if (debug)
+			zlog_debug(
+				"from vpn to vrf %s, skipping after no intersection of route targets",
+				bgp_vrf->name_pretty);
 		return;
 	}
 
@@ -1417,7 +1707,6 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 				struct bgp *bgp_vpn, /* from */
 				afi_t afi)
 {
-	struct prefix_rd prd;
 	struct bgp_dest *pdest;
 	safi_t safi = SAFI_MPLS_VPN;
 
@@ -1428,15 +1717,9 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 	 */
 	for (pdest = bgp_table_top(bgp_vpn->rib[afi][safi]); pdest;
 	     pdest = bgp_route_next(pdest)) {
-		const struct prefix *p = bgp_dest_get_prefix(pdest);
 		struct bgp_table *table;
 		struct bgp_dest *bn;
 		struct bgp_path_info *bpi;
-
-		memset(&prd, 0, sizeof(prd));
-		prd.family = AF_UNSPEC;
-		prd.prefixlen = 64;
-		memcpy(prd.val, &p->u.val, 8);
 
 		/* This is the per-RD table of prefixes */
 		table = bgp_dest_get_bgp_table_info(pdest);
@@ -1539,7 +1822,8 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 				 bool is_config)
 {
 	afi_t afi;
-	int debug;
+	int debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF)
+		     | BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
 	char *vname;
 	const char *export_name;
 	char buf[RD_ADDRSTRLEN];
@@ -1548,14 +1832,23 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 	struct ecommunity *ecom;
 	vpn_policy_direction_t idir, edir;
 
+	/*
+	 * Router-id change that is not explicitly configured
+	 * (a change from zebra, frr restart for example)
+	 * should not replace a configured vpn RD/RT.
+	 */
+	if (!is_config) {
+		if (debug)
+			zlog_debug("%s: skipping non explicit router-id change",
+				   __func__);
+		return;
+	}
+
 	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT
 	    && bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
 		return;
 
 	export_name = bgp->name ? bgp->name : VRF_DEFAULT_NAME;
-	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
-		     BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
-
 	idir = BGP_VPN_POLICY_DIR_FROMVPN;
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 
@@ -1581,26 +1874,12 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 				if (!bgp_import)
 					continue;
 
-				ecommunity_del_val(bgp_import->vpn_policy[afi].
-						   rtlist[idir],
+				ecommunity_del_val(
+					bgp_import->vpn_policy[afi]
+						.rtlist[idir],
 					(struct ecommunity_val *)ecom->val);
-
 			}
 		} else {
-			/*
-			 * Router-id changes that are not explicit config
-			 * changes should not replace configured RD/RT.
-			 */
-			if (!is_config) {
-				if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-					       BGP_VPN_POLICY_TOVPN_RD_SET)) {
-					if (debug)
-						zlog_debug("%s: auto router-id change skipped",
-							   __func__);
-					goto postchange;
-				}
-			}
-
 			/* New router-id derive auto RD and RT and export
 			 * to VPN
 			 */
@@ -1631,10 +1910,8 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 				else
 					bgp_import->vpn_policy[afi].rtlist[idir]
 						= ecommunity_dup(ecom);
-
 			}
 
-postchange:
 			/* Update routes to VPN */
 			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN,
 					    afi, bgp_get_default(),
@@ -2043,7 +2320,7 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 
 DEFUN (show_bgp_ip_vpn_all_rd,
        show_bgp_ip_vpn_all_rd_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn all [rd ASN:NN_OR_IP-ADDRESS:NN] [json]",
+       "show bgp "BGP_AFI_CMD_STR" vpn all [rd <ASN:NN_OR_IP-ADDRESS:NN|all>] [json]",
        SHOW_STR
        BGP_STR
        BGP_VPNVX_HELP_STR
@@ -2051,6 +2328,7 @@ DEFUN (show_bgp_ip_vpn_all_rd,
        "Display VPN NLRI specific information\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
+       "All VPN Route Distinguishers\n"
        JSON_STR)
 {
 	int ret;
@@ -2059,7 +2337,9 @@ DEFUN (show_bgp_ip_vpn_all_rd,
 	int idx = 0;
 
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
-		if (argv_find(argv, argc, "rd", &idx)) {
+		/* Constrain search if user supplies RD && RD != "all" */
+		if (argv_find(argv, argc, "rd", &idx)
+		    && strcmp(argv[idx + 1]->arg, "all")) {
 			ret = str2prefix_rd(argv[idx + 1]->arg, &prd);
 			if (!ret) {
 				vty_out(vty,
@@ -2080,26 +2360,28 @@ DEFUN (show_bgp_ip_vpn_all_rd,
 
 ALIAS(show_bgp_ip_vpn_all_rd,
       show_bgp_ip_vpn_rd_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN [json]",
+       "show bgp "BGP_AFI_CMD_STR" vpn rd <ASN:NN_OR_IP-ADDRESS:NN|all> [json]",
        SHOW_STR
        BGP_STR
        BGP_VPNVX_HELP_STR
        "Display VPN NLRI specific information\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
+       "All VPN Route Distinguishers\n"
        JSON_STR)
 
 #ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (show_ip_bgp_vpn_rd,
        show_ip_bgp_vpn_rd_cmd,
-       "show ip bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN",
+       "show ip bgp "BGP_AFI_CMD_STR" vpn rd <ASN:NN_OR_IP-ADDRESS:NN|all>",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_AFI_HELP_STR
        "Address Family modifier\n"
        "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n")
+       "VPN Route Distinguisher\n"
+       "All VPN Route Distinguishers\n")
 {
 	int idx_ext_community = argc - 1;
 	int ret;
@@ -2108,6 +2390,10 @@ DEFUN (show_ip_bgp_vpn_rd,
 	int idx = 0;
 
 	if (argv_find_and_parse_vpnvx(argv, argc, &idx, &afi)) {
+		if (!strcmp(argv[idx_ext_community]->arg, "all"))
+			return bgp_show_mpls_vpn(vty, afi, NULL,
+						 bgp_show_type_normal, NULL, 0,
+						 0);
 		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed Route Distinguisher\n");
@@ -2157,13 +2443,14 @@ DEFUN (show_ip_bgp_vpn_all_tags,
 
 DEFUN (show_ip_bgp_vpn_rd_tags,
        show_ip_bgp_vpn_rd_tags_cmd,
-       "show [ip] bgp <vpnv4|vpnv6> rd ASN:NN_OR_IP-ADDRESS:NN tags",
+       "show [ip] bgp <vpnv4|vpnv6> rd <ASN:NN_OR_IP-ADDRESS:NN|all> tags",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_VPNVX_HELP_STR
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
+       "All VPN Route Distinguishers\n"
        "Display BGP tags for prefixes\n")
 {
 	int idx_ext_community = 5;
@@ -2173,6 +2460,10 @@ DEFUN (show_ip_bgp_vpn_rd_tags,
 	int idx = 0;
 
 	if (argv_find_and_parse_vpnvx(argv, argc, &idx, &afi)) {
+		if (!strcmp(argv[idx_ext_community]->arg, "all"))
+			return bgp_show_mpls_vpn(vty, afi, NULL,
+						 bgp_show_type_normal, NULL, 1,
+						 0);
 		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed Route Distinguisher\n");
@@ -2247,13 +2538,14 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
 
 DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
        show_ip_bgp_vpn_rd_neighbor_routes_cmd,
-       "show [ip] bgp <vpnv4|vpnv6> rd ASN:NN_OR_IP-ADDRESS:NN neighbors A.B.C.D routes [json]",
+       "show [ip] bgp <vpnv4|vpnv6> rd <ASN:NN_OR_IP-ADDRESS:NN|all> neighbors A.B.C.D routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_VPNVX_HELP_STR
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
+       "All VPN Route Distinguishers\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n"
@@ -2265,26 +2557,32 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
 	union sockunion su;
 	struct peer *peer;
 	struct prefix_rd prd;
+	bool prefix_rd_all = false;
 	bool uj = use_json(argc, argv);
 	afi_t afi;
 	int idx = 0;
 
 	if (argv_find_and_parse_vpnvx(argv, argc, &idx, &afi)) {
-		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
-		if (!ret) {
-			if (uj) {
-				json_object *json_no = NULL;
-				json_no = json_object_new_object();
-				json_object_string_add(
-					json_no, "warning",
-					"Malformed Route Distinguisher");
-				vty_out(vty, "%s\n",
-					json_object_to_json_string(json_no));
-				json_object_free(json_no);
-			} else
-				vty_out(vty,
-					"%% Malformed Route Distinguisher\n");
-			return CMD_WARNING;
+		if (!strcmp(argv[idx_ext_community]->arg, "all"))
+			prefix_rd_all = true;
+		else {
+			ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
+			if (!ret) {
+				if (uj) {
+					json_object *json_no = NULL;
+					json_no = json_object_new_object();
+					json_object_string_add(
+						json_no, "warning",
+						"Malformed Route Distinguisher");
+					vty_out(vty, "%s\n",
+						json_object_to_json_string(
+							json_no));
+					json_object_free(json_no);
+				} else
+					vty_out(vty,
+						"%% Malformed Route Distinguisher\n");
+				return CMD_WARNING;
+			}
 		}
 
 		ret = str2sockunion(argv[idx_ipv4]->arg, &su);
@@ -2320,8 +2618,14 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
 			return CMD_WARNING;
 		}
 
-		return bgp_show_mpls_vpn(vty, afi, &prd, bgp_show_type_neighbor,
-					 &su, 0, uj);
+		if (prefix_rd_all)
+			return bgp_show_mpls_vpn(vty, afi, NULL,
+						 bgp_show_type_neighbor, &su, 0,
+						 uj);
+		else
+			return bgp_show_mpls_vpn(vty, afi, &prd,
+						 bgp_show_type_neighbor, &su, 0,
+						 uj);
 	}
 	return CMD_SUCCESS;
 }
@@ -2387,13 +2691,14 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_advertised_routes,
 
 DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
        show_ip_bgp_vpn_rd_neighbor_advertised_routes_cmd,
-       "show [ip] bgp <vpnv4|vpnv6> rd ASN:NN_OR_IP-ADDRESS:NN neighbors A.B.C.D advertised-routes [json]",
+       "show [ip] bgp <vpnv4|vpnv6> rd <ASN:NN_OR_IP-ADDRESS:NN|all> neighbors A.B.C.D advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_VPNVX_HELP_STR
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
+       "All VPN Route Distinguishers\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n"
@@ -2442,6 +2747,9 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
 			return CMD_WARNING;
 		}
 
+		if (!strcmp(argv[idx_ext_community]->arg, "all"))
+			return show_adj_route_vpn(vty, peer, NULL, AFI_IP,
+						  SAFI_MPLS_VPN, uj);
 		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 		if (!ret) {
 			if (uj) {

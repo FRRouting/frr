@@ -72,6 +72,59 @@ config.read(PYTESTINI_PATH)
 
 config_section = "topogen"
 
+# Debug logs for daemons
+DEBUG_LOGS = {
+    "pimd": [
+        "debug msdp events",
+        "debug msdp packets",
+        "debug igmp events",
+        "debug igmp trace",
+        "debug mroute",
+        "debug mroute detail",
+        "debug pim events",
+        "debug pim packets",
+        "debug pim trace",
+        "debug pim zebra",
+        "debug pim bsm",
+        "debug pim packets joins",
+        "debug pim packets register",
+        "debug pim nht",
+    ],
+    "bgpd": [
+        "debug bgp neighbor-events",
+        "debug bgp updates",
+        "debug bgp zebra",
+        "debug bgp nht",
+        "debug bgp neighbor-events",
+        "debug bgp graceful-restart",
+        "debug bgp update-groups",
+        "debug bgp vpn leak-from-vrf",
+        "debug bgp vpn leak-to-vrf",
+        "debug bgp zebr",
+        "debug bgp updates",
+        "debug bgp nht",
+        "debug bgp neighbor-events",
+        "debug vrf",
+    ],
+    "zebra": [
+        "debug zebra events",
+        "debug zebra rib",
+        "debug zebra vxlan",
+        "debug zebra nht",
+    ],
+    "ospf": [
+        "debug ospf event",
+        "debug ospf ism",
+        "debug ospf lsa",
+        "debug ospf nsm",
+        "debug ospf nssa",
+        "debug ospf packet all",
+        "debug ospf sr",
+        "debug ospf te",
+        "debug ospf zebra",
+    ],
+}
+
 if config.has_option("topogen", "verbosity"):
     loglevel = config.get("topogen", "verbosity")
     loglevel = loglevel.upper()
@@ -249,6 +302,7 @@ def create_common_configuration(
     config_map = OrderedDict(
         {
             "general_config": "! FRR General Config\n",
+            "debug_log_config": "! Debug log Config\n",
             "interface_config": "! Interfaces Config\n",
             "static_route": "! Static Route Config\n",
             "prefix_list": "! Prefix List Config\n",
@@ -257,6 +311,7 @@ def create_common_configuration(
             "bgp": "! BGP Config\n",
             "vrf": "! VRF Config\n",
             "ospf": "! OSPF Config\n",
+            "ospf6": "! OSPF Config\n",
             "pim": "! PIM Config\n",
         }
     )
@@ -335,40 +390,15 @@ def start_router_daemons(tgen, router, daemons):
         router_list = tgen.routers()
 
         # Start daemons
-        result = router_list[router].startDaemons(daemons)
-        return result
+        res = router_list[router].startDaemons(daemons)
 
     except Exception as e:
         errormsg = traceback.format_exc()
         logger.error(errormsg)
-        return errormsg
+        res = errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return True
-
-
-def kill_mininet_routers_process(tgen):
-    """
-    Kill all mininet stale router' processes
-    * `tgen`  : topogen object
-    """
-
-    router_list = tgen.routers()
-    for rname, router in router_list.items():
-        daemon_list = [
-            "zebra",
-            "ospfd",
-            "ospf6d",
-            "bgpd",
-            "ripd",
-            "ripngd",
-            "isisd",
-            "pimd",
-            "ldpd",
-            "staticd",
-        ]
-        for daemon in daemon_list:
-            router.run("killall -9 {}".format(daemon))
+    return res
 
 
 def check_router_status(tgen):
@@ -676,7 +706,10 @@ def generate_support_bundle():
     for rname, rnode in router_list.items():
         logger.info("Generating support bundle for {}".format(rname))
         rnode.run("mkdir -p /var/log/frr")
-        bundle_log = rnode.run("python2 /usr/lib/frr/generate_support_bundle.py")
+
+        # Support only python3 going forward
+        bundle_log = rnode.run("env python3 /usr/lib/frr/generate_support_bundle.py")
+
         logger.info(bundle_log)
 
         dst_bundle = "{}/{}/support_bundles/{}".format(TMPDIR, rname, test_name)
@@ -750,6 +783,12 @@ def start_topology(tgen, daemon=None):
             # Loading empty ospf.conf file to router, to start the bgp daemon
             router.load_config(
                 TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(TMPDIR, rname)
+            )
+
+        if daemon and "ospf6d" in daemon:
+            # Loading empty ospf.conf file to router, to start the bgp daemon
+            router.load_config(
+                TopoRouter.RD_OSPF6, "{}/{}/ospf6d.conf".format(TMPDIR, rname)
             )
 
         if daemon and "pimd" in daemon:
@@ -844,6 +883,9 @@ def topo_daemons(tgen, topo):
     for rtr in ROUTER_LIST:
         if "ospf" in topo["routers"][rtr] and "ospfd" not in daemon_list:
             daemon_list.append("ospfd")
+
+        if "ospf6" in topo["routers"][rtr] and "ospf6d" not in daemon_list:
+            daemon_list.append("ospf6d")
 
         for val in topo["routers"][rtr]["links"].values():
             if "pim" in val and "pimd" not in daemon_list:
@@ -1038,6 +1080,89 @@ def tcpdump_capture_stop(tgen, router):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+def create_debug_log_config(tgen, input_dict, build=False):
+    """
+    Enable/disable debug logs for any protocol with defined debug
+    options and logs would be saved to created log file
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `input_dict` : details to enable debug logs for protocols
+    * `build` : Only for initial setup phase this is set as True.
+
+
+    Usage:
+    ------
+     input_dict = {
+        "r2": {
+            "debug":{
+                "log_file" : "debug.log",
+                "enable": ["pimd", "zebra"],
+                "disable": {
+                    "bgpd":[
+                        'debug bgp neighbor-events',
+                        'debug bgp updates',
+                        'debug bgp zebra',
+                    ]
+                }
+            }
+        }
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
+
+    Returns
+    -------
+    True or False
+    """
+
+    result = False
+    try:
+        for router in input_dict.keys():
+            debug_config = []
+            if "debug" in input_dict[router]:
+                debug_dict = input_dict[router]["debug"]
+
+                disable_logs = debug_dict.setdefault("disable", None)
+                enable_logs = debug_dict.setdefault("enable", None)
+                log_file = debug_dict.setdefault("log_file", None)
+
+                if log_file:
+                    _log_file = os.path.join(LOGDIR, tgen.modname, log_file)
+                    debug_config.append("log file {} \n".format(_log_file))
+
+                if type(enable_logs) is list:
+                    for daemon in enable_logs:
+                        for debug_log in DEBUG_LOGS[daemon]:
+                            debug_config.append("{}".format(debug_log))
+                elif type(enable_logs) is dict:
+                    for daemon, debug_logs in enable_logs.items():
+                        for debug_log in debug_logs:
+                            debug_config.append("{}".format(debug_log))
+
+                if type(disable_logs) is list:
+                    for daemon in disable_logs:
+                        for debug_log in DEBUG_LOGS[daemon]:
+                            debug_config.append("no {}".format(debug_log))
+                elif type(disable_logs) is dict:
+                    for daemon, debug_logs in disable_logs.items():
+                        for debug_log in debug_logs:
+                            debug_config.append("no {}".format(debug_log))
+
+                result = create_common_configuration(
+                    tgen, router, debug_config, "debug_log_config", build=build
+                )
+    except InvalidCLIError:
+        # Traceback
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return result
 
 
 #############################################
@@ -1361,14 +1486,16 @@ def generate_ips(network, no_of_ips):
             if start_ip == "0.0.0.0" and mask == 0 and no_of_ips == 1:
                 ipaddress_list.append("{}/{}".format(start_ip, mask))
                 return ipaddress_list
-            start_ip = ipaddress.IPv4Address(unicode(start_ip))
+            start_ip = ipaddress.IPv4Address(frr_unicode(start_ip))
             step = 2 ** (32 - mask)
-        if addr_type == "ipv6":
+        elif addr_type == "ipv6":
             if start_ip == "0::0" and mask == 0 and no_of_ips == 1:
                 ipaddress_list.append("{}/{}".format(start_ip, mask))
                 return ipaddress_list
-            start_ip = ipaddress.IPv6Address(unicode(start_ip))
+            start_ip = ipaddress.IPv6Address(frr_unicode(start_ip))
             step = 2 ** (128 - mask)
+        else:
+            return []
 
         next_ip = start_ip
         count = 0
@@ -1466,10 +1593,6 @@ def interface_status(tgen, topo, input_dict):
             load_config_to_router(tgen, router)
 
     except Exception as e:
-        # handle any exception
-        logger.error("Error %s occured. Arguments %s.", e.message, e.args)
-
-        # Traceback
         errormsg = traceback.format_exc()
         logger.error(errormsg)
         return errormsg
@@ -1594,6 +1717,25 @@ def create_interfaces_cfg(tgen, topo, build=False):
     -------
     True or False
     """
+
+    def _create_interfaces_ospf_cfg(ospf, c_data, data, ospf_keywords):
+        interface_data = []
+        ip_ospf = "ipv6 ospf6" if ospf == "ospf6" else "ip ospf"
+        for keyword in ospf_keywords:
+            if keyword in data[ospf]:
+                intf_ospf_value = c_data["links"][destRouterLink][ospf][keyword]
+                if "delete" in data and data["delete"]:
+                    interface_data.append(
+                        "no {} {}".format(ip_ospf, keyword.replace("_", "-"))
+                    )
+                else:
+                    interface_data.append(
+                        "{} {} {}".format(
+                            ip_ospf, keyword.replace("_", "-"), intf_ospf_value
+                        )
+                    )
+        return interface_data
+
     result = False
     topo = deepcopy(topo)
 
@@ -1640,66 +1782,27 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     else:
                         interface_data.append("ipv6 address {}\n".format(intf_addr))
 
+                ospf_keywords = [
+                    "hello_interval",
+                    "dead_interval",
+                    "network",
+                    "priority",
+                    "cost",
+                    "mtu_ignore"
+                ]
                 if "ospf" in data:
-                    ospf_data = data["ospf"]
-                    if "area" in ospf_data:
-                        intf_ospf_area = c_data["links"][destRouterLink]["ospf"]["area"]
-                        if "delete" in data and data["delete"]:
-                            interface_data.append("no ip ospf area")
-                        else:
-                            interface_data.append(
-                                "ip ospf area {}".format(intf_ospf_area)
-                            )
+                    interface_data += _create_interfaces_ospf_cfg(
+                        "ospf", c_data, data, ospf_keywords + ["area"]
+                    )
+                if "ospf6" in data:
+                    interface_data += _create_interfaces_ospf_cfg(
+                        "ospf6", c_data, data, ospf_keywords
+                    )
 
-                    if "hello_interval" in ospf_data:
-                        intf_ospf_hello = c_data["links"][destRouterLink]["ospf"][
-                            "hello_interval"
-                        ]
-                        if "delete" in data and data["delete"]:
-                            interface_data.append("no ip ospf " " hello-interval")
-                        else:
-                            interface_data.append(
-                                "ip ospf" " hello-interval {}".format(intf_ospf_hello)
-                            )
-
-                    if "dead_interval" in ospf_data:
-                        intf_ospf_dead = c_data["links"][destRouterLink]["ospf"][
-                            "dead_interval"
-                        ]
-                        if "delete" in data and data["delete"]:
-                            interface_data.append("no ip ospf" " dead-interval")
-                        else:
-                            interface_data.append(
-                                "ip ospf" " dead-interval {}".format(intf_ospf_dead)
-                            )
-
-                    if "network" in ospf_data:
-                        intf_ospf_nw = c_data["links"][destRouterLink]["ospf"][
-                            "network"
-                        ]
-                        if "delete" in data and data["delete"]:
-                            interface_data.append(
-                                "no ip ospf" " network {}".format(intf_ospf_nw)
-                            )
-                        else:
-                            interface_data.append(
-                                "ip ospf" " network {}".format(intf_ospf_nw)
-                            )
-
-                    if "priority" in ospf_data:
-                        intf_ospf_nw = c_data["links"][destRouterLink]["ospf"][
-                            "priority"
-                        ]
-
-                        if "delete" in data and data["delete"]:
-                            interface_data.append("no ip ospf" " priority")
-                        else:
-                            interface_data.append(
-                                "ip ospf" " priority {}".format(intf_ospf_nw)
-                            )
             result = create_common_configuration(
                 tgen, c_router, interface_data, "interface_config", build=build
             )
+
     except InvalidCLIError:
         # Traceback
         errormsg = traceback.format_exc()
@@ -2398,14 +2501,7 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
                     logger.error(errormsg)
                     return False
 
-                try:
-                    community_type = int(community_type)
-                    cmd = "{} {} {} {}".format(cmd, community_type, action, value)
-                except ValueError:
-
-                    cmd = "{} {} {} {} {}".format(
-                        cmd, community_type, name, action, value
-                    )
+                cmd = "{} {} {} {} {}".format(cmd, community_type, name, action, value)
 
                 if del_action:
                     cmd = "no {}".format(cmd)
@@ -2454,51 +2550,6 @@ def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
         logger.info("Shutting down interface {} : {}".format(dut, intf_name))
 
     interface_set_status(router_list[dut], intf_name, ifaceaction)
-
-
-def stop_router(tgen, router):
-    """
-    Router's current config would be saved to /tmp/topotest/<suite>/<router>
-    for each daemon and router and its daemons would be stopped.
-
-    * `tgen`  : topogen object
-    * `router`: Device under test
-    """
-
-    router_list = tgen.routers()
-
-    # Saving router config to /etc/frr, which will be loaded to router
-    # when it starts
-    router_list[router].vtysh_cmd("write memory")
-
-    # Stop router
-    router_list[router].stop()
-
-
-def start_router(tgen, router):
-    """
-    Router will be started and config would be loaded from
-    /tmp/topotest/<suite>/<router> for each daemon
-
-    * `tgen`  : topogen object
-    * `router`: Device under test
-    """
-
-    logger.debug("Entering lib API: start_router")
-
-    try:
-        router_list = tgen.routers()
-
-        # Router and its daemons would be started and config would
-        #  be loaded to router for each daemon from /etc/frr
-        router_list[router].start()
-
-    except Exception as e:
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
-
-    logger.debug("Exiting lib API: start_router()")
 
 
 def addKernelRoute(
@@ -3768,6 +3819,44 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
     return True
 
 
+def get_ipv6_linklocal_address(topo, node, intf):
+    """
+    API to get the link local ipv6 address of a perticular interface
+
+    Parameters
+    ----------
+    * `node`: node on which link local ip to be fetched.
+    * `intf` : interface for which link local ip needs to be returned.
+    * `topo` : base topo
+
+    Usage
+    -----
+    result = get_ipv6_linklocal_address(topo, 'r1', 'r2')
+
+    Returns link local ip of interface between r1 and r2.
+
+    Returns
+    -------
+    1) link local ipv6 address from the interface
+    2) errormsg - when link local ip not found
+    """
+    tgen = get_topogen()
+    ext_nh = tgen.net[node].get_ipv6_linklocal()
+    req_nh = topo[node]["links"][intf]["interface"]
+    llip = None
+    for llips in ext_nh:
+        if llips[0] == req_nh:
+            llip = llips[1]
+            logger.info("Link local ip found = %s", llip)
+            return llip
+
+    errormsg = "Failed: Link local ip not found on router {}, " "interface {}".format(
+        node, intf
+    )
+
+    return errormsg
+
+
 def verify_create_community_list(tgen, input_dict):
     """
     API is to verify if large community list is created for any given DUT in
@@ -4127,6 +4216,9 @@ def required_linux_kernel_version(required_version):
             'These tests will not run on kernel "{}", '
             "they require kernel >= {})".format(system_kernel, required_version)
         )
+
+        logger.info(error_msg)
+
         return error_msg
     return True
 
@@ -4395,4 +4487,3 @@ def verify_ip_nht(tgen, input_dict):
 
     logger.debug("Exiting lib API: verify_ip_nht()")
     return False
-

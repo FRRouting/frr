@@ -165,7 +165,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 		salen = sizeof(sin6);
 	} else {
 		sd = bvrf->bg_echo;
-		memset(&sin6, 0, sizeof(sin6));
+		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		memcpy(&sin.sin_addr, &bfd->key.peer, sizeof(sin.sin_addr));
 		sin.sin_port = htons(BFD_DEF_ECHO_PORT);
@@ -267,7 +267,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 		cp.timers.required_min_rx =
 			htonl(bfd->cur_timers.required_min_rx);
 	}
-	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
+	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo_rx);
 
 	if (_ptm_bfd_send(bfd, NULL, &cp, BFD_PKT_LEN) != 0)
 		return;
@@ -656,7 +656,7 @@ int bfd_recv_cb(struct thread *t)
 	 * If no interface was detected, save the interface where the
 	 * packet came in.
 	 */
-	if (bfd->ifp == NULL)
+	if (!is_mhop && bfd->ifp == NULL)
 		bfd->ifp = if_lookup_by_index(ifindex, vrfid);
 
 	/* Log remote discriminator changes. */

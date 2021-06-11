@@ -21,8 +21,10 @@ Installing Mininet Infrastructure
    apt-get install mininet
    apt-get install python-pip
    apt-get install iproute
+   apt-get install iperf
    pip install ipaddr
    pip install "pytest<5"
+   pip install "scapy>=2.4.2"
    pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
    supported)
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
@@ -57,7 +59,8 @@ there are some errors in the upstream MIBS which need to be patched up. The
 following steps will get you there on Ubuntu 20.04.
 
 .. code:: shell
-	  
+
+   apt install libsnmp-dev
    apt install snmpd snmp
    apt install snmp-mibs-downloader
    download-mibs
@@ -65,9 +68,9 @@ following steps will get you there on Ubuntu 20.04.
    wget http://pastebin.com/raw.php?i=p3QyuXzZ -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU
    wget http://pastebin.com/raw.php?i=gG7j8nyk -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB
    edit /etc/snmp/snmp.conf to look like this
-   # As the snmp packages come without MIB files due to license reasons, loading   
-   # of MIBs is disabled by default. If you added the MIBs you can reenable        
-   # loading them by commenting out the following line.                            
+   # As the snmp packages come without MIB files due to license reasons, loading
+   # of MIBs is disabled by default. If you added the MIBs you can reenable
+   # loading them by commenting out the following line.
    mibs +ALL
 
 
@@ -230,6 +233,85 @@ for ``master`` branch:
 
 and create ``frr`` user and ``frrvty`` group as shown above.
 
+Debugging Topotest Failures
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For the below debugging options which launch programs, if the topotest is run
+within screen_ or tmux_, ``gdb``, the shell or ``vtysh`` will be launched using
+that windowing program, otherwise mininet's ``xterm`` functionality will be used
+to launch the given program.
+
+If you wish to force the use of ``xterm`` rather than ``tmux`` or ``screen``, or
+wish to use ``gnome-terminal`` instead of ``xterm``, set the environment
+variable ``FRR_TOPO_TERMINAL`` to either ``xterm`` or ``gnome-terminal``.
+
+.. _screen: https://www.gnu.org/software/screen/
+.. _tmux: https://github.com/tmux/tmux/wiki
+
+Spawning ``vtysh`` or Shells on Routers
+"""""""""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch a shell or ``vtysh`` for any or all routers in
+a test. This is enabled by specifying 1 of 2 CLI arguments ``--shell`` or
+``--vtysh``. Both of these options can be set to a single router value, multiple
+comma-seperated values, or ``all``.
+
+When either of these options are specified topotest will pause after each test
+to allow for inspection of the router state.
+
+Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
+
+.. code:: shell
+
+   pytest --vtysh=rt1,rt2 all-protocol-startup
+
+Spawning Mininet CLI, ``vtysh`` or Shells on Routers on Test Failure
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Similar to the previous section one can have ``vtysh`` or a shell launched on
+routers, but in this case only when a test fails. To launch the given process on
+each router after a test failure specify one of ``--shell-on-error`` or
+``--vtysh-on-error``.
+
+
+Here's an example of having ``vtysh`` launched on test failure.
+
+.. code:: shell
+
+   pytest --vtysh-on-error all-protocol-startup
+
+
+Additionally, one can have the mininet CLI invoked on test failures by
+specifying the ``--mininet-on-error`` CLI option as shown in the example below.
+
+.. code:: shell
+
+   pytest --mininet-on-error all-protocol-startup
+
+Debugging with GDB
+""""""""""""""""""
+
+Topotest can automatically launch any daemon with ``gdb``, possibly setting
+breakpoints for any test run. This is enabled by specifying 1 or 2 CLI arguments
+``--gdb-routers`` and ``--gdb-daemons``. Additionally ``--gdb-breakpoints`` can
+be used to automatically set breakpoints in the launched ``gdb`` processes.
+
+Each of these options can be set to a single value, multiple comma-seperated
+values, or ``all``. If ``--gdb-routers`` is empty but ``--gdb_daemons`` is set
+then the given daemons will be launched in ``gdb`` on all routers in the test.
+Likewise if ``--gdb_routers`` is set, but ``--gdb_daemons`` is empty then all
+daemons on the given routers will be launched in ``gdb``.
+
+Here's an example of launching ``zebra`` and ``bgpd`` inside ``gdb`` on router
+``r1`` with a breakpoint set on ``nb_config_diff``
+
+.. code:: shell
+
+   pytest --gdb-routers=r1 \
+          --gdb-daemons=bgpd,zebra \
+          --gdb-breakpoints=nb_config_diff \
+          all-protocol-startup
+
 .. _topotests_docker:
 
 Running Tests with Docker
@@ -386,11 +468,28 @@ This is the recommended test writing routine:
 - Format the new code using `black <https://github.com/psf/black>`_
 - Create a Pull Request
 
-.. Note::
+Some things to keep in mind:
 
-   BGP tests MUST use generous convergence timeouts - you must ensure
-   that any test involving BGP uses a convergence timeout of at least
-   130 seconds.
+- BGP tests MUST use generous convergence timeouts - you must ensure
+  that any test involving BGP uses a convergence timeout of at least
+  130 seconds.
+- Topotests are run on a range of Linux versions: if your test
+  requires some OS-specific capability (like mpls support, or vrf
+  support), there are test functions available in the libraries that
+  will help you determine whether your test should run or be skipped.
+- Avoid including unstable data in your test: don't rely on link-local
+  addresses or ifindex values, for example, because these can change
+  from run to run.
+- Using sleep is almost never appropriate to wait for some convergence
+  event as the sole item done.  As an example: if the test resets the peers
+  in BGP, the test should look for the peers reconverging instead of just
+  sleeping an arbitrary amount of time and continuing on.  It is ok to
+  use sleep in a tight loop with appropriate show commands to ensure that
+  the protocol reaches the desired state.  This should be bounded by
+  appropriate timeouts for the protocol in question though.  See
+  verify_bgp_convergence as a good example of this.  If you are having
+  troubles figuring out what to look for, please do not be afraid to ask.
+
 
 Topotest File Hierarchy
 """""""""""""""""""""""
@@ -783,6 +882,8 @@ Example:
 
 Requirements:
 
+- Directory name for a new topotest must not contain hyphen (``-``) characters.
+  To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``.
 - Test code should always be declared inside functions that begin with the
   ``test_`` prefix. Functions beginning with different prefixes will not be run
   by pytest.
@@ -793,7 +894,7 @@ Requirements:
 - Use `black <https://github.com/psf/black>`_ code formatter before creating
   a pull request. This ensures we have a unified code style.
 - Mark test modules with pytest markers depending on the daemons used during the
-  tests (s. Markers)
+  tests (see :ref:`topotests-markers`)
 
 Tips:
 

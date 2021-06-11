@@ -18,7 +18,7 @@
 #include "getopt.h"
 #include "thread.h"
 #include "sigevent.h"
-#include "version.h"
+#include "lib/version.h"
 #include "log.h"
 #include "memory.h"
 #include "command.h"
@@ -26,10 +26,9 @@
 #include "filter.h"
 
 #include "nhrpd.h"
-#include "netlink.h"
 #include "nhrp_errors.h"
 
-DEFINE_MGROUP(NHRPD, "NHRP")
+DEFINE_MGROUP(NHRPD, "NHRP");
 
 unsigned int debug_flags = 0;
 
@@ -128,7 +127,8 @@ FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
 		.signals = sighandlers, .n_signals = array_size(sighandlers),
 
 		.privs = &nhrpd_privs, .yang_modules = nhrpd_yang_modules,
-		.n_yang_modules = array_size(nhrpd_yang_modules), )
+		.n_yang_modules = array_size(nhrpd_yang_modules),
+);
 
 int main(int argc, char **argv)
 {
@@ -144,11 +144,15 @@ int main(int argc, char **argv)
 	nhrp_interface_init();
 	resolver_init(master);
 
-	/* Run with elevated capabilities, as for all netlink activity
-	 * we need privileges anyway. */
+	/*
+	 * Run with elevated capabilities, as for all netlink activity
+	 * we need privileges anyway.
+	 * The assert is for clang SA code where it does
+	 * not see the change function being set in lib
+	 */
+	assert(nhrpd_privs.change);
 	nhrpd_privs.change(ZPRIVS_RAISE);
 
-	netlink_init();
 	evmgr_init();
 	nhrp_vc_init();
 	nhrp_packet_init();

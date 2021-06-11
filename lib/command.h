@@ -34,7 +34,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(COMPLETION)
+DECLARE_MTYPE(COMPLETION);
 
 /*
  * From RFC 1123 (Requirements for Internet Hosts), Section 2.1 on hostnames:
@@ -120,6 +120,7 @@ enum node_type {
 	BGP_VNC_L2_GROUP_NODE,   /* BGP VNC L2 group */
 	RFP_DEFAULTS_NODE,       /* RFP defaults node */
 	BGP_EVPN_NODE,		 /* BGP EVPN node. */
+	BGP_SRV6_NODE,		 /* BGP SRv6 node. */
 	OSPF_NODE,		 /* OSPF protocol mode */
 	OSPF6_NODE,		 /* OSPF protocol for IPv6 mode */
 	LDP_NODE,		 /* LDP protocol mode */
@@ -137,6 +138,7 @@ enum node_type {
 	PREFIX_IPV6_NODE,	/* Prefix list node. */
 	AS_LIST_NODE,		 /* AS list node. */
 	COMMUNITY_LIST_NODE,     /* Community list node. */
+	COMMUNITY_ALIAS_NODE, /* Community alias node. */
 	RMAP_NODE,		 /* Route map node. */
 	PBRMAP_NODE,		 /* PBR map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
@@ -154,6 +156,9 @@ enum node_type {
 	PCEP_PCE_CONFIG_NODE,	 /* PCE shared configuration node */
 	PCEP_PCE_NODE,		 /* PCE configuration node */
 	PCEP_PCC_NODE,		 /* PCC configuration node */
+	SRV6_NODE,		 /* SRv6 node */
+	SRV6_LOCS_NODE,		 /* SRv6 locators node */
+	SRV6_LOC_NODE,		 /* SRv6 locator node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
@@ -223,6 +228,7 @@ struct cmd_node {
 #define CMD_SUSPEND             12
 #define CMD_WARNING_CONFIG_FAILED 13
 #define CMD_NOT_MY_INSTANCE	14
+#define CMD_NO_LEVEL_UP 15
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
@@ -239,7 +245,11 @@ struct cmd_node {
 		.attr = attrs,                                                 \
 		.daemon = dnum,                                                \
 		.name = #cmdname,                                              \
-	};
+		.xref = XREF_INIT(XREFT_DEFUN, NULL, #funcname),               \
+	};                                                                     \
+	XREF_LINK(cmdname.xref);                                               \
+	/* end */
+
 
 #define DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	static int funcname(const struct cmd_element *, struct vty *, int,     \
@@ -484,7 +494,29 @@ struct cmd_node {
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);
-extern void install_element(enum node_type, const struct cmd_element *);
+
+struct xref_install_element {
+	struct xref xref;
+
+	const struct cmd_element *cmd_element;
+	enum node_type node_type;
+};
+
+#ifndef VTYSH_EXTRACT_PL
+#define install_element(node_type_, cmd_element_) do {                         \
+		static const struct xref_install_element _xref                 \
+				__attribute__((used)) = {                      \
+			.xref = XREF_INIT(XREFT_INSTALL_ELEMENT, NULL,         \
+					  __func__),                           \
+			.cmd_element = cmd_element_,                           \
+			.node_type = node_type_,                               \
+		};                                                             \
+		XREF_LINK(_xref.xref);                                         \
+		_install_element(node_type_, cmd_element_);                    \
+	} while (0)
+#endif
+
+extern void _install_element(enum node_type, const struct cmd_element *);
 
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */
@@ -546,6 +578,7 @@ extern void cmd_init_config_callbacks(void (*start_config_cb)(void),
 extern void cmd_terminate(void);
 extern void cmd_exit(struct vty *vty);
 extern int cmd_list_cmds(struct vty *vty, int do_permute);
+extern int cmd_find_cmds(struct vty *vty, struct cmd_token **argv, int argc);
 
 extern int cmd_domainname_set(const char *domainname);
 extern int cmd_hostname_set(const char *hostname);

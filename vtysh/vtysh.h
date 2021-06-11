@@ -22,7 +22,7 @@
 #define VTYSH_H
 
 #include "memory.h"
-DECLARE_MGROUP(MVTYSH)
+DECLARE_MGROUP(MVTYSH);
 
 #define VTYSH_ZEBRA     0x00001
 #define VTYSH_RIPD      0x00002
@@ -61,6 +61,7 @@ DECLARE_MGROUP(MVTYSH)
 #define VTYSH_KEYS        VTYSH_RIPD|VTYSH_EIGRPD|VTYSH_CMGD
 /* Daemons who can process nexthop-group configs */
 #define VTYSH_NH_GROUP    VTYSH_PBRD|VTYSH_SHARPD
+#define VTYSH_SR          VTYSH_ZEBRA|VTYSH_PATHD
 
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,

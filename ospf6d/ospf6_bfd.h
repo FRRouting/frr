@@ -24,6 +24,9 @@
 #define OSPF6_BFD_H
 #include "lib/json.h"
 
+/**
+ * Initialize BFD integration.
+ */
 extern void ospf6_bfd_init(void);
 
 extern void ospf6_bfd_trigger_event(struct ospf6_neighbor *nbr, int old_state,
@@ -34,10 +37,4 @@ extern void ospf6_bfd_write_config(struct vty *vty, struct ospf6_interface *oi);
 extern void ospf6_bfd_info_nbr_create(struct ospf6_interface *oi,
 				      struct ospf6_neighbor *on);
 
-extern void ospf6_bfd_info_free(void **bfd_info);
-
-extern void ospf6_bfd_show_info(struct vty *vty, void *bfd_info, int param_only,
-				json_object *json_obj, bool use_json);
-
-extern void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command);
 #endif /* OSPF6_BFD_H */

@@ -31,9 +31,9 @@
 #include "frr_pthread.h"
 #include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, HASH, "Hash")
-DEFINE_MTYPE_STATIC(LIB, HASH_BACKET, "Hash Bucket")
-DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index")
+DEFINE_MTYPE_STATIC(LIB, HASH, "Hash");
+DEFINE_MTYPE_STATIC(LIB, HASH_BUCKET, "Hash Bucket");
+DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index");
 
 static pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *_hashes;
@@ -168,7 +168,7 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 			index = key & (hash->size - 1);
 		}
 
-		bucket = XCALLOC(MTYPE_HASH_BACKET, sizeof(struct hash_bucket));
+		bucket = XCALLOC(MTYPE_HASH_BUCKET, sizeof(struct hash_bucket));
 		bucket->data = newdata;
 		bucket->key = key;
 		bucket->next = hash->index[index];
@@ -239,7 +239,7 @@ void *hash_release(struct hash *hash, void *data)
 			hash_update_ssq(hash, oldlen, newlen);
 
 			ret = bucket->data;
-			XFREE(MTYPE_HASH_BACKET, bucket);
+			XFREE(MTYPE_HASH_BUCKET, bucket);
 			hash->count--;
 			break;
 		}
@@ -302,7 +302,7 @@ void hash_clean(struct hash *hash, void (*free_func)(void *))
 			if (free_func)
 				(*free_func)(hb->data);
 
-			XFREE(MTYPE_HASH_BACKET, hb);
+			XFREE(MTYPE_HASH_BUCKET, hb);
 			hash->count--;
 		}
 		hash->index[i] = NULL;

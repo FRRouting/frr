@@ -46,6 +46,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_NODE, "ISIS SPF Node");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LFA_TIEBREAKER, "ISIS LFA Tiebreaker");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LFA_EXCL_IFACE, "ISIS LFA Excluded Interface");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_RLFA, "ISIS Remote LFA");
+DEFINE_MTYPE(ISISD, ISIS_NEXTHOP_LABELS, "ISIS nexthop MPLS labels");
 
 static inline int isis_spf_node_compare(const struct isis_spf_node *a,
 					const struct isis_spf_node *b)
@@ -541,10 +542,16 @@ static int tilfa_repair_list_apply(struct isis_spftree *spftree,
 		struct isis_spf_adj *sadj = vadj->sadj;
 		struct mpls_label_stack *label_stack;
 
+		/*
+		 * Don't try to apply the repair list if one was already applied
+		 * before (can't have ECMP past the P-node).
+		 */
+		if (vadj->label_stack)
+			continue;
+
 		if (!isis_vertex_adj_exists(spftree, vertex_pnode, sadj))
 			continue;
 
-		assert(!vadj->label_stack);
 		label_stack = tilfa_compute_label_stack(spftree->lspdb, sadj,
 							repair_list);
 		if (!label_stack) {
@@ -663,6 +670,21 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 	if ((!is_qnode
 	     || spftree_pc->lfa.protected_resource.type == LFA_NODE_PROTECTION)
 	    && vertex_child) {
+		/*
+		 * If vertex is the penultimate hop router, then pushing an
+		 * Adj-SID towards the final hop means that the No-PHP flag of
+		 * the original Prefix-SID must be honored. We do that by
+		 * removing the previously added Prefix-SID from the repair list
+		 * when those conditions are met.
+		 */
+		if (vertex->depth == (vertex_dest->depth - 2)
+		    && VTYPE_IP(vertex_dest->type)
+		    && vertex_dest->N.ip.sr.present
+		    && !CHECK_FLAG(vertex_dest->N.ip.sr.sid.flags,
+				   ISIS_PREFIX_SID_NO_PHP)) {
+			list_delete_all_node(repair_list);
+		}
+
 		label_qnode = tilfa_find_qnode_adj_sid(spftree_pc, vertex->N.id,
 						       vertex_child->N.id);
 		if (label_qnode == MPLS_INVALID_LABEL) {
@@ -1126,10 +1148,13 @@ static void lfa_calc_pq_spaces(struct isis_spftree *spftree_pc,
 
 			/*
 			 * Compute the reverse SPF in the behalf of the node
-			 * adjacent to the failure.
+			 * adjacent to the failure, if we haven't done that
+			 * before
 			 */
-			adj_node->lfa.spftree_reverse =
-				isis_spf_reverse_run(adj_node->lfa.spftree);
+			if (!adj_node->lfa.spftree_reverse)
+				adj_node->lfa.spftree_reverse =
+					isis_spf_reverse_run(
+						adj_node->lfa.spftree);
 
 			lfa_calc_reach_nodes(adj_node->lfa.spftree_reverse,
 					     spftree_reverse, adj_nodes, false,
@@ -2233,6 +2258,11 @@ static void isis_spf_run_tilfa(struct isis_area *area,
 		spftree_pc_node = isis_tilfa_compute(area, spftree,
 						     spftree_reverse, resource);
 		isis_spftree_del(spftree_pc_node);
+
+		/* don't do link protection unless link-fallback is configured
+		 */
+		if (!circuit->tilfa_link_fallback[spftree->level - 1])
+			return;
 	}
 
 	/* Compute link protecting repair paths. */

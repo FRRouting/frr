@@ -271,7 +271,7 @@ has). For example, here is the encoder function for ``struct prefix``:
 
 This function pushes a single value onto the Lua stack. It is a table whose equivalent in Lua is:
 
-.. code-block::
+.. code-block:: c
 
    { ["network"] = "1.2.3.4/24", ["prefixlen"] = 24, ["family"] = 2 }
 

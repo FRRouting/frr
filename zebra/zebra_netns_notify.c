@@ -37,7 +37,6 @@
 #include "lib_errors.h"
 
 #include "zebra_router.h"
-#include "zebra_memory.h"
 #endif /* defined(HAVE_NETLINK) */
 
 #include "zebra_netns_notify.h"
@@ -53,7 +52,7 @@
 #define ZEBRA_NS_POLLING_INTERVAL_MSEC     1000
 #define ZEBRA_NS_POLLING_MAX_RETRIES  200
 
-DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo")
+DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo");
 static struct thread *zebra_netns_notify_current;
 
 struct zebra_netns_info {

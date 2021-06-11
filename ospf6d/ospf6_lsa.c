@@ -34,6 +34,8 @@
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_message.h"
+#include "ospf6_asbr.h"
+#include "ospf6_zebra.h"
 
 #include "ospf6_top.h"
 #include "ospf6_area.h"
@@ -42,6 +44,10 @@
 
 #include "ospf6_flood.h"
 #include "ospf6d.h"
+
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_SUMMARY, "OSPF6 LSA summary");
 
 vector ospf6_lsa_handler_vector;
 
@@ -145,7 +151,7 @@ const char *ospf6_lstype_short_name(uint16_t type)
 	const struct ospf6_lsa_handler *handler;
 
 	handler = ospf6_get_lsa_handler(type);
-	if (handler && handler != &unknown_handler)
+	if (handler)
 		return handler->lh_short_name;
 
 	snprintf(buf, sizeof(buf), "0x%04hx", ntohs(type));
@@ -157,6 +163,34 @@ uint8_t ospf6_lstype_debug(uint16_t type)
 	const struct ospf6_lsa_handler *handler;
 	handler = ospf6_get_lsa_handler(type);
 	return handler->lh_debug;
+}
+
+int metric_type(struct ospf6 *ospf6, int type, uint8_t instance)
+{
+	struct ospf6_redist *red;
+
+	red = ospf6_redist_lookup(ospf6, type, instance);
+
+	return ((!red || red->dmetric.type < 0) ? DEFAULT_METRIC_TYPE
+						: red->dmetric.type);
+}
+
+int metric_value(struct ospf6 *ospf6, int type, uint8_t instance)
+{
+	struct ospf6_redist *red;
+
+	red = ospf6_redist_lookup(ospf6, type, instance);
+	if (!red || red->dmetric.value < 0) {
+		if (type == DEFAULT_ROUTE) {
+			if (ospf6->default_originate == DEFAULT_ORIGINATE_ZEBRA)
+				return DEFAULT_DEFAULT_ORIGINATE_METRIC;
+			else
+				return DEFAULT_DEFAULT_ALWAYS_METRIC;
+		} else
+			return DEFAULT_DEFAULT_METRIC;
+	}
+
+	return red->dmetric.value;
 }
 
 /* RFC2328: Section 13.2 */
@@ -420,9 +454,11 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	if (use_json)
 		json_obj = json_object_new_object();
 
-	if ((type == OSPF6_LSTYPE_INTER_PREFIX)
-	    || (type == OSPF6_LSTYPE_INTER_ROUTER)
-	    || (type == OSPF6_LSTYPE_AS_EXTERNAL)) {
+	switch (type) {
+	case OSPF6_LSTYPE_INTER_PREFIX:
+	case OSPF6_LSTYPE_INTER_ROUTER:
+	case OSPF6_LSTYPE_AS_EXTERNAL:
+	case OSPF6_LSTYPE_TYPE_7:
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -447,7 +483,12 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 				(unsigned long)ntohl(lsa->header->seqnum),
 				handler->lh_get_prefix_str(lsa, buf,
 							   sizeof(buf), 0));
-	} else if (type != OSPF6_LSTYPE_UNKNOWN) {
+		break;
+	case OSPF6_LSTYPE_ROUTER:
+	case OSPF6_LSTYPE_NETWORK:
+	case OSPF6_LSTYPE_GROUP_MEMBERSHIP:
+	case OSPF6_LSTYPE_LINK:
+	case OSPF6_LSTYPE_INTRA_PREFIX:
 		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)
 		       != NULL) {
 			if (use_json) {
@@ -481,7 +522,8 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 		}
 		if (use_json)
 			json_object_free(json_obj);
-	} else {
+		break;
+	default:
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -500,6 +542,7 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 				ospf6_lstype_short_name(lsa->header->type), id,
 				adv_router, ospf6_lsa_age_current(lsa),
 				(unsigned long)ntohl(lsa->header->seqnum));
+		break;
 	}
 }
 
@@ -580,8 +623,8 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 		vty_out(vty, "Flag: %x \n", lsa->flag);
 		vty_out(vty, "Lock: %d \n", lsa->lock);
 		vty_out(vty, "ReTx Count: %d\n", lsa->retrans_count);
-		vty_out(vty, "Threads: Expire: 0x%p, Refresh: 0x%p \n",
-			(void *)lsa->expire, (void *)lsa->refresh);
+		vty_out(vty, "Threads: Expire: %p, Refresh: %p\n", lsa->expire,
+			lsa->refresh);
 		vty_out(vty, "\n");
 	}
 	return;
@@ -648,27 +691,29 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 		vty_out(vty, "\n");
 }
 
+struct ospf6_lsa *ospf6_lsa_alloc(size_t lsa_length)
+{
+	struct ospf6_lsa *lsa;
+
+	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
+	lsa->header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, lsa_length);
+
+	return lsa;
+}
+
 /* OSPFv3 LSA creation/deletion function */
 struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 {
 	struct ospf6_lsa *lsa = NULL;
-	struct ospf6_lsa_header *new_header = NULL;
 	uint16_t lsa_size = 0;
 
 	/* size of the entire LSA */
 	lsa_size = ntohs(header->length); /* XXX vulnerable */
 
-	/* allocate memory for this LSA */
-	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, lsa_size);
+	lsa = ospf6_lsa_alloc(lsa_size);
 
 	/* copy LSA from original header */
-	memcpy(new_header, header, lsa_size);
-
-	/* LSA information structure */
-	/* allocate memory */
-	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
-
-	lsa->header = new_header;
+	memcpy(lsa->header, header, lsa_size);
 
 	/* dump string */
 	ospf6_lsa_printbuf(lsa, lsa->name, sizeof(lsa->name));
@@ -682,20 +727,11 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 struct ospf6_lsa *ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header)
 {
 	struct ospf6_lsa *lsa = NULL;
-	struct ospf6_lsa_header *new_header = NULL;
 
-	/* allocate memory for this LSA */
-	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER,
-			     sizeof(struct ospf6_lsa_header));
+	lsa = ospf6_lsa_alloc(sizeof(struct ospf6_lsa_header));
 
-	/* copy LSA from original header */
-	memcpy(new_header, header, sizeof(struct ospf6_lsa_header));
+	memcpy(lsa->header, header, sizeof(struct ospf6_lsa_header));
 
-	/* LSA information structure */
-	/* allocate memory */
-	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
-
-	lsa->header = new_header;
 	SET_FLAG(lsa->flag, OSPF6_LSA_HEADERONLY);
 
 	/* dump string */
@@ -847,11 +883,12 @@ int ospf6_lsa_refresh(struct thread *thread)
 
 void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 {
-	struct listnode *node;
+	struct listnode *node, *nnode;
 	struct ospf6_area *oa;
 	struct ospf6_lsa *lsa;
 	const struct route_node *end = NULL;
 	uint32_t type, adv_router;
+	struct ospf6_interface *oi;
 
 	ospf6->inst_shutdown = 1;
 
@@ -865,6 +902,19 @@ void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 			ospf6_flood(NULL, lsa);
 
 			lsa = ospf6_lsdb_next(end, lsa);
+		}
+
+		for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
+			end = ospf6_lsdb_head(oi->lsdb_self, 0, 0,
+					      ospf6->router_id, &lsa);
+			while (lsa) {
+				/* RFC 2328 (14.1):  Set MAXAGE */
+				lsa->header->age = htons(OSPF_LSA_MAXAGE);
+				/* Flood MAXAGE LSA*/
+				ospf6_flood(NULL, lsa);
+
+				lsa = ospf6_lsdb_next(end, lsa);
+			}
 		}
 	}
 

@@ -58,13 +58,39 @@ routes to Internet exchanges running full Internet tables.
 FRR runs on all modern \*NIX operating systems, including Linux and the BSDs.
 Feature support varies by platform; see the :ref:`feature-matrix`.
 
+System Requirements
+-------------------
+
+System resources needed by FRR are highly dependent on workload. Routing
+software performance is particularly susceptible to external factors such as:
+
+* Kernel networking stack
+* Physical NIC
+* Peer behavior
+* Routing information scale
+
+Because of these factors - especially the last one - it's difficult to lay out
+resource requirements.
+
+To put this in perspective, FRR can be run on very low resource systems such as
+SBCs, provided it is not stressed too much. If you want to set up 4 Raspberry
+Pis to play with BGP or OSPF, it should work fine. If you ask a FRR to process
+a complete internet routing table on a Raspberry Pi, you will be disappointed.
+However, given enough resources, FRR ought to be capable of acting as a core IX
+router. Such a use case requires at least 4gb of memory and a recent quad-core
+server processor at a minimum.
+
+If you are new to networking, an important thing to remember is that FRR is
+control plane software. It does not itself forward packets - it exchanges
+information with peers about how to forward packets. Forwarding plane
+performance largely depends on choice of NIC / ASIC.
+
 
 System Architecture
 -------------------
 
-.. index:: System architecture
-.. index:: Software architecture
-.. index:: Software internals
+.. index::
+   pair: architecture; FRR
 
 Traditional routing software is made as a one process program which provides
 all of the routing protocol functionalities. FRR takes a different approach.
@@ -114,15 +140,15 @@ data models. When this work is completed, FRR will be a fully programmable
 routing stack.
 
 
+.. index::
+   pair: platforms; FRR
+   pair: operating systems; FRR
+
 .. _supported-platforms:
 
 Supported Platforms
 -------------------
 
-.. index:: Supported platforms
-.. index:: FRR on other systems
-.. index:: Compatibility with other systems
-.. index:: Operating systems that support FRR
 
 Currently FRR supports GNU/Linux and BSD. Porting FRR to other platforms is not
 too difficult as platform dependent code should be mostly limited to the
@@ -149,10 +175,8 @@ Recent versions of the following compilers are well tested:
 
 .. _unsupported-platforms:
 
-UnSupported Platforms
+Unsupported Platforms
 ---------------------
-
-.. index:: UnSupported platforms
 
 In General if the platform you are attempting to use is not listed above then
 FRR does not support being run on that platform.  The only caveat here is that
@@ -264,6 +288,10 @@ Known Kernel Issues
   especially becomes apparent if the route is being transformed from one ECMP
   path to another.
 
+
+.. index::
+   pair: rfcs; FRR
+
 .. _supported-rfcs:
 
 Supported RFCs
@@ -341,6 +369,8 @@ BGP
   :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017`
 - :rfc:`8277`
   :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
+- :rfc:`8654`
+  :t:`Extended Message Support for BGP. R. Bush, K. Patel, D. Ward.  October 2019`
 
 
 OSPF
@@ -439,13 +469,14 @@ SNMP
 - :rfc:`2741`
   :t:`Agent Extensibility (AgentX) Protocol. M. Daniele, B. Wijnen. January 2000.`
 
+
+.. index::
+   pair: mailing lists; contact
+
+.. _mailing-lists:
+
 Mailing Lists
 =============
-
-.. index:: How to get in touch with FRR
-.. index:: Contact information
-.. index:: Mailing lists
-
 
 Italicized lists are private.
 
@@ -470,6 +501,7 @@ results of such discussions are reflected in updates, as appropriate, to code
 (i.e., merges), `GitHub issues`_ tracked issues, and for governance or process
 changes, updates to the Development list and either this file or information
 posted at `FRR`_.
+
 
 Bug Reports
 ===========

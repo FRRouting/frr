@@ -108,6 +108,8 @@ Functions provided:
 | _first, _next, _next_safe,         | yes  | yes  | yes  | yes     | yes        |
 | _const_first, _const_next          |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
+| _swap_all                          | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
 | _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
 +------------------------------------+------+------+------+---------+------------+
 | _add                               | --   | yes  | yes  | yes     | yes        |
@@ -140,7 +142,7 @@ The common setup pattern will look like this:
 
    #include <typesafe.h>
 
-   PREDECL_XXX(Z)
+   PREDECL_XXX(Z);
    struct item {
        int otherdata;
        struct Z_item mylistitem;
@@ -149,20 +151,20 @@ The common setup pattern will look like this:
    struct Z_head mylisthead;
 
    /* unsorted: */
-   DECLARE_XXX(Z, struct item, mylistitem)
+   DECLARE_XXX(Z, struct item, mylistitem);
 
    /* sorted, items that compare as equal cannot be added to list */
    int compare_func(const struct item *a, const struct item *b);
-   DECLARE_XXX_UNIQ(Z, struct item, mylistitem, compare_func)
+   DECLARE_XXX_UNIQ(Z, struct item, mylistitem, compare_func);
 
    /* sorted, items that compare as equal can be added to list */
    int compare_func(const struct item *a, const struct item *b);
-   DECLARE_XXX_NONUNIQ(Z, struct item, mylistitem, compare_func)
+   DECLARE_XXX_NONUNIQ(Z, struct item, mylistitem, compare_func);
 
    /* hash tables: */
    int compare_func(const struct item *a, const struct item *b);
    uint32_t hash_func(const struct item *a);
-   DECLARE_XXX(Z, struct item, mylistitem, compare_func, hash_func)
+   DECLARE_XXX(Z, struct item, mylistitem, compare_func, hash_func);
 
 ``XXX`` is replaced with the name of the data structure, e.g. ``SKIPLIST``
 or ``ATOMLIST``.  The ``DECLARE_XXX`` invocation can either occur in a `.h`
@@ -321,6 +323,14 @@ The following documentation assumes that a list has been defined using
       on the list.  Some structures return ``NULL`` in this case while others
       return ``item``.  The function may also call ``assert()`` (but most
       don't.)
+
+.. c:function:: itemtype *Z_swap_all(struct Z_head *, struct Z_head *)
+
+   Swap the contents of 2 containers (of identical type).  This exchanges the
+   contents of the two head structures and updates pointers if necessary for
+   the particular data structure.  Fast for all structures.
+
+   (Not currently available on atomic containers.)
 
 .. todo::
 

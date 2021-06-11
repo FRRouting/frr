@@ -71,6 +71,7 @@ struct ospf6_as_external_lsa {
 	}
 
 extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa);
+
 extern void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				  struct ospf6_route *asbr_entry);
 extern void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry,
@@ -95,8 +96,10 @@ extern void ospf6_asbr_init(void);
 extern void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6);
 extern void ospf6_asbr_terminate(void);
 extern void ospf6_asbr_send_externals_to_area(struct ospf6_area *);
+extern void ospf6_asbr_remove_externals_from_area(struct ospf6_area *oa);
 
 extern int config_write_ospf6_debug_asbr(struct vty *vty);
+extern int ospf6_distribute_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern void install_element_ospf6_debug_asbr(void);
 extern void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 					      struct ospf6_route *route,
@@ -104,4 +107,9 @@ extern void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 extern void ospf6_asbr_distribute_list_update(int type, struct ospf6 *ospf6);
 struct ospf6_redist *ospf6_redist_lookup(struct ospf6 *ospf6, int type,
 					 unsigned short instance);
+extern void ospf6_asbr_routemap_update(const char *mapname);
+extern void ospf6_as_external_lsa_originate(struct ospf6_route *route,
+					    struct ospf6 *ospf6);
+extern void ospf6_asbr_status_update(struct ospf6 *ospf6, int status);
+
 #endif /* OSPF6_ASBR_H */

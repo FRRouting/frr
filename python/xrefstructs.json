@@ -1,0 +1,140 @@
+{
+  "cmd_element": {
+    "fields": [
+      {
+        "name": "string",
+        "type": "const char  *"
+      },
+      {
+        "name": "doc",
+        "type": "const char  *"
+      },
+      {
+        "name": "daemon",
+        "type": "int"
+      },
+      {
+        "name": "attr",
+        "type": "uint32_t"
+      },
+      {
+        "name": "func",
+        "type": "int *"
+      },
+      {
+        "name": "name",
+        "type": "const char  *"
+      },
+      {
+        "name": "xref",
+        "type": "struct xref"
+      }
+    ]
+  },
+  "xref": {
+    "fields": [
+      {
+        "name": "xrefdata",
+        "type": "struct xrefdata *"
+      },
+      {
+        "name": "type",
+        "type": "enum xref_type"
+      },
+      {
+        "name": "line",
+        "type": "int"
+      },
+      {
+        "name": "file",
+        "type": "const char  *"
+      },
+      {
+        "name": "func",
+        "type": "const char  *"
+      }
+    ]
+  },
+  "xref_install_element": {
+    "fields": [
+      {
+        "name": "xref",
+        "type": "struct xref"
+      },
+      {
+        "name": "cmd_element",
+        "type": "const struct cmd_element  *"
+      },
+      {
+        "name": "node_type",
+        "type": "enum node_type"
+      }
+    ]
+  },
+  "xref_logmsg": {
+    "fields": [
+      {
+        "name": "xref",
+        "type": "struct xref"
+      },
+      {
+        "name": "fmtstring",
+        "type": "const char  *"
+      },
+      {
+        "name": "priority",
+        "type": "uint32_t"
+      },
+      {
+        "name": "ec",
+        "type": "uint32_t"
+      },
+      {
+        "name": "args",
+        "type": "const char  *"
+      }
+    ]
+  },
+  "xref_threadsched": {
+    "fields": [
+      {
+        "name": "xref",
+        "type": "struct xref"
+      },
+      {
+        "name": "funcname",
+        "type": "const char  *"
+      },
+      {
+        "name": "dest",
+        "type": "const char  *"
+      },
+      {
+        "name": "thread_type",
+        "type": "uint32_t"
+      }
+    ]
+  },
+  "xrefdata": {
+    "fields": [
+      {
+        "name": "xref",
+        "type": "const struct xref  *"
+      },
+      {
+        "array": 16,
+        "name": "uid",
+        "type": "char"
+      },
+      {
+        "name": "hashstr",
+        "type": "const char  *"
+      },
+      {
+        "array": 2,
+        "name": "hashu32",
+        "type": "uint32_t"
+      }
+    ]
+  }
+}

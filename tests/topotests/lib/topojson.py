@@ -45,7 +45,7 @@ from lib.common_config import (
 
 from lib.pim import create_pim_config, create_igmp_config
 from lib.bgp import create_router_bgp
-from lib.ospf import create_router_ospf
+from lib.ospf import create_router_ospf, create_router_ospf6
 
 ROUTER_LIST = []
 
@@ -314,6 +314,7 @@ def build_config_from_json(tgen, topo, save_bkup=True):
             ("igmp", create_igmp_config),
             ("bgp", create_router_bgp),
             ("ospf", create_router_ospf),
+            ("ospf6", create_router_ospf6),
         ]
     )
 

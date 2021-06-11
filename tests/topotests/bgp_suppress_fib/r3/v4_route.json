@@ -19,7 +19,6 @@
           "fib":true,
           "ip":"10.0.0.9",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r3-eth0",
           "active":true
         }

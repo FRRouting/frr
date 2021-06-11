@@ -112,7 +112,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	while (!found && (i < num_ifindex)) {
 		first_ifindex = nexthop_tab[i].ifindex;
 
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 		if (!ifp) {
 			if (PIM_DEBUG_ZEBRA) {
 				char addr_str[INET_ADDRSTRLEN];

@@ -240,3 +240,53 @@ because FRR's monitoring program cannot currently distinguish between a crashed
 The closest that can be achieved is to remove all configuration for the daemon,
 and set its line in ``/etc/frr/daemons`` to ``=no``. Once this is done, the
 daemon will be stopped the next time FRR is restarted.
+
+
+Network Namespaces
+^^^^^^^^^^^^^^^^^^
+
+It is possible to run FRR in different network namespaces so it can be
+further compartmentalized (e.g. confining to a smaller subset network).
+The network namespace configuration can be used in the default FRR
+configuration pathspace or it can be used in a different pathspace
+(`-N/--pathspace`).
+
+To use FRR network namespace in the default pathspace you should add
+or uncomment the ``watchfrr_options`` line in ``/etc/frr/daemons``:
+
+.. code-block:: diff
+
+   - #watchfrr_options="--netns"
+   + watchfrr_options="--netns=<network-namespace-name>"
+
+If you want to use a different pathspace with the network namespace
+(the recommended way) you should add/uncomment the ``watchfrr_options``
+line in ``/etc/frr/<namespace>/daemons``:
+
+.. code-block:: diff
+
+   - #watchfrr_options="--netns"
+   + #watchfrr_options="--netns=<network-namespace-name>"
+   +
+   + # `--netns` argument is optional and if not provided it will
+   + # default to the pathspace name.
+   + watchfrr_options="--netns"
+
+To start FRR in the new pathspace+network namespace the initialization script
+should be called with an extra parameter:
+
+
+.. code::
+
+   /etc/init.d/frr start <pathspace-name>
+
+
+.. note::
+
+   Some Linux distributions might not use the default init script
+   shipped with FRR, in that case you might want to try running the
+   bundled script in ``/usr/lib/frr/frrinit.sh``.
+
+   On systemd you might create different units or parameterize the
+   existing one. See the man page:
+   https://www.freedesktop.org/software/systemd/man/systemd.unit.html

@@ -1,0 +1,20 @@
+[
+    {
+        "detect-multiplier": 3,
+        "diagnostic": "ok",
+        "id": "*",
+        "interface": "r6-eth0",
+        "multihop": false,
+        "peer": "172.16.100.1",
+        "receive-interval": 300,
+        "remote-detect-multiplier": 3,
+        "remote-diagnostic": "ok",
+        "remote-id": "*",
+        "remote-receive-interval": 800,
+        "remote-transmit-interval": 800,
+        "status": "up",
+        "transmit-interval": 300,
+        "uptime": "*",
+        "vrf": "default"
+    }
+]

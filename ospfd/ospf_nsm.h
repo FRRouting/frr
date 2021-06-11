@@ -78,6 +78,6 @@ extern void ospf_db_summary_clear(struct ospf_neighbor *);
 extern int nsm_should_adj(struct ospf_neighbor *nbr);
 DECLARE_HOOK(ospf_nsm_change,
 	     (struct ospf_neighbor * on, int state, int oldstate),
-	     (on, state, oldstate))
+	     (on, state, oldstate));
 
 #endif /* _ZEBRA_OSPF_NSM_H */

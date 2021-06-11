@@ -60,6 +60,11 @@ module frr-isisd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2021-02-15 {
+    description
+      "Group SRGB and SRLB in a container so that they can be displayed
+       and configured together";
+  }
   revision 2020-04-06 {
     description
       "Group LSP timers in a container so that they can be displayed and
@@ -476,6 +481,10 @@ module frr-isisd {
       description
         "TI-LFA configuration.";
       leaf enable {
+        must ". = 'false' or ../../lfa/enable = 'false'" {
+          error-message
+            "Can't enable both classic LFA and TI-LFA in the same interface.";
+        }
         type boolean;
         default false;
         description
@@ -488,6 +497,13 @@ module frr-isisd {
         description
           "Node protection is provided by the alternate.";
       }
+      leaf link-fallback {
+        type boolean;
+        must ". = 'false' or ../enable = 'true'";
+        default false;
+        description
+          "Fallback to link protection.";
+      }
     }
   }
 
@@ -499,13 +515,6 @@ module frr-isisd {
       mandatory true;
       description
         "Area-tag associated to this circuit.";
-    }
-
-    leaf vrf {
-      type frr-vrf:vrf-ref;
-      default "default";
-      description
-        "VRF NAME.";
     }
 
     leaf ipv4-routing {
@@ -786,10 +795,10 @@ module frr-isisd {
       leaf holddown {
         type uint16 {
           range "0..10000";
-      }
-      units "seconds";
-      description
-        "Time to wait for LDP-Sync to occur before restoring interface metric.";
+        }
+        units "seconds";
+        description
+          "Time to wait for LDP-Sync to occur before restoring interface metric.";
       }
     }
 
@@ -799,10 +808,6 @@ module frr-isisd {
       container level-1 {
         description
           "Level-1 IP Fast-reroute configuration.";
-        must "./lfa/enable = 'false' or ./ti-lfa/enable = 'false'" {
-          error-message
-            "Can't enable both classic LFA and TI-LFA in the same interface.";
-        }
         uses interface-config-lfa;
         uses interface-config-remote-lfa;
         uses interface-config-ti-lfa;
@@ -810,10 +815,6 @@ module frr-isisd {
       container level-2 {
         description
           "Level-2 IP Fast-reroute configuration.";
-        must "./lfa/enable = 'false' or ./ti-lfa/enable = 'false'" {
-          error-message
-            "Can't enable both classic LFA and TI-LFA in the same interface.";
-        }
         uses interface-config-lfa;
         uses interface-config-remote-lfa;
         uses interface-config-ti-lfa;
@@ -1491,38 +1492,44 @@ module frr-isisd {
           description
             "Enables segment-routing protocol extensions.";
         }
-        container srgb {
+        container label-blocks {
           description
-            "Global blocks to be advertised.";
-          must "./upper-bound > ./lower-bound";
-          leaf lower-bound {
-              type uint32;
-              default "16000";
-              description
-                "Lower value in the label range.";
+            "Local and global label blocks.";
+          container srgb {
+            description
+              "Global blocks to be advertised.";
+            leaf lower-bound {
+                must "../upper-bound > .";
+                type uint32;
+                default "16000";
+                description
+                  "Lower value in the label range.";
+            }
+            leaf upper-bound {
+                must ". > ../lower-bound";
+                type uint32;
+                default "23999";
+                description
+                  "Upper value in the label range.";
+            }
           }
-          leaf upper-bound {
-              type uint32;
-              default "23999";
-              description
-                "Upper value in the label range.";
-          }
-        }
-        container srlb {
-          description
-            "Local blocks to be advertised.";
-          must "./upper-bound > ./lower-bound";
-          leaf lower-bound {
-              type uint32;
-              default "15000";
-              description
-                "Lower value in the label range.";
-          }
-          leaf upper-bound {
-              type uint32;
-              default "15999";
-              description
-                "Upper value in the label range.";
+          container srlb {
+            description
+              "Local blocks to be advertised.";
+            leaf lower-bound {
+                must "../upper-bound > .";
+                type uint32;
+                default "15000";
+                description
+                  "Lower value in the label range.";
+            }
+            leaf upper-bound {
+                must ". > ../lower-bound";
+                type uint32;
+                default "15999";
+                description
+                  "Upper value in the label range.";
+            }
           }
         }
         container msd {

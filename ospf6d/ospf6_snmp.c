@@ -30,7 +30,7 @@
 #include "vrf.h"
 #include "smux.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -664,9 +664,10 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 		return SNMP_INTEGER(3);
 	case OSPFv3AREABDRRTRSTATUS:
 		if (ospf6)
-			return SNMP_INTEGER(ospf6_is_router_abr(ospf6)
-						    ? SNMP_TRUE
-						    : SNMP_FALSE);
+			return SNMP_INTEGER(
+				ospf6_check_and_set_router_abr(ospf6)
+					? SNMP_TRUE
+					: SNMP_FALSE);
 		return SNMP_INTEGER(SNMP_FALSE);
 	case OSPFv3ASBDRRTRSTATUS:
 		if (ospf6)
@@ -1418,4 +1419,5 @@ static int ospf6_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "ospf6d_snmp", .version = FRR_VERSION,
 		 .description = "ospf6d AgentX SNMP module",
-		 .init = ospf6_snmp_module_init, )
+		 .init = ospf6_snmp_module_init,
+);

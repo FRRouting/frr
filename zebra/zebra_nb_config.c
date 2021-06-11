@@ -841,7 +841,6 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 	struct interface *ifp;
 	struct prefix prefix;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	// addr_family = yang_dnode_get_enum(dnode, "./address-family");
 	yang_dnode_get_prefix(&prefix, args->dnode, "./ip-prefix");
 	apply_mask(&prefix);
@@ -864,6 +863,7 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		if (prefix.family == AF_INET)
 			if_ip_address_install(ifp, &prefix, NULL, NULL);
 		else if (prefix.family == AF_INET6)
@@ -881,12 +881,15 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 	struct prefix prefix;
 	struct connected *ifc;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	yang_dnode_get_prefix(&prefix, args->dnode, "./ip-prefix");
 	apply_mask(&prefix);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!ifp)
+			return NB_OK;
+
 		if (prefix.family == AF_INET) {
 			/* Check current interface address. */
 			ifc = connected_check_ptp(ifp, &prefix, NULL);
@@ -927,6 +930,7 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		if_ip_address_uinstall(ifp, &prefix);
 		break;
 	}
@@ -1068,6 +1072,9 @@ int lib_interface_zebra_link_detect_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args)
 {
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
 	struct interface *ifp;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
@@ -1079,6 +1086,9 @@ int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args)
 
 int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args)
 {
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
 	struct interface *ifp;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
@@ -1125,61 +1135,6 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
 	/* force protocols to recalculate routes due to cost change */
 	if (if_is_operative(ifp))
 		zebra_interface_up_update(ifp);
-
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib
- */
-int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args)
-{
-	struct vrf *vrf;
-	afi_t afi;
-	safi_t safi;
-	struct zebra_vrf *zvrf;
-	struct zebra_router_table *zrt;
-	uint32_t table_id;
-	const char *afi_safi_name;
-
-	vrf = nb_running_get_entry(args->dnode, NULL, false);
-	zvrf = vrf_info_lookup(vrf->vrf_id);
-	table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
-	if (!table_id)
-		table_id = zvrf->table_id;
-
-	afi_safi_name = yang_dnode_get_string(args->dnode, "./afi-safi-name");
-	yang_afi_safi_identity2value(afi_safi_name, &afi, &safi);
-
-	zrt = zebra_router_find_zrt(zvrf, table_id, afi, safi);
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (!zrt) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "vrf %s table is not found.", vrf->name);
-			return NB_ERR_VALIDATION;
-		}
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-
-		nb_running_set_entry(args->dnode, zrt);
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-int lib_vrf_zebra_ribs_rib_destroy(struct nb_cb_destroy_args *args)
-{
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	nb_running_unset_entry(args->dnode);
 
 	return NB_OK;
 }
@@ -1263,9 +1218,6 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 			return NB_ERR;
 		}
 
-		/* Mark as having FRR configuration */
-		vrf_set_user_cfged(vrf);
-
 		break;
 	}
 
@@ -1313,10 +1265,6 @@ int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args)
 			return NB_ERR;
 		}
 
-		/* If no other FRR config for this VRF, mark accordingly. */
-		if (!zebra_vrf_has_config(zvrf))
-			vrf_reset_user_cfged(vrf);
-
 		break;
 	}
 
@@ -1338,324 +1286,4 @@ int lib_vrf_zebra_prefix_only_modify(struct nb_cb_modify_args *args)
 	}
 
 	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-route-map:lib/route-map/entry/match-condition/frr-zebra:ipv4-prefix-length
- */
-int lib_route_map_entry_match_condition_ipv4_prefix_length_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct routemap_hook_context *rhc;
-	const char *length;
-	int condition, rv;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	length = yang_dnode_get_string(args->dnode, NULL);
-	condition =
-		yang_dnode_get_enum(args->dnode, "../frr-route-map:condition");
-
-	/* Set destroy information. */
-	switch (condition) {
-	case 100: /* ipv4-prefix-length */
-		rhc->rhc_rule = "ip address prefix-len";
-		break;
-
-	case 102: /* ipv4-next-hop-prefix-length */
-		rhc->rhc_rule = "ip next-hop prefix-len";
-		break;
-	}
-	rhc->rhc_mhook = generic_match_delete;
-	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
-
-	rv = generic_match_add(NULL, rhc->rhc_rmi, rhc->rhc_rule, length,
-			       RMAP_EVENT_MATCH_ADDED);
-	if (rv != CMD_SUCCESS) {
-		rhc->rhc_mhook = NULL;
-		return NB_ERR_INCONSISTENCY;
-	}
-
-	return NB_OK;
-}
-
-int lib_route_map_entry_match_condition_ipv4_prefix_length_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_route_map_entry_match_destroy(args);
-}
-
-/*
- * XPath:
- * /frr-route-map:lib/route-map/entry/match-condition/frr-zebra:ipv6-prefix-length
- */
-int lib_route_map_entry_match_condition_ipv6_prefix_length_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct routemap_hook_context *rhc;
-	const char *length;
-	int rv;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	length = yang_dnode_get_string(args->dnode, NULL);
-
-	/* Set destroy information. */
-	rhc->rhc_mhook = generic_match_delete;
-	rhc->rhc_rule = "ipv6 address prefix-len";
-	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
-
-	rv = generic_match_add(NULL, rhc->rhc_rmi, "ipv6 address prefix-len",
-			       length, RMAP_EVENT_MATCH_ADDED);
-	if (rv != CMD_SUCCESS) {
-		rhc->rhc_mhook = NULL;
-		return NB_ERR_INCONSISTENCY;
-	}
-
-	return NB_OK;
-}
-
-int lib_route_map_entry_match_condition_ipv6_prefix_length_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_route_map_entry_match_destroy(args);
-}
-
-/*
- * XPath:
- * /frr-route-map:lib/route-map/entry/match-condition/frr-zebra:source-protocol
- */
-int lib_route_map_entry_match_condition_source_protocol_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct routemap_hook_context *rhc;
-	const char *type;
-	int rv;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		type = yang_dnode_get_string(args->dnode, NULL);
-		if (proto_name2num(type) == -1) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "invalid protocol: %s", type);
-			return NB_ERR_VALIDATION;
-		}
-		return NB_OK;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		/* NOTHING */
-		break;
-	}
-
-	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	type = yang_dnode_get_string(args->dnode, NULL);
-
-	/* Set destroy information. */
-	rhc->rhc_mhook = generic_match_delete;
-	rhc->rhc_rule = "source-protocol";
-	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
-
-	rv = generic_match_add(NULL, rhc->rhc_rmi, "source-protocol", type,
-			       RMAP_EVENT_MATCH_ADDED);
-	if (rv != CMD_SUCCESS) {
-		rhc->rhc_mhook = NULL;
-		return NB_ERR_INCONSISTENCY;
-	}
-
-	return NB_OK;
-}
-
-int lib_route_map_entry_match_condition_source_protocol_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_route_map_entry_match_destroy(args);
-}
-
-/*
- * XPath:
- * /frr-route-map:lib/route-map/entry/match-condition/frr-zebra:source-instance
- */
-int lib_route_map_entry_match_condition_source_instance_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct routemap_hook_context *rhc;
-	const char *type;
-	int rv;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	type = yang_dnode_get_string(args->dnode, NULL);
-
-	/* Set destroy information. */
-	rhc->rhc_mhook = generic_match_delete;
-	rhc->rhc_rule = "source-instance";
-	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
-
-	rv = generic_match_add(NULL, rhc->rhc_rmi, "source-instance", type,
-			       RMAP_EVENT_MATCH_ADDED);
-	if (rv != CMD_SUCCESS) {
-		rhc->rhc_mhook = NULL;
-		return NB_ERR_INCONSISTENCY;
-	}
-
-	return NB_OK;
-}
-
-int lib_route_map_entry_match_condition_source_instance_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_route_map_entry_match_destroy(args);
-}
-
-/*
- * XPath: /frr-route-map:lib/route-map/entry/set-action/frr-zebra:source-v4
- */
-int lib_route_map_entry_set_action_source_v4_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct routemap_hook_context *rhc;
-	struct interface *pif = NULL;
-	const char *source;
-	struct vrf *vrf;
-	struct prefix p;
-	int rv;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		memset(&p, 0, sizeof(p));
-		yang_dnode_get_ipv4p(&p, args->dnode, NULL);
-		if (zebra_check_addr(&p) == 0) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "invalid IPv4 address: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-
-		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-			pif = if_lookup_exact_address(&p.u.prefix4, AF_INET,
-						      vrf->vrf_id);
-			if (pif != NULL)
-				break;
-		}
-		/*
-		 * On startup the local address *may* not have come up
-		 * yet.  We need to allow startup configuration of
-		 * set src or we are fudged.  Log it for future fun
-		 */
-		if (pif == NULL)
-			zlog_warn("set src %pI4 is not a local address",
-				  &p.u.prefix4);
-		return NB_OK;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		/* NOTHING */
-		break;
-	}
-
-	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	source = yang_dnode_get_string(args->dnode, NULL);
-
-	/* Set destroy information. */
-	rhc->rhc_shook = generic_set_delete;
-	rhc->rhc_rule = "src";
-
-	rv = generic_set_add(NULL, rhc->rhc_rmi, "src", source);
-	if (rv != CMD_SUCCESS) {
-		rhc->rhc_shook = NULL;
-		return NB_ERR_INCONSISTENCY;
-	}
-
-	return NB_OK;
-}
-
-int lib_route_map_entry_set_action_source_v4_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_route_map_entry_set_destroy(args);
-}
-
-/*
- * XPath: /frr-route-map:lib/route-map/entry/set-action/frr-zebra:source-v6
- */
-int lib_route_map_entry_set_action_source_v6_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct routemap_hook_context *rhc;
-	struct interface *pif = NULL;
-	const char *source;
-	struct vrf *vrf;
-	struct prefix p;
-	int rv;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		memset(&p, 0, sizeof(p));
-		yang_dnode_get_ipv6p(&p, args->dnode, NULL);
-		if (zebra_check_addr(&p) == 0) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "invalid IPv6 address: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-
-		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-			pif = if_lookup_exact_address(&p.u.prefix6, AF_INET6,
-						      vrf->vrf_id);
-			if (pif != NULL)
-				break;
-		}
-		/*
-		 * On startup the local address *may* not have come up
-		 * yet.  We need to allow startup configuration of
-		 * set src or we are fudged.  Log it for future fun
-		 */
-		if (pif == NULL)
-			zlog_warn("set src %pI6 is not a local address",
-				  &p.u.prefix6);
-		return NB_OK;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		/* NOTHING */
-		break;
-	}
-
-	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	source = yang_dnode_get_string(args->dnode, NULL);
-
-	/* Set destroy information. */
-	rhc->rhc_shook = generic_set_delete;
-	rhc->rhc_rule = "src";
-
-	rv = generic_set_add(NULL, rhc->rhc_rmi, "src", source);
-	if (rv != CMD_SUCCESS) {
-		rhc->rhc_shook = NULL;
-		return NB_ERR_INCONSISTENCY;
-	}
-
-	return NB_OK;
-}
-
-int lib_route_map_entry_set_action_source_v6_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_route_map_entry_set_destroy(args);
 }

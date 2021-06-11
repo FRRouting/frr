@@ -22,9 +22,12 @@
 
 #include "lib/typesafe.h"
 #include "lib/zclient.h"
+#include "lib/memory.h"
 
-PREDECL_RBTREE_UNIQ(lfa_tiebreaker_tree)
-PREDECL_RBTREE_UNIQ(rlfa_tree)
+DECLARE_MTYPE(ISIS_NEXTHOP_LABELS);
+
+PREDECL_RBTREE_UNIQ(lfa_tiebreaker_tree);
+PREDECL_RBTREE_UNIQ(rlfa_tree);
 
 enum lfa_tiebreaker_type {
 	LFA_TIEBREAKER_DOWNSTREAM = 0,
@@ -41,7 +44,7 @@ struct lfa_tiebreaker {
 int lfa_tiebreaker_cmp(const struct lfa_tiebreaker *a,
 		       const struct lfa_tiebreaker *b);
 DECLARE_RBTREE_UNIQ(lfa_tiebreaker_tree, struct lfa_tiebreaker, entry,
-		    lfa_tiebreaker_cmp)
+		    lfa_tiebreaker_cmp);
 
 struct rlfa {
 	struct rlfa_tree_item entry;
@@ -50,7 +53,7 @@ struct rlfa {
 	struct in_addr pq_address;
 };
 int rlfa_cmp(const struct rlfa *a, const struct rlfa *b);
-DECLARE_RBTREE_UNIQ(rlfa_tree, struct rlfa, entry, rlfa_cmp)
+DECLARE_RBTREE_UNIQ(rlfa_tree, struct rlfa, entry, rlfa_cmp);
 
 enum isis_tilfa_sid_type {
 	TILFA_SID_PREFIX = 1,

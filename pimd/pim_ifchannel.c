@@ -498,7 +498,7 @@ void pim_ifchannel_membership_clear(struct interface *ifp)
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb)
 		ifmembership_set(ch, PIM_IFMEMBERSHIP_NOINFO);
@@ -510,7 +510,7 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
 	struct pim_ifchannel *ch, *ch_tmp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch_tmp)
 		delete_on_noinfo(ch);
@@ -729,6 +729,21 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 
 				pim_jp_agg_single_upstream_send(&parent->rpf,
 								parent, true);
+				/*
+				 * SGRpt prune pending expiry has to install
+				 * SG entry with empty olist to drop the SG
+				 * traffic incase no other intf exists.
+				 * On that scenario, SG entry wouldn't have
+				 * got installed until Prune pending timer
+				 * expired. So install now.
+				 */
+				pim_channel_del_oif(
+					ch->upstream->channel_oil, ifp,
+					PIM_OIF_FLAG_PROTO_STAR, __func__);
+				if (!ch->upstream->channel_oil->installed)
+					pim_upstream_mroute_add(
+						ch->upstream->channel_oil,
+						__func__);
 			}
 		}
 		/* from here ch may have been deleted */
@@ -810,7 +825,7 @@ static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
 	int is_local; /* boolean */
 
 	recv_pim_ifp = recv_ifp->info;
-	zassert(recv_pim_ifp);
+	assert(recv_pim_ifp);
 
 	is_local = (upstream.s_addr == recv_pim_ifp->primary_address.s_addr);
 
@@ -898,7 +913,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 	}
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	switch (ch->ifjoin_state) {
 	case PIM_IFJOIN_NOINFO:
@@ -924,7 +939,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		}
 		break;
 	case PIM_IFJOIN_JOIN:
-		zassert(!ch->t_ifjoin_prune_pending_timer);
+		assert(!ch->t_ifjoin_prune_pending_timer);
 
 		/*
 		  In the JOIN state ch->t_ifjoin_expiry_timer may be NULL due to
@@ -1113,6 +1128,24 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 	case PIM_IFJOIN_PRUNE:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+			/*
+			 * While in Prune State, Receive SGRpt Prune.
+			 * RFC 7761 Sec 4.5.3:
+			 * The (S,G,rpt) downstream state machine on interface I
+			 * remains in Prune state.  The Expiry Timer (ET) is
+			 * restarted and is then set to the maximum of its
+			 * current value and the HoldTime from the triggering
+			 * Join/Prune message.
+			 */
+			if (ch->t_ifjoin_expiry_timer) {
+				unsigned long rem = thread_timer_remain_second(
+					ch->t_ifjoin_expiry_timer);
+
+				if (rem > holdtime)
+					return;
+				THREAD_OFF(ch->t_ifjoin_expiry_timer);
+			}
+
 			thread_add_timer(router->master, on_ifjoin_expiry_timer,
 					 ch, holdtime,
 					 &ch->t_ifjoin_expiry_timer);

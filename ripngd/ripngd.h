@@ -86,7 +86,7 @@
 #define RIPNG_INSTANCE	"/frr-ripngd:ripngd/instance"
 #define RIPNG_IFACE	"/frr-interface:lib/interface/frr-ripngd:ripng"
 
-DECLARE_MGROUP(RIPNGD)
+DECLARE_MGROUP(RIPNGD);
 
 /* RIPng structure. */
 struct ripng {
@@ -230,35 +230,6 @@ struct ripng_info {
 	struct agg_node *rp;
 };
 
-#ifdef notyet
-#if 0
-/* RIPng tag structure. */
-struct ripng_tag
-{
-  /* Tag value. */
-  uint16_t tag;
-
-  /* Port. */
-  uint16_t port;
-
-  /* Multicast group. */
-  struct in6_addr maddr;
-
-  /* Table number. */
-  int table;
-
-  /* Distance. */
-  int distance;
-
-  /* Split horizon. */
-  uint8_t split_horizon;
-
-  /* Poison reverse. */
-  uint8_t poison_reverse;
-};
-#endif /* 0 */
-#endif /* not yet */
-
 typedef enum {
 	RIPNG_NO_SPLIT_HORIZON = 0,
 	RIPNG_SPLIT_HORIZON,
@@ -293,13 +264,6 @@ struct ripng_interface {
 
 	/* Route-map. */
 	struct route_map *routemap[RIPNG_FILTER_MAX];
-
-#ifdef notyet
-#if 0
-  /* RIPng tag configuration. */
-  struct ripng_tag *rtag;
-#endif /* 0 */
-#endif /* notyet */
 
 	/* Default information originate. */
 	uint8_t default_originate;

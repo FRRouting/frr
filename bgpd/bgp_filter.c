@@ -40,9 +40,6 @@ struct as_list_list {
 
 /* AS path filter master. */
 struct as_list_master {
-	/* List of access_list which name is number. */
-	struct as_list_list num;
-
 	/* List of access_list which name is string. */
 	struct as_list_list str;
 
@@ -62,13 +59,14 @@ struct as_filter {
 
 	regex_t *reg;
 	char *reg_str;
+
+	/* Sequence number. */
+	int64_t seq;
 };
 
 /* AS path filter list. */
 struct as_list {
 	char *name;
-
-	enum access_type type;
 
 	struct as_list *next;
 	struct as_list *prev;
@@ -77,10 +75,41 @@ struct as_list {
 	struct as_filter *tail;
 };
 
+
+/* Calculate new sequential number. */
+static int64_t bgp_alist_new_seq_get(struct as_list *list)
+{
+	int64_t maxseq;
+	int64_t newseq;
+	struct as_filter *entry;
+
+	maxseq = 0;
+
+	for (entry = list->head; entry; entry = entry->next) {
+		if (maxseq < entry->seq)
+			maxseq = entry->seq;
+	}
+
+	newseq = ((maxseq / 5) * 5) + 5;
+
+	return (newseq > UINT_MAX) ? UINT_MAX : newseq;
+}
+
+/* Return as-list entry which has same seq number. */
+static struct as_filter *bgp_aslist_seq_check(struct as_list *list, int64_t seq)
+{
+	struct as_filter *entry;
+
+	for (entry = list->head; entry; entry = entry->next)
+		if (entry->seq == seq)
+			return entry;
+
+	return NULL;
+}
+
 /* as-path access-list 10 permit AS1. */
 
 static struct as_list_master as_list_master = {{NULL, NULL},
-					       {NULL, NULL},
 					       NULL,
 					       NULL};
 
@@ -125,17 +154,69 @@ static struct as_filter *as_filter_lookup(struct as_list *aslist,
 	return NULL;
 }
 
+static void as_filter_entry_replace(struct as_list *list,
+				    struct as_filter *replace,
+				    struct as_filter *entry)
+{
+	if (replace->next) {
+		entry->next = replace->next;
+		replace->next->prev = entry;
+	} else {
+		entry->next = NULL;
+		list->tail = entry;
+	}
+
+	if (replace->prev) {
+		entry->prev = replace->prev;
+		replace->prev->next = entry;
+	} else {
+		entry->prev = NULL;
+		list->head = entry;
+	}
+
+	as_filter_free(replace);
+}
+
 static void as_list_filter_add(struct as_list *aslist,
 			       struct as_filter *asfilter)
 {
-	asfilter->next = NULL;
-	asfilter->prev = aslist->tail;
+	struct as_filter *point;
+	struct as_filter *replace;
 
-	if (aslist->tail)
-		aslist->tail->next = asfilter;
-	else
-		aslist->head = asfilter;
-	aslist->tail = asfilter;
+	if (aslist->tail && asfilter->seq > aslist->tail->seq)
+		point = NULL;
+	else {
+		replace = bgp_aslist_seq_check(aslist, asfilter->seq);
+		if (replace) {
+			as_filter_entry_replace(aslist, replace, asfilter);
+			return;
+		}
+
+		/* Check insert point. */
+		for (point = aslist->head; point; point = point->next)
+			if (point->seq >= asfilter->seq)
+				break;
+	}
+
+	asfilter->next = point;
+
+	if (point) {
+		if (point->prev)
+			point->prev->next = asfilter;
+		else
+			aslist->head = asfilter;
+
+		asfilter->prev = point->prev;
+		point->prev = asfilter;
+	} else {
+		if (aslist->tail)
+			aslist->tail->next = asfilter;
+		else
+			aslist->head = asfilter;
+
+		asfilter->prev = aslist->tail;
+		aslist->tail = asfilter;
+	}
 
 	/* Run hook function. */
 	if (as_list_master.add_hook)
@@ -149,10 +230,6 @@ struct as_list *as_list_lookup(const char *name)
 
 	if (name == NULL)
 		return NULL;
-
-	for (aslist = as_list_master.num.head; aslist; aslist = aslist->next)
-		if (strcmp(aslist->name, name) == 0)
-			return aslist;
 
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
 		if (strcmp(aslist->name, name) == 0)
@@ -176,8 +253,6 @@ static void as_list_free(struct as_list *aslist)
    the name. */
 static struct as_list *as_list_insert(const char *name)
 {
-	size_t i;
-	long number;
 	struct as_list *aslist;
 	struct as_list *point;
 	struct as_list_list *list;
@@ -187,36 +262,13 @@ static struct as_list *as_list_insert(const char *name)
 	aslist->name = XSTRDUP(MTYPE_AS_STR, name);
 	assert(aslist->name);
 
-	/* If name is made by all digit character.  We treat it as
-	   number. */
-	for (number = 0, i = 0; i < strlen(name); i++) {
-		if (isdigit((unsigned char)name[i]))
-			number = (number * 10) + (name[i] - '0');
-		else
+	/* Set access_list to string list. */
+	list = &as_list_master.str;
+
+	/* Set point to insertion point. */
+	for (point = list->head; point; point = point->next)
+		if (strcmp(point->name, name) >= 0)
 			break;
-	}
-
-	/* In case of name is all digit character */
-	if (i == strlen(name)) {
-		aslist->type = ACCESS_TYPE_NUMBER;
-
-		/* Set access_list to number list. */
-		list = &as_list_master.num;
-
-		for (point = list->head; point; point = point->next)
-			if (atol(point->name) >= number)
-				break;
-	} else {
-		aslist->type = ACCESS_TYPE_STRING;
-
-		/* Set access_list to string list. */
-		list = &as_list_master.str;
-
-		/* Set point to insertion point. */
-		for (point = list->head; point; point = point->next)
-			if (strcmp(point->name, name) >= 0)
-				break;
-	}
 
 	/* In case of this is the first element of master. */
 	if (list->head == NULL) {
@@ -284,10 +336,7 @@ static void as_list_delete(struct as_list *aslist)
 		as_filter_free(filter);
 	}
 
-	if (aslist->type == ACCESS_TYPE_NUMBER)
-		list = &as_list_master.num;
-	else
-		list = &as_list_master.str;
+	list = &as_list_master.str;
 
 	if (aslist->next)
 		aslist->next->prev = aslist->prev;
@@ -391,11 +440,13 @@ bool config_bgp_aspath_validate(const char *regstr)
 }
 
 DEFUN(as_path, bgp_as_path_cmd,
-      "bgp as-path access-list WORD <deny|permit> LINE...",
+      "bgp as-path access-list WORD [seq (0-4294967295)] <deny|permit> LINE...",
       BGP_STR
       "BGP autonomous system path filter\n"
       "Specify an access list name\n"
       "Regular expression access list name\n"
+      "Sequence number of an entry\n"
+      "Sequence number\n"
       "Specify packets to reject\n"
       "Specify packets to forward\n"
       "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
@@ -406,10 +457,14 @@ DEFUN(as_path, bgp_as_path_cmd,
 	struct as_list *aslist;
 	regex_t *regex;
 	char *regstr;
+	int64_t seqnum = ASPATH_SEQ_NUMBER_AUTO;
 
 	/* Retrieve access list name */
 	argv_find(argv, argc, "WORD", &idx);
 	char *alname = argv[idx]->arg;
+
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		seqnum = (int64_t)atol(argv[idx]->arg);
 
 	/* Check the filter type. */
 	type = argv_find(argv, argc, "deny", &idx) ? AS_FILTER_DENY
@@ -439,6 +494,11 @@ DEFUN(as_path, bgp_as_path_cmd,
 	/* Install new filter to the access_list. */
 	aslist = as_list_get(alname);
 
+	if (seqnum == ASPATH_SEQ_NUMBER_AUTO)
+		seqnum = bgp_alist_new_seq_get(aslist);
+
+	asfilter->seq = seqnum;
+
 	/* Duplicate insertion check. */;
 	if (as_list_dup_check(aslist, asfilter))
 		as_filter_free(asfilter);
@@ -449,12 +509,14 @@ DEFUN(as_path, bgp_as_path_cmd,
 }
 
 DEFUN(no_as_path, no_bgp_as_path_cmd,
-      "no bgp as-path access-list WORD <deny|permit> LINE...",
+      "no bgp as-path access-list WORD [seq (0-4294967295)] <deny|permit> LINE...",
       NO_STR
       BGP_STR
       "BGP autonomous system path filter\n"
       "Specify an access list name\n"
       "Regular expression access list name\n"
+      "Sequence number of an entry\n"
+      "Sequence number\n"
       "Specify packets to reject\n"
       "Specify packets to forward\n"
       "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
@@ -567,17 +629,6 @@ static void as_list_show_all(struct vty *vty)
 	struct as_list *aslist;
 	struct as_filter *asfilter;
 
-	for (aslist = as_list_master.num.head; aslist; aslist = aslist->next) {
-		vty_out(vty, "AS path access list %s\n", aslist->name);
-
-		for (asfilter = aslist->head; asfilter;
-		     asfilter = asfilter->next) {
-			vty_out(vty, "    %s %s\n",
-				filter_type_str(asfilter->type),
-				asfilter->reg_str);
-		}
-	}
-
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next) {
 		vty_out(vty, "AS path access list %s\n", aslist->name);
 
@@ -640,20 +691,14 @@ static int config_write_as_list(struct vty *vty)
 	struct as_filter *asfilter;
 	int write = 0;
 
-	for (aslist = as_list_master.num.head; aslist; aslist = aslist->next)
-		for (asfilter = aslist->head; asfilter;
-		     asfilter = asfilter->next) {
-			vty_out(vty, "bgp as-path access-list %s %s %s\n",
-				aslist->name, filter_type_str(asfilter->type),
-				asfilter->reg_str);
-			write++;
-		}
-
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
 		for (asfilter = aslist->head; asfilter;
 		     asfilter = asfilter->next) {
-			vty_out(vty, "bgp as-path access-list %s %s %s\n",
-				aslist->name, filter_type_str(asfilter->type),
+			vty_out(vty,
+				"bgp as-path access-list %s seq %" PRId64
+				" %s %s\n",
+				aslist->name, asfilter->seq,
+				filter_type_str(asfilter->type),
 				asfilter->reg_str);
 			write++;
 		}
@@ -688,18 +733,10 @@ void bgp_filter_reset(void)
 	struct as_list *aslist;
 	struct as_list *next;
 
-	for (aslist = as_list_master.num.head; aslist; aslist = next) {
-		next = aslist->next;
-		as_list_delete(aslist);
-	}
-
 	for (aslist = as_list_master.str.head; aslist; aslist = next) {
 		next = aslist->next;
 		as_list_delete(aslist);
 	}
-
-	assert(as_list_master.num.head == NULL);
-	assert(as_list_master.num.tail == NULL);
 
 	assert(as_list_master.str.head == NULL);
 	assert(as_list_master.str.tail == NULL);

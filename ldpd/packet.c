@@ -560,9 +560,11 @@ session_read(struct thread *thread)
 			default:
 				log_debug("%s: unknown LDP message from nbr %pI4",
 				    __func__, &nbr->id);
-				if (!(ntohs(msg->type) & UNKNOWN_FLAG))
+				if (!(ntohs(msg->type) & UNKNOWN_FLAG)) {
+					nbr->stats.unknown_msg++;
 					send_notification(nbr->tcp,
 					    S_UNKNOWN_MSG, msg->id, msg->type);
+				}
 				/* ignore the message */
 				ret = 0;
 				break;
@@ -667,6 +669,12 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 	case NBR_STA_INITIAL:
 	case NBR_STA_OPENREC:
 	case NBR_STA_OPENSENT:
+		/* update SNMP session counters during initialization */
+		leconf->stats.session_attempts++;
+		send_notification(nbr->tcp, status, msg_id, msg_type);
+
+		nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
+		break;
 	case NBR_STA_OPER:
 		send_notification(nbr->tcp, status, msg_id, msg_type);
 

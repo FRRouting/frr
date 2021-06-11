@@ -23,6 +23,7 @@
 #define _ZEBRA_RIB_H
 
 #include "zebra.h"
+#include "memory.h"
 #include "hook.h"
 #include "typesafe.h"
 #include "linklist.h"
@@ -41,9 +42,13 @@
 extern "C" {
 #endif
 
+DECLARE_MGROUP(ZEBRA);
+
+DECLARE_MTYPE(RE);
+
 enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
 
-PREDECL_LIST(rnh_list)
+PREDECL_LIST(rnh_list);
 
 /* Nexthop structure. */
 struct rnh {
@@ -82,7 +87,7 @@ struct rnh {
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
 
-PREDECL_LIST(re_list)
+PREDECL_LIST(re_list);
 
 struct opaque {
 	uint16_t length;
@@ -421,7 +426,11 @@ extern int rib_queue_add(struct route_node *rn);
 
 struct nhg_ctx; /* Forward declaration */
 
-extern int rib_queue_nhg_add(struct nhg_ctx *ctx);
+/* Enqueue incoming nhg from OS for processing */
+extern int rib_queue_nhg_ctx_add(struct nhg_ctx *ctx);
+
+/* Enqueue incoming nhg from proto daemon for processing */
+extern int rib_queue_nhe_add(struct nhg_hash_entry *nhe);
 
 extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
@@ -541,7 +550,7 @@ static inline void rib_tables_iter_cleanup(rib_tables_iter_t *iter)
 }
 
 DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
-	     (rn, reason))
+	     (rn, reason));
 
 /*
  * Access installed/fib nexthops, which may be a subset of the

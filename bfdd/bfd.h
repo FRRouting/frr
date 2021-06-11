@@ -41,9 +41,9 @@
 #define BFDD_JSON_CONV_OPTIONS (0)
 #endif
 
-DECLARE_MGROUP(BFDD)
-DECLARE_MTYPE(BFDD_CONTROL)
-DECLARE_MTYPE(BFDD_NOTIFICATION)
+DECLARE_MGROUP(BFDD);
+DECLARE_MTYPE(BFDD_CONTROL);
+DECLARE_MTYPE(BFDD_NOTIFICATION);
 
 struct bfd_timers {
 	uint32_t desired_min_tx;
@@ -173,15 +173,26 @@ enum bfd_session_flags {
 	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
 };
 
-/* BFD session hash keys */
+/*
+ * BFD session hash key.
+ *
+ * This structure must not have any padding bytes because their value is
+ * unspecified after the struct assignment. Even when all fields of two keys
+ * are the same, if the padding bytes are different, then the calculated hash
+ * value is different, and the hash lookup will fail.
+ *
+ * Currently, the structure fields are correctly aligned, and the "packed"
+ * attribute is added as a precaution. "family" and "mhop" fields are two-bytes
+ * to eliminate unaligned memory access to "peer" and "local".
+ */
 struct bfd_key {
 	uint16_t family;
-	uint8_t mhop;
+	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
 	char ifname[MAXNAMELEN];
 	char vrfname[MAXNAMELEN];
-};
+} __attribute__((packed));
 
 struct bfd_session_stats {
 	uint64_t rx_ctrl_pkt;
@@ -215,6 +226,8 @@ struct bfd_profile {
 
 	/** Echo mode (only applies to single hop). */
 	bool echo_mode;
+	/** Desired echo transmission interval (in microseconds). */
+	uint32_t min_echo_tx;
 	/** Minimum required echo receive interval (in microseconds). */
 	uint32_t min_echo_rx;
 
@@ -227,6 +240,13 @@ TAILQ_HEAD(bfdproflist, bfd_profile);
 
 /* bfd_session shortcut label forwarding. */
 struct peer_label;
+
+struct bfd_config_timers {
+	uint32_t desired_min_tx;
+	uint32_t required_min_rx;
+	uint32_t desired_min_echo_tx;
+	uint32_t required_min_echo_rx;
+};
 
 /*
  * Session state information
@@ -251,7 +271,7 @@ struct bfd_session {
 	struct bfd_profile peer_profile;
 
 	/* Timers */
-	struct bfd_timers timers;
+	struct bfd_config_timers timers;
 	struct bfd_timers cur_timers;
 	uint64_t detect_TO;
 	struct thread *echo_recvtimer_ev;
@@ -332,7 +352,8 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEFDETECTMULT 3
 #define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
-#define BFD_DEF_REQ_MIN_ECHO (50 * 1000) /* microseconds. */
+#define BFD_DEF_DES_MIN_ECHO_TX (50 * 1000) /* microseconds. */
+#define BFD_DEF_REQ_MIN_ECHO_RX (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
 /** Minimum multi hop TTL. */
 #define BFD_DEF_MHOP_TTL 254
@@ -609,6 +630,7 @@ void bfd_session_free(struct bfd_session *bs);
 const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 					   bool mhop);
 void bfd_sessions_remove_manual(void);
+void bfd_profiles_remove(void);
 
 /**
  * Set the BFD session echo state.

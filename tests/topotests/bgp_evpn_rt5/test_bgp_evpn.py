@@ -46,9 +46,6 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
-l3mdev_accept = 0
-krel = ""
-
 
 class BGPEVPNTopo(Topo):
     "Test topology builder"
@@ -73,8 +70,6 @@ class BGPEVPNTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    global l3mdev_accept
-    global krel
 
     tgen = Topogen(BGPEVPNTopo, mod.__name__)
     tgen.start_topology()
@@ -90,18 +85,13 @@ def setup_module(mod):
         )
         return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
 
-    l3mdev_accept = 1
-    logger.info("setting net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
-
     # create VRF vrf-101 on R1 and R2
     # create loop101
     cmds_vrflite = [
-        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
         "ip link add {}-vrf-101 type vrf table 101",
         "ip ru add oif {}-vrf-101 table 101",
         "ip ru add iif {}-vrf-101 table 101",
         "ip link set dev {}-vrf-101 up",
-        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
         "ip link add loop101 type dummy",
         "ip link set dev loop101 master {}-vrf-101",
         "ip link set dev loop101 up",

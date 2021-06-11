@@ -127,15 +127,15 @@ static struct quagga_signal_t lde_signals[] =
 void
 lde(void)
 {
-	struct thread		 thread;
-
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("label decision engine");
 #endif
 	ldpd_process = PROC_LDE_ENGINE;
 	log_procname = log_procnames[PROC_LDE_ENGINE];
 
-	master = thread_master_create(NULL);
+	master = frr_init();
+	/* no frr_config_fork() here, allow frr_pthread to create threads */
+	frr_is_after_fork = true;
 
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);
@@ -157,9 +157,12 @@ lde(void)
 	/* create base configuration */
 	ldeconf = config_new_empty();
 
-	/* Fetch next active thread. */
+	struct thread thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
+
+	/* NOTREACHED */
+	return;
 }
 
 void
@@ -565,6 +568,9 @@ lde_dispatch_parent(struct thread *thread)
 
 			memcpy(&init, imsg.data, sizeof(init));
 			lde_init(&init);
+			break;
+		case IMSG_AGENTX_ENABLED:
+			ldp_agentx_enabled();
 			break;
 		case IMSG_RECONF_CONF:
 			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
@@ -1620,6 +1626,30 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 				lde_send_change_klabel(fn, fnh);
 			}
 			break;
+		}
+	}
+}
+
+void
+lde_allow_broken_lsp_update(int new_config)
+{
+	struct fec_node		*fn;
+	struct fec_nh		*fnh;
+	struct fec		*f;
+
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+
+		LIST_FOREACH(fnh, &fn->nexthops, entry) {
+			/* allow-broken-lsp config is changing so
+			 * we need to reprogram labeled routes to
+			 * have proper top-level label
+			 */
+			if (!(new_config & F_LDPD_ALLOW_BROKEN_LSP))
+				lde_send_delete_klabel(fn, fnh);
+
+			if (fn->local_label != NO_LABEL)
+				lde_send_change_klabel(fn, fnh);
 		}
 	}
 }

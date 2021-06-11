@@ -17,13 +17,14 @@
  */
 
 #include <zebra.h>
-#include <pcep_utils_counters.h>
+#include "pceplib/pcep_utils_counters.h"
 
+#include "memory.h"
 #include "log.h"
 #include "command.h"
 #include "libfrr.h"
 #include "printfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "northbound.h"
 #include "frr_pthread.h"
 #include "jhash.h"
@@ -31,13 +32,13 @@
 
 #include "pathd/pathd.h"
 #include "pathd/path_errors.h"
-#include "pathd/path_pcep_memory.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_cli.h"
 #include "pathd/path_pcep_controller.h"
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_config.h"
 
+DEFINE_MTYPE(PATHD, PCEP, "PCEP module");
 
 /*
  * Globals.
@@ -215,29 +216,10 @@ int pcep_main_event_update_candidate(struct path *path)
 
 	ret = path_pcep_config_update_path(path);
 	if (ret != PATH_NB_ERR && path->srp_id != 0) {
-		/* ODL and Cisco requires the first reported
-		 * LSP to have a DOWN status, the later status changes
-		 * will be comunicated through hook calls.
-		 */
-		enum pcep_lsp_operational_status real_status;
 		if ((resp = path_pcep_config_get_path(&path->nbkey))) {
 			resp->srp_id = path->srp_id;
-			real_status = resp->status;
-			resp->status = PCEP_LSP_OPERATIONAL_DOWN;
-			pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp);
-			/* If the update did not have any effect and the real
-			 * status is not DOWN, we need to send a second report
-			 * so the PCE is aware of the real status. This is due
-			 * to the fact that NO notification will be received
-			 * if the update did not apply any changes */
-			if ((ret == PATH_NB_NO_CHANGE)
-			    && (real_status != PCEP_LSP_OPERATIONAL_DOWN)) {
-				resp->status = real_status;
-				resp->srp_id = 0;
-				pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id,
-						      resp);
-			}
-			pcep_free_path(resp);
+			pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp,
+					      ret == PATH_NB_NO_CHANGE);
 		}
 	}
 	return ret;
@@ -282,7 +264,11 @@ int pathd_candidate_removed_handler(struct srte_candidate *candidate)
 
 /* ------------ Module Functions ------------ */
 
-int pcep_module_late_init(struct thread_master *tm)
+/* this creates threads, therefore must run after fork().  but it must also
+ * run before config load, so the CLI commands don't try to touch things that
+ * aren't set up yet...
+ */
+static int pcep_module_config_pre(struct thread_master *tm)
 {
 	assert(pcep_g->fpt == NULL);
 	assert(pcep_g->master == NULL);
@@ -298,10 +284,16 @@ int pcep_module_late_init(struct thread_master *tm)
 	pcep_g->master = tm;
 	pcep_g->fpt = fpt;
 
+	return 0;
+}
+
+static int pcep_module_late_init(struct thread_master *tm)
+{
 	hook_register(pathd_candidate_created, pathd_candidate_created_handler);
 	hook_register(pathd_candidate_updated, pathd_candidate_updated_handler);
 	hook_register(pathd_candidate_removed, pathd_candidate_removed_handler);
 
+	hook_register(frr_config_pre, pcep_module_config_pre);
 	hook_register(frr_fini, pcep_module_finish);
 
 	pcep_cli_init();
@@ -336,4 +328,5 @@ int pcep_module_init(void)
 
 FRR_MODULE_SETUP(.name = "frr_pathd_pcep", .version = FRR_VERSION,
 		 .description = "FRR pathd PCEP module",
-		 .init = pcep_module_init)
+		 .init = pcep_module_init,
+);

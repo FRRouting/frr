@@ -53,7 +53,7 @@
 
 DEFINE_HOOK(ospf_nsm_change,
 	    (struct ospf_neighbor * on, int state, int oldstate),
-	    (on, state, oldstate))
+	    (on, state, oldstate));
 
 static void nsm_clear_adj(struct ospf_neighbor *);
 
@@ -78,7 +78,7 @@ static int ospf_inactivity_timer(struct thread *thread)
 	else if (IS_DEBUG_OSPF_GR_HELPER)
 		zlog_debug(
 			"%s, Acting as HELPER for this neighbour, So inactivitytimer event will not be fired.",
-			__PRETTY_FUNCTION__);
+			__func__);
 
 	return 0;
 }
@@ -761,7 +761,8 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 	if (state == NSM_Down)
 		nbr->crypt_seqnum = 0;
 
-	ospf_bfd_trigger_event(nbr, old_state, state);
+	if (nbr->bfd_session)
+		ospf_bfd_trigger_event(nbr, old_state, state);
 
 	/* Preserve old status? */
 }

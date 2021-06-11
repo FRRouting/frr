@@ -25,9 +25,9 @@
 #include "memory.h"
 #include "network.h"
 
-DEFINE_MTYPE_STATIC(LIB, TYPEDHASH_BUCKET, "Typed-hash bucket")
-DEFINE_MTYPE_STATIC(LIB, SKIPLIST_OFLOW, "Skiplist overflow")
-DEFINE_MTYPE_STATIC(LIB, HEAP_ARRAY, "Typed-heap array")
+DEFINE_MTYPE_STATIC(LIB, TYPEDHASH_BUCKET, "Typed-hash bucket");
+DEFINE_MTYPE_STATIC(LIB, SKIPLIST_OFLOW, "Skiplist overflow");
+DEFINE_MTYPE_STATIC(LIB, HEAP_ARRAY, "Typed-heap array");
 
 #if 0
 static void hash_consistency_check(struct thash_head *head)

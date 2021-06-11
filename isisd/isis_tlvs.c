@@ -33,7 +33,6 @@
 #include "network.h"
 
 #include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_mt.h"
@@ -45,14 +44,15 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs")
-DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs")
-DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists")
+DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs");
+DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists");
 
 typedef int (*unpack_tlv_func)(enum isis_tlv_context context, uint8_t tlv_type,
 			       uint8_t tlv_len, struct stream *s,
 			       struct sbuf *log, void *dest, int indent);
-typedef int (*pack_item_func)(struct isis_item *item, struct stream *s);
+typedef int (*pack_item_func)(struct isis_item *item, struct stream *s,
+			      size_t *min_length);
 typedef void (*free_item_func)(struct isis_item *i);
 typedef int (*unpack_item_func)(uint16_t mtid, uint8_t len, struct stream *s,
 				struct sbuf *log, void *dest, int indent);
@@ -368,12 +368,14 @@ static void free_item_ext_subtlvs(struct  isis_ext_subtlvs *exts)
 }
 
 static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
-				 struct stream *s)
+				 struct stream *s, size_t *min_len)
 {
 	uint8_t size;
 
-	if (STREAM_WRITEABLE(s) < ISIS_SUBTLV_MAX_SIZE)
+	if (STREAM_WRITEABLE(s) < ISIS_SUBTLV_MAX_SIZE) {
+		*min_len = ISIS_SUBTLV_MAX_SIZE;
 		return 1;
+	}
 
 	if (IS_SUBTLV(exts, EXT_ADM_GRP)) {
 		stream_putc(s, ISIS_SUBTLV_ADMIN_GRP);
@@ -829,14 +831,17 @@ static void free_item_prefix_sid(struct isis_item *i)
 	XFREE(MTYPE_ISIS_SUBTLV, i);
 }
 
-static int pack_item_prefix_sid(struct isis_item *i, struct stream *s)
+static int pack_item_prefix_sid(struct isis_item *i, struct stream *s,
+				size_t *min_len)
 {
 	struct isis_prefix_sid *sid = (struct isis_prefix_sid *)i;
 
 	uint8_t size = (sid->flags & ISIS_PREFIX_SID_VALUE) ? 5 : 6;
 
-	if (STREAM_WRITEABLE(s) < size)
+	if (STREAM_WRITEABLE(s) < size) {
+		*min_len = size;
 		return 1;
+	}
 
 	stream_putc(s, sid->flags);
 	stream_putc(s, sid->algorithm);
@@ -1121,12 +1126,15 @@ static void free_item_area_address(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_area_address(struct isis_item *i, struct stream *s)
+static int pack_item_area_address(struct isis_item *i, struct stream *s,
+				  size_t *min_len)
 {
 	struct isis_area_address *addr = (struct isis_area_address *)i;
 
-	if (STREAM_WRITEABLE(s) < (unsigned)1 + addr->len)
+	if (STREAM_WRITEABLE(s) < (unsigned)1 + addr->len) {
+		*min_len = (unsigned)1 + addr->len;
 		return 1;
+	}
 	stream_putc(s, addr->len);
 	stream_put(s, addr->addr, addr->len);
 	return 0;
@@ -1200,12 +1208,15 @@ static void free_item_oldstyle_reach(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_oldstyle_reach(struct isis_item *i, struct stream *s)
+static int pack_item_oldstyle_reach(struct isis_item *i, struct stream *s,
+				    size_t *min_len)
 {
 	struct isis_oldstyle_reach *r = (struct isis_oldstyle_reach *)i;
 
-	if (STREAM_WRITEABLE(s) < 11)
+	if (STREAM_WRITEABLE(s) < 11) {
+		*min_len = 11;
 		return 1;
+	}
 
 	stream_putc(s, r->metric);
 	stream_putc(s, 0x80); /* delay metric - unsupported */
@@ -1269,12 +1280,15 @@ static void free_item_lan_neighbor(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_lan_neighbor(struct isis_item *i, struct stream *s)
+static int pack_item_lan_neighbor(struct isis_item *i, struct stream *s,
+				  size_t *min_len)
 {
 	struct isis_lan_neighbor *n = (struct isis_lan_neighbor *)i;
 
-	if (STREAM_WRITEABLE(s) < 6)
+	if (STREAM_WRITEABLE(s) < 6) {
+		*min_len = 6;
 		return 1;
+	}
 
 	stream_put(s, n->mac, 6);
 
@@ -1334,12 +1348,15 @@ static void free_item_lsp_entry(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_lsp_entry(struct isis_item *i, struct stream *s)
+static int pack_item_lsp_entry(struct isis_item *i, struct stream *s,
+			       size_t *min_len)
 {
 	struct isis_lsp_entry *e = (struct isis_lsp_entry *)i;
 
-	if (STREAM_WRITEABLE(s) < 16)
+	if (STREAM_WRITEABLE(s) < 16) {
+		*min_len = 16;
 		return 1;
+	}
 
 	stream_putw(s, e->rem_lifetime);
 	stream_put(s, e->id, 8);
@@ -1414,14 +1431,17 @@ static void free_item_extended_reach(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, item);
 }
 
-static int pack_item_extended_reach(struct isis_item *i, struct stream *s)
+static int pack_item_extended_reach(struct isis_item *i, struct stream *s,
+				    size_t *min_len)
 {
 	struct isis_extended_reach *r = (struct isis_extended_reach *)i;
 	size_t len;
 	size_t len_pos;
 
-	if (STREAM_WRITEABLE(s) < 11 + ISIS_SUBTLV_MAX_SIZE)
+	if (STREAM_WRITEABLE(s) < 11 + ISIS_SUBTLV_MAX_SIZE) {
+		*min_len = 11 + ISIS_SUBTLV_MAX_SIZE;
 		return 1;
+	}
 
 	stream_put(s, r->id, sizeof(r->id));
 	stream_put3(s, r->metric);
@@ -1429,7 +1449,7 @@ static int pack_item_extended_reach(struct isis_item *i, struct stream *s)
 	 /* Real length will be adjust after adding subTLVs */
 	stream_putc(s, 11);
 	if (r->subtlvs)
-		pack_item_ext_subtlvs(r->subtlvs, s);
+		pack_item_ext_subtlvs(r->subtlvs, s, min_len);
 	/* Adjust length */
 	len = stream_get_endp(s) - len_pos - 1;
 	stream_putc_at(s, len_pos, len);
@@ -1522,12 +1542,15 @@ static void free_item_oldstyle_ip_reach(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_oldstyle_ip_reach(struct isis_item *i, struct stream *s)
+static int pack_item_oldstyle_ip_reach(struct isis_item *i, struct stream *s,
+				       size_t *min_len)
 {
 	struct isis_oldstyle_ip_reach *r = (struct isis_oldstyle_ip_reach *)i;
 
-	if (STREAM_WRITEABLE(s) < 12)
+	if (STREAM_WRITEABLE(s) < 12) {
+		*min_len = 12;
 		return 1;
+	}
 
 	stream_putc(s, r->metric);
 	stream_putc(s, 0x80); /* delay metric - unsupported */
@@ -1677,12 +1700,15 @@ static void free_item_ipv4_address(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_ipv4_address(struct isis_item *i, struct stream *s)
+static int pack_item_ipv4_address(struct isis_item *i, struct stream *s,
+				  size_t *min_len)
 {
 	struct isis_ipv4_address *a = (struct isis_ipv4_address *)i;
 
-	if (STREAM_WRITEABLE(s) < 4)
+	if (STREAM_WRITEABLE(s) < 4) {
+		*min_len = 4;
 		return 1;
+	}
 
 	stream_put(s, &a->addr, 4);
 
@@ -1738,12 +1764,15 @@ static void free_item_ipv6_address(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_ipv6_address(struct isis_item *i, struct stream *s)
+static int pack_item_ipv6_address(struct isis_item *i, struct stream *s,
+				  size_t *min_len)
 {
 	struct isis_ipv6_address *a = (struct isis_ipv6_address *)i;
 
-	if (STREAM_WRITEABLE(s) < 16)
+	if (STREAM_WRITEABLE(s) < 16) {
+		*min_len = 16;
 		return 1;
+	}
 
 	stream_put(s, &a->addr, 16);
 
@@ -1802,12 +1831,15 @@ static void free_item_mt_router_info(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_mt_router_info(struct isis_item *i, struct stream *s)
+static int pack_item_mt_router_info(struct isis_item *i, struct stream *s,
+				    size_t *min_len)
 {
 	struct isis_mt_router_info *info = (struct isis_mt_router_info *)i;
 
-	if (STREAM_WRITEABLE(s) < 2)
+	if (STREAM_WRITEABLE(s) < 2) {
+		*min_len = 2;
 		return 1;
+	}
 
 	uint16_t entry = info->mtid;
 
@@ -1962,13 +1994,16 @@ static void free_item_extended_ip_reach(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, item);
 }
 
-static int pack_item_extended_ip_reach(struct isis_item *i, struct stream *s)
+static int pack_item_extended_ip_reach(struct isis_item *i, struct stream *s,
+				       size_t *min_len)
 {
 	struct isis_extended_ip_reach *r = (struct isis_extended_ip_reach *)i;
 	uint8_t control;
 
-	if (STREAM_WRITEABLE(s) < 5)
+	if (STREAM_WRITEABLE(s) < 5) {
+		*min_len = 5;
 		return 1;
+	}
 	stream_putl(s, r->metric);
 
 	control = r->down ? ISIS_EXTENDED_IP_REACH_DOWN : 0;
@@ -1977,8 +2012,10 @@ static int pack_item_extended_ip_reach(struct isis_item *i, struct stream *s)
 
 	stream_putc(s, control);
 
-	if (STREAM_WRITEABLE(s) < (unsigned)PSIZE(r->prefix.prefixlen))
+	if (STREAM_WRITEABLE(s) < (unsigned)PSIZE(r->prefix.prefixlen)) {
+		*min_len = 5 + (unsigned)PSIZE(r->prefix.prefixlen);
 		return 1;
+	}
 	stream_put(s, &r->prefix.prefix.s_addr, PSIZE(r->prefix.prefixlen));
 
 	if (r->subtlvs)
@@ -2444,13 +2481,16 @@ static void free_item_ipv6_reach(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, item);
 }
 
-static int pack_item_ipv6_reach(struct isis_item *i, struct stream *s)
+static int pack_item_ipv6_reach(struct isis_item *i, struct stream *s,
+				size_t *min_len)
 {
 	struct isis_ipv6_reach *r = (struct isis_ipv6_reach *)i;
 	uint8_t control;
 
-	if (STREAM_WRITEABLE(s) < 6)
+	if (STREAM_WRITEABLE(s) < 6 + (unsigned)PSIZE(r->prefix.prefixlen)) {
+		*min_len = 6 + (unsigned)PSIZE(r->prefix.prefixlen);
 		return 1;
+	}
 	stream_putl(s, r->metric);
 
 	control = r->down ? ISIS_IPV6_REACH_DOWN : 0;
@@ -2460,8 +2500,6 @@ static int pack_item_ipv6_reach(struct isis_item *i, struct stream *s)
 	stream_putc(s, control);
 	stream_putc(s, r->prefix.prefixlen);
 
-	if (STREAM_WRITEABLE(s) < (unsigned)PSIZE(r->prefix.prefixlen))
-		return 1;
 	stream_put(s, &r->prefix.prefix.s6_addr, PSIZE(r->prefix.prefixlen));
 
 	if (r->subtlvs)
@@ -2909,23 +2947,30 @@ static void free_item_auth(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, i);
 }
 
-static int pack_item_auth(struct isis_item *i, struct stream *s)
+static int pack_item_auth(struct isis_item *i, struct stream *s,
+			  size_t *min_len)
 {
 	struct isis_auth *auth = (struct isis_auth *)i;
 
-	if (STREAM_WRITEABLE(s) < 1)
+	if (STREAM_WRITEABLE(s) < 1) {
+		*min_len = 1;
 		return 1;
+	}
 	stream_putc(s, auth->type);
 
 	switch (auth->type) {
 	case ISIS_PASSWD_TYPE_CLEARTXT:
-		if (STREAM_WRITEABLE(s) < auth->length)
+		if (STREAM_WRITEABLE(s) < auth->length) {
+			*min_len = 1 + auth->length;
 			return 1;
+		}
 		stream_put(s, auth->passwd, auth->length);
 		break;
 	case ISIS_PASSWD_TYPE_HMAC_MD5:
-		if (STREAM_WRITEABLE(s) < 16)
+		if (STREAM_WRITEABLE(s) < 16) {
+			*min_len = 1 + 16;
 			return 1;
+		}
 		auth->offset = stream_get_endp(s);
 		stream_put(s, NULL, 16);
 		break;
@@ -3160,14 +3205,14 @@ static void free_items(enum isis_tlv_context context, enum isis_tlv_type type,
 }
 
 static int pack_item(enum isis_tlv_context context, enum isis_tlv_type type,
-		     struct isis_item *i, struct stream *s,
+		     struct isis_item *i, struct stream *s, size_t *min_len,
 		     struct isis_tlvs **fragment_tlvs,
 		     const struct pack_order_entry *pe, uint16_t mtid)
 {
 	const struct tlv_ops *ops = tlv_table[context][type];
 
 	if (ops && ops->pack_item) {
-		return ops->pack_item(i, s);
+		return ops->pack_item(i, s, min_len);
 	}
 
 	assert(!"Unknown item tlv type!");
@@ -3201,6 +3246,7 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 	size_t len_pos, last_len, len;
 	struct isis_item *item = NULL;
 	int rv;
+	size_t min_len = 0;
 
 	if (!items->head)
 		return 0;
@@ -3228,7 +3274,8 @@ top:
 
 	last_len = len = 0;
 	for (item = item ? item : items->head; item; item = item->next) {
-		rv = pack_item(context, type, item, s, fragment_tlvs, pe, mtid);
+		rv = pack_item(context, type, item, s, &min_len, fragment_tlvs,
+			       pe, mtid);
 		if (rv)
 			goto too_long;
 
@@ -3272,6 +3319,8 @@ too_long:
 	if (!fragment_tlvs)
 		return 1;
 	stream_reset(s);
+	if (STREAM_WRITEABLE(s) < min_len)
+		return 1;
 	*fragment_tlvs = new_fragment(new_fragment_arg);
 	goto top;
 }
@@ -4488,9 +4537,9 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs,
 }
 
 DEFINE_HOOK(isis_adj_ip_enabled_hook, (struct isis_adjacency *adj, int family),
-	    (adj, family))
+	    (adj, family));
 DEFINE_HOOK(isis_adj_ip_disabled_hook,
-	    (struct isis_adjacency *adj, int family), (adj, family))
+	    (struct isis_adjacency *adj, int family), (adj, family));
 
 static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 				       struct isis_adjacency *adj,

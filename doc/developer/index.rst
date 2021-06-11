@@ -19,4 +19,5 @@ FRRouting Developer's Guide
    zebra
    vtysh
    path
+   pceplib
    link-state

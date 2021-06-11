@@ -34,7 +34,7 @@
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nexthop.h"
 
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_PEER, "RIPng peer")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_PEER, "RIPng peer");
 
 static struct ripng_peer *ripng_peer_new(void)
 {
@@ -163,8 +163,8 @@ void ripng_peer_display(struct vty *vty, struct ripng *ripng)
 	char timebuf[RIPNG_UPTIME_LEN];
 
 	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
-		vty_out(vty, "    %s \n%14s %10d %10d %10d      %s\n",
-			inet6_ntoa(peer->addr), " ", peer->recv_badpackets,
+		vty_out(vty, "    %pI6 \n%14s %10d %10d %10d      %s\n",
+			&peer->addr, " ", peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIPNG_DISTANCE_DEFAULT,
 			ripng_peer_uptime(peer, timebuf, RIPNG_UPTIME_LEN));
 	}

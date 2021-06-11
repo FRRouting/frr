@@ -145,26 +145,12 @@ class ThisTestTopo(Topo):
         switch[1].add_link(tgen.gears["r3"], nodeif="r3-eth1")
 
 
-l3mdev_accept = 0
-
-
 def ltemplatePreRouterStartHook():
-    global l3mdev_accept
     cc = ltemplateRtrCmd()
     krel = platform.release()
     tgen = get_topogen()
     logger.info("pre router-start hook, kernel=" + krel)
 
-    if (
-        topotest.version_cmp(krel, "4.15") >= 0
-        and topotest.version_cmp(krel, "4.18") <= 0
-    ):
-        l3mdev_accept = 1
-
-    if topotest.version_cmp(krel, "5.0") >= 0:
-        l3mdev_accept = 1
-
-    logger.info("setting net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
     # check for mpls
     if tgen.hasmpls != True:
         logger.info("MPLS not available, skipping setup")
@@ -187,10 +173,8 @@ def ltemplatePreRouterStartHook():
         "ip ru add oif {0}-cust1 table 10",
         "ip ru add iif {0}-cust1 table 10",
         "ip link set dev {0}-cust1 up",
-        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
     ]
     for rtr in rtrs:
-        router = tgen.gears[rtr]
         for cmd in cmds:
             cc.doCmd(tgen, rtr, cmd.format(rtr))
         cc.doCmd(tgen, rtr, "ip link set dev {0}-eth4 master {0}-cust1".format(rtr))
@@ -229,7 +213,6 @@ def ltemplatePreRouterStartHook():
         "ip ru add oif {0}-cust2 table 20",
         "ip ru add iif {0}-cust2 table 20",
         "ip link set dev {0}-cust2 up",
-        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
     ]
     for rtr in rtrs:
         for cmd in cmds:

@@ -113,6 +113,8 @@ struct kernel_ext_fmt
 	tree_code type_code;
 	int ptrlevel;
 	bool t_const;
+	bool t_unsigned;
+	bool t_signed;
 	bool warned;
 
 	const char *type_str;

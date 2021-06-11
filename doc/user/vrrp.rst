@@ -358,30 +358,26 @@ using VRRPv2.
 
 All interface configuration commands are documented below.
 
-.. index:: vrrp (1-255) [version (2-3)]
-.. clicmd:: [no] vrrp (1-255) [version (2-3)]
+.. clicmd:: vrrp (1-255) [version (2-3)]
 
    Create a VRRP router with the specified VRID on the interface. Optionally
    specify the protocol version. If the protocol version is not specified, the
    default is VRRPv3.
 
-.. index:: vrrp (1-255) advertisement-interval (10-40950)
-.. clicmd:: [no] vrrp (1-255) advertisement-interval (10-40950)
+.. clicmd:: vrrp (1-255) advertisement-interval (10-40950)
 
    Set the advertisement interval. This is the interval at which VRRP
    advertisements will be sent. Values are given in milliseconds, but must be
    multiples of 10, as VRRP itself uses centiseconds.
 
-.. index:: vrrp (1-255) ip A.B.C.D
-.. clicmd:: [no] vrrp (1-255) ip A.B.C.D
+.. clicmd:: vrrp (1-255) ip A.B.C.D
 
    Add an IPv4 address to the router. This address must already be configured
    on the appropriate macvlan device. Adding an IP address to the router will
    implicitly activate the router; see :clicmd:`[no] vrrp (1-255) shutdown` to
    override this behavior.
 
-.. index:: vrrp (1-255) ipv6 X:X::X:X
-.. clicmd:: [no] vrrp (1-255) ipv6 X:X::X:X
+.. clicmd:: vrrp (1-255) ipv6 X:X::X:X
 
    Add an IPv6 address to the router. This address must already be configured
    on the appropriate macvlan device. Adding an IP address to the router will
@@ -391,23 +387,20 @@ All interface configuration commands are documented below.
    This command will fail if the protocol version is set to VRRPv2, as VRRPv2
    does not support IPv6.
 
-.. index:: vrrp (1-255) preempt
-.. clicmd:: [no] vrrp (1-255) preempt
+.. clicmd:: vrrp (1-255) preempt
 
    Toggle preempt mode. When enabled, preemption allows Backup routers with
    higher priority to take over Master status from the existing Master. Enabled
    by default.
 
-.. index:: vrrp (1-255) priority (1-254)
-.. clicmd:: [no] vrrp (1-255) priority (1-254)
+.. clicmd:: vrrp (1-255) priority (1-254)
 
    Set the router priority. The router with the highest priority is elected as
    the Master. If all routers in the VRRP virtual router are configured with
    the same priority, the router with the highest primary IP address is elected
    as the Master. Priority value 255 is reserved for the acting Master router.
 
-.. index:: vrrp (1-255) shutdown
-.. clicmd:: [no] vrrp (1-255) shutdown
+.. clicmd:: vrrp (1-255) shutdown
 
    Place the router into administrative shutdown. VRRP will not activate for
    this router until this command is removed with the ``no`` form.
@@ -419,7 +412,6 @@ Global Configuration
 
 Show commands, global defaults and debugging configuration commands.
 
-.. index:: show vrrp [interface INTERFACE] [(1-255)] [json]
 .. clicmd:: show vrrp [interface INTERFACE] [(1-255)] [json]
 
    Shows VRRP status for some or all configured VRRP routers. Specifying an
@@ -427,8 +419,7 @@ Show commands, global defaults and debugging configuration commands.
    VRID will only show routers with that VRID. Specifying ``json`` will dump
    each router state in a JSON array.
 
-.. index:: debug vrrp [{protocol|autoconfigure|packets|sockets|ndisc|arp|zebra}]
-.. clicmd:: [no] debug vrrp [{protocol|autoconfigure|packets|sockets|ndisc|arp|zebra}]
+.. clicmd:: debug vrrp [{protocol|autoconfigure|packets|sockets|ndisc|arp|zebra}]
 
    Toggle debugging logs for VRRP components.
    If no component is specified, debugging for all components are turned on/off.
@@ -457,8 +448,7 @@ Show commands, global defaults and debugging configuration commands.
    zebra
       Logs communications with Zebra.
 
-.. index:: vrrp default <advertisement-interval (1-4096)|preempt|priority (1-254)|shutdown>
-.. clicmd:: [no] vrrp default <advertisement-interval (1-4096)|preempt|priority (1-254)|shutdown>
+.. clicmd:: vrrp default <advertisement-interval (1-4096)|preempt|priority (1-254)|shutdown>
 
    Configure defaults for new VRRP routers. These values will not affect
    already configured VRRP routers, but will be applied to newly configured
@@ -480,8 +470,7 @@ After configuring the interfaces as described in
 :ref:`vrrp-system-configuration`, and configuring any defaults you may want,
 execute the following command:
 
-.. index:: vrrp autoconfigure [version (2-3)]
-.. clicmd:: [no] vrrp autoconfigure [version (2-3)]
+.. clicmd:: vrrp autoconfigure [version (2-3)]
 
    Generates VRRP configuration based on the interface configuration on the
    base system. If the protocol version is not specified, the default is VRRPv3.

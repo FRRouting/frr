@@ -21,6 +21,21 @@
 extern "C" {
 #endif
 
+#ifdef __cplusplus
+# if __cplusplus < 201103L
+#  error FRRouting headers must be compiled in C++11 mode or newer
+# endif
+/* C++ defines static_assert(), but not _Static_assert().  C defines
+ * _Static_assert() and has static_assert() in <assert.h>.  However, we mess
+ * with assert() in zassert.h so let's not include <assert.h> here.
+ */
+# define _Static_assert static_assert
+#else
+# if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
+#  error FRRouting must be compiled with min. -std=gnu11 (GNU ISO C11 dialect)
+# endif
+#endif
+
 /* function attributes, use like
  *   void prototype(void) __attribute__((_CONSTRUCTOR(100)));
  */
@@ -121,6 +136,9 @@ extern "C" {
 #define macro_inline	static inline __attribute__((unused))
 #define macro_pure	static inline __attribute__((unused, pure))
 
+/* if the macro ends with a function definition */
+#define MACRO_REQUIRE_SEMICOLON() \
+	_Static_assert(1, "please add a semicolon after this macro")
 
 /* variadic macros, use like:
  * #define V_0()  ...
@@ -298,7 +316,7 @@ extern "C" {
          19, 18, 17, 16, 15, 14, 13, 12, 11, 10,           \
           9,  8,  7,  6,  5,  4,  3,  2,  1,  0
 
-#define PP_NARG_(...)    PP_ARG_N(__VA_ARGS__)    
+#define PP_NARG_(...) PP_ARG_N(__VA_ARGS__)
 #define PP_NARG(...)     PP_NARG_(_, ##__VA_ARGS__, PP_RSEQ_N())
 
 
@@ -340,6 +358,10 @@ extern "C" {
 #else /* !_FRR_ATTRIBUTE_PRINTFRR */
 #define PRINTFRR(a, b) __attribute__((format(printf, a, b)))
 
+/* frr-format plugin is C-only for now, so no point in doing these shenanigans
+ * for C++...  (also they can break some C++ stuff...)
+ */
+#ifndef __cplusplus
 /* these should be typedefs, but might also be #define */
 #ifdef uint64_t
 #undef uint64_t
@@ -357,10 +379,8 @@ typedef signed long long _int64_t;
 /* if this breaks, 128-bit machines may have entered reality (or <long long>
  * is something weird)
  */
-#if __STDC_VERSION__ >= 201112L
 _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 	       "nobody expects the spanish intquisition");
-#endif
 
 /* since we redefined int64_t, we also need to redefine PRI*64 */
 #undef PRIu64
@@ -369,6 +389,8 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #define PRIu64 "llu"
 #define PRId64 "lld"
 #define PRIx64 "llx"
+
+#endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
 
 #ifdef __cplusplus

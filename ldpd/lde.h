@@ -200,6 +200,7 @@ void		 lde_route_update_release(struct iface *, int);
 void		 lde_route_update_release_all(int);
 struct lde_addr	*lde_address_find(struct lde_nbr *, int,
 		    union ldpd_addr *);
+void		 lde_allow_broken_lsp_update(int new_config);
 
 /* lde_lib.c */
 void		 fec_init(struct fec_tree *);

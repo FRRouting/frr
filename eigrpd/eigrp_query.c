@@ -52,7 +52,6 @@
 #include "eigrpd/eigrp_macros.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_memory.h"
 
 uint32_t eigrp_query_send_all(struct eigrp *eigrp)
 {

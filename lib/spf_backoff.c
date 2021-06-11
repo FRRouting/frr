@@ -33,8 +33,8 @@
 #include "thread.h"
 #include "vty.h"
 
-DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF, "SPF backoff")
-DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF_NAME, "SPF backoff name")
+DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF, "SPF backoff");
+DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF_NAME, "SPF backoff name");
 
 static bool debug_spf_backoff = false;
 #define backoff_debug(...)                                                     \

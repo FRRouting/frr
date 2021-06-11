@@ -29,7 +29,7 @@
 #include "privs.h"
 #include "vty.h"
 #include "command.h"
-#include "version.h"
+#include "lib/version.h"
 #include "lib_vty.h"
 #include "log_vty.h"
 #include "zclient.h"
@@ -45,10 +45,11 @@
 #include "defaults.h"
 #include "frrscript.h"
 
-DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
-DEFINE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm))
-DEFINE_KOOH(frr_early_fini, (), ())
-DEFINE_KOOH(frr_fini, (), ())
+DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
+DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
+DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
+DEFINE_KOOH(frr_early_fini, (), ());
+DEFINE_KOOH(frr_fini, (), ());
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 char frr_vtydir[256];
@@ -69,8 +70,11 @@ static char dbfile_default[512];
 #endif
 static char vtypath_default[512];
 
+/* cleared in frr_preinit(), then re-set after daemonizing */
+bool frr_is_after_fork = true;
 bool debug_memstats_at_exit = false;
 static bool nodetach_term, nodetach_daemon;
+static uint64_t startup_fds;
 
 static char comb_optstr[256];
 static struct option comb_lo[64];
@@ -306,6 +310,7 @@ void frr_init_vtydir(void)
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 {
 	di = daemon;
+	frr_is_after_fork = false;
 
 	/* basename(), opencoded. */
 	char *p = strrchr(argv[0], '/');
@@ -341,6 +346,28 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
 
 	di->cli_mode = FRR_CLI_CLASSIC;
+
+	/* we may be starting with extra FDs open for whatever purpose,
+	 * e.g. logging, some module, etc.  Recording them here allows later
+	 * checking whether an fd is valid for such extension purposes,
+	 * without this we could end up e.g. logging to a BGP session fd.
+	 */
+	startup_fds = 0;
+	for (int i = 0; i < 64; i++) {
+		struct stat st;
+
+		if (fstat(i, &st))
+			continue;
+		if (S_ISDIR(st.st_mode) || S_ISBLK(st.st_mode))
+			continue;
+
+		startup_fds |= UINT64_C(0x1) << (uint64_t)i;
+	}
+}
+
+bool frr_is_startup_fd(int fd)
+{
+	return !!(startup_fds & (UINT64_C(0x1) << (uint64_t)fd));
 }
 
 void frr_opt_add(const char *optstr, const struct option *longopts,
@@ -738,15 +765,13 @@ struct thread_master *frr_init(void)
 	log_ref_vty_init();
 	lib_error_init();
 
-	yang_init(true);
-
-	debug_init_cli();
-
 	nb_init(master, di->yang_modules, di->n_yang_modules, true);
 	if (nb_db_init() != NB_OK)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
+
+	debug_init_cli();
 
 	return master;
 }
@@ -908,6 +933,8 @@ static void frr_daemonize(void)
  */
 static int frr_config_read_in(struct thread *t)
 {
+	hook_call(frr_config_pre, master);
+
 	if (!vty_read_config(vty_shared_candidate_config, di->config_file,
 			     config_default)
 	    && di->backup_config_file) {
@@ -941,7 +968,7 @@ static int frr_config_read_in(struct thread *t)
 				__func__, nb_err_name(ret), errmsg);
 	}
 
-	hook_call(frr_very_late_init, master);
+	hook_call(frr_config_post, master);
 
 	return 0;
 }
@@ -963,6 +990,8 @@ void frr_config_fork(void)
 
 	if (di->daemon_mode || di->terminal)
 		frr_daemonize();
+
+	frr_is_after_fork = true;
 
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;

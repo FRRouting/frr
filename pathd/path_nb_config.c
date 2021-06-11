@@ -160,6 +160,22 @@ int pathd_srte_segment_list_segment_sid_value_modify(
 	return NB_OK;
 }
 
+int pathd_srte_segment_list_segment_sid_value_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct srte_segment_entry *segment;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	segment = nb_running_get_entry(args->dnode, NULL, true);
+	segment->sid_value = MPLS_LABEL_NONE;
+	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
+
+	return NB_OK;
+}
+
+
 int pathd_srte_segment_list_segment_nai_destroy(struct nb_cb_destroy_args *args)
 {
 	struct srte_segment_entry *segment;
@@ -184,6 +200,8 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 	enum srte_segment_nai_type type;
 	struct ipaddr local_addr, remote_addr;
 	uint32_t local_iface = 0, remote_iface = 0;
+	uint8_t algo = 0, local_prefix_len = 0;
+	const char *algo_buf, *local_prefix_len_buf;
 
 	segment = nb_running_get_entry(args->dnode, NULL, true);
 	type = yang_dnode_get_enum(args->dnode, "./type");
@@ -207,12 +225,31 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 		remote_iface = yang_dnode_get_uint32(args->dnode,
 						     "./remote-interface");
 		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+		algo_buf = yang_dnode_get_string(args->dnode, "./algorithm");
+		algo = atoi(algo_buf);
+		local_prefix_len_buf = yang_dnode_get_string(
+			args->dnode, "./local-prefix-len");
+		local_prefix_len = atoi(local_prefix_len_buf);
+		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+		local_iface =
+			yang_dnode_get_uint32(args->dnode, "./local-interface");
+		local_prefix_len_buf = yang_dnode_get_string(
+			args->dnode, "./local-prefix-len");
+		local_prefix_len = atoi(local_prefix_len_buf);
+		break;
 	default:
 		break;
 	}
 
-	srte_segment_entry_set_nai(segment, type, &local_addr, local_iface,
-				   &remote_addr, remote_iface);
+	zlog_debug(" Segment list name (%d) index (%s) ", segment->index,
+		   segment->segment_list->name);
+	if (srte_segment_entry_set_nai(segment, type, &local_addr, local_iface,
+				       &remote_addr, remote_iface, algo,
+				       local_prefix_len))
+		SET_FLAG(segment->segment_list->flags,
+			 F_SEGMENT_LIST_SID_CONFLICT);
 }
 
 /*
@@ -302,7 +339,6 @@ int pathd_srte_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 	struct srte_policy *policy;
 	mpls_label_t binding_sid;
 
-	policy = nb_running_get_entry(args->dnode, NULL, true);
 	binding_sid = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
@@ -315,6 +351,7 @@ int pathd_srte_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		policy = nb_running_get_entry(args->dnode, NULL, true);
 		srte_policy_update_binding_sid(policy, binding_sid);
 		SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 		break;
@@ -668,11 +705,11 @@ int pathd_srte_policy_candidate_path_segment_list_name_modify(
 	struct srte_candidate *candidate;
 	const char *segment_list_name;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
-	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
-
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
 
 	candidate->segment_list = srte_segment_list_find(segment_list_name);
 	candidate->lsp->segment_list = candidate->segment_list;

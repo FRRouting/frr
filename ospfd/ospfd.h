@@ -242,6 +242,8 @@ struct ospf {
 	/* Threads. */
 	struct thread *t_abr_task;	  /* ABR task timer. */
 	struct thread *t_asbr_check;	/* ASBR check timer. */
+	struct thread *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
+						     update timer. */
 	struct thread *t_distribute_update; /* Distirbute list update timer. */
 	struct thread *t_spf_calc;	  /* SPF calculation timer. */
 	struct thread *t_ase_calc;	  /* ASE calculation timer. */
@@ -310,11 +312,6 @@ struct ospf {
 	/* Statistics for LSA used for new instantiation. */
 	uint32_t rx_lsa_count;
 
-	/* Counter of "ip ospf area x.x.x.x" used
-	 * for mutual exclusion of network command under
-	 * router ospf or ip ospf area x under interface. */
-	uint32_t if_ospf_cli_count;
-
 	struct route_table *distance_table;
 
 	/* Used during ospf instance going down send LSDB
@@ -379,6 +376,11 @@ struct ospf {
 	 */
 	int aggr_action;
 
+	/* Max number of multiple paths
+	 * to support ECMP.
+	 */
+	uint16_t max_multipath;
+
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
 
@@ -386,9 +388,9 @@ struct ospf {
 	bool ti_lfa_enabled;
 	enum protection_type ti_lfa_protection_type;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(ospf)
+DECLARE_QOBJ_TYPE(ospf);
 
 enum ospf_ti_lfa_p_q_space_adjacency {
 	OSPF_TI_LFA_P_Q_SPACE_ADJACENT,
@@ -424,7 +426,7 @@ struct protected_resource {
 	struct in_addr router_id;
 };
 
-PREDECL_RBTREE_UNIQ(q_spaces)
+PREDECL_RBTREE_UNIQ(q_spaces);
 struct q_space {
 	struct vertex *root;
 	struct list *vertex_list;
@@ -436,7 +438,7 @@ struct q_space {
 	struct q_spaces_item q_spaces_item;
 };
 
-PREDECL_RBTREE_UNIQ(p_spaces)
+PREDECL_RBTREE_UNIQ(p_spaces);
 struct p_space {
 	struct vertex *root;
 	struct protected_resource *protected_resource;
@@ -476,7 +478,7 @@ struct ospf_area {
 	int shortcut_capability; /* Other ABRs agree on S-bit */
 	uint32_t default_cost;   /* StubDefaultCost. */
 	int auth_type;		 /* Authentication type. */
-
+	int suppress_fa;	 /* Suppress forwarding address in NSSA ABR */
 
 	uint8_t NSSATranslatorRole; /* NSSA configured role */
 #define OSPF_NSSA_ROLE_NEVER     0
@@ -633,6 +635,7 @@ struct ospf_nbr_nbma {
 
 /* Extern variables. */
 extern struct ospf_master *om;
+extern unsigned short ospf_instance;
 extern const int ospf_redistributed_proto_max;
 extern struct zclient *zclient;
 extern struct thread_master *master;
@@ -642,13 +645,14 @@ extern struct zebra_privs_t ospfd_privs;
 /* Prototypes. */
 extern const char *ospf_redist_string(unsigned int route_type);
 extern struct ospf *ospf_lookup_instance(unsigned short);
+extern struct ospf *ospf_lookup(unsigned short instance, const char *name);
 extern struct ospf *ospf_get(unsigned short instance, const char *name,
 			     bool *created);
 extern struct ospf *ospf_new_alloc(unsigned short instance, const char *name);
-extern struct ospf *ospf_get_instance(unsigned short, bool *created);
 extern struct ospf *ospf_lookup_by_inst_name(unsigned short instance,
 					     const char *name);
 extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);
+extern uint32_t ospf_count_area_params(struct ospf *ospf);
 extern void ospf_finish(struct ospf *);
 extern void ospf_process_refresh_data(struct ospf *ospf, bool reset);
 extern void ospf_router_id_update(struct ospf *ospf);
@@ -667,6 +671,10 @@ extern int ospf_area_no_summary_set(struct ospf *, struct in_addr);
 extern int ospf_area_no_summary_unset(struct ospf *, struct in_addr);
 extern int ospf_area_nssa_set(struct ospf *, struct in_addr);
 extern int ospf_area_nssa_unset(struct ospf *, struct in_addr, int);
+extern int ospf_area_nssa_suppress_fa_set(struct ospf *ospf,
+					  struct in_addr area_id);
+extern int ospf_area_nssa_suppress_fa_unset(struct ospf *ospf,
+					    struct in_addr area_id);
 extern int ospf_area_nssa_translator_role_set(struct ospf *, struct in_addr,
 					      int);
 extern int ospf_area_export_list_set(struct ospf *, struct ospf_area *,
@@ -694,8 +702,6 @@ extern void ospf_terminate(void);
 extern void ospf_nbr_nbma_if_update(struct ospf *, struct ospf_interface *);
 extern struct ospf_nbr_nbma *ospf_nbr_nbma_lookup(struct ospf *,
 						  struct in_addr);
-extern struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next(struct ospf *,
-						       struct in_addr *, int);
 extern int ospf_oi_count(struct interface *);
 
 extern struct ospf_area *ospf_area_new(struct ospf *ospf,
@@ -728,4 +734,5 @@ extern int p_spaces_compare_func(const struct p_space *a,
 				 const struct p_space *b);
 extern int q_spaces_compare_func(const struct q_space *a,
 				 const struct q_space *b);
+
 #endif /* _ZEBRA_OSPFD_H */

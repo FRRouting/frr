@@ -50,5 +50,3 @@ ripngd_ripngd_SOURCES = \
 nodist_ripngd_ripngd_SOURCES = \
 	yang/frr-ripngd.yang.c \
 	# end
-
-dist_examples_DATA += ripngd/ripngd.conf.sample

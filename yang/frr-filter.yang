@@ -292,8 +292,6 @@ module frr-filter {
           mandatory true;
 
           case ipv4-prefix {
-            when "../type = 'ipv4'";
-
             leaf ipv4-prefix {
               description "Configure IPv4 prefix to match";
               type inet:ipv4-prefix;
@@ -318,8 +316,6 @@ module frr-filter {
             }
           }
           case ipv6-prefix {
-            when "../type = 'ipv6'";
-
             leaf ipv6-prefix {
               description "Configure IPv6 prefix to match";
               type inet:ipv6-prefix;

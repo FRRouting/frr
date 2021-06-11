@@ -38,7 +38,6 @@
 
 #include "zebra/zebra_router.h"
 #include "zebra/rib.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/router-id.h"
@@ -61,6 +60,9 @@
 #include "zebra/connected.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
+#include "zebra/zebra_srv6.h"
+
+DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
@@ -104,6 +106,7 @@ static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 	struct vrf_data data;
 	const char *netns_name = zvrf_ns_name(zvrf);
 
+	memset(&data, 0, sizeof(data));
 	data.l.table_id = zvrf->table_id;
 
 	if (netns_name)
@@ -725,8 +728,8 @@ int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 	}
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: type %d, id %d, note %d",
-			   __func__, type, id, note);
+		zlog_debug("%s: type %d, id %d, note %s",
+			   __func__, type, id, zapi_nhg_notify_owner2str(note));
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
@@ -865,18 +868,24 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
-void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
-			      enum zapi_ipset_notify_owner note)
+void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
+				uint16_t note)
 {
 	struct listnode *node;
 	struct zserv *client;
 	struct stream *s;
+	struct zebra_pbr_iptable ipt;
+	uint16_t cmd = ZEBRA_IPTABLE_NOTIFY_OWNER;
+
+	if (!dplane_ctx_get_pbr_iptable(ctx, &ipt))
+		return;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __func__, ipset->unique);
+		zlog_debug("%s: Notifying %s id %u note %u", __func__,
+			   zserv_command_string(cmd), ipt.unique, note);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		if (ipset->sock == client->sock)
+		if (ipt.sock == client->sock)
 			break;
 	}
 
@@ -885,27 +894,32 @@ void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_IPSET_NOTIFY_OWNER, VRF_DEFAULT);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_put(s, &note, sizeof(note));
-	stream_putl(s, ipset->unique);
-	stream_put(s, ipset->ipset_name, ZEBRA_IPSET_NAME_SIZE);
+	stream_putl(s, ipt.unique);
+	stream_put(s, ipt.ipset_name, ZEBRA_IPSET_NAME_SIZE);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zserv_send_message(client, s);
 }
 
-void zsend_ipset_entry_notify_owner(struct zebra_pbr_ipset_entry *ipset,
-				    enum zapi_ipset_entry_notify_owner note)
+void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx, uint16_t note)
 {
 	struct listnode *node;
 	struct zserv *client;
 	struct stream *s;
+	struct zebra_pbr_ipset ipset;
+	uint16_t cmd = ZEBRA_IPSET_NOTIFY_OWNER;
+
+	if (!dplane_ctx_get_pbr_ipset(ctx, &ipset))
+		return;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __func__, ipset->unique);
+		zlog_debug("%s: Notifying %s id %u note %u", __func__,
+			   zserv_command_string(cmd), ipset.unique, note);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		if (ipset->sock == client->sock)
+		if (ipset.sock == client->sock)
 			break;
 	}
 
@@ -914,27 +928,36 @@ void zsend_ipset_entry_notify_owner(struct zebra_pbr_ipset_entry *ipset,
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_IPSET_ENTRY_NOTIFY_OWNER, VRF_DEFAULT);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_put(s, &note, sizeof(note));
-	stream_putl(s, ipset->unique);
-	stream_put(s, ipset->backpointer->ipset_name, ZEBRA_IPSET_NAME_SIZE);
+	stream_putl(s, ipset.unique);
+	stream_put(s, ipset.ipset_name, ZEBRA_IPSET_NAME_SIZE);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zserv_send_message(client, s);
 }
 
-void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
-				enum zapi_iptable_notify_owner note)
+void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
+				    uint16_t note)
 {
 	struct listnode *node;
 	struct zserv *client;
 	struct stream *s;
+	struct zebra_pbr_ipset_entry ipent;
+	struct zebra_pbr_ipset ipset;
+	uint16_t cmd = ZEBRA_IPSET_ENTRY_NOTIFY_OWNER;
+
+	if (!dplane_ctx_get_pbr_ipset_entry(ctx, &ipent))
+		return;
+	if (!dplane_ctx_get_pbr_ipset(ctx, &ipset))
+		return;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __func__, iptable->unique);
+		zlog_debug("%s: Notifying %s id %u note %u", __func__,
+			   zserv_command_string(cmd), ipent.unique, note);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		if (iptable->sock == client->sock)
+		if (ipent.sock == client->sock)
 			break;
 	}
 
@@ -943,13 +966,44 @@ void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_IPTABLE_NOTIFY_OWNER, VRF_DEFAULT);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_put(s, &note, sizeof(note));
-	stream_putl(s, iptable->unique);
+	stream_putl(s, ipent.unique);
+	stream_put(s, ipset.ipset_name, ZEBRA_IPSET_NAME_SIZE);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zserv_send_message(client, s);
 }
+
+void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
+				struct ipaddr *ipaddr, int ndm_state,
+				union sockunion *link_layer_ipv4)
+{
+	struct stream *s;
+	struct listnode *node, *nnode;
+	struct zserv *client;
+	afi_t afi;
+	union sockunion ip;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying Neighbor entry (%u)", __func__, cmd);
+
+	sockunion_family(&ip) = ipaddr_family(ipaddr);
+	afi = family2afi(sockunion_family(&ip));
+	memcpy((char *)sockunion_get_addr(&ip), &ipaddr->ip.addr,
+	       family2addrsize(sockunion_family(&ip)));
+
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi], ifp->vrf_id))
+			continue;
+
+		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+		zclient_neigh_ip_encode(s, cmd, &ip, link_layer_ipv4, ifp);
+		stream_putw_at(s, 0, stream_get_endp(s));
+		zserv_send_message(client, s);
+	}
+}
+
 
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_UPDATE to client. */
 int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
@@ -1145,7 +1199,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		} else {
 			flog_err(
 				EC_ZEBRA_UNKNOWN_FAMILY,
-				"rnh_register: Received unknown family type %d\n",
+				"rnh_register: Received unknown family type %d",
 				p.family);
 			return;
 		}
@@ -1236,7 +1290,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 		} else {
 			flog_err(
 				EC_ZEBRA_UNKNOWN_FAMILY,
-				"rnh_register: Received unknown family type %d\n",
+				"rnh_register: Received unknown family type %d",
 				p.family);
 			return;
 		}
@@ -1286,7 +1340,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 		if (p.family != AF_INET && p.family != AF_INET6) {
 			flog_err(
 				EC_ZEBRA_UNKNOWN_FAMILY,
-				"fec_register: Received unknown family type %d\n",
+				"fec_register: Received unknown family type %d",
 				p.family);
 			return;
 		}
@@ -1352,7 +1406,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 		if (p.family != AF_INET && p.family != AF_INET6) {
 			flog_err(
 				EC_ZEBRA_UNKNOWN_FAMILY,
-				"fec_unregister: Received unknown family type %d\n",
+				"fec_unregister: Received unknown family type %d",
 				p.family);
 			return;
 		}
@@ -1694,6 +1748,27 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					   &api_nh->labels[0]);
 		}
 
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL)
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (IS_ZEBRA_DEBUG_RECV)
+				zlog_debug("%s: adding seg6local action %s",
+					   __func__,
+					   seg6local_action2str(
+						   api_nh->seg6local_action));
+
+			nexthop_add_srv6_seg6local(nexthop,
+						   api_nh->seg6local_action,
+						   &api_nh->seg6local_ctx);
+		}
+
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (IS_ZEBRA_DEBUG_RECV)
+				zlog_debug("%s: adding seg6", __func__);
+
+			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs);
+		}
+
 		if (IS_ZEBRA_DEBUG_RECV) {
 			labelbuf[0] = '\0';
 			nhbuf[0] = '\0';
@@ -1867,27 +1942,35 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	/*
-	 * Create the nhg
-	 */
-	nhe = zebra_nhg_proto_add(api_nhg.id, api_nhg.proto, client->instance,
-				  client->session_id, nhg, 0);
+	/* Create a temporary nhe */
+	nhe = zebra_nhg_alloc();
+	nhe->id = api_nhg.id;
+	nhe->type = api_nhg.proto;
+	nhe->zapi_instance = client->instance;
+	nhe->zapi_session = client->session_id;
 
-	nexthop_group_delete(&nhg);
-	zebra_nhg_backup_free(&bnhg);
+	/* Take over the list(s) of nexthops */
+	nhe->nhg.nexthop = nhg->nexthop;
+	nhg->nexthop = NULL;
+
+	if (bnhg) {
+		nhe->backup_info = bnhg;
+		bnhg = NULL;
+	}
 
 	/*
 	 * TODO:
 	 * Assume fully resolved for now and install.
-	 *
 	 * Resolution is going to need some more work.
 	 */
 
-	/* If there's a failure, notify sender immediately */
-	if (nhe == NULL)
-		zsend_nhg_notify(api_nhg.proto, client->instance,
-				 client->session_id, api_nhg.id,
-				 ZAPI_NHG_FAIL_INSTALL);
+	/* Enqueue to workqueue for processing */
+	rib_queue_nhe_add(nhe);
+
+	/* Free any local allocations */
+	nexthop_group_delete(&nhg);
+	zebra_nhg_backup_free(&bnhg);
+
 }
 
 static void zread_route_add(ZAPI_HANDLER_ARGS)
@@ -2052,6 +2135,11 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			client->v6_route_upd8_cnt++;
 		break;
 	}
+}
+
+void zapi_opaque_free(struct opaque *opaque)
+{
+	XFREE(MTYPE_OPAQUE, opaque);
 }
 
 static void zread_route_del(ZAPI_HANDLER_ARGS)
@@ -2249,6 +2337,7 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 	}
 }
 
@@ -2441,7 +2530,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	if (zapi_sr_policy_decode(s, &zp) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return;
 	}
 	zt = &zp.segment_list;
@@ -2449,7 +2538,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug(
 				"%s: SR-TE tunnel must contain at least one label",
-				__PRETTY_FUNCTION__);
+				__func__);
 		return;
 	}
 
@@ -2476,7 +2565,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	if (zapi_sr_policy_decode(s, &zp) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return;
 	}
 
@@ -2486,8 +2575,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
 	if (!policy) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to find SR-TE policy",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("%s: Unable to find SR-TE policy", __func__);
 		return;
 	}
 
@@ -2543,6 +2631,29 @@ int zsend_client_close_notify(struct zserv *client, struct zserv *closed_client)
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
+	return zserv_send_message(client, s);
+}
+
+int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
+						  vrf_id_t vrf_id,
+						  struct srv6_locator *loc)
+{
+	struct srv6_locator_chunk chunk = {};
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	strlcpy(chunk.locator_name, loc->name, sizeof(chunk.locator_name));
+	chunk.prefix = loc->prefix;
+	chunk.block_bits_length = loc->block_bits_length;
+	chunk.node_bits_length = loc->node_bits_length;
+	chunk.function_bits_length = loc->function_bits_length;
+	chunk.argument_bits_length = loc->argument_bits_length;
+	chunk.keep = 0;
+	chunk.proto = client->proto;
+	chunk.instance = client->instance;
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK, vrf_id);
+	zapi_srv6_locator_chunk_encode(s, &chunk);
+	stream_putw_at(s, 0, stream_get_endp(s));
 	return zserv_send_message(client, s);
 }
 
@@ -2737,7 +2848,7 @@ stream_failure:
 
 static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 {
-	/* to avoid sending other messages like ZERBA_INTERFACE_UP */
+	/* to avoid sending other messages like ZEBRA_INTERFACE_UP */
 	if (hdr->command == ZEBRA_TABLE_MANAGER_CONNECT)
 		zread_table_manager_connect(client, msg, zvrf_id(zvrf));
 	else {
@@ -2745,13 +2856,69 @@ static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 		if (!client->proto) {
 			flog_err(
 				EC_ZEBRA_TM_ALIENS,
-				"Got table request from an unidentified client");
+				"Got SRv6 request from an unidentified client");
 			return;
 		}
 		if (hdr->command == ZEBRA_GET_TABLE_CHUNK)
 			zread_get_table_chunk(client, msg, zvrf_id(zvrf));
 		else if (hdr->command == ZEBRA_RELEASE_TABLE_CHUNK)
 			zread_release_table_chunk(client, msg);
+	}
+}
+
+static void zread_srv6_manager_get_locator_chunk(struct zserv *client,
+						 struct stream *msg,
+						 vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = {0};
+
+	/* Get data. */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* call hook to get a chunk using wrapper */
+	struct srv6_locator *loc = NULL;
+	srv6_manager_get_locator_chunk_call(&loc, client, locator_name, vrf_id);
+
+stream_failure:
+	return;
+}
+
+static void zread_srv6_manager_release_locator_chunk(struct zserv *client,
+						     struct stream *msg,
+						     vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = {0};
+
+	/* Get data. */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* call hook to release a chunk using wrapper */
+	srv6_manager_release_locator_chunk_call(client, locator_name, vrf_id);
+
+stream_failure:
+	return;
+}
+
+static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
+{
+	switch (hdr->command) {
+	case ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK:
+		zread_srv6_manager_get_locator_chunk(client, msg,
+						     zvrf_id(zvrf));
+		break;
+	case ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK:
+		zread_srv6_manager_release_locator_chunk(client, msg,
+							 zvrf_id(zvrf));
+		break;
+	default:
+		zlog_err("%s: unknown SRv6 Manager command", __func__);
+		break;
 	}
 }
 
@@ -3139,6 +3306,152 @@ stream_failure:
 	return;
 }
 
+
+static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
+{
+	afi_t afi;
+
+	STREAM_GETW(msg, afi);
+	if (afi <= AFI_UNSPEC || afi >= AFI_MAX) {
+		zlog_warn(
+			"Invalid AFI %u while registering for neighbors notifications",
+			afi);
+		goto stream_failure;
+	}
+	vrf_bitmap_set(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+stream_failure:
+	return;
+}
+
+static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
+{
+	afi_t afi;
+
+	STREAM_GETW(msg, afi);
+	if (afi <= AFI_UNSPEC || afi >= AFI_MAX) {
+		zlog_warn(
+			"Invalid AFI %u while unregistering from neighbor notifications",
+			afi);
+		goto stream_failure;
+	}
+	vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+stream_failure:
+	return;
+}
+
+static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	ifindex_t idx;
+	struct interface *ifp;
+	struct zebra_if *zebra_if = NULL;
+	struct zebra_l2info_gre *gre_info;
+	struct interface *ifp_link = NULL;
+	vrf_id_t vrf_id_link = VRF_UNKNOWN;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+
+	s = msg;
+	STREAM_GETL(s, idx);
+	ifp  = if_lookup_by_index(idx, vrf_id);
+
+	if (ifp)
+		zebra_if = ifp->info;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_GRE_UPDATE, vrf_id);
+
+	if (ifp  && IS_ZEBRA_IF_GRE(ifp) && zebra_if) {
+		gre_info = &zebra_if->l2info.gre;
+
+		stream_putl(s, idx);
+		stream_putl(s, gre_info->ikey);
+		stream_putl(s, gre_info->ikey);
+		stream_putl(s, gre_info->ifindex_link);
+
+		ifp_link = if_lookup_by_index_per_ns(
+					zebra_ns_lookup(gre_info->link_nsid),
+					gre_info->ifindex_link);
+		if (ifp_link)
+			vrf_id_link = ifp_link->vrf_id;
+		stream_putl(s, vrf_id_link);
+		stream_putl(s, gre_info->vtep_ip.s_addr);
+		stream_putl(s, gre_info->vtep_ip_remote.s_addr);
+	} else {
+		stream_putl(s, idx);
+		stream_putl(s, 0);
+		stream_putl(s, 0);
+		stream_putl(s, IFINDEX_INTERNAL);
+		stream_putl(s, VRF_UNKNOWN);
+		stream_putl(s, 0);
+	}
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zserv_send_message(client, s);
+
+	return;
+ stream_failure:
+	return;
+}
+
+static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	uint8_t fam;
+	ifindex_t idx;
+	struct interface *ifp;
+
+	s = msg;
+	STREAM_GETC(s, fam);
+	if (fam != AF_INET && fam != AF_INET6)
+		return;
+	STREAM_GETL(s, idx);
+	ifp = if_lookup_by_index_per_ns(zvrf->zns, idx);
+	if (!ifp)
+		return;
+	dplane_neigh_table_update(ifp, fam, 1, 0, 0);
+stream_failure:
+	return;
+}
+
+static inline void zebra_neigh_ip_add(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_neigh_ip api = {};
+	int ret;
+	const struct interface *ifp;
+
+	s = msg;
+	ret = zclient_neigh_ip_decode(s, &api);
+	if (ret < 0)
+		return;
+	ifp = if_lookup_by_index(api.index, zvrf_id(zvrf));
+	if (!ifp)
+		return;
+	dplane_neigh_ip_update(DPLANE_OP_NEIGH_IP_INSTALL, ifp, &api.ip_out,
+			       &api.ip_in, api.ndm_state, client->proto);
+}
+
+
+static inline void zebra_neigh_ip_del(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_neigh_ip api = {};
+	int ret;
+	struct interface *ifp;
+
+	s = msg;
+	ret = zclient_neigh_ip_decode(s, &api);
+	if (ret < 0)
+		return;
+	ifp = if_lookup_by_index(api.index, zvrf_id(zvrf));
+	if (!ifp)
+		return;
+	dplane_neigh_ip_update(DPLANE_OP_NEIGH_IP_DELETE, ifp, &api.ip_out,
+			       &api.ip_in, api.ndm_state, client->proto);
+}
+
+
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
 	struct zebra_pbr_iptable *zpi =
@@ -3211,6 +3524,57 @@ static inline void zread_neigh_discover(ZAPI_HANDLER_ARGS)
 	dplane_neigh_discover(ifp, &ip);
 
 stream_failure:
+	return;
+}
+
+static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	ifindex_t idx, link_idx;
+	vrf_id_t link_vrf_id;
+	struct interface *ifp;
+	struct interface *ifp_link;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+	struct zebra_if *zif, *gre_zif;
+	struct zebra_l2info_gre *gre_info;
+	unsigned int mtu;
+
+	s = msg;
+	STREAM_GETL(s, idx);
+	ifp  = if_lookup_by_index(idx, vrf_id);
+	STREAM_GETL(s, link_idx);
+	STREAM_GETL(s, link_vrf_id);
+	STREAM_GETL(s, mtu);
+
+	ifp_link  = if_lookup_by_index(link_idx, link_vrf_id);
+	if (!ifp_link || !ifp) {
+		zlog_warn("GRE (index %u, VRF %u) or GRE link interface (index %u, VRF %u) not found, when setting GRE params",
+			  idx, vrf_id, link_idx, link_vrf_id);
+		return;
+	}
+
+	if (!IS_ZEBRA_IF_GRE(ifp))
+		return;
+
+	gre_zif = (struct zebra_if *)ifp->info;
+	zif = (struct zebra_if *)ifp_link->info;
+	if (!zif || !gre_zif)
+		return;
+
+	gre_info = &zif->l2info.gre;
+	if (!gre_info)
+		return;
+
+	if (!mtu)
+		mtu = ifp->mtu;
+
+	/* if gre link already set or mtu did not change, do not set it */
+	if (gre_zif->link && gre_zif->link == ifp_link && mtu == ifp->mtu)
+		return;
+
+	dplane_gre_set(ifp, ifp_link, mtu, gre_info);
+
+ stream_failure:
 	return;
 }
 
@@ -3317,11 +3681,22 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK] = zread_srv6_manager_request,
 	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,
 	[ZEBRA_NHG_DEL] = zread_nhg_del,
 	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
+	[ZEBRA_EVPN_REMOTE_NH_ADD] = zebra_evpn_proc_remote_nh,
+	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,
+	[ZEBRA_NEIGH_IP_ADD] = zebra_neigh_ip_add,
+	[ZEBRA_NEIGH_IP_DEL] = zebra_neigh_ip_del,
+	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
+	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
+	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
+	[ZEBRA_GRE_GET] = zebra_gre_get,
+	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
 };
 
 /*

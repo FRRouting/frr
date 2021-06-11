@@ -4,4 +4,4 @@
 # and so that those used to the presence of bootstrap.sh or autogen.sh
 # will have an eaiser time.
 
-autoreconf -i
+exec autoreconf -is -Wall,no-override

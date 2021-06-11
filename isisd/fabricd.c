@@ -22,7 +22,6 @@
 #include <zebra.h>
 #include "isisd/fabricd.h"
 #include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_adjacency.h"
@@ -33,9 +32,9 @@
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_csm.h"
 
-DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric")
-DEFINE_MTYPE_STATIC(ISISD, FABRICD_NEIGHBOR, "ISIS OpenFabric Neighbor Entry")
-DEFINE_MTYPE_STATIC(ISISD, FABRICD_FLOODING_INFO, "ISIS OpenFabric Flooding Log")
+DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric");
+DEFINE_MTYPE_STATIC(ISISD, FABRICD_NEIGHBOR, "ISIS OpenFabric Neighbor Entry");
+DEFINE_MTYPE_STATIC(ISISD, FABRICD_FLOODING_INFO, "ISIS OpenFabric Flooding Log");
 
 /* Tracks initial synchronization as per section 2.4
  *

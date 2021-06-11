@@ -29,6 +29,12 @@
 #define OSPF6_LSA_DEBUG_EXAMIN    0x04
 #define OSPF6_LSA_DEBUG_FLOOD     0x08
 
+/* OSPF LSA Default metric values */
+#define DEFAULT_DEFAULT_METRIC 20
+#define DEFAULT_DEFAULT_ORIGINATE_METRIC 10
+#define DEFAULT_DEFAULT_ALWAYS_METRIC 1
+#define DEFAULT_METRIC_TYPE 2
+
 #define IS_OSPF6_DEBUG_LSA(name)                                               \
 	(ospf6_lstype_debug(htons(OSPF6_LSTYPE_##name)) & OSPF6_LSA_DEBUG)
 #define IS_OSPF6_DEBUG_ORIGINATE(name)                                         \
@@ -74,6 +80,11 @@
 #define OSPF6_SCOPE_AS         0x4000
 #define OSPF6_SCOPE_RESERVED   0x6000
 
+/* AS-external-LSA refresh method. */
+#define LSA_REFRESH_IF_CHANGED  0
+#define LSA_REFRESH_FORCE       1
+
+
 /* XXX U-bit handling should be treated here */
 #define OSPF6_LSA_SCOPE(type) (ntohs(type) & OSPF6_LSTYPE_SCOPE_MASK)
 
@@ -107,6 +118,7 @@ struct ospf6_lsa_header {
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
 #define OSPF6_LSA_IS_SEQWRAP(L) ((L)->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER + 1))
 
+
 struct ospf6_lsa {
 	char name[64]; /* dump string */
 
@@ -127,6 +139,8 @@ struct ospf6_lsa {
 
 	struct ospf6_lsdb *lsdb;
 
+	in_addr_t external_lsa_id;
+
 	/* lsa instance */
 	struct ospf6_lsa_header *header;
 };
@@ -137,6 +151,7 @@ struct ospf6_lsa {
 #define OSPF6_LSA_IMPLIEDACK 0x08
 #define OSPF6_LSA_UNAPPROVED 0x10
 #define OSPF6_LSA_SEQWRAPPED 0x20
+#define OSPF6_LSA_FLUSH      0x40
 
 struct ospf6_lsa_handler {
 	uint16_t lh_type; /* host byte order */
@@ -197,6 +212,8 @@ extern vector ospf6_lsa_handler_vector;
 extern const char *ospf6_lstype_name(uint16_t type);
 extern const char *ospf6_lstype_short_name(uint16_t type);
 extern uint8_t ospf6_lstype_debug(uint16_t type);
+extern int metric_type(struct ospf6 *ospf6, int type, uint8_t instance);
+extern int metric_value(struct ospf6 *ospf6, int type, uint8_t instance);
 extern int ospf6_lsa_is_differ(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 extern int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 extern uint16_t ospf6_lsa_age_current(struct ospf6_lsa *);
@@ -217,6 +234,7 @@ extern void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 extern void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 			   json_object *json, bool use_json);
 
+extern struct ospf6_lsa *ospf6_lsa_alloc(size_t lsa_length);
 extern struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header);
 extern struct ospf6_lsa *
 ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header);

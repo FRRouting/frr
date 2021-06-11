@@ -24,6 +24,7 @@
 #define ISISD_H
 
 #include "vty.h"
+#include "memory.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -34,9 +35,10 @@
 #include "isis_flags.h"
 #include "isis_lsp.h"
 #include "isis_lfa.h"
-#include "isis_memory.h"
 #include "qobj.h"
 #include "ldp_sync.h"
+
+DECLARE_MGROUP(ISISD);
 
 #ifdef FABRICD
 static const bool fabricd = true;
@@ -87,15 +89,14 @@ struct isis {
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
 	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
-	struct list *init_circ_list;
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
+	int snmp_notifications;
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
-	struct ldp_sync_info_cmd ldp_sync_cmd; 	/* MPLS LDP-IGP Sync */
 };
 
 extern struct isis_master *im;
@@ -168,6 +169,7 @@ struct isis_area {
 	char is_type; /* level-1 level-1-2 or level-2-only */
 	/* are we overloaded? */
 	char overload_bit;
+	uint32_t overload_counter;
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;
@@ -180,6 +182,9 @@ struct isis_area {
 	int lsp_frag_threshold;
 	uint64_t lsp_gen_count[ISIS_LEVELS];
 	uint64_t lsp_purge_count[ISIS_LEVELS];
+	uint32_t lsp_exceeded_max_counter;
+	uint32_t lsp_seqno_skipped_counter;
+	uint64_t spf_run_count[ISIS_LEVELS];
 	int ip_circuits;
 	/* logging adjacency changes? */
 	uint8_t log_adj_changes;
@@ -203,6 +208,8 @@ struct isis_area {
 	struct prefix_list *rlfa_plist[ISIS_LEVELS];
 	size_t rlfa_protected_links[ISIS_LEVELS];
 	size_t tilfa_protected_links[ISIS_LEVELS];
+	/* MPLS LDP-IGP Sync */
+	struct ldp_sync_info_cmd ldp_sync_cmd;
 	/* Counters */
 	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
@@ -220,12 +227,23 @@ struct isis_area {
 	pdu_counter_t pdu_rx_counters;
 	uint64_t lsp_rxmt_count;
 
-	QOBJ_FIELDS
+	/* Area counters */
+	uint64_t rej_adjacencies[2];
+	uint64_t auth_type_failures[2];
+	uint64_t auth_failures[2];
+	uint64_t id_len_mismatches[2];
+	uint64_t lsp_error_counter[2];
+
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(isis_area)
+DECLARE_QOBJ_TYPE(isis_area);
+
+DECLARE_MTYPE(ISIS_ACL_NAME);	/* isis_area->spf_prefix_prioritites */
+DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
+
+DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
-void isis_finish(struct isis *isis);
 void isis_master_init(struct thread_master *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
@@ -238,11 +256,19 @@ void isis_init(void);
 void isis_vrf_init(void);
 
 struct isis *isis_new(const char *vrf_name);
+void isis_finish(struct isis *isis);
+
+void isis_area_add_circuit(struct isis_area *area,
+			   struct isis_circuit *circuit);
+void isis_area_del_circuit(struct isis_area *area,
+			   struct isis_circuit *circuit);
+
 struct isis_area *isis_area_create(const char *, const char *);
 struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
 					  const char *vrf_name);
 int isis_area_get(struct vty *vty, const char *area_tag);
+int isis_area_count(const struct isis *isis, int levels);
 void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);
 void isis_prefix_list_update(struct prefix_list *plist);

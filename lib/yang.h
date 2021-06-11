@@ -99,13 +99,10 @@ enum yang_iter_flags {
 
 	/* Filter RPC input/output nodes. */
 	YANG_ITER_FILTER_INPUT_OUTPUT = (1<<2),
-
-	/* Filter implicitely created nodes. */
-	YANG_ITER_FILTER_IMPLICIT = (1<<3),
 };
 
 /* Callback used by the yang_snodes_iterate_*() family of functions. */
-typedef int (*yang_iterate_cb)(const struct lys_node *snode, void *arg);
+typedef int (*yang_iterate_cb)(const struct lysc_node *snode, void *arg);
 
 /* Callback used by the yang_dnode_iterate() function. */
 typedef int (*yang_dnode_iter_cb)(const struct lyd_node *dnode, void *arg);
@@ -180,7 +177,7 @@ extern void yang_module_embed(struct yang_module_embed *embed);
  * Returns:
  *    The return value of the last called callback.
  */
-extern int yang_snodes_iterate_subtree(const struct lys_node *snode,
+extern int yang_snodes_iterate_subtree(const struct lysc_node *snode,
 				       const struct lys_module *module,
 				       yang_iterate_cb cb, uint16_t flags,
 				       void *arg);
@@ -222,7 +219,7 @@ extern int yang_snodes_iterate(const struct lys_module *module,
  * xpath_len
  *    Size of the xpath buffer.
  */
-extern void yang_snode_get_path(const struct lys_node *snode,
+extern void yang_snode_get_path(const struct lysc_node *snode,
 				enum yang_path_type type, char *xpath,
 				size_t xpath_len);
 
@@ -236,7 +233,7 @@ extern void yang_snode_get_path(const struct lys_node *snode,
  * Returns:
  *    The parent libyang schema node if found, or NULL if not found.
  */
-extern struct lys_node *yang_snode_real_parent(const struct lys_node *snode);
+extern struct lysc_node *yang_snode_real_parent(const struct lysc_node *snode);
 
 /*
  * Find first parent schema node which is a list.
@@ -247,7 +244,7 @@ extern struct lys_node *yang_snode_real_parent(const struct lys_node *snode);
  * Returns:
  *    The parent libyang schema node (list) if found, or NULL if not found.
  */
-extern struct lys_node *yang_snode_parent_list(const struct lys_node *snode);
+extern struct lysc_node *yang_snode_parent_list(const struct lysc_node *snode);
 
 /*
  * Check if the libyang schema node represents typeless data (e.g. containers,
@@ -259,7 +256,7 @@ extern struct lys_node *yang_snode_parent_list(const struct lys_node *snode);
  * Returns:
  *    true if the schema node represents typeless data, false otherwise.
  */
-extern bool yang_snode_is_typeless_data(const struct lys_node *snode);
+extern bool yang_snode_is_typeless_data(const struct lysc_node *snode);
 
 /*
  * Get the default value associated to a YANG leaf or leaf-list.
@@ -270,7 +267,7 @@ extern bool yang_snode_is_typeless_data(const struct lys_node *snode);
  * Returns:
  *    The default value if it exists, NULL otherwise.
  */
-extern const char *yang_snode_get_default(const struct lys_node *snode);
+extern const char *yang_snode_get_default(const struct lysc_node *snode);
 
 /*
  * Get the type structure of a leaf of leaf-list. If the type is a leafref, the
@@ -283,7 +280,27 @@ extern const char *yang_snode_get_default(const struct lys_node *snode);
  *    The found type if the schema node represents a leaf or a leaf-list, NULL
  *    otherwise.
  */
-extern const struct lys_type *yang_snode_get_type(const struct lys_node *snode);
+extern const struct lysc_type *
+yang_snode_get_type(const struct lysc_node *snode);
+
+/*
+ * Get the number of key nodes for the given list.
+ *
+ * snode
+ *    libyang (LYS_LIST) schema node to operate on.
+ *
+ * Returns:
+ *    The number of key LYS_LEAFs as children of this list node.
+ */
+extern unsigned int yang_snode_num_keys(const struct lysc_node *snode);
+
+#define LY_FOR_KEYS(snode, skey)                                               \
+	for ((skey) = (const struct lysc_node_leaf *)lysc_node_child((snode)); \
+	     (skey); (skey) = (const struct lysc_node_leaf *)((skey)->next))   \
+		if (!lysc_is_key(skey)) {                                      \
+			break;                                                 \
+		} else
+
 
 /*
  * Build data path of the data node.
@@ -322,14 +339,49 @@ extern const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
  * dnode
  *    Base libyang data node to operate on.
  *
- * xpath_fmt
- *    XPath expression (absolute or relative).
+ * xpath
+ *    Limited XPath (absolute or relative) string. See Path in libyang
+ *    documentation for restrictions.
  *
  * Returns:
  *    The libyang data node if found, or NULL if not found.
  */
 extern struct lyd_node *yang_dnode_get(const struct lyd_node *dnode,
-				       const char *xpath_fmt, ...);
+				       const char *xpath);
+
+/*
+ * Find a libyang data node by its YANG data path.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath_fmt
+ *    Limited XPath (absolute or relative) format string. See Path in libyang
+ *    documentation for restrictions.
+ *
+ * ...
+ *    any parameters for xpath_fmt.
+ *
+ * Returns:
+ *    The libyang data node if found, or NULL if not found.
+ */
+extern struct lyd_node *yang_dnode_getf(const struct lyd_node *dnode,
+					const char *path_fmt, ...);
+
+/*
+ * Check if a libyang data node exists.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath
+ *    Limited XPath (absolute or relative) string. See Path in libyang
+ *    documentation for restrictions.
+ *
+ * Returns:
+ *    true if a libyang data node was found, false otherwise.
+ */
+extern bool yang_dnode_exists(const struct lyd_node *dnode, const char *xpath);
 
 /*
  * Check if a libyang data node exists.
@@ -338,13 +390,17 @@ extern struct lyd_node *yang_dnode_get(const struct lyd_node *dnode,
  *    Base libyang data node to operate on.
  *
  * xpath_fmt
- *    XPath expression (absolute or relative).
+ *    Limited XPath (absolute or relative) format string. See Path in
+ *    libyang documentation for restrictions.
+ *
+ * ...
+ *    any parameters for xpath_fmt.
  *
  * Returns:
- *    true if the libyang data node was found, false otherwise.
+ *    true if a libyang data node was found, false otherwise.
  */
-extern bool yang_dnode_exists(const struct lyd_node *dnode,
-			      const char *xpath_fmt, ...);
+extern bool yang_dnode_existsf(const struct lyd_node *dnode,
+			       const char *xpath_fmt, ...);
 
 /*
  * Iterate over all libyang data nodes that satisfy an XPath query.
@@ -360,6 +416,9 @@ extern bool yang_dnode_exists(const struct lyd_node *dnode,
  *
  * xpath_fmt
  *    XPath expression (absolute or relative).
+ *
+ * ...
+ *    any parameters for xpath_fmt.
  */
 void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
 			const struct lyd_node *dnode, const char *xpath_fmt,
@@ -372,7 +431,7 @@ void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
  * dnode
  *    Base libyang data node to operate on.
  *
- * xpath_fmt
+ * xpath
  *    Optional XPath expression (absolute or relative) to specify a different
  *    data node to operate on in the same data tree.
  *
@@ -380,7 +439,27 @@ void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
  *    true if the data node contains the default value, false otherwise.
  */
 extern bool yang_dnode_is_default(const struct lyd_node *dnode,
-				  const char *xpath_fmt, ...);
+				  const char *xpath);
+
+/*
+ * Check if the libyang data node contains a default value. Non-presence
+ * containers are assumed to always contain a default value.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath
+ *    Optional limited XPath (absolute or relative) format string. See Path in
+ *    libyang documentation for restrictions.
+ *
+ * ...
+ *    any parameters for xpath_fmt.
+ *
+ * Returns:
+ *    true if the data node contains the default value, false otherwise.
+ */
+extern bool yang_dnode_is_defaultf(const struct lyd_node *dnode,
+				   const char *xpath_fmt, ...);
 
 /*
  * Check if the libyang data node and all of its children contain default
@@ -437,7 +516,8 @@ extern struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode);
  * Delete a libyang data node.
  *
  * dnode
- *    Pointer to the libyang data node that is going to be deleted.
+ *    Pointer to the libyang data node that is going to be deleted along with
+ *    the entire tree it belongs to.
  */
 extern void yang_dnode_free(struct lyd_node *dnode);
 
@@ -493,8 +573,13 @@ extern struct yang_data *yang_data_list_find(const struct list *list,
  *
  * embedded_modules
  *    Specify whether libyang should attempt to look for embedded YANG modules.
+ *
+ * explicit_compile
+ *    True if the caller will later call ly_ctx_compile to compile all loaded
+ *    modules at once.
  */
-extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules);
+extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
+					 bool explicit_compile);
 
 /*
  * Enable or disable libyang verbose debugging.
@@ -528,8 +613,16 @@ extern const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf,
  *
  * embedded_modules
  *    Specify whether libyang should attempt to look for embedded YANG modules.
+ * defer_compile
+ *    Hold off on compiling modules until yang_init_loading_complete is called.
  */
-extern void yang_init(bool embedded_modules);
+extern void yang_init(bool embedded_modules, bool defer_compile);
+
+/*
+ * Should be called after yang_init and all yang_module_load()s have been done,
+ * compiles all modules loaded into the yang context.
+ */
+extern void yang_init_loading_complete(void);
 
 /*
  * Finish the YANG subsystem gracefully. Should be called only when the daemon
@@ -582,10 +675,6 @@ extern uint32_t yang_get_list_pos(const struct lyd_node *node);
  * Returns : The number of dnodes present in the list
  */
 extern uint32_t yang_get_list_elements_count(const struct lyd_node *node);
-
-
-/* To get the immediate child of a dnode */
-const struct lyd_node *yang_dnode_get_child(const struct lyd_node *dnode);
 
 /* API to check if the given node is last node in the list */
 bool yang_is_last_list_dnode(const struct lyd_node *dnode);

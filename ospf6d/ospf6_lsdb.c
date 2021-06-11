@@ -34,6 +34,8 @@
 #include "ospf6d.h"
 #include "bitfield.h"
 
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSDB, "OSPF6 LSA database");
+
 struct ospf6_lsdb *ospf6_lsdb_create(void *data)
 {
 	struct ospf6_lsdb *lsdb;
@@ -318,9 +320,17 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 	struct ospf6_lsa *lsa, *lsanext;
 
 	for (ALL_LSDB(lsdb, lsa, lsanext)) {
-		if (!OSPF6_LSA_IS_MAXAGE(lsa))
+		if (!OSPF6_LSA_IS_MAXAGE(lsa)) {
+			if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type))
+				zlog_debug("Not MaxAge %s", lsa->name);
 			continue;
+		}
+
 		if (lsa->retrans_count != 0) {
+			if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type))
+				zlog_debug("Remove MaxAge %s retrans_count %d",
+					   lsa->name, lsa->retrans_count);
+
 			reschedule = 1;
 			continue;
 		}
@@ -339,6 +349,7 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 			THREAD_OFF(lsa->refresh);
 			thread_execute(master, ospf6_lsa_refresh, lsa, 0);
 		} else {
+			zlog_debug("calling ospf6_lsdb_remove %s", lsa->name);
 			ospf6_lsdb_remove(lsa, lsdb);
 		}
 	}

@@ -90,6 +90,7 @@ lib_libfrr_la_SOURCES = \
 	lib/spf_backoff.c \
 	lib/srcdest_table.c \
 	lib/stream.c \
+	lib/strformat.c \
 	lib/strlcat.c \
 	lib/strlcpy.c \
 	lib/systemd.c \
@@ -103,6 +104,7 @@ lib_libfrr_la_SOURCES = \
 	lib/vty.c \
 	lib/wheel.c \
 	lib/workqueue.c \
+	lib/xref.c \
 	lib/yang.c \
 	lib/yang_translator.c \
 	lib/yang_wrappers.c \
@@ -139,10 +141,14 @@ vtysh_scan += \
 	lib/if_rmap.c \
 	lib/keychain.c \
 	lib/lib_vty.c \
+	lib/log_vty.c \
 	lib/nexthop_group.c \
 	lib/plist.c \
+	lib/resolver.c \
 	lib/routemap.c \
 	lib/routemap_cli.c \
+	lib/spf_backoff.c \
+	lib/thread.c \
 	lib/vrf.c \
 	lib/vty.c \
 	# end
@@ -241,6 +247,7 @@ pkginclude_HEADERS += \
 	lib/queue.h \
 	lib/ringbuf.h \
 	lib/routemap.h \
+	lib/route_opaque.h \
 	lib/sbuf.h \
 	lib/seqlock.h \
 	lib/sha256.h \
@@ -268,16 +275,18 @@ pkginclude_HEADERS += \
 	lib/vxlan.h \
 	lib/wheel.h \
 	lib/workqueue.h \
+	lib/xref.h \
 	lib/yang.h \
 	lib/yang_translator.h \
 	lib/yang_wrappers.h \
-	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/zlog.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/routing_nb.h \
+	\
+	lib/assert/assert.h \
 	# end
 
 
@@ -311,7 +320,7 @@ if SNMP
 lib_LTLIBRARIES += lib/libfrrsnmp.la
 endif
 
-lib_libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
+lib_libfrrsnmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
 lib_libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
 lib_libfrrsnmp_la_LIBADD = $(SNMP_LIBS)
 lib_libfrrsnmp_la_SOURCES = \
@@ -327,7 +336,7 @@ lib_LTLIBRARIES += lib/libfrrcares.la
 pkginclude_HEADERS += lib/resolver.h
 endif
 
-lib_libfrrcares_la_CFLAGS = $(WERROR) $(CARES_CFLAGS)
+lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
 lib_libfrrcares_la_LDFLAGS = -version-info 0:0:0
 lib_libfrrcares_la_LIBADD = $(CARES_LIBS)
 lib_libfrrcares_la_SOURCES = \
@@ -342,7 +351,7 @@ lib_LTLIBRARIES += lib/libfrrzmq.la
 pkginclude_HEADERS += lib/frr_zmq.h
 endif
 
-lib_libfrrzmq_la_CFLAGS = $(WERROR) $(ZEROMQ_CFLAGS)
+lib_libfrrzmq_la_CFLAGS = $(AM_CFLAGS) $(ZEROMQ_CFLAGS)
 lib_libfrrzmq_la_LDFLAGS = -version-info 0:0:0
 lib_libfrrzmq_la_LIBADD = $(ZEROMQ_LIBS)
 lib_libfrrzmq_la_SOURCES = \
@@ -356,7 +365,7 @@ if CONFD
 module_LTLIBRARIES += lib/confd.la
 endif
 
-lib_confd_la_CFLAGS = $(WERROR) $(CONFD_CFLAGS)
+lib_confd_la_CFLAGS = $(AM_CFLAGS) $(CONFD_CFLAGS)
 lib_confd_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 lib_confd_la_LIBADD = lib/libfrr.la $(CONFD_LIBS)
 lib_confd_la_SOURCES = lib/northbound_confd.c
@@ -368,7 +377,7 @@ if SYSREPO
 module_LTLIBRARIES += lib/sysrepo.la
 endif
 
-lib_sysrepo_la_CFLAGS = $(WERROR) $(SYSREPO_CFLAGS)
+lib_sysrepo_la_CFLAGS = $(AM_CFLAGS) $(SYSREPO_CFLAGS)
 lib_sysrepo_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 lib_sysrepo_la_LIBADD = lib/libfrr.la $(SYSREPO_LIBS)
 lib_sysrepo_la_SOURCES = lib/northbound_sysrepo.c
@@ -406,20 +415,23 @@ lib_grammar_sandbox_SOURCES = \
 lib_grammar_sandbox_LDADD = \
 	lib/libfrr.la
 
-lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
-lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
-lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS)
+lib_clippy_CPPFLAGS = $(CPPFLAGS_BASE) -D_GNU_SOURCE -DBUILDING_CLIPPY
+lib_clippy_CFLAGS = $(AC_CFLAGS) $(PYTHON_CFLAGS)
+lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS) -lelf
 lib_clippy_LDFLAGS = -export-dynamic
 lib_clippy_SOURCES = \
+	lib/jhash.c \
 	lib/clippy.c \
 	lib/command_graph.c \
 	lib/command_lex.l \
 	lib/command_parse.y \
 	lib/command_py.c \
 	lib/defun_lex.l \
+	lib/elf_py.c \
 	lib/graph.c \
 	lib/libfrr_trace.c \
 	lib/memory.c \
+	lib/typesafe.c \
 	lib/vector.c \
 	# end
 
@@ -435,6 +447,32 @@ CLIPPY_DEPS = $(CLIPPY) $(top_srcdir)/python/clidef.py
 SUFFIXES += _clippy.c
 .c_clippy.c:
 	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
+
+# xrelfo, the ELF xref extractor
+
+AM_V_XRELFO = $(am__v_XRELFO_$(V))
+am__v_XRELFO_ = $(am__v_XRELFO_$(AM_DEFAULT_VERBOSITY))
+am__v_XRELFO_0 = @echo "  XRELFO  " $@;
+am__v_XRELFO_1 =
+
+if DEV_BUILD
+XRELFO_FLAGS = -Wlog-format -Wlog-args
+else
+XRELFO_FLAGS =
+endif
+
+SUFFIXES += .xref
+%.xref: % $(CLIPPY)
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(XRELFO_FLAGS) -o $@ $<
+
+# dependencies added in python/makefile.py
+frr.xref:
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
+all-am: frr.xref
+
+clean-xref:
+	-rm -rf $(xrefs) frr.xref
+clean-local: clean-xref
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:

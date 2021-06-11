@@ -103,6 +103,9 @@
 /* Extended Communities type flag.  */
 #define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40
 
+/* Extended Community readable string length */
+#define ECOMMUNITY_STRLEN 64
+
 /* Extended Communities attribute.  */
 struct ecommunity {
 	/* Reference counter.  */

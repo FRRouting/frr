@@ -22,68 +22,88 @@ ripngd Configuration
 
 Currently ripngd supports the following commands:
 
-.. index:: router ripng
 .. clicmd:: router ripng
 
    Enable RIPng.
 
-.. index:: flush_timer TIME
 .. clicmd:: flush_timer TIME
 
    Set flush timer.
 
-.. index:: network NETWORK
 .. clicmd:: network NETWORK
 
    Set RIPng enabled interface by NETWORK.
 
-.. index:: network IFNAME
 .. clicmd:: network IFNAME
 
    Set RIPng enabled interface by IFNAME.
 
-.. index:: route NETWORK
 .. clicmd:: route NETWORK
 
    Set RIPng static routing announcement of NETWORK.
 
-.. index:: router zebra
-.. clicmd:: router zebra
-
-   This command is the default and does not appear in the configuration. With
-   this statement, RIPng routes go to the *zebra* daemon.
 
 .. _ripngd-terminal-mode-commands:
 
 ripngd Terminal Mode Commands
 =============================
 
-.. index:: show ip ripng
 .. clicmd:: show ip ripng
 
-.. index:: show debugging ripng
 .. clicmd:: show debugging ripng
 
-.. index:: debug ripng events
 .. clicmd:: debug ripng events
 
-.. index:: debug ripng packet
 .. clicmd:: debug ripng packet
 
-.. index:: debug ripng zebra
 .. clicmd:: debug ripng zebra
 
 
 ripngd Filtering Commands
 =========================
 
-.. index:: distribute-list ACCESS_LIST (in|out) IFNAME
-.. clicmd:: distribute-list ACCESS_LIST (in|out) IFNAME
+RIPng routes can be filtered by a distribute-list.
 
-   You can apply an access-list to the interface using the `distribute-list`
-   command. ACCESS_LIST is an access-list name. `direct` is ``in`` or
-   ``out``. If `direct` is ``in``, the access-list is applied only to incoming
-   packets.::
+.. clicmd:: distribute-list [prefix] LIST <in|out> IFNAME
 
-      distribute-list local-only out sit1
+   You can apply access lists to the interface with a `distribute-list` command.
+   If prefix is specified LIST is a prefix-list.  If prefix is not specified
+   then LIST is the access list name.  `in` specifies packets being received,
+   and `out` specifies outgoing packets.  Finally if an interface is specified
+   it will be applied against a specific interface.
 
+   The ``distribute-list`` command can be used to filter the RIPNG path.
+   ``distribute-list`` can apply access-lists to a chosen interface.  First, one
+   should specify the access-list. Next, the name of the access-list is used in
+   the distribute-list command. For example, in the following configuration
+   ``eth0`` will permit only the paths that match the route 10.0.0.0/8
+
+   .. code-block:: frr
+
+      !
+      router ripng
+       distribute-list private in eth0
+      !
+      access-list private permit 10 10.0.0.0/8
+      access-list private deny any
+      !
+
+
+   `distribute-list` can be applied to both incoming and outgoing data.
+
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+   debug ripng events
+   debug ripng packet
+
+   router ripng
+    network sit1
+    route 3ffe:506::0/32
+    distribute-list local-only out sit1
+
+   ipv6 access-list local-only permit 3ffe:506::0/32
+   ipv6 access-list local-only deny any

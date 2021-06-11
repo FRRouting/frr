@@ -22,8 +22,6 @@
 #ifndef _ZEBRA_LOG_H
 #define _ZEBRA_LOG_H
 
-#include "zassert.h"
-
 #include <syslog.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -61,16 +59,6 @@ struct message {
 	int key;
 	const char *str;
 };
-
-/* For logs which have error codes associated with them */
-#define flog_err(ferr_id, format, ...)                                        \
-	zlog_err("[EC %u] " format, ferr_id, ##__VA_ARGS__)
-#define flog_err_sys(ferr_id, format, ...)                                     \
-	flog_err(ferr_id, format, ##__VA_ARGS__)
-#define flog_warn(ferr_id, format, ...)                                        \
-	zlog_warn("[EC %u] " format, ferr_id, ##__VA_ARGS__)
-#define flog(priority, ferr_id, format, ...)                                   \
-	zlog(priority, "[EC %u] " format, ferr_id, ##__VA_ARGS__)
 
 extern void zlog_thread_info(int log_level);
 

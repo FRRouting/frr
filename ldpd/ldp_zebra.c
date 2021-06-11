@@ -54,6 +54,7 @@ static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
+static bool zebra_registered = false;
 
 static void
 ifp2kif(struct interface *ifp, struct kif *kif)
@@ -245,12 +246,17 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 		zl.route.instance = kr->route_instance;
 	}
 
-	/*
-	 * For broken LSPs, instruct the forwarding plane to pop the top-level
+	/* If allow-broken-lsps is enabled then if an lsp is received with
+	 * no remote label, instruct the forwarding plane to pop the top-level
 	 * label and forward packets normally. This is a best-effort attempt
 	 * to deliver labeled IP packets to their final destination (instead of
 	 * dropping them).
 	 */
+	if (kr->remote_label == NO_LABEL
+	    && !(ldpd_conf->flags & F_LDPD_ALLOW_BROKEN_LSP)
+	    && cmd == ZEBRA_MPLS_LABELS_ADD)
+		return 0;
+
 	if (kr->remote_label == NO_LABEL)
 		kr->remote_label = MPLS_LABEL_IMPLICIT_NULL;
 
@@ -629,14 +635,42 @@ ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS)
 	return (0);
 }
 
+void ldp_zebra_regdereg_zebra_info(bool want_register)
+{
+	if (zebra_registered == want_register)
+		return;
+
+	log_debug("%s to receive default VRF information",
+		  want_register ? "Register" : "De-register");
+
+	if (want_register) {
+		zclient_send_reg_requests(zclient, VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+					ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient,
+					AFI_IP6, ZEBRA_ROUTE_ALL, 0,
+					VRF_DEFAULT);
+	} else {
+		zclient_send_dereg_requests(zclient, VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+					AFI_IP, ZEBRA_ROUTE_ALL, 0,
+					VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+					AFI_IP6, ZEBRA_ROUTE_ALL, 0,
+					VRF_DEFAULT);
+	}
+	zebra_registered = want_register;
+}
+
 static void
 ldp_zebra_connected(struct zclient *zclient)
 {
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	zebra_registered = false;
+
+	/* if MPLS was already enabled and we are re-connecting, register again
+	 */
+	if (vty_conf->flags & F_LDPD_ENABLED)
+		ldp_zebra_regdereg_zebra_info(true);
 
 	ldp_zebra_opaque_register();
 
@@ -650,9 +684,8 @@ ldp_zebra_filter_update(struct access_list *access)
 
 	if (access && access->name[0] != '\0') {
 		strlcpy(laccess.name, access->name, sizeof(laccess.name));
-		laccess.type = access->type;
-		debug_evt("%s ACL update filter name %s type %d", __func__,
-		    access->name, access->type);
+		debug_evt("%s ACL update filter name %s", __func__,
+			  access->name);
 
 		main_imsg_compose_both(IMSG_FILTER_UPDATE, &laccess,
 			sizeof(laccess));

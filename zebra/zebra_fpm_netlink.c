@@ -500,9 +500,8 @@ static void zfpm_log_route_info(struct netlink_route_info *ri,
 	unsigned int i;
 	char buf[PREFIX_STRLEN];
 
-	zfpm_debug("%s : %s %s, Proto: %s, Metric: %u", label,
-		   nl_msg_type_to_str(ri->nlmsg_type),
-		   prefix2str(ri->prefix, buf, sizeof(buf)),
+	zfpm_debug("%s : %s %pFX, Proto: %s, Metric: %u", label,
+		   nl_msg_type_to_str(ri->nlmsg_type), ri->prefix,
 		   nl_rtproto_to_str(ri->rtm_protocol),
 		   ri->metric ? *ri->metric : 0);
 
@@ -557,7 +556,6 @@ int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 			    size_t in_buf_len)
 {
-	char buf1[ETHER_ADDR_STRLEN];
 	size_t buf_offset;
 
 	struct macmsg {
@@ -600,11 +598,10 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 
 	assert(req->hdr.nlmsg_len < in_buf_len);
 
-	zfpm_debug("Tx %s family %s ifindex %u MAC %s DEST %pI4",
+	zfpm_debug("Tx %s family %s ifindex %u MAC %pEA DEST %pI4",
 		   nl_msg_type_to_str(req->hdr.nlmsg_type),
 		   nl_family_to_str(req->ndm.ndm_family), req->ndm.ndm_ifindex,
-		   prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1)),
-		   &mac->r_vtep_ip);
+		   &mac->macaddr, &mac->r_vtep_ip);
 
 	return req->hdr.nlmsg_len;
 }

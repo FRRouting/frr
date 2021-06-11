@@ -109,12 +109,6 @@ struct bpacket {
 struct bpacket_queue {
 	TAILQ_HEAD(pkt_queue, bpacket) pkts;
 
-#if 0
-  /* A dummy packet that is used to thread all peers that have
-     completed their work */
-  struct bpacket sentinel;
-#endif
-
 	unsigned int conf_max_count;
 	unsigned int curr_count;
 	unsigned int hwm_count;

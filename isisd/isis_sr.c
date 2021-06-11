@@ -49,7 +49,7 @@
 #include "isisd/isis_errors.h"
 
 /* Local variables and functions */
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information")
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information");
 
 static void sr_local_block_delete(struct isis_area *area);
 static int sr_local_block_init(struct isis_area *area);
@@ -73,7 +73,7 @@ static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 	return prefix_cmp(&a->prefix, &b->prefix);
 }
 DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
-		    sr_prefix_sid_cfg_compare)
+		    sr_prefix_sid_cfg_compare);
 
 /**
  * Find SRGB associated to a System ID.
@@ -361,9 +361,9 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 	pcfg->last_hop_behavior = yang_get_default_enum(
 		"%s/prefix-sid-map/prefix-sid/last-hop-behavior", ISIS_SR);
 
-	/* Set the N-flag when appropriate. */
+	/* Mark as node Sid if the prefix is host and configured in loopback */
 	ifp = if_lookup_prefix(prefix, VRF_DEFAULT);
-	if (ifp && sr_prefix_is_node_sid(ifp, prefix) && !pcfg->n_flag_clear)
+	if (ifp && sr_prefix_is_node_sid(ifp, prefix))
 		pcfg->node_sid = true;
 
 	/* Save prefix-sid configuration. */
@@ -438,7 +438,7 @@ void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 	}
 	if (external)
 		SET_FLAG(psid->flags, ISIS_PREFIX_SID_READVERTISED);
-	if (pcfg->node_sid)
+	if (pcfg->node_sid && !pcfg->n_flag_clear)
 		SET_FLAG(psid->flags, ISIS_PREFIX_SID_NODE);
 
 	/* Set SID value. */
@@ -948,8 +948,7 @@ static int sr_if_new_hook(struct interface *ifp)
 		if (!pcfg)
 			continue;
 
-		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)
-		    && !pcfg->n_flag_clear) {
+		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)) {
 			pcfg->node_sid = true;
 			lsp_regenerate_schedule(area, area->is_type, 0);
 		}
@@ -1213,14 +1212,14 @@ void isis_sr_area_init(struct isis_area *area)
 	/* Pull defaults from the YANG module. */
 #ifndef FABRICD
 	srdb->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SR);
-	srdb->config.srgb_lower_bound =
-		yang_get_default_uint32("%s/srgb/lower-bound", ISIS_SR);
-	srdb->config.srgb_upper_bound =
-		yang_get_default_uint32("%s/srgb/upper-bound", ISIS_SR);
-	srdb->config.srlb_lower_bound =
-		yang_get_default_uint32("%s/srlb/lower-bound", ISIS_SR);
-	srdb->config.srlb_upper_bound =
-		yang_get_default_uint32("%s/srlb/upper-bound", ISIS_SR);
+	srdb->config.srgb_lower_bound = yang_get_default_uint32(
+		"%s/label-blocks/srgb/lower-bound", ISIS_SR);
+	srdb->config.srgb_upper_bound = yang_get_default_uint32(
+		"%s/label-blocks/srgb/upper-bound", ISIS_SR);
+	srdb->config.srlb_lower_bound = yang_get_default_uint32(
+		"%s/label-blocks/srlb/lower-bound", ISIS_SR);
+	srdb->config.srlb_upper_bound = yang_get_default_uint32(
+		"%s/label-blocks/srlb/upper-bound", ISIS_SR);
 #else
 	srdb->config.enabled = false;
 	srdb->config.srgb_lower_bound = SRGB_LOWER_BOUND;

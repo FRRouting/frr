@@ -193,7 +193,8 @@ FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 		.n_signals = array_size(isisd_signals),
 
 		.privs = &isisd_privs, .yang_modules = isisd_yang_modules,
-		.n_yang_modules = array_size(isisd_yang_modules), )
+		.n_yang_modules = array_size(isisd_yang_modules),
+);
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.
@@ -264,11 +265,8 @@ int main(int argc, char **argv, char **envp)
 	lsp_init();
 	mt_init();
 
-	/* create the global 'isis' instance */
-	isis_global_instance_create(VRF_DEFAULT_NAME);
-
 	isis_zebra_init(master, instance);
-	isis_bfd_init();
+	isis_bfd_init(master);
 	isis_ldp_sync_init();
 	fabricd_init();
 

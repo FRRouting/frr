@@ -95,6 +95,10 @@ static void adj_free(struct bgp_adj_out *adj)
 {
 	TAILQ_REMOVE(&(adj->subgroup->adjq), adj, subgrp_adj_train);
 	SUBGRP_DECR_STAT(adj->subgroup, adj_count);
+
+	RB_REMOVE(bgp_adj_out_rb, &adj->dest->adj_out, adj);
+	bgp_dest_unlock_node(adj->dest);
+
 	XFREE(MTYPE_BGP_ADJ_OUT, adj);
 }
 
@@ -263,7 +267,7 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 				}
 				if ((flags & UPDWALK_FLAGS_ADVQUEUE) && adj->adv
 				    && adj->adv->baa) {
-					route_vty_out_tmp(vty, dest_p,
+					route_vty_out_tmp(vty, dest, dest_p,
 							  adj->adv->baa->attr,
 							  SUBGRP_SAFI(subgrp),
 							  0, NULL, false);
@@ -271,7 +275,7 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 				}
 				if ((flags & UPDWALK_FLAGS_ADVERTISED)
 				    && adj->attr) {
-					route_vty_out_tmp(vty, dest_p,
+					route_vty_out_tmp(vty, dest, dest_p,
 							  adj->attr,
 							  SUBGRP_SAFI(subgrp),
 							  0, NULL, false);
@@ -402,11 +406,9 @@ struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 	adj->subgroup = subgrp;
 	adj->addpath_tx_id = addpath_tx_id;
 
-	if (dest) {
-		RB_INSERT(bgp_adj_out_rb, &dest->adj_out, adj);
-		bgp_dest_lock_node(dest);
-		adj->dest = dest;
-	}
+	RB_INSERT(bgp_adj_out_rb, &dest->adj_out, adj);
+	bgp_dest_lock_node(dest);
+	adj->dest = dest;
 
 	TAILQ_INSERT_TAIL(&(subgrp->adjq), adj, subgrp_adj_train);
 	SUBGRP_INCR_STAT(subgrp, adj_count);
@@ -601,13 +603,8 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 			if (trigger_write)
 				subgroup_trigger_write(subgrp);
 		} else {
-			/* Remove myself from adjacency. */
-			RB_REMOVE(bgp_adj_out_rb, &dest->adj_out, adj);
-
 			/* Free allocated information.  */
 			adj_free(adj);
-
-			bgp_dest_unlock_node(dest);
 		}
 	}
 
@@ -623,7 +620,6 @@ void bgp_adj_out_remove_subgroup(struct bgp_dest *dest, struct bgp_adj_out *adj,
 	if (adj->adv)
 		bgp_advertise_clean_subgroup(subgrp, adj);
 
-	RB_REMOVE(bgp_adj_out_rb, &dest->adj_out, adj);
 	adj_free(adj);
 }
 
@@ -635,11 +631,8 @@ void subgroup_clear_table(struct update_subgroup *subgrp)
 {
 	struct bgp_adj_out *aout, *taout;
 
-	SUBGRP_FOREACH_ADJ_SAFE (subgrp, aout, taout) {
-		struct bgp_dest *dest = aout->dest;
-		bgp_adj_out_remove_subgroup(dest, aout, subgrp);
-		bgp_dest_unlock_node(dest);
-	}
+	SUBGRP_FOREACH_ADJ_SAFE (subgrp, aout, taout)
+		bgp_adj_out_remove_subgroup(aout->dest, aout, subgrp);
 }
 
 /*
@@ -927,14 +920,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 						bgp_advertise_clean_subgroup(
 							subgrp, adj);
 
-					/* Remove  from adjacency. */
-					RB_REMOVE(bgp_adj_out_rb,
-						  &dest->adj_out, adj);
-
 					/* Free allocated information.  */
 					adj_free(adj);
-
-					bgp_dest_unlock_node(dest);
 				}
 			}
 

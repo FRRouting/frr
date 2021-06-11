@@ -53,6 +53,12 @@ struct bgp;
 	" Helper - GR Mode-Helper,\n" \
 	"       Disable - GR Mode-Disable.\n\n"
 
+#define BGP_SHOW_SUMMARY_HEADER_ALL                                            \
+	"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
+#define BGP_SHOW_SUMMARY_HEADER_ALL_WIDE                                       \
+	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
+#define BGP_SHOW_SUMMARY_HEADER_FAILED "EstdCnt DropCnt ResetTime Reason\n"
+
 #define BGP_SHOW_PEER_GR_CAPABILITY( \
 			vty, p, use_json, json) \
 	do {			\
@@ -148,6 +154,7 @@ struct bgp;
 	} while (0)
 
 extern void bgp_vty_init(void);
+extern void community_alias_vty(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
 extern int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		       enum bgp_instance_type inst_type);
@@ -178,8 +185,8 @@ extern int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 int bgp_vty_find_and_parse_bgp(struct vty *vty, struct cmd_token **argv,
 			       int argc, struct bgp **bgp, bool use_json);
 extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-				safi_t safi, bool show_failed,
-				bool show_established, bool use_json);
+				safi_t safi, const char *neighbor, int as_type,
+				as_t as, uint16_t show_flags);
 extern int bgp_clear_star_soft_in(const char *name, char *errmsg,
 				  size_t errmsg_len);
 extern int bgp_clear_star_soft_out(const char *name, char *errmsg,
@@ -200,9 +207,9 @@ extern int peer_local_interface_cfg(struct bgp *bgp, const char *ip_str,
 				    const char *str, char *errmsg,
 				    size_t errmsg_len);
 extern int peer_conf_interface_create(struct bgp *bgp, const char *conf_if,
-				      afi_t afi, safi_t safi, bool v6only,
-				      const char *peer_group_name, int as_type,
-				      as_t as, char *errmsg, size_t errmsg_len);
+				      bool v6only, const char *peer_group_name,
+				      int as_type, as_t as, char *errmsg,
+				      size_t errmsg_len);
 extern int peer_flag_modify_nb(struct bgp *bgp, const char *ip_str,
 			       struct peer *peer, uint32_t flag, bool set,
 			       char *errmsg, size_t errmsg_len);

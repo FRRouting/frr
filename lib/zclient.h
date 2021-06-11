@@ -23,6 +23,7 @@
 
 /* For struct zapi_route. */
 #include "prefix.h"
+#include "ipaddr.h"
 
 /* For struct interface and struct connected. */
 #include "if.h"
@@ -38,6 +39,7 @@
 
 #include "mlag.h"
 #include "srte.h"
+#include "srv6.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -213,6 +215,12 @@ typedef enum {
 	ZEBRA_NHG_ADD,
 	ZEBRA_NHG_DEL,
 	ZEBRA_NHG_NOTIFY_OWNER,
+	ZEBRA_EVPN_REMOTE_NH_ADD,
+	ZEBRA_EVPN_REMOTE_NH_DEL,
+	ZEBRA_SRV6_LOCATOR_ADD,
+	ZEBRA_SRV6_LOCATOR_DELETE,
+	ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
+	ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK,
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -221,6 +229,17 @@ typedef enum {
 	ZEBRA_NEIGH_DISCOVER,
 	ZEBRA_ROUTE_NOTIFY_REQUEST,
 	ZEBRA_CLIENT_CLOSE_NOTIFY,
+	ZEBRA_NHRP_NEIGH_ADDED,
+	ZEBRA_NHRP_NEIGH_REMOVED,
+	ZEBRA_NHRP_NEIGH_GET,
+	ZEBRA_NHRP_NEIGH_REGISTER,
+	ZEBRA_NHRP_NEIGH_UNREGISTER,
+	ZEBRA_NEIGH_IP_ADD,
+	ZEBRA_NEIGH_IP_DEL,
+	ZEBRA_CONFIGURE_ARP,
+	ZEBRA_GRE_GET,
+	ZEBRA_GRE_UPDATE,
+	ZEBRA_GRE_SOURCE_SET,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -373,12 +392,21 @@ struct zclient {
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
 	int (*nhg_notify_owner)(ZAPI_CALLBACK_ARGS);
+	int (*srv6_locator_add)(ZAPI_CALLBACK_ARGS);
+	int (*srv6_locator_delete)(ZAPI_CALLBACK_ARGS);
+	int (*srv6_function_add)(ZAPI_CALLBACK_ARGS);
+	int (*srv6_function_delete)(ZAPI_CALLBACK_ARGS);
+	void (*process_srv6_locator_chunk)(ZAPI_CALLBACK_ARGS);
 	int (*handle_error)(enum zebra_error_types error);
 	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
 	int (*sr_policy_notify_status)(ZAPI_CALLBACK_ARGS);
 	int (*zebra_client_close_notify)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_added)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_removed)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_get)(ZAPI_CALLBACK_ARGS);
+	void (*gre_update)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -441,6 +469,13 @@ struct zapi_nexthop {
 
 	/* SR-TE color. */
 	uint32_t srte_color;
+
+	/* SRv6 localsid info for Endpoint-behaviour */
+	uint32_t seg6local_action;
+	struct seg6local_context seg6local_ctx;
+
+	/* SRv6 Headend-behaviour */
+	struct in6_addr seg6_segs;
 };
 
 /*
@@ -453,6 +488,8 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_LABEL		0x02
 #define ZAPI_NEXTHOP_FLAG_WEIGHT	0x04
 #define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
+#define ZAPI_NEXTHOP_FLAG_SEG6		0x10
+#define ZAPI_NEXTHOP_FLAG_SEG6LOCAL	0x20
 
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
@@ -713,21 +750,21 @@ enum ipset_type {
 };
 
 enum zapi_ipset_notify_owner {
-	ZAPI_IPSET_FAIL_INSTALL,
+	ZAPI_IPSET_FAIL_INSTALL = 0,
 	ZAPI_IPSET_INSTALLED,
 	ZAPI_IPSET_REMOVED,
 	ZAPI_IPSET_FAIL_REMOVE,
 };
 
 enum zapi_ipset_entry_notify_owner {
-	ZAPI_IPSET_ENTRY_FAIL_INSTALL,
+	ZAPI_IPSET_ENTRY_FAIL_INSTALL = 0,
 	ZAPI_IPSET_ENTRY_INSTALLED,
 	ZAPI_IPSET_ENTRY_REMOVED,
 	ZAPI_IPSET_ENTRY_FAIL_REMOVE,
 };
 
 enum zapi_iptable_notify_owner {
-	ZAPI_IPTABLE_FAIL_INSTALL,
+	ZAPI_IPTABLE_FAIL_INSTALL = 0,
 	ZAPI_IPTABLE_INSTALLED,
 	ZAPI_IPTABLE_REMOVED,
 	ZAPI_IPTABLE_FAIL_REMOVE,
@@ -738,6 +775,29 @@ enum zclient_send_status {
 	ZCLIENT_SEND_SUCCESS = 0,
 	ZCLIENT_SEND_BUFFERED = 1
 };
+
+static inline const char *
+zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
+{
+	const char *ret = "UNKNOWN";
+
+	switch (note) {
+	case ZAPI_NHG_FAIL_INSTALL:
+		ret = "ZAPI_NHG_FAIL_INSTALL";
+		break;
+	case ZAPI_NHG_INSTALLED:
+		ret = "ZAPI_NHG_INSTALLED";
+		break;
+	case ZAPI_NHG_REMOVE_FAIL:
+		ret = "ZAPI_NHG_REMOVE_FAIL";
+		break;
+	case ZAPI_NHG_REMOVED:
+		ret = "ZAPI_NHG_REMOVED";
+		break;
+	}
+
+	return ret;
+}
 
 static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
@@ -792,6 +852,27 @@ struct zclient_options {
 
 extern struct zclient_options zclient_options_default;
 
+/* link layer representation for GRE like interfaces
+ * ip_in is the underlay IP, ip_out is the tunnel dest
+ * index stands for the index of the interface
+ * ndm state stands for the NDM value in netlink
+ */
+#define ZEBRA_NEIGH_STATE_REACHABLE (0x02)
+#define ZEBRA_NEIGH_STATE_FAILED    (0x20)
+struct zapi_neigh_ip {
+	int cmd;
+	struct ipaddr ip_in;
+	struct ipaddr ip_out;
+	ifindex_t index;
+	uint32_t ndm_state;
+};
+int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api);
+int zclient_neigh_ip_encode(struct stream *s,
+			    uint16_t cmd,
+			    union sockunion *in,
+			    union sockunion *out,
+			    struct interface *ifp);
+
 /*
  * We reserve the top 4 bits for l2-NHG, everything else
  * is for zebra/proto l3-NHG.
@@ -843,6 +924,11 @@ extern enum zclient_send_status
 zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 		       mpls_label_t label, enum lsp_types_t ltype);
 
+extern enum zclient_send_status
+zclient_send_localsid(struct zclient *zclient, const struct in6_addr *sid,
+		      ifindex_t oif, enum seg6local_action_t action,
+		      const struct seg6local_context *context);
+
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
 extern enum zclient_send_status
@@ -853,7 +939,7 @@ zclient_send_router_id_update(struct zclient *zclient,
 extern enum zclient_send_status
 zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
 				struct interface *ifp, int enable,
-				int ra_interval);
+				uint32_t ra_interval);
 extern enum zclient_send_status
 zclient_send_interface_protodown(struct zclient *zclient, vrf_id_t vrf_id,
 				 struct interface *ifp, bool down);
@@ -975,6 +1061,10 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+extern int srv6_manager_get_locator_chunk(struct zclient *zclient,
+					  const char *locator_name);
+extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
+					      const char *locator_name);
 
 extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
 						     int cmd,
@@ -991,6 +1081,11 @@ extern enum zclient_send_status zebra_send_mpls_labels(struct zclient *zclient,
 extern int zapi_labels_encode(struct stream *s, int cmd,
 			      struct zapi_labels *zl);
 extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
+
+extern int zapi_srv6_locator_chunk_encode(struct stream *s,
+					  const struct srv6_locator_chunk *c);
+extern int zapi_srv6_locator_chunk_decode(struct stream *s,
+					  struct srv6_locator_chunk *c);
 
 extern enum zclient_send_status zebra_send_pw(struct zclient *zclient,
 					      int command, struct zapi_pw *pw);
@@ -1132,7 +1227,7 @@ int zapi_opaque_reg_decode(struct stream *msg,
  */
 enum zapi_opaque_registry {
 	/* Request link-state database dump, at restart for example */
-	LINK_STATE_REQUEST = 1,
+	LINK_STATE_SYNC = 1,
 	/* Update containing link-state db info */
 	LINK_STATE_UPDATE = 2,
 	/* Request LDP-SYNC state from LDP */
@@ -1170,6 +1265,8 @@ struct zapi_client_close_info {
 extern int zapi_client_close_notify_decode(struct stream *s,
 					   struct zapi_client_close_info *info);
 
+extern int zclient_send_zebra_gre_request(struct zclient *client,
+					  struct interface *ifp);
 #ifdef __cplusplus
 }
 #endif

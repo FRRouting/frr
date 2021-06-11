@@ -80,7 +80,7 @@ DEFPY_YANG (no_router_ripng,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
 void cli_show_router_ripng(struct vty *vty, struct lyd_node *dnode,
@@ -503,10 +503,57 @@ DEFPY_YANG (clear_ipv6_rip,
 	return ret;
 }
 
+DEFUN (ripng_ipv6_distribute_list,
+       ripng_ipv6_distribute_list_cmd,
+       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "IPv6\n"
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_parser(prefix, false, argv[3 + prefix]->text,
+				      argv[2 + prefix]->arg, ifname);
+}
+
+DEFUN (ripng_no_ipv6_distribute_list,
+       ripng_no_ipv6_distribute_list_cmd,
+       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       NO_STR
+       "IPv6\n"
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_no_parser(vty, prefix, false,
+					 argv[4 + prefix]->text,
+					 argv[3 + prefix]->arg, ifname);
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
 	install_element(CONFIG_NODE, &no_router_ripng_cmd);
+
+	install_element(RIPNG_NODE, &ripng_ipv6_distribute_list_cmd);
+	install_element(RIPNG_NODE, &ripng_no_ipv6_distribute_list_cmd);
 
 	install_element(RIPNG_NODE, &ripng_allow_ecmp_cmd);
 	install_element(RIPNG_NODE, &ripng_default_information_originate_cmd);

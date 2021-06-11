@@ -29,6 +29,7 @@
 #include "jhash.h"
 #include "vrf.h"
 #include "lib_errors.h"
+#include "bfd.h"
 
 #include "pimd.h"
 #include "pim_cmd.h"
@@ -126,7 +127,7 @@ void pim_init(void)
 			"%s %s: could not solve %s to group address: errno=%d: %s",
 			__FILE__, __func__, PIM_ALL_PIM_ROUTERS, errno,
 			safe_strerror(errno));
-		zassert(0);
+		assert(0);
 		return;
 	}
 
@@ -136,6 +137,8 @@ void pim_init(void)
 void pim_terminate(void)
 {
 	struct zclient *zclient;
+
+	bfd_protocol_integration_set_shutdown(true);
 
 	/* reverse prefix_list_init */
 	prefix_list_add_hook(NULL);

@@ -79,8 +79,11 @@ static void update_subgroup_checkin(struct update_subgroup *subgrp,
 	subgrp->uptime = bgp_clock();
 }
 
-static void sync_init(struct update_subgroup *subgrp)
+static void sync_init(struct update_subgroup *subgrp,
+		      struct update_group *updgrp)
 {
+	struct peer *peer = UPDGRP_PEER(updgrp);
+
 	subgrp->sync =
 		XCALLOC(MTYPE_BGP_SYNCHRONISE, sizeof(struct bgp_synchronize));
 	bgp_adv_fifo_init(&subgrp->sync->update);
@@ -91,7 +94,7 @@ static void sync_init(struct update_subgroup *subgrp)
 
 	/* We use a larger buffer for subgrp->work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just
-	 *   under BGP_MAX_PACKET_SIZE
+	 *   under 4096 or 65535 (if Extended Message capability negotiated).
 	 * - The user configures an outbound route-map that does many as-path
 	 *   prepends or adds many communities.  At most they can have
 	 * CMD_ARGC_MAX
@@ -103,9 +106,9 @@ static void sync_init(struct update_subgroup *subgrp)
 	 * bounds
 	 * checking for every single attribute as we construct an UPDATE.
 	 */
-	subgrp->work =
-		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	subgrp->scratch = stream_new(BGP_MAX_PACKET_SIZE);
+	subgrp->work = stream_new(peer->max_packet_size
+				  + BGP_MAX_PACKET_SIZE_OVERFLOW);
+	subgrp->scratch = stream_new(peer->max_packet_size);
 }
 
 static void sync_delete(struct update_subgroup *subgrp)
@@ -143,6 +146,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->flags = src->flags;
 	dst->af_flags[afi][safi] = src->af_flags[afi][safi];
 	dst->pmax_out[afi][safi] = src->pmax_out[afi][safi];
+	dst->max_packet_size = src->max_packet_size;
 	XFREE(MTYPE_BGP_PEER_HOST, dst->host);
 
 	dst->host = XSTRDUP(MTYPE_BGP_PEER_HOST, src->host);
@@ -800,7 +804,7 @@ update_subgroup_create(struct update_group *updgrp)
 	subgrp = XCALLOC(MTYPE_BGP_UPD_SUBGRP, sizeof(struct update_subgroup));
 	update_subgroup_checkin(subgrp, updgrp);
 	subgrp->v_coalesce = (UPDGRP_INST(updgrp))->coalesce_time;
-	sync_init(subgrp);
+	sync_init(subgrp, updgrp);
 	bpacket_queue_init(SUBGRP_PKTQ(subgrp));
 	bpacket_queue_add(SUBGRP_PKTQ(subgrp), NULL, NULL);
 	TAILQ_INIT(&(subgrp->adjq));
@@ -909,7 +913,6 @@ static void update_subgroup_add_peer(struct update_subgroup *subgrp,
 
 	bpacket_add_peer(pkt, paf);
 
-	bpacket_queue_sanity_check(SUBGRP_PKTQ(subgrp));
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 		zlog_debug("peer %s added to subgroup s%" PRIu64,
 				paf->peer->host, subgrp->id);
@@ -1228,8 +1231,6 @@ static int update_subgroup_copy_packets(struct update_subgroup *dest,
 		count++;
 		pkt = bpacket_next(pkt);
 	}
-
-	bpacket_queue_sanity_check(SUBGRP_PKTQ(dest));
 
 	return count;
 }
@@ -1704,13 +1705,13 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);
-		if (peer->status == Established)
+		if (peer_established(peer))
 			bgp_announce_route_all(peer);
 	} else {
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			peer_lonesoul_or_not(peer, set);
-			if (peer->status == Established)
+			if (peer_established(peer))
 				bgp_announce_route_all(peer);
 		}
 	}
@@ -1900,7 +1901,7 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 	 * will trigger a write job on the I/O thread.
 	 */
 	SUBGRP_FOREACH_PEER (subgrp, paf)
-		if (paf->peer->status == Established)
+		if (peer_established(paf->peer))
 			thread_add_timer_msec(
 				bm->master, bgp_generate_updgrp_packets,
 				paf->peer, 0,

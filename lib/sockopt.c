@@ -25,6 +25,16 @@
 #include "sockunion.h"
 #include "lib_errors.h"
 
+#if (defined(__FreeBSD__)                                                      \
+     && ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000)           \
+	 || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000)))      \
+	|| (defined(__NetBSD__) && defined(__NetBSD_Version__)                 \
+	    && __NetBSD_Version__ >= 106010000)                                \
+	|| defined(__OpenBSD__) || defined(__APPLE__)                          \
+	|| defined(__DragonFly__) || defined(__sun)
+#define HAVE_BSD_STRUCT_IP_MREQ_HACK
+#endif
+
 void setsockopt_so_recvbuf(int sock, int size)
 {
 	int orig_req = size;
@@ -656,4 +666,40 @@ int sockopt_tcp_signature_ext(int sock, union sockunion *su, uint16_t prefixlen,
 int sockopt_tcp_signature(int sock, union sockunion *su, const char *password)
 {
 	return sockopt_tcp_signature_ext(sock, su, 0, password);
+}
+
+/* set TCP mss value to socket */
+int sockopt_tcp_mss_set(int sock, int tcp_maxseg)
+{
+	int ret = 0;
+	socklen_t tcp_maxseg_len = sizeof(tcp_maxseg);
+
+	ret = setsockopt(sock, IPPROTO_TCP, TCP_MAXSEG, &tcp_maxseg,
+			 tcp_maxseg_len);
+	if (ret != 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt(%d): %s", __func__, sock,
+			     safe_strerror(errno));
+	}
+
+	return ret;
+}
+
+/* get TCP mss value synced by socket */
+int sockopt_tcp_mss_get(int sock)
+{
+	int ret = 0;
+	int tcp_maxseg = 0;
+	socklen_t tcp_maxseg_len = sizeof(tcp_maxseg);
+
+	ret = getsockopt(sock, IPPROTO_TCP, TCP_MAXSEG, &tcp_maxseg,
+			 &tcp_maxseg_len);
+	if (ret != 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: getsockopt(%d): %s", __func__, sock,
+			     safe_strerror(errno));
+		return 0;
+	}
+
+	return tcp_maxseg;
 }

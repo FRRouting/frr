@@ -578,9 +578,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	struct bgp_attr_encap_subtlv *encaptlv;
 	char buf[PREFIX_STRLEN];
 	char buf2[RD_ADDRSTRLEN];
-#if 0 /* unused? */
-  struct prefix pfx_buf;
-#endif
 
 	struct rfapi_nexthop *lnh = NULL; /* local nexthop */
 	struct rfapi_vn_option *vo;
@@ -603,20 +600,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		return;
 	}
 
-#if 0 /* unused? */
-  if ((safi == SAFI_MPLS_VPN) && (flags & RFAPI_AHR_SET_PFX_TO_NEXTHOP))
-    {
-
-      if (rfapiRaddr2Qprefix (nexthop, &pfx_buf))
-        {
-          vnc_zlog_debug_verbose
-            ("%s: can't set pfx to vn addr, not adding SAFI_MPLS_VPN route",
-             __func__);
-          return;
-        }
-      p = &pfx_buf;
-    }
-#endif
 	for (vo = options_vn; vo; vo = vo->next) {
 		if (RFAPI_VN_OPTION_TYPE_L2ADDR == vo->type) {
 			l2o = &vo->v.l2addr;

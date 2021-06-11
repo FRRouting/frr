@@ -37,9 +37,9 @@
 
 
 DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
-		    p_spaces_compare_func)
+		    p_spaces_compare_func);
 DECLARE_RBTREE_UNIQ(q_spaces, struct q_space, q_spaces_item,
-		    q_spaces_compare_func)
+		    q_spaces_compare_func);
 
 static void
 ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,

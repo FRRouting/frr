@@ -29,7 +29,7 @@ THE SOFTWARE.
 #include "log.h"
 #include "memory.h"
 
-DECLARE_MGROUP(BABELD)
+DECLARE_MGROUP(BABELD);
 
 #if defined(i386) || defined(__mc68020__) || defined(__x86_64__)
 #define DO_NTOHS(_d, _s) do{ _d = ntohs(*(const unsigned short*)(_s)); }while(0)
@@ -129,13 +129,7 @@ extern const unsigned char v4prefix[16];
    vararg macros are not portable. */
 #if defined NO_DEBUG
 
-#if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
 #define debugf(...) do {} while(0)
-#elif defined __GNUC__
-#define debugf(_args...) do {} while(0)
-#else
-static inline void debugf(int level, const char *format, ...) { return; }
-#endif
 
 #else /* NO_DEBUG */
 
@@ -148,19 +142,10 @@ static inline void debugf(int level, const char *format, ...) { return; }
 #define BABEL_DEBUG_ROUTE       (1 << 5)
 #define BABEL_DEBUG_ALL         (0xFFFF)
 
-#if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
 #define debugf(level, ...) \
 do { \
 if(UNLIKELY(debug & level)) zlog_debug(__VA_ARGS__);     \
 } while(0)
-#elif defined __GNUC__
-#define debugf(level, _args...) \
-do { \
-if(UNLIKELY(debug & level)) zlog_debug(_args);   \
-} while(0)
-#else
-static inline void debugf(int level, const char *format, ...) { return; }
-#endif
 
 #endif /* NO_DEBUG */
 

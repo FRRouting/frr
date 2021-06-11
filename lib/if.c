@@ -39,11 +39,11 @@
 #include "lib/if_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(LIB, IF, "Interface")
-DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected")
-DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected")
-DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label")
-DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters")
+DEFINE_MTYPE_STATIC(LIB, IF, "Interface");
+DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected");
+DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected");
+DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label");
+DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters");
 
 static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
 					      vrf_id_t vrf_id);
@@ -53,10 +53,10 @@ static int if_cmp_index_func(const struct interface *ifp1,
 RB_GENERATE(if_name_head, interface, name_entry, if_cmp_func);
 RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
 
-DEFINE_QOBJ_TYPE(interface)
+DEFINE_QOBJ_TYPE(interface);
 
-DEFINE_HOOK(if_add, (struct interface * ifp), (ifp))
-DEFINE_KOOH(if_del, (struct interface * ifp), (ifp))
+DEFINE_HOOK(if_add, (struct interface * ifp), (ifp));
+DEFINE_KOOH(if_del, (struct interface * ifp), (ifp));
 
 static struct interface_master{
 	int (*create_hook)(struct interface *ifp);
@@ -266,16 +266,16 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 		char oldpath[XPATH_MAXLEN];
 		char newpath[XPATH_MAXLEN];
 
-		if_dnode = yang_dnode_get(
+		if_dnode = yang_dnode_getf(
 			running_config->dnode,
 			"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
 			ifp->name, old_vrf->name);
 
 		if (if_dnode) {
-			yang_dnode_get_path(if_dnode->parent, oldpath,
+			yang_dnode_get_path(lyd_parent(if_dnode), oldpath,
 					    sizeof(oldpath));
 			yang_dnode_change_leaf(if_dnode, vrf->name);
-			yang_dnode_get_path(if_dnode->parent, newpath,
+			yang_dnode_get_path(lyd_parent(if_dnode), newpath,
 					    sizeof(newpath));
 			nb_running_move_tree(oldpath, newpath);
 			running_config->version++;
@@ -347,6 +347,40 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 		return(if_lookup_by_ifindex(ifindex, vrf_id));
 	case VRF_BACKEND_VRF_LITE:
 		return(if_lookup_by_index_all_vrf(ifindex));
+	}
+	return NULL;
+}
+
+/* Interface existance check by index. */
+struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
+					      vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct interface *tmp_ifp;
+	bool found = false;
+
+	if (!vrf)
+		return NULL;
+
+	if (ifindex == 0) {
+		tmp_ifp = RB_MIN(if_index_head, &vrf->ifaces_by_index);
+		/* skip the vrf interface */
+		if (tmp_ifp && if_is_vrf(tmp_ifp))
+			ifindex = tmp_ifp->ifindex;
+		else
+			return tmp_ifp;
+	}
+
+	RB_FOREACH (tmp_ifp, if_index_head, &vrf->ifaces_by_index) {
+		if (found) {
+			/* skip the vrf interface */
+			if (tmp_ifp && if_is_vrf(tmp_ifp))
+				continue;
+			else
+				return tmp_ifp;
+		}
+		if (tmp_ifp->ifindex == ifindex)
+			found = true;
 	}
 	return NULL;
 }
@@ -802,70 +836,6 @@ void if_dump_all(void)
 			if_dump(ifp);
 }
 
-#if 0
-/* For debug purpose. */
-DEFUN (show_address,
-       show_address_cmd,
-       "show address [vrf NAME]",
-       SHOW_STR
-       "address\n"
-       VRF_CMD_HELP_STR)
-{
-	int idx_vrf = 3;
-	struct listnode *node;
-	struct interface *ifp;
-	struct connected *ifc;
-	struct prefix *p;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (argc > 2)
-		VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc)) {
-			p = ifc->address;
-
-			if (p->family == AF_INET)
-				vty_out (vty, "%pFX\n", p);
-		}
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_address_vrf_all,
-       show_address_vrf_all_cmd,
-       "show address vrf all",
-       SHOW_STR
-       "address\n"
-       VRF_ALL_CMD_HELP_STR)
-{
-	struct vrf *vrf;
-	struct listnode *node;
-	struct interface *ifp;
-	struct connected *ifc;
-	struct prefix *p;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-	{
-		if (RB_EMPTY (if_name_head, &vrf->ifaces_by_name))
-			continue;
-
-		vty_out (vty, "\nVRF %s(%u)\n\n",
-			 VRF_LOGNAME(vrf), vrf->vrf_id);
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc)) {
-				p = ifc->address;
-
-				if (p->family == AF_INET)
-					vty_out (vty, "%pFX\n", p);
-			}
-		}
-	}
-	return CMD_SUCCESS;
-}
-#endif
-
 /* Allocate connected structure. */
 struct connected *connected_new(void)
 {
@@ -935,8 +905,8 @@ connected_log(struct connected *connected, char *str)
 
 	p = connected->destination;
 	if (p) {
-		strncat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-			BUFSIZ - strlen(logbuf));
+		strlcat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
+			BUFSIZ);
 	}
 	zlog_info("%s", logbuf);
 }
@@ -1083,96 +1053,33 @@ struct connected *connected_get_linklocal(struct interface *ifp)
 	return c;
 }
 
-#if 0  /* this route_table of struct connected's is unused                     \
-	* however, it would be good to use a route_table rather than           \
-	* a list..                                                             \
-	*/
-/* Interface looking up by interface's address. */
-/* Interface's IPv4 address reverse lookup table. */
-struct route_table *ifaddr_ipv4_table;
-/* struct route_table *ifaddr_ipv6_table; */
-
-static void
-ifaddr_ipv4_add (struct in_addr *ifaddr, struct interface *ifp)
-{
-  struct route_node *rn;
-  struct prefix_ipv4 p;
-
-  p.family = AF_INET;
-  p.prefixlen = IPV4_MAX_PREFIXLEN;
-  p.prefix = *ifaddr;
-
-  rn = route_node_get (ifaddr_ipv4_table, (struct prefix *) &p);
-  if (rn)
-    {
-      route_unlock_node (rn);
-      zlog_info("ifaddr_ipv4_add(): address %pI4 is already added",
-				ifaddr);
-      return;
-    }
-  rn->info = ifp;
-}
-
-static void
-ifaddr_ipv4_delete (struct in_addr *ifaddr, struct interface *ifp)
-{
-  struct route_node *rn;
-  struct prefix_ipv4 p;
-
-  p.family = AF_INET;
-  p.prefixlen = IPV4_MAX_PREFIXLEN;
-  p.prefix = *ifaddr;
-
-  rn = route_node_lookup (ifaddr_ipv4_table, (struct prefix *) &p);
-  if (! rn)
-    {
-      zlog_info("%s: can't find address %pI4", __func__, ifaddr);
-      return;
-    }
-  rn->info = NULL;
-  route_unlock_node (rn);
-  route_unlock_node (rn);
-}
-
-/* Lookup interface by interface's IP address or interface index. */
-static struct interface *
-ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
-{
-  struct prefix_ipv4 p;
-  struct route_node *rn;
-  struct interface *ifp;
-
-  if (addr)
-    {
-      p.family = AF_INET;
-      p.prefixlen = IPV4_MAX_PREFIXLEN;
-      p.prefix = *addr;
-
-      rn = route_node_lookup (ifaddr_ipv4_table, (struct prefix *) &p);
-      if (! rn)
-	return NULL;
-
-      ifp = rn->info;
-      route_unlock_node (rn);
-      return ifp;
-    }
-  else
-    return if_lookup_by_index(ifindex, VRF_DEFAULT);
-}
-#endif /* ifaddr_ipv4_table */
-
 void if_terminate(struct vrf *vrf)
 {
 	struct interface *ifp;
+	bool delete;
+
+	/*
+	 * If the default VRF is being terminated or has
+	 * already been terminated it means that
+	 * the program is shutting down and we need to
+	 * delete all the interfaces. Otherwise, we only
+	 * need to move VRF's interfaces to the default VRF.
+	 */
+	delete = vrf_is_backend_netns() || vrf->vrf_id == VRF_DEFAULT
+		 || !vrf_lookup_by_id(VRF_DEFAULT);
 
 	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
 
-		if (ifp->node) {
-			ifp->node->info = NULL;
-			route_unlock_node(ifp->node);
+		if (delete) {
+			if (ifp->node) {
+				ifp->node->info = NULL;
+				route_unlock_node(ifp->node);
+			}
+			if_delete(&ifp);
+		} else {
+			if_update_to_new_vrf(ifp, VRF_DEFAULT);
 		}
-		if_delete(&ifp);
 	}
 }
 
@@ -1331,7 +1238,7 @@ DEFPY_YANG_NOSH (interface,
 		 vrf_name);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-	ret = nb_cli_apply_changes(vty, xpath_list);
+	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(INTERFACE_NODE, xpath_list);
 
@@ -1341,7 +1248,6 @@ DEFPY_YANG_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
-		nb_cli_pending_commit_check(vty);
 		ifp = if_lookup_by_name(ifname, vrf_id);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);

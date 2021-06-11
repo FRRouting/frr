@@ -16,6 +16,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <zebra.h>
+
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
@@ -636,8 +638,8 @@ const char *pcep_message_type_name(enum pcep_message_types pcep_message_type)
 		return "UPDATE";
 	case PCEP_TYPE_INITIATE:
 		return "INITIATE";
-	case PCEP_TYPE_UNKOWN_MSG:
-		return "UNKOWN_MSG";
+	case PCEP_TYPE_START_TLS:
+		return "START_TLS";
 	default:
 		return "UNKNOWN";
 	}
@@ -973,18 +975,6 @@ const char *format_pcep_message(struct pcep_message *msg)
 	return PATHD_FORMAT_FINI();
 }
 
-const char *format_yang_dnode(struct lyd_node *dnode)
-{
-	char *buff;
-	int len;
-
-	lyd_print_mem(&buff, dnode, LYD_JSON, LYP_FORMAT);
-	len = strlen(buff);
-	memcpy(_debug_buff, buff, len);
-	free(buff);
-	return _debug_buff;
-}
-
 void _format_pcc_opts(int ps, struct pcc_opts *opts)
 {
 	if (opts == NULL) {
@@ -1288,7 +1278,7 @@ void _format_path_hop(int ps, struct path_hop *hop)
 				     &hop->nai.remote_addr.ipaddr_v6);
 			break;
 		case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
-			PATHD_FORMAT("%*sNAI: %pI4(%u)/%pI4(%u)\n", ps, "",
+			PATHD_FORMAT("%*sNAI: %pI6(%u)/%pI6(%u)\n", ps, "",
 				     &hop->nai.local_addr.ipaddr_v6,
 				     hop->nai.local_iface,
 				     &hop->nai.remote_addr.ipaddr_v6,

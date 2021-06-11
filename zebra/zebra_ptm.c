@@ -31,7 +31,7 @@
 #include "ptm_lib.h"
 #include "rib.h"
 #include "stream.h"
-#include "version.h"
+#include "lib/version.h"
 #include "vrf.h"
 #include "vty.h"
 #include "lib_errors.h"
@@ -1166,8 +1166,6 @@ void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp)
 }
 
 #else /* HAVE_BFDD */
-
-#include "zebra/zebra_memory.h"
 
 /*
  * Data structures.

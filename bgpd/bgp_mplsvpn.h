@@ -77,11 +77,29 @@ extern void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,
 
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
 extern void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi);
+extern void vpn_leak_zebra_vrf_sid_update(struct bgp *bgp, afi_t afi);
+extern void vpn_leak_zebra_vrf_sid_withdraw(struct bgp *bgp, afi_t afi);
 extern int vpn_leak_label_callback(mpls_label_t label, void *lblid, bool alloc);
+extern void ensure_vrf_tovpn_sid(struct bgp *vpn, struct bgp *vrf, afi_t afi);
 extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 				afi_t afi, safi_t safi);
 void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			   afi_t afi, safi_t safi);
+
+static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
+{
+	afi_t afi;
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+		for (afi = 0; afi < AFI_MAX; ++afi) {
+			if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+				       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
+			    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+					  BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT))
+				return true;
+		}
+	return false;
+}
 
 static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 					 const char **pmsg)
@@ -220,6 +238,15 @@ static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
 			bgp_vrf->vpn_policy[afi]
 			       .tovpn_zebra_vrf_label_last_sent) {
 			vpn_leak_zebra_vrf_label_update(bgp_vrf, afi);
+		}
+
+		if (!bgp_vrf->vpn_policy[afi].tovpn_sid)
+			ensure_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);
+
+		if (sid_diff(bgp_vrf->vpn_policy[afi].tovpn_sid,
+			     bgp_vrf->vpn_policy[afi]
+				     .tovpn_zebra_vrf_sid_last_sent)) {
+			vpn_leak_zebra_vrf_sid_update(bgp_vrf, afi);
 		}
 
 		vpn_leak_from_vrf_update_all(bgp_vpn, bgp_vrf, afi);

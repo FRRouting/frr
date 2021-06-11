@@ -31,6 +31,10 @@ clippy_scan = mv["clippy_scan"].strip().split()
 for clippy_file in clippy_scan:
     assert clippy_file.endswith(".c")
 
+xref_targets = []
+for varname in ["bin_PROGRAMS", "sbin_PROGRAMS", "lib_LTLIBRARIES", "module_LTLIBRARIES"]:
+    xref_targets.extend(mv[varname].strip().split())
+
 # check for files using clippy but not listed in clippy_scan
 if args.dev_build:
     basepath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -123,6 +127,14 @@ while lines:
 out_lines.append("# clippy{\n# main clippy targets")
 for clippy_file in clippy_scan:
     out_lines.append(clippydep.substitute(clippybase=clippy_file[:-2]))
+
+out_lines.append("")
+out_lines.append("xrefs = %s" % (" ".join(["%s.xref" % target for target in xref_targets])))
+out_lines.append("frr.xref: $(xrefs)")
+out_lines.append("")
+
+#frr.xref: $(bin_PROGRAMS) $(sbin_PROGRAMS) $(lib_LTLIBRARIES) $(module_LTLIBRARIES)
+#	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
 
 out_lines.append("")
 out_lines.extend(bcdeps)

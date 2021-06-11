@@ -133,6 +133,26 @@ extern int sockopt_tcp_signature(int sock, union sockunion *su,
 extern int sockopt_tcp_signature_ext(int sock, union sockunion *su,
 				     uint16_t prefixlen, const char *password);
 
+/*
+ * set TCP max segment size. This option allows user to configure
+ * max segment size for TCP session
+ *
+ * sock
+ *    Socket to enable option on.
+ *
+ * tcp_maxseg
+ *    value used for TCP segment size negotiation during SYN
+ */
+extern int sockopt_tcp_mss_set(int sock, int tcp_maxseg);
+
+/*
+ * get TCP max segment size. This option allows user to get
+ * the segment size for TCP session
+ *
+ * sock
+ *    Socket to get max segement size.
+ */
+extern int sockopt_tcp_mss_get(int sock);
 #ifdef __cplusplus
 }
 #endif

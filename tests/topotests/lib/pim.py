@@ -384,50 +384,6 @@ def _enable_disable_pim(tgen, topo, input_dict, router, build=False):
     return result
 
 
-def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
-    """
-    Add physical interfaces tp RP for all the RPs
-
-    Parameters
-    ----------
-    * `tgen` : Topogen object
-    * `topo` : json file data
-    * `interface` : RP interface
-    * `rp` : rp for given topology
-    * `rp_mapping` : dictionary of all groups and RPs
-
-    Returns
-    -------
-    True or False
-    """
-    result = False
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
-    try:
-        config_data = []
-
-        for group, rp_list in rp_mapping.items():
-            for _rp in rp_list:
-                config_data.append("interface {}".format(interface))
-                config_data.append("ip address {}".format(_rp))
-                config_data.append("ip pim")
-
-            result = create_common_configuration(
-                tgen, rp, config_data, "interface_config"
-            )
-            if result is not True:
-                return False
-
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
-
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return result
-
-
 def find_rp_details(tgen, topo):
     """
     Find who is RP in topology and returns list of RPs
@@ -1444,14 +1400,10 @@ def verify_pim_state(
                     errormsg = (
                         "[DUT %s]: Verifying pim state for group"
                         " %s, [FAILED]!! Expected: "
-                        "(iif: %s, oil: %s, installed: %s) ",
+                        "(iif: %s, oil: %s, installed: %s) "
+                        % (dut, grp_addr, iif, oil, "1"),
                         "Found: (iif: %s, oil: %s, installed: %s)"
                         % (
-                            dut,
-                            grp_addr,
-                            iif,
-                            oil,
-                            "1",
                             data["inboundInterface"],
                             data["outboundInterface"],
                             data["installed"],
@@ -1564,26 +1516,30 @@ def verify_pim_interface(tgen, topo, dut, interface=None, interface_ip=None):
         logger.info("[DUT: %s]: Verifying PIM interface status:", dut)
 
         rnode = tgen.routers()[dut]
-        show_ip_pim_interface_json = rnode.\
-            vtysh_cmd("show ip pim interface json", isjson=True)
+        show_ip_pim_interface_json = rnode.vtysh_cmd(
+            "show ip pim interface json", isjson=True
+        )
 
-        logger.info("show_ip_pim_interface_json: \n %s",
-                    show_ip_pim_interface_json)
+        logger.info("show_ip_pim_interface_json: \n %s", show_ip_pim_interface_json)
 
         if interface_ip:
             if interface in show_ip_pim_interface_json:
                 pim_intf_json = show_ip_pim_interface_json[interface]
                 if pim_intf_json["address"] != interface_ip:
-                    errormsg = ("[DUT %s]: PIM interface "
-                            "ip is not correct "
-                            "[FAILED]!! Expected : %s, Found : %s"
-                            %(dut, pim_intf_json["address"],interface_ip))
+                    errormsg = (
+                        "[DUT %s]: PIM interface "
+                        "ip is not correct "
+                        "[FAILED]!! Expected : %s, Found : %s"
+                        % (dut, pim_intf_json["address"], interface_ip)
+                    )
                     return errormsg
                 else:
-                    logger.info("[DUT %s]: PIM interface "
-                            "ip is correct "
-                            "[Passed]!! Expected : %s, Found : %s"
-                            %(dut, pim_intf_json["address"],interface_ip))
+                    logger.info(
+                        "[DUT %s]: PIM interface "
+                        "ip is correct "
+                        "[Passed]!! Expected : %s, Found : %s"
+                        % (dut, pim_intf_json["address"], interface_ip)
+                    )
                     return True
         else:
             for destLink, data in topo["routers"][dut]["links"].items():
@@ -1595,24 +1551,36 @@ def verify_pim_interface(tgen, topo, dut, interface=None, interface_ip=None):
                     pim_intf_ip = data["ipv4"].split("/")[0]
 
                     if pim_interface in show_ip_pim_interface_json:
-                        pim_intf_json = show_ip_pim_interface_json\
-                            [pim_interface]
+                        pim_intf_json = show_ip_pim_interface_json[pim_interface]
 
                     # Verifying PIM interface
-                    if pim_intf_json["address"] != pim_intf_ip and \
-                        pim_intf_json["state"] != "up":
-                        errormsg = ("[DUT %s]: PIM interface: %s "
-                                    "PIM interface ip: %s, status check "
-                                    "[FAILED]!! Expected : %s, Found : %s"
-                                    %(dut, pim_interface, pim_intf_ip,
-                                    pim_interface, pim_intf_json["state"]))
+                    if (
+                        pim_intf_json["address"] != pim_intf_ip
+                        and pim_intf_json["state"] != "up"
+                    ):
+                        errormsg = (
+                            "[DUT %s]: PIM interface: %s "
+                            "PIM interface ip: %s, status check "
+                            "[FAILED]!! Expected : %s, Found : %s"
+                            % (
+                                dut,
+                                pim_interface,
+                                pim_intf_ip,
+                                pim_interface,
+                                pim_intf_json["state"],
+                            )
+                        )
                         return errormsg
 
-                    logger.info("[DUT %s]: PIM interface: %s, "
-                                "interface ip: %s, status: %s"
-                                " [PASSED]!!",
-                                dut, pim_interface, pim_intf_ip,
-                                pim_intf_json["state"])
+                    logger.info(
+                        "[DUT %s]: PIM interface: %s, "
+                        "interface ip: %s, status: %s"
+                        " [PASSED]!!",
+                        dut,
+                        pim_interface,
+                        pim_intf_ip,
+                        pim_intf_json["state"],
+                    )
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
@@ -2064,7 +2032,7 @@ def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: add_rp_interfaces_and_pim_config()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
@@ -2409,8 +2377,7 @@ def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=N
                 if rp is None:
                     rp_details = find_rp_details(tgen, topo)
                 else:
-                    rp_details = {dut: ip}
-                    rp_details[dut] = rp
+                    rp_details = {dut: rp}
 
                 if dut in rp_details:
                     pim_nh_intf_ip = topo["routers"][dut]["links"]["lo"]["ipv4"].split(
@@ -2716,7 +2683,7 @@ def verify_igmp_config(tgen, input_dict, stats_return=False):
 
             if statistics and report:
                 show_ip_igmp_intf_json = run_frr_cmd(
-                    rnode, "{} json".format(cmd, interface), isjson=True
+                    rnode, "{} json".format(cmd), isjson=True
                 )
                 intf_detail_json = show_ip_igmp_intf_json["global"]
             else:
@@ -2792,7 +2759,6 @@ def verify_igmp_config(tgen, input_dict, stats_return=False):
                                         dut,
                                         interface,
                                         value,
-                                        intf_detail_json["reportV2"],
                                     )
                                 )
                                 return errormsg
@@ -3420,30 +3386,36 @@ def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip):
         if router != dut:
             continue
 
-        logger.info("[DUT: %s]: Verifying PIM interface status:",
-                    dut)
+        logger.info("[DUT: %s]: Verifying PIM interface status:", dut)
 
         rnode = tgen.routers()[dut]
-        show_ip_igmp_interface_json = \
-            run_frr_cmd(rnode, "show ip igmp interface json", isjson=True)
+        show_ip_igmp_interface_json = run_frr_cmd(
+            rnode, "show ip igmp interface json", isjson=True
+        )
 
-        if  igmp_iface in show_ip_igmp_interface_json:
+        if igmp_iface in show_ip_igmp_interface_json:
             igmp_intf_json = show_ip_igmp_interface_json[igmp_iface]
             # Verifying igmp interface
-            if  igmp_intf_json["address"] != interface_ip:
-                errormsg = ("[DUT %s]: igmp interface ip is not correct "
-                            "[FAILED]!! Expected : %s, Found : %s"
-                            %(dut, igmp_intf_json["address"], interface_ip))
+            if igmp_intf_json["address"] != interface_ip:
+                errormsg = (
+                    "[DUT %s]: igmp interface ip is not correct "
+                    "[FAILED]!! Expected : %s, Found : %s"
+                    % (dut, igmp_intf_json["address"], interface_ip)
+                )
                 return errormsg
 
-            logger.info("[DUT %s]: igmp interface: %s, "
-                        "interface ip: %s"
-                        " [PASSED]!!",
-                        dut, igmp_iface, interface_ip)
+            logger.info(
+                "[DUT %s]: igmp interface: %s, " "interface ip: %s" " [PASSED]!!",
+                dut,
+                igmp_iface,
+                interface_ip,
+            )
         else:
-            errormsg = ("[DUT %s]: igmp interface: %s "
-                        "igmp interface ip: %s, is not present "
-                        %(dut, igmp_iface, interface_ip))
+            errormsg = (
+                "[DUT %s]: igmp interface: %s "
+                "igmp interface ip: %s, is not present "
+                % (dut, igmp_iface, interface_ip)
+            )
             return errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))

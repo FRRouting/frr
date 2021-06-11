@@ -1,15 +1,15 @@
+.. index::
+   single: How to install FRR
+   single: Installing FRR
+   single: Building FRR
+
 .. _installation:
 
 Installation
 ============
 
-.. index:: How to install FRR
-.. index:: Installation
-.. index:: Installing FRR
-.. index:: Building the system
-.. index:: Making FRR
-
 This section covers the basics of building, installing and setting up FRR.
+
 
 From Packages
 -------------
@@ -55,14 +55,18 @@ is the release version.
 In addition, release tarballs are published on the GitHub releases page
 `here <https://github.com/FRRouting/frr/releases>`_.
 
-Configuration
-^^^^^^^^^^^^^
 
-.. index:: Configuration options
-.. index:: Options for configuring
-.. index:: Build options
-.. index:: Distribution configuration
-.. index:: Options to `./configure`
+.. index::
+   single: Configuration options
+   single: Options for configuring
+   single: Build options
+   single: Distribution configuration
+   single: Options to `./configure`
+
+.. _build-configuration:
+
+Build Configuration
+^^^^^^^^^^^^^^^^^^^
 
 FRR has an excellent configure script which automatically detects most host
 configurations. There are several additional configure options to customize the
@@ -420,13 +424,14 @@ The `sphinx` and `pytest` dependencies can be avoided by not building
 documentation / not running ``make check``, but the CPython dependency is a
 hard dependency of the FRR build process (for the `clippy` tool.)
 
+.. index::
+   single: FRR Least-Privileges
+   single: FRR Privileges
+
 .. _least-privilege-support:
 
 Least-Privilege Support
 """""""""""""""""""""""
-
-.. index:: FRR Least-Privileges
-.. index:: FRR Privileges
 
 Additionally, you may configure zebra to drop its elevated privileges
 shortly after startup and switch to another user. The configure script will
@@ -460,11 +465,13 @@ only Linux), FRR will retain only minimal capabilities required and will only
 raise these capabilities for brief periods. On systems without libcap, FRR will
 run as the user specified and only raise its UID to 0 for brief periods.
 
+
+.. index::
+   pair: building; Linux
+   pair: configuration; Linux
+
 Linux Notes
 """""""""""
-
-.. index:: Building on Linux boxes
-.. index:: Linux configurations
 
 There are several options available only to GNU/Linux systems.  If you use
 GNU/Linux, make sure that the current kernel configuration is what you want.
@@ -534,20 +541,15 @@ Additional kernel modules are also needed to support MPLS forwarding.
 
 :makevar:`VRF forwarding`
    General information on Linux VRF support can be found in
-   https://www.kernel.org/doc/Documentation/networking/vrf.txt. Kernel
-   support for VRFs was introduced in 4.3 and improved upon through
-   4.13, which is the version most used in FRR testing (as of June
-   2018).  Additional background on using Linux VRFs and kernel specific
-   features can be found in
-   http://schd.ws/hosted_files/ossna2017/fe/vrf-tutorial-oss.pdf.
+   https://www.kernel.org/doc/Documentation/networking/vrf.txt.
 
-   A separate BGP TCP socket is opened per VRF.
+   Kernel support for VRFs was introduced in 4.3, but there are known issues
+   in versions up to 4.15 (for IPv4) and 5.0 (for IPv6). The FRR CI system
+   doesn't perform VRF tests on older kernel versions, and VRFs may not work
+   on them. If you experience issues with VRF support, you should upgrade your
+   kernel version.
 
-   **Important note** as of June 2018, Kernel versions 4.14-4.18 have a
-   known bug where VRF-specific TCP sockets are not properly handled. When
-   running these kernel versions, if unable to establish any VRF BGP
-   adjacencies, downgrade to 4.13. The issue was fixed in 4.14.57, 4.17.9
-   and more recent kernel versions.
+   .. seealso:: :ref:`zebra-vrf`
 
 Building
 ^^^^^^^^

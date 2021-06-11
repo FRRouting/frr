@@ -30,7 +30,7 @@
 #include "vrrp_debug.h"
 #include "vrrp_packet.h"
 
-DEFINE_MTYPE_STATIC(VRRPD, VRRP_PKT, "VRRP packet")
+DEFINE_MTYPE_STATIC(VRRPD, VRRP_PKT, "VRRP packet");
 
 /* clang-format off */
 static const char *const vrrp_packet_names[16] = {

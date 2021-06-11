@@ -47,6 +47,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_interface.h"
 #include "ospf6_zebra.h"
+#include "ospf6_routemap_nb.h"
 
 /* Default configuration file name for ospf6d. */
 #define OSPF6_DEFAULT_CONFIG       "ospf6d.conf"
@@ -86,6 +87,8 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	frr_early_fini();
 
+	bfd_protocol_integration_set_shutdown(true);
+
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
 		ospf6_delete(ospf6);
@@ -94,9 +97,6 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 			if (ifp->info != NULL)
 				ospf6_interface_delete(ifp->info);
 	}
-
-	bfd_gbl_exit();
-
 
 	ospf6_message_terminate();
 	ospf6_asbr_terminate();
@@ -172,6 +172,8 @@ static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&frr_ospf_route_map_info,
+	&frr_ospf6_route_map_info,
 };
 
 FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
@@ -182,7 +184,8 @@ FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
 		.n_signals = array_size(ospf6_signals),
 
 		.privs = &ospf6d_privs, .yang_modules = ospf6d_yang_modules,
-		.n_yang_modules = array_size(ospf6d_yang_modules), )
+		.n_yang_modules = array_size(ospf6d_yang_modules),
+);
 
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite
    state machine is handled here. */
@@ -221,7 +224,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = om6->master;
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	ospf6_vrf_init();
 	access_list_init();
 	prefix_list_init();
 

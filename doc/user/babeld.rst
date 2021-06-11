@@ -34,26 +34,17 @@ Configuration of *babeld* is done in its configuration file
 Babel configuration
 ===================
 
-.. index:: router babel
-.. clicmd:: [no] router babel
+.. clicmd:: router babel
 
    Enable or disable Babel routing.
 
-.. index:: babel resend-delay (20-655340)
-.. clicmd:: [no] babel resend-delay (20-655340)
-
-   Specifies the time after which important messages are resent when
-   avoiding a black-hole. The default is 2000 ms.
-
-.. index:: babel diversity
-.. clicmd:: [no] babel diversity
+.. clicmd:: babel diversity
 
    Enable or disable routing using radio frequency diversity.  This is
    highly recommended in networks with many wireless nodes.
    If you enable this, you will probably want to set `babel
    diversity-factor` and `babel channel` below.
 
-.. index:: babel diversity-factor (1-256)
 
 .. clicmd:: babel diversity-factor (1-256)
 
@@ -63,12 +54,10 @@ Babel configuration
    no role in route selection; you will probably want to set that to 128
    or less on nodes with multiple independent radios.
 
-.. index:: network IFNAME
-.. clicmd:: [no] network IFNAME
+.. clicmd:: network IFNAME
 
    Enable or disable Babel on the given interface.
 
-.. index:: babel <wired|wireless>
 
 .. clicmd:: babel <wired|wireless>
 
@@ -77,8 +66,7 @@ Babel configuration
    Specifying `wireless` (the default) is always correct, but may
    cause slower convergence and extra routing traffic.
 
-.. index:: babel split-horizon
-.. clicmd:: [no] babel split-horizon
+.. clicmd:: babel split-horizon
 
    Specifies whether to perform split-horizon on the interface.  Specifying
    ``no babel split-horizon`` is always correct, while ``babel
@@ -88,7 +76,6 @@ Babel configuration
    interfaces.  This flag is reset when the wired/wireless status of an
    interface is changed.
 
-.. index:: babel hello-interval (20-655340)
 
 .. clicmd:: babel hello-interval (20-655340)
 
@@ -97,7 +84,6 @@ Babel configuration
    on wireless links, the link quality value is reestimated at every
    hello interval.  The default is 4000 ms.
 
-.. index:: babel update-interval (20-655340)
 
 .. clicmd:: babel update-interval (20-655340)
 
@@ -105,7 +91,6 @@ Babel configuration
    Babel makes extensive use of triggered updates, this can be set to fairly
    high values on links with little packet loss.  The default is 20000 ms.
 
-.. index:: babel channel
 
 .. clicmd:: babel channel (1-254)
 .. clicmd:: babel channel interfering
@@ -121,7 +106,6 @@ Babel configuration
    interfaces.  This is reset when the wired/wireless status of an interface is
    changed.
 
-.. index:: babel rxcost (1-65534)
 
 .. clicmd:: babel rxcost (1-65534)
 
@@ -136,7 +120,6 @@ Babel configuration
    networks, acting directly on the cost using route maps is a better
    technique.
 
-.. index:: babel rtt-decay (1-256)
 
 .. clicmd:: babel rtt-decay (1-256)
 
@@ -144,7 +127,6 @@ Babel configuration
    RTT samples, in units of 1/256.  Higher values discard old samples
    faster.  The default is 42.
 
-.. index:: babel rtt-min (1-65535)
 
 .. clicmd:: babel rtt-min (1-65535)
 
@@ -152,14 +134,12 @@ Babel configuration
    increase the cost to a neighbour. The additional cost is linear in
    (rtt - rtt-min).  The default is 100 ms.
 
-.. index:: babel rtt-max (1-65535)
 
 .. clicmd:: babel rtt-max (1-65535)
 
    This specifies the maximum RTT, in milliseconds, above which we don't
    increase the cost to a neighbour. The default is 120 ms.
 
-.. index:: babel max-rtt-penalty (0-65535)
 
 .. clicmd:: babel max-rtt-penalty (0-65535)
 
@@ -167,14 +147,12 @@ Babel configuration
    when the RTT is higher or equal than rtt-max.  The default is 0, which
    effectively disables the use of a RTT-based cost.
 
-.. index:: babel enable-timestamps
 
-.. clicmd:: [no] babel enable-timestamps
+.. clicmd:: babel enable-timestamps
 
    Enable or disable sending timestamps with each Hello and IHU message in
    order to compute RTT values.  The default is `no babel enable-timestamps`.
 
-.. index:: babel resend-delay (20-655340)
 
 .. clicmd:: babel resend-delay (20-655340)
 
@@ -182,7 +160,6 @@ Babel configuration
    update will be resent.  The default is 2000 ms.  You probably don't want to
    tweak this value.
 
-.. index:: babel smoothing-half-life (0-65534)
 
 .. clicmd:: babel smoothing-half-life (0-65534)
 
@@ -196,9 +173,8 @@ Babel configuration
 Babel redistribution
 ====================
 
-.. index:: redistribute <ipv4|ipv6> KIND
 
-.. clicmd:: [no] redistribute <ipv4|ipv6> KIND
+.. clicmd:: redistribute <ipv4|ipv6> KIND
 
    Specify which kind of routes should be redistributed into Babel.
 
@@ -209,50 +185,40 @@ Show Babel information
 
 These commands dump various parts of *babeld*'s internal state.
 
-.. index:: show babel route
 
 .. clicmd:: show babel route
 
-.. index:: show babel route A.B.C.D
 
 .. clicmd:: show babel route A.B.C.D
 
-.. index:: show babel route X:X::X:X
 
 .. clicmd:: show babel route X:X::X:X
 
-.. index:: show babel route A.B.C.D/M
 
 .. clicmd:: show babel route A.B.C.D/M
 
-.. index:: show babel route X:X::X:X/M
 
 .. clicmd:: show babel route X:X::X:X/M
 
-.. index:: show babel interface
 
 .. clicmd:: show babel interface
 
-.. index:: show babel interface IFNAME
 
 .. clicmd:: show babel interface IFNAME
 
-.. index:: show babel neighbor
 
 .. clicmd:: show babel neighbor
 
-.. index:: show babel parameters
 
 .. clicmd:: show babel parameters
 
 Babel debugging commands
 ========================
 
-.. index::
    simple: debug babel KIND
    simple: no debug babel KIND
 
-.. clicmd:: [no] debug babel KIND
+.. clicmd:: debug babel KIND
 
    Enable or disable debugging messages of a given kind. ``KIND`` can
    be one of:
@@ -267,3 +233,41 @@ Babel debugging commands
 .. note::
    If you have compiled with the ``NO_DEBUG`` flag, then these commands aren't
    available.
+
+
+Babel sample configuration file
+===============================
+
+.. code-block:: frr
+
+   debug babel common
+   !debug babel kernel
+   !debug babel filter
+   !debug babel timeout
+   !debug babel interface
+   !debug babel route
+   !debug babel all
+
+   router babel
+   ! network wlan0
+   ! network eth0
+   ! redistribute ipv4 kernel
+   ! no redistribute ipv6 static
+
+   ! The defaults are fine for a wireless interface
+
+   !interface wlan0
+
+   ! A few optimisation tweaks are optional but recommended on a wired interface
+   ! Disable link quality estimation, enable split horizon processing, and
+   ! increase the hello and update intervals.
+
+   !interface eth0
+   ! babel wired
+   ! babel split-horizon
+   ! babel hello-interval 12000
+   ! babel update-interval 36000
+
+   ! log file /var/log/quagga/babeld.log
+   log stdout
+

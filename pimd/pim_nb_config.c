@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <zebra.h>
+
 #include "pimd.h"
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
@@ -36,7 +38,7 @@ static void pim_if_membership_clear(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (PIM_IF_TEST_PIM(pim_ifp->options)
 	    && PIM_IF_TEST_IGMP(pim_ifp->options)) {
@@ -62,7 +64,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	struct igmp_sock *igmp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (!PIM_IF_TEST_PIM(pim_ifp->options))
 		return;
@@ -218,7 +220,7 @@ static int pim_cmd_spt_switchover(struct pim_instance *pim,
 static int pim_ssm_cmd_worker(struct pim_instance *pim, const char *plist,
 		char *errmsg, size_t errmsg_len)
 {
-	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
+	int result = pim_ssm_range_set(pim, pim->vrf->vrf_id, plist);
 	int ret = NB_ERR;
 
 	if (result == PIM_SSM_ERR_NONE)
@@ -239,147 +241,6 @@ static int pim_ssm_cmd_worker(struct pim_instance *pim, const char *plist,
 	}
 
 	return ret;
-}
-
-static int ip_no_msdp_mesh_group_cmd_worker(struct pim_instance *pim,
-		const char *mg,
-		char *errmsg, size_t errmsg_len)
-{
-	enum pim_msdp_err result;
-
-	result = pim_msdp_mg_del(pim, mg);
-
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		snprintf(errmsg, errmsg_len,
-			 "%% mesh-group does not exist");
-		break;
-	default:
-		snprintf(errmsg, errmsg_len,
-			 "mesh-group source del failed");
-	}
-
-	return result ? NB_ERR : NB_OK;
-}
-
-static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
-		const char *mg,
-		struct in_addr mbr_ip,
-		char *errmsg, size_t errmsg_len)
-{
-	enum pim_msdp_err result;
-	int ret = NB_OK;
-
-	result = pim_msdp_mg_mbr_add(pim, mg, mbr_ip);
-
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		ret = NB_ERR;
-		snprintf(errmsg, errmsg_len,
-			 "%% Out of memory");
-		break;
-	case PIM_MSDP_ERR_MG_MBR_EXISTS:
-		ret = NB_ERR;
-		snprintf(errmsg, errmsg_len,
-			 "%% mesh-group member exists");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		ret = NB_ERR;
-		snprintf(errmsg, errmsg_len,
-			 "%% Only one mesh-group allowed currently");
-		break;
-	default:
-		ret = NB_ERR;
-		snprintf(errmsg, errmsg_len,
-			 "%% member add failed");
-	}
-
-	return ret;
-}
-
-static int ip_no_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
-		const char *mg,
-		struct in_addr mbr_ip,
-		char *errmsg,
-		size_t errmsg_len)
-{
-	enum pim_msdp_err result;
-
-	result = pim_msdp_mg_mbr_del(pim, mg, mbr_ip);
-
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		snprintf(errmsg, errmsg_len,
-			 "%% mesh-group does not exist");
-		break;
-	case PIM_MSDP_ERR_NO_MG_MBR:
-		snprintf(errmsg, errmsg_len,
-			 "%% mesh-group member does not exist");
-		break;
-	default:
-		snprintf(errmsg, errmsg_len,
-			 "%% mesh-group member del failed");
-	}
-
-	return result ? NB_ERR : NB_OK;
-}
-
-static int ip_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
-		const char *mg,
-		struct in_addr src_ip,
-		char *errmsg, size_t errmsg_len)
-{
-	enum pim_msdp_err result;
-
-	result = pim_msdp_mg_src_add(pim, mg, src_ip);
-
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		snprintf(errmsg, errmsg_len,
-			 "%% Out of memory");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		snprintf(errmsg, errmsg_len,
-			 "%% Only one mesh-group allowed currently");
-		break;
-	default:
-		snprintf(errmsg, errmsg_len,
-			 "%% source add failed");
-	}
-
-	return result ? NB_ERR : NB_OK;
-}
-
-static int ip_no_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
-		const char *mg,
-		char *errmsg,
-		size_t errmsg_len)
-{
-	enum pim_msdp_err result;
-
-	result = pim_msdp_mg_src_del(pim, mg);
-
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		snprintf(errmsg, errmsg_len,
-			 "%% mesh-group does not exist");
-		break;
-	default:
-		snprintf(errmsg, errmsg_len,
-			 "%% mesh-group source del failed");
-	}
-
-	return result ? NB_ERR : NB_OK;
 }
 
 static int ip_msdp_peer_cmd_worker(struct pim_instance *pim,
@@ -522,11 +383,10 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	const struct lyd_node *igmp_enable_dnode;
 
 	yang_dnode_get_path(dnode, if_xpath, sizeof(if_xpath));
-	pim_enable_dnode = yang_dnode_get(dnode, "%s/frr-pim:pim/pim-enable",
-					  if_xpath);
-	igmp_enable_dnode = yang_dnode_get(dnode,
-					   "%s/frr-igmp:igmp/igmp-enable",
-					   if_xpath);
+	pim_enable_dnode =
+		yang_dnode_getf(dnode, "%s/frr-pim:pim/pim-enable", if_xpath);
+	igmp_enable_dnode = yang_dnode_getf(
+		dnode, "%s/frr-igmp:igmp/igmp-enable", if_xpath);
 
 	if (((pim_enable_dnode) &&
 	     (yang_dnode_get_bool(pim_enable_dnode, "."))) ||
@@ -576,7 +436,7 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 
-	zassert(igmp);
+	assert(igmp);
 
 	/* other querier present? */
 
@@ -585,8 +445,8 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 
 	/* this is the querier */
 
-	zassert(igmp->interface);
-	zassert(igmp->interface->info);
+	assert(igmp->interface);
+	assert(igmp->interface->info);
 
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
@@ -616,25 +476,25 @@ static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
 
 	if (igmp->t_igmp_query_timer) {
 		/* other querier present */
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
+		assert(igmp->t_igmp_query_timer);
+		assert(!igmp->t_other_querier_timer);
 
 		pim_igmp_general_query_off(igmp);
 		pim_igmp_general_query_on(igmp);
 
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
+		assert(igmp->t_igmp_query_timer);
+		assert(!igmp->t_other_querier_timer);
 	} else {
 		/* this is the querier */
 
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
+		assert(!igmp->t_igmp_query_timer);
+		assert(igmp->t_other_querier_timer);
 
 		pim_igmp_other_querier_timer_off(igmp);
 		pim_igmp_other_querier_timer_on(igmp);
 
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
+		assert(!igmp->t_igmp_query_timer);
+		assert(igmp->t_other_querier_timer);
 	}
 }
 
@@ -755,18 +615,14 @@ int pim_join_prune_interval_modify(struct nb_cb_modify_args *args)
  */
 int pim_register_suppress_time_modify(struct nb_cb_modify_args *args)
 {
-	struct vrf *vrf;
-	struct pim_instance *pim;
-
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		pim = vrf->info;
-		pim->keep_alive_time = yang_dnode_get_uint16(args->dnode, NULL);
+		pim_update_suppress_timers(
+			yang_dnode_get_uint16(args->dnode, NULL));
 		break;
 	}
 
@@ -1149,29 +1005,13 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 }
 
 /*
- * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-group
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-groups
  */
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_create(
-	struct nb_cb_create_args *args)
+int pim_msdp_mesh_group_create(struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_destroy(
-	struct nb_cb_destroy_args *args)
-{
+	struct pim_msdp_mg *mg;
 	struct vrf *vrf;
-	struct pim_instance *pim;
-	const char *mesh_group_name;
-	int result;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1180,16 +1020,29 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 		break;
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		pim = vrf->info;
-		mesh_group_name = yang_dnode_get_string(args->dnode, ".");
+		mg = pim_msdp_mg_new(vrf->info, yang_dnode_get_string(
+							args->dnode, "./name"));
+		nb_running_set_entry(args->dnode, mg);
+		break;
+	}
 
-		result = ip_no_msdp_mesh_group_cmd_worker(pim, mesh_group_name,
-				args->errmsg,
-				args->errmsg_len);
+	return NB_OK;
+}
 
-		if (result != PIM_MSDP_ERR_NONE)
-			return NB_ERR_INCONSISTENCY;
+int pim_msdp_mesh_group_destroy(struct nb_cb_destroy_args *args)
+{
+	struct pim_msdp_mg *mg;
+	struct vrf *vrf;
 
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		mg = nb_running_unset_entry(args->dnode);
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim_msdp_mg_free(vrf->info, &mg);
 		break;
 	}
 
@@ -1197,67 +1050,71 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 }
 
 /*
- * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-group/mesh-group-name
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-groups/source
  */
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_mesh_group_name_modify(
-	struct nb_cb_modify_args *args)
+int pim_msdp_mesh_group_source_modify(struct nb_cb_modify_args *args)
 {
-	const char *mesh_group_name;
-	const char *mesh_group_name_old;
-	char xpath[XPATH_MAXLEN];
+	const struct lyd_node *vrf_dnode;
+	struct pim_msdp_mg *mg;
+	struct vrf *vrf;
+	struct ipaddr ip;
 
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		mesh_group_name = yang_dnode_get_string(args->dnode, ".");
-		yang_dnode_get_path(args->dnode, xpath, sizeof(xpath));
-
-		if (yang_dnode_exists(running_config->dnode, xpath) == false)
-			break;
-
-		mesh_group_name_old = yang_dnode_get_string(
-					running_config->dnode,
-					xpath);
-		if (strcmp(mesh_group_name, mesh_group_name_old)) {
-			/* currently only one mesh-group can exist at a time */
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Only one mesh-group allowed currently");
-			return NB_ERR_VALIDATION;
-		}
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_mesh_group_name_destroy(
-	struct nb_cb_destroy_args *args)
-{
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+		mg = nb_running_get_entry(args->dnode, NULL, true);
+		vrf_dnode =
+			yang_dnode_get_parent(args->dnode, "address-family");
+		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
+		yang_dnode_get_ip(&ip, args->dnode, NULL);
+
+		pim_msdp_mg_src_add(vrf->info, mg, &ip.ip._v4_addr);
 		break;
 	}
-
 	return NB_OK;
 }
+
+int pim_msdp_mesh_group_source_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *vrf_dnode;
+	struct pim_msdp_mg *mg;
+	struct vrf *vrf;
+	struct in_addr addr;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		mg = nb_running_get_entry(args->dnode, NULL, true);
+		vrf_dnode =
+			yang_dnode_get_parent(args->dnode, "address-family");
+		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
+
+		addr.s_addr = INADDR_ANY;
+		pim_msdp_mg_src_add(vrf->info, mg, &addr);
+		break;
+	}
+	return NB_OK;
+}
+
 
 /*
- * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-group/member-ip
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-groups/members
  */
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_member_ip_create(
-	struct nb_cb_create_args *args)
+int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args)
 {
+	const struct lyd_node *vrf_dnode;
+	struct pim_msdp_mg_mbr *mbr;
+	struct pim_msdp_mg *mg;
 	struct vrf *vrf;
-	struct pim_instance *pim;
-	const char *mesh_group_name;
-	struct ipaddr mbr_ip;
-	enum pim_msdp_err result;
+	struct ipaddr ip;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1265,33 +1122,24 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		pim = vrf->info;
-		mesh_group_name = yang_dnode_get_string(args->dnode,
-				"../mesh-group-name");
-		yang_dnode_get_ip(&mbr_ip, args->dnode, NULL);
+		mg = nb_running_get_entry(args->dnode, NULL, true);
+		vrf_dnode =
+			yang_dnode_get_parent(args->dnode, "address-family");
+		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
+		yang_dnode_get_ip(&ip, args->dnode, "address");
 
-		result = ip_msdp_mesh_group_member_cmd_worker(
-				pim, mesh_group_name, mbr_ip.ip._v4_addr,
-				args->errmsg, args->errmsg_len);
-
-		if (result != PIM_MSDP_ERR_NONE)
-			return NB_ERR_INCONSISTENCY;
-
+		mbr = pim_msdp_mg_mbr_add(vrf->info, mg, &ip.ip._v4_addr);
+		nb_running_set_entry(args->dnode, mbr);
 		break;
 	}
 
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_member_ip_destroy(
-	struct nb_cb_destroy_args *args)
+int pim_msdp_mesh_group_members_destroy(struct nb_cb_destroy_args *args)
 {
-	struct vrf *vrf;
-	struct pim_instance *pim;
-	const char *mesh_group_name;
-	struct ipaddr mbr_ip;
-	enum pim_msdp_err result;
+	struct pim_msdp_mg_mbr *mbr;
+	struct pim_msdp_mg *mg;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1299,89 +1147,13 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		pim = vrf->info;
-		mesh_group_name = yang_dnode_get_string(args->dnode,
-				"../mesh-group-name");
-		yang_dnode_get_ip(&mbr_ip, args->dnode, NULL);
+		mbr = nb_running_get_entry(args->dnode, NULL, true);
+		mg = nb_running_get_entry(args->dnode, "../", true);
 
-		result = ip_no_msdp_mesh_group_member_cmd_worker(
-				pim, mesh_group_name, mbr_ip.ip._v4_addr,
-				args->errmsg, args->errmsg_len);
-
-		if (result != PIM_MSDP_ERR_NONE)
-			return NB_ERR_INCONSISTENCY;
-
+		pim_msdp_mg_mbr_del(mg, mbr);
 		break;
 	}
 
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-group/source-ip
- */
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_source_ip_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct vrf *vrf;
-	struct pim_instance *pim;
-	const char *mesh_group_name;
-	struct ipaddr src_ip;
-	enum pim_msdp_err result;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		pim = vrf->info;
-		mesh_group_name = yang_dnode_get_string(args->dnode,
-				"../mesh-group-name");
-		yang_dnode_get_ip(&src_ip, args->dnode, NULL);
-
-		result = ip_msdp_mesh_group_source_cmd_worker(
-				pim, mesh_group_name, src_ip.ip._v4_addr,
-				args->errmsg, args->errmsg_len);
-
-		if (result != PIM_MSDP_ERR_NONE)
-			return NB_ERR_INCONSISTENCY;
-
-		break;
-	}
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_source_ip_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct vrf *vrf;
-	struct pim_instance *pim;
-	const char *mesh_group_name;
-	enum pim_msdp_err result;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		pim = vrf->info;
-		mesh_group_name = yang_dnode_get_string(args->dnode,
-				"../mesh-group-name");
-
-		result = ip_no_msdp_mesh_group_source_cmd_worker(
-				pim, mesh_group_name, args->errmsg,
-				args->errmsg_len);
-
-		if (result != PIM_MSDP_ERR_NONE)
-			return NB_ERR_INCONSISTENCY;
-
-		break;
-	}
 	return NB_OK;
 }
 
@@ -1830,6 +1602,7 @@ int lib_interface_pim_hello_interval_modify(struct nb_cb_modify_args *args)
 		pim_ifp = ifp->info;
 		pim_ifp->pim_hello_period =
 			yang_dnode_get_uint8(args->dnode, NULL);
+		pim_ifp->pim_default_holdtime = -1;
 		break;
 	}
 
@@ -1885,11 +1658,19 @@ int lib_interface_pim_hello_holdtime_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_pim_bfd_create(struct nb_cb_create_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->bfd_config.enabled = true;
 		break;
 	}
 
@@ -1915,13 +1696,10 @@ int lib_interface_pim_bfd_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode->parent, NULL, true);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		if (pim_ifp->bfd_info) {
-			pim_bfd_reg_dereg_all_nbr(ifp,
-					ZEBRA_BFD_DEST_DEREGISTER);
-			bfd_info_free(&(pim_ifp->bfd_info));
-		}
+		pim_ifp->bfd_config.enabled = false;
+		pim_bfd_reg_dereg_all_nbr(ifp);
 		break;
 	}
 
@@ -1935,11 +1713,8 @@ void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
-	uint32_t min_rx;
-	uint32_t min_tx;
-	uint8_t detect_mult;
 
-	ifp = nb_running_get_entry(args->dnode->parent, NULL, true);
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
@@ -1947,17 +1722,14 @@ void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
 		return;
 	}
 
-	min_rx = yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
-	min_tx = yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
-	detect_mult = yang_dnode_get_uint8(args->dnode, "./detect_mult");
+	pim_ifp->bfd_config.detection_multiplier =
+		yang_dnode_get_uint8(args->dnode, "./detect_mult");
+	pim_ifp->bfd_config.min_rx =
+		yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
+	pim_ifp->bfd_config.min_tx =
+		yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
 
-	if ((min_rx == BFD_DEF_MIN_RX) && (min_tx == BFD_DEF_MIN_TX)
-			&& (detect_mult == BFD_DEF_DETECT_MULT))
-		pim_bfd_if_param_set(ifp, min_rx, min_tx, detect_mult, 1);
-	else
-		pim_bfd_if_param_set(ifp, min_rx, min_tx, detect_mult, 0);
-
-	nb_running_set_entry(args->dnode, pim_ifp->bfd_info);
+	pim_bfd_reg_dereg_all_nbr(ifp);
 }
 
 /*
@@ -2002,6 +1774,53 @@ int lib_interface_pim_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd/profile
+ */
+int lib_interface_pim_bfd_profile_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
+		pim_ifp->bfd_config.profile = XSTRDUP(
+			MTYPE_TMP, yang_dnode_get_string(args->dnode, NULL));
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_bfd_profile_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 		break;
 	}
 
@@ -2354,7 +2173,7 @@ int lib_interface_pim_address_family_mroute_destroy(
 		pim = pim_iifp->pim;
 
 		oifname = yang_dnode_get_string(args->dnode, "./oif");
-		oif = if_lookup_by_name(oifname, pim->vrf_id);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 
 		if (!oif) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -2402,6 +2221,26 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 				 "%% Enable PIM and/or IGMP on this interface first");
 			return NB_ERR_VALIDATION;
 		}
+
+#ifdef PIM_ENFORCE_LOOPFREE_MFC
+		iif = nb_running_get_entry(args->dnode, NULL, false);
+		if (!iif) {
+			return NB_OK;
+		}
+
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, NULL);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
+
+		if (oif && (iif->ifindex == oif->ifindex)) {
+			strlcpy(args->errmsg,
+				"% IIF same as OIF and loopfree enforcement is enabled; rejecting",
+				args->errmsg_len);
+			return NB_ERR_VALIDATION;
+		}
+#endif
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -2412,8 +2251,7 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 		pim = pim_iifp->pim;
 
 		oifname = yang_dnode_get_string(args->dnode, NULL);
-		oif = if_lookup_by_name(oifname, pim->vrf_id);
-
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 		if (!oif) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "No such interface name %s",
@@ -2707,11 +2545,11 @@ int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
-		ifp_name = yang_dnode_get_string(if_dnode, ".");
 		mcast_if_count =
 			yang_get_list_elements_count(if_dnode);
 		/* Limiting mcast interfaces to number of VIFs */
 		if (mcast_if_count == MAXVIFS) {
+			ifp_name = yang_dnode_get_string(if_dnode, "name");
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s",
 				 MAXVIFS, ifp_name);
@@ -2982,7 +2820,7 @@ int lib_interface_igmp_address_family_static_group_create(
 	case NB_EV_VALIDATE:
 		if_dnode =  yang_dnode_get_parent(args->dnode, "interface");
 		if (!is_pim_interface(if_dnode)) {
-			ifp_name = yang_dnode_get_string(if_dnode, ".");
+			ifp_name = yang_dnode_get_string(if_dnode, "name");
 			snprintf(args->errmsg, args->errmsg_len,
 				 "multicast not enabled on interface %s",
 				 ifp_name);

@@ -59,6 +59,8 @@ from mininet.topo import Topo
 from lib.common_config import step
 from time import sleep
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.bgpd]
+
 
 class TemplateTopo(Topo):
     def build(self, *_args, **_opts):

@@ -22,11 +22,13 @@
 #include <stdbool.h>
 #include <debug.h>
 #include <netinet/tcp.h>
-#include <pcep_utils_logging.h>
-#include <pcep_pcc_api.h>
+#include "memory.h"
+#include "pceplib/pcep_utils_logging.h"
+#include "pceplib/pcep_pcc_api.h"
 #include "mpls.h"
 #include "pathd/pathd.h"
-#include "pathd/path_pcep_memory.h"
+
+DECLARE_MTYPE(PCEP);
 
 #define PCEP_DEFAULT_PORT 4189
 #define MAX_PCC 32
@@ -82,7 +84,7 @@
 
 struct pcep_config_group_opts {
 	char name[64];
-	char tcp_md5_auth[TCP_MD5SIG_MAXKEYLEN];
+	char tcp_md5_auth[PCEP_MD5SIG_MAXKEYLEN];
 	struct ipaddr source_ip;
 	short source_port;
 	bool draft07;

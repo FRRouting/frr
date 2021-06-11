@@ -185,7 +185,7 @@ module frr-bfdd {
 
     leaf administrative-down {
       type boolean;
-      default true;
+      default false;
       description "Disables or enables the session administratively";
     }
 
@@ -210,7 +210,14 @@ module frr-bfdd {
       type uint32;
       units microseconds;
       default 50000;
-      description "Minimum desired control packet transmission interval";
+      description "Minimum desired echo packet transmission interval";
+    }
+
+    leaf required-echo-receive-interval {
+      type uint32;
+      units microseconds;
+      default 50000;
+      description "Minimum required echo packet receive interval";
     }
   }
 
@@ -428,7 +435,7 @@ module frr-bfdd {
         }
 
         list multi-hop {
-          key "source-addr dest-addr interface vrf";
+          key "source-addr dest-addr vrf";
           description "List of multi hop sessions";
 
           leaf source-addr {
@@ -439,11 +446,6 @@ module frr-bfdd {
           leaf dest-addr {
             type inet:ip-address;
             description "IP address of the peer";
-          }
-
-          leaf interface {
-            type frr-interface:interface-ref;
-            description "Interface to use to contact peer";
           }
 
           leaf vrf {

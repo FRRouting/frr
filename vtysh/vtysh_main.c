@@ -153,8 +153,10 @@ static void usage(int status)
 			progname);
 	else
 		printf("Usage : %s [OPTION...]\n\n"
-		       "Integrated shell for FRR (version " FRR_VERSION "). \n"
-		       "Configured with:\n    " FRR_CONFIG_ARGS "\n\n"
+		       "Integrated shell for FRR (version " FRR_VERSION
+		       "). \n"
+		       "Configured with:\n    " FRR_CONFIG_ARGS
+		       "\n\n"
 		       "-b, --boot               Execute boot startup configuration\n"
 		       "-c, --command            Execute argument as command\n"
 		       "-d, --daemon             Connect only to the specified daemon\n"
@@ -167,6 +169,7 @@ static void usage(int status)
 		       "-N  --pathspace          Insert prefix into config & socket paths\n"
 		       "-u  --user               Run as an unprivileged user\n"
 		       "-w, --writeconfig        Write integrated config (frr.conf) and exit\n"
+		       "-H, --histfile           Override history file\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
 		       "line by passing multiple -c args, or by embedding linefeed\n"
@@ -189,6 +192,7 @@ struct option longopts[] = {
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"config_dir", required_argument, NULL, OPTION_CONFDIR},
 	{"inputfile", required_argument, NULL, 'f'},
+	{"histfile", required_argument, NULL, 'H'},
 	{"echo", no_argument, NULL, 'E'},
 	{"dryrun", no_argument, NULL, 'C'},
 	{"help", no_argument, NULL, 'h'},
@@ -321,6 +325,7 @@ int main(int argc, char **argv, char **env)
 	char sysconfdir[MAXPATHLEN];
 	const char *pathspace_arg = NULL;
 	char pathspace[MAXPATHLEN] = "";
+	const char *histfile = NULL;
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -341,8 +346,8 @@ int main(int argc, char **argv, char **env)
 
 	/* Option handling. */
 	while (1) {
-		opt = getopt_long(argc, argv, "be:c:d:nf:mEhCwN:u",
-				  longopts, 0);
+		opt = getopt_long(argc, argv, "be:c:d:nf:H:mEhCwN:u", longopts,
+				  0);
 
 		if (opt == EOF)
 			break;
@@ -408,6 +413,9 @@ int main(int argc, char **argv, char **env)
 			break;
 		case 'h':
 			usage(0);
+			break;
+		case 'H':
+			histfile = optarg;
 			break;
 		default:
 			usage(1);
@@ -569,12 +577,24 @@ int main(int argc, char **argv, char **env)
 	/*
 	 * Setup history file for use by both -c and regular input
 	 * If we can't find the home directory, then don't store
-	 * the history information
+	 * the history information.
+	 * VTYSH_HISTFILE is prefered over command line
+	 * argument (-H/--histfile).
 	 */
-	homedir = vtysh_get_home();
-	if (homedir) {
-		snprintf(history_file, sizeof(history_file), "%s/.history_frr",
-			 homedir);
+	if (getenv("VTYSH_HISTFILE")) {
+		const char *file = getenv("VTYSH_HISTFILE");
+
+		strlcpy(history_file, file, sizeof(history_file));
+	} else if (histfile) {
+		strlcpy(history_file, histfile, sizeof(history_file));
+	} else {
+		homedir = vtysh_get_home();
+		if (homedir)
+			snprintf(history_file, sizeof(history_file),
+				 "%s/.history_frr", homedir);
+	}
+
+	if (strlen(history_file) > 0) {
 		if (read_history(history_file) != 0) {
 			int fp;
 

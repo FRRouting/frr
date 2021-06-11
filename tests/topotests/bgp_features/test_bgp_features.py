@@ -48,6 +48,8 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
+
 #####################################################
 #
 #   Network Topology Definition

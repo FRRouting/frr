@@ -214,7 +214,6 @@ int isis_instance_mpls_te_router_address_destroy(
 int lib_interface_isis_create(struct nb_cb_create_args *args);
 int lib_interface_isis_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args);
-int lib_interface_isis_vrf_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_ipv4_routing_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args);
@@ -320,6 +319,8 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
@@ -335,6 +336,8 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
 int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify(
 	struct nb_cb_modify_args *args);
 struct yang_data *
 lib_interface_state_isis_get_elem(struct nb_cb_get_elem_args *args);
@@ -387,9 +390,7 @@ lib_interface_state_isis_event_counters_authentication_fails_get_elem(
 /* Optional 'pre_validate' callbacks. */
 int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	struct nb_cb_pre_validate_args *args);
-int isis_instance_segment_routing_srgb_pre_validate(
-	struct nb_cb_pre_validate_args *args);
-int isis_instance_segment_routing_srlb_pre_validate(
+int isis_instance_segment_routing_label_blocks_pre_validate(
 	struct nb_cb_pre_validate_args *args);
 
 /* Optional 'apply_finish' callbacks. */
@@ -476,10 +477,8 @@ void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 				  bool show_defaults);
 void cli_show_isis_sr_enabled(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults);
-void cli_show_isis_srgb(struct vty *vty, struct lyd_node *dnode,
-			bool show_defaults);
-void cli_show_isis_srlb(struct vty *vty, struct lyd_node *dnode,
-			bool show_defaults);
+void cli_show_isis_label_blocks(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults);
 void cli_show_isis_node_msd(struct vty *vty, struct lyd_node *dnode,
 			    bool show_defaults);
 void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
@@ -553,40 +552,97 @@ void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty,
 /* Notifications. */
 void isis_notif_db_overload(const struct isis_area *area, bool overload);
 void isis_notif_lsp_too_large(const struct isis_circuit *circuit,
-			      uint32_t pdu_size, const char *lsp_id);
+			      uint32_t pdu_size, const uint8_t *lsp_id);
 void isis_notif_if_state_change(const struct isis_circuit *circuit, bool down);
 void isis_notif_corrupted_lsp(const struct isis_area *area,
-			      const char *lsp_id); /* currently unused */
+			      const uint8_t *lsp_id); /* currently unused */
 void isis_notif_lsp_exceed_max(const struct isis_area *area,
-			       const char *lsp_id);
+			       const uint8_t *lsp_id);
 void isis_notif_max_area_addr_mismatch(const struct isis_circuit *circuit,
 				       uint8_t max_area_addrs,
-				       const char *raw_pdu);
+				       const char *raw_pdu, size_t raw_pdu_len);
 void isis_notif_authentication_type_failure(const struct isis_circuit *circuit,
-					    const char *raw_pdu);
+					    const char *raw_pdu,
+					    size_t raw_pdu_len);
 void isis_notif_authentication_failure(const struct isis_circuit *circuit,
-				       const char *raw_pdu);
+				       const char *raw_pdu, size_t raw_pdu_len);
 void isis_notif_adj_state_change(const struct isis_adjacency *adj,
 				 int new_state, const char *reason);
 void isis_notif_reject_adjacency(const struct isis_circuit *circuit,
-				 const char *reason, const char *raw_pdu);
+				 const char *reason, const char *raw_pdu,
+				 size_t raw_pdu_len);
 void isis_notif_area_mismatch(const struct isis_circuit *circuit,
-			      const char *raw_pdu);
+			      const char *raw_pdu, size_t raw_pdu_len);
 void isis_notif_lsp_received(const struct isis_circuit *circuit,
-			     const char *lsp_id, uint32_t seqno,
+			     const uint8_t *lsp_id, uint32_t seqno,
 			     uint32_t timestamp, const char *sys_id);
-void isis_notif_lsp_gen(const struct isis_area *area, const char *lsp_id,
+void isis_notif_lsp_gen(const struct isis_area *area, const uint8_t *lsp_id,
 			uint32_t seqno, uint32_t timestamp);
 void isis_notif_id_len_mismatch(const struct isis_circuit *circuit,
-				uint8_t rcv_id_len, const char *raw_pdu);
+				uint8_t rcv_id_len, const char *raw_pdu,
+				size_t raw_pdu_len);
 void isis_notif_version_skew(const struct isis_circuit *circuit,
-			     uint8_t version, const char *raw_pdu);
+			     uint8_t version, const char *raw_pdu,
+			     size_t raw_pdu_len);
 void isis_notif_lsp_error(const struct isis_circuit *circuit,
-			  const char *lsp_id, const char *raw_pdu,
-			  uint32_t offset, uint8_t tlv_type);
+			  const uint8_t *lsp_id, const char *raw_pdu,
+			  size_t raw_pdu_len, uint32_t offset,
+			  uint8_t tlv_type);
 void isis_notif_seqno_skipped(const struct isis_circuit *circuit,
-			      const char *lsp_id);
+			      const uint8_t *lsp_id);
 void isis_notif_own_lsp_purge(const struct isis_circuit *circuit,
-			      const char *lsp_id);
+			      const uint8_t *lsp_id);
+
+/* We also declare hook for every notification */
+
+DECLARE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
+DECLARE_HOOK(isis_hook_lsp_too_large,
+	     (const struct isis_circuit *circuit, uint32_t pdu_size,
+	      const uint8_t *lsp_id),
+	     (circuit, pdu_size, lsp_id));
+/* Note: no isis_hook_corrupted_lsp - because this notificaiton is not used */
+DECLARE_HOOK(isis_hook_lsp_exceed_max,
+	     (const struct isis_area *area, const uint8_t *lsp_id),
+	     (area, lsp_id));
+DECLARE_HOOK(isis_hook_max_area_addr_mismatch,
+	     (const struct isis_circuit *circuit, uint8_t max_addrs,
+	      const char *raw_pdu, size_t raw_pdu_len),
+	     (circuit, max_addrs, raw_pdu, raw_pdu_len));
+DECLARE_HOOK(isis_hook_authentication_type_failure,
+	     (const struct isis_circuit *circuit, const char *raw_pdu,
+	      size_t raw_pdu_len),
+	     (circuit, raw_pdu, raw_pdu_len));
+DECLARE_HOOK(isis_hook_authentication_failure,
+	     (const struct isis_circuit *circuit, const char *raw_pdu,
+	      size_t raw_pdu_len),
+	     (circuit, raw_pdu, raw_pdu_len));
+DECLARE_HOOK(isis_hook_adj_state_change, (const struct isis_adjacency *adj),
+	     (adj));
+DECLARE_HOOK(isis_hook_reject_adjacency,
+	     (const struct isis_circuit *circuit, const char *pdu,
+	      size_t pdu_len),
+	     (circuit, pdu, pdu_len));
+DECLARE_HOOK(isis_hook_area_mismatch,
+	     (const struct isis_circuit *circuit, const char *raw_pdu,
+	      size_t raw_pdu_len),
+	     (circuit));
+DECLARE_HOOK(isis_hook_id_len_mismatch,
+	     (const struct isis_circuit *circuit, uint8_t rcv_id_len,
+	      const char *raw_pdu, size_t raw_pdu_len),
+	     (circuit, rcv_id_len, raw_pdu, raw_pdu_len));
+DECLARE_HOOK(isis_hook_version_skew,
+	     (const struct isis_circuit *circuit, uint8_t version,
+	      const char *raw_pdu, size_t raw_pdu_len),
+	     (circuit));
+DECLARE_HOOK(isis_hook_lsp_error,
+	     (const struct isis_circuit *circuit, const uint8_t *lsp_id,
+	      const char *raw_pdu, size_t raw_pdu_len),
+	     (circuit));
+DECLARE_HOOK(isis_hook_seqno_skipped,
+	     (const struct isis_circuit *circuit, const uint8_t *lsp_id),
+	     (circuit, lsp_id));
+DECLARE_HOOK(isis_hook_own_lsp_purge,
+	     (const struct isis_circuit *circuit, const uint8_t *lsp_id),
+	     (circuit, lsp_id));
 
 #endif /* ISISD_ISIS_NB_H_ */

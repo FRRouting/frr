@@ -5300,8 +5300,8 @@ sub process {
 
 # uncoalesced string fragments
 		if ($line =~ /$String\s*"/) {
-			WARN("STRING_FRAGMENTS",
-			     "Consecutive strings are generally better as a single string\n" . $herecurr);
+			CHK("STRING_FRAGMENTS",
+			    "Consecutive strings are generally better as a single string\n" . $herecurr);
 		}
 
 # check for non-standard and hex prefixed decimal printf formats

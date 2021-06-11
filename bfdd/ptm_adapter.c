@@ -232,7 +232,7 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 	stream_putl(msg, ZEBRA_INTERFACE_BFD_DEST_UPDATE);
 
 	/* NOTE: Interface is a shortcut to avoid comparing source address. */
-	if (bs->ifp != NULL)
+	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) && bs->ifp != NULL)
 		stream_putl(msg, bs->ifp->ifindex);
 	else
 		stream_putl(msg, IFINDEX_INTERNAL);
@@ -492,9 +492,6 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 					"ptm-add-dest: failed to create BFD session");
 			return;
 		}
-
-		/* Protocol created peers are 'no shutdown' by default. */
-		bs->peer_profile.admin_shutdown = false;
 	} else {
 		/*
 		 * BFD session was already created, we are just updating the
@@ -703,11 +700,15 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
-		if (strcmp(ifp->name, bs->key.ifname))
+
+		if (bs->ifp != ifp)
 			continue;
+
 		/* Skip disabled sessions. */
-		if (bs->sock == -1)
+		if (bs->sock == -1) {
+			bs->ifp = NULL;
 			continue;
+		}
 
 		bfd_session_disable(bs);
 		bs->ifp = NULL;

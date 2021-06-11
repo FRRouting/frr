@@ -54,6 +54,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
 #define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
 #define CAPABILITY_CODE_ORF_OLD       130 /* Cooperative Route Filtering Capability(cisco) */
+#define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -66,6 +67,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_MIN_FQDN_LEN    2
 #define CAPABILITY_CODE_ENHANCED_LEN    0
 #define CAPABILITY_CODE_ORF_LEN         5
+#define CAPABILITY_CODE_EXT_MESSAGE_LEN 0 /* Extended Message Support */
 
 /* Cooperative Route Filtering Capability.  */
 

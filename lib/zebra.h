@@ -68,6 +68,12 @@
 #include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
+#ifdef HAVE_ENDIAN_H
+#include <endian.h>
+#endif
 
 /* machine dependent includes */
 #ifdef HAVE_LINUX_VERSION_H
@@ -80,21 +86,6 @@
 
 /* misc include group */
 #include <stdarg.h>
-#if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
-/* Not C99; do we need to define va_copy? */
-#ifndef va_copy
-#ifdef __va_copy
-#define va_copy(DST,SRC) __va_copy(DST,SRC)
-#else
-/* Now we are desperate; this should work on many typical platforms.
-   But this is slightly dangerous, because the standard does not require
-   va_copy to be a macro. */
-#define va_copy(DST,SRC) memcpy(&(DST), &(SRC), sizeof(va_list))
-#warning "Not C99 and no va_copy macro available, falling back to memcpy"
-#endif /* __va_copy */
-#endif /* !va_copy */
-#endif /* !C99 */
-
 
 #ifdef HAVE_LCAPS
 #include <sys/capability.h>
@@ -215,7 +206,7 @@
 #define __attribute__(x)
 #endif /* !__GNUC__ || VTYSH_EXTRACT_PL */
 
-#include "zassert.h"
+#include <assert.h>
 
 /*
  * Add explicit static cast only when using a C++ compiler.
@@ -224,6 +215,10 @@
 #define static_cast(l, r) static_cast<decltype(l)>((r))
 #else
 #define static_cast(l, r) (r)
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #ifndef HAVE_STRLCAT
@@ -295,22 +290,10 @@ struct in_pktinfo {
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
-/* Define BYTE_ORDER, if not defined. Useful for compiler conditional
- * code, rather than preprocessor conditional.
- * Not all the world has this BSD define.
- */
+/* autoconf macros for this are deprecated, just find endian.h */
 #ifndef BYTE_ORDER
-#define BIG_ENDIAN	4321	/* least-significant byte first (vax, pc) */
-#define LITTLE_ENDIAN	1234	/* most-significant byte first (IBM, net) */
-#define PDP_ENDIAN	3412	/* LSB first in word, MSW first in long (pdp) */
-
-#if defined(WORDS_BIGENDIAN)
-#define BYTE_ORDER	BIG_ENDIAN
-#else  /* !WORDS_BIGENDIAN */
-#define BYTE_ORDER	LITTLE_ENDIAN
-#endif /* WORDS_BIGENDIAN */
-
-#endif /* ndef BYTE_ORDER */
+#error please locate an endian.h file appropriate to your platform
+#endif
 
 /* For old definition. */
 #ifndef IN6_ARE_ADDR_EQUAL
@@ -327,7 +310,7 @@ struct in_pktinfo {
 #include "compiler.h"
 
 /* Zebra route's types are defined in route_types.h */
-#include "route_types.h"
+#include "lib/route_types.h"
 
 #define strmatch(a,b) (!strcmp((a), (b)))
 
@@ -399,5 +382,9 @@ typedef uint32_t vrf_id_t;
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_H */

@@ -51,8 +51,10 @@
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_metric.h"
+
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_ROUTE_DESCRIPTOR, "EIGRP Nexthop Entry");
+DEFINE_MTYPE(EIGRPD, EIGRP_PREFIX_DESCRIPTOR,       "EIGRP Prefix");
 
 static int eigrp_route_descriptor_cmp(struct eigrp_route_descriptor *rd1,
 				      struct eigrp_route_descriptor *rd2);
@@ -508,6 +510,7 @@ void eigrp_topology_neighbor_down(struct eigrp *eigrp,
 			if (entry->adv_router != nbr)
 				continue;
 
+			memset(&msg, 0, sizeof(msg));
 			msg.metrics.delay = EIGRP_MAX_METRIC;
 			msg.packet_type = EIGRP_OPC_UPDATE;
 			msg.eigrp = eigrp;

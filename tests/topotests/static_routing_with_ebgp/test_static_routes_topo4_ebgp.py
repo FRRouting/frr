@@ -86,6 +86,8 @@ ADDR_TYPES = check_address_types()
 NETWORK = {"ipv4": "2.2.2.2/32", "ipv6": "22:22::2/128"}
 NEXT_HOP_IP = {}
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
 
 class CreateTopo(Topo):
     """
@@ -107,7 +109,7 @@ def setup_module(mod):
     Set up the pytest environment.
     * `mod`: module name
     """
-    global topo
+
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -125,14 +127,15 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('These tests will not run. (have kernel "{}", '
-            'requires kernel >= 4.19)'.format(platform.release()))
+    if version_cmp(platform.release(), "4.19") < 0:
+        error_msg = (
+            'These tests will not run. (have kernel "{}", '
+            "requires kernel >= 4.19)".format(platform.release())
+        )
         pytest.skip(error_msg)
 
     # Checking BGP convergence
-    global BGP_CONVERGENCE
-    global ADDR_TYPES
+
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -169,7 +172,7 @@ def teardown_module(mod):
 #   Tests starting
 #
 #####################################################
-def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
+def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
     """
     Verify static route are blocked from route-map & prefix-list applied in BGP
     nbrs
@@ -196,7 +199,7 @@ def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
     )
 
     for addr_type in ADDR_TYPES:
-        # Api call to modfiy BGP timerse
+        # Api call to modify BGP timers
         input_dict = {
             "r2": {
                 "bgp": {
@@ -237,8 +240,11 @@ def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
     step(" All BGP nbrs are down as authentication is mismatch on both" " the sides")
 
     bgp_convergence = verify_bgp_convergence(tgen, topo, expected=False)
-    assert bgp_convergence is not True, "Testcase {} : "
-    "Failed \n BGP nbrs must be down. Error: {}".format(tc_name, bgp_convergence)
+    assert (
+        bgp_convergence is not True
+    ), "Testcase {} : " "Failed \n BGP nbrs must be down. Error: {}".format(
+        tc_name, bgp_convergence
+    )
 
     step(
         "Configure 4 IPv4 and 4 IPv6 nbrs with macthing password  "
@@ -333,8 +339,9 @@ def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
             "show ip prefix list"
         )
         result = verify_prefix_lists(tgen, input_dict_2)
-        assert result is not True, "Testcase {} : Failed \n"
-        " Error: {}".format(tc_name, result)
+        assert result is not True, "Testcase {} : Failed \n" " Error: {}".format(
+            tc_name, result
+        )
 
         step("Redistribute all the routes (connected, static)")
         input_dict_2_r1 = {
@@ -584,8 +591,10 @@ def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         result4 = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result4 is not True, "Testcase {} : Failed , VM1 route is "
-        "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        assert result4 is not True, (
+            "Testcase {} : Failed , VM1 route is "
+            "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        )
 
         step(
             "VM4 and VM6 IPV4 and IPv6 address are present in local and "
@@ -945,7 +954,9 @@ def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         result4 = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result4 is not True, "Testcase {} : Failed \n" "Error: {}".format(
+        assert (
+            result4 is not True
+        ), "Testcase {} : Failed \n" "routes are still present \n Error: {}".format(
             tc_name, result4
         )
 
@@ -958,8 +969,10 @@ def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
         result4 = verify_rib(tgen, addr_type, dut, input_dict)
-        assert result4 is True, "Testcase {} : Failed , VM1 route is "
-        "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        assert result4 is True, (
+            "Testcase {} : Failed , VM1 route is "
+            "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        )
 
         step("vm4 should be present in FRR2")
         dut = "r2"
@@ -970,8 +983,10 @@ def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
         result4 = verify_rib(tgen, addr_type, dut, input_dict)
-        assert result4 is True, "Testcase {} : Failed , VM1 route is "
-        "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        assert result4 is True, (
+            "Testcase {} : Failed , VM1 route is "
+            "not filtered out via prefix list. \n Error: {}".format(tc_name, result4)
+        )
 
         dut = "r3"
         protocol = "bgp"

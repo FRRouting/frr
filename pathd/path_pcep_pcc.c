@@ -33,7 +33,7 @@
 #include "command.h"
 #include "libfrr.h"
 #include "printfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "northbound.h"
 #include "frr_pthread.h"
 #include "jhash.h"
@@ -41,7 +41,6 @@
 #include "pathd/pathd.h"
 #include "pathd/path_zebra.h"
 #include "pathd/path_errors.h"
-#include "pathd/path_pcep_memory.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_controller.h"
 #include "pathd/path_pcep_lib.h"
@@ -55,6 +54,7 @@
 #define MAX_ERROR_MSG_SIZE 256
 #define MAX_COMPREQ_TRIES 3
 
+pthread_mutex_t g_pcc_info_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 /* PCEP Event Handler */
 static void handle_pcep_open(struct ctrl_state *ctrl_state,
@@ -63,12 +63,15 @@ static void handle_pcep_open(struct ctrl_state *ctrl_state,
 static void handle_pcep_message(struct ctrl_state *ctrl_state,
 				struct pcc_state *pcc_state,
 				struct pcep_message *msg);
-static void handle_pcep_lsp_update(struct ctrl_state *ctrl_state,
-				   struct pcc_state *pcc_state,
-				   struct pcep_message *msg);
 static void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 				     struct pcc_state *pcc_state,
 				     struct pcep_message *msg);
+static void handle_pcep_lsp_update(struct ctrl_state *ctrl_state,
+				   struct pcc_state *pcc_state,
+				   struct pcep_message *msg);
+static void continue_pcep_lsp_update(struct ctrl_state *ctrl_state,
+				     struct pcc_state *pcc_state,
+				     struct path *path, void *payload);
 static void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 				   struct pcc_state *pcc_state,
 				   struct pcep_message *msg);
@@ -143,10 +146,10 @@ static uint32_t req_map_hash(const struct req_map_data *e);
 
 /* Data Structure Declarations */
 DECLARE_HASH(plspid_map, struct plspid_map_data, mi, plspid_map_cmp,
-	     plspid_map_hash)
+	     plspid_map_hash);
 DECLARE_HASH(nbkey_map, struct nbkey_map_data, mi, nbkey_map_cmp,
-	     nbkey_map_hash)
-DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash)
+	     nbkey_map_hash);
+DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash);
 
 static inline int req_entry_compare(const struct req_entry *a,
 				    const struct req_entry *b)
@@ -344,9 +347,6 @@ void pcep_pcc_reconnect(struct ctrl_state *ctrl_state,
 
 int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
-	char pcc_buff[40];
-	char pce_buff[40];
-
 	assert(pcc_state->status == PCEP_PCC_DISCONNECTED);
 	assert(pcc_state->sess == NULL);
 
@@ -362,17 +362,14 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV4)) {
 		if (pcc_state->retry_count < OTHER_FAMILY_MAX_RETRIES) {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "skipping connection to PCE %s:%d due to "
-				  "missing PCC IPv4 address",
-				  ipaddr2str(&pcc_state->pce_opts->addr,
-					     pce_buff, sizeof(pce_buff)),
+				  "skipping connection to PCE %pIA:%d due to missing PCC IPv4 address",
+				  &pcc_state->pce_opts->addr,
 				  pcc_state->pce_opts->port);
 			schedule_reconnect(ctrl_state, pcc_state);
 			return 0;
 		} else {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "missing IPv4 PCC address, IPv4 candidate "
-				  "paths will be ignored");
+				  "missing IPv4 PCC address, IPv4 candidate paths will be ignored");
 		}
 	}
 
@@ -381,17 +378,14 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6)) {
 		if (pcc_state->retry_count < OTHER_FAMILY_MAX_RETRIES) {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "skipping connection to PCE %s:%d due to "
-				  "missing PCC IPv6 address",
-				  ipaddr2str(&pcc_state->pce_opts->addr,
-					     pce_buff, sizeof(pce_buff)),
+				  "skipping connection to PCE %pIA:%d due to missing PCC IPv6 address",
+				  &pcc_state->pce_opts->addr,
 				  pcc_state->pce_opts->port);
 			schedule_reconnect(ctrl_state, pcc_state);
 			return 0;
 		} else {
 			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-				  "missing IPv6 PCC address, IPv6 candidate "
-				  "paths will be ignored");
+				  "missing IPv6 PCC address, IPv6 candidate paths will be ignored");
 		}
 	}
 
@@ -399,10 +393,8 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	 * have been spent, we still need the one for the transport familly */
 	if (pcc_state->pcc_addr_tr.ipa_type == IPADDR_NONE) {
 		flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
-			  "skipping connection to PCE %s:%d due to missing "
-			  "PCC address",
-			  ipaddr2str(&pcc_state->pce_opts->addr, pce_buff,
-				     sizeof(pce_buff)),
+			  "skipping connection to PCE %pIA:%d due to missing PCC address",
+			  &pcc_state->pce_opts->addr,
 			  pcc_state->pce_opts->port);
 		schedule_reconnect(ctrl_state, pcc_state);
 		return 0;
@@ -416,12 +408,10 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 
 	if (pcc_state->sess == NULL) {
 		flog_warn(EC_PATH_PCEP_LIB_CONNECT,
-			  "failed to connect to PCE %s:%d from %s:%d",
-			  ipaddr2str(&pcc_state->pce_opts->addr, pce_buff,
-				     sizeof(pce_buff)),
+			  "failed to connect to PCE %pIA:%d from %pIA:%d",
+			  &pcc_state->pce_opts->addr,
 			  pcc_state->pce_opts->port,
-			  ipaddr2str(&pcc_state->pcc_addr_tr, pcc_buff,
-				     sizeof(pcc_buff)),
+			  &pcc_state->pcc_addr_tr,
 			  pcc_state->pcc_opts->port);
 		schedule_reconnect(ctrl_state, pcc_state);
 		return 0;
@@ -494,8 +484,7 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			send_report(pcc_state, path);
 		} else {
 			PCEP_DEBUG(
-				"%s Skipping %s candidate path %s "
-				"synchronization",
+				"%s Skipping %s candidate path %s synchronization",
 				pcc_state->tag,
 				ipaddr_type_name(&path->nbkey.endpoint),
 				path->name);
@@ -543,23 +532,43 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 }
 
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
-			  struct pcc_state *pcc_state, struct path *path)
+			  struct pcc_state *pcc_state, struct path *path,
+			  bool is_stable)
 {
-	if (pcc_state->status != PCEP_PCC_OPERATING)
+	if ((pcc_state->status != PCEP_PCC_OPERATING)
+	    || (!pcc_state->caps.is_stateful)) {
+		pcep_free_path(path);
 		return;
+	}
 
-	if (pcc_state->caps.is_stateful) {
-		PCEP_DEBUG("%s Send report for candidate path %s",
-			   pcc_state->tag, path->name);
+	PCEP_DEBUG("%s Send report for candidate path %s", pcc_state->tag,
+		   path->name);
+
+	/* ODL and Cisco requires the first reported
+	 * LSP to have a DOWN status, the later status changes
+	 * will be comunicated through hook calls.
+	 */
+	enum pcep_lsp_operational_status real_status = path->status;
+	path->status = PCEP_LSP_OPERATIONAL_DOWN;
+	send_report(pcc_state, path);
+
+	/* If no update is expected and the real status wasn't down, we need to
+	 * send a second report with the real status */
+	if (is_stable && (real_status != PCEP_LSP_OPERATIONAL_DOWN)) {
+		path->srp_id = 0;
+		path->status = real_status;
 		send_report(pcc_state, path);
 	}
+
+	pcep_free_path(path);
 }
+
 
 /* ------------ Timeout handler ------------ */
 
 void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state,
-			      enum pcep_ctrl_timer_type type, void *param)
+			      enum pcep_ctrl_timeout_type type, void *param)
 {
 	struct req_entry *req;
 
@@ -926,6 +935,7 @@ int pcep_pcc_calculate_best_pce(struct pcc_state **pcc)
 
 	// Changed of state so ...
 	if (step_0_best != best_pce) {
+		pthread_mutex_lock(&g_pcc_info_mtx);
 		// Calculate previous
 		previous_best_pce = step_0_best;
 		// Clean state
@@ -970,6 +980,7 @@ int pcep_pcc_calculate_best_pce(struct pcc_state **pcc)
 				}
 			}
 		}
+		pthread_mutex_unlock(&g_pcc_info_mtx);
 	}
 
 	return ((best_pce == -1) ? 0 : pcc[best_pce]->id);
@@ -1094,18 +1105,24 @@ void pcep_pcc_copy_pcc_info(struct pcc_state **pcc,
 	}
 
 	pcc_info->ctrl_state = NULL;
-	pcc_info->msd = pcc_state->pcc_opts->msd;
-	pcc_info->pcc_port = pcc_state->pcc_opts->port;
+	if(pcc_state->pcc_opts){
+		pcc_info->msd = pcc_state->pcc_opts->msd;
+		pcc_info->pcc_port = pcc_state->pcc_opts->port;
+	}
 	pcc_info->next_plspid = pcc_state->next_plspid;
 	pcc_info->next_reqid = pcc_state->next_reqid;
 	pcc_info->status = pcc_state->status;
 	pcc_info->pcc_id = pcc_state->id;
+	pthread_mutex_lock(&g_pcc_info_mtx);
 	pcc_info->is_best_multi_pce = pcc_state->is_best;
 	pcc_info->previous_best = pcc_state->previous_best;
+	pthread_mutex_unlock(&g_pcc_info_mtx);
 	pcc_info->precedence =
 		pcc_state->pce_opts ? pcc_state->pce_opts->precedence : 0;
-	memcpy(&pcc_info->pcc_addr, &pcc_state->pcc_addr_tr,
-	       sizeof(struct ipaddr));
+	if(pcc_state->pcc_addr_tr.ipa_type != IPADDR_NONE){
+		memcpy(&pcc_info->pcc_addr, &pcc_state->pcc_addr_tr,
+		       sizeof(struct ipaddr));
+	}
 }
 
 
@@ -1154,12 +1171,19 @@ void handle_pcep_lsp_update(struct ctrl_state *ctrl_state,
 			    struct pcc_state *pcc_state,
 			    struct pcep_message *msg)
 {
-	char err[MAX_ERROR_MSG_SIZE] = "";
 	struct path *path;
 	path = pcep_lib_parse_path(msg);
 	lookup_nbkey(pcc_state, path);
-	/* TODO: Investigate if this is safe to do in the controller thread */
-	path_pcep_config_lookup(path);
+	pcep_thread_refine_path(ctrl_state, pcc_state->id,
+				&continue_pcep_lsp_update, path, NULL);
+}
+
+void continue_pcep_lsp_update(struct ctrl_state *ctrl_state,
+			      struct pcc_state *pcc_state, struct path *path,
+			      void *payload)
+{
+	char err[MAX_ERROR_MSG_SIZE] = {0};
+
 	specialize_incoming_path(pcc_state, path);
 	PCEP_DEBUG("%s Received LSP update", pcc_state->tag);
 	PCEP_DEBUG_PATH("%s", format_path(path));
@@ -1204,8 +1228,7 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 		 * the connection if more that a given rate.
 		 */
 		PCEP_DEBUG(
-			"%s Received computation reply for unknown request "
-			"%d",
+			"%s Received computation reply for unknown request %d",
 			pcc_state->tag, path->req_id);
 		PCEP_DEBUG_PATH("%s", format_path(path));
 		send_pcep_error(pcc_state, PCEP_ERRT_UNKNOWN_REQ_REF,
@@ -1250,7 +1273,8 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 	 * pathd API is thread safe, we could get a new path */
 	if (pcc_state->caps.is_stateful) {
 		PCEP_DEBUG("%s Delegating undefined dynamic path %s to PCE %s",
-			   pcc_state->tag, path->name, pcc_state->originator);
+			   pcc_state->tag, req->path->name,
+			   pcc_state->originator);
 		path = pcep_copy_path(req->path);
 		path->is_delegated = true;
 		send_report(pcc_state, path);
@@ -1309,13 +1333,13 @@ void select_transport_address(struct pcc_state *pcc_state)
 	 * address */
 	if (IS_IPADDR_V4(&pcc_state->pce_opts->addr)) {
 		if (CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV4)) {
-			taddr->ipa_type = IPADDR_V4;
 			taddr->ipaddr_v4 = pcc_state->pcc_addr_v4;
+			taddr->ipa_type = IPADDR_V4;
 		}
 	} else {
 		if (CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6)) {
-			taddr->ipa_type = IPADDR_V6;
 			taddr->ipaddr_v6 = pcc_state->pcc_addr_v6;
+			taddr->ipa_type = IPADDR_V6;
 		}
 	}
 }
@@ -1535,7 +1559,6 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 	assert(lookup_reqid(pcc_state, req->path) == req->path->req_id);
 
 	int timeout;
-	char buff[40];
 	struct pcep_message *msg;
 
 	if (!pcc_state->is_best) {
@@ -1546,10 +1569,9 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 	specialize_outgoing_path(pcc_state, req->path);
 
 	PCEP_DEBUG(
-		"%s Sending computation request %d for path %s to %s (retry %d)",
+		"%s Sending computation request %d for path %s to %pIA (retry %d)",
 		pcc_state->tag, req->path->req_id, req->path->name,
-		ipaddr2str(&req->path->nbkey.endpoint, buff, sizeof(buff)),
-		req->retry_count);
+		&req->path->nbkey.endpoint, req->retry_count);
 	PCEP_DEBUG_PATH("%s Computation request path %s: %s", pcc_state->tag,
 			req->path->name, format_path(req->path));
 
@@ -1582,7 +1604,6 @@ void cancel_comp_requests(struct ctrl_state *ctrl_state,
 void cancel_comp_request(struct ctrl_state *ctrl_state,
 			 struct pcc_state *pcc_state, struct req_entry *req)
 {
-	char buff[40];
 	struct pcep_message *msg;
 
 	if (req->was_sent) {
@@ -1592,10 +1613,9 @@ void cancel_comp_request(struct ctrl_state *ctrl_state,
 	}
 
 	PCEP_DEBUG(
-		"%s Canceling computation request %d for path %s to %s (retry %d)",
+		"%s Canceling computation request %d for path %s to %pIA (retry %d)",
 		pcc_state->tag, req->path->req_id, req->path->name,
-		ipaddr2str(&req->path->nbkey.endpoint, buff, sizeof(buff)),
-		req->retry_count);
+		&req->path->nbkey.endpoint, req->retry_count);
 	PCEP_DEBUG_PATH("%s Canceled computation request path %s: %s",
 			pcc_state->tag, req->path->name,
 			format_path(req->path));

@@ -52,6 +52,9 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #define VRF_ALL_CMD_HELP_STR    "Specify the VRF\nAll VRFs\n"
 #define VRF_FULL_CMD_HELP_STR   "Specify the VRF\nThe VRF name\nAll VRFs\n"
 
+#define FRR_VRF_XPATH "/frr-vrf:lib/vrf"
+#define FRR_VRF_KEY_XPATH "/frr-vrf:lib/vrf[name='%s']"
+
 /*
  * Pass some OS specific data up through
  * to the daemons
@@ -92,13 +95,13 @@ struct vrf {
 	/* Back pointer to namespace context */
 	void *ns_ctxt;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(vrf_id_head, vrf);
 RB_PROTOTYPE(vrf_id_head, vrf, id_entry, vrf_id_compare)
 RB_HEAD(vrf_name_head, vrf);
 RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
-DECLARE_QOBJ_TYPE(vrf)
+DECLARE_QOBJ_TYPE(vrf);
 
 /* Allow VRF with netns as backend */
 enum vrf_backend_type {
@@ -114,6 +117,7 @@ extern struct vrf_name_head vrfs_by_name;
 extern struct vrf *vrf_lookup_by_id(vrf_id_t);
 extern struct vrf *vrf_lookup_by_name(const char *);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
+extern struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 extern vrf_id_t vrf_name_to_id(const char *);
 
@@ -155,16 +159,18 @@ static inline int vrf_is_user_cfged(struct vrf *vrf)
 	return vrf && CHECK_FLAG(vrf->status, VRF_CONFIGURED);
 }
 
-/* Mark that VRF has user configuration */
-static inline void vrf_set_user_cfged(struct vrf *vrf)
+static inline uint32_t vrf_interface_count(struct vrf *vrf)
 {
-	SET_FLAG(vrf->status, VRF_CONFIGURED);
-}
+	uint32_t count = 0;
+	struct interface *ifp;
 
-/* Mark that VRF no longer has any user configuration */
-static inline void vrf_reset_user_cfged(struct vrf *vrf)
-{
-	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		/* skip the l3mdev */
+		if (strncmp(ifp->name, vrf->name, VRF_NAMSIZ) == 0)
+			continue;
+		count++;
+	}
+	return count;
 }
 
 /*
@@ -245,15 +251,14 @@ extern int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 				const char *name);
 
 /*
- * Binds a socket to a VRF device.
+ * Binds a socket to an interface (ifname) in a VRF (vrf_id).
  *
- * If name is null, the socket is not bound, irrespective of any other
- * arguments.
+ * If ifname is NULL or is equal to the VRF name then bind to a VRF device.
+ * Otherwise, bind to the specified interface in the specified VRF.
  *
- * name should be the name of the VRF device. vrf_id should be the
- * corresponding vrf_id (the ifindex of the device).
+ * Returns 0 on success and -1 on failure.
  */
-extern int vrf_bind(vrf_id_t vrf_id, int fd, const char *name);
+extern int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname);
 
 /* VRF ioctl operations */
 extern int vrf_getaddrinfo(const char *node, const char *service,

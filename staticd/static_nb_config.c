@@ -16,6 +16,8 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#include <zebra.h>
+
 #include "northbound.h"
 #include "libfrr.h"
 #include "log.h"
@@ -103,10 +105,32 @@ static void static_path_list_tag_modify(struct nb_cb_modify_args *args,
 	static_install_path(rn, pn, info->safi, info->svrf);
 }
 
+struct nexthop_iter {
+	int count;
+	bool blackhole;
+};
+
+static int nexthop_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct nexthop_iter *iter = arg;
+	int nh_type;
+
+	nh_type = yang_dnode_get_enum(dnode, "./nh-type");
+
+	if (nh_type == STATIC_BLACKHOLE)
+		iter->blackhole = true;
+
+	iter->count++;
+
+	return YANG_ITER_CONTINUE;
+}
+
 static bool static_nexthop_create(struct nb_cb_create_args *args,
 				  const struct lyd_node *rn_dnode,
 				  struct stable_info *info)
 {
+	const struct lyd_node *pn_dnode;
+	struct nexthop_iter iter;
 	struct route_node *rn;
 	struct static_path *pn;
 	struct ipaddr ipaddr;
@@ -128,6 +152,20 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 				return NB_ERR_VALIDATION;
 			}
 		}
+
+		iter.count = 0;
+		iter.blackhole = false;
+
+		pn_dnode = yang_dnode_get_parent(args->dnode, "path-list");
+		yang_dnode_iterate(nexthop_iter_cb, &iter, pn_dnode,
+				   "./frr-nexthops/nexthop");
+
+		if (iter.blackhole && iter.count > 1) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Route can not have blackhole and non-blackhole nexthops simultaneously");
+			return NB_ERR_VALIDATION;
+		}
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -140,7 +178,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 		pn = nb_running_get_entry(args->dnode, NULL, true);
 		rn = nb_running_get_entry(rn_dnode, NULL, true);
 
-		if (!static_add_nexthop_validate(info->svrf, nh_type, &ipaddr))
+		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
 				"Warning!! Local connected address is configured as Gateway IP((%s))",
@@ -148,18 +186,6 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 						      "./gateway"));
 		nh = static_add_nexthop(rn, pn, info->safi, info->svrf, nh_type,
 					&ipaddr, ifname, nh_vrf, 0);
-		if (!nh) {
-			char buf[SRCDEST2STR_BUFFER];
-
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_APPLY,
-				"%s : nh [%d:%s:%s:%s] nexthop creation failed",
-				srcdest_rnode2str(rn, buf, sizeof(buf)),
-				nh_type, ifname,
-				yang_dnode_get_string(args->dnode, "./gateway"),
-				nh_vrf);
-			return NB_ERR;
-		}
 		nb_running_set_entry(args->dnode, nh);
 		break;
 	}
@@ -271,7 +297,7 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 	uint8_t index;
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
-	pos = yang_get_list_pos(args->dnode->parent);
+	pos = yang_get_list_pos(lyd_parent(args->dnode));
 	if (!pos) {
 		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
 			  "libyang returns invalid label position");
@@ -431,7 +457,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	uint32_t count;
 
 	mls_dnode = yang_dnode_get(args->dnode, "./mpls-label-stack");
-	count = yang_get_list_elements_count(yang_dnode_get_child(mls_dnode));
+	count = yang_get_list_elements_count(lyd_child(mls_dnode));
 
 	if (count > MPLS_MAX_LABELS) {
 		snprintf(args->errmsg, args->errmsg_len,
@@ -661,22 +687,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_modify_args *args)
 {
 	return static_nexthop_bh_type_modify(args);
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_bh_type_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	/* blackhole type has a boolean type with default value,
-	 * so no need to do any operations in destroy callback
-	 */
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-	return NB_OK;
 }
 
 /*
@@ -1041,23 +1051,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	struct nb_cb_modify_args *args)
 {
 	return static_nexthop_bh_type_modify(args);
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_bh_type_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	/* blackhole type has a boolean type with default value,
-	 * so no need to do any operations in destroy callback
-	 */
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
 }
 
 /*

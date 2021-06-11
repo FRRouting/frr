@@ -57,8 +57,8 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
 
-DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
-DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer))
+DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
+DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
 
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
@@ -101,7 +101,7 @@ static int bgp_delayopen_timer(struct thread *);
 static int bgp_start(struct peer *);
 
 /* Register peer with NHT */
-static int bgp_peer_reg_with_nht(struct peer *peer)
+int bgp_peer_reg_with_nht(struct peer *peer)
 {
 	int connected = 0;
 
@@ -110,9 +110,9 @@ static int bgp_peer_reg_with_nht(struct peer *peer)
 	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
-	return bgp_find_or_add_nexthop(
-		peer->bgp, peer->bgp, family2afi(peer->su.sa.sa_family),
-		NULL, peer, connected);
+	return bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
+				       family2afi(peer->su.sa.sa_family),
+				       SAFI_UNICAST, NULL, peer, connected);
 }
 
 static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
@@ -294,7 +294,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
-		peer->af_flags[afi][safi] = from_peer->af_flags[afi][safi];
 		peer->af_sflags[afi][safi] = from_peer->af_sflags[afi][safi];
 		peer->af_cap[afi][safi] = from_peer->af_cap[afi][safi];
 		peer->afc_nego[afi][safi] = from_peer->afc_nego[afi][safi];
@@ -340,11 +339,13 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	 * needed, even on a passive connection.
 	 */
 	bgp_peer_reg_with_nht(peer);
+	if (from_peer)
+		bgp_replace_nexthop_by_peer(from_peer, peer);
 
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
-	thread_add_timer_msec(bm->master, bgp_process_packet, peer, 0,
-			      &peer->t_process_packet);
+	thread_add_event(bm->master, bgp_process_packet, peer, 0,
+			 &peer->t_process_packet);
 
 	return (peer);
 }
@@ -810,7 +811,7 @@ void bgp_start_routeadv(struct bgp *bgp)
 			 sizeof(bgp->update_delay_peers_resume_time));
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->status != Established)
+		if (!peer_established(peer))
 			continue;
 		BGP_TIMER_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
@@ -1003,7 +1004,7 @@ static void bgp_maxmed_onstartup_begin(struct bgp *bgp)
 
 static void bgp_maxmed_onstartup_process_status_change(struct peer *peer)
 {
-	if (peer->status == Established && !peer->bgp->established) {
+	if (peer_established(peer) && !peer->bgp->established) {
 		bgp_maxmed_onstartup_begin(peer->bgp);
 	}
 }
@@ -1065,7 +1066,7 @@ static void bgp_update_delay_begin(struct bgp *bgp)
 
 static void bgp_update_delay_process_status_change(struct peer *peer)
 {
-	if (peer->status == Established) {
+	if (peer_established(peer)) {
 		if (!peer->bgp->established++) {
 			bgp_update_delay_begin(peer->bgp);
 			zlog_info(
@@ -1101,7 +1102,7 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 
 	if (status == Established)
 		bgp->established_peers++;
-	else if ((peer->status == Established) && (status != Established))
+	else if ((peer_established(peer)) && (status != Established))
 		bgp->established_peers--;
 
 	if (bgp_debug_neighbor_events(peer)) {
@@ -1215,8 +1216,9 @@ int bgp_stop(struct peer *peer)
 	peer->nsf_af_count = 0;
 
 	/* deregister peer */
-	if (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
-		bgp_bfd_deregister_peer(peer);
+	if (peer->bfd_config
+	    && peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
+		bfd_sess_uninstall(peer->bfd_config->session);
 
 	if (peer_dynamic_neighbor(peer)
 	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
@@ -1233,7 +1235,7 @@ int bgp_stop(struct peer *peer)
 	}
 
 	/* Increment Dropped count. */
-	if (peer->status == Established) {
+	if (peer_established(peer)) {
 		peer->dropped++;
 
 		/* bgp log-neighbor-changes of neighbor Down */
@@ -1394,8 +1396,7 @@ int bgp_stop(struct peer *peer)
 		/* Received ORF prefix-filter */
 		peer->orf_plist[afi][safi] = NULL;
 
-		if ((peer->status == OpenConfirm)
-		    || (peer->status == Established)) {
+		if ((peer->status == OpenConfirm) || (peer_established(peer))) {
 			/* ORF received prefix-filter pnt */
 			snprintf(orf_name, sizeof(orf_name), "%s.%d.%d",
 				 peer->host, afi, safi);
@@ -1419,19 +1420,6 @@ int bgp_stop(struct peer *peer)
 		peer->v_delayopen = peer->bgp->default_delayopen;
 
 	peer->update_time = 0;
-
-/* Until we are sure that there is no problem about prefix count
-   this should be commented out.*/
-#if 0
-  /* Reset prefix count */
-  peer->pcount[AFI_IP][SAFI_UNICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_MULTICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_LABELED_UNICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_MPLS_VPN] = 0;
-  peer->pcount[AFI_IP6][SAFI_UNICAST] = 0;
-  peer->pcount[AFI_IP6][SAFI_MULTICAST] = 0;
-  peer->pcount[AFI_IP6][SAFI_LABELED_UNICAST] = 0;
-#endif /* 0 */
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
 	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
@@ -1569,13 +1557,9 @@ static int bgp_connect_success(struct peer *peer)
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		char buf1[SU_ADDRSTRLEN];
-
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %s",
-				   peer->host,
-				   sockunion2str(peer->su_local, buf1,
-						 SU_ADDRSTRLEN));
+			zlog_debug("%s open active, local address %pSU",
+				   peer->host, peer->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}
@@ -1611,13 +1595,9 @@ static int bgp_connect_success_w_delayopen(struct peer *peer)
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		char buf1[SU_ADDRSTRLEN];
-
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %s",
-				   peer->host,
-				   sockunion2str(peer->su_local, buf1,
-						 SU_ADDRSTRLEN));
+			zlog_debug("%s open active, local address %pSU",
+				   peer->host, peer->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}
@@ -1646,6 +1626,12 @@ static int bgp_connect_fail(struct peer *peer)
 		peer_delete(peer);
 		return -1;
 	}
+
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
 
 	return (bgp_stop(peer));
 }
@@ -2137,7 +2123,10 @@ static int bgp_establish(struct peer *peer)
 	hash_release(peer->bgp->peerhash, peer);
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
-	bgp_bfd_reset_peer(peer);
+	/* Start BFD peer if not already running. */
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
+
 	return ret;
 }
 

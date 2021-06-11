@@ -24,70 +24,12 @@
 #include "table.h"
 #include "srcdest_table.h"
 
-#include "static_memory.h"
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_vty.h"
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_RTABLE_INFO, "Static Route Table Info");
-
-static void zebra_stable_node_cleanup(struct route_table *table,
-				      struct route_node *node)
-{
-	struct static_nexthop *nh;
-	struct static_path *pn;
-	struct static_route_info *si;
-	struct route_table *src_table;
-	struct route_node *src_node;
-	struct static_path *src_pn;
-	struct static_route_info *src_si;
-
-	si = node->info;
-
-	if (si) {
-		frr_each_safe(static_path_list, &si->path_list, pn) {
-			frr_each_safe(static_nexthop_list, &pn->nexthop_list,
-				       nh) {
-				static_nexthop_list_del(&pn->nexthop_list, nh);
-				XFREE(MTYPE_STATIC_NEXTHOP, nh);
-			}
-			static_path_list_del(&si->path_list, pn);
-			XFREE(MTYPE_STATIC_PATH, pn);
-		}
-
-		/* clean up for dst table */
-		src_table = srcdest_srcnode_table(node);
-		if (src_table) {
-			/* This means the route_node is part of the top
-			 * hierarchy and refers to a destination prefix.
-			 */
-			for (src_node = route_top(src_table); src_node;
-			     src_node = route_next(src_node)) {
-				src_si = src_node->info;
-
-				frr_each_safe(static_path_list,
-					      &src_si->path_list, src_pn) {
-					frr_each_safe(static_nexthop_list,
-						      &src_pn->nexthop_list,
-						      nh) {
-						static_nexthop_list_del(
-							&src_pn->nexthop_list,
-							nh);
-						XFREE(MTYPE_STATIC_NEXTHOP, nh);
-					}
-					static_path_list_del(&src_si->path_list,
-							     src_pn);
-					XFREE(MTYPE_STATIC_PATH, src_pn);
-				}
-
-				XFREE(MTYPE_STATIC_ROUTE, src_node->info);
-			}
-		}
-
-		XFREE(MTYPE_STATIC_ROUTE, node->info);
-	}
-}
 
 static struct static_vrf *static_vrf_alloc(void)
 {
@@ -228,27 +170,6 @@ static int static_vrf_config_write(struct vty *vty)
 	return 0;
 }
 
-int static_vrf_has_config(struct static_vrf *svrf)
-{
-	struct route_table *table;
-	safi_t safi;
-	afi_t afi;
-
-	/*
-	 * NOTE: This is a don't care for the default VRF, but we go through
-	 * the motions to keep things consistent.
-	 */
-	FOREACH_AFI_SAFI (afi, safi) {
-		table = svrf->stable[afi][safi];
-		if (!table)
-			continue;
-		if (route_table_count(table))
-			return 1;
-	}
-
-	return 0;
-}
-
 void static_vrf_init(void)
 {
 	vrf_init(static_vrf_new, static_vrf_enable,
@@ -260,26 +181,4 @@ void static_vrf_init(void)
 void static_vrf_terminate(void)
 {
 	vrf_terminate();
-}
-
-struct static_vrf *static_vty_get_unknown_vrf(const char *vrf_name)
-{
-	struct static_vrf *svrf;
-	struct vrf *vrf;
-
-	svrf = static_vrf_lookup_by_name(vrf_name);
-
-	if (svrf)
-		return svrf;
-
-	vrf = vrf_get(VRF_UNKNOWN, vrf_name);
-	if (!vrf)
-		return NULL;
-	svrf = vrf->info;
-	if (!svrf)
-		return NULL;
-	/* Mark as having FRR configuration */
-	vrf_set_user_cfged(vrf);
-
-	return svrf;
 }

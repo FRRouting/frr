@@ -21,7 +21,6 @@
  */
 #include <zebra.h>
 #include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_misc.h"
@@ -29,9 +28,9 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
 
-DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting")
-DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting")
-DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info")
+DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting");
+DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting");
+DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info");
 
 bool isis_area_ipv6_dstsrc_enabled(struct isis_area *area)
 {

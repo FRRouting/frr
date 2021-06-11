@@ -29,6 +29,8 @@
 /libtool
 /libtool.orig
 /changelog-auto
+/test-driver
+/test-suite.log
 
 /Makefile
 /Makefile.in
@@ -56,9 +58,11 @@
 *.pb.cc
 *_clippy.c
 *.bc
+*.ll
 *.cg.json
 *.cg.dot
 *.cg.svg
+*.xref
 
 ### gcov outputs
 
@@ -108,3 +112,5 @@ refix
 .vscode
 .kitchen
 .emacs.desktop*
+
+/test-suite.log

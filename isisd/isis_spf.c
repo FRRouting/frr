@@ -60,8 +60,10 @@
 #include "fabricd.h"
 #include "isis_spf_private.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_ADJ, "ISIS SPF Adjacency");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPFTREE,    "ISIS SPFtree");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN,    "ISIS SPF Run Info");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_ADJ,    "ISIS SPF Adjacency");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_VERTEX,     "ISIS vertex");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_VERTEX_ADJ, "ISIS SPF Vertex Adjacency");
 
 static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
@@ -246,6 +248,20 @@ static struct isis_vertex *isis_vertex_new(struct isis_spftree *spftree,
 	}
 
 	return vertex;
+}
+
+void isis_vertex_del(struct isis_vertex *vertex)
+{
+	list_delete(&vertex->Adj_N);
+	list_delete(&vertex->parents);
+	if (vertex->firsthops) {
+		hash_clean(vertex->firsthops, NULL);
+		hash_free(vertex->firsthops);
+		vertex->firsthops = NULL;
+	}
+
+	memset(vertex, 0, sizeof(struct isis_vertex));
+	XFREE(MTYPE_ISIS_VERTEX, vertex);
 }
 
 struct isis_vertex_adj *
@@ -1047,15 +1063,17 @@ lspfragloop:
 
 end:
 
-	/* if attach bit set and we are a level-1 router
-	 * and attach-bit-rcv-ignore is not configured
-	 * add a default route toward this neighbor
+	/* if attach bit set in LSP, attached-bit receive ignore is
+	 * not configured, we are a level-1 area and we have no other
+	 * level-2 | level1-2 areas then add a default route toward
+	 * this neighbor
 	 */
 	if ((lsp->hdr.lsp_bits & LSPBIT_ATT) == LSPBIT_ATT
 	    && !spftree->area->attached_bit_rcv_ignore
-	    && spftree->area->is_type == IS_LEVEL_1) {
+	    && spftree->area->is_type == IS_LEVEL_1
+	    && !isis_area_count(spftree->area->isis, IS_LEVEL_2)) {
 		struct prefix_pair ip_info = { {0} };
-		if (IS_DEBUG_SPF_EVENTS)
+		if (IS_DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Spf (%s): add default %s route",
 				   rawlspid_print(lsp->hdr.lsp_id),
 				   spftree->family == AF_INET ? "ipv4"
@@ -1819,6 +1837,7 @@ static int isis_run_spf_cb(struct thread *thread)
 	struct isis_spf_run *run = THREAD_ARG(thread);
 	struct isis_area *area = run->area;
 	int level = run->level;
+	int have_run = 0;
 
 	XFREE(MTYPE_ISIS_SPF_RUN, run);
 	area->spf_timer[level - 1] = NULL;
@@ -1837,15 +1856,24 @@ static int isis_run_spf_cb(struct thread *thread)
 		zlog_debug("ISIS-SPF (%s) L%d SPF needed, periodic SPF",
 			   area->area_tag, level);
 
-	if (area->ip_circuits)
+	if (area->ip_circuits) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_IPV4][level - 1]);
-	if (area->ipv6_circuits)
+		have_run = 1;
+	}
+	if (area->ipv6_circuits) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_IPV6][level - 1]);
-	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area))
+		have_run = 1;
+	}
+	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area)) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_DSTSRC][level - 1]);
+		have_run = 1;
+	}
+
+	if (have_run)
+		area->spf_run_count[level]++;
 
 	isis_area_verify_routes(area);
 

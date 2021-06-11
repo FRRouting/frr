@@ -43,13 +43,14 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "nexthop_group.h"
+#include "link_state.h"
 
 #include "sharp_zebra.h"
 #include "sharp_vty.h"
 #include "sharp_globals.h"
 #include "sharp_nht.h"
 
-DEFINE_MGROUP(SHARPD, "sharpd")
+DEFINE_MGROUP(SHARPD, "sharpd");
 
 zebra_capabilities_t _caps_p[] = {
 };
@@ -129,7 +130,8 @@ FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
 		.n_signals = array_size(sharp_signals),
 
 		.privs = &sharp_privs, .yang_modules = sharpd_yang_modules,
-		.n_yang_modules = array_size(sharpd_yang_modules), )
+		.n_yang_modules = array_size(sharpd_yang_modules),
+);
 
 struct sharp_global sg;
 
@@ -137,6 +139,8 @@ static void sharp_global_init(void)
 {
 	memset(&sg, 0, sizeof(sg));
 	sg.nhs = list_new();
+	sg.ted = NULL;
+	sg.srv6_locators = list_new();
 }
 
 static void sharp_start_configuration(void)

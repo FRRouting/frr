@@ -55,10 +55,13 @@
 #include "eigrpd/eigrp_packet.h"
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_filter.h"
 
-DEFINE_QOBJ_TYPE(eigrp)
+DEFINE_MGROUP(EIGRPD, "eigrpd");
+
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_TOP, "EIGRP structure");
+
+DEFINE_QOBJ_TYPE(eigrp);
 
 static struct eigrp_master eigrp_master;
 

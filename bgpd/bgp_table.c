@@ -201,12 +201,17 @@ struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 }
 
 printfrr_ext_autoreg_p("BD", printfrr_bd)
-static ssize_t printfrr_bd(char *buf, size_t bsz, const char *fmt,
-			   int prec, const void *ptr)
+static ssize_t printfrr_bd(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
 {
 	const struct bgp_dest *dest = ptr;
 	const struct prefix *p = bgp_dest_get_prefix(dest);
+	char cbuf[PREFIX_STRLEN];
 
-	prefix2str(p, buf, bsz);
-	return 2;
+	if (!dest)
+		return bputs(buf, "(null)");
+
+	/* need to get the real length even if buffer too small */
+	prefix2str(p, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
 }

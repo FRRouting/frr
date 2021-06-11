@@ -65,6 +65,8 @@
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_routemap_nb.h"
+#include "bgpd/bgp_community_alias.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -162,6 +164,9 @@ __attribute__((__noreturn__)) void sigint(void)
 	assert(bm->terminating == false);
 	bm->terminating = true;	/* global flag that shutting down */
 
+	/* Disable BFD events to avoid wasting processing. */
+	bfd_protocol_integration_set_shutdown(true);
+
 	bgp_terminate();
 
 	bgp_exit(0);
@@ -192,8 +197,6 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	frr_early_fini();
 
-	bfd_gbl_exit();
-
 	bgp_close();
 
 	bgp_default = bgp_get_default();
@@ -215,6 +218,9 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
+
+	/* BGP community aliases */
+	bgp_community_alias_finish();
 
 	/* reverse bgp_route_init */
 	bgp_route_finish();
@@ -308,12 +314,11 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		bgp_vrf_link(bgp, vrf);
 
 		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
-		/* Update any redistribution if vrf_id changed */
-		if (old_vrf_id != bgp->vrf_id)
-			bgp_redistribute_redo(bgp);
 		bgp_instance_up(bgp);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP,
 				    bgp_get_default(), bgp);
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP,
@@ -330,7 +335,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 static int bgp_vrf_disable(struct vrf *vrf)
 {
 	struct bgp *bgp;
-	vrf_id_t old_vrf_id;
 
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return 0;
@@ -352,15 +356,11 @@ static int bgp_vrf_disable(struct vrf *vrf)
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
 				   bgp_get_default(), bgp);
 
-		old_vrf_id = bgp->vrf_id;
 		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 		/* We have instance configured, unlink from VRF and make it
 		 * "down". */
-		bgp_vrf_unlink(bgp, vrf);
-		/* Delete any redistribute vrf bitmaps if the vrf_id changed */
-		if (old_vrf_id != bgp->vrf_id)
-			bgp_unset_redist_vrf_bitmaps(bgp, old_vrf_id);
 		bgp_instance_down(bgp);
+		bgp_vrf_unlink(bgp, vrf);
 	}
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
@@ -385,6 +385,7 @@ static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_routing_info,
 	&frr_vrf_info,
+	&frr_bgp_route_map_info,
 };
 
 FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
@@ -394,7 +395,8 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 		.signals = bgp_signals, .n_signals = array_size(bgp_signals),
 
 		.privs = &bgpd_privs, .yang_modules = bgpd_yang_modules,
-		.n_yang_modules = array_size(bgpd_yang_modules), )
+		.n_yang_modules = array_size(bgpd_yang_modules),
+);
 
 #define DEPRECATED_OPTIONS ""
 

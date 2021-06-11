@@ -60,7 +60,14 @@ void ospf6_prefix_apply_mask(struct ospf6_prefix *op)
 
 void ospf6_prefix_options_printbuf(uint8_t prefix_options, char *buf, int size)
 {
-	snprintf(buf, size, "xxx");
+	const char *dn, *p, *mc, *la, *nu;
+
+	dn = (CHECK_FLAG(prefix_options, OSPF6_PREFIX_OPTION_DN) ? "DN" : "--");
+	p = (CHECK_FLAG(prefix_options, OSPF6_PREFIX_OPTION_P) ? "P" : "--");
+	mc = (CHECK_FLAG(prefix_options, OSPF6_PREFIX_OPTION_MC) ? "MC" : "--");
+	la = (CHECK_FLAG(prefix_options, OSPF6_PREFIX_OPTION_LA) ? "LA" : "--");
+	nu = (CHECK_FLAG(prefix_options, OSPF6_PREFIX_OPTION_NU) ? "NU" : "--");
+	snprintf(buf, size, "%s|%s|%s|%s|%s", dn, p, mc, la, nu);
 }
 
 void ospf6_capability_printbuf(char capability, char *buf, int size)

@@ -52,8 +52,9 @@
 #include "eigrpd/eigrp_vty.h"
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_errors.h"
+
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_NEIGHBOR, "EIGRP neighbor");
 
 struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei)
 {

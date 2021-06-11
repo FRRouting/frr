@@ -48,7 +48,7 @@
 #include "json.h"
 #include "ferr.h"
 
-DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy");
 
 /* Struct VTY. */
 struct vty *vty;
@@ -494,6 +494,7 @@ static int vtysh_execute_func(const char *line, int pager)
 	 */
 	while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 	       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
+	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && vty->node > CONFIG_NODE) {
 		vty->node = node_parent(vty->node);
 		ret = cmd_execute(vty, line, &cmd, 1);
@@ -795,6 +796,7 @@ int vtysh_mark_file(const char *filename)
 		 */
 		while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 		       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
+		       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
 			ret = cmd_execute_command_strict(vline, vty, &cmd);
@@ -1350,6 +1352,27 @@ static struct cmd_node rmap_node = {
 	.prompt = "%s(config-route-map)# ",
 };
 
+static struct cmd_node srv6_node = {
+	.name = "srv6",
+	.node = SRV6_NODE,
+	.parent_node = SEGMENT_ROUTING_NODE,
+	.prompt = "%s(config-srv6)# ",
+};
+
+static struct cmd_node srv6_locs_node = {
+	.name = "srv6-locators",
+	.node = SRV6_LOCS_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-locators)# ",
+};
+
+static struct cmd_node srv6_loc_node = {
+	.name = "srv6-locator",
+	.node = SRV6_LOC_NODE,
+	.parent_node = SRV6_LOCS_NODE,
+	.prompt = "%s(config-srv6-locator)# ",
+};
+
 #ifdef HAVE_PBRD
 static struct cmd_node pbr_map_node = {
 	.name = "pbr-map",
@@ -1486,6 +1509,13 @@ static struct cmd_node bmp_node = {
 	.node = BMP_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-bgp-bmp)# "
+};
+
+static struct cmd_node bgp_srv6_node = {
+	.name = "bgp srv6",
+	.node = BGP_SRV6_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-srv6)# ",
 };
 #endif /* HAVE_BGPD */
 
@@ -1660,6 +1690,31 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	return vtysh_end();
 }
 
+DEFUNSH(VTYSH_SR, srv6, srv6_cmd,
+	"srv6",
+	"Segment-Routing SRv6 configration\n")
+{
+	vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, srv6_locators, srv6_locators_cmd,
+	"locators",
+	"Segment-Routing SRv6 locators configration\n")
+{
+	vty->node = SRV6_LOCS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, srv6_locator, srv6_locator_cmd,
+	"locator WORD",
+	"Segment Routing SRv6 locator\n"
+	"Specify locator-name\n")
+{
+	vty->node = SRV6_LOC_NODE;
+	return CMD_SUCCESS;
+}
+
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
@@ -1814,6 +1869,39 @@ DEFUNSH(VTYSH_BGPD,
 	"Name of the BMP target group\n")
 {
 	vty->node = BMP_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+        bgp_srv6,
+        bgp_srv6_cmd,
+        "segment-routing srv6",
+        "Segment-Routing configuration\n"
+        "Segment-Routing SRv6 configuration\n")
+{
+	vty->node = BGP_SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+        exit_bgp_srv6,
+        exit_bgp_srv6_cmd,
+        "exit",
+        "exit Segment-Routing SRv6 configuration\n")
+{
+	if (vty->node == BGP_SRV6_NODE)
+		vty->node = BGP_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+        quit_bgp_srv6,
+        quit_bgp_srv6_cmd,
+        "quit",
+        "quit Segment-Routing SRv6 configuration\n")
+{
+	if (vty->node == BGP_SRV6_NODE)
+		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -1977,8 +2065,8 @@ DEFUNSH(VTYSH_BABELD, router_babel, router_babel_cmd, "router babel",
 #endif /* HAVE_BABELD */
 
 #ifdef HAVE_OSPF6D
-DEFUNSH(VTYSH_OSPF6D, router_ospf6, router_ospf6_cmd, "router ospf6",
-	ROUTER_STR OSPF6_STR)
+DEFUNSH(VTYSH_OSPF6D, router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
+	ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	vty->node = OSPF6_NODE;
 	return CMD_SUCCESS;
@@ -2085,7 +2173,7 @@ DEFUNSH(VTYSH_FABRICD, router_openfabric, router_openfabric_cmd, "router openfab
 #endif /* HAVE_FABRICD */
 
 #if defined(HAVE_PATHD)
-DEFUNSH(VTYSH_PATHD, segment_routing, segment_routing_cmd,
+DEFUNSH(VTYSH_SR, segment_routing, segment_routing_cmd,
 	"segment-routing",
 	"Configure segment routing\n")
 {
@@ -2238,7 +2326,7 @@ DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
 }
 
 DEFUNSH(VTYSH_BFDD, bfd_profile_enter, bfd_profile_enter_cmd,
-	"profile WORD",
+	"profile BFDPROF",
 	BFD_PROFILE_STR
 	BFD_PROFILE_NAME_STR)
 {
@@ -2364,6 +2452,30 @@ DEFUNSH(VTYSH_VRF, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
 {
 	if (vty->node == VRF_NODE)
 		vty->node = CONFIG_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, exit_srv6_config, exit_srv6_config_cmd, "exit",
+	"Exit from SRv6 configuration mode\n")
+{
+	if (vty->node == SRV6_NODE)
+		vty->node = SEGMENT_ROUTING_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, exit_srv6_locs_config, exit_srv6_locs_config_cmd, "exit",
+	"Exit from SRv6-locator configuration mode\n")
+{
+	if (vty->node == SRV6_LOCS_NODE)
+		vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, exit_srv6_loc_config, exit_srv6_loc_config_cmd, "exit",
+	"Exit from SRv6-locators configuration mode\n")
+{
+	if (vty->node == SRV6_LOC_NODE)
+		vty->node = SRV6_LOCS_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2694,7 +2806,7 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 	char *line = do_prepend(vty, argv, argc);
 
 	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0) {
+		if (vtysh_client[i].fd >= 0 || vtysh_client[i].next) {
 			vty_out(vty, headline, vtysh_client[i].name);
 			ret = vtysh_client_execute(&vtysh_client[i], line);
 			vty_out(vty, "\n");
@@ -2852,6 +2964,24 @@ DEFUN (vtysh_show_error_code,
 }
 
 /* Northbound. */
+DEFUN_HIDDEN (show_config_running,
+       show_config_running_cmd,
+       "show configuration running\
+          [<json|xml> [translate WORD]]\
+          [with-defaults]" DAEMONS_LIST,
+       SHOW_STR
+       "Configuration information\n"
+       "Running configuration\n"
+       "Change output format to JSON\n"
+       "Change output format to XML\n"
+       "Translate output\n"
+       "YANG module translator\n"
+       "Show default values\n"
+       DAEMONS_STR)
+{
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+}
+
 DEFUN (show_yang_operational_data,
        show_yang_operational_data_cmd,
        "show yang operational-data XPATH\
@@ -2872,6 +3002,37 @@ DEFUN (show_yang_operational_data,
 {
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
+
+DEFUN(show_yang_module, show_yang_module_cmd,
+      "show yang module [module-translator WORD] " DAEMONS_LIST,
+      SHOW_STR
+      "YANG information\n"
+      "Show loaded modules\n"
+      "YANG module translator\n"
+      "YANG module translator\n" DAEMONS_STR)
+{
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+}
+
+DEFUN(show_yang_module_detail, show_yang_module_detail_cmd,
+      "show yang module\
+          [module-translator WORD]\
+          WORD <compiled|summary|tree|yang|yin> " DAEMONS_LIST,
+      SHOW_STR
+      "YANG information\n"
+      "Show loaded modules\n"
+      "YANG module translator\n"
+      "YANG module translator\n"
+      "Module name\n"
+      "Display compiled module in YANG format\n"
+      "Display summary information about the module\n"
+      "Display module in the tree (RFC 8340) format\n"
+      "Display module in the YANG format\n"
+      "Display module in the YIN format\n" DAEMONS_STR)
+{
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+}
+
 
 DEFUNSH(VTYSH_ALL, debug_nb,
 	debug_nb_cmd,
@@ -2915,10 +3076,15 @@ DEFUN (vtysh_show_history,
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
-       "show memory",
+       "show memory [" DAEMONS_LIST "]",
        SHOW_STR
-       "Memory statistics\n")
+       "Memory statistics\n"
+       DAEMONS_STR)
 {
+	if (argc == 3)
+		return show_one_daemon(vty, argv, argc - 1,
+				       argv[argc - 1]->text);
+
 	return show_per_daemon(vty, argv, argc, "Memory statistics for %s:\n");
 }
 
@@ -2942,151 +3108,11 @@ DEFUN (vtysh_show_logging,
 			       "Logging configuration for %s:\n");
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_log_stdout, vtysh_log_stdout_cmd, "log stdout",
-	"Logging control\n"
-	"Set stdout logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_stdout_level, vtysh_log_stdout_level_cmd,
-	"log stdout <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
-	"Logging control\n"
-	"Set stdout logging level\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_stdout, no_vtysh_log_stdout_cmd,
-	"no log stdout [LEVEL]", NO_STR
-	"Logging control\n"
-	"Cancel logging to stdout\n"
-	"Logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_file, vtysh_log_file_cmd, "log file FILENAME",
-	"Logging control\n"
-	"Logging to file\n"
-	"Logging filename\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_file_level, vtysh_log_file_level_cmd,
-	"log file FILENAME <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
-	"Logging control\n"
-	"Logging to file\n"
-	"Logging filename\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_file, no_vtysh_log_file_cmd,
-	"no log file [FILENAME [LEVEL]]", NO_STR
-	"Logging control\n"
-	"Cancel logging to file\n"
-	"Logging file name\n"
-	"Logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_monitor, vtysh_log_monitor_cmd,
-	"log monitor [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
-	"Logging control\n"
-	"Set terminal line (monitor) logging level\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_monitor, no_vtysh_log_monitor_cmd,
-	"no log monitor [LEVEL]", NO_STR
-	"Logging control\n"
-	"Disable terminal line (monitor) logging\n"
-	"Logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_syslog, vtysh_log_syslog_cmd,
-	"log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
-	"Logging control\n"
-	"Set syslog logging level\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_syslog, no_vtysh_log_syslog_cmd,
-	"no log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
-	NO_STR
-	"Logging control\n"
-	"Cancel logging to syslog\n"
-	LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_facility, vtysh_log_facility_cmd,
-	"log facility <kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>",
-	"Logging control\n"
-	"Facility parameter for syslog messages\n" LOG_FACILITY_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_facility, no_vtysh_log_facility_cmd,
-	"no log facility [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>]",
-	NO_STR
-	"Logging control\n"
-	"Reset syslog facility to default (daemon)\n"
-	LOG_FACILITY_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_record_priority, vtysh_log_record_priority_cmd,
-	"log record-priority",
-	"Logging control\n"
-	"Log the priority of the message within the message\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_record_priority,
-	no_vtysh_log_record_priority_cmd, "no log record-priority", NO_STR
-	"Logging control\n"
-	"Do not log the priority of the message within the message\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, vtysh_log_timestamp_precision,
-	vtysh_log_timestamp_precision_cmd, "log timestamp precision (0-6)",
-	"Logging control\n"
-	"Timestamp configuration\n"
-	"Set the timestamp precision\n"
-	"Number of subsecond digits\n")
-{
-	return CMD_SUCCESS;
-}
-
 DEFUNSH(VTYSH_ALL, vtysh_debug_memstats,
 	vtysh_debug_memstats_cmd, "[no] debug memstats-at-exit",
 	NO_STR
 	"Debug\n"
 	"Print memory statistics at exit\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_log_timestamp_precision,
-	no_vtysh_log_timestamp_precision_cmd, "no log timestamp precision",
-	NO_STR
-	"Logging control\n"
-	"Timestamp configuration\n"
-	"Reset the timestamp precision to the default value of 0\n")
 {
 	return CMD_SUCCESS;
 }
@@ -3702,83 +3728,11 @@ DEFUN (no_vtysh_output_file,
 
 DEFUN(find,
       find_cmd,
-      "find REGEX",
+      "find REGEX...",
       "Find CLI command matching a regular expression\n"
       "Search pattern (POSIX regex)\n")
 {
-	char *pattern = argv[1]->arg;
-	const struct cmd_node *node;
-	const struct cmd_element *cli;
-	vector clis;
-
-	regex_t exp = {};
-
-	int cr = regcomp(&exp, pattern, REG_NOSUB | REG_EXTENDED);
-
-	if (cr != 0) {
-		switch (cr) {
-		case REG_BADBR:
-			vty_out(vty, "%% Invalid \\{...\\} expression\n");
-			break;
-		case REG_BADRPT:
-			vty_out(vty, "%% Bad repetition operator\n");
-			break;
-		case REG_BADPAT:
-			vty_out(vty, "%% Regex syntax error\n");
-			break;
-		case REG_ECOLLATE:
-			vty_out(vty, "%% Invalid collating element\n");
-			break;
-		case REG_ECTYPE:
-			vty_out(vty, "%% Invalid character class name\n");
-			break;
-		case REG_EESCAPE:
-			vty_out(vty,
-				"%% Regex ended with escape character (\\)\n");
-			break;
-		case REG_ESUBREG:
-			vty_out(vty,
-				"%% Invalid number in \\digit construction\n");
-			break;
-		case REG_EBRACK:
-			vty_out(vty, "%% Unbalanced square brackets\n");
-			break;
-		case REG_EPAREN:
-			vty_out(vty, "%% Unbalanced parentheses\n");
-			break;
-		case REG_EBRACE:
-			vty_out(vty, "%% Unbalanced braces\n");
-			break;
-		case REG_ERANGE:
-			vty_out(vty,
-				"%% Invalid endpoint in range expression\n");
-			break;
-		case REG_ESPACE:
-			vty_out(vty, "%% Failed to compile (out of memory)\n");
-			break;
-		}
-
-		goto done;
-	}
-
-
-	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
-		node = vector_slot(cmdvec, i);
-		if (!node)
-			continue;
-		clis = node->cmd_vector;
-		for (unsigned int j = 0; j < vector_active(clis); j++) {
-			cli = vector_slot(clis, j);
-
-			if (regexec(&exp, cli->string, 0, NULL, 0) == 0)
-				vty_out(vty, "  (%s)  %s\n",
-					node->name, cli->string);
-		}
-	}
-
-done:
-	regfree(&exp);
-	return CMD_SUCCESS;
+	return cmd_find_cmds(vty, argv, argc);
 }
 
 DEFUN_HIDDEN(show_cli_graph_vtysh,
@@ -3798,11 +3752,11 @@ DEFUN_HIDDEN(show_cli_graph_vtysh,
 
 static void vtysh_install_default(enum node_type node)
 {
-	install_element(node, &config_list_cmd);
-	install_element(node, &find_cmd);
-	install_element(node, &show_cli_graph_vtysh_cmd);
-	install_element(node, &vtysh_output_file_cmd);
-	install_element(node, &no_vtysh_output_file_cmd);
+	_install_element(node, &config_list_cmd);
+	_install_element(node, &find_cmd);
+	_install_element(node, &show_cli_graph_vtysh_cmd);
+	_install_element(node, &vtysh_output_file_cmd);
+	_install_element(node, &no_vtysh_output_file_cmd);
 }
 
 /* Making connection to protocol daemon. */
@@ -4002,10 +3956,16 @@ static char *vtysh_completion_entry_function(const char *ignore,
 void vtysh_readline_init(void)
 {
 	/* readline related settings. */
+	char *disable_bracketed_paste =
+		XSTRDUP(MTYPE_TMP, "set enable-bracketed-paste off");
+
 	rl_initialize();
+	rl_parse_and_bind(disable_bracketed_paste);
 	rl_bind_key('?', (rl_command_func_t *)vtysh_rl_describe);
 	rl_completion_entry_function = vtysh_completion_entry_function;
 	rl_attempted_completion_function = new_completion;
+
+	XFREE(MTYPE_TMP, disable_bracketed_paste);
 }
 
 char *vtysh_prompt(void)
@@ -4212,6 +4172,12 @@ void vtysh_init_vty(void)
 	install_element(BMP_NODE, &bmp_exit_cmd);
 	install_element(BMP_NODE, &bmp_quit_cmd);
 	install_element(BMP_NODE, &vtysh_end_all_cmd);
+
+	install_node(&bgp_srv6_node);
+	install_element(BGP_NODE, &bgp_srv6_cmd);
+	install_element(BGP_SRV6_NODE, &exit_bgp_srv6_cmd);
+	install_element(BGP_SRV6_NODE, &quit_bgp_srv6_cmd);
+	install_element(BGP_SRV6_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BGPD */
 
 	/* ripd */
@@ -4512,6 +4478,22 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_end_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_end_all_cmd);
 
+	/* SRv6 Data-plane */
+	install_node(&srv6_node);
+	install_element(SEGMENT_ROUTING_NODE, &srv6_cmd);
+	install_element(SRV6_NODE, &srv6_locators_cmd);
+	install_element(SRV6_NODE, &exit_srv6_config_cmd);
+	install_element(SRV6_NODE, &vtysh_end_all_cmd);
+
+	install_node(&srv6_locs_node);
+	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
+	install_element(SRV6_LOCS_NODE, &exit_srv6_locs_config_cmd);
+	install_element(SRV6_LOCS_NODE, &vtysh_end_all_cmd);
+
+	install_node(&srv6_loc_node);
+	install_element(SRV6_LOC_NODE, &exit_srv6_loc_config_cmd);
+	install_element(SRV6_LOC_NODE, &vtysh_end_all_cmd);
+
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
@@ -4559,7 +4541,10 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
 
 	/* northbound */
+	install_element(ENABLE_NODE, &show_config_running_cmd);
 	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
+	install_element(ENABLE_NODE, &show_yang_module_cmd);
+	install_element(ENABLE_NODE, &show_yang_module_detail_cmd);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
 
@@ -4576,22 +4561,6 @@ void vtysh_init_vty(void)
 
 	/* Logging */
 	install_element(VIEW_NODE, &vtysh_show_logging_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_stdout_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_stdout_level_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_stdout_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_file_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_file_level_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_file_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_monitor_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_monitor_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_syslog_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_syslog_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_facility_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_facility_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_record_priority_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_record_priority_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_timestamp_precision_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_timestamp_precision_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);

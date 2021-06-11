@@ -26,7 +26,6 @@
 #include "thread.h"
 #include "filter.h"
 #include "memory.h"
-#include "zebra_memory.h"
 #include "prefix.h"
 #include "log.h"
 #include "plist.h"
@@ -58,6 +57,8 @@
 #include "zebra/zebra_nb.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
+#include "zebra/zebra_srv6.h"
+#include "zebra/zebra_srv6_vty.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -261,6 +262,7 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_zebra_info,
 	&frr_vrf_info,
 	&frr_routing_info,
+	&frr_zebra_route_map_info,
 };
 
 FRR_DAEMON_INFO(
@@ -274,7 +276,8 @@ FRR_DAEMON_INFO(
 	.privs = &zserv_privs,
 
 	.yang_modules = zebra_yang_modules,
-	.n_yang_modules = array_size(zebra_yang_modules), )
+	.n_yang_modules = array_size(zebra_yang_modules),
+);
 
 /* Main startup routine. */
 int main(int argc, char **argv)
@@ -417,6 +420,8 @@ int main(int argc, char **argv)
 	zebra_pbr_init();
 	zebra_opaque_init();
 	zebra_srte_init();
+	zebra_srv6_init();
+	zebra_srv6_vty_init();
 
 	/* For debug purpose. */
 	/* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */

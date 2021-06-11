@@ -5,9 +5,9 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-AC_PREREQ([2.60])
+AC_PREREQ([2.69])
 
-AC_INIT([frr], [7.6-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [8.1-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -18,6 +18,7 @@ AC_SUBST([CONFIG_ARGS])
 
 AC_CONFIG_SRCDIR([lib/zebra.h])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([m4/ac])
 
 dnl -----------------------------------
 dnl Get hostname and other information.
@@ -191,6 +192,11 @@ CXXFLAGS="$orig_cxxflags"
 AC_PROG_CC_C99
 dnl NB: see C11 below
 
+dnl Some special handling for ICC later on
+if test "$CC" = "icc"; then
+    cc_is_icc="yes"
+fi
+
 PKG_PROG_PKG_CONFIG
 
 dnl it's 2019, sed is sed.
@@ -200,6 +206,7 @@ AC_SUBST([SED])
 dnl try and enable CFLAGS that are useful for FRR
 dnl - specifically, options to control warnings
 
+AC_SUBST([AC_CFLAGS])
 AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
     m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-+/{}$],[________])])
@@ -218,7 +225,7 @@ AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_POP([C])
     ])
     if test "$cachename" = "yes"; then
-	m4_if([$3], [], [CFLAGS="$CFLAGS $1"], [$3])
+	m4_if([$3], [], [AC_CFLAGS="$AC_CFLAGS $1"], [$3])
     else
 	:
 	$2
@@ -252,7 +259,9 @@ AC_DEFUN([AC_LINK_IFELSE_FLAGS], [{
 
 dnl ICC won't bail on unknown options without -diag-error 10006
 dnl need to do this first so we get useful results for the other options
-AC_C_FLAG([-diag-error 10006])
+if test "$cc_is_icc" = "yes"; then
+    AC_C_FLAG([-diag-error 10006])
+fi
 
 dnl AC_PROG_CC_C99 may change CC to include -std=gnu99 or something
 ac_cc="$CC"
@@ -268,7 +277,7 @@ if test "$enable_gcov" = "yes"; then
       AC_C_FLAG([-O0])
    fi
 
-   LDFLAGS="${LDFLAGS} -lgcov"
+   AC_LDFLAGS="${AC_LDFLAGS} -lgcov"
 fi
 
 if test "$enable_clang_coverage" = "yes"; then
@@ -281,26 +290,36 @@ if test "$enable_clang_coverage" = "yes"; then
 fi
 
 if test "$enable_scripting" = "yes"; then
-   AX_PROG_LUA([5.3])
-   AX_LUA_HEADERS
+   AX_PROG_LUA([5.3], [5.4], [], [
+     AC_MSG_ERROR([Lua 5.3 is required to build with Lua support. No other version is supported.])
+   ])
+   AX_LUA_HEADERS([], [
+     AC_MSG_ERROR([Lua 5.3 headers are required to build with Lua support. No other version is supported.])
+   ])
    AX_LUA_LIBS([
-      AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-      LIBS="$LIBS $LUA_LIB"
+     AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+     LIBS="$LIBS $LUA_LIB"
+   ], [
+     AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
    ])
 fi
 
+dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
+dnl sense to be overridden by the user
 if test "$enable_dev_build" = "yes"; then
    AC_DEFINE([DEV_BUILD], [1], [Build for development])
    if test "$orig_cflags" = ""; then
-      AC_C_FLAG([-g3])
-      AC_C_FLAG([-O0])
+      AC_C_FLAG([-O0],,[CFLAGS="$CFLAGS -O0"])
+      AC_C_FLAG([-g3],,[CFLAGS="$CFLAGS -g3"])
+      AC_C_FLAG([-ggdb3],,[CFLAGS="$CFLAGS -ggdb3"])
    fi
 else
    if test "$orig_cflags" = ""; then
-      AC_C_FLAG([-g])
-      AC_C_FLAG([-O2])
+      AC_C_FLAG([-g],,[CFLAGS="$CFLAGS -g"])
+      AC_C_FLAG([-O2],,[CFLAGS="$CFLAGS -O2"])
    fi
 fi
+
 AM_CONDITIONAL([DEV_BUILD], [test "$enable_dev_build" = "yes"])
 
 dnl always want these CFLAGS
@@ -335,7 +354,9 @@ AC_SUBST([CXX_COMPAT_CFLAGS])
 dnl ICC emits a broken warning for const char *x = a ? "b" : "c";
 dnl for some reason the string consts get 'promoted' to char *,
 dnl triggering a const to non-const conversion warning.
-AC_C_FLAG([-diag-disable 3179])
+if test "$cc_is_icc" = "yes"; then
+    AC_C_FLAG([-diag-disable 3179])
+fi
 
 if test "$enable_werror" = "yes" ; then
   WERROR="-Werror"
@@ -411,17 +432,35 @@ else
   ])
 fi
 
+AC_MSG_CHECKING([whether linker supports __start/stop_section symbols])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdio.h>
+int __attribute__((section("secttest"))) var = 1;
+extern int __start_secttest, __stop_secttest;
+]], [[
+  void *a = &var, *b = &__start_secttest, *c = &__stop_secttest;
+  printf("%p %p %p\n", a, b, c);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_SECTION_SYMS, 1, [have __start/stop_section symbols])
+], [
+  AC_MSG_RESULT(no)
+])
+
 dnl ----------
 dnl Essentials
 dnl ----------
 
 AX_PTHREAD([
   CC="$PTHREAD_CC"
-  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+  AC_CFLAGS="$AC_CFLAGS $PTHREAD_CFLAGS"
   LIBS="$PTHREAD_LIBS $LIBS"
 ], [
   AC_MSG_FAILURE([This FRR version needs pthreads])
 ])
+
+orig_cflags="$CFLAGS"
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
 
 AC_SEARCH_LIBS([pthread_condattr_setclock], [],
 		[frr_cv_pthread_condattr_setclock=yes],
@@ -429,6 +468,13 @@ AC_SEARCH_LIBS([pthread_condattr_setclock], [],
 if test "$frr_cv_pthread_condattr_setclock" = "yes"; then
   AC_DEFINE([HAVE_PTHREAD_CONDATTR_SETCLOCK], [1], [Have pthread.h pthread_condattr_setclock])
 fi
+
+AC_CHECK_HEADERS([pthread_np.h],,, [
+#include <pthread.h>
+])
+AC_CHECK_FUNCS([pthread_setname_np pthread_set_name_np pthread_getthreadid_np])
+
+CFLAGS="$orig_cflags"
 
 dnl --------------
 dnl Check programs
@@ -772,6 +818,20 @@ fi
 #
 
 AS_IF([test "$host" = "$build"], [
+  AC_CHECK_HEADER([gelf.h], [], [
+    AC_MSG_ERROR([libelf headers are required for building clippy.  (Host only when cross-compiling.)])
+  ])
+  AC_CHECK_LIB([elf], [elf_memory], [], [
+    AC_MSG_ERROR([libelf is required for building clippy.  (Host only when cross-compiling.)])
+  ])
+
+  AC_CHECK_LIB([elf], [elf_getdata_rawchunk], [
+    AC_DEFINE([HAVE_ELF_GETDATA_RAWCHUNK], [1], [Have elf_getdata_rawchunk()])
+  ])
+  AC_CHECK_LIB([elf], [gelf_getnote], [
+    AC_DEFINE([HAVE_GELF_GETNOTE], [1], [Have gelf_getnote()])
+  ])
+
   FRR_PYTHON_DEV
 ], [
   FRR_PYTHON
@@ -925,7 +985,7 @@ dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h])
+	linux/version.h asm/types.h endian.h sys/endian.h])
 
 ac_stdatomic_ok=false
 AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
@@ -992,11 +1052,6 @@ int main(int argc, char **argv) {
     ])
   ])
 ])
-
-AC_CHECK_HEADERS([pthread_np.h],,, [
-#include <pthread.h>
-])
-AC_CHECK_FUNCS([pthread_setname_np pthread_set_name_np pthread_getthreadid_np])
 
 needsync=true
 
@@ -1217,11 +1272,6 @@ if test "$enable_realms" = "yes"; then
        ;;
     esac
 fi
-
-dnl -------------------------------
-dnl Endian-ness check
-dnl -------------------------------
-AC_WORDS_BIGENDIAN
 
 dnl ---------------
 dnl other functions
@@ -1477,24 +1527,22 @@ FRR_INCLUDES
 #endif
 ])dnl
 
-AC_MSG_CHECKING([for BSD struct ip_mreq hack])
-AC_TRY_COMPILE([#include <sys/param.h>],
-[#if (defined(__FreeBSD__) && ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000) || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000))) || (defined(__NetBSD__) && defined(__NetBSD_Version__) && __NetBSD_Version__ >= 106010000) || defined(__OpenBSD__) || defined(__APPLE__) || defined(__DragonFly__) || defined(__sun)
-  return (0);
-#else
-  #error No support for BSD struct ip_mreq hack detected
-#endif],[AC_MSG_RESULT([yes])
-AC_DEFINE([HAVE_BSD_STRUCT_IP_MREQ_HACK], [1], [Can pass ifindex in struct ip_mreq])],
-AC_MSG_RESULT([no]))
-
 AC_MSG_CHECKING([for RFC3678 protocol-independed API])
-AC_TRY_COMPILE([
-#include <sys/types.h>
-#include <netinet/in.h>
-], [struct group_req gr; int sock; setsockopt(sock, IPPROTO_IP, MCAST_JOIN_GROUP, (void*)&gr, sizeof(gr));
-], [AC_MSG_RESULT([yes])
-AC_DEFINE([HAVE_RFC3678], [1], [Have RFC3678 protocol-independed API])],
-AC_MSG_RESULT([no]))
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+      #include <sys/types.h>
+      #include <netinet/in.h>
+  ]], [[
+      struct group_req gr;
+      int sock;
+      setsockopt(sock, IPPROTO_IP, MCAST_JOIN_GROUP, (void*)&gr, sizeof(gr));
+  ]])
+],[
+  AC_MSG_RESULT([yes])
+  AC_DEFINE([HAVE_RFC3678], [1], [Have RFC3678 protocol-independed API])
+],[
+  AC_MSG_RESULT(no)
+])
 
 dnl ---------------------------------------------------------------
 dnl figure out how to check link-state
@@ -1691,11 +1739,9 @@ fi
 
 AS_IF([test "$enable_pathd" != "no"], [
   AC_DEFINE([HAVE_PATHD], [1], [pathd])
-])
-
-AS_IF([test "$enable_pcep" != "no"], [
   AC_DEFINE([HAVE_PATHD_PCEP], [1], [pathd-pcep])
 ])
+
 
 if test "$ac_cv_lib_json_c_json_object_get" = "no" -a "$BFDD" = "bfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
@@ -1826,8 +1872,8 @@ AC_SUBST([SNMP_CFLAGS])
 dnl ---------------
 dnl libyang
 dnl ---------------
-PKG_CHECK_MODULES([LIBYANG], [libyang >= 1.0.184], , [
-  AC_MSG_ERROR([libyang (>= 1.0.184) was not found on your system.])
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.0.0], , [
+  AC_MSG_ERROR([libyang (>= 2.0.0) was not found on your system.])
 ])
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
@@ -1884,7 +1930,9 @@ dnl ---------------
 dnl gRPC
 dnl ---------------
 if test "$enable_grpc" = "yes"; then
-  PKG_CHECK_MODULES([GRPC], [grpc grpc++ protobuf], [
+  AC_LANG_PUSH([C++])
+  AX_CXX_COMPILE_STDCXX([11], [ext])
+  PKG_CHECK_MODULES([GRPC], [grpc >= 6.0.0 grpc++ >= 1.16.1 protobuf >= 3.6.1 ], [
     AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
     if test "$PROTOC" = "/bin/false"; then
       AC_MSG_FAILURE([grpc requested but protoc not found.])
@@ -1896,6 +1944,7 @@ if test "$enable_grpc" = "yes"; then
     GRPC=false
     AC_MSG_ERROR([grpc/grpc++ were not found on your system.])
   ])
+  AC_LANG_POP([C++])
 fi
 
 dnl -----
@@ -2097,12 +2146,16 @@ dnl -----------------------
 dnl checking for IP_PKTINFO
 dnl -----------------------
 AC_MSG_CHECKING([for IP_PKTINFO])
-AC_TRY_COMPILE([#include <netdb.h>], [
-  int opt = IP_PKTINFO;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <netdb.h>
+   ]], [[
+        int opt = IP_PKTINFO;
+   ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_IP_PKTINFO], [1], [Have IP_PKTINFO])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
@@ -2110,12 +2163,16 @@ dnl ---------------------------
 dnl checking for IP_RECVDSTADDR
 dnl ---------------------------
 AC_MSG_CHECKING([for IP_RECVDSTADDR])
-AC_TRY_COMPILE([#include <netinet/in.h>], [
-  int opt = IP_RECVDSTADDR;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <netinet/in.h>
+  ]], [[
+        int opt = IP_RECVDSTADDR;
+  ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_IP_RECVDSTADDR], [1], [Have IP_RECVDSTADDR])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
@@ -2123,12 +2180,16 @@ dnl ----------------------
 dnl checking for IP_RECVIF
 dnl ----------------------
 AC_MSG_CHECKING([for IP_RECVIF])
-AC_TRY_COMPILE([#include <netinet/in.h>], [
-  int opt = IP_RECVIF;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <netinet/in.h>
+  ]], [[
+        int opt = IP_RECVIF;
+  ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_IP_RECVIF], [1], [Have IP_RECVIF])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
@@ -2136,12 +2197,16 @@ dnl ----------------------
 dnl checking for SO_BINDANY
 dnl ----------------------
 AC_MSG_CHECKING([for SO_BINDANY])
-AC_TRY_COMPILE([#include <sys/socket.h>], [
-  int opt = SO_BINDANY;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <sys/socket.h>
+  ]], [[
+        int opt = SO_BINDANY;
+  ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_SO_BINDANY], [1], [Have SO_BINDANY])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
@@ -2149,20 +2214,30 @@ dnl ----------------------
 dnl checking for IP_FREEBIND
 dnl ----------------------
 AC_MSG_CHECKING([for IP_FREEBIND])
-AC_TRY_COMPILE([#include <netinet/in.h>], [
-  int opt = IP_FREEBIND;
-], [
+AC_COMPILE_IFELSE(
+[ AC_LANG_PROGRAM([[
+        #include <netinet/in.h>
+  ]], [[
+        int opt = IP_FREEBIND;
+  ]])
+],[
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_IP_FREEBIND], [1], [Have IP_FREEBIND])
-], [
+],[
   AC_MSG_RESULT([no])
 ])
 
 dnl --------------------------------------
 dnl checking for be32dec existence or not
 dnl --------------------------------------
-AC_CHECK_DECLS([be32enc, be32dec], [], [],
-	       [#include <sys/endian.h>])
+AC_CHECK_DECLS([be32enc, be32dec], [], [], [
+        #ifdef HAVE_SYS_ENDIAN_H
+        #include <sys/endian.h>
+        #endif
+        #ifdef HAVE_ENDIAN_H
+        #include <endian.h>
+        #endif
+])
 
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
@@ -2250,12 +2325,17 @@ dnl capabilities checks
 dnl -------------------
 if test "$enable_capabilities" != "no"; then
   AC_MSG_CHECKING([whether prctl PR_SET_KEEPCAPS is available])
-  AC_TRY_COMPILE([#include <sys/prctl.h>], [prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
-    [AC_MSG_RESULT([yes])
+  AC_COMPILE_IFELSE(
+  [ AC_LANG_PROGRAM([[
+        #include <sys/prctl.h>
+    ]], [[
+        prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+    ]])
+  ],[AC_MSG_RESULT([yes])
      AC_DEFINE([HAVE_PR_SET_KEEPCAPS], [1], [prctl])
-     frr_ac_keepcaps="yes"],
-     AC_MSG_RESULT([no])
-  )
+     frr_ac_keepcaps="yes"
+  ],[AC_MSG_RESULT(no)
+  ])
   if test "$frr_ac_keepcaps" = "yes"; then
     AC_CHECK_HEADERS([sys/capability.h])
   fi
@@ -2355,6 +2435,29 @@ struct mallinfo ac_x; ac_x = mallinfo ();
 ])
 if test "$frr_cv_mallinfo" = "yes"; then
   AC_DEFINE([HAVE_MALLINFO], [1], [mallinfo])
+fi
+
+AC_CACHE_CHECK([whether mallinfo2 is available], [frr_cv_mallinfo2], [
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+#ifdef HAVE_MALLOC_NP_H
+#include <malloc_np.h>
+#endif
+#ifdef HAVE_MALLOC_MALLOC_H
+#include <malloc/malloc.h>
+#endif
+]], [[
+struct mallinfo2 ac_x; ac_x = mallinfo2 ();
+]])], [
+    frr_cv_mallinfo2=yes
+  ], [
+    frr_cv_mallinfo2=no
+  ])
+])
+if test "$frr_cv_mallinfo2" = "yes"; then
+  AC_DEFINE([HAVE_MALLINFO2], [1], [mallinfo2])
 fi
 
 AC_MSG_CHECKING([whether malloc_usable_size is available])
@@ -2495,15 +2598,14 @@ AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 
 dnl PCEP plugin
-AM_CONDITIONAL([HAVE_PATHD_PCEP], [test "$enable_pcep" = "yes"])
-AS_IF([test "$enable_pcep" = "yes"], [
-  AC_CHECK_LIB([pcep_pcc], [initialize_pcc], [
-    PATHD_PCEP_LIBS="-lpcep_pcc"
-  ],[
-    AC_MSG_ERROR([PCEP library libpcep_pcc not found])
-  ])
-  AC_SUBST([PATHD_PCEP_LIBS])
-])
+AS_IF([test "$enable_pathd" != "no"], [
+       AC_SUBST([PATHD_PCEP_LIBS], ["pceplib/libpcep_pcc.la"])
+       AC_SUBST([PATHD_PCEP_INCL], ["-I./pceplib "])
+       ])
+AC_CHECK_LIB([cunit], [CU_initialize_registry], [pcep_cunit=yes],[pcep_cunit=no])
+AM_CONDITIONAL([PATHD_PCEP_TEST], [test "x${pcep_cunit}" = xyes])
+AC_CHECK_PROG(VALGRIND_CHECK, valgrind, yes)
+AM_CONDITIONAL([HAVE_VALGRIND_PCEP], [test "$VALGRIND_CHECK" = "yes"])
 
 dnl daemons
 AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
@@ -2529,6 +2631,7 @@ AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
 AM_CONDITIONAL([FABRICD], [test "$enable_fabricd" != "no"])
 AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
+AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
@@ -2593,7 +2696,7 @@ FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
-compiler flags          : ${CFLAGS} ${SAN_FLAGS}
+compiler flags          : ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
