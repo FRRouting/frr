@@ -270,7 +270,7 @@ const char *isis_adj_name(const struct isis_adjacency *adj)
 
 	struct isis_dynhn *dyn;
 
-	dyn = dynhn_find_by_id(adj->sysid);
+	dyn = dynhn_find_by_id(adj->circuit->isis, adj->sysid);
 	if (dyn)
 		return dyn->hostname;
 	else
@@ -401,7 +401,7 @@ void isis_adj_print(struct isis_adjacency *adj)
 
 	if (!adj)
 		return;
-	dyn = dynhn_find_by_id(adj->sysid);
+	dyn = dynhn_find_by_id(adj->circuit->isis, adj->sysid);
 	if (dyn)
 		zlog_debug("%s", dyn->hostname);
 
@@ -537,7 +537,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		vty_out(vty, "    SNPA: %s", snpa_print(adj->snpa));
 		if (adj->circuit
 		    && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST)) {
-			dyn = dynhn_find_by_id(adj->lanid);
+			dyn = dynhn_find_by_id(adj->circuit->isis, adj->lanid);
 			if (dyn)
 				vty_out(vty, ", LAN id: %s.%02x", dyn->hostname,
 					adj->lanid[ISIS_SYS_ID_LEN]);

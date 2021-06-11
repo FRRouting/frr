@@ -1654,6 +1654,10 @@ static uint8_t *isis_snmp_find_router(struct variable *v, oid *name,
 	oid *oid_idx;
 	size_t oid_idx_len;
 	size_t off = 0;
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+
+	if (isis == NULL)
+		return NULL;
 
 	*write_method = NULL;
 
@@ -1687,7 +1691,7 @@ static uint8_t *isis_snmp_find_router(struct variable *v, oid *name,
 
 		cmp_level = (int)oid_idx[ISIS_SYS_ID_LEN + 1];
 
-		dyn = dynhn_find_by_id(cmp_buf);
+		dyn = dynhn_find_by_id(isis, cmp_buf);
 
 		if (dyn == NULL || dyn->level != cmp_level)
 			return NULL;
@@ -1739,7 +1743,7 @@ static uint8_t *isis_snmp_find_router(struct variable *v, oid *name,
 		 */
 		cmp_level = (int)(IS_LEVEL_2 + 1);
 
-	dyn = dynhn_snmp_next(cmp_buf, cmp_level);
+	dyn = dynhn_snmp_next(isis, cmp_buf, cmp_level);
 
 	if (dyn == NULL)
 		return NULL;
