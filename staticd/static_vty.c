@@ -17,6 +17,9 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
+#define STATICD_STR "Static route daemon\n"
+
 #include <zebra.h>
 
 #include "command.h"
@@ -42,7 +45,8 @@
 #endif
 #include "static_nb.h"
 
-#define STATICD_STR "Static route daemon\n"
+#include "cmgd/cmgd_vty.h"
+
 
 static int static_route_leak(struct vty *vty, const char *svrf,
 			     const char *nh_svrf, afi_t afi, safi_t safi,
@@ -170,14 +174,14 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 yang_afi_safi_value2identity(afi, safi),
 				 table_id, distance);
 
-		nb_cli_enqueue_change(vty, xpath_prefix, NB_OP_CREATE, NULL);
+		NB_ENQEUE_CLI_COMMAND(vty, xpath_prefix, NB_OP_CREATE, NULL);
 
 		/* Tag processing */
 		snprintf(buf_tag, sizeof(buf_tag), "%u", tag);
 		strlcpy(ab_xpath, xpath_prefix, sizeof(ab_xpath));
 		strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_TAG_XPATH,
 			sizeof(ab_xpath));
-		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, buf_tag);
+		NB_ENQEUE_CLI_COMMAND(vty, ab_xpath, NB_OP_MODIFY, buf_tag);
 
 		/* nexthop processing */
 
@@ -186,7 +190,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			 buf_gate_str, ifname);
 		strlcpy(xpath_nexthop, xpath_prefix, sizeof(xpath_nexthop));
 		strlcat(xpath_nexthop, ab_xpath, sizeof(xpath_nexthop));
-		nb_cli_enqueue_change(vty, xpath_nexthop, NB_OP_CREATE, NULL);
+		NB_ENQEUE_CLI_COMMAND(vty, xpath_nexthop, NB_OP_CREATE, NULL);
 
 		if (type == STATIC_BLACKHOLE) {
 			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
@@ -209,10 +213,10 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 					bh_type = NULL;
 					break;
 				}
-				nb_cli_enqueue_change(vty, ab_xpath,
+				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
 						      NB_OP_MODIFY, bh_type);
 			} else {
-				nb_cli_enqueue_change(vty, ab_xpath,
+				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
 						      NB_OP_MODIFY, "null");
 			}
 		}
@@ -223,10 +227,10 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				sizeof(ab_xpath));
 
 			if (onlink)
-				nb_cli_enqueue_change(vty, ab_xpath,
+				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
 						      NB_OP_MODIFY, "true");
 			else
-				nb_cli_enqueue_change(vty, ab_xpath,
+				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
 						      NB_OP_MODIFY, "false");
 		}
 		if (type == STATIC_IPV4_GATEWAY
@@ -237,7 +241,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_COLOR_XPATH,
 				sizeof(ab_xpath));
 			if (color_str)
-				nb_cli_enqueue_change(vty, ab_xpath,
+				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
 						      NB_OP_MODIFY, color_str);
 		}
 		if (label_str) {
@@ -250,7 +254,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcat(xpath_mpls, FRR_STATIC_ROUTE_NH_LABEL_XPATH,
 				sizeof(xpath_mpls));
 
-			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
+			NB_ENQEUE_CLI_COMMAND(vty, xpath_mpls, NB_OP_DESTROY,
 					      NULL);
 
 			ostr = XSTRDUP(MTYPE_TMP, label_str);
@@ -262,7 +266,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 					sizeof(xpath_label));
 				strlcat(xpath_label, ab_xpath,
 					sizeof(xpath_label));
-				nb_cli_enqueue_change(vty, xpath_label,
+				NB_ENQEUE_CLI_COMMAND(vty, xpath_label,
 						      NB_OP_MODIFY, nump);
 				label_stack_id++;
 			}
@@ -271,10 +275,10 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcpy(xpath_mpls, xpath_nexthop, sizeof(xpath_mpls));
 			strlcat(xpath_mpls, FRR_STATIC_ROUTE_NH_LABEL_XPATH,
 				sizeof(xpath_mpls));
-			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
+			NB_ENQEUE_CLI_COMMAND(vty, xpath_mpls, NB_OP_DESTROY,
 					      NULL);
 		}
-		ret = nb_cli_apply_changes(vty, xpath_prefix);
+		ret = NB_APPLY_CLI_COMMANDS(vty, xpath_prefix);
 	} else {
 		if (src_str)
 			snprintf(ab_xpath, sizeof(ab_xpath),
@@ -301,8 +305,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		assert(dnode);
 		yang_dnode_get_path(dnode, ab_xpath, XPATH_MAXLEN);
 
-		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY, NULL);
-		ret = nb_cli_apply_changes(vty, ab_xpath);
+		NB_ENQEUE_CLI_COMMAND(vty, ab_xpath, NB_OP_DESTROY, NULL);
+		ret = NB_APPLY_CLI_COMMANDS(vty, ab_xpath);
 	}
 
 	return ret;
@@ -323,6 +327,8 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 				 flag_str, tag_str, distance_str, label_str,
 				 table_str, false, NULL);
 }
+
+#ifndef INCLUDE_CMGD_CMD_DEFINITIONS
 
 /* Write static route configuration. */
 int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
@@ -446,6 +452,8 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 	}
 	return write;
 }
+
+#endif /* INCLUDE_CMGD_CMD_DEFINITIONS */
 
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY_YANG (ip_mroute_dist,
@@ -1091,6 +1099,7 @@ DEFPY_YANG(ipv6_route_vrf,
 				 ifname, flag, tag_str, distance_str, label,
 				 table_str, false, color_str);
 }
+
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "[no] debug static [{events$events|route$route}]",
 	   NO_STR DEBUG_STR STATICD_STR
@@ -1120,6 +1129,31 @@ DEFUN_NOSH (show_debugging_static,
 	return CMD_SUCCESS;
 }
 
+
+#ifdef INCLUDE_CMGD_CMD_DEFINITIONS
+void static_debug_set(int vtynode, bool onoff, bool events, bool route)
+{
+	/* 
+	 * Do nothing
+	 */
+}
+
+int static_debug_status_write(struct vty *vty)
+{
+	return strlen(vty->buf);
+}
+
+int static_config_write_debug(struct vty *vty)
+{
+	int write = 0;
+
+	// write += zebra_import_table_config(vty, VRF_DEFAULT);
+	write += strlen(vty->buf);
+
+	return write;
+}
+#endif /* INCLUDE_CMGD_CMD_DEFINITIONS */
+
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -1127,9 +1161,28 @@ static struct cmd_node debug_node = {
 	.config_write = static_config_write_debug,
 };
 
+/* Static ip route configuration write function. */
+static int static_ip_config(struct vty *vty)
+{
+	int write = 0;
+
+	// write += zebra_import_table_config(vty, VRF_DEFAULT);
+	write += strlen(vty->buf);
+
+	return write;
+}
+
+static struct cmd_node ip_node = {
+	.name = "ip",
+	.node = IP_NODE,
+	.prompt = "",
+	.config_write = static_ip_config,
+};
+
 void static_vty_init(void)
 {
 	install_node(&debug_node);
+	install_node(&ip_node);
 
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 

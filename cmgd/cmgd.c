@@ -4753,7 +4753,7 @@ void cmgd_pthreads_finish(void)
 	frr_pthread_stop_all();
 }
 
-void cmgd_init(unsigned short instance)
+void cmgd_init(void)
 {
 
 	/* allocates some vital data structures used by peer commands in

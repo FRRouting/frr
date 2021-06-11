@@ -56,6 +56,10 @@ endif
 cmgd/cmgd_bcknd_cmd.c: cmgd/cmgd_extract.pl $(cmgd_scan)
 	$(AM_CMGD_EXTRACT) $^ $(CMGD_HAVE_ISISD) $(CMGD_HAVE_FABRICD) > cmgd/cmgd_bcknd_cmd.c
 
+cmgd/cmgd_vty.c: \
+	staticd/static_vty_clippy.c \
+	staticd/static_vty.c
+
 cmgd_libcmgd_a_SOURCES = \
 	cmgd/cmgd.c \
 	cmgd/cmgd_memory.c \
@@ -72,8 +76,8 @@ cmgd_cmgd_SOURCES = \
 	cmgd/cmgd_main.c \
 	# end
 
-nodist_cmgd_cmgd_SOURCES = \
-	cmgd/cmgd_bcknd_cmd.c \
+# nodist_cmgd_cmgd_SOURCES = \
+	# cmgd/cmgd_bcknd_cmd.c \
 	# end
 CLEANFILES += cmgd/cmgd_bcknd_cmd.c
 
@@ -82,7 +86,8 @@ cmgd_cmgd_CFLAGS = $(AM_CFLAGS)
 
 cmgd_cmgd_LDADD = cmgd/libcmgd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
 
-# clippy_scan += \
-	# cmgd/cmgd_vty.c \
+clippy_scan += \
+	cmgd/cmgd_vty.c \
+	cmgd/cmgd_bcknd_cmd.c \
 	# end
 

@@ -32,8 +32,7 @@ bgp_vtysh_scan = \
 bgp_vtysh_scan += bgpd/bgp_rpki.c
 bgp_vtysh_scan += bgpd/bgp_bmp.c
 
-# vtysh_daemons += bgpd
-cmgd_daemons += bgpd
+vtysh_daemons += bgpd
 
 if ENABLE_BGP_VNC
 bgp_vtysh_scan += \
@@ -235,7 +234,6 @@ bgpd_bgpd_bmp_la_LIBADD = lib/libfrrcares.la
 bgpd_bgpd_bmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 
 vtysh_scan += $(bgp_vtysh_scan)
-cmgd_scan += $(bgp_vtysh_scan)
 
 clippy_scan += \
 	bgpd/bgp_bmp.c \

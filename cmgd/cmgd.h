@@ -142,42 +142,6 @@ DECLARE_HOOK(cmgd_inst_config_write,
 		(struct cmgd *cmgd, struct vty *vty),
 		(cmgd, vty))
 
-#if 0
-/* CMGD finite state machine events.  */
-enum cmgd_fsm_events {
-	CMGD_Start = 1,
-	CMGD_Stop,
-	TCP_connection_open,
-	TCP_connection_open_w_delay,
-	TCP_connection_closed,
-	TCP_connection_open_failed,
-	TCP_fatal_error,
-	ConnectRetry_timer_expired,
-	Hold_Timer_expired,
-	KeepAlive_timer_expired,
-	DelayOpen_timer_expired,
-	Receive_OPEN_message,
-	Receive_KEEPALIVE_message,
-	Receive_UPDATE_message,
-	Receive_NOTIFICATION_message,
-	Clearing_Completed,
-	CMGD_EVENTS_MAX,
-};
-
-/* CMGD finite state machine status.  */
-enum cmgd_fsm_status {
-	Idle = 1,
-	Connect,
-	Active,
-	OpenSent,
-	OpenConfirm,
-	Established,
-	Clearing,
-	Deleted,
-	CMGD_STATUS_MAX,
-};
-#endif
-
 extern struct cmgd_master *cm;
 
 /* Prototypes. */
@@ -198,7 +162,7 @@ extern int cmgd_config_write(struct vty *);
 extern void cmgd_master_init(struct thread_master *master, const int buffer_size,
 			    struct list *addresses);
 
-extern void cmgd_init(unsigned short instance);
+extern void cmgd_init(void);
 extern void cmgd_pthreads_run(void);
 extern void cmgd_pthreads_finish(void);
 

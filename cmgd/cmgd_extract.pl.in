@@ -2,9 +2,10 @@
 ##
 ## @configure_input@
 ##
-## CMGD daemon command extractor.
-## Copyright (C) 2020 Pushpasis Sarkar <spushpasis@vmware.com>
-## 
+## CMGD backend daemon command extractor.
+## Copyright (C) 2021  Vmware, Inc.
+##		         Pushpasis Sarkar
+##
 ## This file is part of GNU Zebra.
 ## 
 ## GNU Zebra is free software; you can redistribute it and/or modify it
@@ -35,6 +36,10 @@ print <<EOF;
 #include "cmgd/cmgd.h"
 #include "cmgd/cmgd_vty.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "cmgd/cmgd_bcknd_cmd_clippy.c"
+#endif
+
 EOF
 
 my $cli_stomp = 0;
@@ -44,6 +49,7 @@ sub scan_file {
 
     $cppadd = $fabricd ? "-DFABRICD=1" : "";
 
+    $filename = $file;
     open (FH, "@CPP@ -P -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ $cppadd $file |");
     local $/; undef $/;
     $line = <FH>;
@@ -52,11 +58,12 @@ sub scan_file {
     }
 
     # ?: makes a group non-capturing
-    @defun = ($line =~ /((?:DEFUN_YANG|ALIAS_YANG|DEFPY_YANG)\s*\(.+?\));?\s?\s?\n/sg);
+    @defun = ($line =~ /((?:DEFUN_YANG|DEFUN_YANG_NOSH|DEFPY_YANG)\s*\(.+?\));?\s?\s?\n/sg);
     @install = ($line =~ /install_element\s*\(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
 
     # DEFUN process
     foreach (@defun) {
+        $defun_orig = $_;
         # $_ will contain the entire string including the DEFUN, ALIAS, etc.
         # We need to extract the DEFUN/ALIAS from everything in ()s.
         # The /s at the end tells the regex to allow . to match newlines.
@@ -72,6 +79,8 @@ sub scan_file {
             $hidden = 0;
         }
 
+        $defun_array[0] =~ s/\n//g;
+        $defun_array[0] =~ s/ //g;
         $defun_array[0] = '';
 
         # Actual input command string.
@@ -149,8 +158,8 @@ sub scan_file {
            $protocol = "VTYSH_" . uc $protocol;
         }
 
-        # Append _vtysh to structure then build DEFUN again
-        $defun_array[1] = $cmd . "_vtysh";
+        # Prepend cmgd_ to structure then build DEFUN again
+        $defun_array[1] = "cmgd_" . $cmd;
         $defun_body = join (", ", @defun_array);
 
 	# $cmd -> $str hash for lookup
@@ -164,6 +173,8 @@ sub scan_file {
         $cmd2defun{$cmd} = $defun_body;
         $cmd2proto{$cmd} = $protocol;
         $cmd2hidden{$cmd} = $hidden;
+        $cmd2defunalias{$cmd} = $defun_or_alias;
+        $cmdorig{$cmd} = $defun_orig;
     }
 
     # install_element() process
@@ -194,10 +205,15 @@ sub scan_file {
             $odefun{$key} = $cmd2defun{$ecmd};
 
             if ($cmd2hidden{$ecmd}) {
-                $defsh{$key} = "DEFSH_HIDDEN"
+                # $defsh{$key} = "DEF_CMGD_HIDDEN_CMD"
+                # $defsh{$key} = "DEFPY_YANG"
             } else {
-                $defsh{$key} = "DEFSH"
+                # $defsh{$key} = "DEF_CMGD_CMD"
+                # $defsh{$key} = "DEFPY_YANG"
             }
+            $defsh{$key} = $cmd2defunalias{$ecmd};
+            $defunorig{$key} = $cmdorig{$ecmd};
+            $fileorig{$key} = $filename;
             push (@{$oproto{$key}}, $cmd2proto{$ecmd});
         }
     }
@@ -253,13 +269,33 @@ foreach (keys %odefun) {
     $live{$cmd} = $_;
 }
 
+print <<EOF;
+/*
+ * All Backend Command Handlers.
+ */
+
+EOF
+
 # Output DEFSH
 foreach (sort keys %live) {
     my ($proto);
     my ($key);
     $key = $live{$_};
     $proto = join ("|", @{$oproto{$key}});
-    printf "$defsh{$key} ($proto$odefun{$key})\n\n";
+    $cmd = $ocmd{$key};
+    $func = "cmgd_" . $cmd;
+    $func =~ s/_cmd//;
+    $defunorig{$key} =~ s/\n/\n * /g;
+    printf "/* \n * File: $fileorig{$key} \n * $defunorig{$key} \n */\n";
+    printf "$defsh{$key}($func$odefun{$key})\n";
+
+    print <<EOF;
+{
+    return (cmgd_hndl_bknd_cmd(self, vty, argc, argv));
+}
+
+EOF
+
 }
 
 # Output install_element
@@ -271,7 +307,8 @@ EOF
 foreach (sort keys %odefun) {
     my ($node, $str) = (split (/,/));
     $cmd = $ocmd{$_};
-    $cmd =~ s/_cmd/_cmd_vtysh/;
+    # $cmd =~ s/_cmd/_cmd_vtysh/;
+    $cmd = "cmgd_" . $cmd;
     printf "  install_element ($node, &$cmd);\n";
 }
 

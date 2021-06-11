@@ -21,8 +21,43 @@
 #ifndef _CMGD_VTY_H
 #define _CMGD_VTY_H
 
-#if 0
 #include "cmgd/cmgd.h"
+#include "lib/command.h"
+#include "lib/vty.h"
+#include "lib/northbound.h"
+#include "lib/northbound_cli.h"
+
+extern void cmgd_enqueue_nb_commands(struct vty *vty, const char *xpath,
+				enum nb_operation operation,
+				const char *value);
+extern int cmgd_apply_nb_commands(struct vty *vty, const char *xpath_base_fmt, ...);
+extern int cmgd_hndl_bknd_cmd(const struct cmd_element *, struct vty *, int,
+				struct cmd_token *[]);
+
+#define DEF_CMGD_CMD(dmn, cmdname, cmdstr, helpstr)					\
+	DEFUN_CMD_ELEMENT(cmgd_hndl_bknd_cmd, cmdname, cmdstr, helpstr, CMD_ATTR_YANG, 0)
+
+#define DEF_CMGD_HIDDEN_CMD(dmn, cmdname, cmdstr, helpstr)				\
+	DEFUN_CMD_ELEMENT(cmgd_hndl_bknd_cmd, cmdname, cmdstr, helpstr, 		\
+	CMD_ATTR_YANG|CMD_ATTR_HIDDEN, 0)
+
+#ifdef INCLUDE_CMGD_CMD_DEFINITIONS
+
+#define NB_ENQEUE_CLI_COMMAND(vty, xpath, op, val)					\
+	cmgd_enqueue_nb_commands(vty, xpath, op, val)
+#define NB_APPLY_CLI_COMMANDS(vty, xpath...)						\
+	cmgd_apply_nb_commands(vty, xpath)
+
+#else /* INCLUDE_CMGD_CMD_DEFINITIONS */
+
+#define NB_ENQEUE_CLI_COMMAND(vty, xpath, op, val)					\
+	nb_cli_enqueue_change(vty, xpath, op, val)
+#define NB_APPLY_CLI_COMMANDS(vty, xpath...)						\
+	nb_cli_apply_changes(vty, xpath)
+
+#endif /* INCLUDE_CMGD_CMD_DEFINITIONS */
+
+#if 0
 #include "stream.h"
 struct cmgd;
 

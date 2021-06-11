@@ -2,7 +2,8 @@
 ##
 ## generate daemons list and help strings
 ##
-## Copyright (C) 2020 NFWare Inc.
+## Copyright (C) 2021  Vmware, Inc.
+##		 Pushpasis Sarkar
 ##
 ## This file is part of FRR.
 ##

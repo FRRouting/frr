@@ -254,8 +254,9 @@ static __attribute__((__noreturn__)) void cmgd_exit(int status)
 
 	/* reverse community_list_init */
 	community_list_terminate(cmgd_clist);
-
+#endif
 	cmgd_vrf_terminate();
+#if 0
 #ifdef ENABLE_CMGD_VNC
 	vnc_zebra_destroy();
 #endif
@@ -274,10 +275,9 @@ static __attribute__((__noreturn__)) void cmgd_exit(int status)
 	exit(status);
 }
 
-#if 0
 static int cmgd_vrf_new(struct vrf *vrf)
 {
-	if (CMGD_DEBUG(zebra, ZEBRA))
+	// if (CMGD_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
@@ -285,7 +285,7 @@ static int cmgd_vrf_new(struct vrf *vrf)
 
 static int cmgd_vrf_delete(struct vrf *vrf)
 {
-	if (CMGD_DEBUG(zebra, ZEBRA))
+	// if (CMGD_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
@@ -293,6 +293,7 @@ static int cmgd_vrf_delete(struct vrf *vrf)
 
 static int cmgd_vrf_enable(struct vrf *vrf)
 {
+#if 0
 	struct cmgd *cmgd;
 	vrf_id_t old_vrf_id;
 
@@ -334,12 +335,14 @@ static int cmgd_vrf_enable(struct vrf *vrf)
 		vpn_leak_postchange(CMGD_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
 				    cmgd_get_default(), cmgd);
 	}
+#endif
 
 	return 0;
 }
 
 static int cmgd_vrf_disable(struct vrf *vrf)
 {
+#if 0
 	struct cmgd *cmgd;
 	vrf_id_t old_vrf_id;
 
@@ -373,8 +376,33 @@ static int cmgd_vrf_disable(struct vrf *vrf)
 			cmgd_unset_redist_vrf_bitmaps(cmgd, old_vrf_id);
 		cmgd_instance_down(cmgd);
 	}
+#endif
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
+	return 0;
+}
+
+static int cmgd_vrf_config_write(struct vty *vty)
+{
+#if 0
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vty_frame(vty, "vrf %s\n", vrf->name);
+
+		static_config(vty, vrf->info, AFI_IP,
+			      SAFI_UNICAST, "ip route");
+		static_config(vty, vrf->info, AFI_IP,
+			      SAFI_MULTICAST, "ip mroute");
+		static_config(vty, vrf->info, AFI_IP6,
+			      SAFI_UNICAST, "ipv6 route");
+
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vty_endframe(vty, " exit-vrf\n!\n");
+	}
+#endif
+
 	return 0;
 }
 
@@ -382,13 +410,13 @@ static void cmgd_vrf_init(void)
 {
 	vrf_init(cmgd_vrf_new, cmgd_vrf_enable, cmgd_vrf_disable,
 		 cmgd_vrf_delete, cmgd_vrf_enable);
+	vrf_cmd_init(cmgd_vrf_config_write, &cmgd_privs);
 }
 
 static void cmgd_vrf_terminate(void)
 {
 	vrf_terminate();
 }
-#endif
 
 static const struct frr_yang_module_info *const cmgd_yang_modules[] = {
 	// &frr_cmgd_info,
@@ -465,8 +493,8 @@ int main(int argc, char **argv)
 			else
 				cmgd_port = tmp_port;
 			break;
-#if 0
 		case 'e': {
+#if 0
 			unsigned long int parsed_multipath =
 				strtoul(optarg, NULL, 10);
 			if (parsed_multipath == 0
@@ -480,8 +508,8 @@ int main(int argc, char **argv)
 			}
 			multipath_num = parsed_multipath;
 			break;
-		}
 #endif
+		}
 		case 'l':
 			listnode_add_sort_nodup(addresses, optarg);
 		/* listenon implies -n */
@@ -504,7 +532,7 @@ int main(int argc, char **argv)
 			break;
 #endif
 		case 's':
-			buffer_size = atoi(optarg);
+			// buffer_size = atoi(optarg);
 			break;
 		default:
 			frr_help_exit(1);
@@ -529,9 +557,12 @@ int main(int argc, char **argv)
 	if (no_zebra_flag)
 		cmgd_option_set(CMGD_OPT_NO_ZEBRA);
 	cmgd_error_init();
+#endif
+
 	/* Initializations. */
 	cmgd_vrf_init();
 
+#if 0
 #ifdef HAVE_SCRIPTING
 	cmgd_script_init();
 #endif
@@ -539,10 +570,12 @@ int main(int argc, char **argv)
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
 
+#endif
 
 	/* CMGD related initialization.  */
-	cmgd_init((unsigned short)instance);
+	cmgd_init();
 
+#if 0
 	if (list_isempty(cm->addresses)) {
 		snprintf(cmgd_di.startinfo, sizeof(cmgd_di.startinfo),
 			 ", cmgd@<all>:%d", cm->port);

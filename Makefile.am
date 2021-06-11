@@ -165,7 +165,7 @@ include vrrpd/subdir.am
 include pathd/subdir.am
 
 include vtysh/subdir.am
-include tests/subdir.am
+# include tests/subdir.am
 include tests/topotests/subdir.am
 
 if PKGSRC
