@@ -96,8 +96,10 @@ int vtysh_mark_file(const char *filename);
 
 int vtysh_read_config(const char *filename, bool dry_run);
 int vtysh_write_config_integrated(void);
+int vtysh_client_run_special_commands(void);
 
 void vtysh_config_parse_line(void *, const char *);
+void vtysh_config_parse_name_line(void *, const char *);
 
 void vtysh_config_dump(void);
 
