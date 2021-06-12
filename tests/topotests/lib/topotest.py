@@ -1454,6 +1454,8 @@ class Router(Node):
         gdb_breakpoints = g_extra_config["gdb_breakpoints"]
         gdb_daemons = g_extra_config["gdb_daemons"]
         gdb_routers = g_extra_config["gdb_routers"]
+        valgrind_extra = g_extra_config["valgrind_extra"]
+        valgrind_memleaks = g_extra_config["valgrind_memleaks"]
 
         bundle_data = ""
 
@@ -1503,7 +1505,14 @@ class Router(Node):
                 ) + "/var/run/{}/snmpd.pid -x /etc/frr/agentx".format(self.routertype)
             else:
                 binary = os.path.join(self.daemondir, daemon)
+
                 cmdenv = "ASAN_OPTIONS=log_path={0}.asan".format(daemon)
+                if valgrind_memleaks:
+                    this_dir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+                    supp_file = os.path.abspath(os.path.join(this_dir, "../../../tools/valgrind.supp"))
+                    cmdenv += " /usr/bin/valgrind --num-callers=50 --log-file={1}/{2}.valgrind.{0}.%p --leak-check=full --suppressions={3}".format(daemon, self.logdir, self.name, supp_file)
+                    if valgrind_extra:
+                        cmdenv += "--gen-suppressions=all --expensive-definedness-checks=yes"
                 cmdopt = "{} --log file:{}.log --log-level debug".format(
                     daemon_opts, daemon
                 )
