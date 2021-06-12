@@ -2,14 +2,22 @@
 Topotest conftest.py file.
 """
 
+import glob
 import os
 import pdb
+import re
 import pytest
 
 from lib.topogen import get_topogen, diagnose_env
 from lib.topotest import json_cmp_result
 from lib.topotest import g_extra_config as topotest_extra_config
 from lib.topolog import logger
+
+try:
+    from _pytest._code.code import ExceptionInfo
+    leak_check_ok = True
+except ImportError:
+    leak_check_ok = False
 
 
 def pytest_addoption(parser):
@@ -67,6 +75,18 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+        "--valgrind-extra",
+        action="store_true",
+        help="Generate suppression file, and enable more precise (slower) valgrind checks",
+    )
+
+    parser.addoption(
+        "--valgrind-memleaks",
+        action="store_true",
+        help="Run all daemons under valgrind for memleak detection",
+    )
+
+    parser.addoption(
         "--vtysh",
         metavar="ROUTER[,ROUTER...]",
         help="Comma-separated list of routers to spawn vtysh on, or 'all'",
@@ -77,6 +97,37 @@ def pytest_addoption(parser):
         action="store_true",
         help="Spawn vtysh on all routers on test failure",
     )
+
+
+def check_for_memleaks():
+    if not topotest_extra_config["valgrind_memleaks"]:
+        return
+
+    leaks = []
+    tgen = get_topogen()
+    latest = []
+    existing = []
+    if tgen is not None:
+        logdir = "/tmp/topotests/{}".format(tgen.modname)
+        if hasattr(tgen, "valgrind_existing_files"):
+            existing = tgen.valgrind_existing_files
+        latest = glob.glob(os.path.join(logdir, "*.valgrind.*"))
+
+    for vfile in latest:
+        if vfile in existing:
+            continue
+        with open(vfile) as vf:
+            vfcontent = vf.read()
+            match = re.search(r"ERROR SUMMARY: (\d+) errors", vfcontent)
+            if match and match.group(1) != "0":
+                emsg = '{} in {}'.format(match.group(1), vfile)
+                leaks.append(emsg)
+
+    if leaks:
+        if leak_check_ok:
+            pytest.fail("Memleaks found:\n\t" + "\n\t".join(leaks))
+        else:
+            logger.error("Memleaks found:\n\t" + "\n\t".join(leaks))
 
 
 def pytest_runtest_call():
@@ -139,6 +190,9 @@ def pytest_configure(config):
     shell_on_error = config.getoption("--shell-on-error")
     topotest_extra_config["shell_on_error"] = shell_on_error
 
+    topotest_extra_config["valgrind_extra"] = config.getoption("--valgrind-extra")
+    topotest_extra_config["valgrind_memleaks"] = config.getoption("--valgrind-memleaks")
+
     vtysh = config.getoption("--vtysh")
     topotest_extra_config["vtysh"] = vtysh.split(",") if vtysh else []
 
@@ -158,6 +212,12 @@ def pytest_runtest_makereport(item, call):
         pause = topotest_extra_config["pause_after"]
     else:
         pause = False
+
+    if call.excinfo is None and call.when == "call":
+        try:
+            check_for_memleaks()
+        except:
+            call.excinfo = ExceptionInfo()
 
     if call.excinfo is None:
         error = False
