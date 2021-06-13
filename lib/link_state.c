@@ -101,7 +101,6 @@ void ls_node_del(struct ls_node *node)
 		return;
 
 	XFREE(MTYPE_LS_DB, node);
-	node = NULL;
 }
 
 int ls_node_same(struct ls_node *n1, struct ls_node *n2)
@@ -217,7 +216,6 @@ void ls_attributes_del(struct ls_attributes *attr)
 	ls_attributes_srlg_del(attr);
 
 	XFREE(MTYPE_LS_DB, attr);
-	attr = NULL;
 }
 
 int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
@@ -361,7 +359,6 @@ void ls_prefix_del(struct ls_prefix *pref)
 		return;
 
 	XFREE(MTYPE_LS_DB, pref);
-	pref = NULL;
 }
 
 int ls_prefix_same(struct ls_prefix *p1, struct ls_prefix *p2)
@@ -1002,7 +999,6 @@ void ls_ted_del(struct ls_ted *ted)
 	subnets_fini(&ted->subnets);
 
 	XFREE(MTYPE_LS_DB, ted);
-	ted = NULL;
 }
 
 void ls_ted_del_all(struct ls_ted *ted)
