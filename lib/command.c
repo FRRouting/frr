@@ -2393,14 +2393,16 @@ DEFUN(script,
 	struct prefix p;
 
 	(void)str2prefix("1.2.3.4/24", &p);
-
 	struct frrscript *fs = frrscript_load(argv[1]->arg, NULL);
 
 	if (fs == NULL) {
 		vty_out(vty, "Script '/etc/frr/scripts/%s.lua' not found\n",
 			argv[1]->arg);
 	} else {
-		int ret = frrscript_call(fs, NULL);
+		int ret = frrscript_call(fs, ("p", &p));
+		char buf[40];
+		prefix2str(&p, buf, sizeof(buf));
+		vty_out(vty, "p: %s\n", buf);
 		vty_out(vty, "Script result: %d\n", ret);
 	}
 
