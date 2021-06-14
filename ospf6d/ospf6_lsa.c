@@ -658,7 +658,7 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				       adv_router);
 		json_object_int_add(json_obj, "lsSequenceNumber",
 				    (unsigned long)ntohl(lsa->header->seqnum));
-		json_object_int_add(json_obj, "checkSum",
+		json_object_int_add(json_obj, "checksum",
 				    ntohs(lsa->header->checksum));
 		json_object_int_add(json_obj, "length",
 				    ntohs(lsa->header->length));
