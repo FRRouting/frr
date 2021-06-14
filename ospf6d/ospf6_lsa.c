@@ -654,6 +654,7 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				    ospf6_lsa_age_current(lsa));
 		json_object_string_add(json_obj, "type",
 				       ospf6_lstype_name(lsa->header->type));
+		json_object_string_add(json_obj, "linkStateId", id);
 		json_object_string_add(json_obj, "advertisingRouter",
 				       adv_router);
 		json_object_int_add(json_obj, "lsSequenceNumber",
