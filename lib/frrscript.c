@@ -104,24 +104,8 @@ static void codec_free(struct codec *c)
 
 /* Generic script APIs */
 
-int frrscript_call(struct frrscript *fs, struct frrscript_env *env)
+int _frrscript_call(struct frrscript *fs)
 {
-	struct frrscript_codec c = {};
-	const void *arg;
-	const char *bindname;
-
-	/* Encode script arguments */
-	for (int i = 0; env && env[i].val != NULL; i++) {
-		bindname = env[i].name;
-		c.typename = env[i].typename;
-		arg = env[i].val;
-
-		struct frrscript_codec *codec = hash_lookup(codec_hash, &c);
-		assert(codec && "No encoder for type");
-		codec->encoder(fs->L, arg);
-
-		lua_setglobal(fs->L, bindname);
-	}
 
 	int ret = lua_pcall(fs->L, 0, 0, 0);
 

@@ -96,6 +96,21 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs);
  */
 void frrscript_init(const char *scriptdir);
 
+#define ENCODE_ARGS(name, value)                                               \
+	do {                                                                   \
+		ENCODE_ARGS_WITH_STATE(L, value)                               \
+		lua_setglobal(L, name);                                        \
+	} while (0)
+
+#define DECODE_ARGS(name, value)                                               \
+	do {                                                                   \
+		lua_getglobal(L, name);                                        \
+		DECODE_ARGS_WITH_STATE(L, value)                               \
+	} while (0)
+
+#define ENCODE_ARGS_WITH_STATE(L, value) _Generic((value), )(L, value);
+
+#define DECODE_ARGS_WITH_STATE(L, value) _Generic((value), )(L, value);
 
 /*
  * Call script.
@@ -109,8 +124,18 @@ void frrscript_init(const char *scriptdir);
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
  */
-int frrscript_call(struct frrscript *fs, struct frrscript_env *env);
+int _frrscript_call(struct frrscript *fs);
 
+#define frrscript_call(fs, ...)                                                \
+	({                                                                     \
+		lua_State *L = fs->L;                                          \
+		MAP_LISTS(ENCODE_ARGS, ##__VA_ARGS__);                         \
+		int ret = _frrscript_call(fs);                                 \
+		if (ret == 0) {                                                \
+			MAP_LISTS(DECODE_ARGS, ##__VA_ARGS__);                 \
+		}                                                              \
+		ret;                                                           \
+	})
 
 /*
  * Get result from finished script.
