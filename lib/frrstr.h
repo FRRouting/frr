@@ -154,6 +154,23 @@ bool frrstr_endswith(const char *str, const char *suffix);
  */
 int all_digit(const char *str);
 
+/*
+ * Copy the hexadecimal representation of the string to a buffer.
+ *
+ * buff
+ *    Buffer to copy result into with size of at least (2 * num) + 1.
+ *
+ * str
+ *    String to represent as hexadecimal.
+ *
+ * num
+ *    Number of characters to copy.
+ *
+ * Returns:
+ *    Pointer to buffer containing resulting hexadecimal representation.
+ */
+char *frrstr_hex(char *buff, const char *str, size_t num);
+
 #ifdef __cplusplus
 }
 #endif

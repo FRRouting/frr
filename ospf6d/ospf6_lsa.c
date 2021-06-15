@@ -29,6 +29,7 @@
 #include "memory.h"
 #include "thread.h"
 #include "checksum.h"
+#include "frrstr.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -549,29 +550,49 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa,
 			 json_object *json_array, bool use_json)
 {
-	uint8_t *start, *end, *current;
+	uint8_t *start = NULL;
+	uint8_t *end = NULL;
+	uint8_t *current = NULL;
 	char byte[4];
+	char *header_str = NULL;
+	char adv_router[INET6_ADDRSTRLEN];
+	char id[INET6_ADDRSTRLEN];
+	json_object *json = NULL;
 
 	start = (uint8_t *)lsa->header;
 	end = (uint8_t *)lsa->header + ntohs(lsa->header->length);
 
-	if (use_json)
-		return;
+	if (use_json) {
+		json = json_object_new_object();
+		header_str = XMALLOC(MTYPE_TMP, (2 * (end - start)) + 1);
 
-	vty_out(vty, "\n");
-	vty_out(vty, "%s:\n", lsa->name);
+		inet_ntop(AF_INET, &lsa->header->id, id, sizeof(id));
+		inet_ntop(AF_INET, &lsa->header->adv_router, adv_router,
+			  sizeof(adv_router));
 
-	for (current = start; current < end; current++) {
-		if ((current - start) % 16 == 0)
-			vty_out(vty, "\n        ");
-		else if ((current - start) % 4 == 0)
-			vty_out(vty, " ");
+		frrstr_hex(header_str, (const char *)(start), end - start);
 
-		snprintf(byte, sizeof(byte), "%02x", *current);
-		vty_out(vty, "%s", byte);
+		json_object_string_add(json, "linkStateId", id);
+		json_object_string_add(json, "advertisingRouter", adv_router);
+		json_object_string_add(json, "header", header_str);
+		json_object_array_add(json_array, json);
+
+		XFREE(MTYPE_TMP, header_str);
+	} else {
+		vty_out(vty, "\n%s:\n", lsa->name);
+
+		for (current = start; current < end; current++) {
+			if ((current - start) % 16 == 0)
+				vty_out(vty, "\n        ");
+			else if ((current - start) % 4 == 0)
+				vty_out(vty, " ");
+
+			snprintf(byte, sizeof(byte), "%02x", *current);
+			vty_out(vty, "%s", byte);
+		}
+
+		vty_out(vty, "\n\n");
 	}
-
-	vty_out(vty, "\n\n");
 
 	return;
 }
