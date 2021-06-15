@@ -1370,6 +1370,7 @@ static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 	struct rtattr *nest;
 	struct mpls_label_stack *nh_label;
 	enum lsp_types_t nh_label_type;
+	struct in_addr ipv4;
 
 	nh_label = nexthop->nh_label;
 	nh_label_type = nexthop->nh_label_type;
@@ -1405,10 +1406,18 @@ static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 				return false;
 
 		} else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
-					 &nexthop->gate.ipv6, 16))
-				return false;
+			if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
+				ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6,
+							 &ipv4);
+				if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
+						 &ipv4, 4))
+					return false;
 
+			} else {
+				if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
+						 &nexthop->gate.ipv6, 16))
+					return false;
+			}
 		} else {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
