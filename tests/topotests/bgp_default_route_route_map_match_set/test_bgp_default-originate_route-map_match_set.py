@@ -94,7 +94,9 @@ def test_bgp_default_originate_route_map():
 
     def _bgp_default_route_has_metric(router):
         output = json.loads(router.vtysh_cmd("show ip bgp 0.0.0.0/0 json"))
-        expected = {"paths": [{"metric": 123}]}
+        expected = {
+            "paths": [{"aspath": {"string": "65000 65000 65000 65000"}, "metric": 123}]
+        }
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge, router)
