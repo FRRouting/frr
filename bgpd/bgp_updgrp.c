@@ -213,6 +213,8 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 			MTYPE_BGP_FILTER_NAME, CONDITION_MAP_NAME(srcfilter));
 		CONDITION_MAP(dstfilter) = CONDITION_MAP(srcfilter);
 	}
+
+	dstfilter->advmap.update_type = srcfilter->advmap.update_type;
 }
 
 /**
@@ -382,6 +384,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		key = jhash_1word(jhash(filter->advmap.aname,
 					strlen(filter->advmap.aname), SEED1),
 				  key);
+
+	if (filter->advmap.update_type)
+		key = jhash_1word(filter->advmap.update_type, key);
 
 	if (peer->default_rmap[afi][safi].name)
 		key = jhash_1word(
@@ -570,6 +575,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    || (!fl1->advmap.aname && fl2->advmap.aname)
 	    || (fl1->advmap.aname && fl2->advmap.aname
 		&& strcmp(fl1->advmap.aname, fl2->advmap.aname)))
+		return false;
+
+	if (fl1->advmap.update_type != fl2->advmap.update_type)
 		return false;
 
 	if ((pe1->default_rmap[afi][safi].name
