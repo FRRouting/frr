@@ -266,20 +266,23 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 		char oldpath[XPATH_MAXLEN];
 		char newpath[XPATH_MAXLEN];
 
-		if_dnode = yang_dnode_getf(
-			running_config->dnode,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
-			ifp->name, old_vrf->name);
+		snprintf(oldpath, sizeof(oldpath),
+			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			 ifp->name, old_vrf->name);
+		snprintf(newpath, sizeof(newpath),
+			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			 ifp->name, vrf->name);
+
+		if_dnode = yang_dnode_getf(running_config->dnode, "%s/vrf",
+					   oldpath);
 
 		if (if_dnode) {
-			yang_dnode_get_path(lyd_parent(if_dnode), oldpath,
-					    sizeof(oldpath));
 			yang_dnode_change_leaf(if_dnode, vrf->name);
-			yang_dnode_get_path(lyd_parent(if_dnode), newpath,
-					    sizeof(newpath));
 			nb_running_move_tree(oldpath, newpath);
 			running_config->version++;
 		}
+
+		vty_update_xpath(oldpath, newpath);
 	}
 }
 
