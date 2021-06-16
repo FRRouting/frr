@@ -402,7 +402,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 				continue;
 
 			circuit = ifp->info;
-			if (circuit)
+			if (circuit && strmatch(circuit->tag, area->area_tag))
 				isis_area_add_circuit(area, circuit);
 		}
 	}
