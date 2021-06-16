@@ -132,6 +132,7 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj)
 		bfd_sess_set_ipv6_addrs(adj->bfd_session, &src_ip.ipv6,
 					&dst_ip.ipv6);
 	bfd_sess_set_interface(adj->bfd_session, adj->circuit->interface->name);
+	bfd_sess_set_vrf(adj->bfd_session, adj->circuit->interface->vrf_id);
 	bfd_sess_set_profile(adj->bfd_session, circuit->bfd_config.profile);
 	bfd_sess_install(adj->bfd_session);
 	return;

@@ -1484,6 +1484,56 @@ static void permute(struct graph_node *start, struct vty *vty)
 	list_delete_node(position, listtail(position));
 }
 
+static void print_cmd(struct vty *vty, const char *cmd)
+{
+	int i, j, len = strlen(cmd);
+	char buf[len + 1];
+	bool skip = false;
+
+	j = 0;
+	for (i = 0; i < len; i++) {
+		/* skip varname */
+		if (cmd[i] == '$')
+			skip = true;
+		else if (strchr(" ()<>[]{}|", cmd[i]))
+			skip = false;
+
+		if (skip)
+			continue;
+
+		if (isspace(cmd[i])) {
+			/* skip leading whitespace */
+			if (i == 0)
+				continue;
+			/* skip trailing whitespace */
+			if (i == len - 1)
+				continue;
+			/* skip all whitespace after opening brackets or pipe */
+			if (strchr("(<[{|", cmd[i - 1])) {
+				while (isspace(cmd[i + 1]))
+					i++;
+				continue;
+			}
+			/* skip repeated whitespace */
+			if (isspace(cmd[i + 1]))
+				continue;
+			/* skip whitespace before closing brackets or pipe */
+			if (strchr(")>]}|", cmd[i + 1]))
+				continue;
+			/* convert tabs to spaces */
+			if (cmd[i] == '\t') {
+				buf[j++] = ' ';
+				continue;
+			}
+		}
+
+		buf[j++] = cmd[i];
+	}
+	buf[j] = 0;
+
+	vty_out(vty, "%s\n", buf);
+}
+
 int cmd_list_cmds(struct vty *vty, int do_permute)
 {
 	struct cmd_node *node = vector_slot(cmdvec, vty->node);
@@ -1497,8 +1547,10 @@ int cmd_list_cmds(struct vty *vty, int do_permute)
 		     i++)
 			if ((element = vector_slot(node->cmd_vector, i))
 			    && element->attr != CMD_ATTR_DEPRECATED
-			    && element->attr != CMD_ATTR_HIDDEN)
-				vty_out(vty, "    %s\n", element->string);
+			    && element->attr != CMD_ATTR_HIDDEN) {
+				vty_out(vty, "    ");
+				print_cmd(vty, element->string);
+			}
 	}
 	return CMD_SUCCESS;
 }
@@ -2231,11 +2283,7 @@ DEFUN (no_banner_motd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(find,
-      find_cmd,
-      "find REGEX...",
-      "Find CLI command matching a regular expression\n"
-      "Search pattern (POSIX regex)\n")
+int cmd_find_cmds(struct vty *vty, struct cmd_token **argv, int argc)
 {
 	const struct cmd_node *node;
 	const struct cmd_element *cli;
@@ -2302,15 +2350,25 @@ DEFUN(find,
 		for (unsigned int j = 0; j < vector_active(clis); j++) {
 			cli = vector_slot(clis, j);
 
-			if (regexec(&exp, cli->string, 0, NULL, 0) == 0)
-				vty_out(vty, "  (%s)  %s\n",
-					node->name, cli->string);
+			if (regexec(&exp, cli->string, 0, NULL, 0) == 0) {
+				vty_out(vty, "  (%s)  ", node->name);
+				print_cmd(vty, cli->string);
+			}
 		}
 	}
 
 done:
 	regfree(&exp);
 	return CMD_SUCCESS;
+}
+
+DEFUN(find,
+      find_cmd,
+      "find REGEX...",
+      "Find CLI command matching a regular expression\n"
+      "Search pattern (POSIX regex)\n")
+{
+	return cmd_find_cmds(vty, argv, argc);
 }
 
 #if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)

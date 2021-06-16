@@ -31,6 +31,7 @@ struct ospf6_area {
 	/* Area-ID */
 	in_addr_t area_id;
 
+#define OSPF6_AREA_FMT_UNSET      0
 #define OSPF6_AREA_FMT_DOTTEDQUAD 1
 #define OSPF6_AREA_FMT_DECIMAL    2
 	/* Area-ID string */
@@ -120,20 +121,22 @@ struct ospf6_area {
 
 #define OSPF6_CMD_AREA_GET(str, oa, ospf6)                                     \
 	{                                                                      \
-		char *ep;                                                      \
-		uint32_t area_id = htonl(strtoul(str, &ep, 10));               \
-		if (*ep && inet_pton(AF_INET, str, &area_id) != 1) {           \
+		uint32_t area_id;                                              \
+		int format, ret;                                               \
+		ret = str2area_id(str, &area_id, &format);                     \
+		if (ret) {                                                     \
 			vty_out(vty, "Malformed Area-ID: %s\n", str);          \
-			return CMD_SUCCESS;                                    \
+			return CMD_WARNING;                                    \
 		}                                                              \
-		int format = !*ep ? OSPF6_AREA_FMT_DECIMAL                     \
-				  : OSPF6_AREA_FMT_DOTTEDQUAD;                 \
 		oa = ospf6_area_lookup(area_id, ospf6);                        \
 		if (oa == NULL)                                                \
 			oa = ospf6_area_create(area_id, ospf6, format);        \
 	}
 
 /* prototypes */
+extern int str2area_id(const char *str, uint32_t *area_id, int *area_id_fmt);
+extern void area_id2str(char *buf, int len, uint32_t area_id, int area_id_fmt);
+
 extern int ospf6_area_cmp(void *va, void *vb);
 
 extern struct ospf6_area *ospf6_area_create(uint32_t, struct ospf6 *, int);

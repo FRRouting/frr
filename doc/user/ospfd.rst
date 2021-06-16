@@ -147,17 +147,11 @@ To start OSPF process you have to specify the OSPF router.
    detail argument, all changes in adjacency status are shown. Without detail,
    only changes to full or regressions are shown.
 
-.. clicmd:: passive-interface INTERFACE
+.. clicmd:: passive-interface default
 
-
-   Do not speak OSPF interface on the
-   given interface, but do advertise the interface as a stub link in the
-   router-:abbr:`LSA (Link State Advertisement)` for this router. This
-   allows one to advertise addresses on such connected interfaces without
-   having to originate AS-External/Type-5 LSAs (which have global flooding
-   scope) - as would occur if connected addresses were redistributed into
-   OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
-   advertise non-OSPF links into stub areas.
+   Make all interfaces that belong to this router passive by default. For the
+   description of passive interface look at :clicmd:`ip ospf passive [A.B.C.D]`.
+   Per-interface configuration takes precedence over the default value.
 
 .. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
@@ -617,6 +611,16 @@ Interfaces
    Set number of seconds for InfTransDelay value. LSAs' age should be
    incremented by this value when transmitting. The default value is 1 second.
 
+.. clicmd:: ip ospf passive [A.B.C.D]
+
+   Do not speak OSPF on the interface, but do advertise the interface as a stub
+   link in the router-:abbr:`LSA (Link State Advertisement)` for this router.
+   This allows one to advertise addresses on such connected interfaces without
+   having to originate AS-External/Type-5 LSAs (which have global flooding
+   scope) - as would occur if connected addresses were redistributed into
+   OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
+   advertise non-OSPF links into stub areas.
+
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
 
@@ -653,12 +657,8 @@ Redistribution
    NSSA areas and are not redistributed at all into Stub areas, where external
    routes are not permitted.
 
-   Note that for connected routes, one may instead use the `passive-interface`
-   configuration.
-
-.. seealso::
-
-   clicmd:`passive-interface INTERFACE`.
+   Note that for connected routes, one may instead use the
+   :clicmd:`ip ospf passive [A.B.C.D]` configuration.
 
 .. clicmd:: default-information originate
 
@@ -1115,6 +1115,7 @@ of networks between the areas:
     ip ospf message-digest-key 1 md5 ABCDEFGHIJK
    !
    interface ppp0
+    ip ospf passive
    !
    interface br0
     ip ospf authentication message-digest
@@ -1123,7 +1124,6 @@ of networks between the areas:
    router ospf
     ospf router-id 192.168.0.1
     redistribute connected
-    passive interface ppp0
     network 192.168.0.0/24 area 0.0.0.0
     network 10.0.0.0/16 area 0.0.0.0
     network 192.168.1.0/24 area 0.0.0.1

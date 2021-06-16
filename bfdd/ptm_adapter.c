@@ -232,7 +232,7 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 	stream_putl(msg, ZEBRA_INTERFACE_BFD_DEST_UPDATE);
 
 	/* NOTE: Interface is a shortcut to avoid comparing source address. */
-	if (bs->ifp != NULL)
+	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) && bs->ifp != NULL)
 		stream_putl(msg, bs->ifp->ifindex);
 	else
 		stream_putl(msg, IFINDEX_INTERNAL);

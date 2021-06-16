@@ -3666,9 +3666,8 @@ static int zclient_read(struct thread *thread)
 	length -= ZEBRA_HEADER_SIZE;
 
 	if (zclient_debug)
-		zlog_debug("zclient 0x%p command %s VRF %u",
-			   (void *)zclient, zserv_command_string(command),
-			   vrf_id);
+		zlog_debug("zclient %p command %s VRF %u", zclient,
+			   zserv_command_string(command), vrf_id);
 
 	switch (command) {
 	case ZEBRA_CAPABILITIES:

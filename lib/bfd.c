@@ -314,9 +314,17 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putc(s, args->ttl);
 
 	/* Send interface name if any. */
-	stream_putc(s, args->ifnamelen);
-	if (args->ifnamelen)
-		stream_put(s, args->ifname, args->ifnamelen);
+	if (args->mhop) {
+		/* Don't send interface. */
+		stream_putc(s, 0);
+		if (bsglobal.debugging && args->ifnamelen)
+			zlog_debug("%s: multi hop is configured, not sending interface",
+				   __func__);
+	} else {
+		stream_putc(s, args->ifnamelen);
+		if (args->ifnamelen)
+			stream_put(s, args->ifname, args->ifnamelen);
+	}
 
 	/* Send the C bit indicator. */
 	stream_putc(s, args->cbit);
@@ -385,7 +393,7 @@ struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
 
 	/* Set defaults. */
 	bsp->args.detection_multiplier = BFD_DEF_DETECT_MULT;
-	bsp->args.ttl = BFD_SINGLE_HOP_TTL;
+	bsp->args.ttl = 1;
 	bsp->args.min_rx = BFD_DEF_MIN_RX;
 	bsp->args.min_tx = BFD_DEF_MIN_TX;
 	bsp->args.vrf_id = VRF_DEFAULT;
