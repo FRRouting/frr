@@ -39,6 +39,8 @@ extern int netlink_tunneldump_read(struct zebra_ns *zns);
 extern enum netlink_msg_status
 netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
+extern int netlink_grat_flood_set(struct interface *ifp, uint8_t on);
+
 #ifdef __cplusplus
 }
 #endif

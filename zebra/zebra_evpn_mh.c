@@ -1285,6 +1285,20 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 {
 	vlanid_t vid;
 	struct zebra_evpn_es *es;
+	char cmd[TC_CMD_STR_LEN];
+
+	if (zif->flags & ZIF_FLAG_EVPN_MH_GARP_FLOOD_CFG_ON)
+		zebra_evpn_mh_garp_flood_set_ifp(zif->ifp, false);
+
+	if (zif->flags & ZIF_FLAG_EVPN_MH_TC_INIT) {
+		snprintf(cmd, sizeof(cmd), "%s%s filter del dev %s ingress",
+			 TC_SUDO_STR, TC_BIN_STR, zif->ifp->name);
+		zebra_evpn_mh_tc_program(cmd);
+		snprintf(cmd, sizeof(cmd), "%s%s filter del dev %s egress",
+			 TC_SUDO_STR, TC_BIN_STR, zif->ifp->name);
+		zebra_evpn_mh_tc_program(cmd);
+		zif->flags &= ~ZIF_FLAG_EVPN_MH_TC_INIT;
+	}
 
 	if (bf_is_inited(zif->vlan_bitmap)) {
 		bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
