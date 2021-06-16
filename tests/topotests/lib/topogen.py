@@ -657,6 +657,8 @@ class TopoRouter(TopoGear):
 
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("{}/{}/*.log".format(self.logdir, self.name)))
+        # Remove old valgrind files
+        map(os.remove, glob.glob("{}/{}.valgrind.*".format(self.logdir, self.name)))
         # Remove old core files
         map(os.remove, glob.glob("{}/{}/*.dmp".format(self.logdir, self.name)))
 
