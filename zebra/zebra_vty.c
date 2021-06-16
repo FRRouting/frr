@@ -2791,6 +2791,17 @@ DEFPY (evpn_mh_startup_delay,
 	return zebra_evpn_mh_startup_delay_update(vty, duration,
 			no ? true : false);
 }
+DEFPY(evpn_mh_garp_flood_off, evpn_mh_garp_flood_off_cmd, "[no$no] evpn mh garp-flood-off",
+      NO_STR "EVPN\n"
+	     "Multihoming\n"
+	     "GARP flood off\n")
+{
+	bool flood_off;
+
+	flood_off = no ? false : true;
+
+	return zebra_evpn_mh_garp_flood_off(vty, flood_off);
+}
 
 DEFPY(evpn_mh_redirect_off, evpn_mh_redirect_off_cmd,
       "[no$no] evpn mh redirect-off",
@@ -4556,6 +4567,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_startup_delay_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_redirect_off_cmd);
+	install_element(CONFIG_NODE, &evpn_mh_garp_flood_off_cmd);
 
 	install_element(VIEW_NODE, &show_dataplane_cmd);
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
