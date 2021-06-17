@@ -223,7 +223,7 @@ def test_wait_msdp_convergence():
             "show ip msdp peer json",
             {peer: {"state": "established", "saCount": sa_count}}
         )
-        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" MSDP connection failure'.format(router)
         assert result is None, assertmsg
 
