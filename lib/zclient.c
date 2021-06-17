@@ -2269,10 +2269,13 @@ stream_failure:
 }
 
 struct interface *zebra_interface_link_params_read(struct stream *s,
-						   vrf_id_t vrf_id)
+						   vrf_id_t vrf_id,
+						   bool *changed)
 {
 	struct if_link_params *iflp;
+	struct if_link_params iflp_copy;
 	ifindex_t ifindex;
+	bool params_changed = false;
 
 	STREAM_GETL(s, ifindex);
 
@@ -2285,11 +2288,22 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 		return NULL;
 	}
 
+	if (ifp->link_params == NULL)
+		params_changed = true;
+
 	if ((iflp = if_link_params_get(ifp)) == NULL)
 		return NULL;
 
+	memcpy(&iflp_copy, iflp, sizeof(iflp_copy));
+
 	if (link_params_set_value(s, iflp) != 0)
 		goto stream_failure;
+
+	if (memcmp(&iflp_copy, iflp, sizeof(iflp_copy)))
+		params_changed = true;
+
+	if (changed)
+		*changed = params_changed;
 
 	return ifp;
 
