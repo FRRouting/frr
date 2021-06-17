@@ -50,6 +50,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_route.h"
+#include "ospfd/ospf_te.h"
 
 DEFINE_QOBJ_TYPE(ospf_interface);
 DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd));
@@ -1354,6 +1355,9 @@ static int ospf_ifp_create(struct interface *ifp)
 
 	ospf_if_update(ospf, ifp);
 
+	if (HAS_LINK_PARAMS(ifp))
+		ospf_mpls_te_update_if(ifp);
+
 	hook_call(ospf_if_update, ifp);
 
 	return 0;
@@ -1391,6 +1395,9 @@ static int ospf_ifp_up(struct interface *ifp)
 
 		ospf_if_up(oi);
 	}
+
+	if (HAS_LINK_PARAMS(ifp))
+		ospf_mpls_te_update_if(ifp);
 
 	return 0;
 }
