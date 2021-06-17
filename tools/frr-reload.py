@@ -599,6 +599,7 @@ end
             "mpls label",
             "no ",
             "password ",
+            "pbr ",
             "ptm-enable",
             "router-id ",
             "service ",
