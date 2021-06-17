@@ -163,10 +163,11 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 static int ospf_interface_link_params(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
+	bool changed = false;
 
-	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id);
+	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id, &changed);
 
-	if (ifp == NULL)
+	if (ifp == NULL || !changed)
 		return 0;
 
 	/* Update TE TLV */

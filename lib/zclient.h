@@ -1019,7 +1019,8 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 extern int zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
 extern struct interface *zebra_interface_link_params_read(struct stream *s,
-							  vrf_id_t vrf_id);
+							  vrf_id_t vrf_id,
+							  bool *changed);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
 extern enum zclient_send_status
