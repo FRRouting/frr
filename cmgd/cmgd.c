@@ -45,9 +45,9 @@
 #include "bitfield.h"
 
 #include "cmgd/cmgd.h"
-// #include "cmgd/cmgd_fsm.h"
 #include "cmgd/cmgd_vty.h"
-// #include "cmgd/cmgd_memory.h"
+#include "cmgd/cmgd_bcknd_server.h"
+#include "cmgd/cmgd_memory.h"
 
 // DEFINE_MTYPE_STATIC(CMGDD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 // DEFINE_MTYPE_STATIC(CMGDD, CMGD_EVPN_INFO, "CMGD EVPN instance information");
@@ -4847,6 +4847,8 @@ void cmgd_terminate(void)
 
 	cmgd_mac_finish();
 #endif
+
+	cmgd_bcknd_server_destroy();
 }
 
 #if 0

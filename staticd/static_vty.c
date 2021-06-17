@@ -45,6 +45,7 @@
 #include "static_nb.h"
 
 #include "cmgd/cmgd_vty.h"
+#include "lib/cmgd_bcknd_client.h"
 
 
 static int static_route_leak(struct vty *vty, const char *svrf,
@@ -343,6 +344,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 	return ret;
 }
+
 static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 			const char *negate, const char *dest_str,
 			const char *mask_str, const char *src_str,
@@ -359,8 +361,6 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 				 flag_str, tag_str, distance_str, label_str,
 				 table_str, false, NULL);
 }
-
-#ifndef INCLUDE_CMGD_CMD_DEFINITIONS
 
 /* Write static route configuration. */
 int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
@@ -484,8 +484,6 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 	}
 	return write;
 }
-
-#endif /* INCLUDE_CMGD_CMD_DEFINITIONS */
 
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY_YANG (ip_mroute_dist,
@@ -1161,31 +1159,6 @@ DEFUN_NOSH (show_debugging_static,
 	return CMD_SUCCESS;
 }
 
-
-#ifdef INCLUDE_CMGD_CMD_DEFINITIONS
-void static_debug_set(int vtynode, bool onoff, bool events, bool route)
-{
-	/* 
-	 * Do nothing
-	 */
-}
-
-int static_debug_status_write(struct vty *vty)
-{
-	return strlen(vty->buf);
-}
-
-int static_config_write_debug(struct vty *vty)
-{
-	int write = 0;
-
-	// write += zebra_import_table_config(vty, VRF_DEFAULT);
-	write += strlen(vty->buf);
-
-	return write;
-}
-#endif /* INCLUDE_CMGD_CMD_DEFINITIONS */
-
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -1211,6 +1184,29 @@ static struct cmd_node ip_node = {
 	.config_write = static_ip_config,
 };
 
+cmgd_lib_hndl_t cmgd_lib_hndl;
+
+static void static_cmgd_bcknd_client_connect(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	bool connected)
+{
+	(void) usr_data;
+
+	assert(lib_hndl == cmgd_lib_hndl);
+
+	zlog_err("Got %s %s CMGD Backend Client Server", 
+		 connected ? "connected" : "disconnected", 
+		 connected ? "to" : "from");
+}
+
+static cmgd_bcknd_client_params_t cmgd_params = {
+	.name = "Staticd",
+	.conn_retry_intvl_sec = 3,
+	.conn_notify_cb = static_cmgd_bcknd_client_connect
+};
+
+extern struct thread_master *master;
+
 void static_vty_init(void)
 {
 	install_node(&debug_node);
@@ -1235,4 +1231,10 @@ void static_vty_init(void)
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
+
+	cmgd_lib_hndl = cmgd_bcknd_client_lib_init(&cmgd_params, master);
+	if (!cmgd_lib_hndl) {
+		zlog_err("Failed to initialize CMGD Backend Client library!");
+		exit(-1);
+	}
 }

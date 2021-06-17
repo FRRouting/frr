@@ -39,11 +39,17 @@
 #include "filter.h"
 #include "frrstr.h"
 
-#define INCLUDE_CMGD_CMD_DEFINITIONS
+#define INCLUDE_CMGD_CMDDEFS_ONLY
 
+#include "cmgd/cmgd.h"
 #include "cmgd/cmgd_vty.h"
+#include "cmgd/cmgd_bcknd_server.h"
+#include "cmgd/cmgd_bcknd_adapter.h"
 
-#include "staticd/static_vty.c"
+/*
+ * Client-specific command definitions first.
+ */
+// #include "staticd/static_vty.c"
 
 void cmgd_enqueue_nb_commands(struct vty *vty, const char *xpath,
 				enum nb_operation operation,
@@ -63,16 +69,21 @@ int cmgd_apply_nb_commands(struct vty *vty, const char *xpath_base_fmt,
 int cmgd_hndl_bknd_cmd(const struct cmd_element *cmd, struct vty *vty,
 			int argc, struct cmd_token *argv[])
 {
-	vty_out(vty, "%s: %s, got the command '%s'", 
+	vty_out(vty, "%s: %s, got the command '%s'\n", 
+		frr_get_progname(), __func__, vty->buf);
+	zlog_err("%s: %s, got the command '%s'", 
 		frr_get_progname(), __func__, vty->buf);
 	return 0;
 }
 
 void cmgd_vty_init(void)
 {
-	// cmd_variable_handler_register(bgp_var_neighbor);
-	// cmd_variable_handler_register(bgp_var_peergroup);
+	/* Initialize the CMGD Backend Adapter Module */
+	cmgd_bcknd_adapter_init(cm->master);
 
-	// cmgd_init_bcknd_cmd();
-	static_vty_init();
+	/* Start the CMGD Backend Server for clients to connect */
+	cmgd_bcknd_server_init(cm->master);
+
+	/* Initialize command handling from VTYSH connection */
+	cmgd_init_bcknd_cmd();
 }

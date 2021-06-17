@@ -150,8 +150,9 @@ void sighup(void)
 	 * given the yang work.
 	 */
 	/* Terminate all thread. */
+	cmgd_terminate();
+	
 	/*
-	 * cmgd_terminate();
 	 * cmgd_reset();
 	 * zlog_info("cmgd restarting!");
 

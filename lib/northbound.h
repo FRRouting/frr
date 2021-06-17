@@ -35,39 +35,37 @@ extern "C" {
 struct vty;
 struct debug;
 
-#if 0
-struct nb_xpath_tag {
+struct nb_yang_xpath_tag {
 	uint32_t	ns;
 	uint32_t	id;
 };
 
-struct nb_xpath_val {
-	lyd_val value;
-	LY_DATA_TYPE _PACKED value_type;
+struct nb_yang_value {
+	struct lyd_value value;
+	LY_DATA_TYPE value_type;
 	uint8_t value_flags;
 };
 
-struct nb_xpath_key {
-	struct nb_xpath_tag tag;
-	struct nb_xpath_val val;
+struct nb_yang_xpath_elem {
+	struct nb_yang_xpath_tag tag;
+	struct nb_yang_value val;
 };
 
 #define NB_MAX_NUM_KEYS			UINT8_MAX
 #define NB_MAX_NUM_XPATH_TAGS		UINT8_MAX
 
-struct nb_xpath {
+struct nb_yang_xpath {
 	uint8_t length;
 	struct {
 		uint8_t num_keys;
-		struct nb_xpath_key keys[NB_MAX_NUM_KEYS];
+		struct nb_yang_xpath_elem keys[NB_MAX_NUM_KEYS];
 	} tags[NB_MAX_NUM_XPATH_TAGS];
 };
 
-#define NB_XPATH_KEY(__xpath, __indx1, __indx2)			\
+#define NB_YANG_XPATH_KEY(__xpath, __indx1, __indx2)		\
 	((__xpath->num_tags > __indx1) && 			\
 	 (__xpath->tags[__indx1].num_keys > __indx2) ?		\
 	 &__xpath->tags[__indx1].keys[__indx2] : NULL)
-#endif
 
 /* Northbound events. */
 enum nb_event {

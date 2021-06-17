@@ -5,7 +5,8 @@
 # if CMGD
 noinst_LIBRARIES += cmgd/libcmgd.a
 sbin_PROGRAMS += cmgd/cmgd
-dist_examples_DATA += \
+
+# dist_examples_DATA += \
 	# end
 # vtysh_scan += \
 	# cmgd/cmgd_vty.c \
@@ -13,20 +14,10 @@ dist_examples_DATA += \
 
 vtysh_daemons += cmgd
 
-if ENABLE_BGP_VNC
-# vtysh_scan += \
-	# bgpd/rfapi/bgp_rfapi_cfg.c \
-	# bgpd/rfapi/rfapi.c \
-	# bgpd/rfapi/rfapi_vty.c \
-	# bgpd/rfapi/vnc_debug.c \
-	# end
-endif
-
 # man8 += $(MANBUILD)/frr-cmgd.8
 # endif
 
 EXTRA_DIST += cmgd/cmgd_daemons.pl
-
 BUILT_SOURCES += cmgd/cmgd_daemons.h
 
 # force cmgd_daemons.h
@@ -56,29 +47,34 @@ endif
 cmgd/cmgd_bcknd_cmd.c: cmgd/cmgd_extract.pl $(cmgd_scan)
 	$(AM_CMGD_EXTRACT) $^ $(CMGD_HAVE_ISISD) $(CMGD_HAVE_FABRICD) > cmgd/cmgd_bcknd_cmd.c
 
-cmgd/cmgd_vty.c: \
-	staticd/static_vty_clippy.c \
-	staticd/static_vty.c
+# cmgd/cmgd_vty.c: \
+# 	staticd/static_vty_clippy.c \
+# 	staticd/static_vty.c
 
 cmgd_libcmgd_a_SOURCES = \
 	cmgd/cmgd.c \
 	cmgd/cmgd_memory.c \
 	cmgd/cmgd_vty.c \
+	cmgd/cmgd_bcknd_server.c \
+	cmgd/cmgd_bcknd_adapter.c \
 	# end
-
 
 noinst_HEADERS += \
 	cmgd/cmgd.h \
-	cmgd/cmgd_vty.h \
+	cmgd/cmgd_memory.h \
+	cmgd/cmgd_nb.h \
+	cmgd/cmgd_bcknd_adapter.h \
+	cmgd/cmgd_bcknd_server.h \
 	# end
 
 cmgd_cmgd_SOURCES = \
 	cmgd/cmgd_main.c \
 	# end
 
-# nodist_cmgd_cmgd_SOURCES = \
-	# cmgd/cmgd_bcknd_cmd.c \
-	# end
+nodist_cmgd_cmgd_SOURCES = \
+	cmgd/cmgd_bcknd_cmd.c \
+	end
+BUILT_SOURCES += cmgd/cmgd_bcknd_cmd.c
 CLEANFILES += cmgd/cmgd_bcknd_cmd.c
 
 

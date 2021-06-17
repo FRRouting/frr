@@ -1,4 +1,5 @@
-/* cmgd memory type definitions
+/*
+ * CMGD Backend Server
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar
  *
@@ -17,15 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#ifndef _FRR_CMGD_BCKND_SERVER_H_
+#define _FRR_CMGD_BCKND_SERVER_H_
 
-#include "cmgd_memory.h"
+#include "lib/cmgd_bcknd_client.h"
 
-/* this file is temporary in nature;  definitions should be moved to the
- * files they're used in */
+#define CMGD_BCKND_MAX_CONN	32
 
-DEFINE_MGROUP(CMGD, "cmgd");
-DEFINE_MTYPE(CMGD, CMGD, "CMGD instance");
-DEFINE_MTYPE(CMGD, CMGD_BCKND_ADPATER, "CMGD backend adapter");
+extern int cmgd_bcknd_server_init(struct thread_master *master);
+
+extern void cmgd_bcknd_server_destroy(void);
+
+#endif /* _FRR_CMGD_BCKND_SERVER_H_ */

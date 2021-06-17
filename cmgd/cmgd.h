@@ -39,6 +39,13 @@
 #include "cmgd_memory.h"
 #include "bitfield.h"
 #include "vxlan.h"
+#include "cmgd/cmgd_defines.h"
+
+typedef enum cmgd_bcknd_event_ {
+	CMGD_BCKND_SERVER = 1,
+	CMGD_BCKND_CONN_READ,
+	CMGD_BCKND_CONN_WRITE
+} cmgd_bcknd_event_t;
 
 // #define CMGD_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 
