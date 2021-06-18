@@ -269,7 +269,7 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 		if (sysid2buff(fail_id, fail_sysid_str) == 0) {
 			struct isis_dynhn *dynhn;
 
-			dynhn = dynhn_find_by_name(fail_sysid_str);
+			dynhn = dynhn_find_by_name(area->isis, fail_sysid_str);
 			if (dynhn == NULL) {
 				vty_out(vty, "Invalid system id %s\n",
 					fail_sysid_str);
@@ -338,9 +338,6 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 
 	/* Cleanup IS-IS area. */
 	isis_area_destroy(area);
-
-	/* Cleanup hostnames. */
-	dyn_cache_cleanup_all();
 
 	return CMD_SUCCESS;
 }

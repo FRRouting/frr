@@ -458,6 +458,7 @@ const char *print_sys_hostname(const uint8_t *sysid)
 {
 	struct isis_dynhn *dyn;
 	struct isis *isis = NULL;
+	struct listnode *node;
 
 	if (!sysid)
 		return "nullsysid";
@@ -467,9 +468,11 @@ const char *print_sys_hostname(const uint8_t *sysid)
 	if (isis && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
 
-	dyn = dynhn_find_by_id(sysid);
-	if (dyn)
-		return dyn->hostname;
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		dyn = dynhn_find_by_id(isis, sysid);
+		if (dyn)
+			return dyn->hostname;
+	}
 
 	return sysid_print(sysid);
 }

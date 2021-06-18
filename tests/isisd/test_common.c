@@ -309,7 +309,8 @@ static int topology_load_node(const struct isis_topology *topology,
 {
 	int ret;
 
-	isis_dynhn_insert(tnode->sysid, tnode->hostname, tnode->level);
+	isis_dynhn_insert(area->isis, tnode->sysid, tnode->hostname,
+			  tnode->level);
 
 	for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
 		if ((tnode->level & level) == 0)
