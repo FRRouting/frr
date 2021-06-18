@@ -984,10 +984,9 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 	}
 }
 
-static void ospf6_neighbor_show_detail_common(struct vty *vty, int argc,
-					      struct cmd_token **argv,
-					      struct ospf6 *ospf6, int idx_type,
-					      int detail_idx, int json_idx)
+static void ospf6_neighbor_show_detail_common(struct vty *vty,
+					      struct ospf6 *ospf6, bool uj,
+					      bool detail, bool drchoice)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
@@ -995,18 +994,15 @@ static void ospf6_neighbor_show_detail_common(struct vty *vty, int argc,
 	struct listnode *i, *j, *k;
 	json_object *json = NULL;
 	json_object *json_array = NULL;
-	bool uj = use_json(argc, argv);
 	void (*showfunc)(struct vty *, struct ospf6_neighbor *,
 			 json_object *json, bool use_json);
 
-	showfunc = ospf6_neighbor_show;
-
-	if ((uj && argc == detail_idx) || (!uj && argc == json_idx)) {
-		if (!strncmp(argv[idx_type]->arg, "de", 2))
-			showfunc = ospf6_neighbor_show_detail;
-		else if (!strncmp(argv[idx_type]->arg, "dr", 2))
-			showfunc = ospf6_neighbor_show_drchoice;
-	}
+	if (detail)
+		showfunc = ospf6_neighbor_show_detail;
+	else if (drchoice)
+		showfunc = ospf6_neighbor_show_drchoice;
+	else
+		showfunc = ospf6_neighbor_show;
 
 	if (uj) {
 		json = json_object_new_object();
@@ -1051,28 +1047,28 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
       "Display details\n"
       "Display DR choices\n" JSON_STR)
 {
-	int idx_type = 4;
-	int detail_idx = 5;
-	int json_idx = 6;
 	struct ospf6 *ospf6;
 	struct listnode *node;
 	const char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	int idx_type = 4;
+	bool uj = use_json(argc, argv);
+	bool detail = false;
+	bool drchoice = false;
 
 	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	if (idx_vrf > 0) {
-		idx_type += 2;
-		detail_idx += 2;
-		json_idx += 2;
-	}
+
+	if (argv_find(argv, argc, "detail", &idx_type))
+		detail = true;
+	else if (argv_find(argv, argc, "drchoice", &idx_type))
+		drchoice = true;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
-			ospf6_neighbor_show_detail_common(vty, argc, argv,
-							  ospf6, idx_type,
-							  detail_idx, json_idx);
+			ospf6_neighbor_show_detail_common(vty, ospf6, uj,
+							  detail, drchoice);
 			if (!all_vrf)
 				break;
 		}
