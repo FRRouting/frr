@@ -78,12 +78,14 @@ DEFINE_HOOK(isis_circuit_del_hook, (struct isis_circuit *circuit), (circuit));
 
 static void isis_circuit_enable(struct isis_circuit *circuit)
 {
-	struct isis_area *area;
+	struct isis_area *area = circuit->area;
 	struct interface *ifp = circuit->interface;
 
-	area = isis_area_lookup(circuit->tag, ifp->vrf_id);
-	if (area)
-		isis_area_add_circuit(area, circuit);
+	if (!area) {
+		area = isis_area_lookup(circuit->tag, ifp->vrf_id);
+		if (area)
+			isis_area_add_circuit(area, circuit);
+	}
 
 	if (if_is_operative(ifp))
 		isis_csm_state_change(IF_UP_FROM_Z, circuit, ifp);
