@@ -2592,10 +2592,8 @@ static void rfapiCopyUnEncap2VPN(struct bgp_path_info *encap_bpi,
 		 * instrumentation to debug segfault of 091127
 		 */
 		vnc_zlog_debug_verbose("%s: vpn_bpi=%p", __func__, vpn_bpi);
-		if (vpn_bpi) {
-			vnc_zlog_debug_verbose("%s: vpn_bpi->extra=%p",
-					       __func__, vpn_bpi->extra);
-		}
+		vnc_zlog_debug_verbose("%s: vpn_bpi->extra=%p", __func__,
+				       vpn_bpi->extra);
 
 		vpn_bpi->extra->vnc.import.un_family = AF_INET;
 		vpn_bpi->extra->vnc.import.un.addr4 =

@@ -768,13 +768,13 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 static void bgp_evpn_show_routes_mac_ip_evi_es(struct vty *vty, esi_t *esi,
 					       json_object *json, int detail)
 {
-	return bgp_evpn_show_routes_mac_ip_es(vty, esi, json, detail, false);
+	bgp_evpn_show_routes_mac_ip_es(vty, esi, json, detail, false);
 }
 
 static void bgp_evpn_show_routes_mac_ip_global_es(struct vty *vty, esi_t *esi,
 						  json_object *json, int detail)
 {
-	return bgp_evpn_show_routes_mac_ip_es(vty, esi, json, detail, true);
+	bgp_evpn_show_routes_mac_ip_es(vty, esi, json, detail, true);
 }
 
 static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,

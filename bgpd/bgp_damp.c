@@ -245,7 +245,6 @@ static int bgp_reuse_timer(struct thread *t)
 	 * list head entry. */
 	assert(bdc->reuse_offset < bdc->reuse_list_size);
 	plist = bdc->reuse_list[bdc->reuse_offset];
-	node = SLIST_FIRST(&plist);
 	SLIST_INIT(&bdc->reuse_list[bdc->reuse_offset]);
 
 	/* 2.  set offset = modulo reuse-list-size ( offset + 1 ), thereby
@@ -788,7 +787,7 @@ const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_path_info *path,
 
 	/* If dampening is not enabled or there is no dampening information,
 	   return immediately.  */
-	if (!bdc || !bdi)
+	if (!bdi)
 		return NULL;
 
 	/* Calculate new penalty.  */

@@ -2070,9 +2070,8 @@ int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi)
 	/* Lookup ESI hash - should exist. */
 	es = bgp_evpn_es_find(esi);
 	if (!es) {
-		flog_warn(EC_BGP_EVPN_ESI,
-			  "%u: ES %s missing at local ES DEL",
-			  bgp->vrf_id, es->esi_str);
+		flog_warn(EC_BGP_EVPN_ESI, "%u: ES missing at local ES DEL",
+			  bgp->vrf_id);
 		return -1;
 	}
 
@@ -3316,9 +3315,6 @@ static struct bgp_evpn_es_evi *
 bgp_evpn_es_evi_local_info_clear(struct bgp_evpn_es_evi *es_evi)
 {
 	struct bgpevpn *vpn = es_evi->vpn;
-
-	if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
-		return es_evi;
 
 	UNSET_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL);
 	list_delete_node(vpn->local_es_evi_list, &es_evi->l2vni_listnode);
