@@ -315,7 +315,7 @@ void isis_notif_adj_state_change(const struct isis_adjacency *adj,
 	struct yang_data *data;
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
-	struct isis_dynhn *dyn = dynhn_find_by_id(adj->sysid);
+	struct isis_dynhn *dyn = dynhn_find_by_id(circuit->isis, adj->sysid);
 
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	notif_prepr_iface_hdr(xpath, circuit, arguments);

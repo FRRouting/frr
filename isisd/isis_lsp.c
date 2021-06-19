@@ -533,11 +533,11 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 
 	if (area->dynhostname && lsp->tlvs->hostname
 	    && lsp->hdr.rem_lifetime) {
-		isis_dynhn_insert(lsp->hdr.lsp_id, lsp->tlvs->hostname,
-				  (lsp->hdr.lsp_bits & LSPBIT_IST)
-						  == IS_LEVEL_1_AND_2
-					  ? IS_LEVEL_2
-					  : IS_LEVEL_1);
+		isis_dynhn_insert(
+			area->isis, lsp->hdr.lsp_id, lsp->tlvs->hostname,
+			(lsp->hdr.lsp_bits & LSPBIT_IST) == IS_LEVEL_1_AND_2
+				? IS_LEVEL_2
+				: IS_LEVEL_1);
 	}
 
 	return;
@@ -700,7 +700,7 @@ void lspid_print(uint8_t *lsp_id, char *dest, size_t dest_len, char dynhost,
 	char id[SYSID_STRLEN];
 
 	if (dynhost)
-		dyn = dynhn_find_by_id(lsp_id);
+		dyn = dynhn_find_by_id(isis, lsp_id);
 	else
 		dyn = NULL;
 

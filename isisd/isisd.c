@@ -229,6 +229,7 @@ void isis_finish(struct isis *isis)
 
 	isis_redist_free(isis);
 	list_delete(&isis->area_list);
+	dyn_cache_finish(isis);
 	XFREE(MTYPE_ISIS, isis);
 }
 
@@ -402,7 +403,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 				continue;
 
 			circuit = ifp->info;
-			if (circuit)
+			if (circuit && strmatch(circuit->tag, area->area_tag))
 				isis_area_add_circuit(area, circuit);
 		}
 	}
@@ -1076,6 +1077,23 @@ DEFUN(show_isis_interface_arg,
 					  vrf_name, all_vrf);
 }
 
+static int id_to_sysid(struct isis *isis, const char *id, uint8_t *sysid)
+{
+	struct isis_dynhn *dynhn;
+
+	memset(sysid, 0, ISIS_SYS_ID_LEN);
+	if (id) {
+		if (sysid2buff(sysid, id) == 0) {
+			dynhn = dynhn_find_by_name(isis, id);
+			if (dynhn == NULL)
+				return -1;
+			memcpy(sysid, dynhn->id, ISIS_SYS_ID_LEN);
+		}
+	}
+
+	return 0;
+}
+
 static void isis_neighbor_common(struct vty *vty, const char *id, char detail,
 				 struct isis *isis, uint8_t *sysid)
 {
@@ -1131,7 +1149,6 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail,
 			      const char *vrf_name, bool all_vrf)
 {
 	struct listnode *node;
-	struct isis_dynhn *dynhn;
 	uint8_t sysid[ISIS_SYS_ID_LEN];
 	struct isis *isis;
 
@@ -1140,29 +1157,27 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail,
 		return CMD_SUCCESS;
 	}
 
-	memset(sysid, 0, ISIS_SYS_ID_LEN);
-	if (id) {
-		if (sysid2buff(sysid, id) == 0) {
-			dynhn = dynhn_find_by_name(id);
-			if (dynhn == NULL) {
-				vty_out(vty, "Invalid system id %s\n", id);
-				return CMD_SUCCESS;
-			}
-			memcpy(sysid, dynhn->id, ISIS_SYS_ID_LEN);
-		}
-	}
-
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+				if (id_to_sysid(isis, id, sysid)) {
+					vty_out(vty, "Invalid system id %s\n",
+						id);
+					return CMD_SUCCESS;
+				}
 				isis_neighbor_common(vty, id, detail, isis,
 						     sysid);
 			}
 			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+		if (isis != NULL) {
+			if (id_to_sysid(isis, id, sysid)) {
+				vty_out(vty, "Invalid system id %s\n", id);
+				return CMD_SUCCESS;
+			}
 			isis_neighbor_common(vty, id, detail, isis, sysid);
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1218,7 +1233,6 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id, const char *vrf_
 			       bool all_vrf)
 {
 	struct listnode *node;
-	struct isis_dynhn *dynhn;
 	uint8_t sysid[ISIS_SYS_ID_LEN];
 	struct isis *isis;
 
@@ -1227,27 +1241,27 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id, const char *vrf_
 		return CMD_SUCCESS;
 	}
 
-	memset(sysid, 0, ISIS_SYS_ID_LEN);
-	if (id) {
-		if (sysid2buff(sysid, id) == 0) {
-			dynhn = dynhn_find_by_name(id);
-			if (dynhn == NULL) {
-				vty_out(vty, "Invalid system id %s\n", id);
-				return CMD_SUCCESS;
-			}
-			memcpy(sysid, dynhn->id, ISIS_SYS_ID_LEN);
-		}
-	}
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+				if (id_to_sysid(isis, id, sysid)) {
+					vty_out(vty, "Invalid system id %s\n",
+						id);
+					return CMD_SUCCESS;
+				}
 				isis_neighbor_common_clear(vty, id, sysid,
 							   isis);
+			}
 			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+		if (isis != NULL) {
+			if (id_to_sysid(isis, id, sysid)) {
+				vty_out(vty, "Invalid system id %s\n", id);
+				return CMD_SUCCESS;
+			}
 			isis_neighbor_common_clear(vty, id, sysid, isis);
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -2204,7 +2218,7 @@ struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 	 */
 	if (sysid2buff(lspid, sysid)) {
 		lsp = lsp_search(head, lspid);
-	} else if ((dynhn = dynhn_find_by_name(sysid))) {
+	} else if ((dynhn = dynhn_find_by_name(isis, sysid))) {
 		memcpy(lspid, dynhn->id, ISIS_SYS_ID_LEN);
 		lsp = lsp_search(head, lspid);
 	} else if (strncmp(cmd_hostname_get(), sysid, 15) == 0) {

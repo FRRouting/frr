@@ -3767,7 +3767,6 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 		bgp_route_map_process_update(bgp, rmap_name, 1);
 
 #ifdef ENABLE_BGP_VNC
-		/* zlog_debug("%s: calling vnc_routemap_update", __func__); */
 		vnc_routemap_update(bgp, __func__);
 #endif
 	}
@@ -3807,12 +3806,14 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 						   BGP_POLICY_ROUTE_MAP,
 						   rmap_name, 1, 1);
 	} else {
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			bgp_route_map_process_update(bgp, rmap_name, 0);
 #ifdef ENABLE_BGP_VNC
-		zlog_debug("%s: calling vnc_routemap_update", __func__);
-		vnc_routemap_update(bgp, __func__);
+			vnc_routemap_update(bgp, __func__);
 #endif
+		}
+
+		vpn_policy_routemap_event(rmap_name);
 	}
 }
 
