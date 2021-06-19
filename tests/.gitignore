@@ -26,6 +26,7 @@
 /lib/test_buffer
 /lib/test_checksum
 /lib/test_frrscript
+/lib/test_frrlua
 /lib/test_graph
 /lib/test_heavy
 /lib/test_heavy_thread
