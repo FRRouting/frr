@@ -695,12 +695,11 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ibgp(request):
             protocol=protocol,
             fib=True,
             expected=False,
-            wait=2,
-            attempts=3,
+            retry_timeout=6,
         )
         assert (
             result is not True
-        ), "Testcase {} : Failed \nError: Routes " " are missing in RIB".format(tc_name)
+        ), "Testcase {} : Failed \nError: Routes " " are present in RIB".format(tc_name)
 
     step(
         "Remove the static route configured with nexthop N1 to N8, one"
@@ -808,8 +807,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ibgp(request):
             protocol=protocol,
             fib=True,
             expected=False,
-            wait=2,
-            attempts=3,
+            retry_timeout=6,
         )
         assert (
             result is not True
@@ -1512,8 +1510,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ibgp(request):
             protocol=protocol,
             fib=True,
             expected=False,
-            wait=2,
-            attempts=3,
+            retry_timeout=6,
         )
         assert (
             result is not True

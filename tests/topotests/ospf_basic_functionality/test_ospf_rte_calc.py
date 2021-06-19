@@ -263,7 +263,7 @@ def test_ospf_redistribution_tc5_p0(request):
         input_dict,
         protocol=protocol,
         next_hop=nh,
-        attempts=5,
+        retry_timeout=10,
         expected=False,
     )
     assert result is not True, (

@@ -501,7 +501,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
 
     dut = "r1"
     protocol = "ospf"
-    result = verify_ospf_rib(tgen, dut, input_dict, attempts=2, expected=False)
+    result = verify_ospf_rib(tgen, dut, input_dict, retry_timeout=4, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
@@ -509,7 +509,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     )
 
     result = verify_rib(
-        tgen, "ipv4", dut, input_dict, protocol=protocol, attempts=2, expected=False
+        tgen, "ipv4", dut, input_dict, protocol=protocol, retry_timeout=4, expected=False
     )
     assert (
         result is not True
