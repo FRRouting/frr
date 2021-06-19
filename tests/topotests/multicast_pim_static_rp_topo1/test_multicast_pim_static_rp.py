@@ -424,7 +424,7 @@ def test_add_delete_static_RP_p0(request):
     step("r1: Verify show ip igmp group without any IGMP join")
     dut = "r1"
     interface = "r1-r0-eth0"
-    result = verify_igmp_groups(tgen, dut, interface, GROUP_ADDRESS)
+    result = verify_igmp_groups(tgen, dut, interface, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: igmp group present without any IGMP join \n Error: {}".format(
@@ -495,7 +495,7 @@ def test_add_delete_static_RP_p0(request):
 
     step("r1: Verify RP info")
     result = verify_pim_rp_info(
-        tgen, TOPO, dut, GROUP_RANGE_ALL, iif, rp_address, SOURCE
+        tgen, TOPO, dut, GROUP_RANGE_ALL, iif, rp_address, SOURCE, expected=False
     )
     assert (
         result is not True
@@ -504,14 +504,14 @@ def test_add_delete_static_RP_p0(request):
     )
 
     step("r1: Verify upstream IIF interface")
-    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS)
+    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream IIF interface present \n Error: {}".format(tc_name, result)
     )
 
     step("r1: Verify upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is up and join timer is running \n Error: {}".format(
@@ -519,14 +519,15 @@ def test_add_delete_static_RP_p0(request):
         )
     )
 
+    # 20
     step("r1: Verify PIM state")
-    result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS)
+    result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS, expected=False)
     assert result is not True, "Testcase {} :Failed \n Error: {}".format(
         tc_name, result
     )
 
     step("r1: Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: mroutes are still present \n Error: {}".format(
@@ -686,7 +687,9 @@ def test_SPT_RPT_path_same_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S, G) upstream join state is up and join timer is running\n Error: {}".format(
@@ -819,7 +822,7 @@ def test_not_reachable_static_RP_p0(request):
         "r1 : OIL should be same and IIF should be cleared on R1 verify"
         "using show ip pim state"
     )
-    result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS)
+    result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "OIL is not same and IIF is not cleared on R1 \n Error: {}".format(
@@ -828,7 +831,7 @@ def test_not_reachable_static_RP_p0(request):
     )
 
     step("r1: upstream IIF should be unknown , verify using show ip pim" "upstream")
-    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS)
+    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream IIF is not unknown \n Error: {}".format(tc_name, result)
@@ -838,7 +841,7 @@ def test_not_reachable_static_RP_p0(request):
         "r1: join state should not be joined and join timer should stop,"
         "verify using show ip pim upstream"
     )
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: join state is joined and timer is not stopped \n Error: {}".format(
@@ -861,7 +864,7 @@ def test_not_reachable_static_RP_p0(request):
     assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
 
     step("r1: (*, G) cleared from mroute table using show ip mroute")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: (*, G) are not cleared from mroute table \n Error: {}".format(
@@ -932,7 +935,7 @@ def test_add_RP_after_join_received_p1(request):
     rp_address = "1.0.2.17"
     iif = "r1-r2-eth1"
     result = verify_pim_rp_info(
-        tgen, TOPO, dut, GROUP_RANGE_ALL, iif, rp_address, SOURCE
+        tgen, TOPO, dut, GROUP_RANGE_ALL, iif, rp_address, SOURCE, expected=False
     )
     assert (
         result is not True
@@ -959,7 +962,7 @@ def test_add_RP_after_join_received_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify upstream IIF interface")
-    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS)
+    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream IFF interface is present \n Error: {}".format(tc_name, result)
@@ -967,7 +970,7 @@ def test_add_RP_after_join_received_p1(request):
 
     step("r1: Verify upstream join state and join timer")
 
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is joined and timer is running \n Error: {}".format(
@@ -976,7 +979,7 @@ def test_add_RP_after_join_received_p1(request):
     )
 
     step("r1: Verify PIM state")
-    result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS)
+    result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: PIM state is up\n Error: {}".format(
@@ -984,7 +987,7 @@ def test_add_RP_after_join_received_p1(request):
     )
 
     step("r1: Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: mroutes are still present\n Error: {}".format(
@@ -1114,14 +1117,14 @@ def test_reachable_static_RP_after_join_p0(request):
 
     step("r1 : Verify upstream IIF interface")
     iif = "r1-r2-eth1"
-    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS)
+    result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream IIF interface is present\n Error: {}".format(tc_name, result)
     )
 
     step("r1 : Verify upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is joined and timer is running\n Error: {}".format(
@@ -1130,7 +1133,7 @@ def test_reachable_static_RP_after_join_p0(request):
     )
 
     step("r1 : Verify PIM state")
-    result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS)
+    result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: PIM state is up\n Error: {}".format(
@@ -1138,7 +1141,7 @@ def test_reachable_static_RP_after_join_p0(request):
     )
 
     step("r1 : Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: mroutes are still present\n Error: {}".format(
@@ -1385,7 +1388,9 @@ def test_send_join_on_higher_preffered_rp_p1(request):
 
     step("r1 : Verify rp-info for group 225.1.1.1")
     iif = "r1-r4-eth3"
-    result = verify_pim_rp_info(tgen, TOPO, dut, GROUP_RANGE, oif, rp_address_2, SOURCE)
+    result = verify_pim_rp_info(
+        tgen, TOPO, dut, GROUP_RANGE, oif, rp_address_2, SOURCE, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: rp-info is present for group 225.1.1.1 \n Error: {}".format(
@@ -1643,7 +1648,9 @@ def test_RP_configured_as_LHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S, G) upstream join state is joined and join"
@@ -1850,7 +1857,9 @@ def test_RP_configured_as_LHR_2_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2058,7 +2067,9 @@ def test_RP_configured_as_FHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2267,7 +2278,9 @@ def test_RP_configured_as_FHR_2_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2394,7 +2407,9 @@ def test_SPT_RPT_path_different_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2416,7 +2431,9 @@ def test_SPT_RPT_path_different_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r2: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2645,7 +2662,8 @@ def test_restart_pimd_process_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2663,6 +2681,7 @@ def test_restart_pimd_process_p2(request):
     oil = "r1-r0-eth0"
     logger.info("waiting for 10 sec to make sure old mroute time is higher")
     sleep(10)
+    # Why do we then wait 60 seconds below before checking the routes?
     uptime_before = verify_ip_mroutes(
         tgen, dut, STAR, GROUP_ADDRESS, iif, oil, return_uptime=True, mwait=60
     )
@@ -2679,6 +2698,7 @@ def test_restart_pimd_process_p2(request):
     logger.info("Waiting for 5sec to get PIMd restarted and mroute" " re-learned..")
     sleep(5)
 
+    # Why do we then wait 10 seconds below before checking the routes?
     uptime_after = verify_ip_mroutes(
         tgen, dut, STAR, GROUP_ADDRESS, iif, oil, return_uptime=True, mwait=10
     )
@@ -2814,7 +2834,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r3: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, group_address_list
+        tgen, dut, iif, SOURCE_ADDRESS, group_address_list, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -2838,7 +2858,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r2: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, group_address_list
+        tgen, dut, iif, SOURCE_ADDRESS, group_address_list, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -2959,7 +2979,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r2: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, group_address_list
+        tgen, dut, iif, SOURCE_ADDRESS, group_address_list, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -2981,7 +3001,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r3: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, group_address_list
+        tgen, dut, iif, SOURCE_ADDRESS, group_address_list, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -3163,7 +3183,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r2: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -3187,7 +3207,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r3: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -3259,7 +3279,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r4: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -3283,7 +3303,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r3: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, expected=False
     )
     assert result is not True, "Testcase {} :Failed \n Error: {}".format(
         tc_name, result
@@ -3436,7 +3456,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r2: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -3460,7 +3480,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r3: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -3532,7 +3552,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r4: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -3556,7 +3576,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r3: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, expected=False
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -3682,14 +3702,14 @@ def test_shutdown_primary_path_p1(request):
 
     step(
         "Verify after shut of R1 to R3 link , verify (*,G) entries got"
-        "cleared from all the node R1, R2, R3"
+        " cleared from all the node R1, R2, R3"
     )
 
     step("r1: Verify (*, G) ip mroutes")
     dut = "r1"
     iif = "r1-r3-eth2"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
@@ -3701,7 +3721,7 @@ def test_shutdown_primary_path_p1(request):
     dut = "r2"
     iif = "lo"
     oif = "r2-r3-eth1"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r2: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
@@ -3713,7 +3733,7 @@ def test_shutdown_primary_path_p1(request):
     dut = "r3"
     iif = "r3-r2-eth1"
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
@@ -3878,7 +3898,7 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     dut = "r1"
     iif = "r1-r2-eth1"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: (*,G) mroutes are not cleared after shut of R1 to R0 link\n Error: {}".format(
@@ -3890,7 +3910,7 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     dut = "r2"
     iif = "lo"
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r2: (*,G) mroutes are not cleared after shut of R1 to R0 link\n Error: {}".format(
@@ -4005,7 +4025,7 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     dut = "r1"
     iif = "r1-r2-eth1"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: (*,G) mroutes are not cleared after shut of R1 to R2 and R3 link\n Error: {}".format(
@@ -4017,7 +4037,7 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     dut = "r2"
     iif = "lo"
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r2: (*,G) mroutes are not cleared after shut of R1 to R2 and R3 link\n Error: {}".format(
