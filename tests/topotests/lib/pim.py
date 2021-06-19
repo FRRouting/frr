@@ -495,7 +495,7 @@ def configure_pim_force_expire(tgen, topo, input_dict, build=False):
 #############################################
 # Verification APIs
 #############################################
-@retry(attempts=6, wait=2, return_is_str=True)
+@retry(retry_timeout=12)
 def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None, expected=True):
     """
     Verify all PIM neighbors are up and running, config is verified
@@ -619,7 +619,7 @@ def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None, expected
     return True
 
 
-@retry(attempts=21, wait=2, return_is_str=True)
+@retry(retry_timeout=40)
 def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     """
     Verify IGMP groups are received from an intended interface
@@ -693,7 +693,7 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     return True
 
 
-@retry(attempts=31, wait=2, return_is_str=True)
+@retry(retry_timeout=60)
 def verify_upstream_iif(
     tgen, dut, iif, src_address, group_addresses, joinState=None, refCount=1, expected=True
 ):
@@ -847,7 +847,7 @@ def verify_upstream_iif(
         return True
 
 
-@retry(attempts=6, wait=2, return_is_str=True)
+@retry(retry_timeout=12)
 def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, expected=True):
     """
     Verify  join state is updated correctly and join timer is
@@ -966,7 +966,7 @@ def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, ex
     return True
 
 
-@retry(attempts=41, wait=2, return_is_dict=True)
+@retry(retry_timeout=80)
 def verify_ip_mroutes(
     tgen, dut, src_address, group_addresses, iif, oil, return_uptime=False, mwait=0, expected=True
 ):
@@ -1163,7 +1163,7 @@ def verify_ip_mroutes(
     return True if return_uptime == False else uptime_dict
 
 
-@retry(attempts=31, wait=2, return_is_str=True)
+@retry(retry_timeout=60)
 def verify_pim_rp_info(
     tgen, topo, dut, group_addresses, oif=None, rp=None, source=None, iamrp=None, expected=True
 ):
@@ -1320,7 +1320,7 @@ def verify_pim_rp_info(
     return True
 
 
-@retry(attempts=31, wait=2, return_is_str=True)
+@retry(retry_timeout=60)
 def verify_pim_state(
     tgen, dut, iif, oil, group_addresses, src_address=None, installed_fl=None, expected=True
 ):
@@ -1490,7 +1490,7 @@ def verify_pim_interface_traffic(tgen, input_dict):
     return output_dict
 
 
-@retry(attempts=21, wait=2, return_is_str=True)
+@retry(retry_timeout=40)
 def verify_pim_interface(tgen, topo, dut, interface=None, interface_ip=None, expected=True):
     """
     Verify all PIM interface are up and running, config is verified
@@ -1797,7 +1797,7 @@ def clear_ip_igmp_interfaces(tgen, dut):
     return True
 
 
-@retry(attempts=10, wait=2, return_is_str=True)
+@retry(retry_timeout=20)
 def clear_ip_mroute_verify(tgen, dut, expected=True):
     """
     Clear ip mroute by running "clear ip mroute" cli and verify
@@ -2173,7 +2173,7 @@ def find_rp_from_bsrp_info(tgen, dut, bsr, grp=None):
     return rp_details
 
 
-@retry(attempts=6, wait=2, return_is_str=True)
+@retry(retry_timeout=12)
 def verify_pim_grp_rp_source(tgen, topo, dut, grp_addr, rp_source, rpadd=None, expected=True):
     """
     Verify pim rp info by running "show ip pim rp-info" cli
@@ -2276,7 +2276,7 @@ def verify_pim_grp_rp_source(tgen, topo, dut, grp_addr, rp_source, rpadd=None, e
     return errormsg
 
 
-@retry(attempts=31, wait=2, return_is_str=True)
+@retry(retry_timeout=60)
 def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
     """
     Verify all PIM interface are up and running, config is verified
@@ -2332,7 +2332,7 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
     return True
 
 
-@retry(attempts=31, wait=2, return_is_str=True)
+@retry(retry_timeout=60)
 def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=None, expected=True):
     """
     Verify IP PIM upstream rpf, config is verified
@@ -2530,7 +2530,7 @@ def enable_disable_pim_bsm(tgen, router, intf, enable=True):
     return result
 
 
-@retry(attempts=31, wait=2, return_is_str=True)
+@retry(retry_timeout=60)
 def verify_ip_pim_join(tgen, topo, dut, interface, group_addresses, src_address=None, expected=True):
     """
     Verify ip pim join by running "show ip pim join" cli
@@ -2621,7 +2621,7 @@ def verify_ip_pim_join(tgen, topo, dut, interface, group_addresses, src_address=
     return True
 
 
-@retry(attempts=31, wait=2, return_is_dict=True)
+@retry(retry_timeout=60)
 def verify_igmp_config(tgen, input_dict, stats_return=False, expected=True):
     """
     Verify igmp interface details, verifying following configs:
@@ -2911,7 +2911,7 @@ def verify_igmp_config(tgen, input_dict, stats_return=False, expected=True):
     return True if stats_return == False else igmp_stats
 
 
-@retry(attempts=31, wait=2, return_is_str=True)
+@retry(retry_timeout=60)
 def verify_pim_config(tgen, input_dict, expected=True):
     """
     Verify pim interface details, verifying following configs:
@@ -3037,7 +3037,7 @@ def verify_pim_config(tgen, input_dict, expected=True):
     return True
 
 
-@retry(attempts=21, wait=2, return_is_dict=True)
+@retry(retry_timeout=40)
 def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=True):
     """
     Verify multicast traffic by running
@@ -3280,7 +3280,7 @@ def get_refCount_for_mroute(tgen, dut, iif, src_address, group_addresses):
     return refCount
 
 
-@retry(attempts=21, wait=2, return_is_str=True)
+@retry(retry_timeout=40)
 def verify_multicast_flag_state(tgen, dut, src_address, group_addresses, flag, expected=True):
     """
     Verify flag state for mroutes and make sure (*, G)/(S, G) are having
@@ -3375,7 +3375,7 @@ def verify_multicast_flag_state(tgen, dut, src_address, group_addresses, flag, e
     return True
 
 
-@retry(attempts=21, wait=2, return_is_str=True)
+@retry(retry_timeout=40)
 def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip, expected=True):
     """
     Verify all IGMP interface are up and running, config is verified

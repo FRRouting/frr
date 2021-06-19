@@ -326,7 +326,7 @@ def test_ospf_ecmp_tc16_p0(request):
     step("Verify that route is withdrawn from R2.")
     dut = "r1"
     result = verify_ospf_rib(
-        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
+        tgen, dut, input_dict, next_hop=nh, retry_timeout=10, expected=False
     )
     assert (
         result is not True
@@ -342,7 +342,7 @@ def test_ospf_ecmp_tc16_p0(request):
         input_dict,
         protocol=protocol,
         next_hop=nh,
-        attempts=5,
+        retry_timeout=10,
         expected=False,
     )
     assert (
@@ -434,7 +434,7 @@ def test_ospf_ecmp_tc17_p0(request):
     step("Verify that route is withdrawn from R2.")
     dut = "r1"
     result = verify_ospf_rib(
-        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
+        tgen, dut, input_dict, next_hop=nh, retry_timeout=10, expected=False
     )
     assert (
         result is not True
@@ -450,7 +450,7 @@ def test_ospf_ecmp_tc17_p0(request):
         input_dict,
         protocol=protocol,
         next_hop=nh,
-        attempts=5,
+        retry_timeout=10,
         expected=False,
     )
     assert (
