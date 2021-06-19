@@ -70,6 +70,7 @@ check_PROGRAMS = \
 	tests/lib/test_atomlist \
 	tests/lib/test_buffer \
 	tests/lib/test_checksum \
+	tests/lib/test_frrscript \
 	tests/lib/test_heavy_thread \
 	tests/lib/test_heavy_wq \
 	tests/lib/test_heavy \
@@ -289,6 +290,10 @@ tests_lib_test_checksum_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_checksum_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_checksum_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_checksum_SOURCES = tests/lib/test_checksum.c
+tests_lib_test_frrscript_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_frrscript_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_frrscript_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_frrscript_SOURCES = tests/lib/test_frrscript.c
 tests_lib_test_graph_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_graph_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_graph_LDADD = $(ALL_TESTS_LDADD)
