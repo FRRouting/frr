@@ -1,0 +1,149 @@
+//
+// fpm.proto
+//
+// @copyright Copyright (C) 2021  Vmware, Inc.
+//
+// @author Pushpasis Sarkar <spushpasis@vmware.com>
+//
+// Permission to use, copy, modify, and/or distribute this software
+// for any purpose with or without fee is hereby granted, provided
+// that the above copyright notice and this permission notice appear
+// in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+// WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+// AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+// CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+// OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+// NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+// CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+//
+
+syntax = "proto2";
+
+//
+// Protobuf definitions pertaining to the CMGD component.
+//
+
+package cmgd;
+
+// import "qpb/qpb.proto";
+
+//
+// A Nexthop for a route. It indicates how packets to a given prefix
+// should be forwarded (for instance, send them out of a specified
+// interface to a specified address).
+//
+message BckndSubscribeReq {
+  required string client_name = 1;
+  required bool subscribe_xpaths = 2;
+  repeated string xpath_reg = 3;
+}
+
+message BckndTrxnReq {
+  required uint64 trxn_id = 1;
+  required bool create = 2;
+}
+
+message BckndTrxnReply {
+  required uint64 trxn_id = 1;
+  required bool create = 2;
+  required bool success = 3;
+}
+
+message YangDataXPath {
+  required string xpath = 1;
+}
+
+message YangData {
+  required string data_xpath = 1;
+  oneof data_value {
+    bool bool_val = 2;
+    int32 int32_val = 3;
+    int64 int64_val = 4;
+    uint32 uint32_val = 5;
+    uint64 uint64_val = 6;
+    double double_val = 7;
+    float float_val = 8;
+    string string_val = 9;
+    bytes bytes_val = 10;
+  }
+}
+
+message BckndCfgDataCreateReq {
+  required uint64 trxn_id = 1;
+  required uint64 batch_id = 2;
+  repeated YangData data = 3;
+}
+
+message BckndCfgDataCreateFail {
+  required uint64 trxn_id = 1;
+  required uint64 batch_id = 2;
+}
+
+message BckndCfgDataValidateReq {
+  required uint64 trxn_id = 1;
+  required uint64 batch_id = 2;
+}
+
+message BckndCfgDataValidateReply {
+  required uint64 trxn_id = 1;
+  required uint64 batch_id = 2;
+  required bool success = 3;
+  optional string error = 4;
+}
+
+message BckndCfgDataApplyReq {
+  required uint64 trxn_id = 1;
+  required uint64 batch_id = 2;
+}
+
+message YangDataReq {
+  required YangDataXPath xpath = 1;
+  required int64 next_indx = 2;
+}
+
+message BckndOperDataGetReq {
+  required uint64 trxn_id = 1;
+  repeated YangDataReq data = 2;
+}
+
+message YangDataReply {
+  repeated YangData data = 1;
+  required int64 next_indx = 2;
+}
+
+message BckndOperDataGetReply {
+  required uint64 trxn_id = 1;
+  required uint64 batch_id = 2;
+  required bool success = 3;
+  optional string error = 4;
+  optional YangDataReply data = 5;
+}
+
+
+//
+// Any message on the CMGD Backend Conn.
+//
+message BckndMessage {
+  enum Type {
+    UNKNOWN_MSG = 0;
+    SUBSCRIBE_REQ = 1;
+  };
+
+  required Type type = 1;
+
+  oneof message {
+    BckndSubscribeReq subscr_req = 2;
+    BckndTrxnReq trxn_req = 3;
+    BckndTrxnReply trxn_repl = 4;
+    BckndCfgDataCreateReq cfg_data_req = 5;
+    BckndCfgDataCreateFail cfg_data_fail = 6;
+    BckndCfgDataValidateReq cfg_validate_req = 7;
+    BckndCfgDataValidateReply cfg_validate_reply = 8;
+    BckndCfgDataApplyReq cfg_apply_req = 9;
+    BckndOperDataGetReq get_req = 10;
+    BckndOperDataGetReply get_reply = 11;
+  }
+}

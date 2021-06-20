@@ -43,13 +43,17 @@
 
 #define CMGD_BCKND_MSG_MAX_LEN		        4096
 
+#define CMGD_MAX_XPATH_LEN                      XPATH_MAXLEN
+
 typedef uintptr_t cmgd_lib_hndl_t;
 
 typedef uintptr_t cmgd_user_data_t;
 
 typedef enum cmgd_result_ {
 	CMGD_SUCCESS = 0,
-	CMGD_FAILED
+        CMGD_INVALID_PARAM, 
+        CMGD_INTERNAL_ERROR,
+	CMGD_UNKNOWN_FAILURE
 } cmgd_result_t;
 
 typedef uintptr_t cmgd_trxn_id_t;

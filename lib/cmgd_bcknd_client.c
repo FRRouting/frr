@@ -21,6 +21,7 @@
 #include "northbound.h"
 #include "libfrr.h"
 #include "lib/cmgd_bcknd_client.h"
+#include "lib/cmgd_pb.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define CMGD_BCKND_CLNT_DBG(fmt, ...)					\
@@ -98,6 +99,53 @@ static int cmgd_bkcnd_client_read(struct thread *thread)
 	return cmgd_bcknd_server_process_msg(clnt_ctxt, bkcnd_msg, bytes_read);
 }
 
+static int cmgd_bcknd_send_subscr_req(cmgd_bcknd_client_ctxt_t *clnt_ctxt, 
+	bool subscr_xpaths, uint16_t num_reg_xpaths, char **reg_xpaths)
+{
+	int bytes_written;
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndSubscribeReq subscr_req;
+	size_t msg_size;
+	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
+
+	cmgd__bcknd_subscribe_req__init(&subscr_req);
+	subscr_req.client_name = clnt_ctxt->client_params.name;
+	subscr_req.n_xpath_reg = num_reg_xpaths;
+	if (num_reg_xpaths)
+		subscr_req.xpath_reg = reg_xpaths;
+	else
+		subscr_req.xpath_reg = NULL;
+	subscr_req.subscribe_xpaths = subscr_xpaths;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__SUBSCRIBE_REQ;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_SUBSCR_REQ;
+	bcknd_msg.subscr_req = &subscr_req;
+
+	msg_size = cmgd__bcknd_message__get_packed_size(&bcknd_msg);
+	if (msg_size > sizeof(msg_buf)) {
+		CMGD_BCKND_CLNT_ERR(
+			"Message size %d more than max size'%d. Not sending!'", 
+			(int) msg_size, (int)sizeof(msg_buf));
+		return -1;
+	}
+	
+	cmgd__bcknd_message__pack(&bcknd_msg, msg_buf);
+	bytes_written = write(clnt_ctxt->conn_fd, (void *)msg_buf, msg_size);
+	if (bytes_written != (int) msg_size) {
+		CMGD_BCKND_CLNT_ERR(
+			"Could not write all %d bytes (wrote: %d) to CMGD Backend server socket. Err: '%s'", 
+			(int) msg_size, bytes_written, safe_strerror(errno));
+		cmgd_bcknd_server_disconnect(clnt_ctxt, true);
+		return -1;
+	}
+
+	CMGD_BCKND_CLNT_ERR(
+		"Wrote %d bytes of SUBSCRIBE_REQ to CMGD Backend server socket.'", 
+		bytes_written);
+	return 0;
+}
+
 static int cmgd_bcknd_server_connect(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
 {
 	int ret, sock, len;
@@ -147,6 +195,10 @@ static int cmgd_bcknd_server_connect(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
 		(void) (*clnt_ctxt->client_params.conn_notify_cb)(
 			(cmgd_lib_hndl_t)clnt_ctxt, 
 			clnt_ctxt->client_params.user_data, true);
+
+	/* Send SUBSCRIBE_REQ message */
+	if (cmgd_bcknd_send_subscr_req(clnt_ctxt, false, 0, NULL) != 0)
+		goto cmgd_bcknd_server_connect_failed;
 
 	return 0;
 
@@ -208,9 +260,41 @@ cmgd_lib_hndl_t cmgd_bcknd_client_lib_init(
  * Subscribe with CMGD for one or more YANG subtree(s).
  */
 cmgd_result_t cmgd_bcknd_subscribe_yang_data(
-	cmgd_lib_hndl_t lib_hndl, struct nb_yang_xpath *xpaths[],
-	int num_xpaths)
+	cmgd_lib_hndl_t lib_hndl, char *reg_yang_xpaths[],
+	int num_reg_xpaths)
 {
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
+
+	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)lib_hndl;
+	if (!lib_hndl) {
+		return CMGD_INVALID_PARAM;
+	}
+
+	if (cmgd_bcknd_send_subscr_req(
+		clnt_ctxt, true, num_reg_xpaths, reg_yang_xpaths) < 0)
+		return CMGD_INTERNAL_ERROR;
+
+	return CMGD_SUCCESS;
+}
+
+/*
+ * Unsubscribe with CMGD for one or more YANG subtree(s).
+ */
+cmgd_result_t cmgd_bcknd_unsubscribe_yang_data(
+	cmgd_lib_hndl_t lib_hndl, char *reg_yang_xpaths[],
+	int num_reg_xpaths)
+{
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
+
+	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)lib_hndl;
+	if (!lib_hndl) {
+		return CMGD_INVALID_PARAM;
+	}
+
+	if (cmgd_bcknd_send_subscr_req(
+		clnt_ctxt, false, num_reg_xpaths, reg_yang_xpaths) < 0)
+		return CMGD_INTERNAL_ERROR;
+
 	return CMGD_SUCCESS;
 }
 
@@ -218,7 +302,7 @@ cmgd_result_t cmgd_bcknd_subscribe_yang_data(
  * Send one or more YANG notifications to CMGD daemon.
  */
 cmgd_result_t cmgd_bcknd_send_yang_notify(
-	cmgd_lib_hndl_t lib_hndl, struct nb_yang_xpath_elem *elems[],
+	cmgd_lib_hndl_t lib_hndl, cmgd_bcknd_yang_data_t *data_elems[],
 	int num_elems)
 {
 	return CMGD_SUCCESS;

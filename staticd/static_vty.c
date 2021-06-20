@@ -1197,6 +1197,9 @@ static void static_cmgd_bcknd_client_connect(
 	zlog_err("Got %s %s CMGD Backend Client Server", 
 		 connected ? "connected" : "disconnected", 
 		 connected ? "to" : "from");
+
+	if (connected)
+		(void) cmgd_bcknd_subscribe_yang_data(cmgd_lib_hndl, NULL, 0);
 }
 
 static cmgd_bcknd_client_params_t cmgd_params = {

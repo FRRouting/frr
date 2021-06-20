@@ -1293,7 +1293,8 @@ dnl ##########################################################################
 # Logic for protobuf support.
 #
 PROTO3=false
-if test "$enable_protobuf" = "yes"; then
+# Enable Protobuf by default unless disabled explicitly.
+if test "$enable_protobuf" != "no"; then
   # Check for protoc & protoc-c
 
   # protoc is not required, it's only for a "be nice" helper target
@@ -1656,6 +1657,29 @@ AS_IF([test "$enable_bgpd" != "no"], [
 ])
 
 AS_IF([test "$enable_cmgd" != "no"], [
+  # Check for protoc & protoc-c
+
+  # protoc is not required, it's only for a "be nice" helper target
+  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
+
+  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
+  if test "$PROTOC_C" = "/bin/false"; then
+    AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
+  fi
+
+  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.14],, [
+    AC_MSG_FAILURE([protobuf requested but libprotobuf-c not found.  Install protobuf-c.])
+  ])
+
+  PROTO3=true
+  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h],
+                  [AC_CHECK_DECLS(PROTOBUF_C_LABEL_NONE,
+                                  AC_DEFINE([HAVE_PROTOBUF_VERSION_3],
+                                            [1], [Have Protobuf version 3]),
+                                  [PROTO3=false],
+                                  [#include <google/protobuf-c/protobuf-c.h>])],
+                  [PROTO3=false && AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])])
+
   AC_DEFINE([HAVE_CMGD], [1], [cmgd])
 ])
 
@@ -2596,7 +2620,7 @@ AM_CONDITIONAL([RPKI], [test "$RPKI" = "true"])
 AM_CONDITIONAL([SNMP], [test "$SNMP_METHOD" = "agentx"])
 AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
-AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
+AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" != "no"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 
 dnl PCEP plugin

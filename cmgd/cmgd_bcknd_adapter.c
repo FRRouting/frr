@@ -27,6 +27,7 @@
 #include "cmgd/cmgd.h"
 #include "cmgd/cmgd_memory.h"
 #include "cmgd/cmgd_bcknd_adapter.h"
+#include "lib/cmgd_pb.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define CMGD_BCKND_ADPTR_DBG(fmt, ...)				\
@@ -68,14 +69,41 @@ static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 }
 
 static int cmgd_bcknd_adapter_process_msg(
-	cmgd_bcknd_client_adapter_t *adptr, uint8_t *bkcnd_msg, int bytes_read)
+	cmgd_bcknd_client_adapter_t *adptr, uint8_t *msg_buf, int bytes_read)
 {
-	(void) bkcnd_msg;
+	Cmgd__BckndMessage *bcknd_msg;
 
 	CMGD_BCKND_ADPTR_DBG(
 		"Got message of %d bytes from CMGD Backend adapter '%s'", 
 		bytes_read, adptr->name);
 
+	bcknd_msg = cmgd__bcknd_message__unpack(NULL, bytes_read, msg_buf);
+	if (!bcknd_msg) {
+		CMGD_BCKND_ADPTR_DBG(
+			"Failed to decode %d bytes from CMGD Backend adapter '%s'", 
+			bytes_read, adptr->name);
+		return -1;
+	}
+
+	switch(bcknd_msg->type) {
+	case CMGD__BCKND_MESSAGE__TYPE__SUBSCRIBE_REQ:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_SUBSCR_REQ);
+		CMGD_BCKND_ADPTR_DBG(
+			"Got Subscribe Req Msg from '%s' to %sregister %u xpaths", 
+			bcknd_msg->subscr_req->client_name, 
+			!bcknd_msg->subscr_req->subscribe_xpaths && 
+			bcknd_msg->subscr_req->n_xpath_reg ? "de" : "", 
+			(uint32_t)bcknd_msg->subscr_req->n_xpath_reg);
+
+		if (strlen(bcknd_msg->subscr_req->client_name))
+			strlcpy(adptr->name, bcknd_msg->subscr_req->client_name, 
+				sizeof(adptr->name));
+		break;
+	default:
+		break;
+	}
+
+	cmgd__bcknd_message__free_unpacked(bcknd_msg, NULL);
 	return 0;
 }
 

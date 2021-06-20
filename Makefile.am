@@ -139,6 +139,24 @@ $(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
 
+# Include default rules to compile protobuf message sources
+SUFFIXES += .proto .pb-c.c .pb-c.h
+
+# Rules
+.proto.pb.h:
+	$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_builddir) $^
+
+AM_V_PROTOC_C = $(am__v_PROTOC_C_$(V))
+am__v_PROTOC_C_ = $(am__v_PROTOC_C_$(AM_DEFAULT_VERBOSITY))
+am__v_PROTOC_C_0 = @echo "  PROTOC_C" $@;
+am__v_PROTOC_C_1 =
+
+.proto.pb-c.c:
+	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_builddir) $^
+	$(AM_V_GEN)$(SED) -e '1i#include "config.h"' -i $@
+.pb-c.c.pb-c.h:
+	@/bin/true
+
 include doc/subdir.am
 include doc/user/subdir.am
 include doc/manpages/subdir.am

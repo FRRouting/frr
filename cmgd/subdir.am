@@ -2,7 +2,6 @@
 # cmgd -- Centralised Mangagement Daemon
 #
 
-# if CMGD
 noinst_LIBRARIES += cmgd/libcmgd.a
 sbin_PROGRAMS += cmgd/cmgd
 

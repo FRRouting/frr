@@ -48,6 +48,11 @@ extern "C" {
  * Data-structures
  ***************************************************************/
 
+typedef struct cmgd_bcknd_yang_data_ {
+	char xpath[CMGD_MAX_XPATH_LEN];
+	struct nb_yang_value xpath_data;
+} cmgd_bcknd_yang_data_t;
+
 /*
  * Single handler to notify connection/disconnoect to/from 
  * CMGD daemon.
@@ -150,15 +155,22 @@ extern cmgd_lib_hndl_t cmgd_bcknd_client_lib_init(
  * Subscribe with CMGD for one or more YANG subtree(s).
  */
 extern cmgd_result_t cmgd_bcknd_subscribe_yang_data(
-	cmgd_lib_hndl_t lib_hndl, struct nb_yang_xpath *xpaths[],
+	cmgd_lib_hndl_t lib_hndl, char *reg_yang_xpaths[],
 	int num_xpaths);
 
 /*
  * Send one or more YANG notifications to CMGD daemon.
  */
 extern cmgd_result_t cmgd_bcknd_send_yang_notify(
-	cmgd_lib_hndl_t lib_hndl, struct nb_yang_xpath_elem *elems[],
+	cmgd_lib_hndl_t lib_hndl, cmgd_bcknd_yang_data_t *data_elems[],
 	int num_elems);
+
+/*
+ * Unubscribe with CMGD for one or more YANG subtree(s).
+ */
+cmgd_result_t cmgd_bcknd_unsubscribe_yang_data(
+	cmgd_lib_hndl_t lib_hndl, char *reg_yang_xpaths[],
+	int num_reg_xpaths);
 
 /*
  * Destroy library and cleanup everything.
