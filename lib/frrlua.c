@@ -290,6 +290,10 @@ void *lua_tostringp(lua_State *L, int idx)
 	return string;
 }
 
+void lua_decode_noop(lua_State *L, int idx, const void *ptr)
+{
+}
+
 /*
  * Logging.
  *
