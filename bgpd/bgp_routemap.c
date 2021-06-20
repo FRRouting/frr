@@ -29,6 +29,7 @@
 #include "memory.h"
 #include "log.h"
 #include "frrlua.h"
+#include "frrscript.h"
 #ifdef HAVE_LIBPCREPOSIX
 #include <pcreposix.h>
 #else
@@ -373,42 +374,27 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
-	enum frrlua_rm_status status_failure = LUA_RM_FAILURE,
+	enum frrlua_rm_status lrm_status = LUA_RM_FAILURE,
 			      status_nomatch = LUA_RM_NOMATCH,
 			      status_match = LUA_RM_MATCH,
 			      status_match_and_change = LUA_RM_MATCH_AND_CHANGE;
 
-	/* Make result values available */
-	struct frrscript_env env[] = {
-		{"integer", "RM_FAILURE", &status_failure},
-		{"integer", "RM_NOMATCH", &status_nomatch},
-		{"integer", "RM_MATCH", &status_match},
-		{"integer", "RM_MATCH_AND_CHANGE", &status_match_and_change},
-		{"integer", "action", &status_failure},
-		{"prefix", "prefix", prefix},
-		{"attr", "attributes", path->attr},
-		{"peer", "peer", path->peer},
-		{}};
-
-	struct frrscript_env results[] = {
-		{"integer", "action"},
-		{"attr", "attributes"},
-		{},
-	};
-
-	int result = frrscript_call(fs, env);
+	int result = frrscript_call(
+		fs, ("RM_FAILURE", (long long *)&lrm_status),
+		("RM_NOMATCH", (long long *)&status_nomatch),
+		("RM_MATCH", (long long *)&status_match),
+		("RM_MATCH_AND_CHANGE", (long long *)&status_match_and_change),
+		("action", (long long *)&lrm_status), ("prefix", prefix),
+		("attributes", path->attr), ("peer", path->peer));
 
 	if (result) {
 		zlog_err("Issue running script rule; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
-	enum frrlua_rm_status *lrm_status =
-		frrscript_get_result(fs, &results[0]);
-
 	int status = RMAP_NOMATCH;
 
-	switch (*lrm_status) {
+	switch (lrm_status) {
 	case LUA_RM_FAILURE:
 		zlog_err(
 			"Executing route-map match script '%s' failed; defaulting to no match",
@@ -421,29 +407,12 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	case LUA_RM_MATCH_AND_CHANGE:
 		status = RMAP_MATCH;
 		zlog_debug("Updating attribute based on script's values");
-
-		uint32_t locpref = 0;
-		struct attr *newattr = frrscript_get_result(fs, &results[1]);
-
-		path->attr->med = newattr->med;
-
-		if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
-			locpref = path->attr->local_pref;
-		if (locpref != newattr->local_pref) {
-			SET_FLAG(path->attr->flag,
-				 ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
-			path->attr->local_pref = newattr->local_pref;
-		}
-
-		aspath_free(newattr->aspath);
-		XFREE(MTYPE_TMP, newattr);
 		break;
 	case LUA_RM_MATCH:
 		status = RMAP_MATCH;
 		break;
 	}
 
-	XFREE(MTYPE_TMP, lrm_status);
 	frrscript_unload(fs);
 
 	return status;
