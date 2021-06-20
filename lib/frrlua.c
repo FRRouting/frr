@@ -76,6 +76,8 @@ void lua_decode_prefix(lua_State *L, int idx, struct prefix *prefix)
 	lua_getfield(L, idx, "network");
 	(void)str2prefix(lua_tostring(L, -1), prefix);
 	lua_pop(L, 1);
+	/* pop the table */
+	lua_pop(L, 1);
 }
 
 void *lua_toprefix(lua_State *L, int idx)
@@ -147,6 +149,8 @@ void lua_decode_interface(lua_State *L, int idx, struct interface *ifp)
 	lua_getfield(L, idx, "linklayer_type");
 	ifp->ll_type = lua_tointeger(L, -1);
 	lua_pop(L, 1);
+	/* pop the table */
+	lua_pop(L, 1);
 }
 void *lua_tointerface(lua_State *L, int idx)
 {
@@ -173,6 +177,8 @@ void lua_decode_inaddr(lua_State *L, int idx, struct in_addr *inaddr)
 {
 	lua_getfield(L, idx, "value");
 	inaddr->s_addr = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	/* pop the table */
 	lua_pop(L, 1);
 }
 
@@ -202,6 +208,8 @@ void lua_decode_in6addr(lua_State *L, int idx, struct in6_addr *in6addr)
 	lua_getfield(L, idx, "string");
 	inet_pton(AF_INET6, lua_tostring(L, -1), in6addr);
 	lua_pop(L, 1);
+	/* pop the table */
+	lua_pop(L, 1);
 }
 
 void *lua_toin6addr(lua_State *L, int idx)
@@ -229,6 +237,9 @@ void lua_decode_sockunion(lua_State *L, int idx, union sockunion *su)
 {
 	lua_getfield(L, idx, "string");
 	str2sockunion(lua_tostring(L, -1), su);
+	lua_pop(L, 1);
+	/* pop the table */
+	lua_pop(L, 1);
 }
 
 void *lua_tosockunion(lua_State *L, int idx)
@@ -247,6 +258,7 @@ void lua_pushtimet(lua_State *L, const time_t *time)
 void lua_decode_timet(lua_State *L, int idx, time_t *t)
 {
 	*t = lua_tointeger(L, idx);
+	lua_pop(L, 1);
 }
 
 void *lua_totimet(lua_State *L, int idx)
@@ -266,6 +278,7 @@ void lua_decode_integerp(lua_State *L, int idx, long long *num)
 {
 	int isnum;
 	*num = lua_tonumberx(L, idx, &isnum);
+	lua_pop(L, 1);
 	assert(isnum);
 }
 
