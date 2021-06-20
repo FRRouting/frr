@@ -105,7 +105,7 @@ void frrscript_init(const char *scriptdir);
 #define DECODE_ARGS(name, value)                                               \
 	do {                                                                   \
 		lua_getglobal(L, name);                                        \
-		DECODE_ARGS_WITH_STATE(L, value)                               \
+		DECODE_ARGS_WITH_STATE(L, value);                              \
 	} while (0)
 
 #define ENCODE_ARGS_WITH_STATE(L, value)                                       \
@@ -120,7 +120,17 @@ time_t * : lua_pushtimet,                                       \
 char * : lua_pushstring_wrapper                                 \
 )(L, value)
 
-#define DECODE_ARGS_WITH_STATE(L, value) _Generic((value), )(L, value);
+#define DECODE_ARGS_WITH_STATE(L, value)                                       \
+	_Generic((value), \
+long long * : lua_decode_integerp,                              \
+struct prefix * : lua_decode_prefix,                            \
+struct interface * : lua_decode_interface,                      \
+struct in_addr * : lua_decode_inaddr,                           \
+struct in6_addr * : lua_decode_in6addr,                         \
+union sockunion * : lua_decode_sockunion,                       \
+time_t * : lua_decode_timet,                                    \
+char * : lua_decode_stringp                                     \
+)(L, -1, value)
 
 /*
  * Call script.

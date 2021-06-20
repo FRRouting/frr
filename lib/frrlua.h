@@ -50,6 +50,8 @@ static inline void lua_pushstring_wrapper(lua_State *L, const char *str)
  */
 void lua_pushprefix(lua_State *L, const struct prefix *prefix);
 
+void lua_decode_prefix(lua_State *L, int idx, struct prefix *prefix);
+
 /*
  * Converts the Lua value at idx to a prefix.
  *
@@ -62,6 +64,8 @@ void *lua_toprefix(lua_State *L, int idx);
  * Converts an interface to a Lua value and pushes it on the stack.
  */
 void lua_pushinterface(lua_State *L, const struct interface *ifp);
+
+void lua_decode_interface(lua_State *L, int idx, struct interface *ifp);
 
 /*
  * Converts the Lua value at idx to an interface.
@@ -77,6 +81,8 @@ void *lua_tointerface(lua_State *L, int idx);
  */
 void lua_pushinaddr(lua_State *L, const struct in_addr *addr);
 
+void lua_decode_inaddr(lua_State *L, int idx, struct in_addr *addr);
+
 /*
  * Converts the Lua value at idx to an in_addr.
  *
@@ -89,6 +95,8 @@ void *lua_toinaddr(lua_State *L, int idx);
  * Converts an in6_addr to a Lua value and pushes it on the stack.
  */
 void lua_pushin6addr(lua_State *L, const struct in6_addr *addr);
+
+void lua_decode_in6addr(lua_State *L, int idx, struct in6_addr *addr);
 
 /*
  * Converts the Lua value at idx to an in6_addr.
@@ -103,6 +111,8 @@ void *lua_toin6addr(lua_State *L, int idx);
  */
 void lua_pushtimet(lua_State *L, const time_t *time);
 
+void lua_decode_timet(lua_State *L, int idx, time_t *time);
+
 /*
  * Converts the Lua value at idx to a time_t.
  *
@@ -115,6 +125,8 @@ void *lua_totimet(lua_State *L, int idx);
  * Converts a sockunion to a Lua value and pushes it on the stack.
  */
 void lua_pushsockunion(lua_State *L, const union sockunion *su);
+
+void lua_decode_sockunion(lua_State *L, int idx, union sockunion *su);
 
 /*
  * Converts the Lua value at idx to a sockunion.
@@ -129,6 +141,8 @@ void *lua_tosockunion(lua_State *L, int idx);
  */
 void lua_pushintegerp(lua_State *L, const long long *num);
 
+void lua_decode_integerp(lua_State *L, int idx, long long *num);
+
 /*
  * Converts the Lua value at idx to an int.
  *
@@ -136,6 +150,8 @@ void lua_pushintegerp(lua_State *L, const long long *num);
  *    int allocated with MTYPE_TMP.
  */
 void *lua_tointegerp(lua_State *L, int idx);
+
+void lua_decode_stringp(lua_State *L, int idx, char *str);
 
 /*
  * Pop string.
