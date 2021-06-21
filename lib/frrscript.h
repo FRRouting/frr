@@ -25,6 +25,7 @@
 
 #include <lua.h>
 #include "frrlua.h"
+#include "../bgpd/bgp_script.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,7 +118,9 @@ struct in_addr * : lua_pushinaddr,                              \
 struct in6_addr * : lua_pushin6addr,                            \
 union sockunion * : lua_pushsockunion,                          \
 time_t * : lua_pushtimet,                                       \
-char * : lua_pushstring_wrapper                                 \
+char * : lua_pushstring_wrapper,                                \
+struct attr * : lua_pushattr,                                   \
+struct peer * : lua_pushpeer                                    \
 )(L, value)
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
@@ -129,7 +132,8 @@ struct in_addr * : lua_decode_inaddr,                           \
 struct in6_addr * : lua_decode_in6addr,                         \
 union sockunion * : lua_decode_sockunion,                       \
 time_t * : lua_decode_timet,                                    \
-char * : lua_decode_stringp                                     \
+char * : lua_decode_stringp,                                    \
+struct attr * : lua_decode_attr                                 \
 )(L, -1, value)
 
 /*
