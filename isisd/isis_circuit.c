@@ -1076,10 +1076,8 @@ static int isis_interface_config_write(struct vty *vty)
 
 	isis = isis_lookup_by_vrfid(vrf->vrf_id);
 
-	if (isis == NULL) {
-		vty_out(vty, "ISIS routing instance not found");
+	if (isis == NULL)
 		return 0;
-	}
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
