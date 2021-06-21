@@ -303,8 +303,7 @@ lookup_psid_lsa_by_instance(const struct ext_itf *exti, const uint32_t instance)
 	return NULL;
 }
 
-__attribute__((unused))
-static struct prefix_sid_lsa *
+__attribute__((unused)) static struct prefix_sid_lsa *
 lookup_psid_lsa_by_prefix(const struct ext_itf *exti, const struct prefix *p)
 {
 	struct listnode *node;
@@ -515,7 +514,7 @@ static void set_adj_sid(struct ext_itf *exti, bool backup, uint32_t value,
 	}
 
 	llsa->adj_sid[index].flags = flags; /* Set computed flags */
-	llsa->adj_sid[index].mtid = 0;	 /* Multi-Topology is not supported */
+	llsa->adj_sid[index].mtid = 0;   /* Multi-Topology is not supported */
 	llsa->adj_sid[index].weight = 0; /* Load-Balancing is not supported */
 }
 
@@ -556,7 +555,7 @@ static void set_lan_adj_sid(struct ext_itf *exti, bool backup, uint32_t value,
 	}
 
 	llsa->lan_sid[index].flags = flags; /* Set computed flags */
-	llsa->lan_sid[index].mtid = 0;	 /* Multi-Topology is not supported */
+	llsa->lan_sid[index].mtid = 0;   /* Multi-Topology is not supported */
 	llsa->lan_sid[index].weight = 0; /* Load-Balancing is not supported */
 	llsa->lan_sid[index].neighbor_id = neighbor_id;
 }

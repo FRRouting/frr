@@ -2627,7 +2627,7 @@ DEFUN (sr_prefix_sid,
 	return CMD_SUCCESS;
 }
 
-struct sr_prefix* ospf_sr_lookup_prefix(struct prefix *p)
+struct sr_prefix *ospf_sr_lookup_prefix(struct prefix *p)
 {
 	struct listnode *node;
 	struct sr_prefix *srp;
@@ -2654,8 +2654,9 @@ int ospf_sr_remove_prefix(struct sr_prefix *srp)
 	/* Get Interface */
 	ifp = if_lookup_by_index(srp->nhlfe.ifindex, VRF_DEFAULT);
 	if (ifp == NULL) {
-		osr_debug("SR (%s): could not find interface with ifindex %u from SRP",
-				__func__, srp->nhlfe.ifindex);
+		osr_debug(
+			"SR (%s): could not find interface with ifindex %u from SRP",
+			__func__, srp->nhlfe.ifindex);
 		return -1;
 	}
 
@@ -2714,7 +2715,8 @@ DEFUN (no_sr_prefix_sid,
 
 	rc = ospf_sr_remove_prefix(srp);
 	if (rc < 0) {
-		vty_out(vty, "Could not find interface corresponding to the prefix\n");
+		vty_out(vty,
+			"Could not find interface corresponding to the prefix\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
