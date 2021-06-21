@@ -1143,9 +1143,13 @@ static const struct cmd_variable_handler pbr_map_name[] = {
 	}
 };
 
+extern struct zebra_privs_t pbr_privs;
+
 void pbr_vty_init(void)
 {
 	cmd_variable_handler_register(pbr_map_name);
+
+	vrf_cmd_init(NULL, &pbr_privs);
 
 	install_node(&interface_node);
 	if_cmd_init();
