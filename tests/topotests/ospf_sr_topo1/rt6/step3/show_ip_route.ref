@@ -1,2 +1,17 @@
 {
+  "6.6.6.6\/32":[
+    {
+      "prefix":"6.6.6.6\/32",
+      "protocol":"ospf",
+      "distance":110,
+      "metric":0,
+      "nexthops":[
+        {
+          "directlyConnected":true,
+          "interfaceName":"lo",
+          "active":true
+        }
+      ]
+    }
+  ]
 }

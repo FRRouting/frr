@@ -22,6 +22,44 @@
       ]
     }
   ],
+  "1.1.2.1\/32":[
+    {
+      "prefix":"1.1.2.1\/32",
+      "protocol":"ospf",
+      "selected":true,
+      "destSelected":true,
+      "distance":110,
+      "metric":10,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "ip":"10.0.1.1",
+          "afi":"ipv4",
+          "interfaceName":"eth-sw1",
+          "active":true,
+          "labels":[
+            3
+          ]
+        }
+      ]
+    }
+  ],
+  "2.2.2.2\/32":[
+    {
+      "prefix":"2.2.2.2\/32",
+      "protocol":"ospf",
+      "distance":110,
+      "metric":0,
+      "nexthops":[
+        {
+          "directlyConnected":true,
+          "interfaceName":"lo",
+          "active":true
+        }
+      ]
+    }
+  ],
   "3.3.3.3\/32":[
     {
       "prefix":"3.3.3.3\/32",

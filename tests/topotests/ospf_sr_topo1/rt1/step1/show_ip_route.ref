@@ -1,4 +1,34 @@
 {
+  "1.1.1.1\/32":[
+    {
+      "prefix":"1.1.1.1\/32",
+      "protocol":"ospf",
+      "distance":110,
+      "metric":0,
+      "nexthops":[
+        {
+          "directlyConnected":true,
+          "interfaceName":"lo",
+          "active":true
+        }
+      ]
+    }
+  ],
+  "1.1.2.1\/32":[
+    {
+      "prefix":"1.1.2.1\/32",
+      "protocol":"ospf",
+      "distance":110,
+      "metric":0,
+      "nexthops":[
+        {
+          "directlyConnected":true,
+          "interfaceName":"lo",
+          "active":true
+        }
+      ]
+    }
+  ],
   "2.2.2.2\/32":[
     {
       "prefix":"2.2.2.2\/32",

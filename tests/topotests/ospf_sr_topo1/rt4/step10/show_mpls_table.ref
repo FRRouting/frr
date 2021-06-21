@@ -6,6 +6,26 @@
       {
         "type":"SR (OSPF)",
         "outLabel":16010,
+        "outLabelStack":[
+          16010
+        ],
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.3.2"
+      }
+    ]
+  },
+  "16012":{
+    "inLabel":16012,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":16012,
+        "outLabelStack":[
+          16012
+        ],
+        "distance":150,
         "installed":true,
         "nexthop":"10.0.3.2"
       }

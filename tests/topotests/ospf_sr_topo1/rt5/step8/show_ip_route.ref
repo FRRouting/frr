@@ -32,6 +32,39 @@
       ]
     }
   ],
+  "1.1.2.1\/32":[
+    {
+      "prefix":"1.1.2.1\/32",
+      "protocol":"ospf",
+      "selected":true,
+      "destSelected":true,
+      "distance":110,
+      "metric":20,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "ip":"10.0.4.3",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt3-1",
+          "active":true,
+          "labels":[
+            17012
+          ]
+        },
+        {
+          "fib":true,
+          "ip":"10.0.5.3",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt3-2",
+          "active":true,
+          "labels":[
+            17012
+          ]
+        }
+      ]
+    }
+  ],
   "2.2.2.2\/32":[
     {
       "prefix":"2.2.2.2\/32",
@@ -117,6 +150,21 @@
           "labels":[
             18040
           ]
+        }
+      ]
+    }
+  ],
+  "5.5.5.5\/32":[
+    {
+      "prefix":"5.5.5.5\/32",
+      "protocol":"ospf",
+      "distance":110,
+      "metric":0,
+      "nexthops":[
+        {
+          "directlyConnected":true,
+          "interfaceName":"lo",
+          "active":true
         }
       ]
     }
@@ -264,6 +312,21 @@
         {
           "directlyConnected":true,
           "interfaceName":"eth-rt3-2",
+          "active":true
+        }
+      ]
+    }
+  ],
+  "10.0.6.0\/24":[
+    {
+      "prefix":"10.0.6.0\/24",
+      "protocol":"ospf",
+      "distance":110,
+      "metric":10,
+      "nexthops":[
+        {
+          "directlyConnected":true,
+          "interfaceName":"eth-rt4",
           "active":true
         }
       ]

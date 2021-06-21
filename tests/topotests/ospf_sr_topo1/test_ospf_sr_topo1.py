@@ -476,7 +476,7 @@ def test_rib_ipv4_step7():
 
     logger.info("Deleting rt1's Prefix-SIDs")
     tgen.net["rt1"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "no segment-routing prefix 1.1.1.1/32 index 10"'
+        'vtysh -c "conf t" -c "router ospf" -c "no segment-routing prefix 1.1.1.1/32 index 10" -c "no segment-routing prefix 1.1.2.1/32 index 12"'
     )
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
@@ -518,7 +518,7 @@ def test_rib_ipv4_step8():
 
     logger.info("Re-adding rt1's Prefix-SIDs")
     tgen.net["rt1"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "segment-routing prefix 1.1.1.1/32 index 10"'
+        'vtysh -c "conf t" -c "router ospf" -c "segment-routing prefix 1.1.1.1/32 index 10" -c "segment-routing prefix 1.1.2.1/32 index 12"'
     )
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
@@ -560,7 +560,7 @@ def test_rib_ipv4_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Changing rt1's Prefix-SIDs to use the no-php option")
+    logger.info("Changing rt1's Prefix-SID for 1.1.1.1/32 to use the no-php option")
     tgen.net["rt1"].cmd(
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing prefix 1.1.1.1/32 index 10 no-php-flag"'
     )

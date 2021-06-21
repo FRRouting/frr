@@ -6,6 +6,26 @@
       {
         "type":"SR (OSPF)",
         "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.1.1"
+      }
+    ]
+  },
+  "16012":{
+    "inLabel":16012,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "outLabelStack":[
+          3
+        ],
+        "distance":150,
         "installed":true,
         "nexthop":"10.0.1.1"
       }
@@ -42,13 +62,13 @@
         "type":"SR (OSPF)",
         "outLabel":16040,
         "installed":true,
-        "nexthop":"10.0.2.4"
+        "nexthop":"10.0.3.4"
       },
       {
         "type":"SR (OSPF)",
         "outLabel":16040,
         "installed":true,
-        "nexthop":"10.0.3.4"
+        "nexthop":"10.0.2.4"
       }
     ]
   },
