@@ -12,6 +12,7 @@ RUN apt update && \
       libcap-dev python2 libelf-dev \
       sudo gdb curl iputils-ping time \
       libgrpc++-dev libgrpc-dev protobuf-compiler-grpc \
+      lua5.3 liblua5.3-dev \
       mininet iproute2 iperf && \
       curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output /tmp/get-pip.py && \
       python2 /tmp/get-pip.py && \
@@ -66,6 +67,7 @@ RUN cd ~/frr && \
        --enable-group=frr \
        --enable-vty-group=frrvty \
        --enable-snmp=agentx \
+       --enable-scripting \
        --with-pkg-extra-version=-my-manual-build && \
     make -j $(nproc) && \
     sudo make install
