@@ -771,6 +771,7 @@ void vrrp_vty_init(void)
 	install_node(&debug_node);
 	install_node(&interface_node);
 	install_node(&vrrp_node);
+	vrf_cmd_init(NULL, &vrrp_privs);
 	if_cmd_init();
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);

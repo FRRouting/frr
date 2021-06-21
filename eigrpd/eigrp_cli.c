@@ -919,6 +919,8 @@ eigrp_cli_init(void)
 	install_element(EIGRP_NODE, &eigrp_neighbor_cmd);
 	install_element(EIGRP_NODE, &eigrp_redistribute_source_metric_cmd);
 
+	vrf_cmd_init(NULL, &eigrpd_privs);
+
 	install_node(&eigrp_interface_node);
 	if_cmd_init();
 
