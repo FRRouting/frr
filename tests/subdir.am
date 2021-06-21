@@ -448,6 +448,8 @@ EXTRA_DIST += \
 	tests/lib/northbound/test_oper_data.refout \
 	tests/lib/test_assert.py \
 	tests/lib/test_atomlist.py \
+	tests/lib/test_frrscript.py \
+	tests/lib/test_frrlua.py \
 	tests/lib/test_nexthop_iter.py \
 	tests/lib/test_nexthop.py \
 	tests/lib/test_ntop.py \
