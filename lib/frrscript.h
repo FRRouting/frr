@@ -120,7 +120,8 @@ union sockunion * : lua_pushsockunion,                          \
 time_t * : lua_pushtimet,                                       \
 char * : lua_pushstring_wrapper,                                \
 struct attr * : lua_pushattr,                                   \
-struct peer * : lua_pushpeer                                    \
+struct peer * : lua_pushpeer,                                   \
+const struct prefix * : lua_pushprefix                          \
 )(L, value)
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
@@ -133,7 +134,9 @@ struct in6_addr * : lua_decode_in6addr,                         \
 union sockunion * : lua_decode_sockunion,                       \
 time_t * : lua_decode_timet,                                    \
 char * : lua_decode_stringp,                                    \
-struct attr * : lua_decode_attr                                 \
+struct attr * : lua_decode_attr,                                \
+struct peer * : lua_decode_noop,                                \
+const struct prefix * : lua_decode_noop                         \
 )(L, -1, value)
 
 /*
