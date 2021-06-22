@@ -273,8 +273,8 @@ void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);
 void isis_prefix_list_update(struct prefix_list *plist);
 void print_debug(struct vty *, int, int);
-struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
-			     struct isis *isis);
+struct isis_lsp *lsp_for_sysid(struct lspdb_head *head, const char *sysid_str,
+			       struct isis *isis);
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);
