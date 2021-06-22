@@ -187,7 +187,7 @@ DEFUN (show_lsp_flooding,
 		vty_out(vty, "Area %s:\n",
 			area->area_tag ? area->area_tag : "null");
 		if (lspid) {
-			lsp = lsp_for_arg(head, lspid, isis);
+			lsp = lsp_for_sysid(head, lspid, isis);
 			if (lsp)
 				lsp_print_flooding(vty, lsp, isis);
 			continue;
