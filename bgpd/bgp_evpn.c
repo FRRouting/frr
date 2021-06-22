@@ -2628,8 +2628,10 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		    && (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
-	if (!pi)
+	if (!pi) {
+		bgp_dest_unlock_node(dest);
 		return 0;
+	}
 
 	if (bgp_debug_zebra(NULL))
 		zlog_debug("... delete dest %p (l %d) pi %p (l %d, f 0x%x)",
@@ -2690,8 +2692,10 @@ static int uninstall_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		    && (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
-	if (!pi)
+	if (!pi) {
+		bgp_dest_unlock_node(dest);
 		return 0;
+	}
 
 	/* Mark entry for deletion */
 	bgp_path_info_delete(dest, pi);
@@ -5308,8 +5312,10 @@ int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	} else {
 		/* Re-instate the current remote best path if any */
 		dest = bgp_node_lookup(vpn->route_table, (struct prefix *)&p);
-		if (dest)
+		if (dest) {
 			evpn_zebra_reinstall_best_route(bgp, vpn, dest);
+			bgp_dest_unlock_node(dest);
+		}
 	}
 
 	return 0;
