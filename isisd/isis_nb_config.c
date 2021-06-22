@@ -111,6 +111,28 @@ int isis_instance_is_type_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+struct sysid_iter {
+	struct area_addr *addr;
+	bool same;
+};
+
+static int sysid_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct sysid_iter *iter = arg;
+	struct area_addr addr;
+	const char *net;
+
+	net = yang_dnode_get_string(dnode, NULL);
+	addr.addr_len = dotformat2buff(addr.area_addr, net);
+
+	if (memcmp(GETSYSID(iter->addr), GETSYSID((&addr)), ISIS_SYS_ID_LEN)) {
+		iter->same = false;
+		return YANG_ITER_STOP;
+	}
+
+	return YANG_ITER_CONTINUE;
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/area-address
  */
@@ -119,14 +141,12 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 	struct isis_area *area;
 	struct area_addr addr, *addrr = NULL, *addrp = NULL;
 	struct listnode *node;
+	struct sysid_iter iter;
 	uint8_t buff[255];
 	const char *net_title = yang_dnode_get_string(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		area = nb_running_get_entry(args->dnode, NULL, false);
-		if (area == NULL)
-			return NB_ERR_VALIDATION;
 		addr.addr_len = dotformat2buff(buff, net_title);
 		memcpy(addr.area_addr, buff, addr.addr_len);
 		if (addr.area_addr[addr.addr_len - 1] != 0) {
@@ -135,15 +155,18 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 				"nsel byte (last byte) in area address must be 0");
 			return NB_ERR_VALIDATION;
 		}
-		if (area->isis->sysid_set) {
-			/* Check that the SystemID portions match */
-			if (memcmp(area->isis->sysid, GETSYSID((&addr)),
-				   ISIS_SYS_ID_LEN)) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"System ID must not change when defining additional area addresses");
-				return NB_ERR_VALIDATION;
-			}
+
+		iter.addr = &addr;
+		iter.same = true;
+
+		yang_dnode_iterate(sysid_iter_cb, &iter, args->dnode,
+				   "../area-address");
+
+		if (!iter.same) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"System ID must not change when defining additional area addresses");
+			return NB_ERR_VALIDATION;
 		}
 		break;
 	case NB_EV_PREPARE:
