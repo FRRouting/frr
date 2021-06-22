@@ -3204,26 +3204,14 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	bool ldp_sync_enable;
-	struct interface *ifp;
+	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))), NULL,
-			false);
-		if (ifp == NULL)
-			return NB_ERR_VALIDATION;
-		if (if_is_loopback(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync does not run on loopback interface");
-			return NB_ERR_VALIDATION;
-		}
-
-		circuit = nb_running_get_entry(args->dnode, NULL, false);
-		if (circuit == NULL || circuit->area == NULL)
-			break;
-
-		if (circuit->isis->vrf_id != VRF_DEFAULT) {
+		vrfname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
+			"./vrf");
+		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "LDP-Sync only runs on Default VRF");
 			return NB_ERR_VALIDATION;
@@ -3260,27 +3248,14 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	uint16_t holddown;
-	struct interface *ifp;
+	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-
-		ifp = nb_running_get_entry(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))), NULL,
-			false);
-		if (ifp == NULL)
-			return NB_ERR_VALIDATION;
-		if (if_is_loopback(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync does not run on loopback interface");
-			return NB_ERR_VALIDATION;
-		}
-
-		circuit = nb_running_get_entry(args->dnode, NULL, false);
-		if (circuit == NULL || circuit->area == NULL)
-			break;
-
-		if (circuit->isis->vrf_id != VRF_DEFAULT) {
+		vrfname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
+			"./vrf");
+		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "LDP-Sync only runs on Default VRF");
 			return NB_ERR_VALIDATION;
@@ -3306,26 +3281,14 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
-	struct interface *ifp;
+	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))), NULL,
-			false);
-		if (ifp == NULL)
-			return NB_ERR_VALIDATION;
-		if (if_is_loopback(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync does not run on loopback interface");
-			return NB_ERR_VALIDATION;
-		}
-
-		circuit = nb_running_get_entry(args->dnode, NULL, false);
-		if (circuit == NULL || circuit->area == NULL)
-			break;
-
-		if (circuit->isis->vrf_id != VRF_DEFAULT) {
+		vrfname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
+			"./vrf");
+		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "LDP-Sync only runs on Default VRF");
 			return NB_ERR_VALIDATION;
