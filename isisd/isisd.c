@@ -2172,7 +2172,7 @@ struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 			     struct isis *isis)
 {
 	char sysid[255] = {0};
-	uint8_t number[3];
+	uint8_t number[3] = {0};
 	const char *pos;
 	uint8_t lspid[ISIS_SYS_ID_LEN + 2] = {0};
 	struct isis_dynhn *dynhn;
