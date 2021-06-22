@@ -124,6 +124,8 @@ static void lsp_destroy(struct isis_lsp *lsp)
 
 	ISIS_FLAGS_CLEAR_ALL(lsp->SSNflags);
 
+	isis_te_lsp_event(lsp, LSP_DEL);
+
 	lsp_clear_data(lsp);
 
 	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
@@ -335,6 +337,7 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 
 	lsp_pack_pdu(lsp);
 	isis_spf_schedule(lsp->area, lsp->level);
+	isis_te_lsp_event(lsp, LSP_INC);
 }
 
 static void lsp_purge_add_poi(struct isis_lsp *lsp,
@@ -570,8 +573,10 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 			lsp_link_fragment(lsp, lsp0);
 	}
 
-	if (lsp->hdr.seqno)
+	if (lsp->hdr.seqno) {
 		isis_spf_schedule(lsp->area, lsp->level);
+		isis_te_lsp_event(lsp, LSP_UPD);
+	}
 }
 
 /* creation of LSP directly from what we received */
@@ -636,8 +641,10 @@ struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 void lsp_insert(struct lspdb_head *head, struct isis_lsp *lsp)
 {
 	lspdb_add(head, lsp);
-	if (lsp->hdr.seqno)
+	if (lsp->hdr.seqno) {
 		isis_spf_schedule(lsp->area, lsp->level);
+		isis_te_lsp_event(lsp, LSP_ADD);
+	}
 }
 
 /*
@@ -1030,6 +1037,10 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.srlb.lower_bound = srdb->config.srlb_lower_bound;
 			/* And finally MSD */
 			cap.msd = srdb->config.msd;
+		} else {
+			/* Disable SR Algorithm */
+			cap.algo[0] = SR_ALGORITHM_UNSET;
+			cap.algo[1] = SR_ALGORITHM_UNSET;
 		}
 
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
@@ -2012,6 +2023,7 @@ int lsp_tick(struct thread *thread)
 				/* 7.3.16.4 c) record the time to purge
 				 * FIXME */
 				isis_spf_schedule(lsp->area, lsp->level);
+				isis_te_lsp_event(lsp, LSP_TICK);
 			}
 
 			if (lsp->age_out == 0) {
@@ -2166,7 +2178,7 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
 		return LSP_ITER_CONTINUE;
 
-	/* Parse main LSP. */
+	/* Parse LSP */
 	if (lsp->tlvs) {
 		if (!fabricd && !pseudo_lsp && family == AF_INET
 		    && mtid == ISIS_MT_IPV4_UNICAST) {
@@ -2236,13 +2248,17 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 		}
 	}
 
-	/* Parse LSP fragments. */
-	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
-		if (!frag->tlvs)
-			continue;
+	/* Parse LSP fragments if it is not a fragment itself */
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id))
+		for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
+			if (!frag->tlvs)
+				continue;
 
-		isis_lsp_iterate_ip_reach(frag, family, mtid, cb, arg);
-	}
+			if (isis_lsp_iterate_ip_reach(frag, family, mtid, cb,
+						      arg)
+			    == LSP_ITER_STOP)
+				return LSP_ITER_STOP;
+		}
 
 	return LSP_ITER_CONTINUE;
 }
@@ -2263,7 +2279,7 @@ int isis_lsp_iterate_is_reach(struct isis_lsp *lsp, uint16_t mtid,
 	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
 		return LSP_ITER_CONTINUE;
 
-	/* Parse main LSP. */
+	/* Parse LSP */
 	if (lsp->tlvs) {
 		if (pseudo_lsp || mtid == ISIS_MT_IPV4_UNICAST) {
 			head = lsp->tlvs->oldstyle_reach.head;
@@ -2295,13 +2311,16 @@ int isis_lsp_iterate_is_reach(struct isis_lsp *lsp, uint16_t mtid,
 		}
 	}
 
-	/* Parse LSP fragments. */
-	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
-		if (!frag->tlvs)
-			continue;
+	/* Parse LSP fragments if it not a fragment itself. */
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id))
+		for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
+			if (!frag->tlvs)
+				continue;
 
-		isis_lsp_iterate_is_reach(frag, mtid, cb, arg);
-	}
+			if (isis_lsp_iterate_is_reach(frag, mtid, cb, arg)
+			    == LSP_ITER_STOP)
+				return LSP_ITER_STOP;
+		}
 
 	return LSP_ITER_CONTINUE;
 }
