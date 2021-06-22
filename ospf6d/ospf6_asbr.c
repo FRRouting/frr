@@ -1577,11 +1577,12 @@ DEFUN (ospf6_redistribute,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	red = ospf6_redist_add(ospf6, type, 0);
+	red = ospf6_redist_lookup(ospf6, type, 0);
 	if (!red)
-		return CMD_SUCCESS;
+		ospf6_redist_add(ospf6, type, 0);
+	else
+		ospf6_asbr_redistribute_unset(ospf6, red, type);
 
-	ospf6_asbr_redistribute_unset(ospf6, red, type);
 	ospf6_asbr_redistribute_set(ospf6, type);
 
 	return CMD_SUCCESS;
@@ -1607,11 +1608,12 @@ DEFUN (ospf6_redistribute_routemap,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	red = ospf6_redist_add(ospf6, type, 0);
+	red = ospf6_redist_lookup(ospf6, type, 0);
 	if (!red)
-		return CMD_SUCCESS;
+		red = ospf6_redist_add(ospf6, type, 0);
+	else
+		ospf6_asbr_redistribute_unset(ospf6, red, type);
 
-	ospf6_asbr_redistribute_unset(ospf6, red, type);
 	ospf6_asbr_routemap_set(red, argv[idx_word]->arg);
 	ospf6_asbr_redistribute_set(ospf6, type);
 
