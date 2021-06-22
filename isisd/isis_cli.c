@@ -1283,6 +1283,36 @@ DEFPY_YANG(isis_mpls_te_inter_as, isis_mpls_te_inter_as_cmd,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/mpls-te/export
+ */
+DEFPY_YANG(isis_mpls_te_export, isis_mpls_te_export_cmd, "mpls-te export",
+      MPLS_TE_STR "Enable export of MPLS-TE Link State information\n")
+{
+	nb_cli_enqueue_change(vty, "./mpls-te/export", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_isis_mpls_te_export, no_isis_mpls_te_export_cmd,
+      "no mpls-te export",
+      NO_STR MPLS_TE_STR
+      "Disable export of MPLS-TE  Link State information\n")
+{
+	nb_cli_enqueue_change(vty, "./mpls-te/export", NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_te_export(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " mpls-te export\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/default-information-originate
  */
 DEFPY_YANG(isis_default_originate, isis_default_originate_cmd,
@@ -3261,6 +3291,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_mpls_te_router_addr_v6_cmd);
 	install_element(ISIS_NODE, &no_isis_mpls_te_router_addr_v6_cmd);
 	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
+	install_element(ISIS_NODE, &isis_mpls_te_export_cmd);
+	install_element(ISIS_NODE, &no_isis_mpls_te_export_cmd);
 
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_cmd);
