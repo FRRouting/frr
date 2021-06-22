@@ -2176,9 +2176,9 @@ struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 	 * Where systemid is in the form:
 	 * xxxx.xxxx.xxxx
 	 */
-	if (argv)
-		strlcpy(sysid, argv, sizeof(sysid));
-	if (argv && strlen(argv) > 3) {
+	strlcpy(sysid, argv, sizeof(sysid));
+
+	if (strlen(argv) > 3) {
 		pos = argv + strlen(argv) - 3;
 		if (strncmp(pos, "-", 1) == 0) {
 			memcpy(number, ++pos, 2);
