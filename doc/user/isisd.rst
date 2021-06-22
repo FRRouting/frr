@@ -318,6 +318,11 @@ Traffic Engineering
 
 .. note::
 
+   IS-IS-TE supports RFC 5305 (base TE), RFC 6119 (IPv6) and RFC 7810 / 8570
+   (Extended Metric) with or without Multi-Topology. All Traffic Engineering
+   information are stored in a database formally named TED. However, best
+   acccuracy is provided without Multi-Topology due to inconsistency of Traffic
+   Engineering Advertisement of 3rd party commercial routers when MT is enabled.
    At this time, FRR offers partial support for some of the routing protocol
    extensions that can be used with MPLS-TE. FRR does not currently support a
    complete RSVP-TE solution.
@@ -334,6 +339,11 @@ Traffic Engineering
 
    Configure stable IPv6 address for MPLS-TE.
 
+.. clicmd:: mpls-te export
+
+   Export Traffic Engineering DataBase to other daemons through the ZAPI
+   Opaque Link State messages.
+
 .. clicmd:: show isis mpls-te interface
 
 .. clicmd:: show isis mpls-te interface INTERFACE
@@ -343,6 +353,16 @@ Traffic Engineering
 .. clicmd:: show isis mpls-te router
 
    Show Traffic Engineering router parameters.
+
+.. clicmd:: show isis [vrf <NAME|all>] mpls-te database [detail|json]
+
+.. clicmd:: show isis [vrf <NAME|all>] mpls-te database vertex [WORD] [detail|json]
+
+.. clicmd:: show isis [vrf <NAME|all>] mpls-te database edge [A.B.C.D|X:X::X:X] [detail|json]
+
+.. clicmd:: show isis [vrf <NAME|all>] mpls-te database subnet [A.B.C.D/M|X:X::X:X/M] [detail|json]
+
+   Show Traffic Engineering Database
 
 .. seealso::
 
@@ -448,6 +468,10 @@ Debugging ISIS
 
 
    Update related packets.
+
+.. clicmd:: debug isis te-events
+
+   IS-IS Traffic Engineering events
 
 .. clicmd:: debug isis sr-events
 
