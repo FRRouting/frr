@@ -2444,8 +2444,6 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	if (!dest)
 		return -1;
 
-	bgp_dest_unlock_node(dest);
-
 	switch (note) {
 	case ZAPI_ROUTE_INSTALLED:
 		new_select = NULL;
@@ -2474,6 +2472,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 				flog_err(EC_BGP_INVALID_ROUTE,
 					 "selected route %pRN not found",
 					 dest);
+
+				bgp_dest_unlock_node(dest);
 				return -1;
 			}
 		}
@@ -2504,6 +2504,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 			  __func__, dest);
 		break;
 	}
+
+	bgp_dest_unlock_node(dest);
 	return 0;
 }
 
