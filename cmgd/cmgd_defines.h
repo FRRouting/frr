@@ -45,6 +45,8 @@
 
 #define CMGD_MAX_XPATH_LEN                      XPATH_MAXLEN
 
+#define CMGD_MAX_NUM_XPATH_REG                  128
+
 typedef uintptr_t cmgd_lib_hndl_t;
 
 typedef uintptr_t cmgd_user_data_t;

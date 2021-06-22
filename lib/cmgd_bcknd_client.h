@@ -48,6 +48,18 @@ extern "C" {
  * Data-structures
  ***************************************************************/
 
+typedef struct cmgd_bcknd_msg_hdr_ {
+	uint16_t		marker;
+	uint16_t 		len;	/* Includes header */
+} cmgd_bcknd_msg_hdr_t;
+#define CMGD_BCKND_MSG_HDR_LEN	sizeof(cmgd_bcknd_msg_hdr_t)
+#define CMGD_BCKND_MSG_MARKER	0xfeed
+
+typedef struct cmgd_bcknd_msg_ {
+	cmgd_bcknd_msg_hdr_t 	hdr;
+	uint8_t 		payload[];
+} cmgd_bcknd_msg_t;
+
 typedef struct cmgd_bcknd_yang_data_ {
 	char xpath[CMGD_MAX_XPATH_LEN];
 	struct nb_yang_value xpath_data;

@@ -1208,7 +1208,19 @@ static cmgd_bcknd_client_params_t cmgd_params = {
 	.conn_notify_cb = static_cmgd_bcknd_client_connect
 };
 
-extern struct thread_master *master;
+void static_cmgd_init(struct thread_master *master)
+{
+	cmgd_lib_hndl = cmgd_bcknd_client_lib_init(&cmgd_params, master);
+	if (!cmgd_lib_hndl) {
+		zlog_err("Failed to initialize CMGD Backend Client library!");
+		exit(-1);
+	}
+}
+
+void static_cmgd_destroy(void)
+{
+	cmgd_bcknd_client_lib_destroy(cmgd_lib_hndl);
+}
 
 void static_vty_init(void)
 {
@@ -1234,10 +1246,4 @@ void static_vty_init(void)
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
-
-	cmgd_lib_hndl = cmgd_bcknd_client_lib_init(&cmgd_params, master);
-	if (!cmgd_lib_hndl) {
-		zlog_err("Failed to initialize CMGD Backend Client library!");
-		exit(-1);
-	}
 }

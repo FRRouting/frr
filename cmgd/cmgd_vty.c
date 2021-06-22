@@ -39,12 +39,17 @@
 #include "filter.h"
 #include "frrstr.h"
 
-#define INCLUDE_CMGD_CMDDEFS_ONLY
+// #define INCLUDE_CMGD_CMDDEFS_ONLY
 
+#include "lib/command.h"
 #include "cmgd/cmgd.h"
 #include "cmgd/cmgd_vty.h"
 #include "cmgd/cmgd_bcknd_server.h"
 #include "cmgd/cmgd_bcknd_adapter.h"
+
+#ifndef VTYSH_EXTRACT_PL
+#include "cmgd/cmgd_vty_clippy.c"
+#endif
 
 /*
  * Client-specific command definitions first.
@@ -76,6 +81,19 @@ int cmgd_hndl_bknd_cmd(const struct cmd_element *cmd, struct vty *vty,
 	return 0;
 }
 
+DEFPY(show_cmgd_adapter,
+	show_cmgd_adapter_cmd,
+	"show cmgd backend-adapter all",
+	SHOW_STR
+	CMGD_STR
+	CMGD_BCKND_ADPTR_STR
+	"Display all Backend Adapters\n")
+{
+	cmgd_bcknd_adapter_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
 void cmgd_vty_init(void)
 {
 	/* Initialize the CMGD Backend Adapter Module */
@@ -86,4 +104,6 @@ void cmgd_vty_init(void)
 
 	/* Initialize command handling from VTYSH connection */
 	cmgd_init_bcknd_cmd();
+
+	install_element(VIEW_NODE, &show_cmgd_adapter_cmd);
 }

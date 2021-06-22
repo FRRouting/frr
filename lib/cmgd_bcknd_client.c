@@ -22,6 +22,7 @@
 #include "libfrr.h"
 #include "lib/cmgd_bcknd_client.h"
 #include "lib/cmgd_pb.h"
+#include "lib/network.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define CMGD_BCKND_CLNT_DBG(fmt, ...)					\
@@ -88,25 +89,60 @@ static int cmgd_bkcnd_client_read(struct thread *thread)
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
 
 	bytes_read = read(clnt_ctxt->conn_fd, bkcnd_msg, sizeof(bkcnd_msg));
-	if (bytes_read <= 0) {
+	if (bytes_read <= 0 && !ERRNO_IO_RETRY(errno)) {
 		CMGD_BCKND_CLNT_ERR(
 			"Got %s from CMGD Backend server socket. Err: '%s'", 
 			!bytes_read ? "error while reading" : "disconnected", 
 			safe_strerror(errno));
 		cmgd_bcknd_server_disconnect(clnt_ctxt, true);
+		return -1;
 	}
 
 	return cmgd_bcknd_server_process_msg(clnt_ctxt, bkcnd_msg, bytes_read);
 }
 
+static int cmgd_bkcnd_client_send_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt, 
+	Cmgd__BckndMessage *bcknd_msg)
+{
+	int bytes_written;
+	size_t msg_size;
+	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
+	cmgd_bcknd_msg_t *msg;
+
+	msg_size = cmgd__bcknd_message__get_packed_size(bcknd_msg);
+	msg_size += CMGD_BCKND_MSG_HDR_LEN;
+	if (msg_size > sizeof(msg_buf)) {
+		CMGD_BCKND_CLNT_ERR(
+			"Message size %d more than max size'%d. Not sending!'", 
+			(int) msg_size, (int)sizeof(msg_buf));
+		return -1;
+	}
+	
+	msg = (cmgd_bcknd_msg_t *)msg_buf;
+	msg->hdr.marker = CMGD_BCKND_MSG_MARKER;
+	msg->hdr.len = (uint16_t) msg_size;
+	cmgd__bcknd_message__pack(bcknd_msg, msg->payload);
+
+	bytes_written = write(clnt_ctxt->conn_fd, (void *)msg_buf, msg_size);
+	if (bytes_written != (int) msg_size) {
+		CMGD_BCKND_CLNT_ERR(
+			"Could not write all %d bytes (wrote: %d) to CMGD Backend server socket. Err: '%s'", 
+			(int) msg_size, bytes_written, safe_strerror(errno));
+		cmgd_bcknd_server_disconnect(clnt_ctxt, true);
+		return -1;
+	}
+
+	CMGD_BCKND_CLNT_DBG(
+		"Wrote %d bytes of message to CMGD Backend server socket.'", 
+		bytes_written);
+	return 0;
+}
+
 static int cmgd_bcknd_send_subscr_req(cmgd_bcknd_client_ctxt_t *clnt_ctxt, 
 	bool subscr_xpaths, uint16_t num_reg_xpaths, char **reg_xpaths)
 {
-	int bytes_written;
 	Cmgd__BckndMessage bcknd_msg;
 	Cmgd__BckndSubscribeReq subscr_req;
-	size_t msg_size;
-	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
 
 	cmgd__bcknd_subscribe_req__init(&subscr_req);
 	subscr_req.client_name = clnt_ctxt->client_params.name;
@@ -122,28 +158,7 @@ static int cmgd_bcknd_send_subscr_req(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_SUBSCR_REQ;
 	bcknd_msg.subscr_req = &subscr_req;
 
-	msg_size = cmgd__bcknd_message__get_packed_size(&bcknd_msg);
-	if (msg_size > sizeof(msg_buf)) {
-		CMGD_BCKND_CLNT_ERR(
-			"Message size %d more than max size'%d. Not sending!'", 
-			(int) msg_size, (int)sizeof(msg_buf));
-		return -1;
-	}
-	
-	cmgd__bcknd_message__pack(&bcknd_msg, msg_buf);
-	bytes_written = write(clnt_ctxt->conn_fd, (void *)msg_buf, msg_size);
-	if (bytes_written != (int) msg_size) {
-		CMGD_BCKND_CLNT_ERR(
-			"Could not write all %d bytes (wrote: %d) to CMGD Backend server socket. Err: '%s'", 
-			(int) msg_size, bytes_written, safe_strerror(errno));
-		cmgd_bcknd_server_disconnect(clnt_ctxt, true);
-		return -1;
-	}
-
-	CMGD_BCKND_CLNT_ERR(
-		"Wrote %d bytes of SUBSCRIBE_REQ to CMGD Backend server socket.'", 
-		bytes_written);
-	return 0;
+	return cmgd_bkcnd_client_send_msg(clnt_ctxt, &bcknd_msg);
 }
 
 static int cmgd_bcknd_server_connect(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
@@ -185,6 +200,9 @@ static int cmgd_bcknd_server_connect(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
 	CMGD_BCKND_CLNT_DBG("Connected to CMGD Backend Server at %s successfully!",
 		addr.sun_path);
 	clnt_ctxt->conn_fd = sock;
+
+	/* Make client socket non-blocking.  */
+	set_nonblocking(sock);
 
 	thread_add_read(clnt_ctxt->tm, cmgd_bkcnd_client_read,
 		(void *)&cmgd_bcknd_clntctxt, clnt_ctxt->conn_fd,
@@ -266,12 +284,12 @@ cmgd_result_t cmgd_bcknd_subscribe_yang_data(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
 
 	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)lib_hndl;
-	if (!lib_hndl) {
+	if (!clnt_ctxt) {
 		return CMGD_INVALID_PARAM;
 	}
 
 	if (cmgd_bcknd_send_subscr_req(
-		clnt_ctxt, true, num_reg_xpaths, reg_yang_xpaths) < 0)
+		clnt_ctxt, true, num_reg_xpaths, reg_yang_xpaths) != 0)
 		return CMGD_INTERNAL_ERROR;
 
 	return CMGD_SUCCESS;
@@ -287,9 +305,9 @@ cmgd_result_t cmgd_bcknd_unsubscribe_yang_data(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
 
 	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)lib_hndl;
-	if (!lib_hndl) {
+	if (!clnt_ctxt)
 		return CMGD_INVALID_PARAM;
-	}
+
 
 	if (cmgd_bcknd_send_subscr_req(
 		clnt_ctxt, false, num_reg_xpaths, reg_yang_xpaths) < 0)
@@ -305,6 +323,12 @@ cmgd_result_t cmgd_bcknd_send_yang_notify(
 	cmgd_lib_hndl_t lib_hndl, cmgd_bcknd_yang_data_t *data_elems[],
 	int num_elems)
 {
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
+
+	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)lib_hndl;
+	if (!clnt_ctxt)
+		return CMGD_INVALID_PARAM;
+
 	return CMGD_SUCCESS;
 }
 
@@ -317,6 +341,9 @@ void cmgd_bcknd_client_lib_destroy(cmgd_lib_hndl_t lib_hndl)
 
 	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)lib_hndl;
 	assert(clnt_ctxt);
+
+	CMGD_BCKND_CLNT_DBG("Destroying CMGD Backend Client '%s'", 
+		clnt_ctxt->client_params.name);
 
 	cmgd_bcknd_server_disconnect(clnt_ctxt, false);
 }

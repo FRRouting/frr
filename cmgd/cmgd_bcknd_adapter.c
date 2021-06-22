@@ -26,8 +26,10 @@
 #include "lib/thread.h"
 #include "cmgd/cmgd.h"
 #include "cmgd/cmgd_memory.h"
+#include "lib/cmgd_bcknd_client.h"
 #include "cmgd/cmgd_bcknd_adapter.h"
 #include "lib/cmgd_pb.h"
+#include "lib/vty.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define CMGD_BCKND_ADPTR_DBG(fmt, ...)				\
@@ -52,14 +54,36 @@ static struct cmgd_adptr_list_head cmgd_bcknd_adptrs = {0};
 static void cmgd_bcknd_adptr_register_event(
 	cmgd_bcknd_client_adapter_t *adptr, cmgd_bcknd_event_t event);
 
+static cmgd_bcknd_client_adapter_t *cmgd_bcknd_find_adapter_by_fd(int conn_fd)
+{
+	cmgd_bcknd_client_adapter_t *adptr;
+
+	FOREACH_ADPTR_IN_LIST(adptr) {
+		if (adptr->conn_fd == conn_fd) 
+			return adptr;
+	}
+
+	return NULL;
+}
+
+static cmgd_bcknd_client_adapter_t *cmgd_bcknd_find_adapter_by_name(const char *name)
+{
+	cmgd_bcknd_client_adapter_t *adptr;
+
+	FOREACH_ADPTR_IN_LIST(adptr) {
+		if (!strncmp(adptr->name, name, sizeof(adptr->name)))
+			return adptr;
+	}
+
+	return NULL;
+}
+
 static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 {
 	if (adptr->conn_fd) {
 		close(adptr->conn_fd);
 		adptr->conn_fd = 0;
 	}
-
-	THREAD_OFF(adptr->conn_read_ev);
 
 	/* TODO: notify about client disconnect for appropriate cleanup */
 
@@ -68,22 +92,29 @@ static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 	cmgd_bcknd_adapter_unlock(&adptr);
 }
 
-static int cmgd_bcknd_adapter_process_msg(
-	cmgd_bcknd_client_adapter_t *adptr, uint8_t *msg_buf, int bytes_read)
+static void cmgd_bcknd_adapter_cleanup_old_conn(
+	cmgd_bcknd_client_adapter_t *adptr)
 {
-	Cmgd__BckndMessage *bcknd_msg;
+	cmgd_bcknd_client_adapter_t *old;
 
-	CMGD_BCKND_ADPTR_DBG(
-		"Got message of %d bytes from CMGD Backend adapter '%s'", 
-		bytes_read, adptr->name);
-
-	bcknd_msg = cmgd__bcknd_message__unpack(NULL, bytes_read, msg_buf);
-	if (!bcknd_msg) {
-		CMGD_BCKND_ADPTR_DBG(
-			"Failed to decode %d bytes from CMGD Backend adapter '%s'", 
-			bytes_read, adptr->name);
-		return -1;
+	FOREACH_ADPTR_IN_LIST(old) {
+		if (old != adptr &&
+			!strncmp(adptr->name, old->name, sizeof(adptr->name))) {
+			/*
+			 * We have a Zombie lingering around
+			 */
+			CMGD_BCKND_ADPTR_DBG(
+				"Client '%s' (FD:%d) seems to have reconnected. Removing old connection (FD:%d)!",
+				adptr->name, adptr->conn_fd, old->conn_fd);
+			cmgd_bcknd_adapter_disconnect(old);
+		}
 	}
+}
+
+static int cmgd_bcknd_adapter_handle_msg(
+	cmgd_bcknd_client_adapter_t *adptr, Cmgd__BckndMessage *bcknd_msg)
+{
+	cmgd_bcknd_client_adapter_t *old;
 
 	switch(bcknd_msg->type) {
 	case CMGD__BCKND_MESSAGE__TYPE__SUBSCRIBE_REQ:
@@ -95,39 +126,95 @@ static int cmgd_bcknd_adapter_process_msg(
 			bcknd_msg->subscr_req->n_xpath_reg ? "de" : "", 
 			(uint32_t)bcknd_msg->subscr_req->n_xpath_reg);
 
-		if (strlen(bcknd_msg->subscr_req->client_name))
+		if (strlen(bcknd_msg->subscr_req->client_name)) {
 			strlcpy(adptr->name, bcknd_msg->subscr_req->client_name, 
 				sizeof(adptr->name));
+			cmgd_bcknd_adapter_cleanup_old_conn(adptr);
+		}
 		break;
 	default:
 		break;
 	}
 
-	cmgd__bcknd_message__free_unpacked(bcknd_msg, NULL);
+	return 0;
+}
+
+static int cmgd_bcknd_adapter_process_msg(
+	cmgd_bcknd_client_adapter_t *adptr, uint8_t *msg_buf, uint16_t bytes_read)
+{
+	Cmgd__BckndMessage *bcknd_msg;
+	cmgd_bcknd_msg_t *msg;
+	uint16_t bytes_left;
+
+	CMGD_BCKND_ADPTR_DBG(
+		"Got message of %d bytes from CMGD Backend adapter '%s'", 
+		bytes_read, adptr->name);
+
+	bytes_left = bytes_read;
+	for ( ; bytes_left > CMGD_BCKND_MSG_HDR_LEN;
+		bytes_left -= msg->hdr.len, msg_buf += msg->hdr.len) {
+		msg = (cmgd_bcknd_msg_t *)msg_buf;
+		if (msg->hdr.marker != CMGD_BCKND_MSG_MARKER) {
+			CMGD_BCKND_ADPTR_DBG(
+				"Marker not found in message from CMGD Backend adapter '%s'", 
+				adptr->name);
+			break;
+		}
+
+		if (bytes_left < msg->hdr.len) {
+			CMGD_BCKND_ADPTR_DBG(
+				"Incomplete message of %d bytes (epxected: %u) from CMGD Backend adapter '%s'", 
+				bytes_left, msg->hdr.len, adptr->name);
+			break;
+		}
+
+		bcknd_msg = cmgd__bcknd_message__unpack(
+			NULL, (size_t) (msg->hdr.len - CMGD_BCKND_MSG_HDR_LEN), 
+			msg->payload);
+		if (!bcknd_msg) {
+			CMGD_BCKND_ADPTR_DBG(
+				"Failed to decode %d bytes from CMGD Backend adapter '%s'", 
+				msg->hdr.len, adptr->name);
+			continue;
+		}
+
+		(void) cmgd_bcknd_adapter_handle_msg(adptr, bcknd_msg);
+		cmgd__bcknd_message__free_unpacked(bcknd_msg, NULL);
+	}
+
 	return 0;
 }
 
 static int cmgd_bcknd_adapter_read(struct thread *thread)
 {
 	cmgd_bcknd_client_adapter_t *adptr;
-	uint8_t bcknd_msg[CMGD_BCKND_MSG_MAX_LEN];
+	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
 	int bytes_read;
+	uint16_t total_bytes;
 
 	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
 
-	bytes_read = read(adptr->conn_fd, bcknd_msg, sizeof(bcknd_msg));
-	if (bytes_read < 0) {
-		CMGD_BCKND_ADPTR_ERR(
-			"Got error while reading from CMGD Backend adapter socket. Err: '%s'", 
-			safe_strerror(errno));
-		cmgd_bcknd_adapter_disconnect(adptr);
+	total_bytes = 0;
+	for ( ; ; ) {
+		bytes_read = read(adptr->conn_fd, msg_buf, sizeof(msg_buf));
+		if (bytes_read <= 0) {
+			if (!ERRNO_IO_RETRY(errno)) {
+				CMGD_BCKND_ADPTR_ERR(
+					"Got error (%d) while reading from CMGD Backend adapter '%s'. Err: '%s'", 
+					bytes_read, adptr->name, safe_strerror(errno));
+				cmgd_bcknd_adapter_disconnect(adptr);
+				return -1;
+			}
+			break;
+		}
+
+		total_bytes += bytes_read;
 	}
 
-	if (!bytes_read)
-		return 0;
-
-	return cmgd_bcknd_adapter_process_msg(adptr, bcknd_msg, bytes_read);
+	return (total_bytes ? 
+		cmgd_bcknd_adapter_process_msg(
+			adptr, msg_buf, total_bytes) : 0);
 }
 
 static int cmgd_bcknd_adapter_write(struct thread *thread)
@@ -191,18 +278,6 @@ int cmgd_bcknd_adapter_init(struct thread_master *tm)
 	return 0;
 }
 
-static cmgd_bcknd_client_adapter_t *cmgd_bcknd_find_adapter_by_fd(int conn_fd)
-{
-	cmgd_bcknd_client_adapter_t *adptr;
-
-	FOREACH_ADPTR_IN_LIST(adptr) {
-		if (adptr->conn_fd == conn_fd) 
-			return adptr;
-	}
-
-	return NULL;
-}
-
 cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 	int conn_fd, union sockunion *from)
 {
@@ -226,12 +301,15 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 			"Added new CMGD Backend adapter '%s'", adptr->name);
 	}
 
+	/* Make client socket non-blocking.  */
+	set_nonblocking(adptr->conn_fd);
+
 	return adptr;
 }
 
 cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter(const char *name)
 {
-	return NULL;
+	return cmgd_bcknd_find_adapter_by_name(name);
 }
 
 int cmgd_bcknd_create_trxn(
@@ -265,4 +343,25 @@ int cmgd_bcknd_send_get_next_data_req(
         cmgd_trxn_batch_id_t batch_id, cmgd_bcknd_datareq_t *data_req)
 {
 	return 0;
+}
+
+void cmgd_bcknd_adapter_status_write(struct vty *vty)
+{
+	cmgd_bcknd_client_adapter_t *adptr;
+	uint8_t indx;
+
+	vty_out(vty, "CMGD Backend Adpaters\n");
+
+	FOREACH_ADPTR_IN_LIST(adptr) {
+		vty_out(vty, "  Client: \t\t\t%s\n", adptr->name);
+		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adptr->conn_fd);
+		vty_out(vty, "    Total Xpaths Registered: \t%u\n", 
+			adptr->num_xpath_reg);
+		for (indx = 0; indx < adptr->num_xpath_reg; indx++)
+			if (strlen(adptr->xpath_reg[indx]))
+				vty_out(vty, "    [%u] %s\n", 
+					indx, adptr->xpath_reg[indx]);
+	}
+	vty_out(vty, "  Total: %d\n", 
+		(int) cmgd_adptr_list_count(&cmgd_bcknd_adptrs));
 }

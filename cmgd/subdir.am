@@ -7,8 +7,8 @@ sbin_PROGRAMS += cmgd/cmgd
 
 # dist_examples_DATA += \
 	# end
-# vtysh_scan += \
-	# cmgd/cmgd_vty.c \
+vtysh_scan += \
+	cmgd/cmgd_vty.c \
 	# endif
 
 vtysh_daemons += cmgd

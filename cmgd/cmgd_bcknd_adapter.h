@@ -46,6 +46,8 @@ typedef struct cmgd_bcknd_client_adapter_ {
         struct thread *conn_read_ev;
         struct thread *conn_write_ev;
         char name[CMGD_CLIENT_NAME_MAX_LEN];
+        uint8_t num_xpath_reg;
+        char xpath_reg[CMGD_MAX_NUM_XPATH_REG][CMGD_MAX_XPATH_LEN];
 
         cmgd_bcknd_trxn_result_notify_t trxn_result_cb;
         cmgd_bcknd_cfg_result_notify_t cfgresult_cb;
@@ -87,5 +89,7 @@ extern int cmgd_bcknd_send_get_data_req(
 extern int cmgd_bcknd_send_get_next_data_req(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
         cmgd_trxn_batch_id_t batch_id, cmgd_bcknd_datareq_t *data_req);
+
+extern void cmgd_bcknd_adapter_status_write(struct vty *vty);
 
 #endif /* _FRR_CMGD_BCKND_ADAPTER_H_ */

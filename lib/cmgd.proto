@@ -99,6 +99,13 @@ message BckndCfgDataApplyReq {
   required uint64 batch_id = 2;
 }
 
+message BckndCfgDataApplyReply {
+  required uint64 trxn_id = 1;
+  required uint64 batch_id = 2;
+  // required bool success = 3;
+  // optional string error = 4;
+}
+
 message YangDataReq {
   required YangDataXPath xpath = 1;
   required int64 next_indx = 2;
@@ -122,7 +129,6 @@ message BckndOperDataGetReply {
   optional YangDataReply data = 5;
 }
 
-
 //
 // Any message on the CMGD Backend Conn.
 //
@@ -130,7 +136,15 @@ message BckndMessage {
   enum Type {
     UNKNOWN_MSG = 0;
     SUBSCRIBE_REQ = 1;
-  };
+    TRXN_REQ = 2;
+    TRXN_REPLY = 3;
+    CFGDATA_CREATE_REQ = 4;
+    CFGDATA_CREATE_FAIL = 5;
+    CFGDATA_VALIDATE_REQ = 6;
+    CFGDATA_VALIDATE_REPLY = 7;
+    CFGDATA_APPLY_REQ = 8;
+    CFGDATA_APPLY_REPLY = 9;
+  }
 
   required Type type = 1;
 
@@ -143,7 +157,8 @@ message BckndMessage {
     BckndCfgDataValidateReq cfg_validate_req = 7;
     BckndCfgDataValidateReply cfg_validate_reply = 8;
     BckndCfgDataApplyReq cfg_apply_req = 9;
-    BckndOperDataGetReq get_req = 10;
-    BckndOperDataGetReply get_reply = 11;
+    BckndCfgDataApplyReply cfg_apply_reply = 10;
+    BckndOperDataGetReq get_req = 11;
+    BckndOperDataGetReply get_reply = 12;
   }
 }

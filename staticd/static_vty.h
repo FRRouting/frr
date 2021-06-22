@@ -26,6 +26,10 @@ extern "C" {
 int static_config(struct vty *vty, struct static_vrf *svrf,
 		  afi_t afi, safi_t safi, const char *cmd);
 
+void static_cmgd_init(struct thread_master *master);
+
+void static_cmgd_destroy(void);
+
 void static_vty_init(void);
 
 #ifdef __cplusplus
