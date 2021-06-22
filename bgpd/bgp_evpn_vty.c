@@ -2434,6 +2434,10 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
+
+		if (dest)
+			bgp_dest_unlock_node(dest);
+
 		return;
 	}
 
@@ -2468,6 +2472,8 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\nDisplayed %u paths for requested prefix\n",
 			path_cnt);
 	}
+
+	bgp_dest_unlock_node(dest);
 }
 
 /*
@@ -2504,6 +2510,10 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
+
+		if (dest)
+			bgp_dest_unlock_node(dest);
+
 		return;
 	}
 
@@ -2538,6 +2548,8 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\nDisplayed %u paths for requested prefix\n",
 			path_cnt);
 	}
+
+	bgp_dest_unlock_node(dest);
 }
 
 /* Disaplay EVPN routes for a ESI - VTY handler */
@@ -2608,6 +2620,10 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
+
+		if (dest)
+			bgp_dest_unlock_node(dest);
+
 		return;
 	}
 
@@ -2643,6 +2659,8 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\nDisplayed %u paths for requested prefix\n",
 			path_cnt);
 	}
+
+	bgp_dest_unlock_node(dest);
 }
 
 /*
@@ -2676,13 +2694,17 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 		return;
 
 	table = bgp_dest_get_bgp_table_info(rd_dest);
-	if (table == NULL)
+	if (table == NULL) {
+		bgp_dest_unlock_node(rd_dest);
 		return;
+	}
 
 	if (json) {
 		json_rd = json_object_new_object();
 		json_object_string_add(json_rd, "rd", rd_str);
 	}
+
+	bgp_dest_unlock_node(rd_dest);
 
 	/* Display all prefixes with this RD. */
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
@@ -2894,6 +2916,8 @@ static void evpn_show_route_rd_all_macip(struct vty *vty, struct bgp *bgp,
 				json_rd = NULL;
 			}
 		}
+
+		bgp_dest_unlock_node(dest);
 	}
 
 	if (json) {

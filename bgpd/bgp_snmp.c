@@ -689,12 +689,12 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		dest = bgp_node_lookup(bgp->rib[AFI_IP][SAFI_UNICAST],
 				       (struct prefix *)addr);
 		if (dest) {
-			bgp_dest_unlock_node(dest);
-
 			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next)
 				if (sockunion_same(&path->peer->su, &su))
 					return path;
+
+			bgp_dest_unlock_node(dest);
 		}
 	} else {
 		offset = name + v->namelen;
