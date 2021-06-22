@@ -2383,14 +2383,14 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
+	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		area = nb_running_get_entry(args->dnode, NULL, false);
-		if (area == NULL || area->isis == NULL)
-			return NB_ERR_VALIDATION;
+		vrfname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(args->dnode)), "./vrf");
 
-		if (area->isis->vrf_id != VRF_DEFAULT) {
+		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "LDP-Sync only runs on Default VRF");
 			return NB_ERR_VALIDATION;
@@ -2427,14 +2427,15 @@ int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	uint16_t holddown;
+	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		area = nb_running_get_entry(args->dnode, NULL, false);
-		if (area == NULL || area->isis == NULL)
-			return NB_ERR_VALIDATION;
+		vrfname = yang_dnode_get_string(
+			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
+			"./vrf");
 
-		if (area->isis->vrf_id != VRF_DEFAULT) {
+		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "LDP-Sync only runs on Default VRF");
 			return NB_ERR_VALIDATION;
