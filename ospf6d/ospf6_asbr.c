@@ -2484,20 +2484,22 @@ void ospf6_asbr_redistribute_disable(struct ospf6 *ospf6)
 	int type;
 	struct ospf6_redist *red;
 
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
+		if (type == ZEBRA_ROUTE_OSPF6)
+			continue;
 		red = ospf6_redist_lookup(ospf6, type, 0);
 		if (!red)
 			continue;
-		if (type == ZEBRA_ROUTE_OSPF6)
+
+		if (type == DEFAULT_ROUTE) {
+			ospf6_asbr_routemap_unset(red);
+			ospf6_redist_del(ospf6, red, type);
+			ospf6_redistribute_default_set(ospf6,
+						       DEFAULT_ORIGINATE_NONE);
 			continue;
+		}
 		ospf6_asbr_redistribute_unset(ospf6, red, type);
 		ospf6_redist_del(ospf6, red, type);
-	}
-	red = ospf6_redist_lookup(ospf6, DEFAULT_ROUTE, 0);
-	if (red) {
-		ospf6_asbr_routemap_unset(red);
-		ospf6_redist_del(ospf6, red, type);
-		ospf6_redistribute_default_set(ospf6, DEFAULT_ORIGINATE_NONE);
 	}
 }
 
