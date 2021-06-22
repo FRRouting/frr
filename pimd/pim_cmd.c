@@ -3676,7 +3676,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 						json_object_new_object();
 						json_object_string_add(
 							json_ifaddr,
-							"ifaddr",
+							"ifAddr",
 							ifaddr_str);
 						json_object_object_add(
 							json_iface,
@@ -3719,7 +3719,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 						IGMP_SOURCE_TEST_FORWARDING(
 							src->source_flags));
 					json_object_string_add(
-						json_source, "uptime",
+						json_source, "upTime",
 						uptime);
 					json_object_array_add(
 						json_sources,
