@@ -20,12 +20,13 @@
 #
 
 """
-Test if `bgp default ipv4-unicast` and `bgp default ipv6-unicast`
-commands work as expected.
+Test if `bgp default ipv4-unicast`, `bgp default ipv6-unicast`
+and `bgp default l2vpn-evpn` commands work as expected.
 
 STEP 1: 'Check if neighbor 192.168.255.254 is enabled for ipv4 address-family only'
 STEP 2: 'Check if neighbor 192.168.255.254 is enabled for ipv6 address-family only'
-STEP 3: 'Check if neighbor 192.168.255.254 is enabled for ipv4 and ipv6 address-families'
+STEP 3: 'Check if neighbor 192.168.255.254 is enabled for l2vpn evpn address-family only'
+STEP 4: 'Check if neighbor 192.168.255.254 is enabled for ipv4/ipv6 unicast and l2vpn evpn address-families'
 """
 
 import os
@@ -98,7 +99,7 @@ def test_bgp_default_ipv4_ipv6_unicast():
 
         output = json.loads(tgen.gears["r1"].vtysh_cmd("show bgp summary json"))
 
-        if "ipv4Unicast" in output and "ipv6Unicast" not in output:
+        if len(output.keys()) == 1 and "ipv4Unicast" in output:
             return True
         return False
 
@@ -113,28 +114,48 @@ def test_bgp_default_ipv4_ipv6_unicast():
 
         output = json.loads(tgen.gears["r2"].vtysh_cmd("show bgp summary json"))
 
-        if "ipv4Unicast" not in output and "ipv6Unicast" in output:
+        if len(output.keys()) == 1 and "ipv6Unicast" in output:
             return True
         return False
 
     assert _bgp_neighbor_ipv6_af_only() == True
 
-    step(
-        "Check if neighbor 192.168.255.254 is enabled for ipv4 and ipv6 address-families"
-    )
+    step("Check if neighbor 192.168.255.254 is enabled for evpn address-family only")
 
-    def _bgp_neighbor_ipv4_and_ipv6_af():
+    def _bgp_neighbor_evpn_af_only():
         tgen.gears["r3"].vtysh_cmd(
             "conf t\nrouter bgp\nneighbor 192.168.255.254 remote-as external"
         )
 
         output = json.loads(tgen.gears["r3"].vtysh_cmd("show bgp summary json"))
 
-        if "ipv4Unicast" in output and "ipv6Unicast" in output:
+        if len(output.keys()) == 1 and "l2VpnEvpn" in output:
             return True
         return False
 
-    assert _bgp_neighbor_ipv4_and_ipv6_af() == True
+    assert _bgp_neighbor_evpn_af_only() == True
+
+    step(
+        "Check if neighbor 192.168.255.254 is enabled for ipv4/ipv6 unicast and evpn address-families"
+    )
+
+    def _bgp_neighbor_ipv4_ipv6_and_evpn_af():
+        tgen.gears["r4"].vtysh_cmd(
+            "conf t\nrouter bgp\nneighbor 192.168.255.254 remote-as external"
+        )
+
+        output = json.loads(tgen.gears["r4"].vtysh_cmd("show bgp summary json"))
+
+        if (
+            len(output.keys()) == 3
+            and "ipv4Unicast" in output
+            and "ipv6Unicast" in output
+            and "l2VpnEvpn" in output
+        ):
+            return True
+        return False
+
+    assert _bgp_neighbor_ipv4_ipv6_and_evpn_af() == True
 
 
 if __name__ == "__main__":
