@@ -185,6 +185,8 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 
 	oi = XCALLOC(MTYPE_OSPF6_IF, sizeof(struct ospf6_interface));
 
+	oi->obuf = ospf6_fifo_new();
+
 	oi->area = (struct ospf6_area *)NULL;
 	oi->neighbor_list = list_new();
 	oi->neighbor_list->cmp = ospf6_neighbor_cmp;
@@ -242,6 +244,8 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	struct ospf6_neighbor *on;
 
 	QOBJ_UNREG(oi);
+
+	ospf6_fifo_free(oi->obuf);
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
 		ospf6_neighbor_delete(on);
@@ -884,6 +888,15 @@ int interface_down(struct thread *thread)
 	if (oi->state > OSPF6_INTERFACE_DOWN)
 		ospf6_sso(oi->interface->ifindex, &allspfrouters6,
 			  IPV6_LEAVE_GROUP, ospf6->fd);
+
+	/* deal with write fifo */
+	ospf6_fifo_flush(oi->obuf);
+	if (oi->on_write_q) {
+		listnode_delete(ospf6->oi_write_q, oi);
+		if (list_isempty(ospf6->oi_write_q))
+			thread_cancel(&ospf6->t_write);
+		oi->on_write_q = 0;
+	}
 
 	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
 
@@ -1969,6 +1982,38 @@ DEFUN (no_auto_cost_reference_bandwidth,
 }
 
 
+DEFUN (ospf6_write_multiplier,
+       ospf6_write_multiplier_cmd,
+       "write-multiplier (1-100)",
+       "Write multiplier\n"
+       "Maximum number of interface serviced per write\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	uint32_t write_oi_count;
+
+	write_oi_count = strtol(argv[1]->arg, NULL, 10);
+	if (write_oi_count < 1 || write_oi_count > 100) {
+		vty_out(vty, "write-multiplier value is invalid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	o->write_oi_count = write_oi_count;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_write_multiplier,
+       no_ospf6_write_multiplier_cmd,
+       "no write-multiplier (1-100)",
+       NO_STR
+       "Write multiplier\n"
+       "Maximum number of interface serviced per write\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+
+	o->write_oi_count = OSPF6_WRITE_INTERFACE_COUNT_DEFAULT;
+	return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
        "ipv6 ospf6 hello-interval (1-65535)",
@@ -2641,6 +2686,9 @@ void ospf6_interface_init(void)
 	/* reference bandwidth commands */
 	install_element(OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);
 	install_element(OSPF6_NODE, &no_auto_cost_reference_bandwidth_cmd);
+	/* write-multiplier commands */
+	install_element(OSPF6_NODE, &ospf6_write_multiplier_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_write_multiplier_cmd);
 }
 
 /* Clear the specified interface structure */

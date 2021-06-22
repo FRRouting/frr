@@ -5,7 +5,7 @@
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2021 by Niral Networks, Inc. ("Niral Networks")
-# Used Copyright (c) 2016 by Network Device Education Foundation, 
+# Used Copyright (c) 2016 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
 #
 # Permission to use, copy, modify, and/or distribute this software
@@ -179,13 +179,9 @@ def setup_module(mod):
         "ip link set {0}-stubnet master {0}-cust1",
     ]
 
-    cmds1 = [
-        "ip link set {0}-sw5 master {0}-cust1",
-    ]
+    cmds1 = ["ip link set {0}-sw5 master {0}-cust1"]
 
-    cmds2 = [
-        "ip link set {0}-sw6 master {0}-cust1",
-    ]
+    cmds2 = ["ip link set {0}-sw6 master {0}-cust1"]
 
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
@@ -218,6 +214,7 @@ def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
+
 
 def test_wait_protocol_convergence():
     "Wait for OSPFv3 to converge"
@@ -261,7 +258,7 @@ def compare_show_ipv6_vrf(rname, expected):
     # Use the vtysh output, with some masking to make comparison easy
     vrf_name = "{0}-cust1".format(rname)
     current = topotest.ip6_route_zebra(tgen.gears[rname], vrf_name)
-    
+
     # Use just the 'O'spf lines of the output
     linearr = []
     for line in current.splitlines():
@@ -331,7 +328,11 @@ def test_linux_ipv6_kernel_routingTable():
 
     for i in range(1, 5):
         # Actual output from router
-        actual = tgen.gears["r{}".format(i)].run("ip -6 route show vrf r{}-cust1".format(i)).rstrip()
+        actual = (
+            tgen.gears["r{}".format(i)]
+            .run("ip -6 route show vrf r{}-cust1".format(i))
+            .rstrip()
+        )
         if "nhid" in actual:
             refTableFile = os.path.join(CWD, "r{}/ip_6_address.nhg.ref".format(i))
         else:
@@ -362,9 +363,9 @@ def test_linux_ipv6_kernel_routingTable():
                     "unreachable fe80::/64 "
                 ):
                     continue
-                if 'anycast' in line:
+                if "anycast" in line:
                     continue
-                if 'multicast' in line:
+                if "multicast" in line:
                     continue
                 filtered_lines.append(line)
             actual = "\n".join(filtered_lines).splitlines(1)
@@ -396,6 +397,35 @@ def test_linux_ipv6_kernel_routingTable():
                 "Linux Kernel IPv6 Routing Table verification failed for router r%s:\n%s"
                 % (i, diff)
             )
+
+
+def test_ospfv3_routingTable_write_multiplier():
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    # For debugging, uncomment the next line
+    # tgen.mininet_cli()
+    # Modify R1 write muliplier and reset the interfaces
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("conf t\nrouter ospf6 vrf r1-cust1 \n write-multiplier 100")
+    r1.vtysh_cmd("clear ipv6 ospf interface r1-stubnet")
+    r1.vtysh_cmd("clear ipv6 ospf interface r1-sw5")
+
+    # Verify OSPFv3 Routing Table
+    for router, rnode in tgen.routers().iteritems():
+        logger.info('Waiting for router "%s" convergence', router)
+
+        # Load expected results from the command
+        reffile = os.path.join(CWD, "{}/show_ipv6_vrf_route.ref".format(router))
+        expected = open(reffile).read()
+
+        # Run test function until we get an result. Wait at most 60 seconds.
+        test_func = partial(compare_show_ipv6_vrf, router, expected)
+        result, diff = topotest.run_and_expect(test_func, "", count=120, wait=0.5)
+        assert result, "OSPFv3 did not converge on {}:\n{}".format(router, diff)
 
 
 def test_shutdown_check_stderr():

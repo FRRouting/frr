@@ -63,6 +63,27 @@ extern unsigned char conf_debug_ospf6_message[];
 #define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
 #define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
 
+struct ospf6_packet {
+	struct ospf6_packet *next;
+
+	/* Pointer to data stream. */
+	struct stream *s;
+
+	/* IP destination address. */
+	struct in6_addr dst;
+
+	/* OSPF6 packet length. */
+	uint16_t length;
+};
+
+/* OSPF packet queue structure. */
+struct ospf6_fifo {
+	unsigned long count;
+
+	struct ospf6_packet *head;
+	struct ospf6_packet *tail;
+};
+
 /* OSPFv3 packet header */
 #define OSPF6_HEADER_SIZE                     16U
 struct ospf6_header {
@@ -135,6 +156,10 @@ extern void ospf6_dbdesc_print(struct ospf6_header *, int action);
 extern void ospf6_lsreq_print(struct ospf6_header *, int action);
 extern void ospf6_lsupdate_print(struct ospf6_header *, int action);
 extern void ospf6_lsack_print(struct ospf6_header *, int action);
+
+extern struct ospf6_fifo *ospf6_fifo_new(void);
+extern void ospf6_fifo_flush(struct ospf6_fifo *fifo);
+extern void ospf6_fifo_free(struct ospf6_fifo *fifo);
 
 extern int ospf6_iobuf_size(unsigned int size);
 extern void ospf6_message_terminate(void);

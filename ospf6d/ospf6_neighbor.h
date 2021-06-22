@@ -47,6 +47,10 @@ struct ospf6_neighbor {
 	uint32_t state_change;
 	struct timeval last_changed;
 
+	/* last received hello */
+	struct timeval last_hello;
+	uint32_t hello_in;
+
 	/* Neighbor Router ID */
 	in_addr_t router_id;
 

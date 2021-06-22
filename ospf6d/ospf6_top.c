@@ -408,12 +408,15 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	o->external_id_table = route_table_init();
 
+	o->write_oi_count = OSPF6_WRITE_INTERFACE_COUNT_DEFAULT;
 	o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
 
 	o->distance_table = route_table_init();
 	o->fd = -1;
 
 	o->max_multipath = MULTIPATH_NUM;
+
+	o->oi_write_q = list_new();
 
 	QOBJ_REG(o, ospf6);
 
@@ -484,6 +487,7 @@ void ospf6_delete(struct ospf6 *o)
 
 	ospf6_distance_reset(o);
 	route_table_finish(o->distance_table);
+	list_delete(&o->oi_write_q);
 
 	if (o->vrf_id != VRF_UNKNOWN) {
 		vrf = vrf_lookup_by_id(o->vrf_id);
@@ -1666,6 +1670,11 @@ static int config_write_ospf6(struct vty *vty)
 		if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
 			vty_out(vty, " auto-cost reference-bandwidth %d\n",
 				ospf6->ref_bandwidth);
+
+		if (ospf6->write_oi_count
+		    != OSPF6_WRITE_INTERFACE_COUNT_DEFAULT)
+			vty_out(vty, " write-multiplier %d\n",
+				ospf6->write_oi_count);
 
 		/* LSA timers print. */
 		if (ospf6->lsa_minarrival != OSPF_MIN_LS_ARRIVAL)
