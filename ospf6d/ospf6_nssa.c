@@ -139,6 +139,7 @@ void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
 	struct listnode *lnode, *nnode;
 
 	for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, nnode, area)) {
+		uint8_t old_state = area->NSSATranslatorState;
 
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("%s: checking area %s flag %x", __func__,
@@ -177,16 +178,21 @@ void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
 				}
 			}
 		}
+
+		/* RFC3101, 3.1:
+		 * All NSSA border routers must set the E-bit in the Type-1
+		 * router-LSAs of their directly attached non-stub areas, even
+		 * when they are not translating.
+		 */
+		if (old_state != area->NSSATranslatorState) {
+			if (old_state == OSPF6_NSSA_TRANSLATE_DISABLED)
+				ospf6_asbr_status_update(ospf6,
+							 ++ospf6->redist_count);
+			else
+				ospf6_asbr_status_update(ospf6,
+							 --ospf6->redist_count);
+		}
 	}
-	/* RFC3101, 3.1:
-	 * All NSSA border routers must set the E-bit in the Type-1
-	 * router-LSAs of their directly attached non-stub areas, even
-	 * when they are not translating.
-	 */
-	if (CHECK_FLAG(ospf6->flag, OSPF6_FLAG_ABR) && (ospf6->anyNSSA))
-		ospf6_asbr_status_update(ospf6, ++ospf6->redist_count);
-	else
-		ospf6_asbr_status_update(ospf6, --ospf6->redist_count);
 }
 
 /* Mark the summary LSA's as unapproved, when ABR status changes.*/
