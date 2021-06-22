@@ -59,6 +59,15 @@ TESTS_ZEBRA =
 IGNORE_ZEBRA = --ignore=zebra/
 endif
 
+if SCRIPTING
+TESTS_SCRIPTING = \
+	tests/lib/test_frrlua \
+	tests/lib/test_frrscript \
+	#end
+else
+TESTS_SCRIPTING =
+endif
+
 clippy_scan += \
 	tests/lib/cli/test_cli.c \
 	tests/ospf6d/test_lsdb.c \
@@ -70,8 +79,6 @@ check_PROGRAMS = \
 	tests/lib/test_atomlist \
 	tests/lib/test_buffer \
 	tests/lib/test_checksum \
-	tests/lib/test_frrlua \
-	tests/lib/test_frrscript \
 	tests/lib/test_heavy_thread \
 	tests/lib/test_heavy_wq \
 	tests/lib/test_heavy \
@@ -106,6 +113,7 @@ check_PROGRAMS = \
 	$(TESTS_OSPFD) \
 	$(TESTS_OSPF6D) \
 	$(TESTS_ZEBRA) \
+	$(TESTS_SCRIPTING) \
 	# end
 
 if GRPC
@@ -291,6 +299,7 @@ tests_lib_test_checksum_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_checksum_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_checksum_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_checksum_SOURCES = tests/lib/test_checksum.c
+if SCRIPTING
 tests_lib_test_frrlua_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_frrlua_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_frrlua_LDADD = $(ALL_TESTS_LDADD)
@@ -299,6 +308,7 @@ tests_lib_test_frrscript_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_frrscript_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_frrscript_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_frrscript_SOURCES = tests/lib/test_frrscript.c
+endif
 tests_lib_test_graph_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_graph_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_graph_LDADD = $(ALL_TESTS_LDADD)
@@ -448,8 +458,6 @@ EXTRA_DIST += \
 	tests/lib/northbound/test_oper_data.refout \
 	tests/lib/test_assert.py \
 	tests/lib/test_atomlist.py \
-	tests/lib/test_frrscript.py \
-	tests/lib/test_frrlua.py \
 	tests/lib/test_nexthop_iter.py \
 	tests/lib/test_nexthop.py \
 	tests/lib/test_ntop.py \
@@ -475,6 +483,14 @@ EXTRA_DIST += \
 	tests/zebra/test_lm_plugin.py \
 	tests/zebra/test_lm_plugin.refout \
 	# end
+
+
+if SCRIPTING
+EXTRA_DIST += \
+	tests/lib/test_frrscript.py \
+	tests/lib/test_frrlua.py \
+	#end
+endif
 
 .PHONY: tests/tests.xml
 tests/tests.xml: $(check_PROGRAMS)
