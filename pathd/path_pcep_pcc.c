@@ -128,6 +128,8 @@ static struct req_entry *push_new_req(struct pcc_state *pcc_state,
 				      struct path *path);
 static void repush_req(struct pcc_state *pcc_state, struct req_entry *req);
 static struct req_entry *pop_req(struct pcc_state *pcc_state, uint32_t reqid);
+static struct req_entry *pop_req_no_reqid(struct pcc_state *pcc_state,
+					  uint32_t reqid);
 static bool add_reqid_mapping(struct pcc_state *pcc_state, struct path *path);
 static void remove_reqid_mapping(struct pcc_state *pcc_state,
 				 struct path *path);
@@ -1340,7 +1342,11 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 	struct path *path;
 
 	path = pcep_lib_parse_path(msg);
-	req = pop_req(pcc_state, path->req_id);
+	if (path->no_path) {
+		req = pop_req_no_reqid(pcc_state, path->req_id);
+	} else {
+		req = pop_req(pcc_state, path->req_id);
+	}
 	if (req == NULL) {
 		/* TODO: check the rate of bad computation reply and close
 		 * the connection if more that a given rate.
@@ -1372,6 +1378,9 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 	if (path->no_path) {
 		PCEP_DEBUG("%s Computation for path %s did not find any result",
 			   pcc_state->tag, path->name);
+		free_req_entry(req);
+		pcep_free_path(path);
+		return;
 	} else if (validate_incoming_path(pcc_state, path, err, sizeof(err))) {
 		/* Updating a dynamic path will automatically delegate it */
 		pcep_thread_update_path(ctrl_state, pcc_state->id, path);
@@ -1847,6 +1856,20 @@ struct req_entry *pop_req(struct pcc_state *pcc_state, uint32_t reqid)
 	return req;
 }
 
+struct req_entry *pop_req_no_reqid(struct pcc_state *pcc_state, uint32_t reqid)
+{
+	struct path path = {.req_id = reqid};
+	struct req_entry key = {.path = &path};
+	struct req_entry *req;
+
+	req = RB_FIND(req_entry_head, &pcc_state->requests, &key);
+	if (req == NULL)
+		return NULL;
+	RB_REMOVE(req_entry_head, &pcc_state->requests, req);
+
+	return req;
+}
+
 bool add_reqid_mapping(struct pcc_state *pcc_state, struct path *path)
 {
 	struct req_map_data *mapping;
@@ -1883,6 +1906,33 @@ uint32_t lookup_reqid(struct pcc_state *pcc_state, struct path *path)
 
 bool has_pending_req_for(struct pcc_state *pcc_state, struct path *path)
 {
+	struct req_entry key = {.path = path};
+	struct req_entry *req;
+
+
+	PCEP_DEBUG_PATH("(%s) %s", format_path(path), __func__);
+	/* Looking for request without result */
+	if (path->no_path || !path->first_hop) {
+		PCEP_DEBUG_PATH("%s Path : no_path|!first_hop", __func__);
+		/* ...and already was handle */
+		req = RB_FIND(req_entry_head, &pcc_state->requests, &key);
+		if (!req) {
+			/* we must purge remaining reqid */
+			PCEP_DEBUG_PATH("%s Purge pending reqid: no_path(%s)",
+					__func__,
+					path->no_path ? "TRUE" : "FALSE");
+			if (lookup_reqid(pcc_state, path) != 0) {
+				PCEP_DEBUG_PATH("%s Purge pending reqid: DONE ",
+						__func__);
+				remove_reqid_mapping(pcc_state, path);
+				return true;
+			} else {
+				return false;
+			}
+		}
+	}
+
+
 	return lookup_reqid(pcc_state, path) != 0;
 }
 
