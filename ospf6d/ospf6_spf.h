@@ -167,4 +167,8 @@ extern void ospf6_remove_temp_router_lsa(struct ospf6_area *area);
 extern void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6);
 extern int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 				     struct ospf6_area *area);
+extern bool
+ospf6_merge_parents_nh_to_child(struct ospf6_vertex *v,
+				struct ospf6_route *route,
+				struct ospf6_route_table *result_table);
 #endif /* OSPF6_SPF_H */
