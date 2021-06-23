@@ -180,11 +180,17 @@ Basic Config Commands
    is used to start the daemon then this command is turned on by default
    and cannot be turned off and the [no] form of the command is dissallowed.
 
-.. clicmd:: log-filter WORD [DAEMON]
+.. clicmd:: log filtered-file [FILENAME [LEVEL]]
+
+   Configure a destination file for filtered logs with the
+   :clicmd:`log filter-text WORD` command.
+
+.. clicmd:: log filter-text WORD
 
    This command forces logs to be filtered on a specific string. A log message
    will only be printed if it matches on one of the filters in the log-filter
-   table. Can be daemon independent.
+   table.  The filter only applies to file logging targets configured with
+   :clicmd:`log filtered-file [FILENAME [LEVEL]]`.
 
    .. note::
 
@@ -193,10 +199,15 @@ Basic Config Commands
       Log filters prevent this but you should still expect a small performance
       hit due to filtering each of all those logs.
 
-.. clicmd:: log-filter clear [DAEMON]
+   .. note::
 
-   This command clears all current filters in the log-filter table. Can be
-   daemon independent.
+      This setting is not saved to ``frr.conf`` and not shown in
+      :clicmd:`show running-config`.  It is intended for ephemeral debugging
+      purposes only.
+
+.. clicmd:: clear log filter-text
+
+   This command clears all current filters in the log-filter table.
 
 
 .. clicmd:: log immediate-mode

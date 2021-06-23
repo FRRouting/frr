@@ -111,13 +111,14 @@ int zlog_filter_dump(char *buf, size_t max_size)
 	return len;
 }
 
-static int search_buf(const char *buf)
+static int search_buf(const char *buf, size_t len)
 {
 	char *found = NULL;
 
 	frr_with_mutex(&logfilterlock) {
 		for (int i = 0; i < zlog_filter_count; i++) {
-			found = strstr(buf, zlog_filters[i]);
+			found = memmem(buf, len, zlog_filters[i],
+				       strlen(zlog_filters[i]));
 			if (found != NULL)
 				return 0;
 		}
@@ -131,12 +132,15 @@ static void zlog_filterfile_fd(struct zlog_target *zt, struct zlog_msg *msgs[],
 {
 	struct zlog_msg *msgfilt[nmsgs];
 	size_t i, o = 0;
+	const char *text;
+	size_t text_len;
 
 	for (i = 0; i < nmsgs; i++) {
-		if (zlog_msg_prio(msgs[i]) >= LOG_DEBUG
-		    && search_buf(zlog_msg_text(msgs[i], NULL)) < 0)
-			continue;
-
+		if (zlog_msg_prio(msgs[i]) >= LOG_DEBUG) {
+			text = zlog_msg_text(msgs[i], &text_len);
+			if (search_buf(text, text_len) < 0)
+				continue;
+		}
 		msgfilt[o++] = msgs[i];
 	}
 

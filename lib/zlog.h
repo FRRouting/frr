@@ -31,14 +31,19 @@
 #include "frrcu.h"
 #include "memory.h"
 #include "hook.h"
+#include "printfrr.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+DECLARE_MGROUP(LOG);
+
 extern char zlog_prefix[];
 extern size_t zlog_prefixsz;
 extern int zlog_tmpdirfd;
+extern int zlog_instance;
+extern const char *zlog_progname;
 
 struct xref_logmsg {
 	struct xref xref;
@@ -143,8 +148,17 @@ struct zlog_msg;
 extern int zlog_msg_prio(struct zlog_msg *msg);
 extern const struct xref_logmsg *zlog_msg_xref(struct zlog_msg *msg);
 
-/* pass NULL as textlen if you don't need it. */
+/* text is NOT \0 terminated; instead there is a \n after textlen since the
+ * logging targets would jump extra hoops otherwise for a single byte.  (the
+ * \n is not included in textlen)
+ *
+ * calling this with NULL textlen is likely wrong.
+ * use  "%.*s", (int)textlen, text  when passing to printf-like functions
+ */
 extern const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen);
+
+extern void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen,
+			  size_t *n_argpos, const struct fmt_outpos **argpos);
 
 /* timestamp formatting control flags */
 
@@ -161,8 +175,17 @@ extern const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen);
 /* default is local time zone */
 #define ZLOG_TS_UTC		(1 << 10)
 
-extern size_t zlog_msg_ts(struct zlog_msg *msg, char *out, size_t outsz,
+extern size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out,
 			  uint32_t flags);
+
+/* "mmm dd hh:mm:ss" for RFC3164 syslog.  Only ZLOG_TS_UTC for flags. */
+extern size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out,
+			       uint32_t flags);
+
+/* currently just returns the current PID/TID since we never write another
+ * thread's messages
+ */
+extern void zlog_msg_pid(struct zlog_msg *msg, intmax_t *pid, intmax_t *tid);
 
 /* This list & struct implements the actual logging targets.  It is accessed
  * lock-free from all threads, and thus MUST only be changed atomically, i.e.
@@ -253,6 +276,8 @@ extern void zlog_tls_buffer_fini(void);
 
 /* Enable or disable 'immediate' output - default is to buffer messages. */
 extern void zlog_set_immediate(bool set_p);
+
+extern const char *zlog_priority_str(int priority);
 
 #ifdef __cplusplus
 }
