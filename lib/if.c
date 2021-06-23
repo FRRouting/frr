@@ -455,36 +455,51 @@ static struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
 	return NULL;
 }
 
-/* Lookup interface by IP address. */
-struct interface *if_lookup_exact_address(const void *src, int family,
+/* Lookup interface by IP address.
+ *
+ * supersedes if_lookup_exact_address(), which didn't care about up/down
+ * state.  but all users we have either only care if the address is local
+ * (=> use if_address_is_local() please), or care about UP interfaces before
+ * anything else
+ *
+ * to accept only UP interfaces, check if_is_up() on the returned ifp.
+ */
+struct interface *if_lookup_address_local(const void *src, int family,
 					  vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct listnode *cnode;
-	struct interface *ifp;
+	struct interface *ifp, *best_down = NULL;
 	struct prefix *p;
 	struct connected *c;
+
+	if (family != AF_INET && family != AF_INET6)
+		return NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 			p = c->address;
 
-			if (p && (p->family == family)) {
-				if (family == AF_INET) {
-					if (IPV4_ADDR_SAME(
-						    &p->u.prefix4,
+			if (!p || p->family != family)
+				continue;
+
+			if (family == AF_INET) {
+				if (!IPV4_ADDR_SAME(&p->u.prefix4,
 						    (struct in_addr *)src))
-						return ifp;
-				} else if (family == AF_INET6) {
-					if (IPV6_ADDR_SAME(
-						    &p->u.prefix6,
+					continue;
+			} else if (family == AF_INET6) {
+				if (!IPV6_ADDR_SAME(&p->u.prefix6,
 						    (struct in6_addr *)src))
-						return ifp;
-				}
+					continue;
 			}
+
+			if (if_is_up(ifp))
+				return ifp;
+			if (!best_down)
+				best_down = ifp;
 		}
 	}
-	return NULL;
+	return best_down;
 }
 
 /* Lookup interface by IP address. */

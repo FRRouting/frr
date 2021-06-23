@@ -511,7 +511,7 @@ extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
 						     vrf_id_t vrf_id);
-extern struct interface *if_lookup_exact_address(const void *matchaddr,
+extern struct interface *if_lookup_address_local(const void *matchaddr,
 						 int family, vrf_id_t vrf_id);
 extern struct connected *if_lookup_address(const void *matchaddr, int family,
 					   vrf_id_t vrf_id);
@@ -519,6 +519,12 @@ extern struct interface *if_lookup_prefix(const struct prefix *prefix,
 					  vrf_id_t vrf_id);
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id);
+
+static inline bool if_address_is_local(const void *matchaddr, int family,
+				       vrf_id_t vrf_id)
+{
+	return if_lookup_address_local(matchaddr, family, vrf_id) != NULL;
+}
 
 struct vrf;
 extern struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf);

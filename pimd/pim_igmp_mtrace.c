@@ -596,8 +596,8 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	 * if applicable
 	 */
 	if (!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))
-		if (!if_lookup_exact_address(&ip_hdr->ip_dst, AF_INET,
-					     pim->vrf->vrf_id))
+		if (!if_address_is_local(&ip_hdr->ip_dst, AF_INET,
+					 pim->vrf->vrf_id))
 			return mtrace_forward_packet(pim, ip_hdr);
 
 	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {

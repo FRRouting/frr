@@ -1323,8 +1323,8 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 				return -1;
 			}
 		}
-	} else if (if_lookup_exact_address(&ip_hdr->ip_dst, AF_INET,
-					   pim->vrf->vrf_id)) {
+	} else if (if_address_is_local(&ip_hdr->ip_dst, AF_INET,
+				       pim->vrf->vrf_id)) {
 		/* Unicast BSM received - if ucast bsm not enabled on
 		 * the interface, drop it
 		 */

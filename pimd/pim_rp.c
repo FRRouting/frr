@@ -1178,15 +1178,6 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
-bool pim_rp_check_is_my_ip_address(struct pim_instance *pim,
-				   struct in_addr dest_addr)
-{
-	if (if_lookup_exact_address(&dest_addr, AF_INET, pim->vrf->vrf_id))
-		return true;
-
-	return false;
-}
-
 void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct rp_info *rp_info;
