@@ -3451,23 +3451,6 @@ struct bgp_path_info *info_make(int type, int sub_type, unsigned short instance,
 	return new;
 }
 
-static void overlay_index_update(struct attr *attr,
-				 union gw_addr *gw_ip)
-{
-	if (!attr)
-		return;
-	if (gw_ip == NULL) {
-		struct bgp_route_evpn eo;
-
-		memset(&eo, 0, sizeof(eo));
-		bgp_attr_set_evpn_overlay(attr, &eo);
-	} else {
-		struct bgp_route_evpn eo = {.gw_ip = *gw_ip};
-
-		bgp_attr_set_evpn_overlay(attr, &eo);
-	}
-}
-
 static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 				union gw_addr *gw_ip)
 {
@@ -3650,6 +3633,11 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (has_valid_label)
 		assert(label != NULL);
 
+	/* Update overlay index of the attribute */
+	if (afi == AFI_L2VPN && evpn)
+		memcpy(&attr->evpn_overlay, evpn,
+		       sizeof(struct bgp_route_evpn));
+
 	/* When peer's soft reconfiguration enabled.  Record input packet in
 	   Adj-RIBs-In.  */
 	if (!soft_reconfig
@@ -3825,12 +3813,6 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
-	/* Update Overlay Index */
-	if (afi == AFI_L2VPN) {
-		overlay_index_update(&new_attr,
-				     evpn == NULL ? NULL : &evpn->gw_ip);
-	}
-
 	/* The flag BGP_NODE_FIB_INSTALL_PENDING is for the following
 	 * condition :
 	 * Suppress fib is enabled
@@ -3865,10 +3847,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		    && (!has_valid_label
 			|| memcmp(&(bgp_path_info_extra_get(pi))->label, label,
 				  num_labels * sizeof(mpls_label_t))
-				   == 0)
-		    && (overlay_index_equal(
-			       afi, pi,
-			       evpn == NULL ? NULL : &evpn->gw_ip))) {
+				   == 0)) {
 			if (get_active_bdc_from_pi(pi, afi, safi)
 			    && peer->sort == BGP_PEER_EBGP
 			    && CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
@@ -3876,7 +3855,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					bgp_debug_rdpfxpath2str(
 						afi, safi, prd, p, label,
 						num_labels, addpath_id ? 1 : 0,
-						addpath_id, pfx_buf,
+						addpath_id, evpn, pfx_buf,
 						sizeof(pfx_buf));
 					zlog_debug("%s rcvd %s", peer->host,
 						   pfx_buf);
@@ -3902,7 +3881,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					bgp_debug_rdpfxpath2str(
 						afi, safi, prd, p, label,
 						num_labels, addpath_id ? 1 : 0,
-						addpath_id, pfx_buf,
+						addpath_id, evpn, pfx_buf,
 						sizeof(pfx_buf));
 					zlog_debug(
 						"%s rcvd %s...duplicate ignored",
@@ -3929,8 +3908,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (bgp_debug_update(peer, p, NULL, 1)) {
 				bgp_debug_rdpfxpath2str(
 					afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, evpn,
+					pfx_buf, sizeof(pfx_buf));
 				zlog_debug(
 					"%s rcvd %s, flapped quicker than processing",
 					peer->host, pfx_buf);
@@ -3943,7 +3922,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (bgp_debug_update(peer, p, NULL, 1)) {
 			bgp_debug_rdpfxpath2str(afi, safi, prd, p, label,
 						num_labels, addpath_id ? 1 : 0,
-						addpath_id, pfx_buf,
+						addpath_id, evpn, pfx_buf,
 						sizeof(pfx_buf));
 			zlog_debug("%s rcvd %s", peer->host, pfx_buf);
 		}
@@ -4216,8 +4195,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, evpn,
+					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s rcvd %s", peer->host, pfx_buf);
 	}
 
@@ -4248,11 +4227,6 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 	}
 
-	/* Update Overlay Index */
-	if (afi == AFI_L2VPN) {
-		overlay_index_update(new->attr,
-				     evpn == NULL ? NULL : &evpn->gw_ip);
-	}
 	/* Nexthop reachability check. */
 	if (((afi == AFI_IP || afi == AFI_IP6)
 	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
@@ -4362,8 +4336,8 @@ filtered:
 		}
 
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, evpn,
+					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s rcvd UPDATE about %s -- DENIED due to: %s",
 			   peer->host, pfx_buf, reason);
 	}
@@ -4447,8 +4421,8 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (bgp_debug_update(peer, p, NULL, 1)) {
 				bgp_debug_rdpfxpath2str(
 					afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 				zlog_debug(
 					"%s withdrawing route %s not in adj-in",
 					peer->host, pfx_buf);
@@ -4467,8 +4441,8 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Logging. */
 	if (bgp_debug_update(peer, p, NULL, 1)) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s rcvd UPDATE about %s -- withdrawn", peer->host,
 			   pfx_buf);
 	}
@@ -4488,8 +4462,8 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 	} else if (bgp_debug_update(peer, p, NULL, 1)) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, pfx_buf,
-					sizeof(pfx_buf));
+					addpath_id ? 1 : 0, addpath_id, NULL,
+					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s Can't find the route %s", peer->host, pfx_buf);
 	}
 
@@ -9867,6 +9841,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		json_nexthop_global = json_object_new_object();
 	}
 
+	if (safi == SAFI_EVPN) {
+		if (!json_paths)
+			vty_out(vty, "  Route %pRN", bn);
+	}
+
 	if (path->extra) {
 		char tag_buf[30];
 
@@ -9878,12 +9857,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 		if (safi == SAFI_EVPN) {
 			if (!json_paths) {
-				vty_out(vty, "  Route %pFX",
-					(struct prefix_evpn *)
-						bgp_dest_get_prefix(bn));
 				if (tag_buf[0] != '\0')
 					vty_out(vty, " VNI %s", tag_buf);
-				vty_out(vty, "\n");
 			} else {
 				if (tag_buf[0])
 					json_object_string_add(json_path, "VNI",
@@ -9929,6 +9904,27 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			}
 		}
 	}
+
+	if (safi == SAFI_EVPN
+	    && attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
+		char gwip_buf[INET6_ADDRSTRLEN];
+
+		if (is_evpn_prefix_ipaddr_v4((struct prefix_evpn *)&bn->p))
+			inet_ntop(AF_INET, &attr->evpn_overlay.gw_ip.ipv4,
+				  gwip_buf, sizeof(gwip_buf));
+		else
+			inet_ntop(AF_INET6, &attr->evpn_overlay.gw_ip.ipv6,
+				  gwip_buf, sizeof(gwip_buf));
+
+		if (json_paths)
+			json_object_string_add(json_path, "gatewayIP",
+					       gwip_buf);
+		else
+			vty_out(vty, " Gateway IP %s", gwip_buf);
+	}
+
+	if (safi == SAFI_EVPN)
+		vty_out(vty, "\n");
 
 	/* Line1 display AS-path, Aggregator */
 	if (attr->aspath) {

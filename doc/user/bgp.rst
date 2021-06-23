@@ -2696,6 +2696,115 @@ remote VTEP.
 Note that you should not enable both the advertise-svi-ip and the advertise-default-gw
 at the same time.
 
+.. _bgp-evpn-overlay-index-gateway-ip:
+
+EVPN Overlay Index Gateway IP
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Draft https://tools.ietf.org/html/draft-ietf-bess-evpn-prefix-advertisement-11
+explains the use of overlay indexes for recursive route resolution for EVPN
+type-5 route.
+
+We support gateway IP overlay index.
+A gateway IP, advertised with EVPN prefix route, is used to find an EVPN MAC/IP
+route with its IP field same as the gateway IP. This MAC/IP entry provides the
+nexthop VTEP and the tunnel information required for the VxLAN encapsulation.
+
+Functionality:
+
+::
+
+  .      +--------+ BGP  +--------+ BGP  +--------+      +--------+
+    SN1  |        | IPv4 |        | EVPN |        |      |        |
+   ======+ Host1  +------+   PE1  +------+   PE2  +------+  Host2 +
+         |        |      |        |      |        |      |        |
+         +--------+      +--------+      +--------+      +--------+
+
+Consider above topology where prefix SN1 is connected behind host1. Host1
+advertises SN1 to PE1 over BGP IPv4 session. PE1 advertises SN1 to PE2 using
+EVPN type-5 route with host1 IP as the gateway IP. PE1 also advertises
+Host1 MAC/IP as type-2 route which is used to resolve host1 gateway IP.
+
+PE2 receives this type-5 route and imports it into the vrf based on route
+targets. BGP prefix imported into the vrf uses gateway IP as its BGP nexthop.
+This route is installed into zebra if following conditions are satisfied:
+1. Gateway IP nexthop is L3 reachable.
+2. PE2 has received EVPN type-2 route with IP field set to gateway IP.
+
+Topology requirements:
+1. This feature is supported for asymmetric routing model only. While
+   sending packets to SN1, ingress PE (PE2) performs routing and
+   egress PE (PE1) performs only bridging.
+2. This feature supports only tratitional(non vlan-aware) bridge model. Bridge
+   interface associated with L2VNI is an L3 interface. i.e., this interface is
+   configured with an address in the L2VNI subnet. Note that the gateway IP
+   should also have an address in the same subnet.
+3. As this feature works in asymmetric routing model, all L2VNIs and corresponding
+   VxLAN and bridge interfaces should be present at all the PEs.
+4. L3VNI configuration is required to generate and import EVPN type-5 routes.
+   L3VNI VxLAN and bridge interfaces also should be present.
+
+A PE can use one of the following two mechanisms to advertise an EVPN type-5
+route with gateway IP.
+
+1. CLI to add gateway IP while generating EVPN type-5 route from a BGP IPv4/IPv6
+prefix:
+
+.. index:: advertise <ipv4|ipv6> unicast [gateway-ip]
+.. clicmd:: [no] advertise <ipv4|ipv6> unicast [gateway-ip]
+
+When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
+type-5 routes are generated for BGP prefixes in the vrf. Nexthop of the BGP
+prefix becomes the gateway IP of the corresponding type-5 route.
+
+If the above command is configured without the "gateway-ip" keyword, type-5
+routes are generated without overlay index.
+
+2. Add gateway IP to EVPN type-5 route using a route-map:
+
+.. index:: set evpn gateway-ip <ipv4|ipv6> <addr>
+.. clicmd:: [no] set evpn gateway-ip <ipv4|ipv6> <addr>
+
+When route-map with above set clause is applied as outbound policy in BGP, it
+will set the gateway-ip in EVPN type-5 NLRI.
+
+Example configuration:
+
+.. code-block:: frr
+
+   router bgp 100
+    neighbor 192.168.0.1 remote-as 101
+    !
+    address-family ipv4 l2vpn evpn
+     neighbor 192.168.0.1 route-map RMAP out
+    exit-address-family
+   !
+   route-map RMAP permit 10
+    set evpn gateway-ip 10.0.0.1
+    set evpn gateway-ip 10::1
+
+A PE that receives a type-5 route with gateway IP overlay index should have
+"enable-resolve-overlay-index" configuration enabled to recursively resolve the
+overlay index nexthop and install the prefix into zebra.
+
+.. index:: enable-resolve-overlay-index
+.. clicmd:: [no] enable-resolve-overlay-index
+
+Example configuration:
+
+.. code-block:: frr
+
+   router bgp 65001
+    bgp router-id 192.168.100.1
+    no bgp ebgp-requires-policy
+    neighbor 10.0.1.2 remote-as 65002
+    !
+    address-family l2vpn evpn
+     neighbor 10.0.1.2 activate
+     advertise-all-vni
+     enable-resolve-overlay-index
+    exit-address-family
+   !
+
 EVPN Multihoming
 ^^^^^^^^^^^^^^^^
 

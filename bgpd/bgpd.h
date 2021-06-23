@@ -510,16 +510,18 @@ struct bgp {
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
-#define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST		(1 << 1)
-#define BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST		(1 << 2)
-#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4		(1 << 3)
-#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6		(1 << 4)
+#define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST (1 << 1)
+#define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP (1 << 2)
+#define BGP_L2VPN_EVPN_ADV_IPV6_UNICAST (1 << 3)
+#define BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP (1 << 4)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4 (1 << 5)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6 (1 << 6)
 /* import/export between address families */
-#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT		(1 << 5)
-#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT		(1 << 6)
+#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT (1 << 7)
+#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT (1 << 8)
 /* vrf-route leaking flags */
-#define BGP_CONFIG_VRF_TO_VRF_IMPORT			(1 << 7)
-#define BGP_CONFIG_VRF_TO_VRF_EXPORT			(1 << 8)
+#define BGP_CONFIG_VRF_TO_VRF_IMPORT (1 << 9)
+#define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
@@ -638,6 +640,14 @@ struct bgp {
 	/* EVI hash table */
 	struct hash *vnihash;
 
+	/*
+	 * VNI hash table based on SVI ifindex as its key.
+	 * We use SVI ifindex as key to lookup a VNI table for gateway IP
+	 * overlay index recursive lookup.
+	 * For this purpose, a hashtable is added which optimizes this lookup.
+	 */
+	struct hash *vni_svi_hash;
+
 	/* EVPN enable - advertise gateway macip routes */
 	int advertise_gw_macip;
 
@@ -682,6 +692,15 @@ struct bgp {
 
 	/* Hash table of EVPN nexthops maintained per-tenant-VRF */
 	struct hash *evpn_nh_table;
+
+	/*
+	 * Flag resolve_overlay_index is used for recursive resolution
+	 * procedures for EVPN type-5 route's gateway IP overlay index.
+	 * When this flag is set, we build remote-ip-hash for
+	 * all L2VNIs and resolve overlay index nexthops using this hash.
+	 * Overlay index nexthops remain unresolved if this flag is not set.
+	 */
+	bool resolve_overlay_index;
 
 	/* vrf flags */
 	uint32_t vrf_flags;

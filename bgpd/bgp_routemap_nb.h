@@ -130,6 +130,14 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_bandwidth_mod
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_bandwidth_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_destroy(struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv4_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv4_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_destroy(
+	struct nb_cb_destroy_args *args);
 
 #ifdef __cplusplus
 }

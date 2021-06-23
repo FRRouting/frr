@@ -1248,6 +1248,16 @@ void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:ipv4-nexthop"));
+	} else if (IS_SET_BGP_EVPN_GATEWAY_IP_IPV4(action)) {
+		vty_out(vty, " set evpn gateway-ip ipv4 %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv4"));
+	} else if (IS_SET_BGP_EVPN_GATEWAY_IP_IPV6(action)) {
+		vty_out(vty, " set evpn gateway-ip ipv6 %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv6"));
 	}
 }
 
