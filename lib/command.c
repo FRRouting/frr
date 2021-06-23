@@ -255,6 +255,9 @@ static bool cmd_hash_cmp(const void *a, const void *b)
 /* Install top node of command vector. */
 void install_node(struct cmd_node *node)
 {
+#define CMD_HASH_STR_SIZE 256
+	char hash_name[CMD_HASH_STR_SIZE];
+
 	vector_set_index(cmdvec, node->node, node);
 	node->cmdgraph = graph_new();
 	node->cmd_vector = vector_init(VECTOR_MIN_SIZE);
@@ -263,8 +266,10 @@ void install_node(struct cmd_node *node)
 		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
 	graph_new_node(node->cmdgraph, token,
 		       (void (*)(void *)) & cmd_token_del);
-	node->cmd_hash = hash_create_size(16, cmd_hash_key, cmd_hash_cmp,
-					  "Command Hash");
+
+	snprintf(hash_name, sizeof(hash_name), "Command Hash: %s", node->name);
+	node->cmd_hash =
+		hash_create_size(16, cmd_hash_key, cmd_hash_cmp, hash_name);
 }
 
 /* Return prompt character of specified node. */
