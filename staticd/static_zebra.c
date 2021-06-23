@@ -162,14 +162,10 @@ static bool
 static_nexthop_is_local(vrf_id_t vrfid, struct prefix *addr, int family)
 {
 	if (family == AF_INET) {
-		if (if_lookup_exact_address(&addr->u.prefix4,
-					AF_INET,
-					vrfid))
+		if (if_address_is_local(&addr->u.prefix4, AF_INET, vrfid))
 			return true;
 	} else if (family == AF_INET6) {
-		if (if_lookup_exact_address(&addr->u.prefix6,
-					AF_INET6,
-					vrfid))
+		if (if_address_is_local(&addr->u.prefix6, AF_INET6, vrfid))
 			return true;
 	}
 	return false;
