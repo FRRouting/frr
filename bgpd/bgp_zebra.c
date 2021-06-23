@@ -1047,7 +1047,9 @@ int bgp_zebra_get_table_range(uint32_t chunk_size,
 
 static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 					    struct in_addr *nexthop,
-					    struct attr *attr, bool is_evpn,
+					    struct attr *attr,
+						struct bgp_path_info_extra *extra,
+						bool is_evpn,
 					    struct zapi_nexthop *api_nh)
 {
 	api_nh->gate.ipv4 = *nexthop;
@@ -1061,6 +1063,15 @@ static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 		api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
+
+		if(attr->ecommunity->tunneltype == BGP_ENCAP_TYPE_VXLAN)
+		{
+			if (extra)
+			{
+				api_nh->tunneltype = BGP_ENCAP_TYPE_VXLAN;
+				api_nh->r_vni = vxlan_label_pton(&extra->label[1]);
+			}
+		}
 	} else if (nh_othervrf &&
 		 api_nh->gate.ipv4.s_addr == INADDR_ANY) {
 		api_nh->type = NEXTHOP_TYPE_IFINDEX;
@@ -1344,7 +1355,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 					nh_othervrf ?
 					info->extra->bgp_orig : bgp,
 					&mpinfo_cp->attr->nexthop,
-					mpinfo_cp->attr, is_evpn, api_nh);
+					mpinfo_cp->attr, mpinfo_cp->extra, is_evpn, api_nh);
 		} else {
 			ifindex_t ifindex = IFINDEX_INTERNAL;
 			struct in6_addr *nexthop;
@@ -1358,7 +1369,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 					nh_othervrf ? info->extra->bgp_orig
 						    : bgp,
 					&mpinfo_cp->attr->nexthop,
-					mpinfo_cp->attr, is_evpn, api_nh);
+					mpinfo_cp->attr, mpinfo_cp->extra, is_evpn, api_nh);
 			else
 				nh_updated = update_ipv6nh_for_route_install(
 					nh_othervrf,

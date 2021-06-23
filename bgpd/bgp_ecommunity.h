@@ -124,6 +124,7 @@ struct ecommunity {
 
 	/* Human readable format string.  */
 	char *str;
+	uint16_t tunneltype;
 };
 
 struct ecommunity_as {

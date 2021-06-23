@@ -1570,7 +1570,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
 			zebra_vxlan_evpn_vrf_route_add(
-				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
+				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p, api_nh->r_vni);
 		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1603,7 +1603,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
 			zebra_vxlan_evpn_vrf_route_add(
-				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
+				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p, api_nh->r_vni);
 		}
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:

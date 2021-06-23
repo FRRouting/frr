@@ -106,6 +106,20 @@ static inline uint32_t label_pton(mpls_label_t *label)
 		| ((unsigned int)((t[2] & 0xF0) >> 4)));
 }
 
+/* vxlan vni Label stream to value */
+static inline uint32_t vxlan_label_pton(mpls_label_t *label)
+{
+	uint8_t *t = (uint8_t *)label;
+	unsigned int vni = 0;
+
+	vni = ((((unsigned int)t[0]) << 16) | (((unsigned int)t[1]) << 8)
+		| ((unsigned int)(t[2])));
+
+	zlog_debug("label 0x%x, vni 0x%x ,t[0] 0x%x,t[1] 0x%x,t[2] 0x%x",label[0],vni,t[0],t[1],t[2]);
+
+	return vni;
+}
+
 /* Encode label values */
 static inline void label_ntop(uint32_t l, int bos, mpls_label_t *label)
 {
