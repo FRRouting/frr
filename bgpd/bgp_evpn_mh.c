@@ -269,8 +269,10 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 				parent_pi)
 			break;
 
-	if (!pi)
+	if (!pi) {
+		bgp_dest_unlock_node(dest);
 		return 0;
+	}
 
 	/* Mark entry for deletion */
 	bgp_path_info_delete(dest, pi);
