@@ -1339,8 +1339,15 @@ pcep_decode_obj_vendor_info(struct pcep_object_header *hdr,
 	struct pcep_object_vendor_info *obj =
 		(struct pcep_object_vendor_info *)common_object_create(
 			hdr, sizeof(struct pcep_object_vendor_info));
+
 	obj->enterprise_number = ntohl(*((uint32_t *)(obj_buf)));
 	obj->enterprise_specific_info = ntohl(*((uint32_t *)(obj_buf + 4)));
+	if (obj->enterprise_number == ENTERPRISE_NUMBER_CISCO
+	    && obj->enterprise_specific_info == ENTERPRISE_COLOR_CISCO)
+		obj->enterprise_specific_info1 =
+			ntohl(*((uint32_t *)(obj_buf + 8)));
+	else
+		obj->enterprise_specific_info1 = 0;
 
 	return (struct pcep_object_header *)obj;
 }

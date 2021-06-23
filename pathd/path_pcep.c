@@ -37,6 +37,7 @@
 #include "pathd/path_pcep_controller.h"
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_config.h"
+#include "pathd/path_pcep_debug.h"
 
 DEFINE_MTYPE(PATHD, PCEP, "PCEP module");
 
@@ -51,6 +52,7 @@ static int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 				   void *payload);
 static int pcep_main_event_start_sync(int pcc_id);
 static int pcep_main_event_start_sync_cb(struct path *path, void *arg);
+static int pcep_main_event_initiate_candidate(struct path *path);
 static int pcep_main_event_update_candidate(struct path *path);
 static int pcep_main_event_remove_candidate_segments(const char *originator,
 						     bool force);
@@ -63,6 +65,9 @@ static int pathd_candidate_removed_handler(struct srte_candidate *candidate);
 /* Path manipulation functions */
 static struct path_metric *pcep_copy_metrics(struct path_metric *metric);
 static struct path_hop *pcep_copy_hops(struct path_hop *hop);
+
+/* Other static functions */
+static void notify_status(struct path *path, bool not_changed);
 
 /* Module Functions */
 static int pcep_module_finish(void);
@@ -165,6 +170,21 @@ void pcep_free_path(struct path *path)
 	XFREE(MTYPE_PCEP, path);
 }
 
+/* ------------ Other Static Functions ------------ */
+
+void notify_status(struct path *path, bool not_changed)
+{
+	struct path *resp = NULL;
+
+	if ((resp = path_pcep_config_get_path(&path->nbkey))) {
+		resp->srp_id = path->srp_id;
+		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
+			  "(%s) Send report for candidate path %s", __func__,
+			  path->name);
+		pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp,
+				      not_changed);
+	}
+}
 
 /* ------------ Main Thread Even Handler ------------ */
 
@@ -176,6 +196,11 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 	switch (type) {
 	case PCEP_MAIN_EVENT_START_SYNC:
 		ret = pcep_main_event_start_sync(pcc_id);
+		break;
+	case PCEP_MAIN_EVENT_INITIATE_CANDIDATE:
+		assert(payload != NULL);
+		ret = pcep_main_event_initiate_candidate(
+			(struct path *)payload);
 		break;
 	case PCEP_MAIN_EVENT_UPDATE_CANDIDATE:
 		assert(payload != NULL);
@@ -209,19 +234,49 @@ int pcep_main_event_start_sync_cb(struct path *path, void *arg)
 	return 1;
 }
 
+int pcep_main_event_initiate_candidate(struct path *path)
+{
+	int ret = 0;
+
+	ret = path_pcep_config_initiate_path(path);
+	if (path->do_remove) {
+		struct pcep_error *error;
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_INVALID_OPERATION;
+		switch (ret) {
+		case ERROR_19_1:
+			error->error_value =
+				PCEP_ERRV_LSP_UPDATE_FOR_NON_DELEGATED_LSP;
+			break;
+		case ERROR_19_3:
+			error->error_value =
+				PCEP_ERRV_LSP_UPDATE_UNKNOWN_PLSP_ID;
+			break;
+		case ERROR_19_9:
+			error->error_value = PCEP_ERRV_LSP_NOT_PCE_INITIATED;
+			break;
+		default:
+			zlog_warn("(%s)PCE tried to REMOVE unknown error!",
+				  __func__);
+			XFREE(MTYPE_PCEP, error);
+			pcep_free_path(path);
+			return ret;
+			break;
+		}
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret != PATH_NB_ERR && path->srp_id != 0)
+		notify_status(path, ret == PATH_NB_NO_CHANGE);
+	return ret;
+}
+
 int pcep_main_event_update_candidate(struct path *path)
 {
-	struct path *resp = NULL;
 	int ret = 0;
 
 	ret = path_pcep_config_update_path(path);
-	if (ret != PATH_NB_ERR && path->srp_id != 0) {
-		if ((resp = path_pcep_config_get_path(&path->nbkey))) {
-			resp->srp_id = path->srp_id;
-			pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp,
-					      ret == PATH_NB_NO_CHANGE);
-		}
-	}
+	if (ret != PATH_NB_ERR && path->srp_id != 0)
+		notify_status(path, ret == PATH_NB_NO_CHANGE);
 	return ret;
 }
 

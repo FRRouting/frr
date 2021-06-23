@@ -35,6 +35,7 @@ DEFINE_MTYPE_STATIC(PATHD, PCEPLIB_MESSAGES, "PCEPlib PCEP Messages");
 #define DEFAULT_LSAP_SETUP_PRIO 4
 #define DEFAULT_LSAP_HOLDING_PRIO 4
 #define DEFAULT_LSAP_LOCAL_PRETECTION false
+#define MAX_PATH_NAME_SIZE 255
 
 /* pceplib logging callback */
 static int pceplib_logging_cb(int level, const char *fmt, va_list args);
@@ -76,8 +77,18 @@ static void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp);
 static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp);
 static void pcep_lib_parse_lspa(struct path *path,
 				struct pcep_object_lspa *lspa);
+static void pcep_lib_parse_lsp_symbolic_name(
+	struct path *path, struct pcep_object_tlv_symbolic_path_name *tlv);
 static void pcep_lib_parse_metric(struct path *path,
 				  struct pcep_object_metric *obj);
+static void
+pcep_lib_parse_endpoints_ipv4(struct path *path,
+			      struct pcep_object_endpoints_ipv4 *obj);
+static void
+pcep_lib_parse_endpoints_ipv6(struct path *path,
+			      struct pcep_object_endpoints_ipv6 *obj);
+static void pcep_lib_parse_vendor_info(struct path *path,
+				       struct pcep_object_vendor_info *obj);
 static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
 static struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 					      struct pcep_ro_subobj_sr *sr);
@@ -160,7 +171,7 @@ pcep_lib_connect(struct ipaddr *src_addr, int src_port, struct ipaddr *dst_addr,
 	}
 
 	config->support_stateful_pce_lsp_update = true;
-	config->support_pce_lsp_instantiation = false;
+	config->support_pce_lsp_instantiation = pcep_options->pce_initiated;
 	config->support_include_db_version = false;
 	config->support_lsp_triggered_resync = false;
 	config->support_lsp_delta_sync = false;
@@ -381,9 +392,25 @@ struct pcep_message *pcep_lib_format_request(struct pcep_caps *caps,
 	}
 }
 
-struct pcep_message *pcep_lib_format_error(int error_type, int error_value)
+struct pcep_message *pcep_lib_format_error(int error_type, int error_value,
+					   struct path *path)
 {
-	return pcep_msg_create_error(error_type, error_value);
+	double_linked_list *objs, *srp_tlvs;
+	struct pcep_object_srp *srp;
+	struct pcep_object_tlv_header *tlv;
+
+	if ((path == NULL) || (path->srp_id == 0))
+		return pcep_msg_create_error(error_type, error_value);
+
+	objs = dll_initialize();
+	srp_tlvs = dll_initialize();
+	tlv = (struct pcep_object_tlv_header *)pcep_tlv_create_path_setup_type(
+		SR_TE_PST);
+	dll_append(srp_tlvs, tlv);
+	srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
+	dll_append(objs, srp);
+	return pcep_msg_create_error_with_objects(error_type, error_value,
+						  objs);
 }
 
 struct pcep_message *pcep_lib_format_request_cancelled(uint32_t reqid)
@@ -417,6 +444,9 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 	struct pcep_object_metric *metric = NULL;
 	struct pcep_object_bandwidth *bandwidth = NULL;
 	struct pcep_object_objective_function *of = NULL;
+	struct pcep_object_endpoints_ipv4 *epv4 = NULL;
+	struct pcep_object_endpoints_ipv6 *epv6 = NULL;
+	struct pcep_object_vendor_info *vendor_info = NULL;
 
 	path = pcep_new_path();
 
@@ -469,6 +499,21 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 			of = (struct pcep_object_objective_function *)obj;
 			path->has_pce_objfun = true;
 			path->pce_objfun = of->of_code;
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_ENDPOINTS,
+				PCEP_OBJ_TYPE_ENDPOINT_IPV4):
+			epv4 = (struct pcep_object_endpoints_ipv4 *)obj;
+			pcep_lib_parse_endpoints_ipv4(path, epv4);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_ENDPOINTS,
+				PCEP_OBJ_TYPE_ENDPOINT_IPV6):
+			epv6 = (struct pcep_object_endpoints_ipv6 *)obj;
+			pcep_lib_parse_endpoints_ipv6(path, epv6);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_VENDOR_INFO,
+				PCEP_OBJ_TYPE_VENDOR_INFO):
+			vendor_info = (struct pcep_object_vendor_info *)obj;
+			pcep_lib_parse_vendor_info(path, vendor_info);
 			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
@@ -632,7 +677,8 @@ double_linked_list *pcep_lib_format_path(struct pcep_caps *caps,
 		tlv = (struct pcep_object_tlv_header *)
 			pcep_tlv_create_tlv_arbitrary(
 				binding_sid_lsp_tlv_data,
-				sizeof(binding_sid_lsp_tlv_data), 65505);
+				sizeof(binding_sid_lsp_tlv_data),
+				PCEP_OBJ_TYPE_CISCO_BSID);
 		assert(tlv != NULL);
 		dll_append(lsp_tlvs, tlv);
 	}
@@ -855,6 +901,12 @@ void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp)
 	double_linked_list_node *node;
 	struct pcep_object_tlv_header *tlv;
 
+	if (tlvs == NULL) {
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
+			  "Unexpected Empty RP's TLV plsp-id:(%d)",
+			  path ? (int32_t)path->plsp_id : -1);
+		return;
+	}
 	/* We ignore the other flags and priority for now */
 	path->req_id = rp->request_id;
 	path->has_pce_objfun = false;
@@ -884,6 +936,12 @@ void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp)
 	path->do_remove = srp->flag_lsp_remove;
 	path->srp_id = srp->srp_id_number;
 
+	if (tlvs == NULL) {
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
+			  "Unexpected Empty SRP's TLV plsp-id:(%d)",
+			  path ? (int32_t)path->plsp_id : -1);
+		return;
+	}
 	for (node = tlvs->head; node != NULL; node = node->next_node) {
 		tlv = (struct pcep_object_tlv_header *)node->data;
 		switch (tlv->type) {
@@ -904,6 +962,8 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 	double_linked_list *tlvs = lsp->header.tlv_list;
 	double_linked_list_node *node;
 	struct pcep_object_tlv_header *tlv;
+	struct pcep_object_tlv_symbolic_path_name *name;
+	struct pcep_object_tlv_arbitrary *arb_tlv;
 
 	path->plsp_id = lsp->plsp_id;
 	path->status = lsp->operational_status;
@@ -913,12 +973,27 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 	path->is_synching = lsp->flag_s;
 	path->is_delegated = lsp->flag_d;
 
-	if (tlvs == NULL)
+	if (tlvs == NULL) {
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
+			  "Unexpected Empty LSP's TLV plsp-id:(%d)",
+			  path ? (int32_t)path->plsp_id : -1);
 		return;
+	}
 
 	for (node = tlvs->head; node != NULL; node = node->next_node) {
 		tlv = (struct pcep_object_tlv_header *)node->data;
 		switch (tlv->type) {
+		case PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME:
+			name = (struct pcep_object_tlv_symbolic_path_name *)tlv;
+			pcep_lib_parse_lsp_symbolic_name(path, name);
+			break;
+		case PCEP_OBJ_TYPE_CISCO_BSID:
+			arb_tlv = (struct pcep_object_tlv_arbitrary *)tlv;
+			memcpy(&path->binding_sid, arb_tlv->data + 2,
+			       sizeof(path->binding_sid));
+			path->binding_sid = ntohl(path->binding_sid);
+			path->binding_sid = (path->binding_sid >> 12);
+			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected LSP TLV %s (%u)",
@@ -926,6 +1001,16 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 			break;
 		}
 	}
+}
+
+void pcep_lib_parse_lsp_symbolic_name(
+	struct path *path, struct pcep_object_tlv_symbolic_path_name *tlv)
+{
+	uint16_t size = tlv->symbolic_path_name_length;
+	assert(path->name == NULL);
+	size = size > MAX_PATH_NAME_SIZE ? MAX_PATH_NAME_SIZE : size;
+	path->name = XCALLOC(MTYPE_PCEP, size);
+	strlcpy((char *)path->name, tlv->symbolic_path_name, size + 1);
 }
 
 void pcep_lib_parse_lspa(struct path *path, struct pcep_object_lspa *lspa)
@@ -952,6 +1037,34 @@ void pcep_lib_parse_metric(struct path *path, struct pcep_object_metric *obj)
 	path->first_metric = metric;
 }
 
+void pcep_lib_parse_endpoints_ipv4(struct path *path,
+				   struct pcep_object_endpoints_ipv4 *obj)
+{
+	SET_IPADDR_V4(&path->pcc_addr);
+	path->pcc_addr.ipaddr_v4 = obj->src_ipv4;
+	SET_IPADDR_V4(&path->nbkey.endpoint);
+	path->nbkey.endpoint.ipaddr_v4 = obj->dst_ipv4;
+}
+
+void pcep_lib_parse_endpoints_ipv6(struct path *path,
+				   struct pcep_object_endpoints_ipv6 *obj)
+{
+	SET_IPADDR_V6(&path->pcc_addr);
+	path->pcc_addr.ipaddr_v6 = obj->src_ipv6;
+	SET_IPADDR_V6(&path->nbkey.endpoint);
+	path->nbkey.endpoint.ipaddr_v6 = obj->dst_ipv6;
+}
+
+void pcep_lib_parse_vendor_info(struct path *path,
+				struct pcep_object_vendor_info *obj)
+{
+	if (obj->enterprise_number == ENTERPRISE_NUMBER_CISCO
+	    && obj->enterprise_specific_info == ENTERPRISE_COLOR_CISCO)
+		path->nbkey.color = obj->enterprise_specific_info1;
+	else
+		path->nbkey.color = 0;
+}
+
 void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 {
 	struct path_hop *hop = NULL;
@@ -959,6 +1072,12 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 	double_linked_list_node *node;
 	struct pcep_object_ro_subobj *obj;
 
+	if (objs == NULL) {
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
+			  "Unexpected Empty ERO's sub_obj plsp-id:(%d)",
+			  path ? (int32_t)path->plsp_id : -1);
+		return;
+	}
 	for (node = objs->tail; node != NULL; node = node->prev_node) {
 		obj = (struct pcep_object_ro_subobj *)node->data;
 		switch (obj->ro_subobj_type) {
