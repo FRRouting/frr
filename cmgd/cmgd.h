@@ -44,7 +44,8 @@
 typedef enum cmgd_bcknd_event_ {
 	CMGD_BCKND_SERVER = 1,
 	CMGD_BCKND_CONN_READ,
-	CMGD_BCKND_CONN_WRITE
+	CMGD_BCKND_CONN_WRITE,
+	CMGD_BCKND_PROC_MSG
 } cmgd_bcknd_event_t;
 
 // #define CMGD_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */

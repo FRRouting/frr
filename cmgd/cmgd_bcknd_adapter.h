@@ -45,6 +45,7 @@ typedef struct cmgd_bcknd_client_adapter_ {
         union sockunion conn_su;
         struct thread *conn_read_ev;
         struct thread *conn_write_ev;
+        struct thread *proc_msg_ev;
         char name[CMGD_CLIENT_NAME_MAX_LEN];
         uint8_t num_xpath_reg;
         char xpath_reg[CMGD_MAX_NUM_XPATH_REG][CMGD_MAX_XPATH_LEN];
@@ -53,6 +54,19 @@ typedef struct cmgd_bcknd_client_adapter_ {
         cmgd_bcknd_cfg_result_notify_t cfgresult_cb;
         cmgd_bcknd_get_data_result_notify_t dataresult_cb;
         cmgd_bcknd_data_notify_t notifydata_cb;
+
+        /* IO streams for read and write */
+	// pthread_mutex_t ibuf_mtx;
+	struct stream_fifo *ibuf_fifo;
+	// pthread_mutex_t obuf_mtx;
+	// struct stream_fifo *obuf_fifo;
+
+	// /* Private I/O buffers */
+	struct stream *ibuf_work;
+	// struct stream *obuf_work;
+
+	/* Buffer of data waiting to be written to client. */
+	// struct buffer *wb;
 
         int refcount;
 

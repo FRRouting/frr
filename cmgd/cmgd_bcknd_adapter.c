@@ -114,8 +114,6 @@ static void cmgd_bcknd_adapter_cleanup_old_conn(
 static int cmgd_bcknd_adapter_handle_msg(
 	cmgd_bcknd_client_adapter_t *adptr, Cmgd__BckndMessage *bcknd_msg)
 {
-	cmgd_bcknd_client_adapter_t *old;
-
 	switch(bcknd_msg->type) {
 	case CMGD__BCKND_MESSAGE__TYPE__SUBSCRIBE_REQ:
 		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_SUBSCR_REQ);
@@ -139,16 +137,13 @@ static int cmgd_bcknd_adapter_handle_msg(
 	return 0;
 }
 
-static int cmgd_bcknd_adapter_process_msg(
+static uint16_t cmgd_bcknd_adapter_process_msg(
 	cmgd_bcknd_client_adapter_t *adptr, uint8_t *msg_buf, uint16_t bytes_read)
 {
 	Cmgd__BckndMessage *bcknd_msg;
 	cmgd_bcknd_msg_t *msg;
 	uint16_t bytes_left;
-
-	CMGD_BCKND_ADPTR_DBG(
-		"Got message of %d bytes from CMGD Backend adapter '%s'", 
-		bytes_read, adptr->name);
+	uint16_t processed = 0;
 
 	bytes_left = bytes_read;
 	for ( ; bytes_left > CMGD_BCKND_MSG_HDR_LEN;
@@ -180,26 +175,70 @@ static int cmgd_bcknd_adapter_process_msg(
 
 		(void) cmgd_bcknd_adapter_handle_msg(adptr, bcknd_msg);
 		cmgd__bcknd_message__free_unpacked(bcknd_msg, NULL);
+		processed++;
 	}
 
+	return processed;
+}
+
+static int cmgd_bcknd_adapter_proc_msgbufs(struct thread *thread)
+{
+	cmgd_bcknd_client_adapter_t *adptr;
+	struct stream *work;
+	int processed = 0;
+
+	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
+	assert(adptr && adptr->conn_fd);
+
+	for ( ; processed < CMGD_BCKND_MAX_NUM_MSG_PROC ; ) {
+		work = stream_fifo_pop_safe(adptr->ibuf_fifo);
+		if (!work) {
+			break;
+		}
+
+		processed += cmgd_bcknd_adapter_process_msg(
+			adptr, STREAM_DATA(work), stream_get_endp(work));
+
+		if (work != adptr->ibuf_work) {
+			/* Free it up */
+			stream_free(work);
+		} else {
+			/* Reset stream buffer for next read */
+			stream_reset(work);
+		}
+	}
+
+	/*
+	 * If we have more to process, reschedule for processing it.
+	 */
+	if (stream_fifo_head(adptr->ibuf_fifo))
+		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_PROC_MSG);
+	
 	return 0;
 }
 
 static int cmgd_bcknd_adapter_read(struct thread *thread)
 {
 	cmgd_bcknd_client_adapter_t *adptr;
-	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
 	int bytes_read;
-	uint16_t total_bytes;
+	size_t total_bytes, bytes_left;
+	cmgd_bcknd_msg_hdr_t *msg_hdr;
 
 	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
 
 	total_bytes = 0;
-	for ( ; ; ) {
-		bytes_read = read(adptr->conn_fd, msg_buf, sizeof(msg_buf));
+	bytes_left = STREAM_SIZE(adptr->ibuf_work) - 
+		stream_get_endp(adptr->ibuf_work);
+	for ( ; bytes_left > CMGD_BCKND_MSG_HDR_LEN; ) {
+		bytes_read = stream_read_try(
+				adptr->ibuf_work, adptr->conn_fd, bytes_left);
+		CMGD_BCKND_ADPTR_DBG(
+			"Got %d bytes of message from CMGD Backend adapter '%s'", 
+			bytes_read, adptr->name);
 		if (bytes_read <= 0) {
-			if (!ERRNO_IO_RETRY(errno)) {
+			if (!total_bytes) {
+				/* Looks like connection closed */
 				CMGD_BCKND_ADPTR_ERR(
 					"Got error (%d) while reading from CMGD Backend adapter '%s'. Err: '%s'", 
 					bytes_read, adptr->name, safe_strerror(errno));
@@ -210,11 +249,51 @@ static int cmgd_bcknd_adapter_read(struct thread *thread)
 		}
 
 		total_bytes += bytes_read;
+		bytes_left -= bytes_read;
 	}
 
-	return (total_bytes ? 
-		cmgd_bcknd_adapter_process_msg(
-			adptr, msg_buf, total_bytes) : 0);
+	/*
+	 * Check if we would have read incomplete messages or not.
+	 */
+	stream_set_getp(adptr->ibuf_work, 0);
+	total_bytes = 0;
+	bytes_left = stream_get_endp(adptr->ibuf_work) - 
+			stream_get_getp(adptr->ibuf_work);
+	for ( ; bytes_left > CMGD_BCKND_MSG_HDR_LEN; ) {
+		msg_hdr = (cmgd_bcknd_msg_hdr_t *)
+			(STREAM_DATA(adptr->ibuf_work) + 
+			stream_get_getp(adptr->ibuf_work));
+		if (msg_hdr->marker != CMGD_BCKND_MSG_MARKER) {
+			/* Corrupted buffer. Force disconnect?? */
+			cmgd_bcknd_adapter_disconnect(adptr);
+			return -1;
+		}
+		if (msg_hdr->len > bytes_left) {
+			/* 
+			 * Incomplete message. Terminate the current buffer
+			 * and add it to process fifo. And then copy the rest
+			 * to a new Ibuf 
+			 */
+			stream_set_endp(adptr->ibuf_work, total_bytes);
+			stream_fifo_push(adptr->ibuf_fifo, adptr->ibuf_work);
+			adptr->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
+			stream_put(adptr->ibuf_work, msg_hdr, bytes_left);
+
+			cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_READ);
+		}
+
+		total_bytes += msg_hdr->len;
+		bytes_left -= msg_hdr->len;
+	}
+
+	/* 
+	 * We would have read one or several messages.
+	 * Schedule processing them now.
+	 */
+	stream_fifo_push(adptr->ibuf_fifo, adptr->ibuf_work);
+	cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_PROC_MSG);
+
+	return 0;
 }
 
 static int cmgd_bcknd_adapter_write(struct thread *thread)
@@ -236,14 +315,20 @@ static void cmgd_bcknd_adptr_register_event(
 	case CMGD_BCKND_CONN_READ:
 		adptr->conn_read_ev = 
 			thread_add_read(cmgd_bcknd_adptr_tm,
-				cmgd_bcknd_adapter_read, adptr, 
+				cmgd_bcknd_adapter_read, adptr,
 				adptr->conn_fd, NULL);
 		break;
 	case CMGD_BCKND_CONN_WRITE:
 		adptr->conn_read_ev = 
 			thread_add_write(cmgd_bcknd_adptr_tm,
-				cmgd_bcknd_adapter_write, adptr, 
+				cmgd_bcknd_adapter_write, adptr,
 				adptr->conn_fd, NULL);
+		break;
+	case CMGD_BCKND_PROC_MSG:
+		adptr->proc_msg_ev = 
+			thread_add_timer_msec(cmgd_bcknd_adptr_tm,
+				cmgd_bcknd_adapter_proc_msgbufs, adptr,
+				CMGD_BCKND_MSG_PROC_DELAY_MSEC, NULL);
 		break;
 	default:
 		assert(!"cmgd_bcknd_adptr_post_event() called incorrectly");
@@ -262,6 +347,12 @@ extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr)
 	(*adptr)->refcount--;
 	if (!(*adptr)->refcount) {
 		cmgd_adptr_list_del(&cmgd_bcknd_adptrs, *adptr);
+
+		stream_fifo_free((*adptr)->ibuf_fifo);
+		stream_free((*adptr)->ibuf_work);
+		// stream_fifo_free((*adptr)->obuf_fifo);
+		// stream_free((*adptr)->obuf_work);
+
 		XFREE(MTYPE_CMGD_BCKND_ADPATER, *adptr);
 	}
 
@@ -292,6 +383,10 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 		adptr->conn_fd = conn_fd;
 		memcpy(&adptr->conn_su, from, sizeof(adptr->conn_su));
 		snprintf(adptr->name, sizeof(adptr->name), "Unknown-FD-%d", adptr->conn_fd);
+		adptr->ibuf_fifo = stream_fifo_new();
+		adptr->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
+		// adptr->obuf_fifo = stream_fifo_new();
+		// adptr->obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 		cmgd_bcknd_adapter_lock(adptr);
 
 		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_READ);

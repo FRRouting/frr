@@ -43,6 +43,10 @@ extern "C" {
 
 #define CMGD_BCKND_DEFAULT_CONN_RETRY_INTVL_SEC	5
 
+#define CMGD_BCKND_MSG_PROC_DELAY_MSEC		250
+
+#define CMGD_BCKND_MAX_NUM_MSG_PROC		100
+
 
 /***************************************************************
  * Data-structures
@@ -146,7 +150,7 @@ typedef struct cmgd_bcknd_client_params_ {
 	cmgd_bcknd_client_subscribe_notify_t	subscr_notify_cb;
 	cmgd_bcknd_client_trxn_notify_t		trxn_notify_cb;
 	cmgd_bcknd_client_data_validate_t 	data_validate_cb;
-	cmgd_bcknd_client_data_apply_t		data_aply_cb;
+	cmgd_bcknd_client_data_apply_t		data_apply_cb;
 	cmgd_bcknd_client_get_data_elem_t	get_data_elem_cb;
 	cmgd_bcknd_client_get_data_t		get_data_cb;
 	cmgd_bcknd_client_get_next_data_t	get_next_data_cb;

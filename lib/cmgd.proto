@@ -129,6 +129,24 @@ message BckndOperDataGetReply {
   optional YangDataReply data = 5;
 }
 
+message BckndConfigCmdReq {
+  required string cmd = 1;
+}
+
+message BckndConfigCmdReply {
+  required bool success = 1;
+  required string error_if_any = 2;
+}
+
+message BckndShowCmdReq {
+  required string cmd = 1;
+}
+
+message BckndShowCmdReply {
+  required bool success = 1;
+  required string cmd_ouput = 2;
+}
+
 //
 // Any message on the CMGD Backend Conn.
 //
@@ -144,6 +162,10 @@ message BckndMessage {
     CFGDATA_VALIDATE_REPLY = 7;
     CFGDATA_APPLY_REQ = 8;
     CFGDATA_APPLY_REPLY = 9;
+    CFG_CMD_REQ = 10;
+    CFG_CMD_REPLY = 11;
+    SHOW_CMD_REQ = 12;
+    SHOW_CMD_REPLY = 13;
   }
 
   required Type type = 1;
@@ -160,5 +182,9 @@ message BckndMessage {
     BckndCfgDataApplyReply cfg_apply_reply = 10;
     BckndOperDataGetReq get_req = 11;
     BckndOperDataGetReply get_reply = 12;
+    BckndConfigCmdReq cfg_cmd_req = 13;
+    BckndConfigCmdReply cfg_cmd_reply = 14;
+    BckndShowCmdReq show_cmd_req = 15;
+    BckndShowCmdReply show_cmd_reply = 16;
   }
 }
