@@ -42,8 +42,9 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
 #endif
 
-#define VRF_NAMSIZ      36
-#define NS_NAMSIZ 36
+/* Although in fact vrf name size is 15, keep them same for vrfwnetns */
+#define VRF_NAMSIZ	255
+#define NS_NAMSIZ	VRF_NAMSIZ
 
 /*
  * The command strings
