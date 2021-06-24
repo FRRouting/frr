@@ -115,8 +115,6 @@ static inline uint32_t vxlan_label_pton(mpls_label_t *label)
 	vni = ((((unsigned int)t[0]) << 16) | (((unsigned int)t[1]) << 8)
 		| ((unsigned int)(t[2])));
 
-	zlog_debug("label 0x%x, vni 0x%x ,t[0] 0x%x,t[1] 0x%x,t[2] 0x%x",label[0],vni,t[0],t[1],t[2]);
-
 	return vni;
 }
 
