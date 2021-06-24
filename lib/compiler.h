@@ -174,11 +174,10 @@ extern "C" {
 	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(NAME, ##__VA_ARGS__)
 
 /* per-arglist repeat macro, use like this:
- * #define SEP_SEMICOLON   ;
- * #define foo(...) MAP_LISTS(F, SEP_SEMICOLON, ##__VA_ARGS__)
+ * #define foo(...) MAP_LISTS(F, ##__VA_ARGS__)
  * where F is a n-ary function where n is the number of args in each arglist.
- * e.g.: MAP_LISTS(f, SEP_SEMICOLON, (a, b), (c, d, e))
- * expands to: f(a, b); f(c, d, e)
+ * e.g.: MAP_LISTS(f, (a, b), (c, d))
+ * expands to: f(a, b); f(c, d)
  */
 
 #define ESC(...) __VA_ARGS__
@@ -196,6 +195,7 @@ extern "C" {
 	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7)
 #define _MAP_LISTS_8(M, _1, _2, _3, _4, _5, _6, _7, _8)                        \
 	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7; M _8)
+
 /*
  * for warnings on macros, put in the macro content like this:
  *   #define MACRO BLA CPP_WARN("MACRO has been deprecated")

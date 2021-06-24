@@ -52,10 +52,9 @@ int frrlua_table_get_integer(lua_State *L, const char *key)
 }
 
 /*
- * Encoders.
- *
  * This section has functions that convert internal FRR datatypes into Lua
- * datatypes.
+ * datatypes: one encoder function and two decoder functions for each type.
+ *
  */
 
 void lua_pushprefix(lua_State *L, const struct prefix *prefix)
@@ -303,6 +302,9 @@ void *lua_tostringp(lua_State *L, int idx)
 	return string;
 }
 
+/*
+ * Decoder for const values, since we cannot modify them.
+ */
 void lua_decode_noop(lua_State *L, int idx, const void *ptr)
 {
 }

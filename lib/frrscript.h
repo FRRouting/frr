@@ -109,6 +109,15 @@ void frrscript_init(const char *scriptdir);
 		DECODE_ARGS_WITH_STATE(L, value);                              \
 	} while (0)
 
+/*
+ * Maps the type of value to its encoder/decoder.
+ * Add new mappings here.
+ *
+ * L
+ *    Lua state
+ * scriptdir
+ *    Directory in which to look for scripts
+ */
 #define ENCODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
 long long * : lua_pushintegerp,                                 \
@@ -145,14 +154,21 @@ const struct prefix * : lua_decode_noop                         \
  * fs
  *    The script to call; this is obtained from frrscript_load().
  *
- * env
- *    The script's environment. Specify this as an array of frrscript_env.
- *
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
  */
 int _frrscript_call(struct frrscript *fs);
 
+/*
+ * Wrapper for call script. Maps values passed in to their encoder
+ * and decoder types.
+ *
+ * fs
+ *    The script to call; this is obtained from frrscript_load().
+ *
+ * Returns:
+ *    0 if the script ran successfully, nonzero otherwise.
+ */
 #define frrscript_call(fs, ...)                                                \
 	({                                                                     \
 		lua_State *L = fs->L;                                          \
