@@ -1012,6 +1012,7 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 					vxl->access_vlan,
 					zif->brslave_info.br_if);
 				if (vlan_if) {
+					zevpn->svi_if = vlan_if;
 					zevpn->vrf_id = vlan_if->vrf_id;
 					zl3vni = zl3vni_from_vrf(
 							vlan_if->vrf_id);
@@ -1843,6 +1844,27 @@ static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
 
 	zl3vni = zl3vni_lookup(vxl->vni);
 	return zl3vni;
+}
+
+vni_t vni_id_from_svi(struct interface *ifp, struct interface *br_if)
+{
+	vni_t vni = 0;
+	zebra_evpn_t *zevpn = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
+
+	/* Check if an L3VNI belongs to this SVI interface.
+	 * If not, check if an L2VNI belongs to this SVI interface.
+	 */
+	zl3vni = zl3vni_from_svi(ifp, br_if);
+	if (zl3vni)
+		vni = zl3vni->vni;
+	else {
+		zevpn = zebra_evpn_from_svi(ifp, br_if);
+		if (zevpn)
+			vni = zevpn->vni;
+	}
+
+	return vni;
 }
 
 static inline void zl3vni_get_vrr_rmac(zebra_l3vni_t *zl3vni,
@@ -4532,6 +4554,7 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 		zevpn = zebra_evpn_from_svi(ifp, link_if);
 
 		if (zevpn) {
+			zevpn->svi_if = NULL;
 			zevpn->vrf_id = VRF_DEFAULT;
 
 			/* update the tenant vrf in BGP */
@@ -4587,6 +4610,7 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 				vrf_id_to_name(ifp->vrf_id));
 
 		/* update the vrf information for l2-vni and inform bgp */
+		zevpn->svi_if = ifp;
 		zevpn->vrf_id = ifp->vrf_id;
 
 		if (if_is_operative(zevpn->vxlan_if))
@@ -4797,6 +4821,7 @@ int zebra_vxlan_if_up(struct interface *ifp)
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
 		if (vlan_if) {
+			zevpn->svi_if = vlan_if;
 			zevpn->vrf_id = vlan_if->vrf_id;
 			zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
 			if (zl3vni)
@@ -4899,6 +4924,7 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 	struct zebra_l2info_vxlan *vxl = NULL;
 	zebra_evpn_t *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
+	struct interface *vlan_if = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -4988,6 +5014,7 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 		    && (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
 			/* Delete from client, remove all remote VTEPs */
 			/* Also, free up all MACs and neighbors. */
+			zevpn->svi_if = NULL;
 			zebra_evpn_send_del_to_client(zevpn);
 			zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH);
 			zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC);
@@ -5017,6 +5044,11 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 			zebra_evpn_es_set_base_evpn(zevpn);
 		}
 		zevpn_vxlan_if_set(zevpn, ifp, true /* set */);
+		vlan_if = zvni_map_to_svi(vxl->access_vlan,
+					  zif->brslave_info.br_if);
+		if (vlan_if)
+			zevpn->svi_if = vlan_if;
+
 		/* Take further actions needed.
 		 * Note that if we are here, there is a change of interest.
 		 */
@@ -5136,6 +5168,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
 		if (vlan_if) {
+			zevpn->svi_if = vlan_if;
 			zevpn->vrf_id = vlan_if->vrf_id;
 			zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
 			if (zl3vni)

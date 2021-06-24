@@ -134,6 +134,10 @@ void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
 	if (json == NULL) {
 		vty_out(vty, " VxLAN interface: %s\n", zevpn->vxlan_if->name);
 		vty_out(vty, " VxLAN ifIndex: %u\n", zevpn->vxlan_if->ifindex);
+		vty_out(vty, " SVI interface: %s\n",
+			(zevpn->svi_if ? zevpn->svi_if->name : ""));
+		vty_out(vty, " SVI ifIndex: %u\n",
+			(zevpn->svi_if ? zevpn->svi_if->ifindex : 0));
 		vty_out(vty, " Local VTEP IP: %pI4\n",
 			&zevpn->local_vtep_ip);
 		vty_out(vty, " Mcast group: %pI4\n",
@@ -142,6 +146,12 @@ void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
 		json_object_string_add(json, "vxlanInterface",
 				       zevpn->vxlan_if->name);
 		json_object_int_add(json, "ifindex", zevpn->vxlan_if->ifindex);
+		if (zevpn->svi_if) {
+			json_object_string_add(json, "sviInterface",
+					       zevpn->svi_if->name);
+			json_object_int_add(json, "sviIfindex",
+					    zevpn->svi_if->ifindex);
+		}
 		json_object_string_add(json, "vtepIp",
 				       inet_ntop(AF_INET, &zevpn->local_vtep_ip,
 						 buf, sizeof(buf)));
@@ -1048,6 +1058,8 @@ int zebra_evpn_del(zebra_evpn_t *zevpn)
 	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
 
+	zevpn->svi_if = NULL;
+
 	/* Free the neighbor hash table. */
 	hash_free(zevpn->neigh_table);
 	zevpn->neigh_table = NULL;
@@ -1075,12 +1087,15 @@ int zebra_evpn_send_add_to_client(zebra_evpn_t *zevpn)
 {
 	struct zserv *client;
 	struct stream *s;
+	ifindex_t svi_index;
 	int rc;
 
 	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
+
+	svi_index = zevpn->svi_if ? zevpn->svi_if->ifindex : 0;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
@@ -1089,15 +1104,18 @@ int zebra_evpn_send_add_to_client(zebra_evpn_t *zevpn)
 	stream_put_in_addr(s, &zevpn->local_vtep_ip);
 	stream_put(s, &zevpn->vrf_id, sizeof(vrf_id_t)); /* tenant vrf */
 	stream_put_in_addr(s, &zevpn->mcast_grp);
+	stream_put(s, &svi_index, sizeof(ifindex_t));
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Send EVPN_ADD %u %pI4 tenant vrf %s to %s", zevpn->vni,
-			   &zevpn->local_vtep_ip,
-			   vrf_id_to_name(zevpn->vrf_id),
-			   zebra_route_string(client->proto));
+		zlog_debug(
+			"Send EVPN_ADD %u %pI4 tenant vrf %s(%u) SVI index %u to %s",
+			zevpn->vni, &zevpn->local_vtep_ip,
+			vrf_id_to_name(zevpn->vrf_id), zevpn->vrf_id,
+			(zevpn->svi_if ? zevpn->svi_if->ifindex : 0),
+			zebra_route_string(client->proto));
 
 	client->vniadd_cnt++;
 	rc = zserv_send_message(client, s);

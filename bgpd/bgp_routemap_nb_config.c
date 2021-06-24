@@ -2637,3 +2637,107 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_spec
 {
 	return lib_route_map_entry_set_destroy(args);
 }
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv4
+ */
+int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv4_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *type;
+	int rv;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		type = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_shook = generic_set_delete;
+		rhc->rhc_rule = "evpn gateway-ip ipv4";
+		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
+
+		rv = generic_set_add(rhc->rhc_rmi, "evpn gateway-ip ipv4", type,
+				     args->errmsg, args->errmsg_len);
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_shook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv4_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv6
+ */
+int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *type;
+	int rv;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		type = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_shook = generic_set_delete;
+		rhc->rhc_rule = "evpn gateway-ip ipv6";
+		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
+
+		rv = generic_set_add(rhc->rhc_rmi, "evpn gateway-ip ipv6", type,
+				     args->errmsg, args->errmsg_len);
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_shook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+}

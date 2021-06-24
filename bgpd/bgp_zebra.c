@@ -1073,7 +1073,6 @@ static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 			api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
 		}
-
 		if(attr->ecommunity->tunneltype == BGP_ENCAP_TYPE_VXLAN)
 		{
 			if (extra)
@@ -1106,9 +1105,19 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	api_nh->vrf_id = nh_bgp->vrf_id;
 
 	if (is_evpn) {
-		api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
-		api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
+
+		/*
+		 * If the nexthop is EVPN overlay index gateway IP,
+		 * treat the nexthop as NEXTHOP_TYPE_IPV4
+		 * Else, mark the nexthop as onlink.
+		 */
+		if (attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP)
+			api_nh->type = NEXTHOP_TYPE_IPV6;
+		else {
+			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+			api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
+		}
 	} else if (nh_othervrf) {
 		if (IN6_IS_ADDR_UNSPECIFIED(nexthop)) {
 			api_nh->type = NEXTHOP_TYPE_IFINDEX;
@@ -1413,8 +1422,13 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			api_nh->label_num = 1;
 			api_nh->labels[0] = label;
 		}
-		memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
-		       sizeof(struct ethaddr));
+
+		if (is_evpn
+		    && mpinfo->attr->evpn_overlay.type
+			       != OVERLAY_INDEX_GATEWAY_IP)
+			memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
+			       sizeof(struct ethaddr));
+
 		api_nh->weight = nh_weight;
 
 		if (mpinfo->extra
@@ -2465,8 +2479,6 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	if (!dest)
 		return -1;
 
-	bgp_dest_unlock_node(dest);
-
 	switch (note) {
 	case ZAPI_ROUTE_INSTALLED:
 		new_select = NULL;
@@ -2495,6 +2507,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 				flog_err(EC_BGP_INVALID_ROUTE,
 					 "selected route %pRN not found",
 					 dest);
+
+				bgp_dest_unlock_node(dest);
 				return -1;
 			}
 		}
@@ -2525,6 +2539,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 			  __func__, dest);
 		break;
 	}
+
+	bgp_dest_unlock_node(dest);
 	return 0;
 }
 
@@ -2826,6 +2842,7 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	struct in_addr vtep_ip = {INADDR_ANY};
 	vrf_id_t tenant_vrf_id = VRF_DEFAULT;
 	struct in_addr mcast_grp = {INADDR_ANY};
+	ifindex_t svi_ifindex = 0;
 
 	s = zclient->ibuf;
 	vni = stream_getl(s);
@@ -2833,6 +2850,7 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 		vtep_ip.s_addr = stream_get_ipv4(s);
 		stream_get(&tenant_vrf_id, s, sizeof(vrf_id_t));
 		mcast_grp.s_addr = stream_get_ipv4(s);
+		stream_get(&svi_ifindex, s, sizeof(ifindex_t));
 	}
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
@@ -2840,16 +2858,17 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx VNI %s VRF %s VNI %u tenant-vrf %s",
-			   (cmd == ZEBRA_VNI_ADD) ? "add" : "del",
-			   vrf_id_to_name(vrf_id), vni,
-			   vrf_id_to_name(tenant_vrf_id));
+		zlog_debug(
+			"Rx VNI %s VRF %s VNI %u tenant-vrf %s SVI ifindex %u",
+			(cmd == ZEBRA_VNI_ADD) ? "add" : "del",
+			vrf_id_to_name(vrf_id), vni,
+			vrf_id_to_name(tenant_vrf_id), svi_ifindex);
 
 	if (cmd == ZEBRA_VNI_ADD)
 		return bgp_evpn_local_vni_add(
 			bgp, vni,
 			vtep_ip.s_addr != INADDR_ANY ? vtep_ip : bgp->router_id,
-			tenant_vrf_id, mcast_grp);
+			tenant_vrf_id, mcast_grp, svi_ifindex);
 	else
 		return bgp_evpn_local_vni_del(bgp, vni);
 }

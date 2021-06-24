@@ -1632,6 +1632,9 @@ void ospf6_interface_start(struct ospf6_interface *oi)
 	if (oi->area_id_format == OSPF6_AREA_FMT_UNSET)
 		return;
 
+	if (oi->area)
+		return;
+
 	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
 	if (!ospf6)
 		return;

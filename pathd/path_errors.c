@@ -61,6 +61,12 @@ static struct log_ref ferr_path_warn[] = {
 		.suggestion = "Check the connectivity between the PCC and the PCE"
 	},
 	{
+		.code = EC_PATH_PCEP_PROTOCOL_ERROR,
+		.title = "PCEP protocol error",
+		.description = "The PCE did not respect the PCEP protocol",
+		.suggestion = "Open an Issue with all relevant log files"
+	},
+	{
 		.code = EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
 		.title = "PCC connection error",
 		.description = "The PCEP module did not try to connect because it is missing a source address",
