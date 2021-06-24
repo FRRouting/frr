@@ -235,7 +235,7 @@ int zebra_evpn_rem_mac_install(zebra_evpn_t *zevpn, zebra_mac_t *mac,
 		vid = 0;
 
 	res = dplane_rem_mac_add(zevpn->vxlan_if, br_ifp, vid, &mac->macaddr,
-				 vtep_ip, sticky, nhg_id, was_static,r_vni);
+				 vtep_ip, sticky, nhg_id, was_static, r_vni);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -655,7 +655,8 @@ void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 			json_object_string_add(json_mac, "type", "remote");
 			json_object_string_add(
 				json_mac, "remoteVtep",
-				inet_ntop(AF_INET, &mac->fwd_info.remote.r_vtep_ip,
+				inet_ntop(AF_INET,
+					  &mac->fwd_info.remote.r_vtep_ip,
 					  addr_buf, sizeof(addr_buf)));
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO))
 			json_object_string_add(json_mac, "type", "auto");
@@ -928,7 +929,8 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 					"Seq #'s");
 			}
 			if (mac->es == NULL)
-				inet_ntop(AF_INET, &mac->fwd_info.remote.r_vtep_ip,
+				inet_ntop(AF_INET,
+					  &mac->fwd_info.remote.r_vtep_ip,
 					  addr_buf, sizeof(addr_buf));
 
 			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %u/%u\n", buf1,
@@ -941,7 +943,8 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 			json_object_string_add(json_mac, "type", "remote");
 			json_object_string_add(
 				json_mac, "remoteVtep",
-				inet_ntop(AF_INET, &mac->fwd_info.remote.r_vtep_ip,
+				inet_ntop(AF_INET,
+					  &mac->fwd_info.remote.r_vtep_ip,
 					  addr_buf, sizeof(addr_buf)));
 			json_object_object_add(json_mac_hdr, buf1, json_mac);
 			json_object_int_add(json_mac, "localSequence",
@@ -1180,7 +1183,8 @@ static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 		return true;
 	else if ((wctx->flags & DEL_REMOTE_MAC_FROM_VTEP)
 		 && (mac->flags & ZEBRA_MAC_REMOTE)
-		 && IPV4_ADDR_SAME(&mac->fwd_info.remote.r_vtep_ip, &wctx->r_vtep_ip))
+		 && IPV4_ADDR_SAME(&mac->fwd_info.remote.r_vtep_ip,
+				   &wctx->r_vtep_ip))
 		return true;
 	else if ((wctx->flags & DEL_LOCAL_MAC) && (mac->flags & ZEBRA_MAC_AUTO)
 		 && !listcount(mac->neigh_list)) {

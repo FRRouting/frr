@@ -113,7 +113,7 @@ static inline uint32_t vxlan_label_pton(mpls_label_t *label)
 	unsigned int vni = 0;
 
 	vni = ((((unsigned int)t[0]) << 16) | (((unsigned int)t[1]) << 8)
-		| ((unsigned int)(t[2])));
+	       | ((unsigned int)(t[2])));
 
 	return vni;
 }

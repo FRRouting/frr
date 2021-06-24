@@ -100,10 +100,10 @@ struct zebra_mac_t_ {
 			vlanid_t vid;
 		} local;
 
-		struct{
+		struct {
 			vni_t r_vni;
 			struct in_addr r_vtep_ip;
-		}remote;
+		} remote;
 	} fwd_info;
 
 	/* Local or remote ES */

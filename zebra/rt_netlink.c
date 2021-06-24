@@ -3191,17 +3191,16 @@ netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
 		else
 			vid_buf[0] = '\0';
 
-		zlog_debug("%s: Tx %s family %s IF %s(%u)%s %sMAC %s dst %s r_vni 0x%x",
-				__func__,
-			   nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
-			   dplane_ctx_get_ifname(ctx),
-			   dplane_ctx_get_ifindex(ctx), vid_buf,
-			   dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
-			   prefix_mac2str(mac, buf, sizeof(buf)),
-			   ipaddr2str(&vtep_ip, ipbuf, sizeof(ipbuf)),
-				r_vni);
+		zlog_debug(
+			"%s: Tx %s family %s IF %s(%u)%s %sMAC %s dst %s r_vni 0x%x",
+			__func__, nl_msg_type_to_str(cmd),
+			nl_family_to_str(AF_BRIDGE), dplane_ctx_get_ifname(ctx),
+			dplane_ctx_get_ifindex(ctx), vid_buf,
+			dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
+			prefix_mac2str(mac, buf, sizeof(buf)),
+			ipaddr2str(&vtep_ip, ipbuf, sizeof(ipbuf)), r_vni);
 	}
-	
+
 	if (dplane_ctx_get_type(ctx) != 0)
 		proto = zebra2proto(dplane_ctx_get_type(ctx));
 
@@ -3650,8 +3649,8 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	total = netlink_neigh_update_msg_encode(
 		ctx, cmd, (const void *)dplane_ctx_mac_get_addr(ctx), ETH_ALEN,
 		&vtep_ip, true, AF_BRIDGE, 0, flags, state, nhg_id, nfy,
-		nfy_flags, false /*ext*/, 0 /*ext_flags*/, data, datalen,
-		proto, r_vni);
+		nfy_flags, false /*ext*/, 0 /*ext_flags*/, data, datalen, proto,
+		r_vni);
 
 	return total;
 }
@@ -4107,7 +4106,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	bool ext = false;
 	int proto = RTPROT_ZEBRA;
 	vni_t r_vni = 0;
-	
+
 	if (dplane_ctx_get_type(ctx) != 0)
 		proto = zebra2proto(dplane_ctx_get_type(ctx));
 
@@ -4130,7 +4129,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 		else
 			snprintf(buf2, sizeof(buf2), "null");
 	}
-	
+
 	r_vni = dplane_ctx_neigh_get_r_vni(ctx);
 	update_flags = dplane_ctx_neigh_get_update_flags(ctx);
 	flags = neigh_flags_to_netlink(dplane_ctx_neigh_get_flags(ctx));
