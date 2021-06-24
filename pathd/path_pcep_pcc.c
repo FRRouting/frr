@@ -560,7 +560,6 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	if (is_stable && (real_status != PCEP_LSP_OPERATIONAL_DOWN)) {
 		PCEP_DEBUG("(%s)%s Send report for candidate path (!DOWN) %s",
 			   __func__, pcc_state->tag, path->name);
-		path->srp_id = 0;
 		path->status = real_status;
 		send_report(pcc_state, path);
 	}
