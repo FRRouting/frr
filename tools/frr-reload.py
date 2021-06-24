@@ -634,18 +634,9 @@ end
                     continue
 
             # one line contexts
-            # there is one exception though: ldpd accepts a 'router-id' clause
-            # as part of its 'mpls ldp' config context. If we are processing
-            # ldp configuration and encounter a router-id we should NOT switch
-            # to a new context
             if (
                 new_ctx is True
                 and any(line.startswith(keyword) for keyword in oneline_ctx_keywords)
-                and not (
-                    ctx_keys
-                    and ctx_keys[0].startswith("mpls ldp")
-                    and line.startswith("router-id ")
-                )
             ):
                 self.save_contexts(ctx_keys, current_context_lines)
 
