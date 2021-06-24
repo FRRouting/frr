@@ -456,6 +456,7 @@ const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx);
 vlanid_t dplane_ctx_mac_get_vlan(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_mac_is_sticky(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_mac_get_update_flags(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_mac_get_rvni(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_mac_get_nhg_id(const struct zebra_dplane_ctx *ctx);
 const struct ethaddr *dplane_ctx_mac_get_addr(
 	const struct zebra_dplane_ctx *ctx);
@@ -470,6 +471,7 @@ const struct ethaddr *dplane_ctx_neigh_get_mac(
 	const struct zebra_dplane_ctx *ctx);
 const struct ipaddr *
 dplane_ctx_neigh_get_link_ip(const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_neigh_get_r_vni(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx);
@@ -633,7 +635,8 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 					struct in_addr vtep_ip,
 					bool sticky,
 					uint32_t nhg_id,
-					bool was_static);
+					bool was_static,
+					vni_t r_vni);
 
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
@@ -662,7 +665,8 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx,
 		     const struct ethaddr *mac,
 		     struct in_addr vtep_ip,
 		     bool sticky,
-		     uint32_t nhg_id, uint32_t update_flags);
+		     uint32_t nhg_id, uint32_t update_flags,
+		     vni_t r_vni);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.
@@ -670,7 +674,8 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx,
 enum zebra_dplane_result dplane_rem_neigh_add(const struct interface *ifp,
 					  const struct ipaddr *ip,
 					  const struct ethaddr *mac,
-					  uint32_t flags, bool was_static);
+					  uint32_t flags, bool was_static,
+					  vni_t r_vni);
 enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 					  const struct ipaddr *ip,
 					  const struct ethaddr *mac,

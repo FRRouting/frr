@@ -169,7 +169,7 @@ int zebra_evpn_rem_neigh_install(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 		flags |= DPLANE_NTF_ROUTER;
 	ZEBRA_NEIGH_SET_ACTIVE(n);
 
-	dplane_rem_neigh_add(vlan_if, &n->ip, &n->emac, flags, was_static);
+	dplane_rem_neigh_add(vlan_if, &n->ip, &n->emac, flags, was_static, 0);
 
 	return ret;
 }
@@ -1631,7 +1631,7 @@ int zebra_evpn_remote_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ALL_LOCAL_FLAGS);
 		SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
 		ZEBRA_NEIGH_SET_ACTIVE(n);
-		n->r_vtep_ip = zmac->fwd_info.r_vtep_ip;
+		n->r_vtep_ip = zmac->fwd_info.remote.r_vtep_ip;
 	}
 
 	return 0;

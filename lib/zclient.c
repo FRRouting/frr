@@ -1031,10 +1031,12 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 	if (api_nh->weight)
 		stream_putl(s, api_nh->weight);
 
-	/* Router MAC for EVPN routes. */
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
-		stream_put(s, &(api_nh->rmac),
-			   sizeof(struct ethaddr));
+	/* Router MAC and Remote-l3vni for EVPN routes. */
+	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+		stream_put(s, &(api_nh->rmac), sizeof(struct ethaddr));
+		stream_putw(s, api_nh->tunneltype);
+		stream_putl(s, api_nh->r_vni);
+	}
 
 	/* Color for Segment Routing TE. */
 	if (CHECK_FLAG(api_message, ZAPI_MESSAGE_SRTE))
@@ -1362,10 +1364,12 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT))
 		STREAM_GETL(s, api_nh->weight);
 
-	/* Router MAC for EVPN routes. */
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
-		STREAM_GET(&(api_nh->rmac), s,
-			   sizeof(struct ethaddr));
+	/* Router MAC and Remote-l3vni for EVPN routes. */
+	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+		STREAM_GET(&(api_nh->rmac), s, sizeof(struct ethaddr));
+		STREAM_GETW(s, api_nh->tunneltype);
+		STREAM_GETL(s, api_nh->r_vni);
+	}
 
 	/* Color for Segment Routing TE. */
 	if (CHECK_FLAG(api_message, ZAPI_MESSAGE_SRTE))

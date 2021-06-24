@@ -3901,8 +3901,8 @@ void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS)
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("evpn remote nh %d %pIA rmac %pEA add",
 				   vrf_id, &nh, &rmac);
-		zebra_vxlan_evpn_vrf_route_add(vrf_id, &rmac, &nh,
-					       (struct prefix *)&dummy_prefix);
+		zebra_vxlan_evpn_vrf_route_add(
+			vrf_id, &rmac, &nh, (struct prefix *)&dummy_prefix, 0);
 	} else {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("evpn remote nh %d %pIA del", vrf_id, &nh);

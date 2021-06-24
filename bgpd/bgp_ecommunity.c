@@ -962,6 +962,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				uint16_t tunneltype;
 				memcpy(&tunneltype, pnt + 5, 2);
 				tunneltype = ntohs(tunneltype);
+				ecom->tunneltype = tunneltype;
 
 				snprintf(encbuf, sizeof(encbuf), "ET:%d",
 					 tunneltype);

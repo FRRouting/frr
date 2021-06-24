@@ -459,6 +459,9 @@ struct zapi_nexthop {
 	uint8_t label_num;
 	mpls_label_t labels[MPLS_MAX_LABELS];
 
+	uint16_t tunneltype;
+	vni_t r_vni;
+
 	struct ethaddr rmac;
 
 	uint32_t weight;
