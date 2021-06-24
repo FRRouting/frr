@@ -299,7 +299,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 {
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
-	struct ospf6_lsa *req;
+	struct ospf6_lsa *req, *old;
 	int retrans_added = 0;
 	int is_debug = 0;
 
@@ -408,12 +408,27 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 			if (is_debug)
 				zlog_debug("Add retrans-list of neighbor %s ",
 					   on->name);
-			ospf6_increment_retrans_count(lsa);
-			ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
-			thread_add_timer(master, ospf6_lsupdate_send_neighbor,
-					 on, on->ospf6_if->rxmt_interval,
-					 &on->thread_send_lsupdate);
-			retrans_added++;
+
+			/* Do not increment the retrans count if the lsa is
+			 * already present in the retrans list.
+			 */
+			old = ospf6_lsdb_lookup(
+				lsa->header->type, lsa->header->id,
+				lsa->header->adv_router, on->retrans_list);
+			if (!old) {
+				if (is_debug)
+					zlog_debug(
+						"Increment %s from retrans_list of %s",
+						lsa->name, on->name);
+				ospf6_increment_retrans_count(lsa);
+				ospf6_lsdb_add(ospf6_lsa_copy(lsa),
+					       on->retrans_list);
+				thread_add_timer(
+					master, ospf6_lsupdate_send_neighbor,
+					on, on->ospf6_if->rxmt_interval,
+					&on->thread_send_lsupdate);
+				retrans_added++;
+			}
 		}
 	}
 
