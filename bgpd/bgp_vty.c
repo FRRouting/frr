@@ -3810,12 +3810,31 @@ DEFPY (no_bgp_bestpath_bw,
 }
 
 DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
-      "[no] bgp default <ipv4-unicast|ipv6-unicast>$afi_safi",
+      "[no] bgp default <ipv4-unicast|"
+      "ipv4-multicast|"
+      "ipv4-vpn|"
+      "ipv4-labeled-unicast|"
+      "ipv4-flowspec|"
+      "ipv6-unicast|"
+      "ipv6-multicast|"
+      "ipv6-vpn|"
+      "ipv6-labeled-unicast|"
+      "ipv6-flowspec|"
+      "l2vpn-evpn>$afi_safi",
       NO_STR
       "BGP specific commands\n"
       "Configure BGP defaults\n"
       "Activate ipv4-unicast for a peer by default\n"
-      "Activate ipv6-unicast for a peer by default\n")
+      "Activate ipv4-multicast for a peer by default\n"
+      "Activate ipv4-vpn for a peer by default\n"
+      "Activate ipv4-labeled-unicast for a peer by default\n"
+      "Activate ipv4-flowspec for a peer by default\n"
+      "Activate ipv6-unicast for a peer by default\n"
+      "Activate ipv6-multicast for a peer by default\n"
+      "Activate ipv6-vpn for a peer by default\n"
+      "Activate ipv6-labeled-unicast for a peer by default\n"
+      "Activate ipv6-flowspec for a peer by default\n"
+      "Activate l2vpn-evpn for a peer by default\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	char afi_safi_str[strlen(afi_safi) + 1];
@@ -3825,17 +3844,24 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
 	char *afi_str = strtok_r(afi_safi_str, "-", &afi_safi_str_tok);
 	char *safi_str = strtok_r(NULL, "-", &afi_safi_str_tok);
 	afi_t afi = bgp_vty_afi_from_str(afi_str);
-	safi_t safi = bgp_vty_safi_from_str(safi_str);
+	safi_t safi;
 
-	if (safi != SAFI_UNICAST) {
-		vty_out(vty, "afi/safi combo not supported\n");
-		return CMD_WARNING;
-	}
+	if (strmatch(safi_str, "labeled"))
+		safi = bgp_vty_safi_from_str("labeled-unicast");
+	else
+		safi = bgp_vty_safi_from_str(safi_str);
 
 	if (no)
 		bgp->default_af[afi][safi] = false;
-	else
-		bgp->default_af[afi][safi] = true;
+	else {
+		if ((safi == SAFI_LABELED_UNICAST
+		     && bgp->default_af[afi][SAFI_UNICAST])
+		    || (safi == SAFI_UNICAST
+			&& bgp->default_af[afi][SAFI_LABELED_UNICAST]))
+			bgp_vty_return(vty, BGP_ERR_PEER_SAFI_CONFLICT);
+		else
+			bgp->default_af[afi][safi] = true;
+	}
 
 	return CMD_SUCCESS;
 }
@@ -17486,37 +17512,14 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		}
 	} else {
 		if (peer->afc[afi][safi]) {
-			if ((afi == AFI_IP || afi == AFI_IP6)
-			    && safi == SAFI_UNICAST) {
-				if (afi == AFI_IP
-				    && !bgp->default_af[AFI_IP][SAFI_UNICAST]) {
-					vty_out(vty, "  neighbor %s activate\n",
-						addr);
-				} else if (afi == AFI_IP6
-					   && !bgp->default_af[AFI_IP6]
-							      [SAFI_UNICAST]) {
-					vty_out(vty, "  neighbor %s activate\n",
-						addr);
-				}
-			} else {
+			if (safi == SAFI_ENCAP)
 				vty_out(vty, "  neighbor %s activate\n", addr);
-			}
+			else if (!bgp->default_af[afi][safi])
+				vty_out(vty, "  neighbor %s activate\n", addr);
 		} else {
-			if ((afi == AFI_IP || afi == AFI_IP6)
-			    && safi == SAFI_UNICAST) {
-				if (afi == AFI_IP
-				    && bgp->default_af[AFI_IP][SAFI_UNICAST]) {
-					vty_out(vty,
-						"  no neighbor %s activate\n",
-						addr);
-				} else if (afi == AFI_IP6
-					   && bgp->default_af[AFI_IP6]
-							     [SAFI_UNICAST]) {
-					vty_out(vty,
-						"  no neighbor %s activate\n",
-						addr);
-				}
-			}
+			if (bgp->default_af[afi][safi])
+				vty_out(vty, "  no neighbor %s activate\n",
+					addr);
 		}
 	}
 
