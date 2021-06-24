@@ -458,8 +458,8 @@ struct zapi_nexthop {
 	/* MPLS labels for BGP-LU or Segment Routing */
 	uint8_t label_num;
 	mpls_label_t labels[MPLS_MAX_LABELS];
-	
-    uint16_t tunneltype;
+
+	uint16_t tunneltype;
 	vni_t r_vni;
 
 	struct ethaddr rmac;
