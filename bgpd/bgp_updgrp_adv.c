@@ -839,6 +839,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					bgp_dest_get_prefix(dest), &tmp_pi);
 
 				if (ret == RMAP_DENYMATCH) {
+					/* The aspath belongs to 'attr' */
+					tmp_attr.aspath = NULL;
 					bgp_attr_flush(&tmp_attr);
 					continue;
 				} else {
