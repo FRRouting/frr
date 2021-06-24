@@ -30,7 +30,21 @@ union gw_addr {
 	struct in6_addr ipv6;
 };
 
+enum overlay_index_type {
+	OVERLAY_INDEX_TYPE_NONE,
+	OVERLAY_INDEX_GATEWAY_IP,
+	OVERLAY_INDEX_ESI,
+	OVERLAY_INDEX_MAC,
+};
+
+/*
+ * Structure to store ovrelay index for EVPN type-5 route
+ * This structure stores ESI and Gateway IP overlay index.
+ * MAC overlay index is stored in the RMAC attribute.
+ */
 struct bgp_route_evpn {
+	enum overlay_index_type type;
+	esi_t eth_s_id;
 	union gw_addr gw_ip;
 };
 

@@ -1060,9 +1060,18 @@ static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	 * connected routes leaked into a VRF.
 	 */
 	if (is_evpn) {
-		api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
-		api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
+		/*
+		 * If the nexthop is EVPN overlay index gateway IP,
+		 * treat the nexthop as NEXTHOP_TYPE_IPV4
+		 * Else, mark the nexthop as onlink.
+		 */
+		if (attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP)
+			api_nh->type = NEXTHOP_TYPE_IPV4;
+		else {
+			api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+			api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
+		}
 
 		if(attr->ecommunity->tunneltype == BGP_ENCAP_TYPE_VXLAN)
 		{
