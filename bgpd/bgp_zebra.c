@@ -1060,6 +1060,7 @@ static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	 * connected routes leaked into a VRF.
 	 */
 	if (is_evpn) {
+
 		/*
 		 * If the nexthop is EVPN overlay index gateway IP,
 		 * treat the nexthop as NEXTHOP_TYPE_IPV4
