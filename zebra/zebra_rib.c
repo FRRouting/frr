@@ -3346,7 +3346,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
  */
 int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 			  struct prefix_ipv6 *src_p, struct route_entry *re,
-			  struct nhg_hash_entry *re_nhe)
+			  struct nhg_hash_entry *re_nhe, bool startup)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	struct route_table *table;
@@ -3438,6 +3438,32 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 
 	same = first_same;
 
+	if (!startup &&
+	    (re->flags & ZEBRA_FLAG_SELFROUTE) && zrouter.asic_offloaded) {
+		if (!same) {
+			if (IS_ZEBRA_DEBUG_RIB)
+				zlog_debug("prefix: %pRN is a self route where we do not have an entry for it.  Dropping this update, it's useless", rn);
+			/*
+			 * We are not on startup, this is a self route
+			 * and we have asic offload.  Which means
+			 * we are getting a callback for a entry
+			 * that was already deleted to the kernel
+			 * but an earlier response was just handed
+			 * back.  Drop it on the floor
+			 */
+			if (re->nhe && re->nhe_id) {
+				assert(re->nhe->id == re->nhe_id);
+				route_entry_update_nhe(re, NULL);
+			} else if (re->nhe && re->nhe->nhg.nexthop)
+				nexthops_free(re->nhe->nhg.nexthop);
+
+			nexthops_free(re->fib_ng.nexthop);
+
+			XFREE(MTYPE_RE, re);
+			return ret;
+		}
+	}
+
 	/* If this route is kernel/connected route, notify the dataplane. */
 	if (RIB_SYSTEM_ROUTE(re)) {
 		/* Notify dataplane */
@@ -3491,7 +3517,7 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
  */
 int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		      struct prefix_ipv6 *src_p, struct route_entry *re,
-		      struct nexthop_group *ng)
+		      struct nexthop_group *ng, bool startup)
 {
 	int ret;
 	struct nhg_hash_entry nhe;
@@ -3512,7 +3538,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	else if (re->nhe_id > 0)
 		nhe.id = re->nhe_id;
 
-	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, &nhe);
+	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, &nhe, startup);
 
 	/* In this path, the callers expect memory to be freed. */
 	nexthop_group_delete(&ng);
@@ -3743,7 +3769,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	    unsigned short instance, uint32_t flags, struct prefix *p,
 	    struct prefix_ipv6 *src_p, const struct nexthop *nh,
 	    uint32_t nhe_id, uint32_t table_id, uint32_t metric, uint32_t mtu,
-	    uint8_t distance, route_tag_t tag)
+	    uint8_t distance, route_tag_t tag, bool startup)
 {
 	struct route_entry *re = NULL;
 	struct nexthop *nexthop = NULL;
@@ -3775,7 +3801,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		nexthop_group_add_sorted(ng, nexthop);
 	}
 
-	return rib_add_multipath(afi, safi, p, src_p, re, ng);
+	return rib_add_multipath(afi, safi, p, src_p, re, ng, startup);
 }
 
 static const char *rib_update_event2str(enum rib_update_event event)

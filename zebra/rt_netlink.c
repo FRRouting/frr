@@ -920,7 +920,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			}
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
 				&src_p, &nh, nhe_id, table, metric, mtu,
-				distance, tag);
+				distance, tag, startup);
 		} else {
 			/* This is a multipath route */
 			struct route_entry *re;
@@ -964,7 +964,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 
 			if (nhe_id || ng)
 				rib_add_multipath(afi, SAFI_UNICAST, &p,
-						  &src_p, re, ng);
+						  &src_p, re, ng, startup);
 			else
 				XFREE(MTYPE_RE, re);
 		}
