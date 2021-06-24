@@ -2127,7 +2127,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		nhe.backup_info = bnhg;
 	}
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
-				    re, &nhe);
+				    re, &nhe, false);
 
 	/*
 	 * rib_add_multipath_nhe only fails in a couple spots
