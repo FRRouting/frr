@@ -444,9 +444,9 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	/* check latency against hello period */
 	if (on->hello_in)
 		latency = monotime_since(&on->last_hello, NULL)
-			  - (oi->hello_interval * 1000000);
+			  - ((int64_t)oi->hello_interval * 1000000);
 	/* log if latency exceeds the hello period */
-	if (latency > (oi->hello_interval * 1000000))
+	if (latency > ((int64_t)oi->hello_interval * 1000000))
 		zlog_warn("%s RX %pI4 high latency %" PRId64 "us.", __func__,
 			  &on->router_id, latency);
 	on->last_hello = timestamp;
@@ -1943,10 +1943,11 @@ static int ospf6_write(struct thread *thread)
 			monotime(&timestamp);
 			if (oi->hello_out)
 				latency = monotime_since(&oi->last_hello, NULL)
-					  - (oi->hello_interval * 1000000);
+					  - ((int64_t)oi->hello_interval
+					     * 1000000);
 
 			/* log if latency exceeds the hello period */
-			if (latency > (oi->hello_interval * 1000000))
+			if (latency > ((int64_t)oi->hello_interval * 1000000))
 				zlog_warn("%s hello TX high latency %" PRId64
 					  "us.",
 					  __func__, latency);
