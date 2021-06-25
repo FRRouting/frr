@@ -1120,7 +1120,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 		pim = vrf->info;
 		yang_dnode_get_ip(&peer_ip, args->dnode, "./peer-ip");
 		yang_dnode_get_ip(&source_ip, args->dnode, "./source-ip");
-		mp = pim_msdp_peer_new(pim, &peer_ip.ipaddr_v4,
+		mp = pim_msdp_peer_add(pim, &peer_ip.ipaddr_v4,
 				       &source_ip.ipaddr_v4, NULL);
 		nb_running_set_entry(args->dnode, mp);
 		break;
@@ -1141,7 +1141,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 		break;
 	case NB_EV_APPLY:
 		mp = nb_running_unset_entry(args->dnode);
-		pim_msdp_peer_do_del(&mp);
+		pim_msdp_peer_del(&mp);
 		break;
 	}
 
