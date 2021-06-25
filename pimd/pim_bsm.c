@@ -1451,3 +1451,8 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 
 	return 0;
 }
+
+void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
+{
+	/* stub for Candidate-RP */
+}
