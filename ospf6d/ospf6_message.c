@@ -1934,7 +1934,7 @@ static int ospf6_write(struct thread *thread)
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Could not send entire message");
 
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND_HDR)) {
 			inet_ntop(AF_INET6, &op->dst, dstname, sizeof(dstname));
 			inet_ntop(AF_INET6, oi->linklocal_addr, srcname,
 				  sizeof(srcname));
@@ -1944,6 +1944,27 @@ static int ospf6_write(struct thread *thread)
 				   oi->interface->name);
 			zlog_debug("    src: %s", srcname);
 			zlog_debug("    dst: %s", dstname);
+			switch (oh->type) {
+			case OSPF6_MESSAGE_TYPE_HELLO:
+				ospf6_hello_print(oh, OSPF6_ACTION_SEND);
+				break;
+			case OSPF6_MESSAGE_TYPE_DBDESC:
+				ospf6_dbdesc_print(oh, OSPF6_ACTION_SEND);
+				break;
+			case OSPF6_MESSAGE_TYPE_LSREQ:
+				ospf6_lsreq_print(oh, OSPF6_ACTION_SEND);
+				break;
+			case OSPF6_MESSAGE_TYPE_LSUPDATE:
+				ospf6_lsupdate_print(oh, OSPF6_ACTION_SEND);
+				break;
+			case OSPF6_MESSAGE_TYPE_LSACK:
+				ospf6_lsack_print(oh, OSPF6_ACTION_SEND);
+				break;
+			default:
+				zlog_debug("Unknown message");
+				assert(0);
+				break;
+			}
 		}
 		switch (oh->type) {
 		case OSPF6_MESSAGE_TYPE_HELLO:
@@ -1964,19 +1985,15 @@ static int ospf6_write(struct thread *thread)
 			break;
 		case OSPF6_MESSAGE_TYPE_DBDESC:
 			oi->db_desc_out++;
-			ospf6_dbdesc_print(oh, OSPF6_ACTION_SEND);
 			break;
 		case OSPF6_MESSAGE_TYPE_LSREQ:
 			oi->ls_req_out++;
-			ospf6_lsreq_print(oh, OSPF6_ACTION_SEND);
 			break;
 		case OSPF6_MESSAGE_TYPE_LSUPDATE:
 			oi->ls_upd_out++;
-			ospf6_lsupdate_print(oh, OSPF6_ACTION_SEND);
 			break;
 		case OSPF6_MESSAGE_TYPE_LSACK:
 			oi->ls_ack_out++;
-			ospf6_lsack_print(oh, OSPF6_ACTION_SEND);
 			break;
 		default:
 			zlog_debug("Unknown message");
