@@ -666,7 +666,7 @@ struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 	candidate->preference = preference;
 	candidate->policy = policy;
 	candidate->type = SRTE_CANDIDATE_TYPE_UNDEFINED;
-	candidate->discriminator = rand();
+	candidate->discriminator = frr_weak_random();
 	candidate->protocol_origin = origin;
 	if (originator != NULL) {
 		strlcpy(candidate->originator, originator,
