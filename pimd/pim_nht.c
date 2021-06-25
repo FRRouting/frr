@@ -110,22 +110,11 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
 	return pnc;
 }
 
-/*
- * pim_find_or_track_nexthop
- *
- * This API is used to Register an address with Zebra
- *
- * 1 -> Success
- * 0 -> Failure
- */
-int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
-			      struct pim_upstream *up, struct rp_info *rp,
-			      bool bsr_track_needed,
-			      struct pim_nexthop_cache *out_pnc)
+static struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim,
+					     struct prefix *addr)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_rpf rpf;
-	struct listnode *ch_node = NULL;
 	struct zclient *zclient = NULL;
 
 	zclient = pim_zebra_zclient_get();
@@ -145,6 +134,23 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 				__func__, addr, pim->vrf->name);
 	}
 
+	return pnc;
+}
+
+/* TBD: this does several distinct things and should probably be split up.
+ * (checking state vs. returning pnc vs. adding upstream vs. adding rp)
+ */
+int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
+			      struct pim_upstream *up, struct rp_info *rp,
+			      struct pim_nexthop_cache *out_pnc)
+{
+	struct pim_nexthop_cache *pnc;
+	struct listnode *ch_node = NULL;
+
+	pnc = pim_nht_get(pim, addr);
+
+	assertf(up || rp, "addr=%pFX", addr);
+
 	if (rp != NULL) {
 		ch_node = listnode_lookup(pnc->rp_list, rp);
 		if (ch_node == NULL)
@@ -153,9 +159,6 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 
 	if (up != NULL)
 		hash_get(pnc->upstream_hash, up, hash_alloc_intern);
-
-	if (bsr_track_needed)
-		pnc->bsr_tracking = true;
 
 	if (CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
 		if (out_pnc)
@@ -166,72 +169,146 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	return 0;
 }
 
+void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
+{
+	struct pim_nexthop_cache *pnc;
+	struct prefix pfx;
+
+	pfx.family = AF_INET;
+	pfx.prefixlen = IPV4_MAX_BITLEN;
+	pfx.u.prefix4 = addr;
+
+	pnc = pim_nht_get(pim, &pfx);
+
+	pnc->bsr_count++;
+}
+
+static void pim_nht_drop_maybe(struct pim_instance *pim,
+			       struct pim_nexthop_cache *pnc)
+{
+	if (PIM_DEBUG_PIM_NHT)
+		zlog_debug(
+			"%s: NHT %pFX(%s) rp_list count:%d upstream count:%ld BSR count:%u",
+			__func__, &pnc->rpf.rpf_addr, pim->vrf->name,
+			pnc->rp_list->count, pnc->upstream_hash->count,
+			pnc->bsr_count);
+
+	if (pnc->rp_list->count == 0 && pnc->upstream_hash->count == 0
+	    && pnc->bsr_count == 0) {
+		struct zclient *zclient = pim_zebra_zclient_get();
+
+		pim_sendmsg_zebra_rnh(pim, zclient, pnc,
+				      ZEBRA_NEXTHOP_UNREGISTER);
+
+		list_delete(&pnc->rp_list);
+		hash_free(pnc->upstream_hash);
+
+		hash_release(pim->rpf_hash, pnc);
+		if (pnc->nexthop)
+			nexthops_free(pnc->nexthop);
+		XFREE(MTYPE_PIM_NEXTHOP_CACHE, pnc);
+	}
+}
+
 void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
-				struct pim_upstream *up, struct rp_info *rp,
-				bool del_bsr_tracking)
+				struct pim_upstream *up, struct rp_info *rp)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
-	struct zclient *zclient = NULL;
 	struct pim_upstream *upstream = NULL;
-
-	zclient = pim_zebra_zclient_get();
 
 	/* Remove from RPF hash if it is the last entry */
 	lookup.rpf.rpf_addr = *addr;
 	pnc = hash_lookup(pim->rpf_hash, &lookup);
-	if (pnc) {
-		if (rp) {
-			/* Release the (*, G)upstream from pnc->upstream_hash,
-			 * whose Group belongs to the RP getting deleted
-			 */
-			frr_each (rb_pim_upstream, &pim->upstream_head,
-				  upstream) {
-				struct prefix grp;
-				struct rp_info *trp_info;
+	if (!pnc) {
+		zlog_warn("attempting to delete nonexistent NHT entry %pFX",
+			  addr);
+		return;
+	}
 
-				if (upstream->sg.src.s_addr != INADDR_ANY)
-					continue;
+	if (rp) {
+		/* Release the (*, G)upstream from pnc->upstream_hash,
+		 * whose Group belongs to the RP getting deleted
+		 */
+		frr_each (rb_pim_upstream, &pim->upstream_head, upstream) {
+			struct prefix grp;
+			struct rp_info *trp_info;
 
-				grp.family = AF_INET;
-				grp.prefixlen = IPV4_MAX_BITLEN;
-				grp.u.prefix4 = upstream->sg.grp;
+			if (upstream->sg.src.s_addr != INADDR_ANY)
+				continue;
 
-				trp_info = pim_rp_find_match_group(pim, &grp);
-				if (trp_info == rp)
-					hash_release(pnc->upstream_hash,
-						     upstream);
-			}
-			listnode_delete(pnc->rp_list, rp);
+			grp.family = AF_INET;
+			grp.prefixlen = IPV4_MAX_BITLEN;
+			grp.u.prefix4 = upstream->sg.grp;
+
+			trp_info = pim_rp_find_match_group(pim, &grp);
+			if (trp_info == rp)
+				hash_release(pnc->upstream_hash, upstream);
 		}
+		listnode_delete(pnc->rp_list, rp);
+	}
 
-		if (up)
-			hash_release(pnc->upstream_hash, up);
+	if (up)
+		hash_release(pnc->upstream_hash, up);
 
-		if (del_bsr_tracking)
-			pnc->bsr_tracking = false;
+	pim_nht_drop_maybe(pim, pnc);
+}
 
-		if (PIM_DEBUG_PIM_NHT)
-			zlog_debug(
-				"%s: NHT %pFX(%s) rp_list count:%d upstream count:%ld",
-				__func__, addr, pim->vrf->name,
-				pnc->rp_list->count, pnc->upstream_hash->count);
+void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
+{
+	struct pim_nexthop_cache *pnc = NULL;
+	struct pim_nexthop_cache lookup;
 
-		if (pnc->rp_list->count == 0
-		    && pnc->upstream_hash->count == 0
-		    && pnc->bsr_tracking == false) {
-			pim_sendmsg_zebra_rnh(pim, zclient, pnc,
-					      ZEBRA_NEXTHOP_UNREGISTER);
+	lookup.rpf.rpf_addr.family = AF_INET;
+	lookup.rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
+	lookup.rpf.rpf_addr.u.prefix4 = addr;
 
-			list_delete(&pnc->rp_list);
-			hash_free(pnc->upstream_hash);
+	pnc = hash_lookup(pim->rpf_hash, &lookup);
 
-			hash_release(pim->rpf_hash, pnc);
-			if (pnc->nexthop)
-				nexthops_free(pnc->nexthop);
-			XFREE(MTYPE_PIM_NEXTHOP_CACHE, pnc);
+	if (!pnc) {
+		zlog_warn("attempting to delete nonexistent NHT BSR entry %pI4",
+			  &addr);
+		return;
+	}
+
+	assertf(pnc->bsr_count > 0, "addr=%pI4", &addr);
+	pnc->bsr_count--;
+
+	pim_nht_drop_maybe(pim, pnc);
+}
+
+bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
+			   struct interface *src_ifp, struct in_addr src_ip)
+{
+	struct pim_nexthop_cache *pnc = NULL;
+	struct pim_nexthop_cache lookup;
+	struct nexthop *nh;
+
+	lookup.rpf.rpf_addr.family = AF_INET;
+	lookup.rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
+	lookup.rpf.rpf_addr.u.prefix4 = bsr_addr;
+
+	pnc = hash_lookup(pim->rpf_hash, &lookup);
+	if (!pnc)
+		return false;
+	if (!CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID))
+		return false;
+
+	/* if we accept BSMs from more than one ECMP nexthop, this will cause
+	 * BSM message "multiplication" for each ECMP hop.  i.e. if you have
+	 * 4-way ECMP and 4 hops you end up with 256 copies of each BSM
+	 * message.
+	 *
+	 * so...  only accept the first (IPv4) nexthop as source.
+	 */
+
+	for (nh = pnc->nexthop; nh; nh = nh->next) {
+		if (nh->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+			return nh->ifindex == src_ifp->ifindex
+			       && nh->gate.ipv4.s_addr == src_ip.s_addr;
 		}
 	}
+	return false;
 }
 
 /* Given a source address and a neighbor address, check if the neighbor is one

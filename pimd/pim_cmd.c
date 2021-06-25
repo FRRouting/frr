@@ -4061,17 +4061,9 @@ static void clear_pim_bsr_db(struct pim_instance *pim)
 	struct rp_info *rp_all;
 	struct pim_upstream *up;
 	struct rp_info *rp_info;
-	bool is_bsr_tracking = true;
 
-	/* Remove next hop tracking for the bsr */
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4 = pim->global_scope.current_bsr;
-	if (PIM_DEBUG_BSM) {
-		zlog_debug("%s: Deregister BSR addr %pFX with Zebra NHT",
-			   __func__, &nht_p);
-	}
-	pim_delete_tracked_nexthop(pim, &nht_p, NULL, NULL, is_bsr_tracking);
+	if (pim->global_scope.current_bsr.s_addr)
+		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
 
 	/* Reset scope zone data */
 	pim->global_scope.accept_nofwd_bsm = false;
@@ -4119,7 +4111,7 @@ static void clear_pim_bsr_db(struct pim_instance *pim)
 				   __func__, &nht_p);
 		}
 
-		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info, false);
+		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
 
 		if (!str2prefix("224.0.0.0/4", &g_all))
 			return;

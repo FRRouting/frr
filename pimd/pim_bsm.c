@@ -162,8 +162,6 @@ static int pim_on_bs_timer(struct thread *t)
 	struct bsm_scope *scope;
 	struct bsgrp_node *bsgrp_node;
 	struct bsm_rpinfo *bsrp;
-	struct prefix nht_p;
-	bool is_bsr_tracking = true;
 
 	scope = THREAD_ARG(t);
 	THREAD_OFF(scope->bs_timer);
@@ -172,15 +170,7 @@ static int pim_on_bs_timer(struct thread *t)
 		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
 			   __func__, scope->sz_id);
 
-	/* Remove next hop tracking for the bsr */
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4 = scope->current_bsr;
-	if (PIM_DEBUG_BSM)
-		zlog_debug("%s: Deregister BSR addr %pFX with Zebra NHT",
-			   __func__, &nht_p);
-	pim_delete_tracked_nexthop(scope->pim, &nht_p, NULL, NULL,
-				   is_bsr_tracking);
+	pim_nht_bsr_del(scope->pim, scope->current_bsr);
 
 	/* Reset scope zone data */
 	scope->accept_nofwd_bsm = false;
@@ -543,35 +533,6 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 	pim_bsm_rpinfos_free(bsgrp_node->partial_bsrp_list);
 }
 
-static bool pim_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr,
-			      struct in_addr ip_src_addr)
-{
-	struct pim_nexthop nexthop;
-	int result;
-
-	memset(&nexthop, 0, sizeof(nexthop));
-
-	/* New BSR recived */
-	if (bsr.s_addr != pim->global_scope.current_bsr.s_addr) {
-		result = pim_nexthop_match(pim, bsr, ip_src_addr);
-
-		/* Nexthop lookup pass for the new BSR address */
-		if (result)
-			return true;
-
-		if (PIM_DEBUG_BSM) {
-			char bsr_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<bsr?>", bsr, bsr_str, sizeof(bsr_str));
-			zlog_debug("%s : No route to BSR address %s", __func__,
-				   bsr_str);
-		}
-		return false;
-	}
-
-	return pim_nexthop_match_nht_cache(pim, bsr, ip_src_addr);
-}
-
 static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
 			     uint32_t bsr_prio)
 {
@@ -594,35 +555,11 @@ static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
 static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
 			   uint32_t bsr_prio)
 {
-	struct pim_nexthop_cache pnc;
-
 	if (bsr.s_addr != pim->global_scope.current_bsr.s_addr) {
-		struct prefix nht_p;
-		bool is_bsr_tracking = true;
+		if (pim->global_scope.current_bsr.s_addr)
+			pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
+		pim_nht_bsr_add(pim, bsr);
 
-		/* De-register old BSR and register new BSR with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-
-		if (pim->global_scope.current_bsr.s_addr != INADDR_ANY) {
-			nht_p.u.prefix4 = pim->global_scope.current_bsr;
-			if (PIM_DEBUG_BSM)
-				zlog_debug(
-					"%s: Deregister BSR addr %pFX with Zebra NHT",
-					__func__, &nht_p);
-			pim_delete_tracked_nexthop(pim, &nht_p, NULL, NULL,
-						   is_bsr_tracking);
-		}
-
-		nht_p.u.prefix4 = bsr;
-		if (PIM_DEBUG_BSM)
-			zlog_debug(
-				"%s: NHT Register BSR addr %pFX with Zebra NHT",
-				__func__, &nht_p);
-
-		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		pim_find_or_track_nexthop(pim, &nht_p, NULL, NULL,
-					  is_bsr_tracking, &pnc);
 		pim->global_scope.current_bsr = bsr;
 		pim->global_scope.current_bsr_first_ts =
 			pim_time_monotonic_sec();
@@ -1310,18 +1247,20 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 		}
 	}
 
-	/* Mulicast BSM received */
 	if (ip_hdr->ip_dst.s_addr == qpim_all_pim_routers_addr.s_addr) {
-		if (!no_fwd) {
-			if (!pim_bsr_rpf_check(pim, bshdr->bsr_addr.addr,
-					       ip_hdr->ip_src)) {
-				if (PIM_DEBUG_BSM)
-					zlog_debug(
-						"%s : RPF check fail for BSR address %s",
-						__func__, bsr_str);
-				pim->bsm_dropped++;
-				return -1;
-			}
+		/* Multicast BSMs are only accepted if source interface & IP
+		 * match RPF towards the BSR's IP address, or they have
+		 * no-forward set
+		 */
+		if (!no_fwd
+		    && !pim_nht_bsr_rpf_check(pim, bshdr->bsr_addr.addr, ifp,
+					      ip_hdr->ip_src)) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug(
+					"BSM check: RPF to BSR %s is not %pI4%%%s",
+					bsr_str, &ip_hdr->ip_src, ifp->name);
+			pim->bsm_dropped++;
+			return -1;
 		}
 	} else if (if_address_is_local(&ip_hdr->ip_dst, AF_INET,
 				       pim->vrf->vrf_id)) {
