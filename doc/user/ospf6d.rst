@@ -90,7 +90,7 @@ NSSA Support in OSPFv3
 =======================
 
 The configuration of NSSA areas in OSPFv3 is supported using the CLI command
-area A.B.C.D nssa  in ospf6 router configuration mode.
+``area A.B.C.D nssa`` in ospf6 router configuration mode.
 The following functionalities are implemented as per RFC 3101:
 
 1. Advertising Type-7 LSA into NSSA area when external route is redistributed
@@ -98,7 +98,7 @@ The following functionalities are implemented as per RFC 3101:
 2. Processing Type-7 LSA received from neighbor and installing route in the
    route table
 3. Support for NSSA ABR functionality which is generating Type-5 LSA when
-   backbone area is configured. Currently translation od TYpe-7 LSA to Type-5 LSA
+   backbone area is configured. Currently translation of Type-7 LSA to Type-5 LSA
    is enabled by default.
 4. Support for NSSA Translator functionality when there are multiple NSSA ABR
    in an area
