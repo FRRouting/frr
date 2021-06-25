@@ -509,6 +509,7 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  * else think before you use VRF_UNKNOWN
  */
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
+extern void if_update_to_new_name(struct interface *ifp, const char *name);
 
 /* Create new interface, adds to name list only */
 extern struct interface *if_create_name(const char *name, vrf_id_t vrf_id);

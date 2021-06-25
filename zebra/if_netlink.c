@@ -1591,8 +1591,24 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					ifi->ifi_flags);
 
 			if (ifp == NULL) {
-				/* unknown interface */
-				ifp = if_get_by_name(name, vrf_id);
+				/* check if interface with same index exists */
+				ifp = if_lookup_by_index_per_ns(zns,
+								ifi->ifi_index);
+				if (ifp) {
+					if (strcmp(ifp->name, name)) {
+						if (IS_ZEBRA_DEBUG_KERNEL)
+							zlog_debug(
+								   "interface index %d was renamed from %s to %s",
+								   ifp->ifindex, ifp->name,
+								   name);
+						if_update_to_new_name(ifp, name);
+					}
+					/* else interface with same name already present
+					 * reuse ifp pointer
+					 */
+				} else
+					/* unknown interface */
+					ifp = if_get_by_name(name, vrf_id);
 			} else {
 				/* pre-configured interface, learnt now */
 				if (ifp->vrf_id != vrf_id)

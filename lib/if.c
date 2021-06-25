@@ -232,6 +232,44 @@ struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
 }
 
 /* Create new interface structure. */
+extern void if_update_to_new_name(struct interface *ifp, const char *name)
+{
+	struct vrf *vrf = vrf_get(ifp->vrf_id, NULL);
+
+	assert(vrf);
+
+	/*
+	 * HACK: Change the interface name in the running configuration
+	 * directly bypassing the northbound layer. This is necessary to
+	 * avoid deleting the interface and readding it with new name, which
+	 * would have several implications.
+	 */
+	if (yang_module_find("frr-interface")) {
+		struct lyd_node *if_dnode;
+		char oldpath[XPATH_MAXLEN];
+		char newpath[XPATH_MAXLEN];
+
+		snprintf(oldpath, sizeof(oldpath),
+			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			 ifp->name, vrf->name);
+		snprintf(newpath, sizeof(newpath),
+			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			 name, vrf->name);
+		if_dnode = yang_dnode_getf(running_config->dnode, "%s/name",
+					   oldpath);
+
+		if (if_dnode) {
+			yang_dnode_change_leaf(if_dnode, name);
+			nb_running_move_tree(oldpath, newpath);
+			running_config->version++;
+		}
+		vty_update_xpath(oldpath, newpath);
+	}
+
+	if_set_name(ifp, name);
+}
+
+/* Create new interface structure. */
 void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 {
 	struct vrf *old_vrf, *vrf;
