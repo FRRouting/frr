@@ -1196,7 +1196,7 @@ DEFPY_YANG(no_isis_mpls_te_on, no_isis_mpls_te_on_cmd, "no mpls-te [on]",
 void cli_show_isis_mpls_te(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	vty_out(vty, "  mpls-te on\n");
+	vty_out(vty, " mpls-te on\n");
 }
 
 /*
@@ -1229,7 +1229,7 @@ DEFPY_YANG(no_isis_mpls_te_router_addr, no_isis_mpls_te_router_addr_cmd,
 void cli_show_isis_mpls_te_router_addr(struct vty *vty, struct lyd_node *dnode,
 				       bool show_defaults)
 {
-	vty_out(vty, "  mpls-te router-address %s\n",
+	vty_out(vty, " mpls-te router-address %s\n",
 		yang_dnode_get_string(dnode, NULL));
 }
 
