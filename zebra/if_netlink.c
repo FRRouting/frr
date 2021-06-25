@@ -79,8 +79,8 @@ extern struct zebra_privs_t zserv_privs;
 
 /* Note: on netlink systems, there should be a 1-to-1 mapping between interface
    names and ifindex values. */
-static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
-			struct zebra_ns *zns)
+static int set_ifindex(struct interface *ifp, ifindex_t ifi_index,
+		       struct zebra_ns *zns, const char *name)
 {
 	struct interface *oifp;
 
@@ -101,10 +101,15 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 					EC_LIB_INTERFACE,
 					"interface rename detected on up interface: index %d was renamed from %s to %s, results are uncertain!",
 					ifi_index, oifp->name, ifp->name);
-			if_delete_update(oifp);
+			if (ifp)
+				if_delete_update(oifp);
+			else if (name)
+				if_update_to_new_name(oifp, name);
 		}
-	}
+	} else
+		return -1;
 	if_set_index(ifp, ifi_index);
+	return 0;
 }
 
 /* Utility function to parse hardware link-layer address and update ifp */
@@ -975,7 +980,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	 * this way, i.e. by creating by ifindex.
 	 */
 	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
-	set_ifindex(ifp, ifi->ifi_index, zns); /* add it to ns struct */
+	set_ifindex(ifp, ifi->ifi_index, zns, NULL); /* add it to ns struct */
 
 	if_set_name(ifp, name);
 
@@ -1591,8 +1596,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					ifi->ifi_flags);
 
 			if (ifp == NULL) {
-				/* unknown interface */
-				ifp = if_get_by_name(name, vrf_id);
+				if (set_ifindex(NULL, ifi->ifi_index, zns, name) < 0)
+					/* unknown interface */
+					ifp = if_get_by_name(name, vrf_id);
 			} else {
 				/* pre-configured interface, learnt now */
 				if (ifp->vrf_id != vrf_id)
@@ -1600,7 +1606,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			}
 
 			/* Update interface information. */
-			set_ifindex(ifp, ifi->ifi_index, zns);
+			set_ifindex(ifp, ifi->ifi_index, zns, NULL);
 			ifp->flags = ifi->ifi_flags & 0x0000fffff;
 			if (!tb[IFLA_MTU]) {
 				zlog_debug(
@@ -1666,7 +1672,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					name, ifp->ifindex, zif_slave_type,
 					master_infindex, ifi->ifi_flags);
 
-			set_ifindex(ifp, ifi->ifi_index, zns);
+			set_ifindex(ifp, ifi->ifi_index, zns, NULL);
 			if (!tb[IFLA_MTU]) {
 				zlog_debug(
 					"RTM_NEWLINK for interface %s(%u) without MTU set",
