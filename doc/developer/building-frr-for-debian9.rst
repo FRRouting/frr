@@ -44,7 +44,6 @@ an example.)
     cd frr
     ./bootstrap.sh
     ./configure \
-        --enable-exampledir=/usr/share/doc/frr/examples/ \
         --localstatedir=/var/opt/frr \
         --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \

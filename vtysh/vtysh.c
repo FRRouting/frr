@@ -2851,7 +2851,6 @@ DEFUN (vtysh_show_poll,
 	return show_per_daemon(vty, argv, argc, "Thread statistics for %s:\n");
 }
 
-#ifndef EXCLUDE_CPU_TIME
 DEFUN (vtysh_show_thread,
        vtysh_show_thread_cmd,
        "show thread cpu [FILTER]",
@@ -2862,7 +2861,6 @@ DEFUN (vtysh_show_thread,
 {
 	return show_per_daemon(vty, argv, argc, "Thread statistics for %s:\n");
 }
-#endif
 
 DEFUN (vtysh_show_work_queues,
        vtysh_show_work_queues_cmd,
@@ -4567,9 +4565,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
-#ifndef EXCLUDE_CPU_TIME
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
-#endif
 	install_element(VIEW_NODE, &vtysh_show_poll_cmd);
 
 	/* Logging */

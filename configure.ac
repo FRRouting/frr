@@ -114,15 +114,6 @@ AC_PATH_PROG([PERL], [perl])
 PKG_PROG_PKG_CONFIG
 
 dnl default is to match previous behavior
-exampledir=${sysconfdir}
-AC_ARG_ENABLE([exampledir],
-	  AS_HELP_STRING([--enable-exampledir],
-			 [specify alternate directory for examples]),
-			 exampledir="$enableval",)
-dnl XXX add --exampledir to autoconf standard directory list somehow
-AC_SUBST([exampledir])
-
-dnl default is to match previous behavior
 pkgsrcrcdir=""
 AC_ARG_ENABLE([pkgsrcrcdir],
 	  AS_HELP_STRING([--enable-pkgsrcrcdir],
@@ -663,8 +654,6 @@ AC_ARG_ENABLE([irdp],
   AS_HELP_STRING([--disable-irdp], [disable IRDP server support in zebra (enabled by default if supported)]))
 AC_ARG_ENABLE([capabilities],
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
-AC_ARG_ENABLE([rusage],
-  AS_HELP_STRING([--disable-rusage], [disable using getrusage]))
 AC_ARG_ENABLE([gcc_ultra_verbose],
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE([backtrace],
@@ -794,7 +783,6 @@ fi
 
 if test "$enable_datacenter" = "yes" ; then
   AC_DEFINE([HAVE_DATACENTER], [1], [Compile extensions for a DataCenter])
-  AC_MSG_WARN([The --enable-datacenter compile time option is deprecated.  Please modify the init script to pass -F datacenter to the daemons instead.])
   DFLT_NAME="datacenter"
 else
   DFLT_NAME="traditional"
@@ -2241,6 +2229,10 @@ AC_CHECK_DECL([CLOCK_MONOTONIC],
 	 AC_DEFINE([HAVE_CLOCK_MONOTONIC], [1], [Have monotonic clock])
 ], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
 
+AC_CHECK_DECL([CLOCK_THREAD_CPUTIME_ID], [
+	 AC_DEFINE([HAVE_CLOCK_THREAD_CPUTIME_ID], [1], [Have cpu-time clock])
+], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
+
 AC_SEARCH_LIBS([clock_nanosleep], [rt], [
   AC_DEFINE([HAVE_CLOCK_NANOSLEEP], [1], [Have clock_nanosleep()])
 ])
@@ -2693,7 +2685,6 @@ make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
-example directory       : `eval echo \`echo ${exampledir}\``
 module directory        : ${CFG_MODULE}
 script directory        : ${CFG_SCRIPT}
 user to run as          : ${enable_user}
@@ -2706,6 +2697,16 @@ vici socket path        : ${vici_socket}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
+
+if test -n "$enable_datacenter"; then
+  AC_MSG_WARN([The --enable-datacenter compile time option is deprecated.  Please modify the init script to pass -F datacenter to the daemons instead.])
+fi
+if test -n "$enable_time_check"; then
+  AC_MSG_WARN([The --enable-time-check compile time option is deprecated.  Please use the service cputime-stats configuration option instead.])
+fi
+if test -n "$enable_cpu_time"; then
+  AC_MSG_WARN([The --enable-cpu-time compile time option is deprecated.  Please use the service cputime-warning NNN configuration option instead.])
+fi
 
 if test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" = "false"; then
   AC_MSG_WARN([sphinx is missing but required to build documentation])

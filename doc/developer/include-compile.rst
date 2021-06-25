@@ -15,7 +15,6 @@ obtained by running ``./configure -h``. The options shown below are examples.
    ./configure \
        --prefix=/usr \
        --includedir=\${prefix}/include \
-       --enable-exampledir=\${prefix}/share/doc/frr/examples \
        --bindir=\${prefix}/bin \
        --sbindir=\${prefix}/lib/frr \
        --libdir=\${prefix}/lib/frr \

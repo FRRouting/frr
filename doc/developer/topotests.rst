@@ -221,7 +221,6 @@ for ``master`` branch:
        --prefix=/usr/lib/frr --sysconfdir=/etc/frr \
        --localstatedir=/var/run/frr \
        --sbindir=/usr/lib/frr --bindir=/usr/lib/frr \
-       --enable-exampledir=/usr/lib/frr/examples \
        --with-moduledir=/usr/lib/frr/modules \
        --enable-multipath=0 --enable-rtadv \
        --enable-tcp-zebra --enable-fpm --enable-pimd \
