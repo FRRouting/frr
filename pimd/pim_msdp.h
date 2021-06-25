@@ -283,14 +283,16 @@ struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
 void pim_msdp_mg_mbr_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr);
 
 /**
- * Allocates MSDP peer data structure and starts state machine.
+ * Allocates MSDP peer data structure, adds peer to group name
+ * `mesh_group_name` and starts state machine. If no group name is provided then
+ * the peer will work standalone.
  *
  * \param pim PIM instance
  * \param peer_addr peer address
  * \param local_addr local listening address
  * \param mesh_group_name mesh group name (or `NULL` for peers without group).
  */
-struct pim_msdp_peer *pim_msdp_peer_new(struct pim_instance *pim,
+struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 					const struct in_addr *peer_addr,
 					const struct in_addr *local_addr,
 					const char *mesh_group_name);
@@ -298,7 +300,7 @@ struct pim_msdp_peer *pim_msdp_peer_new(struct pim_instance *pim,
 /**
  * Stops peer state machine and free memory.
  */
-void pim_msdp_peer_do_del(struct pim_msdp_peer **mp);
+void pim_msdp_peer_del(struct pim_msdp_peer **mp);
 
 /**
  * Changes peer source address.

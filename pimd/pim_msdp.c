@@ -1044,7 +1044,7 @@ static void pim_msdp_addr2su(union sockunion *su, struct in_addr addr)
 }
 
 /* 11.2.A1: create a new peer and transition state to listen or connecting */
-struct pim_msdp_peer *pim_msdp_peer_new(struct pim_instance *pim,
+struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 					const struct in_addr *peer,
 					const struct in_addr *local,
 					const char *mesh_group_name)
@@ -1131,7 +1131,7 @@ static void pim_msdp_peer_free(struct pim_msdp_peer *mp)
 }
 
 /* delete the peer config */
-void pim_msdp_peer_do_del(struct pim_msdp_peer **mp)
+void pim_msdp_peer_del(struct pim_msdp_peer **mp)
 {
 	if (*mp == NULL)
 		return;
@@ -1264,7 +1264,7 @@ void pim_msdp_mg_mbr_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr)
 {
 	/* Delete active peer session if any */
 	if (mbr->mp) {
-		pim_msdp_peer_do_del(&mbr->mp);
+		pim_msdp_peer_del(&mbr->mp);
 	}
 
 	listnode_delete(mg->mbr_list, mbr);
@@ -1288,7 +1288,7 @@ static void pim_msdp_src_del(struct pim_msdp_mg *mg)
 	/* SIP is being removed - tear down all active peer sessions */
 	for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbr_node, mbr)) {
 		if (mbr->mp)
-			pim_msdp_peer_do_del(&mbr->mp);
+			pim_msdp_peer_del(&mbr->mp);
 	}
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP mesh-group %s src cleared",
@@ -1447,7 +1447,7 @@ void pim_msdp_mg_src_add(struct pim_instance *pim, struct pim_msdp_mg *mg,
 
 	/* Create data structures and start TCP connection. */
 	for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbr_node, mbr))
-		mbr->mp = pim_msdp_peer_new(pim, &mbr->mbr_ip, &mg->src_ip,
+		mbr->mp = pim_msdp_peer_add(pim, &mbr->mbr_ip, &mg->src_ip,
 					    mg->mesh_group_name);
 
 	if (PIM_DEBUG_MSDP_EVENTS)
@@ -1467,7 +1467,7 @@ struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
 
 	/* if valid SIP has been configured add peer session */
 	if (mg->src_ip.s_addr != INADDR_ANY)
-		mbr->mp = pim_msdp_peer_new(pim, &mbr->mbr_ip, &mg->src_ip,
+		mbr->mp = pim_msdp_peer_add(pim, &mbr->mbr_ip, &mg->src_ip,
 					    mg->mesh_group_name);
 
 	if (PIM_DEBUG_MSDP_EVENTS)
