@@ -20,10 +20,11 @@ def createOutputFile(procName):
     oldFile = LOG_DIR + fileName
     cpFileCmd = "cp " + oldFile + " " + oldFile + ".prev"
     rmFileCmd = "rm -rf " + oldFile
-    print("Making backup of " + oldFile)
-    os.system(cpFileCmd)
-    print("Removing " + oldFile)
-    os.system(rmFileCmd)
+    if os.path.exists(oldFile):
+        print("Making backup of " + oldFile)
+        os.system(cpFileCmd)
+        print("Removing older version of " + oldFile)
+        os.system(rmFileCmd)
     return fileName
 
 
@@ -66,10 +67,13 @@ def executeCommand(cmd, outputFile):
     except subprocess.CalledProcessError as e:
         dateTime = datetime.datetime.now()
         outputFile.write(">>[" + str(dateTime) + "]" + cmd + "\n")
-        outputFile.write(e.output)
+        try:
+            outputFile.write(e.output)
+        except TypeError:
+            outputFile.write(e.output.decode('utf-8'))
         outputFile.write("########################################################\n")
         outputFile.write("\n")
-        print("Error:" + e.output)
+        print("Error:", e.output)
 
 
 # Process the support bundle configuration file
