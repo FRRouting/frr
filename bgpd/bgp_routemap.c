@@ -407,6 +407,9 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	case LUA_RM_MATCH_AND_CHANGE:
 		status = RMAP_MATCH;
 		zlog_debug("Updating attribute based on script's values");
+		if (path->attr->local_pref != 0)
+			SET_FLAG(path->attr->flag,
+				 ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
 		break;
 	case LUA_RM_MATCH:
 		status = RMAP_MATCH;
