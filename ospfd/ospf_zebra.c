@@ -66,6 +66,8 @@ static struct zclient *zclient_sync;
 /* For registering threads. */
 extern struct thread_master *master;
 
+static int ospf_orr_msg_handler(ZAPI_CALLBACK_ARGS);
+
 /* Router-id update message from zebra. */
 static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
@@ -2097,9 +2099,15 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->opaque_msg_handler = ospf_opaque_msg_handler;
 
 	zclient->zebra_client_close_notify = ospf_zebra_client_close_notify;
+
+	zclient->orr_msg_handler = ospf_orr_msg_handler;
 }
 
 void ospf_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
 {
 	zclient_send_neigh_discovery_req(zclient, ifp, p);
+}
+
+static int ospf_orr_msg_handler(ZAPI_CALLBACK_ARGS)
+{
 }

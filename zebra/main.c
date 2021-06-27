@@ -56,6 +56,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_nb.h"
 #include "zebra/zebra_opaque.h"
+#include "zebra/zebra_orr.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
@@ -156,6 +157,9 @@ static void sigint(void)
 	/* Stop the opaque module pthread */
 	zebra_opaque_stop();
 
+	/* Stop the orr module pthread */
+	zebra_orr_stop();
+
 	zebra_dplane_pre_finish();
 
 	/* Clean up GR related info. */
@@ -171,6 +175,9 @@ static void sigint(void)
 
 	/* Once all the zclients are cleaned up, clean up the opaque module */
 	zebra_opaque_finish();
+
+	/* Once all the zclients are cleaned up, clean up the orr module */
+	zebra_orr_finish();
 
 	zebra_ptm_finish();
 
@@ -418,6 +425,7 @@ int main(int argc, char **argv)
 	zebra_pw_vty_init();
 	zebra_pbr_init();
 	zebra_opaque_init();
+	zebra_orr_init();
 	zebra_srte_init();
 	zebra_srv6_init();
 	zebra_srv6_vty_init();
@@ -454,6 +462,9 @@ int main(int argc, char **argv)
 
 	/* Start the ted module, before zserv */
 	zebra_opaque_start();
+
+	/* Start the orr module, before zserv */
+	zebra_orr_start();
 
 	/* Start Zebra API server */
 	zserv_start(zserv_path);

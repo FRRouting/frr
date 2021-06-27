@@ -630,9 +630,9 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_name_des
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_primary_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_secondary_modify(
-        struct nb_cb_modify_args *args);
+	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_tertiary_modify(
-        struct nb_cb_modify_args *args);
+	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_maximum_paths_modify(

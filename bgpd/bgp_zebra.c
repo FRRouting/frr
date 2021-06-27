@@ -68,6 +68,8 @@
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
+static int bgp_orr_msg_handler(ZAPI_CALLBACK_ARGS);
+
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 	    (bgp, ifp));
@@ -2701,6 +2703,9 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	 * kick-start them?
 	 */
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
+
+	/* Request IGP to Calculate SPF from specified location */
+	zclient_register_orr(zclient, ORR_IGP_METRIC_REGISTER);
 }
 
 static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
@@ -3110,6 +3115,7 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->instance = instance;
 	zclient->process_srv6_locator_chunk =
 		bgp_zebra_process_srv6_locator_chunk;
+	zclient->orr_msg_handler = bgp_orr_msg_handler;
 }
 
 void bgp_zebra_destroy(void)
@@ -3511,4 +3517,8 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 {
 	return srv6_manager_get_locator_chunk(zclient, name);
+}
+
+static int bgp_orr_msg_handler(ZAPI_CALLBACK_ARGS)
+{
 }

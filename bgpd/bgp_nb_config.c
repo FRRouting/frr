@@ -9155,18 +9155,18 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_primary_
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/secondary
  */
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_secondary_modify(
-        struct nb_cb_modify_args *args)
+	struct nb_cb_modify_args *args)
 {
-        switch (args->event) {
-        case NB_EV_VALIDATE:
-        case NB_EV_PREPARE:
-        case NB_EV_ABORT:
-        case NB_EV_APPLY:
-                /* TODO: implement me. */
-                break;
-        }
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
 
-        return NB_OK;
+	return NB_OK;
 }
 
 /*
@@ -9174,18 +9174,18 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_secondar
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/optimal-route-reflection/tertiary
  */
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_optimal_route_reflection_tertiary_modify(
-        struct nb_cb_modify_args *args)
+	struct nb_cb_modify_args *args)
 {
-        switch (args->event) {
-        case NB_EV_VALIDATE:
-        case NB_EV_PREPARE:
-        case NB_EV_ABORT:
-        case NB_EV_APPLY:
-                /* TODO: implement me. */
-                break;
-        }
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
 
-        return NB_OK;
+	return NB_OK;
 }
 
 static int
