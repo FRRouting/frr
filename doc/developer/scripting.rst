@@ -246,6 +246,7 @@ Again, for ``struct prefix``:
    }
 
 .. warning::
+
    ``lua_decode_prefix`` functions should leave the Lua stack completely empty
    when they return.
    For decoders that unmarshall fields from tables, remember to pop the table
@@ -287,18 +288,22 @@ structures.
 To register a new type with its corresponding encoding and decoding functions,
 add the mapping in the following macros in ``frrscript.h``:
 
-.. code-block:: c
+.. code-block:: diff
 
    #define ENCODE_ARGS_WITH_STATE(L, value) \
           _Generic((value), \
           ...
-   struct prefix * : lua_pushprefix, \
+   -struct peer * : lua_pushpeer \
+   +struct peer * : lua_pushpeer, \
+   +struct prefix * : lua_pushprefix \
    )(L, value)
 
    #define DECODE_ARGS_WITH_STATE(L, value) \
           _Generic((value), \
           ...
-   struct prefix * : lua_decode_prefix, \
+   -struct peer * : lua_decode_peer \
+   +struct peer * : lua_decode_peer, \
+   +struct prefix * : lua_decode_prefix \
    )(L, -1, value)
 
 
@@ -315,12 +320,12 @@ But we still need a decoder for the type of value so that the compiler will be
 satisfied.
 For that, use ``lua_decode_noop``:
 
-.. code-block:: c
+.. code-block:: diff
 
    #define DECODE_ARGS_WITH_STATE(L, value) \
           _Generic((value), \
           ...
-   const struct prefix * : lua_decode_noop, \
+   +const struct prefix * : lua_decode_noop \
    )(L, -1, value)
 
 
