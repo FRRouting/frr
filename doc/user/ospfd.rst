@@ -80,10 +80,12 @@ Routers
 
 To start OSPF process you have to specify the OSPF router.
 
-.. clicmd:: router ospf [(1-65535)] vrf NAME
+.. clicmd:: router ospf [{(1-65535)|vrf NAME}]
 
 
    Enable or disable the OSPF process.
+
+   Multiple instances don't support `vrf NAME`.
 
 .. clicmd:: ospf router-id A.B.C.D
 
