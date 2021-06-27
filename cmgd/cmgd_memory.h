@@ -1,6 +1,6 @@
 /* cmgd memory type declarations
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -25,5 +25,8 @@
 DECLARE_MGROUP(CMGD);
 DECLARE_MTYPE(CMGD);
 DECLARE_MTYPE(CMGD_BCKND_ADPATER);
+DECLARE_MTYPE(CMGD_FRNTND_ADPATER);
+DECLARE_MTYPE(CMGD_FRNTND_SESSN);
+DECLARE_MTYPE(CMGD_TRXN);
 
 #endif /* _FRR_CMGD_MEMORY_H */

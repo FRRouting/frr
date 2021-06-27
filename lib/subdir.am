@@ -68,6 +68,7 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
 	lib/cmgd_bcknd_client.c \
+	lib/cmgd_frntnd_client.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \

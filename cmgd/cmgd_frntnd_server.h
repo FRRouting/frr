@@ -1,5 +1,5 @@
 /*
- * CMGD protobuf main header file
+ * CMGD Frontend Server
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
@@ -18,14 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_CMGD_PB_H_
-#define _FRR_CMGD_PB_H_
+#ifndef _FRR_CMGD_FRNTND_SERVER_H_
+#define _FRR_CMGD_FRNTND_SERVER_H_
 
-#include "lib/cmgd.pb-c.h"
+#include "lib/cmgd_frntnd_client.h"
 
-typedef Cmgd__YangDataXPath cmgd_yang_xpath_t;
-typedef Cmgd__YangData cmgd_yang_data_t;
-typedef Cmgd__YangCfgDataReq cmgd_yang_cfgdata_req_t;
-typedef Cmgd__YangGetDataReq cmgd_yang_getdata_req_t;
+#define CMGD_FRNTND_MAX_CONN	32
 
-#endif /* _FRR_CMGD_PB_H_ */
+extern int cmgd_frntnd_server_init(struct thread_master *master);
+
+extern void cmgd_frntnd_server_destroy(void);
+
+#endif /* _FRR_CMGD_FRNTND_SERVER_H_ */

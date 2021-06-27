@@ -3,7 +3,7 @@
 #
 
 noinst_LIBRARIES += cmgd/libcmgd.a
-sbin_PROGRAMS += cmgd/cmgd
+sbin_PROGRAMS += cmgd/cmgd cmgd/cmgd_test_frntnd
 
 # dist_examples_DATA += \
 	# end
@@ -56,6 +56,9 @@ cmgd_libcmgd_a_SOURCES = \
 	cmgd/cmgd_vty.c \
 	cmgd/cmgd_bcknd_server.c \
 	cmgd/cmgd_bcknd_adapter.c \
+	cmgd/cmgd_frntnd_server.c \
+	cmgd/cmgd_frntnd_adapter.c \
+	cmgd/cmgd_trxn.c \
 	# end
 
 noinst_HEADERS += \
@@ -64,6 +67,9 @@ noinst_HEADERS += \
 	cmgd/cmgd_nb.h \
 	cmgd/cmgd_bcknd_adapter.h \
 	cmgd/cmgd_bcknd_server.h \
+	cmgd/cmgd_frntnd_adapter.h \
+	cmgd/cmgd_frntnd_server.h \
+	cmgd/cmgd_trxn.h \
 	# end
 
 cmgd_cmgd_SOURCES = \
@@ -76,10 +82,16 @@ nodist_cmgd_cmgd_SOURCES = \
 BUILT_SOURCES += cmgd/cmgd_bcknd_cmd.c
 CLEANFILES += cmgd/cmgd_bcknd_cmd.c
 
-
-cmgd_cmgd_CFLAGS = $(AM_CFLAGS)
+cmgd_cmgd_CFLAGS = $(AM_CFLAGS) -I ./
 
 cmgd_cmgd_LDADD = cmgd/libcmgd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
+
+cmgd_cmgd_test_frntnd_SOURCES = \
+	cmgd/cmgd_test_frntnd.c \
+	# end
+cmgd_cmgd_test_frntnd_CFLAGS = $(AM_CFLAGS)
+
+cmgd_cmgd_test_frntnd_LDADD = lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
 
 clippy_scan += \
 	cmgd/cmgd_vty.c \

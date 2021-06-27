@@ -1,7 +1,7 @@
 /*
  * CMGD Backend Client Library api interfaces
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -33,12 +33,6 @@ extern "C" {
  * Macros 
  ***************************************************************/
 
-/*
- * The server port CMGD daemon is listening for Backend Client
- * connections.
- */
-// #define CMGD_BCKND_SERVER_PATH			"/var/run/cmgd_bcknd_server"
-
 #define CMGD_BCKND_CLIENT_ERROR_STRING_MAX_LEN	32
 
 #define CMGD_BCKND_DEFAULT_CONN_RETRY_INTVL_SEC	5
@@ -46,6 +40,10 @@ extern "C" {
 #define CMGD_BCKND_MSG_PROC_DELAY_MSEC		250
 
 #define CMGD_BCKND_MAX_NUM_MSG_PROC		100
+
+#define GMGD_BCKND_MAX_NUM_REQ_ITEMS    	64
+
+#define CMGD_BCKND_MSG_MAX_LEN		        4096
 
 
 /***************************************************************
@@ -63,11 +61,6 @@ typedef struct cmgd_bcknd_msg_ {
 	cmgd_bcknd_msg_hdr_t 	hdr;
 	uint8_t 		payload[];
 } cmgd_bcknd_msg_t;
-
-typedef struct cmgd_bcknd_yang_data_ {
-	char xpath[CMGD_MAX_XPATH_LEN];
-	struct nb_yang_value xpath_data;
-} cmgd_bcknd_yang_data_t;
 
 /*
  * Single handler to notify connection/disconnoect to/from 
@@ -178,7 +171,7 @@ extern cmgd_result_t cmgd_bcknd_subscribe_yang_data(
  * Send one or more YANG notifications to CMGD daemon.
  */
 extern cmgd_result_t cmgd_bcknd_send_yang_notify(
-	cmgd_lib_hndl_t lib_hndl, cmgd_bcknd_yang_data_t *data_elems[],
+	cmgd_lib_hndl_t lib_hndl, cmgd_yang_data_t *data_elems[],
 	int num_elems);
 
 /*

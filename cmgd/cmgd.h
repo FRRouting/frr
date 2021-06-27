@@ -1,6 +1,6 @@
 /* CMGD message definition header.
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -40,13 +40,7 @@
 #include "bitfield.h"
 #include "vxlan.h"
 #include "cmgd/cmgd_defines.h"
-
-typedef enum cmgd_bcknd_event_ {
-	CMGD_BCKND_SERVER = 1,
-	CMGD_BCKND_CONN_READ,
-	CMGD_BCKND_CONN_WRITE,
-	CMGD_BCKND_PROC_MSG
-} cmgd_bcknd_event_t;
+#include "cmgd/cmgd_trxn.h"
 
 // #define CMGD_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 
@@ -61,7 +55,7 @@ typedef enum cmgd_bcknd_event_ {
 	})
 
 
-extern struct frr_pthread *cmgd_pth_io;
+// extern struct frr_pthread *cmgd_pth_io;
 // extern struct frr_pthread *cmgd_pth_ka;
 
 /* CMGD master for system wide configurations and variables.  */
@@ -92,6 +86,12 @@ struct cmgd_master {
 
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
+
+	/* List of all transactions currently underway */
+	struct cmgd_trxn_list_head cmgd_trxns;
+
+	/* The single instance of config transaction allowed at any time */
+	cmgd_trxn_ctxt_t *cfg_trxn;
 
 	bool terminating;	/* global flag that sigint terminate seen */
 	// QOBJ_FIELDS

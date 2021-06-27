@@ -1,7 +1,7 @@
 /*
  * CMGD Backend Client Connection Adapter
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -44,15 +44,16 @@
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
 #define FOREACH_ADPTR_IN_LIST(adptr)						\
-	for ((adptr) = cmgd_adptr_list_first(&cmgd_bcknd_adptrs); (adptr);	\
-		(adptr) = cmgd_adptr_list_next(&cmgd_bcknd_adptrs, (adptr)))
+	for ((adptr) = cmgd_bcknd_adptr_list_first(&cmgd_bcknd_adptrs); (adptr);\
+		(adptr) = cmgd_bcknd_adptr_list_next(&cmgd_bcknd_adptrs, (adptr)))
 
 static struct thread_master *cmgd_bcknd_adptr_tm = NULL;
 
-static struct cmgd_adptr_list_head cmgd_bcknd_adptrs = {0};
+static struct cmgd_bcknd_adptr_list_head cmgd_bcknd_adptrs = {0};
 
+/* Forward declarations */
 static void cmgd_bcknd_adptr_register_event(
-	cmgd_bcknd_client_adapter_t *adptr, cmgd_bcknd_event_t event);
+	cmgd_bcknd_client_adapter_t *adptr, cmgd_event_t event);
 
 static cmgd_bcknd_client_adapter_t *cmgd_bcknd_find_adapter_by_fd(int conn_fd)
 {
@@ -87,7 +88,7 @@ static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 
 	/* TODO: notify about client disconnect for appropriate cleanup */
 
-	cmgd_adptr_list_del(&cmgd_bcknd_adptrs, adptr);
+	cmgd_bcknd_adptr_list_del(&cmgd_bcknd_adptrs, adptr);
 
 	cmgd_bcknd_adapter_unlock(&adptr);
 }
@@ -220,9 +221,10 @@ static int cmgd_bcknd_adapter_proc_msgbufs(struct thread *thread)
 static int cmgd_bcknd_adapter_read(struct thread *thread)
 {
 	cmgd_bcknd_client_adapter_t *adptr;
-	int bytes_read;
+	int bytes_read, msg_cnt;
 	size_t total_bytes, bytes_left;
 	cmgd_bcknd_msg_hdr_t *msg_hdr;
+	bool incomplete = false;
 
 	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
@@ -257,12 +259,11 @@ static int cmgd_bcknd_adapter_read(struct thread *thread)
 	 */
 	stream_set_getp(adptr->ibuf_work, 0);
 	total_bytes = 0;
-	bytes_left = stream_get_endp(adptr->ibuf_work) - 
-			stream_get_getp(adptr->ibuf_work);
+	msg_cnt = 0;
+	bytes_left = stream_get_endp(adptr->ibuf_work);
 	for ( ; bytes_left > CMGD_BCKND_MSG_HDR_LEN; ) {
 		msg_hdr = (cmgd_bcknd_msg_hdr_t *)
-			(STREAM_DATA(adptr->ibuf_work) + 
-			stream_get_getp(adptr->ibuf_work));
+			(STREAM_DATA(adptr->ibuf_work) + total_bytes);
 		if (msg_hdr->marker != CMGD_BCKND_MSG_MARKER) {
 			/* Corrupted buffer. Force disconnect?? */
 			cmgd_bcknd_adapter_disconnect(adptr);
@@ -274,24 +275,34 @@ static int cmgd_bcknd_adapter_read(struct thread *thread)
 			 * and add it to process fifo. And then copy the rest
 			 * to a new Ibuf 
 			 */
+			incomplete = true;
 			stream_set_endp(adptr->ibuf_work, total_bytes);
 			stream_fifo_push(adptr->ibuf_fifo, adptr->ibuf_work);
+
+			CMGD_BCKND_ADPTR_DBG("Incomplete message of %d bytes (epxected: %u) found", 
+				(int) bytes_left, msg_hdr->len);
+
 			adptr->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 			stream_put(adptr->ibuf_work, msg_hdr, bytes_left);
-
-			cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_READ);
+			stream_set_endp(adptr->ibuf_work, bytes_left);
+			break;
 		}
 
 		total_bytes += msg_hdr->len;
 		bytes_left -= msg_hdr->len;
+		msg_cnt++;
 	}
 
 	/* 
 	 * We would have read one or several messages.
 	 * Schedule processing them now.
 	 */
-	stream_fifo_push(adptr->ibuf_fifo, adptr->ibuf_work);
-	cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_PROC_MSG);
+	if (!incomplete)
+		stream_fifo_push(adptr->ibuf_fifo, adptr->ibuf_work);
+	if (msg_cnt)
+		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_PROC_MSG);
+
+	cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_READ);
 
 	return 0;
 }
@@ -309,7 +320,7 @@ static int cmgd_bcknd_adapter_write(struct thread *thread)
 }
 
 static void cmgd_bcknd_adptr_register_event(
-	cmgd_bcknd_client_adapter_t *adptr, cmgd_bcknd_event_t event)
+	cmgd_bcknd_client_adapter_t *adptr, cmgd_event_t event)
 {
 	switch (event) {
 	case CMGD_BCKND_CONN_READ:
@@ -319,7 +330,7 @@ static void cmgd_bcknd_adptr_register_event(
 				adptr->conn_fd, NULL);
 		break;
 	case CMGD_BCKND_CONN_WRITE:
-		adptr->conn_read_ev = 
+		adptr->conn_write_ev = 
 			thread_add_write(cmgd_bcknd_adptr_tm,
 				cmgd_bcknd_adapter_write, adptr,
 				adptr->conn_fd, NULL);
@@ -346,7 +357,7 @@ extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr)
 
 	(*adptr)->refcount--;
 	if (!(*adptr)->refcount) {
-		cmgd_adptr_list_del(&cmgd_bcknd_adptrs, *adptr);
+		cmgd_bcknd_adptr_list_del(&cmgd_bcknd_adptrs, *adptr);
 
 		stream_fifo_free((*adptr)->ibuf_fifo);
 		stream_free((*adptr)->ibuf_work);
@@ -363,7 +374,7 @@ int cmgd_bcknd_adapter_init(struct thread_master *tm)
 {
 	if (!cmgd_bcknd_adptr_tm) {
 		cmgd_bcknd_adptr_tm = tm;
-		cmgd_adptr_list_init(&cmgd_bcknd_adptrs);
+		cmgd_bcknd_adptr_list_init(&cmgd_bcknd_adptrs);
 	}
 
 	return 0;
@@ -390,7 +401,7 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 		cmgd_bcknd_adapter_lock(adptr);
 
 		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_READ);
-		cmgd_adptr_list_add_tail(&cmgd_bcknd_adptrs, adptr);
+		cmgd_bcknd_adptr_list_add_tail(&cmgd_bcknd_adptrs, adptr);
 
 		CMGD_BCKND_ADPTR_DBG(
 			"Added new CMGD Backend adapter '%s'", adptr->name);
@@ -458,5 +469,5 @@ void cmgd_bcknd_adapter_status_write(struct vty *vty)
 					indx, adptr->xpath_reg[indx]);
 	}
 	vty_out(vty, "  Total: %d\n", 
-		(int) cmgd_adptr_list_count(&cmgd_bcknd_adptrs));
+		(int) cmgd_bcknd_adptr_list_count(&cmgd_bcknd_adptrs));
 }

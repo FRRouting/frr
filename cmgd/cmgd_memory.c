@@ -1,6 +1,6 @@
 /* cmgd memory type definitions
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -29,3 +29,6 @@
 DEFINE_MGROUP(CMGD, "cmgd");
 DEFINE_MTYPE(CMGD, CMGD, "CMGD instance");
 DEFINE_MTYPE(CMGD, CMGD_BCKND_ADPATER, "CMGD backend adapter");
+DEFINE_MTYPE(CMGD, CMGD_FRNTND_ADPATER, "CMGD Frontend adapter");
+DEFINE_MTYPE(CMGD, CMGD_FRNTND_SESSN, "CMGD Frontend Client Session");
+DEFINE_MTYPE(CMGD, CMGD_TRXN, "CMGD Transaction");

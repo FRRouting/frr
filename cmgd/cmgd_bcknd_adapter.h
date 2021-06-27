@@ -1,7 +1,7 @@
 /*
  * CMGD Backend Client Connection Adapter
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -23,6 +23,34 @@
 
 #include "lib/typesafe.h"
 #include "cmgd/cmgd_defines.h"
+#include "lib/cmgd_bcknd_client.h"
+
+typedef enum cmgd_bcknd_req_type_ {
+        CMGD_BCKND_REQ_NONE = 0,
+        CMGD_BCKND_REQ_CFG_VALIDATE,
+        CMGD_BCKND_REQ_CFG_APPLY,
+        CMGD_BCKND_REQ_DATA_GET_ELEM,
+        CMGD_BCKND_REQ_DATA_GET_NEXT
+} cmgd_bcknd_req_type_t;
+
+typedef struct cmgd_bcknd_cfgreq_ {
+        cmgd_bcknd_req_type_t req_type;
+        struct nb_yang_xpath_elem elems[GMGD_BCKND_MAX_NUM_REQ_ITEMS];
+        int num_elems;
+} cmgd_bcknd_cfgreq_t;
+
+typedef struct cmgd_bcknd_datareq_ {
+        cmgd_bcknd_req_type_t req_type;
+        struct nb_yang_xpath xpaths[GMGD_BCKND_MAX_NUM_REQ_ITEMS];
+        int num_xpaths;
+} cmgd_bcknd_datareq_t;
+
+typedef struct cmgd_bcknd_dataresults_ {
+        cmgd_bcknd_req_type_t req_type;
+        struct nb_yang_xpath_elem elems[GMGD_BCKND_MAX_NUM_REQ_ITEMS];
+        int num_elems;
+        int next_data_indx;
+} cmgd_bcknd_dataresults_t;
 
 typedef void (*cmgd_bcknd_trxn_result_notify_t)(
         cmgd_trxn_id_t trxn_id, cmgd_result_t result);
@@ -33,12 +61,13 @@ typedef void (*cmgd_bcknd_cfg_result_notify_t)(
 
 typedef void (*cmgd_bcknd_get_data_result_notify_t)(
         cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_id,
-        cmgd_result_t result, cmgd_bcknd_dataresult_t *data_resp);
+        cmgd_result_t result, cmgd_bcknd_dataresults_t *data_resp);
 
 typedef void (*cmgd_bcknd_data_notify_t)(
         struct nb_yang_xpath *xpaths[], int num_xpaths);
 
-PREDECL_LIST(cmgd_adptr_list);
+PREDECL_LIST(cmgd_bcknd_adptr_list);
+PREDECL_LIST(cmgd_trxn_badptr_list);
 
 typedef struct cmgd_bcknd_client_adapter_ {
         int conn_fd;
@@ -70,10 +99,12 @@ typedef struct cmgd_bcknd_client_adapter_ {
 
         int refcount;
 
-        struct cmgd_adptr_list_item list_linkage;
+        struct cmgd_bcknd_adptr_list_item list_linkage;
+        struct cmgd_trxn_badptr_list_item trxn_list_linkage;
 } cmgd_bcknd_client_adapter_t;
 
-DECLARE_LIST(cmgd_adptr_list, cmgd_bcknd_client_adapter_t, list_linkage);
+DECLARE_LIST(cmgd_bcknd_adptr_list, cmgd_bcknd_client_adapter_t, list_linkage);
+DECLARE_LIST(cmgd_trxn_badptr_list, cmgd_bcknd_client_adapter_t, trxn_list_linkage);
 
 extern int cmgd_bcknd_adapter_init(struct thread_master *tm);
 

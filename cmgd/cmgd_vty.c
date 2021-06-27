@@ -1,7 +1,7 @@
 /*
  * CMGD VTY Interface
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -46,6 +46,8 @@
 #include "cmgd/cmgd_vty.h"
 #include "cmgd/cmgd_bcknd_server.h"
 #include "cmgd/cmgd_bcknd_adapter.h"
+#include "cmgd/cmgd_frntnd_server.h"
+#include "cmgd/cmgd_frntnd_adapter.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "cmgd/cmgd_vty_clippy.c"
@@ -81,8 +83,8 @@ int cmgd_hndl_bknd_cmd(const struct cmd_element *cmd, struct vty *vty,
 	return 0;
 }
 
-DEFPY(show_cmgd_adapter,
-	show_cmgd_adapter_cmd,
+DEFPY(show_cmgd_bcknd_adapter,
+	show_cmgd_bcknd_adapter_cmd,
 	"show cmgd backend-adapter all",
 	SHOW_STR
 	CMGD_STR
@@ -94,16 +96,53 @@ DEFPY(show_cmgd_adapter,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_cmgd_frntnd_adapter,
+	show_cmgd_frntnd_adapter_cmd,
+	"show cmgd frontend-adapter all",
+	SHOW_STR
+	CMGD_STR
+	CMGD_FRNTND_ADPTR_STR
+	"Display all Frontend Adapters\n")
+{
+	cmgd_frntnd_adapter_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_cmgd_trxn,
+	show_cmgd_trxn_cmd,
+	"show cmgd transaction all",
+	SHOW_STR
+	CMGD_STR
+	CMGD_TRXN_STR
+	"Display all Transactions\n")
+{
+	cmgd_trxn_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
 void cmgd_vty_init(void)
 {
+	/* Initialize command handling from VTYSH connection */
+	cmgd_init_bcknd_cmd();
+
+	install_element(VIEW_NODE, &show_cmgd_bcknd_adapter_cmd);
+	install_element(VIEW_NODE, &show_cmgd_frntnd_adapter_cmd);
+	install_element(VIEW_NODE, &show_cmgd_trxn_cmd);
+
+	/* Initialize CMGD Transaction module */
+	cmgd_trxn_init(cm);
+
 	/* Initialize the CMGD Backend Adapter Module */
 	cmgd_bcknd_adapter_init(cm->master);
 
 	/* Start the CMGD Backend Server for clients to connect */
 	cmgd_bcknd_server_init(cm->master);
+	
+	/* Initialize the CMGD Frontend Adapter Module */
+	cmgd_frntnd_adapter_init(cm->master);
 
-	/* Initialize command handling from VTYSH connection */
-	cmgd_init_bcknd_cmd();
-
-	install_element(VIEW_NODE, &show_cmgd_adapter_cmd);
+	/* Start the CMGD Frontend Server for clients to connect */
+	cmgd_frntnd_server_init(cm->master);
 }

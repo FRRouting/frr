@@ -1,7 +1,7 @@
 /*
  * CMGD Backend Client Library api interfaces
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -55,6 +55,8 @@ typedef struct cmgd_bcknd_client_ctxt_ {
 static cmgd_bcknd_client_ctxt_t cmgd_bcknd_clntctxt = { 0 };
 
 /* Forward declarations */
+static void cmgd_bcknd_client_register_event(
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt, cmgd_event_t event);
 static void cmgd_bcknd_client_schedule_conn_retry(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, unsigned long intvl_secs);
 
@@ -118,9 +120,8 @@ static int cmgd_bcknd_client_proc_msgbufs(struct thread *thread)
 	 * If we have more to process, reschedule for processing it.
 	 */
 	if (stream_fifo_head(clnt_ctxt->ibuf_fifo))
-		clnt_ctxt->msg_proc_ev = thread_add_timer_msec(
-			clnt_ctxt->tm, cmgd_bcknd_client_proc_msgbufs,
-			(void *)clnt_ctxt, CMGD_BCKND_MSG_PROC_DELAY_MSEC, NULL);
+		cmgd_bcknd_client_register_event(
+			clnt_ctxt, CMGD_BCKND_PROC_MSG);
 	
 	return 0;
 }
@@ -128,9 +129,10 @@ static int cmgd_bcknd_client_proc_msgbufs(struct thread *thread)
 static int cmgd_bcknd_client_read(struct thread *thread)
 {
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
-	int bytes_read;
+	int bytes_read, msg_cnt;
 	size_t total_bytes, bytes_left;
 	cmgd_bcknd_msg_hdr_t *msg_hdr;
+	bool incomplete = false;
 
 	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
@@ -165,12 +167,11 @@ static int cmgd_bcknd_client_read(struct thread *thread)
 	 */
 	stream_set_getp(clnt_ctxt->ibuf_work, 0);
 	total_bytes = 0;
-	bytes_left = stream_get_endp(clnt_ctxt->ibuf_work) - 
-			stream_get_getp(clnt_ctxt->ibuf_work);
+	msg_cnt = 0;
+	bytes_left = stream_get_endp(clnt_ctxt->ibuf_work);
 	for ( ; bytes_left > CMGD_BCKND_MSG_HDR_LEN; ) {
 		msg_hdr = (cmgd_bcknd_msg_hdr_t *)
-			(STREAM_DATA(clnt_ctxt->ibuf_work) + 
-			stream_get_getp(clnt_ctxt->ibuf_work));
+			(STREAM_DATA(clnt_ctxt->ibuf_work) + total_bytes);
 		if (msg_hdr->marker != CMGD_BCKND_MSG_MARKER) {
 			/* Corrupted buffer. Force disconnect?? */
 			cmgd_bcknd_server_disconnect(clnt_ctxt, true);
@@ -182,24 +183,41 @@ static int cmgd_bcknd_client_read(struct thread *thread)
 			 * and add it to process fifo. And then copy the rest
 			 * to a new Ibuf 
 			 */
+			incomplete = true;
 			stream_set_endp(clnt_ctxt->ibuf_work, total_bytes);
 			stream_fifo_push(clnt_ctxt->ibuf_fifo, clnt_ctxt->ibuf_work);
+
 			clnt_ctxt->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 			stream_put(clnt_ctxt->ibuf_work, msg_hdr, bytes_left);
+			stream_set_endp(clnt_ctxt->ibuf_work, bytes_left);
+			break;
 		}
 
 		total_bytes += msg_hdr->len;
 		bytes_left -= msg_hdr->len;
+		msg_cnt++;
 	}
 
 	/* 
 	 * We would have read one or several messages.
 	 * Schedule processing them now.
 	 */
-	stream_fifo_push(clnt_ctxt->ibuf_fifo, clnt_ctxt->ibuf_work);
-	clnt_ctxt->msg_proc_ev = thread_add_timer_msec(
-		clnt_ctxt->tm, cmgd_bcknd_client_proc_msgbufs,
-		(void *)clnt_ctxt, CMGD_BCKND_MSG_PROC_DELAY_MSEC, NULL);
+	if (!incomplete)
+		stream_fifo_push(clnt_ctxt->ibuf_fifo, clnt_ctxt->ibuf_work);
+	if (msg_cnt)
+		cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_PROC_MSG);
+
+	cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_READ);
+
+	return 0;
+}
+
+static int cmgd_bcknd_client_write(struct thread *thread)
+{
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
+
+	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)THREAD_ARG(thread);
+	assert(clnt_ctxt && clnt_ctxt->conn_fd);
 
 	return 0;
 }
@@ -307,9 +325,7 @@ static int cmgd_bcknd_server_connect(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
 	/* Make client socket non-blocking.  */
 	set_nonblocking(sock);
 
-	thread_add_read(clnt_ctxt->tm, cmgd_bcknd_client_read,
-		(void *)&cmgd_bcknd_clntctxt, clnt_ctxt->conn_fd,
-		&clnt_ctxt->conn_read_ev);
+	cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_READ);
 
 	/* Notify client through registered callback (if any) */
 	if (clnt_ctxt->client_params.conn_notify_cb)
@@ -340,6 +356,33 @@ static int cmgd_bcknd_client_conn_timeout(struct thread *thread)
 
 	clnt_ctxt->conn_retry_tmr = NULL;
 	return cmgd_bcknd_server_connect(clnt_ctxt);
+}
+
+static void cmgd_bcknd_client_register_event(
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt, cmgd_event_t event)
+{
+	switch (event) {
+	case CMGD_BCKND_CONN_READ:
+		clnt_ctxt->conn_read_ev = 
+			thread_add_read(clnt_ctxt->tm,
+				cmgd_bcknd_client_read, clnt_ctxt,
+				clnt_ctxt->conn_fd, NULL);
+		break;
+	case CMGD_BCKND_CONN_WRITE:
+		clnt_ctxt->conn_write_ev = 
+			thread_add_write(clnt_ctxt->tm,
+				cmgd_bcknd_client_write, clnt_ctxt,
+				clnt_ctxt->conn_fd, NULL);
+		break;
+	case CMGD_BCKND_PROC_MSG:
+		clnt_ctxt->msg_proc_ev = 
+			thread_add_timer_msec(clnt_ctxt->tm,
+				cmgd_bcknd_client_proc_msgbufs, clnt_ctxt,
+				CMGD_BCKND_MSG_PROC_DELAY_MSEC, NULL);
+		break;
+	default:
+		assert(!"cmgd_bcknd_clnt_ctxt_post_event() called incorrectly");
+	}
 }
 
 static void cmgd_bcknd_client_schedule_conn_retry(
@@ -433,7 +476,7 @@ cmgd_result_t cmgd_bcknd_unsubscribe_yang_data(
  * Send one or more YANG notifications to CMGD daemon.
  */
 cmgd_result_t cmgd_bcknd_send_yang_notify(
-	cmgd_lib_hndl_t lib_hndl, cmgd_bcknd_yang_data_t *data_elems[],
+	cmgd_lib_hndl_t lib_hndl, cmgd_yang_data_t *data_elems[],
 	int num_elems)
 {
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
