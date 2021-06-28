@@ -121,7 +121,7 @@ void ospf6_as_external_lsa_originate(struct ospf6_route *route,
 	as_external_lsa->prefix.prefix_length = route->prefix.prefixlen;
 
 	/* PrefixOptions */
-	as_external_lsa->prefix.prefix_options = route->path.prefix_options;
+	as_external_lsa->prefix.prefix_options = route->prefix_options;
 
 	/* don't use refer LS-type */
 	as_external_lsa->prefix.prefix_refer_lstype = htons(0);
@@ -589,12 +589,12 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	route->prefix.prefixlen = external->prefix.prefix_length;
 	ospf6_prefix_in6_addr(&route->prefix.u.prefix6, external,
 			      &external->prefix);
+	route->prefix_options = external->prefix.prefix_options;
 
 	route->path.area_id = asbr_entry->path.area_id;
 	route->path.origin.type = lsa->header->type;
 	route->path.origin.id = lsa->header->id;
 	route->path.origin.adv_router = lsa->header->adv_router;
-	route->path.prefix_options = external->prefix.prefix_options;
 	memcpy(&route->path.ls_prefix, &asbr_id, sizeof(struct prefix));
 
 	if (CHECK_FLAG(external->bits_metric, OSPF6_ASBR_BIT_E)) {

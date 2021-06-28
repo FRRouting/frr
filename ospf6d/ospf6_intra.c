@@ -826,7 +826,7 @@ int ospf6_link_lsa_originate(struct thread *thread)
 	     route && count < max_addr_count;
 	     route = ospf6_route_next(route), count++) {
 		op->prefix_length = route->prefix.prefixlen;
-		op->prefix_options = route->path.prefix_options;
+		op->prefix_options = route->prefix_options;
 		op->prefix_metric = htons(0);
 		memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
 		       OSPF6_PREFIX_SPACE(op->prefix_length));
@@ -1193,7 +1193,7 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 		}
 
 		op->prefix_length = route->prefix.prefixlen;
-		op->prefix_options = route->path.prefix_options;
+		op->prefix_options = route->prefix_options;
 		op->prefix_metric = htons(route->path.cost);
 		memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
 		       OSPF6_PREFIX_SPACE(op->prefix_length));
@@ -1356,6 +1356,7 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 			       sizeof(struct in6_addr));
 			memcpy(&route->prefix.u.prefix6, OSPF6_PREFIX_BODY(op),
 			       OSPF6_PREFIX_SPACE(op->prefix_length));
+			route->prefix_options = op->prefix_options;
 
 			route->path.origin.type = lsa->header->type;
 			route->path.origin.id = lsa->header->id;
@@ -1363,7 +1364,6 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 			route->path.options[0] = link_lsa->options[0];
 			route->path.options[1] = link_lsa->options[1];
 			route->path.options[2] = link_lsa->options[2];
-			route->path.prefix_options = op->prefix_options;
 			route->path.area_id = oi->area->area_id;
 			route->path.type = OSPF6_PATH_TYPE_INTRA;
 
@@ -1384,7 +1384,7 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 	for (route = ospf6_route_head(route_advertise); route;
 	     route = ospf6_route_best_next(route)) {
 		op->prefix_length = route->prefix.prefixlen;
-		op->prefix_options = route->path.prefix_options;
+		op->prefix_options = route->prefix_options;
 		op->prefix_metric = htons(0);
 		memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
 		       OSPF6_PREFIX_SPACE(op->prefix_length));
@@ -1817,12 +1817,12 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		route->prefix.prefixlen = op->prefix_length;
 		ospf6_prefix_in6_addr(&route->prefix.u.prefix6,
 				      intra_prefix_lsa, op);
+		route->prefix_options = op->prefix_options;
 
 		route->type = OSPF6_DEST_TYPE_NETWORK;
 		route->path.origin.type = lsa->header->type;
 		route->path.origin.id = lsa->header->id;
 		route->path.origin.adv_router = lsa->header->adv_router;
-		route->path.prefix_options = op->prefix_options;
 		route->path.area_id = oa->area_id;
 		route->path.type = OSPF6_PATH_TYPE_INTRA;
 		route->path.metric_type = 1;

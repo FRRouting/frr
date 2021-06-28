@@ -477,11 +477,11 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		monotime(&summary->changed);
 	}
 
+	summary->prefix_options = route->prefix_options;
 	summary->path.router_bits = route->path.router_bits;
 	summary->path.options[0] = route->path.options[0];
 	summary->path.options[1] = route->path.options[1];
 	summary->path.options[2] = route->path.options[2];
-	summary->path.prefix_options = route->path.prefix_options;
 	summary->path.area_id = area->area_id;
 	summary->path.type = OSPF6_PATH_TYPE_INTER;
 	summary->path.subtype = route->path.subtype;
@@ -514,7 +514,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		/* Fill Inter-Area-Prefix-LSA */
 		OSPF6_ABR_SUMMARY_METRIC_SET(prefix_lsa, route->path.cost);
 		prefix_lsa->prefix.prefix_length = route->prefix.prefixlen;
-		prefix_lsa->prefix.prefix_options = route->path.prefix_options;
+		prefix_lsa->prefix.prefix_options = route->prefix_options;
 
 		/* set Prefix */
 		memcpy(p, &route->prefix.u.prefix6,
@@ -1154,6 +1154,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 	route->type = type;
 	route->prefix = prefix;
+	route->prefix_options = prefix_options;
 	route->path.origin.type = lsa->header->type;
 	route->path.origin.id = lsa->header->id;
 	route->path.origin.adv_router = lsa->header->adv_router;
@@ -1161,7 +1162,6 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	route->path.options[0] = options[0];
 	route->path.options[1] = options[1];
 	route->path.options[2] = options[2];
-	route->path.prefix_options = prefix_options;
 	route->path.area_id = oa->area_id;
 	route->path.type = OSPF6_PATH_TYPE_INTER;
 	route->path.cost = abr_entry->path.cost + cost;
