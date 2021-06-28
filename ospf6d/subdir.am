@@ -63,7 +63,7 @@ noinst_HEADERS += \
 	ospf6d/ospf6_asbr.h \
 	ospf6d/ospf6_bfd.h \
 	ospf6d/ospf6_flood.h \
-	ospf6d/ospf6_gr_helper.h \
+	ospf6d/ospf6_gr.h \
 	ospf6d/ospf6_interface.h \
 	ospf6d/ospf6_intra.h \
 	ospf6d/ospf6_lsa.h \

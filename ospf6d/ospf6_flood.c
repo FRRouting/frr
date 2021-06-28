@@ -41,6 +41,7 @@
 
 #include "ospf6_flood.h"
 #include "ospf6_nssa.h"
+#include "ospf6_gr.h"
 
 unsigned char conf_debug_ospf6_flooding;
 
@@ -948,6 +949,30 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		if (new->header->adv_router
 		    != from->ospf6_if->area->ospf6->router_id)
 			ospf6_flood(from, new);
+
+		/* ReceraceGrace LSA */
+		if (IS_GRACE_LSA(new)) {
+			struct ospf6 *ospf6;
+
+			ospf6 = ospf6_get_by_lsdb(new);
+
+			assert(ospf6);
+
+			if (IS_DEBUG_OSPF6_GR_HELPER)
+				zlog_debug(
+					"%s, Received a GraceLSA from router %d",
+					__PRETTY_FUNCTION__,
+					new->header->adv_router);
+
+			if (ospf6_process_grace_lsa(ospf6, new, from)
+			    == OSPF6_GR_NOT_HELPER) {
+				if (IS_DEBUG_OSPF6_GR_HELPER)
+					zlog_debug(
+						"%s, Not moving to HELPER role, So dicarding GraceLSA",
+						__PRETTY_FUNCTION__);
+				return;
+			}
+		}
 
 		/* (d), installing lsdb, which may cause routing
 			table calculation (replacing database copy) */

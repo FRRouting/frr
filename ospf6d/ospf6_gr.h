@@ -21,8 +21,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef OSPF6_GR_HELPER_H
-#define OSPF6_GR_HELPER_H
+#ifndef OSPF6_GR_H
+#define OSPF6_GR_H
 
 #define OSPF6_GR_NOT_HELPER 0
 #define OSPF6_GR_ACTIVE_HELPER 1
@@ -134,7 +134,7 @@ struct advRtr {
 
 /* Check the router is HELPER for current neighbour */
 #define OSPF6_GR_IS_ACTIVE_HELPER(N)                                           \
-	((N)->grHelperInfo.grHelper_status == OSPF6_GR_ACTIVE_HELPER)
+	((N)->gr_helper_info.gr_helper_status == OSPF6_GR_ACTIVE_HELPER)
 
 /* Check the LSA is GRACE LSA */
 #define IS_GRACE_LSA(lsa) (ntohs(lsa->header->type) == OSPF6_LSTYPE_GRACE_LSA)
@@ -148,4 +148,6 @@ extern const char *ospf6_rejected_reason_desc[];
 
 extern void ospf6_gr_helper_init(struct ospf6 *ospf6);
 extern void ospf6_gr_helper_deinit(struct ospf6 *ospf6);
-#endif /* OSPF6_GR_HELPER_H */
+extern int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
+				   struct ospf6_neighbor *nbr);
+#endif /* OSPF6_GR_H */
