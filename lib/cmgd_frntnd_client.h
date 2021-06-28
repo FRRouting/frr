@@ -228,7 +228,7 @@ extern cmgd_result_t cmgd_frntnd_get_oper_data(
 extern cmgd_result_t cmgd_frntnd_register_yang_notify(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
-	cmgd_yang_xpath_t *data_req[], int num_reqs);
+	bool register_req, cmgd_yang_xpath_t *data_req[], int num_reqs);
 
 /*
  * Destroy library and cleanup everything.

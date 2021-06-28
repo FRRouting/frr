@@ -62,13 +62,13 @@ static void cmgd_test_frntnd_session_created(
 	uintptr_t user_ctxt)
 {
 	if (!success) {
-		printf("ERROR: %s session for client %lu failed!", 
+		printf("ERROR: %s session for client %lu failed!\n", 
 			create ? "Creating" : "Destroying", client_id);
 		exit(-1);
 	}
 
-	printf("%s session for client %lu successfully!", 
-			create ? "Creating" : "Destroying", client_id);
+	printf("%s session for client %lu successfully!\n", 
+			create ? "Created" : "Destroyed", client_id);
 	if (create) {
 		frntnd_session_id[client_id] = session_id;
 

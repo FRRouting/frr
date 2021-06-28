@@ -321,7 +321,8 @@ message FrntndNotifyDataReq {
 message FrntndRegisterNotifyReq {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
-  repeated YangDataXPath data_xpath = 3;
+  required bool register_req = 3;
+  repeated YangDataXPath data_xpath = 4;
 }
 
 message FrntndMessage {

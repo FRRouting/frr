@@ -90,8 +90,12 @@ static cmgd_frntnd_client_session_t *cmgd_frntnd_find_session_by_client_id(
 	cmgd_frntnd_client_session_t *sessn;
 
 	FOREACH_SESSN_IN_LIST(clnt_ctxt, sessn) {
-		if (sessn->client_id == client_id)
+		if (sessn->client_id == client_id) {
+			CMGD_FRNTND_CLNT_DBG(
+				"Found session %p for client-id %llu.", 
+				sessn, client_id);
 			return sessn;
+		}
 	}
 
 	return NULL;
@@ -103,8 +107,12 @@ static cmgd_frntnd_client_session_t *cmgd_frntnd_find_session_by_sessn_id(
 	cmgd_frntnd_client_session_t *sessn;
 
 	FOREACH_SESSN_IN_LIST(clnt_ctxt, sessn) {
-		if (sessn->session_id == sessn_id)
+		if (sessn->session_id == sessn_id) {
+			CMGD_FRNTND_CLNT_DBG(
+				"Found session %p for session-id %llu.", 
+				sessn, sessn_id);
 			return sessn;
+		}
 	}
 
 	return NULL;
@@ -323,8 +331,8 @@ static int cmgd_frntnd_send_getdata_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 
 static int cmgd_frntnd_send_regnotify_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd_frntnd_client_session_t *sessn,
-	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id, 
-	cmgd_yang_xpath_t *data_req[], int num_data_reqs)
+	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
+	bool register_req, cmgd_yang_xpath_t *data_req[], int num_data_reqs)
 {
 	(void) req_id;
 	Cmgd__FrntndMessage frntnd_msg;
@@ -333,6 +341,7 @@ static int cmgd_frntnd_send_regnotify_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd__frntnd_register_notify_req__init(&regntfy_req);
 	regntfy_req.session_id = (uint64_t) sessn->session_id;
 	regntfy_req.db_id = db_id;
+	regntfy_req.register_req = register_req;
 	regntfy_req.data_xpath = data_req;
 	regntfy_req.n_data_xpath = (size_t) num_data_reqs;
 
@@ -355,24 +364,35 @@ static int cmgd_frntnd_client_handle_msg(
 		if (frntnd_msg->sessn_reply->create &&
 			frntnd_msg->sessn_reply->has_client_conn_id) {
 			CMGD_FRNTND_CLNT_DBG(
-				"Got Session Create Reply Msg for client-id %llu from Frontend Server.", 
-				frntnd_msg->sessn_reply->client_conn_id);
+				"Got Session Create Reply Msg for client-id %llu with session-id: %llu.", 
+				frntnd_msg->sessn_reply->client_conn_id,
+				frntnd_msg->sessn_reply->session_id);
 
 			sessn = cmgd_frntnd_find_session_by_client_id(clnt_ctxt,
 				frntnd_msg->sessn_reply->client_conn_id);
-			if (frntnd_msg->sessn_reply->success)
+
+			if (frntnd_msg->sessn_reply->success) {
+				CMGD_FRNTND_CLNT_DBG(
+					"Session Create for client-id %llu successful.", 
+					frntnd_msg->sessn_reply->client_conn_id);
 				sessn->session_id = frntnd_msg->sessn_reply->session_id;
+			} else {
+				CMGD_FRNTND_CLNT_ERR(
+					"Session Create for client-id %llu failed.", 
+					frntnd_msg->sessn_reply->client_conn_id);
+			}
 		} else if (!frntnd_msg->sessn_reply->create) {
 			CMGD_FRNTND_CLNT_DBG(
-				"Got Session Destroy Reply Msg for session-id %llu from Frontend server", 
+				"Got Session Destroy Reply Msg for session-id %llu", 
 				frntnd_msg->sessn_reply->session_id);
 
 			sessn = cmgd_frntnd_find_session_by_sessn_id(clnt_ctxt,
 				frntnd_msg->sessn_req->session_id);
 		}
 
-		if (sessn && clnt_ctxt->client_params.sess_req_result_cb)
-			(*clnt_ctxt->client_params.sess_req_result_cb)(
+		if (sessn && sessn->clnt_ctxt &&
+		    sessn->clnt_ctxt->client_params.sess_req_result_cb)
+			(*sessn->clnt_ctxt->client_params.sess_req_result_cb)(
 				(cmgd_lib_hndl_t)clnt_ctxt,
 				clnt_ctxt->client_params.user_data,
 				sessn->client_id,
@@ -743,6 +763,7 @@ cmgd_result_t cmgd_frntnd_create_client_session(
 	assert(sessn);
 	sessn->user_ctxt = user_ctxt;
 	sessn->client_id = client_id;
+	sessn->clnt_ctxt = clnt_ctxt;
 	sessn->session_id = 0;
 	cmgd_session_list_add_tail(&clnt_ctxt->client_sessions, sessn);
 
@@ -915,7 +936,7 @@ cmgd_result_t cmgd_frntnd_get_oper_data(
 cmgd_result_t cmgd_frntnd_register_yang_notify(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
-	cmgd_yang_xpath_t *data_req[], int num_reqs)
+	bool register_req, cmgd_yang_xpath_t *data_req[], int num_reqs)
 {
 	cmgd_frntnd_client_ctxt_t *clnt_ctxt;
 	cmgd_frntnd_client_session_t *sessn;
@@ -929,7 +950,8 @@ cmgd_result_t cmgd_frntnd_register_yang_notify(
 		return CMGD_INVALID_PARAM;
 
 	if (cmgd_frntnd_send_regnotify_req(
-		clnt_ctxt, sessn, req_id, db_id, data_req, num_reqs) != 0)
+		clnt_ctxt, sessn, req_id, db_id, register_req,
+		data_req, num_reqs) != 0)
 		return CMGD_INTERNAL_ERROR;
 
 	return CMGD_SUCCESS;
