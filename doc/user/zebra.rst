@@ -647,7 +647,6 @@ FRR's cli or frr.conf or zebra.conf. This section shows how
 to configure SRv6 on FRR. Of course SRv6 can be used as standalone,
 and this section also helps that case.
 
-.. index:: show segment-routing srv6 locator [json]
 .. clicmd:: show segment-routing srv6 locator [json]
 
    This command dump SRv6-locator configured on zebra.  SRv6-locator is used
@@ -666,7 +665,6 @@ and this section also helps that case.
    loc1                       1 2001:db8:1:1::/64        Up
    loc2                       2 2001:db8:2:2::/64        Up
 
-.. index:: show segment-routing srv6 locator NAME detail [json]
 .. clicmd:: show segment-routing srv6 locator NAME detail [json]
 
    As shown in the example, by specifying the name of the locator, you
@@ -696,29 +694,24 @@ and this section also helps that case.
    Chunks:
    - prefix: 2001:db8:2:2::/64, owner: sharp
 
-.. index:: segment-routing
 .. clicmd:: segment-routing
 
    Move from configure mode to segment-routing node.
 
-.. index:: srv6
 .. clicmd:: srv6
 
    Move from segment-routing node to srv6 node.
 
-.. index:: locators
 .. clicmd:: locators
 
    Move from srv6 node to locator node. In this locator node, user can
    configure detailed settings such as the actual srv6 locator.
 
-.. index:: locator NAME
 .. clicmd:: locator NAME
 
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
 
-.. index:: prefix X:X::X:X/M [function-bits-length 32]
 .. clicmd:: prefix X:X::X:X/M [function-bits-length 32]
 
    Set the ipv6 prefix block of the locator. SRv6 locator is defined by
