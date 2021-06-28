@@ -45,6 +45,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_spf.h"
 #include "ospf6_zebra.h"
+#include "ospf6_gr.h"
 #include "lib/json.h"
 
 DEFINE_MTYPE(OSPF6D, OSPF6_NEIGHBOR, "OSPF6 neighbor");
@@ -151,6 +152,7 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	THREAD_OFF(on->thread_send_lsreq);
 	THREAD_OFF(on->thread_send_lsupdate);
 	THREAD_OFF(on->thread_send_lsack);
+	THREAD_OFF(on->gr_helper_info.t_grace_timer);
 
 	bfd_sess_free(&on->bfd_session);
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
@@ -192,19 +194,24 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 
 	if (prev_state == OSPF6_NEIGHBOR_FULL
 	    || next_state == OSPF6_NEIGHBOR_FULL) {
-		OSPF6_ROUTER_LSA_SCHEDULE(on->ospf6_if->area);
-		if (on->ospf6_if->state == OSPF6_INTERFACE_DR) {
-			OSPF6_NETWORK_LSA_SCHEDULE(on->ospf6_if);
-			OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(on->ospf6_if);
+		if (!OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+			OSPF6_ROUTER_LSA_SCHEDULE(on->ospf6_if->area);
+			if (on->ospf6_if->state == OSPF6_INTERFACE_DR) {
+				OSPF6_NETWORK_LSA_SCHEDULE(on->ospf6_if);
+				OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(
+					on->ospf6_if);
+			}
 		}
 		if (next_state == OSPF6_NEIGHBOR_FULL)
 			on->ospf6_if->area->intra_prefix_originate = 1;
 
-		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(on->ospf6_if->area);
+		if (!OSPF6_GR_IS_ACTIVE_HELPER(on))
+			OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(
+				on->ospf6_if->area);
 
-		if ((prev_state == OSPF6_NEIGHBOR_LOADING ||
-		     prev_state == OSPF6_NEIGHBOR_EXCHANGE) &&
-		    next_state == OSPF6_NEIGHBOR_FULL) {
+		if ((prev_state == OSPF6_NEIGHBOR_LOADING
+		     || prev_state == OSPF6_NEIGHBOR_EXCHANGE)
+		    && next_state == OSPF6_NEIGHBOR_FULL) {
 			OSPF6_AS_EXTERN_LSA_SCHEDULE(on->ospf6_if);
 			on->ospf6_if->area->full_nbrs++;
 		}
@@ -601,12 +608,29 @@ int inactivity_timer(struct thread *thread)
 	on->drouter = on->prev_drouter = 0;
 	on->bdrouter = on->prev_bdrouter = 0;
 
-	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_DOWN, on,
-				    OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
-	thread_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
+	if (!OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+		on->drouter = on->prev_drouter = 0;
+		on->bdrouter = on->prev_bdrouter = 0;
 
-	listnode_delete(on->ospf6_if->neighbor_list, on);
-	ospf6_neighbor_delete(on);
+		ospf6_neighbor_state_change(
+			OSPF6_NEIGHBOR_DOWN, on,
+			OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
+		thread_add_event(master, neighbor_change, on->ospf6_if, 0,
+				 NULL);
+
+		listnode_delete(on->ospf6_if->neighbor_list, on);
+		ospf6_neighbor_delete(on);
+
+	} else {
+		if (IS_DEBUG_OSPF6_GR_HELPER)
+			zlog_debug(
+				"%s, Acting as HELPER for this neighbour, So restart the dead timer.",
+				__PRETTY_FUNCTION__);
+
+		thread_add_timer(master, inactivity_timer, on,
+				 on->ospf6_if->dead_interval,
+				 &on->inactivity_timer);
+	}
 
 	return 0;
 }
