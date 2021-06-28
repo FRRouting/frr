@@ -89,6 +89,16 @@ void ospf6_lsa_originate(struct ospf6_lsa *lsa)
 	struct ospf6_lsa *old;
 	struct ospf6_lsdb *lsdb_self;
 
+	if (lsa->header->adv_router == INADDR_ANY) {
+		if (IS_OSPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type))
+			zlog_debug(
+				"Refusing to originate LSA (zero router ID): %s",
+				lsa->name);
+
+		ospf6_lsa_delete(lsa);
+		return;
+	}
+
 	/* find previous LSA */
 	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				lsa->header->adv_router, lsa->lsdb);
