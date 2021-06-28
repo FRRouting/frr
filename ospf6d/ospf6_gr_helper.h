@@ -33,6 +33,20 @@
 #define OSPF6_MAX_GRACE_INTERVAL 1800
 #define OSPF6_MIN_GRACE_INTERVAL 1
 
+/* Debug option */
+extern unsigned char conf_debug_ospf6_gr;
+
+#define OSPF6_DEBUG_GR_HELPER 0x01
+
+#define OSPF6_DEBUG_GR_HELPER_ON()                                             \
+	(conf_debug_ospf6_gr |= OSPF6_DEBUG_GR_HELPER)
+
+#define OSPF6_DEBUG_GR_HELPER_OFF()                                            \
+	(conf_debug_ospf6_gr &= ~OSPF6_DEBUG_GR_HELPER)
+
+#define IS_DEBUG_OSPF6_GR_HELPER conf_debug_ospf6_gr
+
+
 enum ospf6_helper_exit_reason {
 	OSPF6_GR_HELPER_EXIT_NONE = 0,
 	OSPF6_GR_HELPER_INPROGRESS,
