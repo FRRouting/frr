@@ -2727,10 +2727,12 @@ Host1 MAC/IP as type-2 route which is used to resolve host1 gateway IP.
 PE2 receives this type-5 route and imports it into the vrf based on route
 targets. BGP prefix imported into the vrf uses gateway IP as its BGP nexthop.
 This route is installed into zebra if following conditions are satisfied:
+
 1. Gateway IP nexthop is L3 reachable.
 2. PE2 has received EVPN type-2 route with IP field set to gateway IP.
 
 Topology requirements:
+
 1. This feature is supported for asymmetric routing model only. While
    sending packets to SN1, ingress PE (PE2) performs routing and
    egress PE (PE1) performs only bridging.

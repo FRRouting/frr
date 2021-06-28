@@ -66,10 +66,6 @@ Basic Config Commands
    Set domainname of the router. It is only for current ``vtysh``, it will not
    be saved to any configuration file even with ``write file``.
 
-.. clicmd:: domainname DOMAINNAME
-
-   Set domainname of the router.
-
 .. clicmd:: password PASSWORD
 
    Set password for vty interface. The ``no`` form of the command deletes the
