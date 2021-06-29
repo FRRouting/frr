@@ -767,7 +767,6 @@ int ospf6_link_lsa_originate(struct thread *thread)
 	struct ospf6_link_lsa *link_lsa;
 	struct ospf6_route *route;
 	struct ospf6_prefix *op;
-	int count, max_addr_count;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	oi->thread_link_lsa = NULL;
@@ -811,20 +810,14 @@ int ospf6_link_lsa_originate(struct thread *thread)
 	memcpy(link_lsa->options, oi->area->options, 3);
 	memcpy(&link_lsa->linklocal_addr, oi->linklocal_addr,
 	       sizeof(struct in6_addr));
+	link_lsa->prefix_num = htonl(oi->route_connected->count);
 
 	op = (struct ospf6_prefix *)((caddr_t)link_lsa
 				     + sizeof(struct ospf6_link_lsa));
 
-	/* connected prefix to advertise, number of interface addresses
-	 * supported is based on MTU size of OSPFv3 packets
-	 */
-	if (oi->ifmtu >= OSPF6_JUMBO_MTU)
-		max_addr_count = OSPF6_MAX_IF_ADDRS_JUMBO;
-	else
-		max_addr_count = OSPF6_MAX_IF_ADDRS;
-	for (route = ospf6_route_head(oi->route_connected), count = 0;
-	     route && count < max_addr_count;
-	     route = ospf6_route_next(route), count++) {
+	/* connected prefix to advertise */
+	for (route = ospf6_route_head(oi->route_connected); route;
+	     route = ospf6_route_next(route)) {
 		op->prefix_length = route->prefix.prefixlen;
 		op->prefix_options = route->path.prefix_options;
 		op->prefix_metric = htons(0);
@@ -832,8 +825,6 @@ int ospf6_link_lsa_originate(struct thread *thread)
 		       OSPF6_PREFIX_SPACE(op->prefix_length));
 		op = OSPF6_PREFIX_NEXT(op);
 	}
-
-	link_lsa->prefix_num = htonl(count);
 
 	/* Fill LSA Header */
 	lsa_header->age = 0;
@@ -1014,7 +1005,6 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	unsigned short prefix_num = 0;
 	struct ospf6_route_table *route_advertise;
 	int ls_id = 0;
-	int count, max_addr_count;
 
 	oa = (struct ospf6_area *)THREAD_ARG(thread);
 	oa->thread_intra_prefix_lsa = NULL;
@@ -1060,8 +1050,6 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	intra_prefix_lsa->ref_adv_router = oa->ospf6->router_id;
 
 	route_advertise = ospf6_route_table_create(0, 0);
-	route_advertise->hook_add = NULL;
-	route_advertise->hook_remove = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi)) {
 		if (oi->state == OSPF6_INTERFACE_DOWN) {
@@ -1090,14 +1078,8 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 			zlog_debug("  Interface %s:", oi->interface->name);
 
 		/* connected prefix to advertise */
-		if (oi->ifmtu >= OSPF6_JUMBO_MTU)
-			max_addr_count = OSPF6_MAX_IF_ADDRS_JUMBO;
-		else
-			max_addr_count = OSPF6_MAX_IF_ADDRS;
-
-		for (route = ospf6_route_head(oi->route_connected), count = 0;
-		     route && count < max_addr_count;
-		     route = ospf6_route_best_next(route), count++) {
+		for (route = ospf6_route_head(oi->route_connected); route;
+		     route = ospf6_route_best_next(route)) {
 			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
 				zlog_debug("    include %pFX", &route->prefix);
 			ospf6_route_add(ospf6_route_copy(route),
@@ -1312,8 +1294,6 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 
 	/* connected prefix to advertise */
 	route_advertise = ospf6_route_table_create(0, 0);
-	route_advertise->hook_add = NULL;
-	route_advertise->hook_remove = NULL;
 
 	type = ntohs(OSPF6_LSTYPE_LINK);
 	for (ALL_LSDB_TYPED(oi->lsdb, type, lsa)) {
