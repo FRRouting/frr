@@ -2751,8 +2751,7 @@ route with gateway IP.
 1. CLI to add gateway IP while generating EVPN type-5 route from a BGP IPv4/IPv6
 prefix:
 
-.. index:: advertise <ipv4|ipv6> unicast [gateway-ip]
-.. clicmd:: [no] advertise <ipv4|ipv6> unicast [gateway-ip]
+.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip]
 
 When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
 type-5 routes are generated for BGP prefixes in the vrf. Nexthop of the BGP
@@ -2763,8 +2762,7 @@ routes are generated without overlay index.
 
 2. Add gateway IP to EVPN type-5 route using a route-map:
 
-.. index:: set evpn gateway-ip <ipv4|ipv6> <addr>
-.. clicmd:: [no] set evpn gateway-ip <ipv4|ipv6> <addr>
+.. clicmd:: set evpn gateway-ip <ipv4|ipv6> <addr>
 
 When route-map with above set clause is applied as outbound policy in BGP, it
 will set the gateway-ip in EVPN type-5 NLRI.
@@ -2788,8 +2786,7 @@ A PE that receives a type-5 route with gateway IP overlay index should have
 "enable-resolve-overlay-index" configuration enabled to recursively resolve the
 overlay index nexthop and install the prefix into zebra.
 
-.. index:: enable-resolve-overlay-index
-.. clicmd:: [no] enable-resolve-overlay-index
+.. clicmd:: enable-resolve-overlay-index
 
 Example configuration:
 

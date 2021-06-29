@@ -90,8 +90,7 @@ OSPF6 router
 OSPF6 area
 ==========
 
-.. index:: [no] area A.B.C.D nssa
-.. clicmd:: [no] area A.B.C.D nssa
+.. clicmd:: area A.B.C.D nssa
 
 NSSA Support in OSPFv3
 =======================
