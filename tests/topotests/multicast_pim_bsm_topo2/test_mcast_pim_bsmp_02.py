@@ -456,7 +456,7 @@ def test_starg_mroute_p0(request):
     # Verify mroute not installed
     step("Verify mroute not installed in l1")
     result = verify_ip_mroutes(
-        tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, wait=20, expected=False
+        tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, retry_timeout=20, expected=False
     )
     assert (
         result is not True
@@ -705,6 +705,7 @@ def test_RP_priority_p0(request):
     ), "Testcase {} :Failed \n Error : rp expected {} rp received {}".format(
         tc_name,
         rp_add1,
+        rp2[group] if group in rp2 else None
     )
 
     # Verify if that rp is installed

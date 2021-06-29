@@ -690,9 +690,8 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
             next_hop=nh,
             protocol=protocol,
             fib=True,
+            retry_timeout=6,
             expected=False,
-            wait=2,
-            attempts=3,
         )
         assert (
             result is not True
@@ -804,8 +803,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
             protocol=protocol,
             fib=True,
             expected=False,
-            wait=2,
-            attempts=3,
+            retry_timeout=6,
         )
         assert (
             result is not True
@@ -1283,8 +1281,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             protocol=protocol,
             fib=True,
             expected=False,
-            wait=2,
-            attempts=3,
+            retry_timeout=6,
         )
         assert (
             result is not True

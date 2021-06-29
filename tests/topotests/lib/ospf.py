@@ -579,7 +579,7 @@ def redistribute_ospf(tgen, topo, dut, route_type, **kwargs):
 ################################
 # Verification procs
 ################################
-@retry(attempts=40, wait=2, return_is_str=True)
+@retry(retry_timeout=80)
 def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False, expected=True):
     """
     This API is to verify ospf neighborship by running
@@ -774,7 +774,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False, expec
 ################################
 # Verification procs
 ################################
-@retry(attempts=10, wait=2, return_is_str=True)
+@retry(retry_timeout=20)
 def verify_ospf6_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
     """
     This API is to verify ospf neighborship by running
@@ -959,7 +959,7 @@ def verify_ospf6_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
     return result
 
 
-@retry(attempts=21, wait=2, return_is_str=True)
+@retry(retry_timeout=40)
 def verify_ospf_rib(
     tgen, dut, input_dict, next_hop=None, tag=None, metric=None, fib=None, expected=True
 ):
@@ -1236,7 +1236,7 @@ def verify_ospf_rib(
     return result
 
 
-@retry(attempts=10, wait=2, return_is_str=True)
+@retry(retry_timeout=20)
 def verify_ospf_interface(tgen, topo, dut=None, lan=False, input_dict=None, expected=True):
     """
     This API is to verify ospf routes by running
@@ -1326,7 +1326,7 @@ def verify_ospf_interface(tgen, topo, dut=None, lan=False, input_dict=None, expe
     return result
 
 
-@retry(attempts=11, wait=2, return_is_str=True)
+@retry(retry_timeout=20)
 def verify_ospf_database(tgen, topo, dut, input_dict, expected=True):
     """
     This API is to verify ospf lsa's by running
@@ -1490,7 +1490,7 @@ def verify_ospf_database(tgen, topo, dut, input_dict, expected=True):
     return result
 
 
-@retry(attempts=10, wait=2, return_is_str=True)
+@retry(retry_timeout=20)
 def verify_ospf_summary(tgen, topo, dut, input_dict, expected=True):
     """
     This API is to verify ospf routes by running
@@ -1571,7 +1571,7 @@ def verify_ospf_summary(tgen, topo, dut, input_dict, expected=True):
 
 
 
-@retry(attempts=10, wait=3, return_is_str=True)
+@retry(retry_timeout=30)
 def verify_ospf6_rib(tgen, dut, input_dict, next_hop=None,
             tag=None, metric=None, fib=None):
     """
@@ -1811,7 +1811,7 @@ def verify_ospf6_rib(tgen, dut, input_dict, next_hop=None,
     return result
 
 
-@retry(attempts=3, wait=2, return_is_str=True)
+@retry(retry_timeout=6)
 def verify_ospf6_interface(tgen, topo, dut=None,lan=False, input_dict=None):
     """
     This API is to verify ospf routes by running
@@ -1905,7 +1905,7 @@ def verify_ospf6_interface(tgen, topo, dut=None,lan=False, input_dict=None):
     return result
 
 
-@retry(attempts=11, wait=2, return_is_str=True)
+@retry(retry_timeout=20)
 def verify_ospf6_database(tgen, topo, dut, input_dict):
     """
     This API is to verify ospf lsa's by running
@@ -2176,9 +2176,9 @@ def config_ospf6_interface (tgen, topo, input_dict=None, build=False,
         config_data = []
         for lnk in input_dict[router]['links'].keys():
             if "ospf6" not in input_dict[router]['links'][lnk]:
-                logger.debug("Router %s: ospf6 configs is not present in"
-                             "input_dict, passed input_dict", router,
-                             input_dict)
+                logger.debug("Router %s: ospf6 config is not present in"
+                             "input_dict, passed input_dict %s", router,
+                             str(input_dict))
                 continue
             ospf_data = input_dict[router]['links'][lnk]['ospf6']
             data_ospf_area = ospf_data.setdefault("area", None)
