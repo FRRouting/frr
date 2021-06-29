@@ -1776,22 +1776,15 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 
 	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
-	/* If address family is IPv4 and `bgp default ipv4-unicast` (default),
-	 * then activate the neighbor for this AF.
-	 * If address family is IPv6 and `bgp default ipv6-unicast`
-	 * (non-default), then activate the neighbor for this AF.
+	/* If 'bgp default <afi>-<safi>' is configured, then activate the
+	 * neighbor for the corresponding address family. IPv4 Unicast is
+	 * the only address family enabled by default without expliict
+	 * configuration.
 	 */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST) {
-			if ((afi == AFI_IP
-			     && !CHECK_FLAG(bgp->flags,
-					    BGP_FLAG_NO_DEFAULT_IPV4))
-			    || (afi == AFI_IP6
-				&& CHECK_FLAG(bgp->flags,
-					      BGP_FLAG_DEFAULT_IPV6))) {
-				peer->afc[afi][safi] = 1;
-				peer_af_create(peer, afi, safi);
-			}
+		if (bgp->default_af[afi][safi]) {
+			peer->afc[afi][safi] = 1;
+			peer_af_create(peer, afi, safi);
 		}
 	}
 
@@ -2585,6 +2578,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 {
 	struct peer_group *group;
 	afi_t afi;
+	safi_t safi;
 
 	group = peer_group_lookup(bgp, name);
 	if (group)
@@ -2598,10 +2592,10 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		group->listen_range[afi] = list_new();
 	group->conf = peer_new(bgp);
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4))
-		group->conf->afc[AFI_IP][SAFI_UNICAST] = 1;
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_IPV6))
-		group->conf->afc[AFI_IP6][SAFI_UNICAST] = 1;
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (bgp->default_af[afi][safi])
+			group->conf->afc[afi][safi] = 1;
+	}
 	XFREE(MTYPE_BGP_PEER_HOST, group->conf->host);
 	group->conf->host = XSTRDUP(MTYPE_BGP_PEER_HOST, name);
 	group->conf->group = group;
@@ -3244,6 +3238,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
 			      memory_order_relaxed);
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
+	bgp->default_af[AFI_IP][SAFI_UNICAST] = true;
 
 	QOBJ_REG(bgp, bgp);
 

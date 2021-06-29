@@ -464,38 +464,41 @@ struct bgp {
 #define BGP_FLAG_DETERMINISTIC_MED        (1 << 1)
 #define BGP_FLAG_MED_MISSING_AS_WORST     (1 << 2)
 #define BGP_FLAG_MED_CONFED               (1 << 3)
-#define BGP_FLAG_NO_DEFAULT_IPV4          (1 << 4)
-#define BGP_FLAG_NO_CLIENT_TO_CLIENT      (1 << 5)
-#define BGP_FLAG_COMPARE_ROUTER_ID        (1 << 7)
-#define BGP_FLAG_ASPATH_IGNORE            (1 << 8)
-#define BGP_FLAG_IMPORT_CHECK             (1 << 9)
-#define BGP_FLAG_NO_FAST_EXT_FAILOVER     (1 << 10)
-#define BGP_FLAG_LOG_NEIGHBOR_CHANGES     (1 << 11)
+#define BGP_FLAG_NO_CLIENT_TO_CLIENT (1 << 4)
+#define BGP_FLAG_COMPARE_ROUTER_ID (1 << 5)
+#define BGP_FLAG_ASPATH_IGNORE (1 << 6)
+#define BGP_FLAG_IMPORT_CHECK (1 << 7)
+#define BGP_FLAG_NO_FAST_EXT_FAILOVER (1 << 8)
+#define BGP_FLAG_LOG_NEIGHBOR_CHANGES (1 << 9)
 
 /* This flag is set when we have full BGP Graceful-Restart mode enable */
-#define BGP_FLAG_GRACEFUL_RESTART         (1 << 12)
+#define BGP_FLAG_GRACEFUL_RESTART (1 << 10)
 
-#define BGP_FLAG_ASPATH_CONFED            (1 << 13)
-#define BGP_FLAG_ASPATH_MULTIPATH_RELAX   (1 << 14)
-#define BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY (1 << 15)
-#define BGP_FLAG_DISABLE_NH_CONNECTED_CHK (1 << 16)
-#define BGP_FLAG_MULTIPATH_RELAX_AS_SET   (1 << 17)
-#define BGP_FLAG_FORCE_STATIC_PROCESS     (1 << 18)
-#define BGP_FLAG_SHOW_HOSTNAME            (1 << 19)
-#define BGP_FLAG_GR_PRESERVE_FWD          (1 << 20)
-#define BGP_FLAG_GRACEFUL_SHUTDOWN        (1 << 21)
-#define BGP_FLAG_DELETE_IN_PROGRESS       (1 << 22)
-#define BGP_FLAG_SELECT_DEFER_DISABLE     (1 << 23)
-#define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
-#define BGP_FLAG_EBGP_REQUIRES_POLICY     (1 << 25)
-#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME    (1 << 26)
+#define BGP_FLAG_ASPATH_CONFED (1 << 11)
+#define BGP_FLAG_ASPATH_MULTIPATH_RELAX (1 << 12)
+#define BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY (1 << 13)
+#define BGP_FLAG_DISABLE_NH_CONNECTED_CHK (1 << 14)
+#define BGP_FLAG_MULTIPATH_RELAX_AS_SET (1 << 15)
+#define BGP_FLAG_FORCE_STATIC_PROCESS (1 << 16)
+#define BGP_FLAG_SHOW_HOSTNAME (1 << 17)
+#define BGP_FLAG_GR_PRESERVE_FWD (1 << 18)
+#define BGP_FLAG_GRACEFUL_SHUTDOWN (1 << 19)
+#define BGP_FLAG_DELETE_IN_PROGRESS (1 << 20)
+#define BGP_FLAG_SELECT_DEFER_DISABLE (1 << 21)
+#define BGP_FLAG_GR_DISABLE_EOR (1 << 22)
+#define BGP_FLAG_EBGP_REQUIRES_POLICY (1 << 23)
+#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1 << 24)
 
 /* This flag is set if the instance is in administrative shutdown */
-#define BGP_FLAG_SHUTDOWN                 (1 << 27)
-#define BGP_FLAG_SUPPRESS_FIB_PENDING     (1 << 28)
-#define BGP_FLAG_SUPPRESS_DUPLICATES      (1 << 29)
-#define BGP_FLAG_DEFAULT_IPV6             (1 << 30)
-#define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1 << 31)
+#define BGP_FLAG_SHUTDOWN (1 << 25)
+#define BGP_FLAG_SUPPRESS_FIB_PENDING (1 << 26)
+#define BGP_FLAG_SUPPRESS_DUPLICATES (1 << 27)
+#define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1 << 29)
+
+	/* BGP default address-families.
+	 * New peers inherit enabled afi/safis from bgp instance.
+	 */
+	uint16_t default_af[AFI_MAX][SAFI_MAX];
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
 				      [BGP_GLOBAL_GR_EVENT_CMD];
