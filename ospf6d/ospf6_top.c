@@ -602,7 +602,7 @@ void ospf6_router_id_update(struct ospf6 *ospf6)
 	if (ospf6->router_id_static != 0)
 		ospf6->router_id = ospf6->router_id_static;
 	else
-		ospf6->router_id = om6->zebra_router_id;
+		ospf6->router_id = ospf6->router_id_zebra;
 }
 
 /* start ospf6 */
@@ -786,8 +786,8 @@ DEFUN(no_ospf6_router_id,
 		}
 	}
 	o->router_id = 0;
-	if (o->router_id_zebra.s_addr)
-		o->router_id = (uint32_t)o->router_id_zebra.s_addr;
+	if (o->router_id_zebra)
+		o->router_id = o->router_id_zebra;
 
 	return CMD_SUCCESS;
 }
