@@ -52,7 +52,7 @@ struct pm_echo {
 	int echofd_rx_ipv6;
 	uint8_t *tx_buf;
 	uint8_t *rx_buf;
-	uint32_t icmp_sequence;
+	uint16_t icmp_sequence;
 
 	struct thread *t_echo_tmo;
 	struct thread *t_echo_send;
