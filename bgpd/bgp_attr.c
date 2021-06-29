@@ -3317,7 +3317,8 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 	}
 
 	/* Check all mandatory well-known attributes are present */
-	if ((ret = bgp_attr_check(peer, attr)) < 0)
+	ret = bgp_attr_check(peer, attr);
+	if (ret < 0)
 		goto done;
 
 	/*
