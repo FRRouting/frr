@@ -56,6 +56,9 @@ struct vty *vty;
 /* VTY shell pager name. */
 char *vtysh_pager_name = NULL;
 
+/* VTY should add timestamp */
+bool vtysh_add_timestamp;
+
 /* VTY shell client structure */
 struct vtysh_client {
 	int fd;
@@ -481,6 +484,13 @@ static int vtysh_execute_func(const char *line, int pager)
 			vty_out(vty, "%% Command not allowed: enable\n");
 			return CMD_WARNING;
 		}
+	}
+
+	if (vtysh_add_timestamp && strncmp(line, "exit", 4)) {
+		char ts[48];
+
+		(void)quagga_timestamp(3, ts, sizeof(ts));
+		vty_out(vty, "%% %s\n\n", ts);
 	}
 
 	saved_ret = ret = cmd_execute(vty, line, &cmd, 1);

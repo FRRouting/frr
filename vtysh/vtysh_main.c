@@ -201,6 +201,7 @@ struct option longopts[] = {
 	{"writeconfig", no_argument, NULL, 'w'},
 	{"pathspace", required_argument, NULL, 'N'},
 	{"user", no_argument, NULL, 'u'},
+	{"timestamp", no_argument, NULL, 't'},
 	{0}};
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
@@ -308,6 +309,7 @@ int main(int argc, char **argv, char **env)
 	int opt;
 	int dryrun = 0;
 	int boot_flag = 0;
+	bool ts_flag = false;
 	const char *daemon_name = NULL;
 	const char *inputfile = NULL;
 	struct cmd_rec {
@@ -346,7 +348,7 @@ int main(int argc, char **argv, char **env)
 
 	/* Option handling. */
 	while (1) {
-		opt = getopt_long(argc, argv, "be:c:d:nf:H:mEhCwN:u", longopts,
+		opt = getopt_long(argc, argv, "be:c:d:nf:H:mEhCwN:ut", longopts,
 				  0);
 
 		if (opt == EOF)
@@ -407,6 +409,9 @@ int main(int argc, char **argv, char **env)
 			break;
 		case 'u':
 			user_mode = 1;
+			break;
+		case 't':
+			ts_flag = true;
 			break;
 		case 'w':
 			writeconfig = 1;
@@ -624,6 +629,8 @@ int main(int argc, char **argv, char **env)
 		if (!user_mode)
 			vtysh_execute("enable");
 
+		vtysh_add_timestamp = ts_flag;
+
 		while (cmd != NULL) {
 			char *eol;
 
@@ -711,6 +718,8 @@ int main(int argc, char **argv, char **env)
 	/* Enter into enable node. */
 	if (!user_mode)
 		vtysh_execute("enable");
+
+	vtysh_add_timestamp = ts_flag;
 
 	/* Preparation for longjmp() in sigtstp(). */
 	sigsetjmp(jmpbuf, 1);
