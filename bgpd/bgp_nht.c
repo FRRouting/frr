@@ -657,6 +657,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	struct bgp *bgp;
 	struct zapi_route nhr;
 	afi_t afi;
+	int isconnected = 0, i;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
@@ -674,9 +675,18 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	}
 
 	afi = family2afi(nhr.prefix.family);
-	if (command == ZEBRA_NEXTHOP_UPDATE)
+	if (command == ZEBRA_NEXTHOP_UPDATE) {
 		tree = &bgp->nexthop_cache_table[afi];
-	else if (command == ZEBRA_IMPORT_CHECK_UPDATE)
+		/* if nhr.flag is not connected, then treat non connected bnc.
+		 * else, treat 'connected' and 'non-connected' cases
+		 */
+		for (i = 0; i < nhr.nexthop_num; i++) {
+			if (nhr.nexthops[i].type == NEXTHOP_TYPE_IFINDEX) {
+				isconnected = 1;
+				break;
+			}
+		}
+	} else if (command == ZEBRA_IMPORT_CHECK_UPDATE)
 		tree = &bgp->import_check_table[afi];
 
 	bnc = bnc_find(tree, &nhr.prefix, nhr.srte_color);
@@ -687,7 +697,13 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 		return;
 	}
-
+	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED) && !isconnected) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug(
+				"parse nexthop update(%pFX(%u)(%s)): bnc info requires connected nexthop",
+				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
+		nhr.nexthop_num = 0;
+	}
 	bgp_process_nexthop_update(bnc, &nhr);
 
 	/*
@@ -841,10 +857,9 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 				"%s: We have not connected yet, cannot send nexthops",
 				__func__);
 	}
-	if ((command == ZEBRA_NEXTHOP_REGISTER
-	     || command == ZEBRA_IMPORT_ROUTE_REGISTER)
-	    && (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
-		|| CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)))
+	/* BGP_NEXTHOP_CONNECTED case is checked at reception */
+	if ((command == ZEBRA_IMPORT_ROUTE_REGISTER)
+	    && CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
 		exact_match = true;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
