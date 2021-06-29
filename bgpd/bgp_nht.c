@@ -1042,7 +1042,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    || path->attr->srte_color != 0)
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
-		path_valid = !!CHECK_FLAG(path->flags, BGP_PATH_VALID);
+		path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);
 		if (path_valid != bnc_is_valid_nexthop) {
 			if (path_valid) {
 				/* No longer valid, clear flag; also for EVPN
