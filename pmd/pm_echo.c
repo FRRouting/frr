@@ -279,19 +279,19 @@ void pm_echo_receive(struct event *event)
 					&ip->daddr, &pm->key.local.sin.sin_addr);
 			return;
 		}
-		if (icmp->un.echo.id != (pme->discriminator_id & 0xffff)) {
+		if (ntohs(icmp->un.echo.id) != (pme->discriminator_id & 0xffff)) {
 			if (pm_debug_echo) {
 				zlog_err("PMD: received ID %u whereas local ID is %u, discard",
-					 icmp->un.echo.id,
+					 ntohs(icmp->un.echo.id),
 					 pme->discriminator_id & 0xffff);
 			}
 			return;
 		}
-		if (icmp->un.echo.sequence != (pme->icmp_sequence - 1)) {
+		if (ntohs(icmp->un.echo.sequence) != (pme->icmp_sequence - 1)) {
 			if (pm_debug_echo)
 				zlog_err("PMD: ICMP from %pI4 to %pI4 rx seq %u, expected %u",
 					 &pme->peer.sin.sin_addr, &ip->daddr,
-					 icmp->un.echo.sequence,
+					 ntohs(icmp->un.echo.sequence),
 					 pme->icmp_sequence - 1);
 			return;
 		}
@@ -303,19 +303,19 @@ void pm_echo_receive(struct event *event)
 					&pme->peer.sin.sin_addr, icmp->type);
 			return;
 		}
-		if (icmp6->icmp6_id != (pme->discriminator_id & 0xffff)) {
+		if (ntohs(icmp6->icmp6_id) != (pme->discriminator_id & 0xffff)) {
 			if (pm_debug_echo) {
 				zlog_err("PMD: received ID %u whereas local ID is %u, discard",
-					 icmp6->icmp6_id,
+					 ntohs(icmp6->icmp6_id),
 					 pme->discriminator_id & 0xffff);
 			}
 			return;
 		}
-		if (icmp6->icmp6_seq != (pme->icmp_sequence - 1)) {
+		if (ntohs(icmp6->icmp6_seq) != (pme->icmp_sequence - 1)) {
 			if (pm_debug_echo)
 				zlog_err("PMD: ICMP from %pI4 rx seq %u, expected %u",
 					 &pme->peer.sin.sin_addr,
-					 icmp6->icmp6_seq,
+					 ntohs(icmp6->icmp6_seq),
 					 pme->icmp_sequence - 1);
 			return;
 		}
@@ -644,8 +644,8 @@ void pm_echo_send(struct event *event)
 		siz = sizeof(struct sockaddr_in);
 		icmp->type = ICMP_ECHO;
 		icmp->code = 0;
-		icmp->un.echo.id = pme->discriminator_id & 0xffff;
-		icmp->un.echo.sequence = pme->icmp_sequence++;
+		icmp->un.echo.id = htons(pme->discriminator_id & 0xffff);
+		icmp->un.echo.sequence = htons(pme->icmp_sequence++);
 		icmp->checksum = 0;
 		icmp->checksum = in_cksum((void *)icmp,
 					  pme->packet_size - sizeof(struct iphdr));
@@ -674,8 +674,8 @@ void pm_echo_send(struct event *event)
 
 		icmp6->icmp6_type = ICMP6_ECHO_REQUEST;
 		icmp6->icmp6_code = 0;
-		icmp6->icmp6_id = pme->discriminator_id & 0xffff;
-		icmp6->icmp6_seq = pme->icmp_sequence++;
+		icmp6->icmp6_id = htons(pme->discriminator_id & 0xffff);
+		icmp6->icmp6_seq = htons(pme->icmp_sequence++);
 		icmp6->icmp6_cksum = 0;
 		icmp6->icmp6_cksum = in_cksum((void *)p_ip6h, pme->packet_size);
 		memset(pme->tx_buf, 0, sizeof(struct ipv6header));
