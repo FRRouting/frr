@@ -1311,7 +1311,7 @@ static void bgp_evpn_es_vtep_re_eval_active(struct bgp *bgp,
 	bool old_active;
 	bool new_active;
 
-	old_active = !!CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
+	old_active = CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
 	/* currently we need an active EVI reference to use the VTEP as
 	 * a nexthop. this may change...
 	 */
@@ -1320,7 +1320,7 @@ static void bgp_evpn_es_vtep_re_eval_active(struct bgp *bgp,
 	else
 		UNSET_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
 
-	new_active = !!CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
+	new_active = CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
 
 	if ((old_active != new_active) || (new_active && param_change)) {
 
@@ -3120,7 +3120,7 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 	bool new_active;
 	uint32_t ead_activity_flags;
 
-	old_active = !!CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
+	old_active = CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
 	if (bgp_mh_info->ead_evi_rx)
 		/* Both EAD-per-ES and EAD-per-EVI routes must be rxed from a PE
@@ -3136,7 +3136,7 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 	else
 		UNSET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
-	new_active = !!CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
+	new_active = CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
 	if (old_active == new_active)
 		return;
