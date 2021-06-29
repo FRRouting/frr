@@ -113,4 +113,6 @@ extern struct vty *vty;
 
 extern int user_mode;
 
+extern bool vtysh_add_timestamp;
+
 #endif /* VTYSH_H */

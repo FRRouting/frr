@@ -560,6 +560,7 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 int vtysh_read_config(const char *config_default_dir, bool dry_run)
 {
 	FILE *confp = NULL;
+	bool save;
 	int ret;
 
 	confp = fopen(config_default_dir, "r");
@@ -570,8 +571,13 @@ int vtysh_read_config(const char *config_default_dir, bool dry_run)
 		return CMD_ERR_NO_FILE;
 	}
 
+	save = vtysh_add_timestamp;
+	vtysh_add_timestamp = false;
+
 	ret = vtysh_read_file(confp, dry_run);
 	fclose(confp);
+
+	vtysh_add_timestamp = save;
 
 	return (ret);
 }
