@@ -576,7 +576,6 @@ extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
 /* Connected address functions. */
 extern struct connected *connected_new(void);
 extern void connected_free(struct connected **connected);
-extern void connected_add(struct interface *, struct connected *);
 extern struct connected *
 connected_add_by_prefix(struct interface *, struct prefix *, struct prefix *);
 extern struct connected *connected_delete_by_prefix(struct interface *,
