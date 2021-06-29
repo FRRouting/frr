@@ -164,10 +164,6 @@ DECLARE_QOBJ_TYPE(ospf6);
 
 #define OSPF6_DISABLED    0x01
 #define OSPF6_STUB_ROUTER 0x02
-#define OSPF6_MAX_IF_ADDRS 100
-#define OSPF6_MAX_IF_ADDRS_JUMBO 200
-#define OSPF6_DEFAULT_MTU 1500
-#define OSPF6_JUMBO_MTU 9000
 
 /* global pointer for OSPF top data structure */
 extern struct ospf6 *ospf6;
