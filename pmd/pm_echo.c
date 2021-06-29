@@ -301,15 +301,15 @@ int pm_echo_receive(struct thread *thread)
 			}
 			return 0;
 		}
-		if (icmp->un.echo.id != (pme->discriminator_id & 0xffff)) {
+		if (ntohs(icmp->un.echo.id) != (pme->discriminator_id & 0xffff)) {
 			if (pm_debug_echo) {
 				zlog_err("PMD: received ID %u whereas local ID is %u, discard",
-					 icmp->un.echo.id,
+					 ntohs(icmp->un.echo.id),
 					 pme->discriminator_id & 0xffff);
 			}
 			return 0;
 		}
-		if (icmp->un.echo.sequence != (pme->icmp_sequence - 1)) {
+		if (ntohs(icmp->un.echo.sequence) != (pme->icmp_sequence - 1)) {
 			if (pm_debug_echo) {
 				char buf2[INET6_ADDRSTRLEN];
 				struct in_addr daddr;
@@ -320,7 +320,7 @@ int pm_echo_receive(struct thread *thread)
 				inet_ntop(AF_INET, &daddr, buf2, sizeof(buf2));
 				zlog_err("PMD: ICMP from %s to %s rx seq %u, expected %u",
 					 buf, buf2,
-					 icmp->un.echo.sequence,
+					 ntohs(icmp->un.echo.sequence),
 					 pme->icmp_sequence - 1);
 			}
 			return 0;
@@ -336,21 +336,21 @@ int pm_echo_receive(struct thread *thread)
 			}
 			return 0;
 		}
-		if (icmp6->icmp6_id != (pme->discriminator_id & 0xffff)) {
+		if (ntohs(icmp6->icmp6_id) != (pme->discriminator_id & 0xffff)) {
 			if (pm_debug_echo) {
 				zlog_err("PMD: received ID %u whereas local ID is %u, discard",
-					 icmp6->icmp6_id,
+					 ntohs(icmp6->icmp6_id),
 					 pme->discriminator_id & 0xffff);
 			}
 			return 0;
 		}
-		if (icmp6->icmp6_seq != (pme->icmp_sequence - 1)) {
+		if (ntohs(icmp6->icmp6_seq) != (pme->icmp_sequence - 1)) {
 			if (pm_debug_echo) {
 				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
 					  buf, sizeof(buf));
 				zlog_err("PMD: ICMP from %s rx seq %u, expected %u",
 					 buf,
-					 icmp6->icmp6_seq,
+					 ntohs(icmp6->icmp6_seq),
 					 pme->icmp_sequence - 1);
 			}
 			return 0;
@@ -695,8 +695,8 @@ int pm_echo_send(struct thread *thread)
 		siz = sizeof(struct sockaddr_in);
 		icmp->type = ICMP_ECHO;
 		icmp->code = 0;
-		icmp->un.echo.id = pme->discriminator_id & 0xffff;
-		icmp->un.echo.sequence = pme->icmp_sequence++;
+		icmp->un.echo.id = htons(pme->discriminator_id & 0xffff);
+		icmp->un.echo.sequence = htons(pme->icmp_sequence++);
 		icmp->checksum = 0;
 		icmp->checksum = in_cksum((void *)icmp,
 					  pme->packet_size - sizeof(struct iphdr));
@@ -728,8 +728,8 @@ int pm_echo_send(struct thread *thread)
 
 		icmp6->icmp6_type = ICMP6_ECHO_REQUEST;
 		icmp6->icmp6_code = 0;
-		icmp6->icmp6_id = pme->discriminator_id & 0xffff;
-		icmp6->icmp6_seq = pme->icmp_sequence++;
+		icmp6->icmp6_id = htons(pme->discriminator_id & 0xffff);
+		icmp6->icmp6_seq = htons(pme->icmp_sequence++);
 		icmp6->icmp6_cksum = 0;
 		icmp6->icmp6_cksum = in_cksum((void *)p_ip6h, pme->packet_size);
 		memset(pme->tx_buf, 0, sizeof(struct ipv6header));
