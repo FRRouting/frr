@@ -29,7 +29,6 @@ struct ospf6_master {
 	struct list *ospf6;
 	/* OSPFv3 thread master. */
 	struct thread_master *master;
-	in_addr_t zebra_router_id;
 };
 
 /* ospf6->config_flags */
@@ -71,7 +70,7 @@ struct ospf6 {
 	/* static router id */
 	in_addr_t router_id_static;
 
-	struct in_addr router_id_zebra;
+	in_addr_t router_id_zebra;
 
 	/* start time */
 	struct timeval starttime;
