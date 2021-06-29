@@ -1620,6 +1620,13 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		return OSPF6_READ_CONTINUE;
 	}
 
+	/*
+	 * Drop packet destined to another VRF.
+	 * This happens when raw_l3mdev_accept is set to 1.
+	 */
+	if (ospf6->vrf_id != oi->interface->vrf_id)
+		return OSPF6_READ_CONTINUE;
+
 	oh = (struct ospf6_header *)recvbuf;
 	if (ospf6_rxpacket_examin(oi, oh, len) != MSG_OK)
 		return OSPF6_READ_CONTINUE;
