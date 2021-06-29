@@ -1425,6 +1425,7 @@ void ospf6_init(struct thread_master *master)
 	install_element_ospf6_debug_flood();
 	install_element_ospf6_debug_nssa();
 
+	install_element_ospf6_clear_process();
 	install_element_ospf6_clear_interface();
 
 	install_element(ENABLE_NODE, &show_debugging_ospf6_cmd);

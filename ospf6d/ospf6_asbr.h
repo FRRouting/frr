@@ -93,6 +93,7 @@ extern int ospf6_redistribute_config_write(struct vty *vty,
 					   struct ospf6 *ospf6);
 
 extern void ospf6_asbr_init(void);
+extern void ospf6_asbr_redistribute_disable(struct ospf6 *ospf6);
 extern void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6);
 extern void ospf6_asbr_terminate(void);
 extern void ospf6_asbr_send_externals_to_area(struct ospf6_area *);
