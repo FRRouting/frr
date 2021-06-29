@@ -1857,9 +1857,8 @@ void cli_show_router_bgp_med_config(struct vty *vty, struct lyd_node *dnode,
 		uint32_t med_admin_val;
 
 		vty_out(vty, " bgp max-med administrative");
-		if ((med_admin_val =
-			     yang_dnode_get_uint32(dnode, "./max-med-admin"))
-		    != BGP_MAXMED_VALUE_DEFAULT)
+		med_admin_val = yang_dnode_get_uint32(dnode, "./max-med-admin");
+		if (med_admin_val != BGP_MAXMED_VALUE_DEFAULT)
 			vty_out(vty, " %u", med_admin_val);
 		vty_out(vty, "\n");
 	}
@@ -10196,7 +10195,8 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 			if (table == NULL)
 				continue;
 
-			if ((rm = bgp_node_match(table, &match)) != NULL) {
+			rm = bgp_node_match(table, &match);
+			if (rm != NULL) {
 				const struct prefix *rm_p =
 					bgp_dest_get_prefix(rm);
 
@@ -10209,7 +10209,8 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 			}
 		}
 	} else {
-		if ((dest = bgp_node_match(rib, &match)) != NULL) {
+		dest = bgp_node_match(rib, &match);
+		if (dest != NULL) {
 			const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
 			if (dest_p->prefixlen == match.prefixlen) {

@@ -3099,7 +3099,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	afi_t afi;
 	safi_t safi;
 
-	if ((bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp))) == NULL)
+	bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
+	if (bgp == NULL)
 		return NULL;
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
