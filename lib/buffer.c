@@ -357,7 +357,8 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 
 			iov_size =
 				((iov_index > IOV_MAX) ? IOV_MAX : iov_index);
-			if ((nbytes = writev(fd, c_iov, iov_size)) < 0) {
+			nbytes = writev(fd, c_iov, iov_size);
+			if (nbytes < 0) {
 				flog_err(EC_LIB_SOCKET,
 					 "%s: writev to fd %d failed: %s",
 					 __func__, fd, safe_strerror(errno));
@@ -370,7 +371,8 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 		}
 	}
 #else  /* IOV_MAX */
-	if ((nbytes = writev(fd, iov, iov_index)) < 0)
+	nbytes = writev(fd, iov, iov_index);
+	if (nbytes < 0)
 		flog_err(EC_LIB_SOCKET, "%s: writev to fd %d failed: %s",
 			 __func__, fd, safe_strerror(errno));
 #endif /* IOV_MAX */
@@ -472,13 +474,17 @@ buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
 		/* Buffer is not empty, so do not attempt to write the new data.
 		 */
 		nbytes = 0;
-	else if ((nbytes = write(fd, p, size)) < 0) {
-		if (ERRNO_IO_RETRY(errno))
-			nbytes = 0;
-		else {
-			flog_err(EC_LIB_SOCKET, "%s: write error on fd %d: %s",
-				 __func__, fd, safe_strerror(errno));
-			return BUFFER_ERROR;
+	else {
+		nbytes = write(fd, p, size);
+		if (nbytes < 0) {
+			if (ERRNO_IO_RETRY(errno))
+				nbytes = 0;
+			else {
+				flog_err(EC_LIB_SOCKET,
+					 "%s: write error on fd %d: %s",
+					 __func__, fd, safe_strerror(errno));
+				return BUFFER_ERROR;
+			}
 		}
 	}
 	/* Add any remaining data to the buffer. */

@@ -78,7 +78,8 @@ int set_nonblocking(int fd)
 	/* According to the Single UNIX Spec, the return value for F_GETFL
 	   should
 	   never be negative. */
-	if ((flags = fcntl(fd, F_GETFL)) < 0) {
+	flags = fcntl(fd, F_GETFL);
+	if (flags < 0) {
 		flog_err(EC_LIB_SYSTEM_CALL,
 			 "fcntl(F_GETFL) failed for fd %d: %s", fd,
 			 safe_strerror(errno));
