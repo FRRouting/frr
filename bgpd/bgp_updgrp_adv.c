@@ -572,7 +572,8 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 		return;
 
 	/* Lookup existing adjacency */
-	if ((adj = adj_lookup(dest, subgrp, addpath_tx_id)) != NULL) {
+	adj = adj_lookup(dest, subgrp, addpath_tx_id);
+	if (adj != NULL) {
 		/* Clean up previous advertisement.  */
 		if (adj->adv)
 			bgp_advertise_clean_subgroup(subgrp, adj);

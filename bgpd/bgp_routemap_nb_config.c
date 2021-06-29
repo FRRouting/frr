@@ -70,8 +70,8 @@ static int bgp_route_match_delete(struct route_map_index *index,
 	if (type != RMAP_EVENT_MATCH_DELETED) {
 		/* ignore the mundane, the types without any dependency */
 		if (arg == NULL) {
-			if ((tmpstr = route_map_get_match_arg(index, command))
-					!= NULL)
+			tmpstr = route_map_get_match_arg(index, command);
+			if (tmpstr != NULL)
 				dep_name =
 					XSTRDUP(MTYPE_ROUTE_MAP_RULE, tmpstr);
 		} else {

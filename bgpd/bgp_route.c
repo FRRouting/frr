@@ -11643,7 +11643,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 			if (!table)
 				continue;
 
-			if ((rm = bgp_node_match(table, &match)) == NULL)
+			rm = bgp_node_match(table, &match);
+			if (rm == NULL)
 				continue;
 
 			const struct prefix *rm_p = bgp_dest_get_prefix(rm);
@@ -11735,7 +11736,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 				json_object_free(json_paths);
 		}
 	} else {
-		if ((dest = bgp_node_match(rib, &match)) != NULL) {
+		dest = bgp_node_match(rib, &match);
+		if (dest != NULL) {
 			const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 			if (!prefix_check
 			    || dest_p->prefixlen == match.prefixlen) {
@@ -14758,7 +14760,8 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 			table = bgp_dest_get_bgp_table_info(dest);
 			if (!table)
 				continue;
-			if ((rm = bgp_node_match(table, &match)) == NULL)
+			rm = bgp_node_match(table, &match);
+			if (rm == NULL)
 				continue;
 
 			const struct prefix *rm_p = bgp_dest_get_prefix(dest);
@@ -14782,8 +14785,8 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 			bgp_dest_unlock_node(rm);
 		}
 	} else {
-		if ((dest = bgp_node_match(bgp->rib[afi][safi], &match))
-		    != NULL) {
+		dest = bgp_node_match(bgp->rib[afi][safi], &match);
+		if (dest != NULL) {
 			const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
 			if (!prefix_check
