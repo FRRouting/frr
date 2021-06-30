@@ -63,10 +63,8 @@ int argv_find_and_parse_oly_idx(struct cmd_token **argv, int argc, int *oly_idx,
 				enum overlay_index_type *oly)
 {
 	*oly = OVERLAY_INDEX_TYPE_NONE;
-	if (argv_find(argv, argc, "gateway-ip", oly_idx)) {
-		if (oly)
-			*oly = OVERLAY_INDEX_GATEWAY_IP;
-	}
+	if (argv_find(argv, argc, "gateway-ip", oly_idx))
+		*oly = OVERLAY_INDEX_GATEWAY_IP;
 	return 1;
 }
 
