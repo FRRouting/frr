@@ -712,20 +712,36 @@ def generate_support_bundle():
 
     tgen = get_topogen()
     router_list = tgen.routers()
-    test_name = sys._getframe(2).f_code.co_name
+    test_name = os.environ.get('PYTEST_CURRENT_TEST').split(':')[-1].split(' ')[0]
+
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
+    bundle_procs = {}
     for rname, rnode in router_list.items():
-        logger.info("Generating support bundle for {}".format(rname))
+        logger.info("Spawn collection of support bundle for %s", rname)
         rnode.run("mkdir -p /var/log/frr")
+        bundle_procs[rname] = tgen.net[rname].popen(
+            "/usr/lib/frr/generate_support_bundle.py",
+            stdin=None,
+            stdout=SUB_PIPE,
+            stderr=SUB_PIPE,
+        )
 
-        # Support only python3 going forward
-        bundle_log = rnode.run("env python3 /usr/lib/frr/generate_support_bundle.py")
-
-        logger.info(bundle_log)
-
+    for rname, rnode in router_list.items():
         dst_bundle = "{}/{}/support_bundles/{}".format(TMPDIR, rname, test_name)
         src_bundle = "/var/log/frr"
+
+        output, error = bundle_procs[rname].communicate()
+
+        logger.info("Saving support bundle for %s", rname)
+        if output:
+            logger.info(
+                "Output from collecting support bundle for %s:\n%s", rname, output
+            )
+        if error:
+            logger.warning(
+                "Error from collecting support bundle for %s:\n%s", rname, error
+            )
         rnode.run("rm -rf {}".format(dst_bundle))
         rnode.run("mkdir -p {}".format(dst_bundle))
         rnode.run("mv -f {}/* {}".format(src_bundle, dst_bundle))
