@@ -435,6 +435,43 @@ DEFPY(pm_session_shutdown, pm_session_shutdown_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_pm,
+       debug_pm_cmd,
+       "debug pm echo",
+       "Enable debug messages for specific or all part.\n"
+       "Path Monitoring information\n"
+       "Enable echo debug information.\n")
+{
+	pm_debug_echo = 1;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_pm,
+       no_debug_pm_cmd,
+       "no debug pm echo",
+       NO_STR
+       "Disable debug messages for specific or all part.\n"
+       "Path Monitoring information\n"
+       "Disable echo debug information.\n")
+{
+	pm_debug_echo = 0;
+	return CMD_SUCCESS;
+}
+
+/* Output "debug" statement lines, if necessary. */
+static int debug_pm_config_write (struct vty * vty)
+{
+    int lines = 0;
+
+	if (pm_debug_echo)
+    {
+        vty_out (vty, "debug pm echo\n");
+        vty_out (vty, "!\n");
+		lines++;
+    }
+    return lines;
+}
+
 DEFUN_NOSH(show_debugging_pmd,
 	   show_debugging_pmd_cmd,
 	   "show debugging [pm]",
@@ -442,8 +479,9 @@ DEFUN_NOSH(show_debugging_pmd,
 	   DEBUG_STR
 	   "Pm Information\n")
 {
-	vty_out(vty, "Pm debugging status\n");
-
+	vty_out(vty, "Pm debugging status:\n");
+	if (pm_debug_echo)
+		vty_out(vty, "  Echo debugging info is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -743,9 +781,22 @@ struct cmd_node pm_session_node = {
 	.config_write = pm_session_walk_write_config
 };
 
+/* Debug node. */
+static struct cmd_node debug_node = {
+	.name = "",
+	.node = DEBUG_NODE,
+	.config_write = debug_pm_config_write
+};
+
 void pm_vty_init(void)
 {
+	install_node(&debug_node);
 	install_element(ENABLE_NODE, &show_debugging_pmd_cmd);
+	install_element(ENABLE_NODE, &debug_pm_cmd);
+	install_element(ENABLE_NODE, &no_debug_pm_cmd);
+	install_element(CONFIG_NODE, &debug_pm_cmd);
+	install_element(CONFIG_NODE, &no_debug_pm_cmd);
+
 	install_element(ENABLE_NODE, &show_pmd_sessions_cmd);
 	install_element(ENABLE_NODE, &show_pmd_session_cmd);
 
