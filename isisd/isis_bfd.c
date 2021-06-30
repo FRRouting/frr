@@ -81,7 +81,7 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj)
 	 */
 	if (circuit->ipv6_router
 	    && (listcount(circuit->ipv6_link) == 0
-		|| adj->ipv6_address_count == 0)) {
+		|| adj->ll_ipv6_count == 0)) {
 		if (IS_DEBUG_BFD)
 			zlog_debug(
 				"ISIS-BFD: skipping BFD initialization on adjacency with %s because IPv6 is enabled but not ready",
@@ -93,9 +93,9 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj)
 	 * If IS-IS is enabled for both IPv4 and IPv6 on the circuit, prefer
 	 * creating a BFD session over IPv6.
 	 */
-	if (circuit->ipv6_router && adj->ipv6_address_count) {
+	if (circuit->ipv6_router && adj->ll_ipv6_count) {
 		family = AF_INET6;
-		dst_ip.ipv6 = adj->ipv6_addresses[0];
+		dst_ip.ipv6 = adj->ll_ipv6_addrs[0];
 		local_ips = circuit->ipv6_link;
 		if (!local_ips || list_isempty(local_ips)) {
 			if (IS_DEBUG_BFD)
@@ -181,10 +181,11 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit)
 	}
 }
 
-static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family)
+static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family,
+				     bool global)
 {
 
-	if (family != AF_INET6)
+	if (family != AF_INET6 || global)
 		return 0;
 
 	if (adj->bfd_session)

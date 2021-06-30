@@ -1971,6 +1971,11 @@ int send_hello(struct isis_circuit *circuit, int level)
 	if (circuit->ipv6_router && circuit->ipv6_link)
 		isis_tlvs_add_ipv6_addresses(tlvs, circuit->ipv6_link);
 
+	/* RFC6119 section 4 define TLV 233 to provide Global IPv6 address */
+	if (circuit->ipv6_router && circuit->ipv6_non_link)
+		isis_tlvs_add_global_ipv6_addresses(tlvs,
+						    circuit->ipv6_non_link);
+
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,
 			   circuit->pad_hellos, false)) {
 		isis_free_tlvs(tlvs);

@@ -168,7 +168,7 @@ void isis_delete_adj(void *arg)
 
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->area_addresses);
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses);
-	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv6_addresses);
+	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ll_ipv6_addrs);
 
 	adj_mt_finish(adj);
 	list_delete(&adj->adj_sids);
@@ -414,11 +414,11 @@ void isis_adj_print(struct isis_adjacency *adj)
 			zlog_debug("%pI4", &adj->ipv4_addresses[i]);
 	}
 
-	if (adj->ipv6_address_count) {
+	if (adj->ll_ipv6_count) {
 		zlog_debug("IPv6 Address(es):");
-		for (unsigned int i = 0; i < adj->ipv6_address_count; i++) {
+		for (unsigned int i = 0; i < adj->ll_ipv6_count; i++) {
 			char buf[INET6_ADDRSTRLEN];
-			inet_ntop(AF_INET6, &adj->ipv6_addresses[i], buf,
+			inet_ntop(AF_INET6, &adj->ll_ipv6_addrs[i], buf,
 				  sizeof(buf));
 			zlog_debug("%s", buf);
 		}
@@ -577,12 +577,21 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 				vty_out(vty, "      %pI4\n",
 					&adj->ipv4_addresses[i]);
 		}
-		if (adj->ipv6_address_count) {
+		if (adj->ll_ipv6_count) {
 			vty_out(vty, "    IPv6 Address(es):\n");
-			for (unsigned int i = 0; i < adj->ipv6_address_count;
+			for (unsigned int i = 0; i < adj->ll_ipv6_count; i++) {
+				char buf[INET6_ADDRSTRLEN];
+				inet_ntop(AF_INET6, &adj->ll_ipv6_addrs[i],
+					  buf, sizeof(buf));
+				vty_out(vty, "      %s\n", buf);
+			}
+		}
+		if (adj->global_ipv6_count) {
+			vty_out(vty, "    Global IPv6 Address(es):\n");
+			for (unsigned int i = 0; i < adj->global_ipv6_count;
 			     i++) {
 				char buf[INET6_ADDRSTRLEN];
-				inet_ntop(AF_INET6, &adj->ipv6_addresses[i],
+				inet_ntop(AF_INET6, &adj->global_ipv6_addrs[i],
 					  buf, sizeof(buf));
 				vty_out(vty, "      %s\n", buf);
 			}
