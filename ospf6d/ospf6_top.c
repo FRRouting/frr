@@ -622,14 +622,14 @@ void ospf6_maxage_remove(struct ospf6 *o)
 				 &o->maxage_remover);
 }
 
-void ospf6_router_id_update(struct ospf6 *ospf6, bool init)
+bool ospf6_router_id_update(struct ospf6 *ospf6, bool init)
 {
 	in_addr_t new_router_id;
 	struct listnode *node;
 	struct ospf6_area *oa;
 
 	if (!ospf6)
-		return;
+		return true;
 
 	if (ospf6->router_id_static != 0)
 		new_router_id = ospf6->router_id_static;
@@ -637,19 +637,20 @@ void ospf6_router_id_update(struct ospf6 *ospf6, bool init)
 		new_router_id = ospf6->router_id_zebra;
 
 	if (ospf6->router_id == new_router_id)
-		return;
+		return true;
 
 	if (!init)
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 			if (oa->full_nbrs) {
 				zlog_err(
-					"%s: cannot update router-id. Save config and restart ospf6d\n",
+					"%s: cannot update router-id. Run the \"clear ipv6 ospf6 process\" command\n",
 					__func__);
-				return;
+				return false;
 			}
 		}
 
 	ospf6->router_id = new_router_id;
+	return true;
 }
 
 /* start ospf6 */
@@ -786,8 +787,6 @@ DEFUN(ospf6_router_id,
 	int ret;
 	const char *router_id_str;
 	uint32_t router_id;
-	struct ospf6_area *oa;
-	struct listnode *node;
 
 	argv_find(argv, argc, "A.B.C.D", &idx);
 	router_id_str = argv[idx]->arg;
@@ -800,15 +799,9 @@ DEFUN(ospf6_router_id,
 
 	o->router_id_static = router_id;
 
-	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
-		if (oa->full_nbrs) {
-			vty_out(vty,
-				"For this router-id change to take effect, run the \"clear ipv6 ospf6 process\" command\n");
-			return CMD_SUCCESS;
-		}
-	}
-
-	o->router_id = router_id;
+	if (!ospf6_router_id_update(o, false, vty)
+		vty_out(vty,
+			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
 
 	return CMD_SUCCESS;
 }
@@ -821,21 +814,12 @@ DEFUN(no_ospf6_router_id,
       V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	struct ospf6_area *oa;
-	struct listnode *node;
 
 	o->router_id_static = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
-		if (oa->full_nbrs) {
-			vty_out(vty,
-				"For this router-id change to take effect, run the \"clear ipv6 ospf6 process\" command\n");
-			return CMD_SUCCESS;
-		}
-	}
-	o->router_id = 0;
-	if (o->router_id_zebra)
-		o->router_id = o->router_id_zebra;
+	if (!ospf6_router_id_update(o, false, vty)
+		vty_out(vty,
+			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
 
 	return CMD_SUCCESS;
 }
