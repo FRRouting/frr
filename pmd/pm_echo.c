@@ -329,7 +329,7 @@ int pm_echo_receive(struct thread *thread)
 		icmp6 = (struct icmp6_hdr *)(pme->rx_buf);
 		if (icmp6->icmp6_type != ICMP6_ECHO_REPLY) {
 			if (pm_debug_echo) {
-				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
+				inet_ntop(AF_INET6, &pme->peer.sin6.sin6_addr,
 					  buf, sizeof(buf));
 				zlog_err("PMD: ICMP from %s ECHO REPLY expected (type %u)",
 					 buf, icmp->type);
@@ -346,7 +346,7 @@ int pm_echo_receive(struct thread *thread)
 		}
 		if (ntohs(icmp6->icmp6_seq) != (pme->icmp_sequence - 1)) {
 			if (pm_debug_echo) {
-				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
+				inet_ntop(AF_INET6, &pme->peer.sin6.sin6_addr,
 					  buf, sizeof(buf));
 				zlog_err("PMD: ICMP from %s rx seq %u, expected %u",
 					 buf,
