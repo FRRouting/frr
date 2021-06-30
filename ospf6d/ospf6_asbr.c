@@ -2507,11 +2507,7 @@ void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
 	char buf[RMAP_NAME_MAXLEN];
 
 	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
-		buf[0] = '\0';
 		if (type == ZEBRA_ROUTE_OSPF6)
-			continue;
-		red = ospf6_redist_lookup(ospf6, type, 0);
-		if (!red)
 			continue;
 
 		if (type == DEFAULT_ROUTE) {
@@ -2519,6 +2515,12 @@ void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
 				ospf6, ospf6->default_originate);
 			continue;
 		}
+
+		red = ospf6_redist_lookup(ospf6, type, 0);
+		if (!red)
+			continue;
+
+		buf[0] = '\0';
 		if (ROUTEMAP_NAME(red))
 			strlcpy(buf, ROUTEMAP_NAME(red), sizeof(buf));
 
