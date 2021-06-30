@@ -379,13 +379,15 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 			      status_match = LUA_RM_MATCH,
 			      status_match_and_change = LUA_RM_MATCH_AND_CHANGE;
 
+	struct attr newattr = *path->attr;
+
 	int result = frrscript_call(
 		fs, ("RM_FAILURE", (long long *)&lrm_status),
 		("RM_NOMATCH", (long long *)&status_nomatch),
 		("RM_MATCH", (long long *)&status_match),
 		("RM_MATCH_AND_CHANGE", (long long *)&status_match_and_change),
 		("action", (long long *)&lrm_status), ("prefix", prefix),
-		("attributes", path->attr), ("peer", path->peer));
+		("attributes", &newattr), ("peer", path->peer));
 
 	if (result) {
 		zlog_err("Issue running script rule; defaulting to no match");
@@ -407,9 +409,18 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	case LUA_RM_MATCH_AND_CHANGE:
 		status = RMAP_MATCH;
 		zlog_debug("Updating attribute based on script's values");
-		if (path->attr->local_pref != 0)
+
+		uint32_t locpref = 0;
+
+		path->attr->med = newattr.med;
+
+		if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+			locpref = path->attr->local_pref;
+		if (locpref != newattr.local_pref) {
 			SET_FLAG(path->attr->flag,
 				 ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+			path->attr->local_pref = newattr.local_pref;
+		}
 		break;
 	case LUA_RM_MATCH:
 		status = RMAP_MATCH;
