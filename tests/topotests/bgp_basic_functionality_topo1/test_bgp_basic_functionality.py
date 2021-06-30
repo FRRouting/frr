@@ -1134,11 +1134,6 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     dut = "r1"
     protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict_r1, protocol=protocol)
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
-        )
-
         result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)
         assert result is not True, "Testcase {} : Failed \n"
         "Expected behavior: routes should not present in fib \n"
@@ -1156,13 +1151,6 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     dut = "r3"
     protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_r3, protocol=protocol, fib=None
-        )
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
-        )
-
         result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)
         assert result is not True, "Testcase {} : Failed \n"
         "Expected behavior: routes should not present in fib \n"

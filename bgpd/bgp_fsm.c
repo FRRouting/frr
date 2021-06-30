@@ -110,9 +110,9 @@ int bgp_peer_reg_with_nht(struct peer *peer)
 	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
-	return bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
-				       family2afi(peer->su.sa.sa_family),
-				       SAFI_UNICAST, NULL, peer, connected);
+	return bgp_find_or_add_nexthop(
+		peer->bgp, peer->bgp, family2afi(peer->su.sa.sa_family),
+		SAFI_UNICAST, NULL, peer, connected, NULL);
 }
 
 static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
