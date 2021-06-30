@@ -1443,9 +1443,8 @@ static mpls_label_t rlfa_nexthop_label(struct isis_spftree *spftree,
 			}
 			break;
 		case AF_INET6:
-			for (unsigned int j = 0; j < adj->ipv6_address_count;
-			     j++) {
-				struct in6_addr addr = adj->ipv6_addresses[j];
+			for (unsigned int j = 0; j < adj->ll_ipv6_count; j++) {
+				struct in6_addr addr = adj->ll_ipv6_addrs[j];
 
 				if (!IPV6_ADDR_SAME(
 					    &addr,

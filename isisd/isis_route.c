@@ -145,8 +145,8 @@ void adjinfo2nexthop(int family, struct list *nexthops,
 		}
 		break;
 	case AF_INET6:
-		for (unsigned int i = 0; i < adj->ipv6_address_count; i++) {
-			ip.ipv6 = adj->ipv6_addresses[i];
+		for (unsigned int i = 0; i < adj->ll_ipv6_count; i++) {
+			ip.ipv6 = adj->ll_ipv6_addrs[i];
 
 			if (!nexthoplookup(nexthops, AF_INET6, &ip,
 					   adj->circuit->interface->ifindex)) {
