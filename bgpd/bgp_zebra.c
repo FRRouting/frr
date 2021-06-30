@@ -682,7 +682,7 @@ static int if_get_ipv6_global(struct interface *ifp, struct in6_addr *addr)
 	return 0;
 }
 
-static int if_get_ipv6_local(struct interface *ifp, struct in6_addr *addr)
+static bool if_get_ipv6_local(struct interface *ifp, struct in6_addr *addr)
 {
 	struct listnode *cnode;
 	struct connected *connected;
@@ -694,10 +694,10 @@ static int if_get_ipv6_local(struct interface *ifp, struct in6_addr *addr)
 		if (cp->family == AF_INET6)
 			if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6)) {
 				memcpy(addr, &cp->u.prefix6, IPV6_MAX_BYTELEN);
-				return 1;
+				return true;
 			}
 	}
-	return 0;
+	return false;
 }
 
 static int if_get_ipv4_address(struct interface *ifp, struct in_addr *addr)
@@ -723,6 +723,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 {
 	int ret = 0;
 	struct interface *ifp = NULL;
+	bool v6_ll_avail = true;
 
 	memset(nexthop, 0, sizeof(struct bgp_nexthop));
 
@@ -792,12 +793,20 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			 * route-map to
 			 * specify the global IPv6 nexthop.
 			 */
-			if_get_ipv6_local(ifp, &nexthop->v6_global);
+			v6_ll_avail =
+				if_get_ipv6_local(ifp, &nexthop->v6_global);
 			memcpy(&nexthop->v6_local, &nexthop->v6_global,
 			       IPV6_MAX_BYTELEN);
 		} else
-			if_get_ipv6_local(ifp, &nexthop->v6_local);
+			v6_ll_avail =
+				if_get_ipv6_local(ifp, &nexthop->v6_local);
 
+		/*
+		 * If we are a v4 connection and we are not doing unnumbered
+		 * not having a v6 LL address is ok
+		 */
+		if (!v6_ll_avail && !peer->conf_if)
+			v6_ll_avail = true;
 		if (if_lookup_by_ipv4(&remote->sin.sin_addr, peer->bgp->vrf_id))
 			peer->shared_network = 1;
 		else
@@ -823,7 +832,8 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 						   remote->sin6.sin6_scope_id,
 						   peer->bgp->vrf_id);
 			if (direct)
-				if_get_ipv6_local(ifp, &nexthop->v6_local);
+				v6_ll_avail = if_get_ipv6_local(
+					ifp, &nexthop->v6_local);
 		} else
 		/* Link-local address. */
 		{
@@ -870,7 +880,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 
 	/* If we have identified the local interface, there is no error for now.
 	 */
-	return true;
+	return v6_ll_avail;
 }
 
 static struct in6_addr *
