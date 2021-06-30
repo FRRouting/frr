@@ -48,6 +48,7 @@
 #include "bgp_io.h"
 
 #include "lib/bfd.h"
+#include "lib/orr_msg.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384

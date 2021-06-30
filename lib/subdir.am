@@ -69,6 +69,7 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound_db.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
+	lib/orr_msg.c \
 	lib/pid_output.c \
 	lib/plist.c \
 	lib/prefix.c \
@@ -237,6 +238,7 @@ pkginclude_HEADERS += \
 	lib/ns.h \
 	lib/openbsd-queue.h \
 	lib/openbsd-tree.h \
+	lib/orr_msg.h \
 	lib/plist.h \
 	lib/prefix.h \
 	lib/printfrr.h \

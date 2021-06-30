@@ -29,22 +29,26 @@ extern "C" {
 /* BGP ORR Message Type */
 typedef enum {
 	BGP_ORR_MSG_INVALID = 0,
-	BGP_ORR_MSG_GROUP_CREATE,
+
+	/* ORR group update */
+	BGP_ORR_MSG_GROUP_CREATE = 1,
 	BGP_ORR_MSG_GROUP_DELETE,
 	BGP_ORR_MSG_GROUP_UPDATE,
-	BGP_ORR_MSG_SET_ORR_ON_PEER,
+
+	/* ORR group update on a BGP RR Client */
+	BGP_ORR_MSG_SET_ORR_ON_PEER = 4,
 	BGP_ORR_MSG_UNSET_ORR_ON_PEER,
-	BGP_ORR_MSG_SHOW_ORR,
+
+	/* ORR IGP Metric Update from IGP from requested Location */
+	BGP_ORR_MSG_IGP_METRIC_UPDATE = 6,
+
+	/* ORR Group Related Information display */
+	BGP_ORR_MSG_SHOW_ORR = 7,
 	BGP_ORR_MSG_SHOW_ORR_GROUP,
+
+	/* Invalid Message Type*/
 	BGP_ORR_MSG_MAX
 } bgp_orr_msg_type_t;
-
-/* BGP ORR Messages */
-typedef struct {
-	bgp_orr_msg_type_t type;
-	uint32_t length;
-	uint32_t value[0];
-} bgp_orr_message_t;
 
 static inline bool is_orr_primary_root(struct bgp_orr_group *orr_group,
 				       char *host)
@@ -124,6 +128,8 @@ extern int bgp_afi_safi_orr_group_unset(struct bgp *bgp, afi_t afi, safi_t safi,
 					const char *name);
 
 extern void bgp_orr_update_active_root(struct peer *peer);
+
+extern int bgg_orr_message_process(bgp_orr_msg_type_t msg_type, void *msg);
 
 #ifdef __cplusplus
 }

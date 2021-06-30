@@ -64,6 +64,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_orr.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -2705,7 +2706,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 
 	/* Request IGP to Calculate SPF from specified location */
-	zclient_register_orr(zclient, ORR_IGP_METRIC_REGISTER);
+	zclient_register_orr(zclient, ORR_IGP_METRIC_UPDATE);
 }
 
 static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
@@ -3519,6 +3520,32 @@ int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 	return srv6_manager_get_locator_chunk(zclient, name);
 }
 
+/*
+ * ORR messages between processes
+ */
 static int bgp_orr_msg_handler(ZAPI_CALLBACK_ARGS)
 {
+	struct stream *s;
+	struct zapi_orr_msg info;
+	struct orr_igp_metric_info table;
+	int ret = 0;
+
+	s = zclient->ibuf;
+
+	if (zclient_orr_decode(s, &info) != 0)
+		return -1;
+
+	switch (info.type) {
+	case ORR_IGP_METRIC_UPDATE:
+		STREAM_GET(&table, s, sizeof(table));
+		ret = bgg_orr_message_process(BGP_ORR_MSG_IGP_METRIC_UPDATE,
+					      (void *)&table);
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+
+	return ret;
 }

@@ -22,6 +22,9 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_orr.h"
 #include "bgpd/bgp_vty.h"
+#include "zclient.h"
+
+extern struct zclient *zclient;
 
 static struct bgp_orr_group *bgp_orr_group_new(struct bgp *bgp, afi_t afi,
 					       safi_t safi, const char *name)
@@ -199,11 +202,17 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (primary->afc_nego[afi][safi]
 		    && (primary->status == Established)) {
 			primary_reachable = true;
-			if (!orr_group->active)
+			if (!orr_group->active) {
 				orr_group->active = primary;
-			else if (orr_group->primary
-				 && strcmp(orr_group->active->host,
-					   orr_group->primary->host)) {
+				bgp_orr_igp_metric_register(primary, afi, safi,
+							    true);
+			} else if (orr_group->primary
+				   && strcmp(orr_group->active->host,
+					     orr_group->primary->host)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
+				bgp_orr_igp_metric_register(primary, afi, safi,
+							    true);
 				orr_group->active = primary;
 			} else if (BGP_DEBUG(optimal_route_reflection, ORR))
 				zlog_debug("[BGP_ORR] %s: %s", __func__,
@@ -215,8 +224,11 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (orr_group->primary) {
 			if (orr_group->active
 			    && !strcmp(orr_group->active->host,
-				       orr_group->primary->host))
+				       orr_group->primary->host)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
 				orr_group->active = NULL;
+			}
 			orr_group->primary = NULL;
 		}
 	}
@@ -234,13 +246,19 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (secondary->afc_nego[afi][safi]
 		    && (secondary->status == Established)) {
 			secondary_reachable = true;
-			if (!orr_group->active)
+			if (!orr_group->active) {
 				orr_group->active = secondary;
-			else if (!primary_reachable && orr_group->secondary
-				 && strcmp(orr_group->active->host,
-					   orr_group->secondary->host))
+				bgp_orr_igp_metric_register(secondary, afi,
+							    safi, true);
+			} else if (!primary_reachable && orr_group->secondary
+				   && strcmp(orr_group->active->host,
+					     orr_group->secondary->host)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
+				bgp_orr_igp_metric_register(secondary, afi,
+							    safi, true);
 				orr_group->active = secondary;
-			else if (BGP_DEBUG(optimal_route_reflection, ORR))
+			} else if (BGP_DEBUG(optimal_route_reflection, ORR))
 				zlog_debug(
 					"[BGP_ORR] %s: %s", __func__,
 					primary_reachable
@@ -253,8 +271,11 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (orr_group->secondary) {
 			if (orr_group->active
 			    && !strcmp(orr_group->active->host,
-				       orr_group->secondary->host))
+				       orr_group->secondary->host)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
 				orr_group->active = NULL;
+			}
 			orr_group->secondary = NULL;
 		}
 	}
@@ -273,14 +294,20 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (tertiary->afc_nego[afi][safi]
 		    && (tertiary->status == Established)) {
 			tertiary_reachable = true;
-			if (!orr_group->active)
+			if (!orr_group->active) {
 				orr_group->active = tertiary;
-			else if (!primary_reachable && !secondary_reachable
-				 && orr_group->tertiary
-				 && strcmp(orr_group->active->host,
-					   orr_group->tertiary->host))
+				bgp_orr_igp_metric_register(tertiary, afi, safi,
+							    true);
+			} else if (!primary_reachable && !secondary_reachable
+				   && orr_group->tertiary
+				   && strcmp(orr_group->active->host,
+					     orr_group->tertiary->host)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
+				bgp_orr_igp_metric_register(tertiary, afi, safi,
+							    true);
 				orr_group->active = tertiary;
-			else if (BGP_DEBUG(optimal_route_reflection, ORR))
+			} else if (BGP_DEBUG(optimal_route_reflection, ORR))
 				zlog_debug(
 					"[BGP_ORR] %s: %s", __func__,
 					primary_reachable
@@ -295,15 +322,21 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (orr_group->tertiary) {
 			if (orr_group->active
 			    && !strcmp(orr_group->active->host,
-				       orr_group->tertiary))
+				       orr_group->tertiary)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
 				orr_group->active = NULL;
+			}
 			orr_group->tertiary = NULL;
 		}
 	}
 
 	if (orr_group->active && !primary_reachable && !secondary_reachable
-	    && !tertiary_reachable)
+	    && !tertiary_reachable) {
+		bgp_orr_igp_metric_register(orr_group->active, afi, safi,
+					    false);
 		orr_group->active = NULL;
+	}
 
 	if (BGP_DEBUG(optimal_route_reflection, ORR))
 		zlog_debug(
@@ -337,6 +370,10 @@ int bgp_afi_safi_orr_group_unset(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Unset ORR Group parameters */
 	XFREE(MTYPE_BGP_ORR_GROUP_NAME, orr_group->name);
+
+	/* Unregister with IGP for Metric Calculation from specified location */
+	bgp_orr_igp_metric_register(orr_group->active, afi, safi, false);
+
 	orr_group->primary = orr_group->secondary = orr_group->tertiary =
 		orr_group->active = NULL;
 
@@ -700,6 +737,8 @@ void bgp_orr_update_active_root(struct peer *peer)
 			/* If Active is null, Update this node as Active Root */
 			if (!orr_group->active) {
 				orr_group->active = peer;
+				bgp_orr_igp_metric_register(peer, afi, safi,
+							    true);
 				continue;
 			}
 
@@ -710,6 +749,10 @@ void bgp_orr_update_active_root(struct peer *peer)
 			/* If this is Primary and current Active is not Primary
 			 */
 			if (is_orr_primary_root(orr_group, peer->host)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
+				bgp_orr_igp_metric_register(peer, afi, safi,
+							    true);
 				orr_group->active = peer;
 				continue;
 			}
@@ -721,6 +764,11 @@ void bgp_orr_update_active_root(struct peer *peer)
 					    orr_group,
 					    orr_group->primary->host))
 					continue;
+
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
+				bgp_orr_igp_metric_register(peer, afi, safi,
+							    true);
 				orr_group->active = peer;
 				continue;
 			}
@@ -732,23 +780,37 @@ void bgp_orr_update_active_root(struct peer *peer)
 		if (is_orr_primary_root(orr_group, peer->host)) {
 			/* If secondary is reachable, update it as Active */
 			if (is_orr_secondary_reachable(orr_group)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
+				bgp_orr_igp_metric_register(
+					orr_group->secondary, afi, safi, true);
 				orr_group->active = orr_group->secondary;
 				continue;
 			}
 
 			/* If tertiary is reachable, update it as Active */
 			if (is_orr_tertiary_reachable(orr_group)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
+				bgp_orr_igp_metric_register(orr_group->tertiary,
+							    afi, safi, true);
 				orr_group->active = orr_group->tertiary;
 				continue;
 			}
 		} else if (is_orr_secondary_root(orr_group, peer->host)) {
 			/* If tertiary is reachable, update it as Active */
 			if (is_orr_tertiary_reachable(orr_group)) {
+				bgp_orr_igp_metric_register(orr_group->active,
+							    afi, safi, false);
+				bgp_orr_igp_metric_register(orr_group->tertiary,
+							    afi, safi, true);
 				orr_group->active = orr_group->tertiary;
 				continue;
 			}
 		}
 		/* Assign Active as null */
+		bgp_orr_igp_metric_register(orr_group->active, afi, safi,
+					    false);
 		orr_group->active = NULL;
 		if (BGP_DEBUG(optimal_route_reflection, ORR))
 			zlog_debug(
@@ -758,20 +820,77 @@ void bgp_orr_update_active_root(struct peer *peer)
 	}
 }
 
-/* REVISIT : BGP ORR message processing */
-static void bgg_orr_message_receive(bgp_orr_message_t *msg)
+static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 {
-	assert(msg && msg->type > BGP_ORR_MSG_INVALID
-	       && msg->type < BGP_ORR_MSG_MAX);
-	switch (msg->type) {
+	struct bgp *bgp = NULL;
+	bgp = bgp_get_default();
+	assert(bgp && table);
+
+	return 0;
+}
+
+void bgp_orr_igp_metric_register(struct peer *active_root, afi_t afi,
+				 safi_t safi, bool reg)
+{
+	struct orr_igp_metric_reg msg;
+	struct prefix p;
+
+	if (!active_root)
+		return;
+
+	memset(&msg, 0, sizeof(msg));
+	if (str2prefix(active_root->host, &p) == 0) {
+		if (BGP_DEBUG(optimal_route_reflection, ORR))
+			zlog_debug("[BGP_ORR] %s: Malformed prefix for %s",
+				   __func__, active_root->host);
+		return;
+	}
+
+	prefix_copy(&msg.prefix, &p);
+	msg.safi = safi;
+	msg.prefix.family = afi;
+
+	if (BGP_DEBUG(optimal_route_reflection, ORR))
+		zlog_debug(
+			"[BGP_ORR] %s: %s with IGP Protocol for Metric Calculation from loacation %s",
+			__func__, reg ? "Register" : "Unregister",
+			active_root->host);
+
+	if (reg)
+		zclient_send_opaque(zclient, ORR_IGP_METRIC_REGISTER,
+				    (uint8_t *)&msg, sizeof(msg));
+	else
+		zclient_send_opaque(zclient, ORR_IGP_METRIC_UNREGISTER,
+				    (uint8_t *)&msg, sizeof(msg));
+}
+
+/* BGP ORR message processing */
+int bgg_orr_message_process(bgp_orr_msg_type_t msg_type, void *msg)
+{
+	int ret = 0;
+	assert(msg && msg_type > BGP_ORR_MSG_INVALID
+	       && msg_type < BGP_ORR_MSG_MAX);
+	switch (msg_type) {
 	case BGP_ORR_MSG_GROUP_CREATE:
+		break;
 	case BGP_ORR_MSG_GROUP_DELETE:
+		break;
 	case BGP_ORR_MSG_GROUP_UPDATE:
+		break;
 	case BGP_ORR_MSG_SET_ORR_ON_PEER:
+		break;
 	case BGP_ORR_MSG_UNSET_ORR_ON_PEER:
+		break;
+	case BGP_ORR_MSG_IGP_METRIC_UPDATE:
+		ret = bgp_orr_igp_metric_update(
+			(struct orr_igp_metric_info *)msg);
+		break;
 	case BGP_ORR_MSG_SHOW_ORR:
+		/* bgp_show_orr */
+		break;
 	case BGP_ORR_MSG_SHOW_ORR_GROUP:
-	case BGP_ORR_MSG_MAX:
+		/* bgp_show_orr_group */
+		break;
 	default:
 		break;
 	}
