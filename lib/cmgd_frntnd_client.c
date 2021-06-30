@@ -92,7 +92,7 @@ static cmgd_frntnd_client_session_t *cmgd_frntnd_find_session_by_client_id(
 	FOREACH_SESSN_IN_LIST(clnt_ctxt, sessn) {
 		if (sessn->client_id == client_id) {
 			CMGD_FRNTND_CLNT_DBG(
-				"Found session %p for client-id %llu.", 
+				"Found session %p for client-id %lu.", 
 				sessn, client_id);
 			return sessn;
 		}
@@ -109,7 +109,7 @@ static cmgd_frntnd_client_session_t *cmgd_frntnd_find_session_by_sessn_id(
 	FOREACH_SESSN_IN_LIST(clnt_ctxt, sessn) {
 		if (sessn->session_id == sessn_id) {
 			CMGD_FRNTND_CLNT_DBG(
-				"Found session %p for session-id %llu.", 
+				"Found session %p for session-id %lu.", 
 				sessn, sessn_id);
 			return sessn;
 		}

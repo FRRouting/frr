@@ -59,6 +59,7 @@ cmgd_libcmgd_a_SOURCES = \
 	cmgd/cmgd_frntnd_server.c \
 	cmgd/cmgd_frntnd_adapter.c \
 	cmgd/cmgd_trxn.c \
+	cmgd/cmgd_db.c \
 	# end
 
 noinst_HEADERS += \
