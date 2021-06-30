@@ -31,6 +31,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
 #include "lib/routing_nb.h"
+#include "lib/northbound_cli.h"
 #include "bgpd/bgp_nb.h"
 
 #ifdef ENABLE_BGP_VNC
