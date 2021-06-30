@@ -150,7 +150,8 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
  */
 int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			    afi_t afi, safi_t safi, struct bgp_path_info *pi,
-			    struct peer *peer, int connected)
+			    struct peer *peer, int connected,
+			    const struct prefix *orig_prefix)
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc;
@@ -181,6 +182,16 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * addr */
 		if (make_prefix(afi, pi, &p) < 0)
 			return 1;
+
+		if (!is_bgp_static_route && orig_prefix
+		    && prefix_same(&p, orig_prefix)) {
+			if (BGP_DEBUG(nht, NHT)) {
+				zlog_debug(
+					"%s(%pFX): prefix loops through itself",
+					__func__, &p);
+			}
+			return 0;
+		}
 
 		srte_color = pi->attr->srte_color;
 	} else if (peer) {
