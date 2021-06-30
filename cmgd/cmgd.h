@@ -41,6 +41,7 @@
 #include "vxlan.h"
 #include "cmgd/cmgd_defines.h"
 #include "cmgd/cmgd_trxn.h"
+#include "cmgd/cmgd_db.h"
 
 // #define CMGD_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 
@@ -92,6 +93,11 @@ struct cmgd_master {
 
 	/* The single instance of config transaction allowed at any time */
 	cmgd_trxn_ctxt_t *cfg_trxn;
+
+	/* Databases */
+	cmgd_db_hndl_t running_db;
+	cmgd_db_hndl_t cnadidate_db;
+	cmgd_db_hndl_t oper_db;
 
 	bool terminating;	/* global flag that sigint terminate seen */
 	// QOBJ_FIELDS
