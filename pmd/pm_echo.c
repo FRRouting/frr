@@ -264,7 +264,7 @@ int pm_echo_receive(struct thread *thread)
 				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
 					  buf, sizeof(buf));
 				inet_ntop(AF_INET, &daddr, buf2, sizeof(buf2));
-				zlog_err("PMD: ICMP from %s to %s ECHO REPLY expected (type %u)",
+				zlog_err("PMD: ICMP from %s to %s ECHO REPLY expected (got type %u)",
 					 buf, buf2, icmp->type);
 			}
 			return 0;
@@ -331,7 +331,7 @@ int pm_echo_receive(struct thread *thread)
 			if (pm_debug_echo) {
 				inet_ntop(AF_INET6, &pme->peer.sin6.sin6_addr,
 					  buf, sizeof(buf));
-				zlog_err("PMD: ICMP from %s ECHO REPLY expected (type %u)",
+				zlog_err("PMD: ICMP from %s ECHO REPLY expected (got type %u)",
 					 buf, icmp->type);
 			}
 			return 0;
