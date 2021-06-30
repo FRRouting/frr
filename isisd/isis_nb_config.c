@@ -1930,6 +1930,57 @@ int isis_instance_mpls_te_router_address_destroy(
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/mpls-te/router-address-v6
+ */
+int isis_instance_mpls_te_router_address_ipv6_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct in6_addr value;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	yang_dnode_get_ipv6(&value, args->dnode, NULL);
+	/* Update Area IPv6 Router ID if different */
+	if (!IPV6_ADDR_SAME(&area->mta->router_id_ipv6, &value)) {
+		IPV6_ADDR_COPY(&area->mta->router_id_ipv6, &value);
+
+		/* And re-schedule LSP update */
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_mpls_te_router_address_ipv6_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	/* Reset Area Router ID */
+	IPV6_ADDR_COPY(&area->mta->router_id_ipv6, &in6addr_any);
+
+	/* And re-schedule LSP update */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/segment-routing/enabled
  */
 int isis_instance_segment_routing_enabled_modify(

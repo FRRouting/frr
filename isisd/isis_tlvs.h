@@ -324,9 +324,11 @@ struct isis_tlvs {
 	struct isis_item_list oldstyle_ip_reach_ext;
 	struct isis_item_list ipv4_address;
 	struct isis_item_list ipv6_address;
+	struct isis_item_list global_ipv6_address;
 	struct isis_item_list mt_router_info;
 	bool mt_router_info_empty;
 	struct in_addr *te_router_id;
+	struct in6_addr *te_router_id_ipv6;
 	struct isis_item_list extended_ip_reach;
 	struct isis_mt_item_list mt_ip_reach;
 	char *hostname;
@@ -372,10 +374,12 @@ enum isis_tlv_type {
 	ISIS_TLV_TE_ROUTER_ID = 134,
 	ISIS_TLV_EXTENDED_IP_REACH = 135,
 	ISIS_TLV_DYNAMIC_HOSTNAME = 137,
+	ISIS_TLV_TE_ROUTER_ID_IPV6 = 140,
 	ISIS_TLV_SPINE_LEAF_EXT = 150,
 	ISIS_TLV_MT_REACH = 222,
 	ISIS_TLV_MT_ROUTER_INFO = 229,
 	ISIS_TLV_IPV6_ADDRESS = 232,
+	ISIS_TLV_GLOBAL_IPV6_ADDRESS = 233,
 	ISIS_TLV_MT_IP_REACH = 235,
 	ISIS_TLV_IPV6_REACH = 236,
 	ISIS_TLV_MT_IPV6_REACH = 237,
@@ -575,6 +579,8 @@ void isis_tlvs_add_ipv4_addresses(struct isis_tlvs *tlvs,
 				  struct list *addresses);
 void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
 				  struct list *addresses);
+void isis_tlvs_add_global_ipv6_addresses(struct isis_tlvs *tlvs,
+					 struct list *addresses);
 int isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
 			    struct stream *stream, bool is_lsp);
 bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs,
@@ -594,6 +600,8 @@ void isis_tlvs_set_router_capability(struct isis_tlvs *tlvs,
                      const struct isis_router_cap *cap);
 void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
 				const struct in_addr *id);
+void isis_tlvs_set_te_router_id_ipv6(struct isis_tlvs *tlvs,
+				     const struct in6_addr *id);
 void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint8_t metric);
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,

@@ -101,8 +101,9 @@ struct mpls_te_area {
 	interas_mode_t inter_as;
 	struct in_addr interas_areaid;
 
-	/* MPLS_TE router ID */
+	/* MPLS_TE IPv4 & IPv6 Router IDs */
 	struct in_addr router_id;
+	struct in6_addr router_id_ipv6;
 };
 
 /* Prototypes. */
