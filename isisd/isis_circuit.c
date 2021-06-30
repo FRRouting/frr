@@ -347,8 +347,16 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 		if (IN6_IS_ADDR_LINKLOCAL(&ipv6->prefix))
 			listnode_add(circuit->ipv6_link, ipv6);
-		else
+		else {
 			listnode_add(circuit->ipv6_non_link, ipv6);
+			/* Update Local IPv6 address param. if MPLS TE is on */
+			if (circuit->ext && circuit->area
+			    && IS_MPLS_TE(circuit->area->mta)) {
+				IPV6_ADDR_COPY(&circuit->ext->local_addr6,
+					       &ipv6->prefix);
+				SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR6);
+			}
+		}
 		if (circuit->area)
 			lsp_regenerate_schedule(circuit->area, circuit->is_type,
 						0);

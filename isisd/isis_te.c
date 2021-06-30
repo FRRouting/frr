@@ -248,28 +248,98 @@ void isis_link_params_update(struct isis_circuit *circuit,
 	return;
 }
 
-static int isis_link_update_adj_hook(struct isis_adjacency *adj)
+static int isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family,
+				       bool global)
 {
+	struct isis_circuit *circuit;
+	struct isis_ext_subtlvs *ext;
 
-	struct isis_circuit *circuit = adj->circuit;
-
-	/* Update MPLS TE Remote IP address parameter if possible */
-	if (!IS_MPLS_TE(circuit->area->mta) || !IS_EXT_TE(circuit->ext))
+	/* Sanity Check */
+	if (!adj || !adj->circuit)
 		return 0;
 
-	/* IPv4 first */
-	if (adj->ipv4_address_count > 0) {
-		IPV4_ADDR_COPY(&circuit->ext->neigh_addr,
-			       &adj->ipv4_addresses[0]);
-		SET_SUBTLV(circuit->ext, EXT_NEIGH_ADDR);
+	circuit = adj->circuit;
+
+	/* Check that MPLS TE is enabled */
+	if (!IS_MPLS_TE(circuit->area->mta) || !circuit->ext)
+		return 0;
+
+	ext = circuit->ext;
+
+	/* Update MPLS TE IP address parameters if possible */
+	if (!IS_MPLS_TE(circuit->area->mta) || !IS_EXT_TE(ext))
+		return 0;
+
+	/* Determine nexthop IP address */
+	switch (family) {
+	case AF_INET:
+		if (!circuit->ip_router || !adj->ipv4_address_count)
+			UNSET_SUBTLV(ext, EXT_NEIGH_ADDR);
+		else {
+			IPV4_ADDR_COPY(&ext->neigh_addr,
+				       &adj->ipv4_addresses[0]);
+			SET_SUBTLV(ext, EXT_NEIGH_ADDR);
+		}
+		break;
+	case AF_INET6:
+		if (!global)
+			return 0;
+
+		if (!circuit->ipv6_router || !adj->global_ipv6_count)
+			UNSET_SUBTLV(ext, EXT_NEIGH_ADDR6);
+		else {
+			IPV6_ADDR_COPY(&ext->neigh_addr6,
+				       &adj->global_ipv6_addrs[0]);
+			SET_SUBTLV(ext, EXT_NEIGH_ADDR6);
+		}
+		break;
+	default:
+		return 0;
 	}
 
-	/* and IPv6 */
-	if (adj->ipv6_address_count > 0) {
-		IPV6_ADDR_COPY(&circuit->ext->neigh_addr6,
-			       &adj->ipv6_addresses[0]);
-		SET_SUBTLV(circuit->ext, EXT_NEIGH_ADDR6);
+	/* Update LSP */
+	lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
+
+	return 0;
+}
+
+static int isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family,
+					bool global)
+{
+	struct isis_circuit *circuit;
+	struct isis_ext_subtlvs *ext;
+
+	/* Sanity Check */
+	if (!adj || !adj->circuit || !adj->circuit->ext)
+		return 0;
+
+	circuit = adj->circuit;
+
+	/* Check that MPLS TE is enabled */
+	if (!IS_MPLS_TE(circuit->area->mta) || !circuit->ext)
+		return 0;
+
+	ext = circuit->ext;
+
+	/* Update MPLS TE IP address parameters if possible */
+	if (!IS_MPLS_TE(circuit->area->mta) || !IS_EXT_TE(ext))
+		return 0;
+
+	/* Determine nexthop IP address */
+	switch (family) {
+	case AF_INET:
+		UNSET_SUBTLV(ext, EXT_NEIGH_ADDR);
+		break;
+	case AF_INET6:
+		if (global)
+			UNSET_SUBTLV(ext, EXT_NEIGH_ADDR6);
+		break;
+	default:
+		return 0;
 	}
+
+	/* Update LSP */
+	lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
 
 	return 0;
 }
@@ -302,6 +372,25 @@ int isis_mpls_te_update(struct interface *ifp)
 /* Followings are vty command functions */
 #ifndef FABRICD
 
+static void show_router_id(struct vty *vty, struct isis_area *area)
+{
+	bool no_match = true;
+
+	vty_out(vty, "Area %s:\n", area->area_tag);
+	if (area->mta->router_id.s_addr != 0) {
+		vty_out(vty, "  MPLS-TE IPv4 Router-Address: %pI4\n",
+			&area->mta->router_id);
+		no_match = false;
+	}
+	if (!IN6_IS_ADDR_UNSPECIFIED(&area->mta->router_id_ipv6)) {
+		vty_out(vty, "  MPLS-TE IPv6 Router-Address: %pI6\n",
+			&area->mta->router_id_ipv6);
+		no_match = false;
+	}
+	if (no_match)
+		vty_out(vty, "  N/A\n");
+}
+
 DEFUN(show_isis_mpls_te_router,
       show_isis_mpls_te_router_cmd,
       "show " PROTO_NAME " [vrf <NAME|all>] mpls-te router",
@@ -331,15 +420,7 @@ DEFUN(show_isis_mpls_te_router,
 					if (!IS_MPLS_TE(area->mta))
 						continue;
 
-					vty_out(vty, "Area %s:\n",
-						area->area_tag);
-					if (ntohs(area->mta->router_id.s_addr)
-					    != 0)
-						vty_out(vty,
-							"  MPLS-TE Router-Address: %pI4\n",
-							&area->mta->router_id);
-					else
-						vty_out(vty, "  N/A\n");
+					show_router_id(vty, area);
 				}
 			}
 			return 0;
@@ -352,13 +433,7 @@ DEFUN(show_isis_mpls_te_router,
 				if (!IS_MPLS_TE(area->mta))
 					continue;
 
-				vty_out(vty, "Area %s:\n", area->area_tag);
-				if (ntohs(area->mta->router_id.s_addr) != 0)
-					vty_out(vty,
-						"  MPLS-TE Router-Address: %pI4\n",
-						&area->mta->router_id);
-				else
-					vty_out(vty, "  N/A\n");
+				show_router_id(vty, area);
 			}
 		}
 	}
@@ -536,8 +611,8 @@ void isis_mpls_te_init(void)
 
 	/* Register Circuit and Adjacency hook */
 	hook_register(isis_if_new_hook, isis_mpls_te_update);
-	hook_register(isis_adj_state_change_hook, isis_link_update_adj_hook);
-
+	hook_register(isis_adj_ip_enabled_hook, isis_mpls_te_adj_ip_enabled);
+	hook_register(isis_adj_ip_disabled_hook, isis_mpls_te_adj_ip_disabled);
 
 #ifndef FABRICD
 	/* Register new VTY commands */
