@@ -259,8 +259,8 @@ void pm_echo_receive(struct event *event)
 		}
 		if (icmp->type != ICMP_ECHOREPLY) {
 			if (pm_debug_echo)
-				zlog_err("PMD: ICMP from %pI4 to %pI4 ECHO REPLY expected (type %u)",
-					 &pme->peer.sin.sin_addr, &ip->daddr, icmp->type);
+				zlog_err("PMD: ICMP from %pI4 to %pI4 ECHO REPLY expected (got type %u)",
+						&pme->peer.sin.sin_addr, &ip->daddr, icmp->type);
 			return;
 		}
 		/* check that destination address matches
@@ -299,8 +299,8 @@ void pm_echo_receive(struct event *event)
 		icmp6 = (struct icmp6_hdr *)(pme->rx_buf);
 		if (icmp6->icmp6_type != ICMP6_ECHO_REPLY) {
 			if (pm_debug_echo)
-				zlog_err("PMD: ICMP from %pI6 ECHO REPLY expected (type %u)",
-						&pme->peer.sin6.sin6_addr, icmp->type);
+				zlog_err("PMD: ICMP from %pI6 ECHO REPLY expected (got type %u)",
+					&pme->peer.sin6.sin6_addr, icmp->type);
 			return;
 		}
 		if (ntohs(icmp6->icmp6_id) != (pme->discriminator_id & 0xffff)) {
