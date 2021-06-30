@@ -37,9 +37,12 @@ enum {
 	OSPF6_LOG_ADJACENCY_DETAIL =	(1 << 1),
 };
 
+/* For processing route-map change update in the callback */
+#define OSPF6_IS_RMAP_CHANGED 0x01
 struct ospf6_redist {
 	uint8_t instance;
 
+	uint8_t flag;
 	/* Redistribute metric info. */
 	struct {
 		int type;  /* External metric type (E1 or E2).  */
