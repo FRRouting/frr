@@ -526,9 +526,14 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
         {"dut": "r2", "src_address": source, "iif": "r2-f1-eth0", "oil": "r2-l1-eth2"},
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "f1-r2-eth3"},
     ]
+    # On timeout change from default of 80 to 120: failures logs indicate times 90+
+    # seconds for success on the 2nd entry in the above table. Using 100s here restores
+    # previous 80 retries with 2s wait if we assume .5s per vtysh/show ip mroute runtime
+    # (41 * (2 + .5)) == 102.
     for data in input_dict:
         result = verify_ip_mroutes(
-            tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
+            tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"],
+            retry_timeout=102
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
