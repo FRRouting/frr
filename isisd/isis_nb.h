@@ -211,6 +211,10 @@ int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_te_router_address_modify(struct nb_cb_modify_args *args);
 int isis_instance_mpls_te_router_address_destroy(
 	struct nb_cb_destroy_args *args);
+int isis_instance_mpls_te_router_address_ipv6_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_mpls_te_router_address_ipv6_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_interface_isis_create(struct nb_cb_create_args *args);
 int lib_interface_isis_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args);
@@ -455,6 +459,9 @@ void cli_show_isis_mpls_te(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults);
 void cli_show_isis_mpls_te_router_addr(struct vty *vty, struct lyd_node *dnode,
 				       bool show_defaults);
+void cli_show_isis_mpls_te_router_addr_ipv6(struct vty *vty,
+					    struct lyd_node *dnode,
+					    bool show_defaults);
 void cli_show_isis_def_origin_ipv4(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
 void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,

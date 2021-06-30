@@ -330,6 +330,10 @@ Traffic Engineering
 
    Configure stable IP address for MPLS-TE.
 
+.. clicmd:: mpls-te router-address ipv6 <X:X::X:X>
+
+   Configure stable IPv6 address for MPLS-TE.
+
 .. clicmd:: show isis mpls-te interface
 
 .. clicmd:: show isis mpls-te interface INTERFACE
