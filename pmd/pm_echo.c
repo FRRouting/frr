@@ -281,7 +281,7 @@ void pm_echo_receive(struct event *event)
 		}
 		if (ntohs(icmp->un.echo.id) != (pme->discriminator_id & 0xffff)) {
 			if (pm_debug_echo) {
-				zlog_err("PMD: received ID %u whereas local ID is %u, discard",
+				zlog_err("PMD: received ID 0x%x whereas local ID is 0x%x, discard",
 					 ntohs(icmp->un.echo.id),
 					 pme->discriminator_id & 0xffff);
 			}
@@ -305,7 +305,7 @@ void pm_echo_receive(struct event *event)
 		}
 		if (ntohs(icmp6->icmp6_id) != (pme->discriminator_id & 0xffff)) {
 			if (pm_debug_echo) {
-				zlog_err("PMD: received ID %u whereas local ID is %u, discard",
+				zlog_err("PMD: received ID 0x%x whereas local ID is 0x%x, discard",
 					 ntohs(icmp6->icmp6_id),
 					 pme->discriminator_id & 0xffff);
 			}
