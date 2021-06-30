@@ -27,6 +27,7 @@ from re import search as re_search
 from tempfile import mkdtemp
 
 import json
+import logging
 import os
 import sys
 import traceback
@@ -275,7 +276,8 @@ def apply_raw_config(tgen, input_dict):
     True or errormsg
     """
 
-    result = True
+    rlist = []
+
     for router_name in input_dict.keys():
         config_cmd = input_dict[router_name]["raw_config"]
 
@@ -287,13 +289,14 @@ def apply_raw_config(tgen, input_dict):
             for cmd in config_cmd:
                 cfg.write("{}\n".format(cmd))
 
-        result = load_config_to_router(tgen, router_name)
+        rlist.append(router_name)
 
-    return result
+    # Load config on all routers
+    return load_config_to_routers(tgen, rlist)
 
 
-def create_common_configuration(
-    tgen, router, data, config_type=None, build=False, load_config=True
+def create_common_configurations(
+    tgen, config_dict, config_type=None, build=False, load_config=True
 ):
     """
     API to create object of class FRRConfig and also create frr_json.conf
@@ -302,8 +305,8 @@ def create_common_configuration(
     Parameters
     ----------
     * `tgen`: tgen object
-    * `data`: Configuration data saved in a list.
-    * `router` : router id to be configured.
+    * `config_dict`: Configuration data saved in a dict of { router: config-list }
+    * `routers` : list of router id to be configured.
     * `config_type` : Syntactic information while writing configuration. Should
                       be one of the value as mentioned in the config_map below.
     * `build` : Only for initial setup phase this is set as True
@@ -312,8 +315,6 @@ def create_common_configuration(
     True or False
     """
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
-
-    fname = "{}/{}/{}".format(TMPDIR, router, FRRCFG_FILE)
 
     config_map = OrderedDict(
         {
@@ -339,27 +340,55 @@ def create_common_configuration(
     else:
         mode = "w"
 
-    try:
-        frr_cfg_fd = open(fname, mode)
-        if config_type:
-            frr_cfg_fd.write(config_map[config_type])
-        for line in data:
-            frr_cfg_fd.write("{} \n".format(str(line)))
-        frr_cfg_fd.write("\n")
+    routers = config_dict.keys()
+    for router in routers:
+        fname = "{}/{}/{}".format(TMPDIR, router, FRRCFG_FILE)
+        try:
+            frr_cfg_fd = open(fname, mode)
+            if config_type:
+                frr_cfg_fd.write(config_map[config_type])
+            for line in config_dict[router]:
+                frr_cfg_fd.write("{} \n".format(str(line)))
+            frr_cfg_fd.write("\n")
 
-    except IOError as err:
-        logger.error(
-            "Unable to open FRR Config File. error(%s): %s" % (err.errno, err.strerror)
-        )
-        return False
-    finally:
-        frr_cfg_fd.close()
+        except IOError as err:
+            logger.error(
+                "Unable to open FRR Config '%s': %s" % (fname, str(err))
+            )
+            return False
+        finally:
+            frr_cfg_fd.close()
 
     # If configuration applied from build, it will done at last
+    result = True
     if not build and load_config:
-        load_config_to_router(tgen, router)
+        result = load_config_to_routers(tgen, routers)
 
-    return True
+    return result
+
+
+def create_common_configuration(
+    tgen, router, data, config_type=None, build=False, load_config=True
+):
+    """
+    API to create object of class FRRConfig and also create frr_json.conf
+    file. It will create interface and common configurations and save it to
+    frr_json.conf and load to router
+    Parameters
+    ----------
+    * `tgen`: tgen object
+    * `data`: Configuration data saved in a list.
+    * `router` : router id to be configured.
+    * `config_type` : Syntactic information while writing configuration. Should
+                      be one of the value as mentioned in the config_map below.
+    * `build` : Only for initial setup phase this is set as True
+    Returns
+    -------
+    True or False
+    """
+    return create_common_configurations(
+        tgen, {router: data}, config_type, build, load_config
+    )
 
 
 def kill_router_daemons(tgen, router, daemons, save_config=True):
@@ -541,8 +570,8 @@ def reset_config_on_routers(tgen, routerName=None):
                 '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
             )
         else:
-            router_list[rname].logger.error(
-                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+            router_list[rname].logger.warning(
+                '\nvtysh config apply failed => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
             )
             logger.error("Delta file apply for %s failed %d: %s", rname, p.returncode, output)
 
@@ -570,14 +599,112 @@ def reset_config_on_routers(tgen, routerName=None):
         for rname, p in procs.items():
             output, _ = p.communicate()
             if p.returncode:
-                logger.warning(
-                    "Get running config for %s failed %d: %s", rname, p.returncode, output
-                )
+                logger.warning("Get running config for %s failed %d: %s", rname, p.returncode, output)
             else:
-                logger.info("Configuration on router {} after reset:\n{}".format(rname, output))
+                logger.info("Configuration on router %s after reset:\n%s", rname, output)
 
     logger.debug("Exiting API: reset_config_on_routers")
     return True
+
+
+def load_config_to_routers(tgen, routers, save_bkup=False):
+    """
+    Loads configuration on routers from the file FRRCFG_FILE.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `routers` : routers for which configuration is to be loaded
+    * `save_bkup` : If True, Saves snapshot of FRRCFG_FILE to FRRCFG_BKUP_FILE
+    Returns
+    -------
+    True or False
+    """
+
+    logger.debug("Entering API: load_config_to_routers")
+
+    base_router_list = tgen.routers()
+    router_list = {}
+    for router in routers:
+        if (router not in ROUTER_LIST) or (router not in base_router_list):
+            continue
+        router_list[router] = base_router_list[router]
+
+    frr_cfg_file_fmt = TMPDIR + "/{}/" + FRRCFG_FILE
+    frr_cfg_bkup_fmt = TMPDIR + "/{}/" + FRRCFG_BKUP_FILE
+
+    procs = {}
+    for rname in router_list:
+        router = router_list[rname]
+        try:
+            frr_cfg_file = frr_cfg_file_fmt.format(rname)
+            frr_cfg_bkup =  frr_cfg_bkup_fmt.format(rname)
+            with open(frr_cfg_file, "r+") as cfg:
+                data = cfg.read()
+                logger.info(
+                    "Applying following configuration on router"
+                    " {}:\n{}".format(rname, data)
+                )
+                if save_bkup:
+                    with open(frr_cfg_bkup, "w") as bkup:
+                        bkup.write(data)
+            procs[rname] = router_list[rname].popen(
+                ["/usr/bin/env", "vtysh", "-f", frr_cfg_file],
+                stdin=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        except IOError as err:
+            logging.error(
+                "Unable to open config File. error(%s): %s",
+                err.errno, err.strerror
+            )
+            return False
+        except Exception as error:
+            logging.error("Unable to apply config on %s: %s", rname, str(error))
+            return False
+
+    errors = []
+    for rname, p in procs.items():
+        output, _ = p.communicate()
+        frr_cfg_file = frr_cfg_file_fmt.format(rname)
+        vtysh_command = "vtysh -f " + frr_cfg_file
+        if not p.returncode:
+            router_list[rname].logger.info(
+                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+            )
+        else:
+            router_list[rname].logger.error(
+                '\nvtysh config apply failed => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+            )
+            logger.error("Config apply for %s failed %d: %s", rname, p.returncode, output)
+            # We can't thorw an exception here as we won't clear the config file.
+            errors.append(InvalidCLIError("load_config_to_routers error for {}: {}".format(rname, output)))
+
+        # Empty the config file or we append to it next time through.
+        with open(frr_cfg_file, "r+") as cfg:
+            cfg.truncate(0)
+
+    # Router current configuration to log file or console if
+    # "show_router_config" is defined in "pytest.ini"
+    if show_router_config:
+        procs = {}
+        for rname in router_list:
+            procs[rname] = router_list[rname].popen(
+                ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+                stdin=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        for rname, p in procs.items():
+            output, _ = p.communicate()
+            if p.returncode:
+                logger.warning("Get running config for %s failed %d: %s", rname, p.returncode, output)
+            else:
+                logger.info("New configuration for router %s:\n%s", rname,output)
+
+    logger.debug("Exiting API: load_config_to_routers")
+    return not errors
 
 
 def load_config_to_router(tgen, routerName, save_bkup=False):
@@ -590,52 +717,7 @@ def load_config_to_router(tgen, routerName, save_bkup=False):
     * `routerName` : router for which configuration to be loaded
     * `save_bkup` : If True, Saves snapshot of FRRCFG_FILE to FRRCFG_BKUP_FILE
     """
-
-    logger.debug("Entering API: load_config_to_router")
-
-    router_list = tgen.routers()
-    for rname in ROUTER_LIST:
-        if routerName and rname != routerName:
-            continue
-
-        router = router_list[rname]
-        try:
-            frr_cfg_file = "{}/{}/{}".format(TMPDIR, rname, FRRCFG_FILE)
-            frr_cfg_bkup = "{}/{}/{}".format(TMPDIR, rname, FRRCFG_BKUP_FILE)
-            with open(frr_cfg_file, "r+") as cfg:
-                data = cfg.read()
-                logger.info(
-                    "Applying following configuration on router"
-                    " {}:\n{}".format(rname, data)
-                )
-                if save_bkup:
-                    with open(frr_cfg_bkup, "w") as bkup:
-                        bkup.write(data)
-
-                output = router.vtysh_multicmd(data, pretty_output=False)
-                for out_err in ERROR_LIST:
-                    if out_err.lower() in output.lower():
-                        raise InvalidCLIError("%s" % output)
-
-                cfg.truncate(0)
-
-        except IOError as err:
-            errormsg = (
-                "Unable to open config File. error(%s):" "  %s",
-                (err.errno, err.strerror),
-            )
-            return errormsg
-
-        # Router current configuration to log file or console if
-        # "show_router_config" is defined in "pytest.ini"
-        if show_router_config:
-            logger.info("New configuration for router {}:".format(rname))
-            new_config = router.run("vtysh -c 'show running'")
-            logger.info(new_config)
-
-    logger.debug("Exiting API: load_config_to_router")
-    return True
-
+    return load_config_to_routers(tgen, [routerName], save_bkup)
 
 
 def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
@@ -1174,6 +1256,8 @@ def create_debug_log_config(tgen, input_dict, build=False):
 
     result = False
     try:
+        debug_config_dict = {}
+
         for router in input_dict.keys():
             debug_config = []
             if "debug" in input_dict[router]:
@@ -1204,10 +1288,12 @@ def create_debug_log_config(tgen, input_dict, build=False):
                     for daemon, debug_logs in disable_logs.items():
                         for debug_log in debug_logs:
                             debug_config.append("no {}".format(debug_log))
+            if debug_config:
+                debug_config_dict[router] = debug_config
 
-                result = create_common_configuration(
-                    tgen, router, debug_config, "debug_log_config", build=build
-                )
+        result = create_common_configurations(
+            tgen, debug_config_dict, "debug_log_config", build=build
+        )
     except InvalidCLIError:
         # Traceback
         errormsg = traceback.format_exc()
@@ -1285,11 +1371,14 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
         input_dict = deepcopy(input_dict)
 
     try:
+        config_data_dict = {}
+
         for c_router, c_data in input_dict.items():
             rnode = tgen.routers()[c_router]
+            config_data = []
+
             if "vrfs" in c_data:
                 for vrf in c_data["vrfs"]:
-                    config_data = []
                     del_action = vrf.setdefault("delete", False)
                     name = vrf.setdefault("name", None)
                     table_id = vrf.setdefault("id", None)
@@ -1366,9 +1455,12 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                             cmd = "no vni {}".format(del_vni)
                             config_data.append(cmd)
 
-                        result = create_common_configuration(
-                            tgen, c_router, config_data, "vrf", build=build
-                        )
+            if config_data:
+                config_data_dict[c_router] = config_data
+
+        result = create_common_configurations(
+            tgen, config_data_dict, "vrf", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -1638,7 +1730,8 @@ def interface_status(tgen, topo, input_dict):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     try:
-        global frr_cfg
+        rlist = []
+
         for router in input_dict.keys():
 
             interface_list = input_dict[router]["interface_list"]
@@ -1647,8 +1740,10 @@ def interface_status(tgen, topo, input_dict):
                 rnode = tgen.routers()[router]
                 interface_set_status(rnode, intf, status)
 
-            # Load config to router
-            load_config_to_router(tgen, router)
+            rlist.append(router)
+
+        # Load config to routers
+        load_config_to_routers(tgen, rlist)
 
     except Exception as e:
         errormsg = traceback.format_exc()
@@ -1837,6 +1932,8 @@ def create_interfaces_cfg(tgen, topo, build=False):
     topo = deepcopy(topo)
 
     try:
+        interface_data_dict = {}
+
         for c_router, c_data in topo.items():
             interface_data = []
             for destRouterLink, data in sorted(c_data["links"].items()):
@@ -1903,10 +2000,12 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     interface_data += _create_interfaces_ospf_cfg(
                         "ospf6", c_data, data, ospf_keywords + ["area"]
                     )
+            if interface_data:
+                interface_data_dict[c_router] = interface_data
 
-            result = create_common_configuration(
-                tgen, c_router, interface_data, "interface_config", build=build
-            )
+        result = create_common_configurations(
+            tgen, interface_data_dict, "interface_config", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -1965,6 +2064,8 @@ def create_static_routes(tgen, input_dict, build=False):
     input_dict = deepcopy(input_dict)
 
     try:
+        static_routes_list_dict = {}
+
         for router in input_dict.keys():
             if "static_routes" not in input_dict[router]:
                 errormsg = "static_routes not present in input_dict"
@@ -2020,9 +2121,12 @@ def create_static_routes(tgen, input_dict, build=False):
 
                     static_routes_list.append(cmd)
 
-            result = create_common_configuration(
-                tgen, router, static_routes_list, "static_route", build=build
-            )
+            if static_routes_list:
+                static_routes_list_dict[router] = static_routes_list
+
+        result = create_common_configurations(
+            tgen, static_routes_list_dict, "static_route", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -2079,6 +2183,8 @@ def create_prefix_lists(tgen, input_dict, build=False):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
     try:
+        config_data_dict = {}
+
         for router in input_dict.keys():
             if "prefix_lists" not in input_dict[router]:
                 errormsg = "prefix_lists not present in input_dict"
@@ -2125,9 +2231,12 @@ def create_prefix_lists(tgen, input_dict, build=False):
                             cmd = "no {}".format(cmd)
 
                         config_data.append(cmd)
-            result = create_common_configuration(
-                tgen, router, config_data, "prefix_list", build=build
-            )
+            if config_data:
+                config_data_dict[router] = config_data
+
+        result = create_common_configurations(
+            tgen, config_data_dict, "prefix_list", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -2223,6 +2332,8 @@ def create_route_maps(tgen, input_dict, build=False):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     input_dict = deepcopy(input_dict)
     try:
+        rmap_data_dict = {}
+
         for router in input_dict.keys():
             if "route_maps" not in input_dict[router]:
                 logger.debug("route_maps not present in input_dict")
@@ -2500,9 +2611,12 @@ def create_route_maps(tgen, input_dict, build=False):
                             cmd = "match metric {}".format(metric)
                             rmap_data.append(cmd)
 
-            result = create_common_configuration(
-                tgen, router, rmap_data, "route_maps", build=build
-            )
+            if rmap_data:
+                rmap_data_dict[router] = rmap_data
+
+        result = create_common_configurations(
+            tgen, rmap_data_dict, "route_maps", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -2577,6 +2691,8 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     input_dict = deepcopy(input_dict)
     try:
+        config_data_dict = {}
+
         for router in input_dict.keys():
             if "bgp_community_lists" not in input_dict[router]:
                 errormsg = "bgp_community_lists not present in input_dict"
@@ -2613,9 +2729,12 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
 
                 config_data.append(cmd)
 
-            result = create_common_configuration(
-                tgen, router, config_data, "bgp_community_list", build=build
-            )
+            if config_data:
+                config_data_dict[router] = config_data
+
+        result = create_common_configurations(
+            tgen, config_data_dict, "bgp_community_list", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
