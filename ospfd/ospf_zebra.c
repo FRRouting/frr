@@ -66,8 +66,6 @@ static struct zclient *zclient_sync;
 /* For registering threads. */
 extern struct thread_master *master;
 
-static int ospf_orr_msg_handler(ZAPI_CALLBACK_ARGS);
-
 /* Router-id update message from zebra. */
 static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
@@ -2004,6 +2002,7 @@ static void ospf_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_register_opaque(zclient, ORR_IGP_METRIC_REGISTER);
 }
 
 /*
@@ -2016,6 +2015,7 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
 	struct zapi_opaque_reg_info dst;
+	struct orr_igp_metric_reg orr_reg;
 	int ret = 0;
 
 	s = zclient->ibuf;
@@ -2038,6 +2038,10 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	case LDP_IGP_SYNC_ANNOUNCE_UPDATE:
 		STREAM_GET(&announce, s, sizeof(announce));
 		ret = ospf_ldp_sync_announce_update(announce);
+		break;
+	case ORR_IGP_METRIC_REGISTER:
+		STREAM_GET(&orr_reg, s, sizeof(orr_reg));
+		// ret = ospf_orr_igp_metric_register(orr_reg);
 		break;
 	default:
 		break;
@@ -2099,15 +2103,9 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->opaque_msg_handler = ospf_opaque_msg_handler;
 
 	zclient->zebra_client_close_notify = ospf_zebra_client_close_notify;
-
-	zclient->orr_msg_handler = ospf_orr_msg_handler;
 }
 
 void ospf_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
 {
 	zclient_send_neigh_discovery_req(zclient, ifp, p);
-}
-
-static int ospf_orr_msg_handler(ZAPI_CALLBACK_ARGS)
-{
 }

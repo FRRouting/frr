@@ -242,9 +242,6 @@ typedef enum {
 	ZEBRA_GRE_GET,
 	ZEBRA_GRE_UPDATE,
 	ZEBRA_GRE_SOURCE_SET,
-	ZEBRA_ORR_MESSAGE,
-	ZEBRA_ORR_REGISTER,
-	ZEBRA_ORR_UNREGISTER,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -412,9 +409,6 @@ struct zclient {
 	void (*neighbor_removed)(ZAPI_CALLBACK_ARGS);
 	void (*neighbor_get)(ZAPI_CALLBACK_ARGS);
 	void (*gre_update)(ZAPI_CALLBACK_ARGS);
-	void (*orr_msg_handler)(ZAPI_CALLBACK_ARGS);
-	void (*orr_register_handler)(ZAPI_CALLBACK_ARGS);
-	void (*orr_unregister_handler)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -1251,6 +1245,10 @@ enum zapi_opaque_registry {
 	LDP_RLFA_UNREGISTER_ALL = 8,
 	/* Announce LDP labels associated to a previously registered RLFA */
 	LDP_RLFA_LABELS = 9,
+	/* Register for IGP METRIC with OSPF/ISIS */
+	ORR_IGP_METRIC_REGISTER = 10,
+	/* Send SPF data to BGP */
+	ORR_IGP_METRIC_UPDATE = 11
 };
 
 /* Send the hello message.
@@ -1276,48 +1274,6 @@ extern int zapi_client_close_notify_decode(struct stream *s,
 
 extern int zclient_send_zebra_gre_request(struct zclient *client,
 					  struct interface *ifp);
-
-/* Struct representing the decoded igp metric header info */
-struct zapi_orr_msg {
-	uint32_t type; /* Subtype */
-	uint16_t len;  /* len after zapi header and this info */
-	uint16_t flags;
-
-	/* Client-specific info - *if* UNICAST flag is set */
-	uint8_t proto;
-	uint16_t instance;
-	uint32_t session_id;
-};
-
-/* Simple struct to convey registration/unreg requests */
-struct zapi_orr_reg_info {
-	/* Message subtype */
-	uint32_t type;
-
-	/* Client session tuple */
-	uint8_t proto;
-	uint16_t instance;
-	uint32_t session_id;
-};
-
-enum zclient_send_status zclient_register_orr(struct zclient *zclient,
-					      uint32_t type);
-enum zclient_send_status zclient_unregister_orr(struct zclient *zclient,
-						uint32_t type);
-
-int zclient_orr_decode(struct stream *msg, struct zapi_orr_msg *info);
-int zapi_orr_reg_decode(struct stream *msg, struct zapi_orr_reg_info *info);
-
-/* Registry of IGP metric. */
-enum zapi_orr_registry {
-	/* Register for IGP METRIC with OSPF/ISIS */
-	ORR_IGP_METRIC_REGISTER = 1,
-	/* Unregister for IGP METRIC with OSPF/ISIS */
-	ORR_IGP_METRIC_UNREGISTER = 2,
-	/* Send SPF data to BGP */
-	ORR_IGP_METRIC_UPDATE = 3
-};
-
 #ifdef __cplusplus
 }
 #endif

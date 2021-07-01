@@ -35,6 +35,7 @@ typedef enum orr_igp {
 
 /* BGP-IGP Register for IGP metric */
 struct orr_igp_metric_reg {
+	bool reg;
 	safi_t safi;
 	struct prefix prefix;
 };

@@ -4178,21 +4178,6 @@ static int zclient_read(struct thread *thread)
 			(*zclient->gre_update)(command, zclient,
 					       length, vrf_id);
 		break;
-	case ZEBRA_ORR_MESSAGE:
-		if (zclient->orr_msg_handler)
-			(*zclient->orr_msg_handler)(command, zclient, length,
-						    vrf_id);
-		break;
-	case ZEBRA_ORR_REGISTER:
-		if (zclient->orr_register_handler)
-			(*zclient->orr_register_handler)(command, zclient,
-							 length, vrf_id);
-		break;
-	case ZEBRA_ORR_UNREGISTER:
-		if (zclient->orr_unregister_handler)
-			(*zclient->orr_unregister_handler)(command, zclient,
-							   length, vrf_id);
-		break;
 	default:
 		break;
 	}
@@ -4533,96 +4518,4 @@ int zclient_send_zebra_gre_request(struct zclient *client,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(client);
 	return 0;
-}
-
-/*
- * Decode incoming orr message into info struct
- */
-int zclient_orr_decode(struct stream *s, struct zapi_orr_msg *info)
-{
-	memset(info, 0, sizeof(*info));
-
-	/* Decode subtype and flags */
-	STREAM_GETL(s, info->type);
-	STREAM_GETW(s, info->flags);
-
-	/* Decode unicast client info if present */
-	if (CHECK_FLAG(info->flags, ZAPI_ORR_FLAG_UNICAST)) {
-		STREAM_GETC(s, info->proto);
-		STREAM_GETW(s, info->instance);
-		STREAM_GETL(s, info->session_id);
-	}
-
-	info->len = STREAM_READABLE(s);
-
-	return 0;
-
-stream_failure:
-
-	return -1;
-}
-
-/* Utility to decode orr registration info */
-int zapi_orr_reg_decode(struct stream *s, struct zapi_orr_reg_info *info)
-{
-	STREAM_GETL(s, info->type);
-	STREAM_GETC(s, info->proto);
-	STREAM_GETW(s, info->instance);
-	STREAM_GETL(s, info->session_id);
-
-	return 0;
-
-stream_failure:
-
-	return -1;
-}
-
-/* Send a registration request for IGP metric from a specified location. */
-enum zclient_send_status zclient_register_orr(struct zclient *zclient,
-					      uint32_t type)
-{
-	struct stream *s;
-
-	s = zclient->obuf;
-	stream_reset(s);
-
-	zclient_create_header(s, ZEBRA_ORR_REGISTER, VRF_DEFAULT);
-
-	/* Send sub-type */
-	stream_putl(s, type);
-
-	/* Add zclient info */
-	stream_putc(s, zclient->redist_default);
-	stream_putw(s, zclient->instance);
-	stream_putl(s, zclient->session_id);
-
-	/* Put length at the first point of the stream. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	return zclient_send_message(zclient);
-}
-
-/* Send an un-registration request for IGP metric from a speciied location. */
-enum zclient_send_status zclient_unregister_orr(struct zclient *zclient,
-						uint32_t type)
-{
-	struct stream *s;
-
-	s = zclient->obuf;
-	stream_reset(s);
-
-	zclient_create_header(s, ZEBRA_ORR_UNREGISTER, VRF_DEFAULT);
-
-	/* Send sub-type */
-	stream_putl(s, type);
-
-	/* Add zclient info */
-	stream_putc(s, zclient->redist_default);
-	stream_putw(s, zclient->instance);
-	stream_putl(s, zclient->session_id);
-
-	/* Put length at the first point of the stream. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	return zclient_send_message(zclient);
 }

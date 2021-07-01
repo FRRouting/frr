@@ -216,6 +216,9 @@ struct bgp_orr_group {
 
 	/* RR clients belong to this group */
 	struct list *rr_client_list;
+
+	/* IGP metric data from active root */
+	struct list *igp_metric_info;
 };
 
 typedef enum {

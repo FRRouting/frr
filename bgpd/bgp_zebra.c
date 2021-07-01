@@ -69,7 +69,7 @@
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
-static int bgp_orr_msg_handler(ZAPI_CALLBACK_ARGS);
+static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
@@ -2706,7 +2706,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 
 	/* Request IGP to Calculate SPF from specified location */
-	zclient_register_orr(zclient, ORR_IGP_METRIC_UPDATE);
+	zclient_register_opaque(zclient, ORR_IGP_METRIC_UPDATE);
 }
 
 static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
@@ -3116,7 +3116,7 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->instance = instance;
 	zclient->process_srv6_locator_chunk =
 		bgp_zebra_process_srv6_locator_chunk;
-	zclient->orr_msg_handler = bgp_orr_msg_handler;
+	zclient->opaque_msg_handler = bgp_opaque_msg_handler;
 }
 
 void bgp_zebra_destroy(void)
@@ -3523,22 +3523,22 @@ int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 /*
  * ORR messages between processes
  */
-static int bgp_orr_msg_handler(ZAPI_CALLBACK_ARGS)
+static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
-	struct zapi_orr_msg info;
+	struct zapi_opaque_msg info;
 	struct orr_igp_metric_info table;
 	int ret = 0;
 
 	s = zclient->ibuf;
 
-	if (zclient_orr_decode(s, &info) != 0)
+	if (zclient_opaque_decode(s, &info) != 0)
 		return -1;
 
 	switch (info.type) {
 	case ORR_IGP_METRIC_UPDATE:
 		STREAM_GET(&table, s, sizeof(table));
-		ret = bgg_orr_message_process(BGP_ORR_MSG_IGP_METRIC_UPDATE,
+		ret = bgg_orr_message_process(BGP_ORR_IMSG_IGP_METRIC_UPDATE,
 					      (void *)&table);
 		break;
 	default:

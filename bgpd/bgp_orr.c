@@ -822,11 +822,50 @@ void bgp_orr_update_active_root(struct peer *peer)
 
 static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 {
+	afi_t afi;
+	safi_t safi;
+	uint32_t instId = 0;
+	uint32_t numEntries = 0;
+	uint32_t entry = 0;
+	orr_igp igp = ORR_IGP_NONE;
 	struct bgp *bgp = NULL;
+	struct prefix root = {0};
+	char buf[PREFIX2STR_BUFFER];
+
 	bgp = bgp_get_default();
 	assert(bgp && table);
 
-	return 0;
+	igp = table->igp;
+	afi = table->root.family;
+	safi = table->safi;
+	instId = table->instId;
+	numEntries = table->num_entries;
+	prefix_copy(&root, &table->root);
+
+	if (igp <= ORR_IGP_NONE || igp >= ORR_IGP_MAX)
+		return -1;
+
+	if (BGP_DEBUG(optimal_route_reflection, ORR)) {
+		zlog_debug(
+			"[BGP_ORR] %s: Received metric update from protocol %s instance %d",
+			__func__,
+			igp == ORR_IGP_ISIS
+				? "ISIS"
+				: (igp == ORR_IGP_OSPF ? "OSPF" : "OSPF6"),
+			instId);
+		zlog_debug("[BGP_ORR] %s: Address family %s", __func__,
+			   get_afi_safi_str(afi, safi, false));
+		zlog_debug("[BGP_ORR] %s: Root %s", __func__,
+			   prefix2str(&root, buf, sizeof(buf)));
+		zlog_debug("[BGP_ORR] %s: Number of entries %d", __func__,
+			   numEntries);
+		zlog_debug("[BGP_ORR] %s: Prefix Table :", __func__);
+		for (entry = 0; entry < numEntries; entry++)
+			zlog_debug("[BGP_ORR] %s: %s\t\t\t\t\t\t%d", __func__,
+				   prefix2str(&table->nexthop[entry].prefix,
+					      buf, sizeof(buf)),
+				   table->nexthop[entry].metric);
+	}
 }
 
 void bgp_orr_igp_metric_register(struct peer *active_root, afi_t afi,
@@ -846,6 +885,7 @@ void bgp_orr_igp_metric_register(struct peer *active_root, afi_t afi,
 		return;
 	}
 
+	msg.reg = reg;
 	prefix_copy(&msg.prefix, &p);
 	msg.safi = safi;
 	msg.prefix.family = afi;
@@ -856,43 +896,43 @@ void bgp_orr_igp_metric_register(struct peer *active_root, afi_t afi,
 			__func__, reg ? "Register" : "Unregister",
 			active_root->host);
 
-	if (reg)
-		zclient_send_opaque(zclient, ORR_IGP_METRIC_REGISTER,
-				    (uint8_t *)&msg, sizeof(msg));
-	else
-		zclient_send_opaque(zclient, ORR_IGP_METRIC_UNREGISTER,
-				    (uint8_t *)&msg, sizeof(msg));
+	if (zclient_send_opaque(zclient, ORR_IGP_METRIC_REGISTER,
+				(uint8_t *)&msg,
+				sizeof(msg) == ZCLIENT_SEND_FAILURE))
+		zlog_warn("[BGP-ORR] %s: Failed to send message to IGP.",
+			  __func__);
 }
 
 /* BGP ORR message processing */
 int bgg_orr_message_process(bgp_orr_msg_type_t msg_type, void *msg)
 {
 	int ret = 0;
-	assert(msg && msg_type > BGP_ORR_MSG_INVALID
-	       && msg_type < BGP_ORR_MSG_MAX);
+	assert(msg && msg_type > BGP_ORR_IMSG_INVALID
+	       && msg_type < BGP_ORR_IMSG_MAX);
 	switch (msg_type) {
-	case BGP_ORR_MSG_GROUP_CREATE:
+	case BGP_ORR_IMSG_GROUP_CREATE:
 		break;
-	case BGP_ORR_MSG_GROUP_DELETE:
+	case BGP_ORR_IMSG_GROUP_DELETE:
 		break;
-	case BGP_ORR_MSG_GROUP_UPDATE:
+	case BGP_ORR_IMSG_GROUP_UPDATE:
 		break;
-	case BGP_ORR_MSG_SET_ORR_ON_PEER:
+	case BGP_ORR_IMSG_SET_ORR_ON_PEER:
 		break;
-	case BGP_ORR_MSG_UNSET_ORR_ON_PEER:
+	case BGP_ORR_IMSG_UNSET_ORR_ON_PEER:
 		break;
-	case BGP_ORR_MSG_IGP_METRIC_UPDATE:
+	case BGP_ORR_IMSG_IGP_METRIC_UPDATE:
 		ret = bgp_orr_igp_metric_update(
 			(struct orr_igp_metric_info *)msg);
 		break;
-	case BGP_ORR_MSG_SHOW_ORR:
+	case BGP_ORR_IMSG_SHOW_ORR:
 		/* bgp_show_orr */
 		break;
-	case BGP_ORR_MSG_SHOW_ORR_GROUP:
+	case BGP_ORR_IMSG_SHOW_ORR_GROUP:
 		/* bgp_show_orr_group */
 		break;
 	default:
 		break;
 	}
 	/* Free Memory */
+	return ret;
 }

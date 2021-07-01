@@ -35,6 +35,8 @@
 #include "ospf_memory.h"
 #include "ospf_dump_api.h"
 
+#include "orr_msg.h"
+
 #define OSPF_VERSION            2
 
 /* VTY port number. */

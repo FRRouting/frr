@@ -28,26 +28,26 @@ extern "C" {
 
 /* BGP ORR Message Type */
 typedef enum {
-	BGP_ORR_MSG_INVALID = 0,
+	BGP_ORR_IMSG_INVALID = 0,
 
 	/* ORR group update */
-	BGP_ORR_MSG_GROUP_CREATE = 1,
-	BGP_ORR_MSG_GROUP_DELETE,
-	BGP_ORR_MSG_GROUP_UPDATE,
+	BGP_ORR_IMSG_GROUP_CREATE = 1,
+	BGP_ORR_IMSG_GROUP_DELETE,
+	BGP_ORR_IMSG_GROUP_UPDATE,
 
 	/* ORR group update on a BGP RR Client */
-	BGP_ORR_MSG_SET_ORR_ON_PEER = 4,
-	BGP_ORR_MSG_UNSET_ORR_ON_PEER,
+	BGP_ORR_IMSG_SET_ORR_ON_PEER = 4,
+	BGP_ORR_IMSG_UNSET_ORR_ON_PEER,
 
 	/* ORR IGP Metric Update from IGP from requested Location */
-	BGP_ORR_MSG_IGP_METRIC_UPDATE = 6,
+	BGP_ORR_IMSG_IGP_METRIC_UPDATE = 6,
 
 	/* ORR Group Related Information display */
-	BGP_ORR_MSG_SHOW_ORR = 7,
-	BGP_ORR_MSG_SHOW_ORR_GROUP,
+	BGP_ORR_IMSG_SHOW_ORR = 7,
+	BGP_ORR_IMSG_SHOW_ORR_GROUP,
 
 	/* Invalid Message Type*/
-	BGP_ORR_MSG_MAX
+	BGP_ORR_IMSG_MAX
 } bgp_orr_msg_type_t;
 
 static inline bool is_orr_primary_root(struct bgp_orr_group *orr_group,
