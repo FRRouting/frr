@@ -216,26 +216,6 @@ parse_nat(const char *string)
     return (int)l;
 }
 
-int
-in_prefix(const unsigned char *restrict address,
-          const unsigned char *restrict prefix, unsigned char plen)
-{
-    unsigned char m;
-
-    if(plen > 128)
-        plen = 128;
-
-    if(memcmp(address, prefix, plen / 8) != 0)
-        return 0;
-
-    if(plen % 8 == 0)
-        return 1;
-
-    m = 0xFF << (8 - (plen % 8));
-
-    return ((address[plen / 8] & m) == (prefix[plen / 8] & m));
-}
-
 unsigned char *
 mask_prefix(unsigned char *restrict ret,
             const unsigned char *restrict prefix, unsigned char plen)
