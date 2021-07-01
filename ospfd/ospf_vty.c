@@ -6616,7 +6616,7 @@ static void show_lsa_prefix_set(struct vty *vty, struct prefix_ls *lp,
 	if (id == NULL)
 		lp->prefixlen = 0;
 	else if (adv_router == NULL) {
-		lp->prefixlen = 32;
+		lp->prefixlen = IPV4_MAX_BITLEN;
 		lp->id = *id;
 	} else {
 		lp->prefixlen = 64;

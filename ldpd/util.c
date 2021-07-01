@@ -182,7 +182,7 @@ ldp_prefixcmp(int af, const union ldpd_addr *a, const union ldpd_addr *b,
 	case AF_INET:
 		if (prefixlen == 0)
 			return (0);
-		if (prefixlen > 32)
+		if (prefixlen > IPV4_MAX_BITLEN)
 			fatalx("ldp_prefixcmp: bad IPv4 prefixlen");
 		mask = htonl(prefixlen2mask(prefixlen));
 		aa = htonl(a->v4.s_addr) & mask;

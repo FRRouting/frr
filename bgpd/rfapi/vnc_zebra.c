@@ -105,7 +105,8 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 	vnaddr.addr_family = bgp->rfapi_cfg->rfg_redist->vn_prefix.family;
 	switch (bgp->rfapi_cfg->rfg_redist->vn_prefix.family) {
 	case AF_INET:
-		if (bgp->rfapi_cfg->rfg_redist->vn_prefix.prefixlen != 32) {
+		if (bgp->rfapi_cfg->rfg_redist->vn_prefix.prefixlen
+		    != IPV4_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
 				"%s: redist nve group VN prefix len (%d) != 32, skipping",
 				__func__,
@@ -154,7 +155,7 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 
 		switch (pfx_un.prefix.addr_family) {
 		case AF_INET:
-			if (pfx_un.length != 32) {
+			if (pfx_un.length != IPV4_MAX_BITLEN) {
 				vnc_zlog_debug_verbose(
 					"%s: redist nve group UN prefix len (%d) != 32, skipping",
 					__func__, pfx_un.length);

@@ -89,7 +89,7 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 
 	p.family = AF_INET;
 	p.u.prefix4 = sg->src;
-	p.prefixlen = 32;
+	p.prefixlen = IPV4_MAX_BITLEN;
 	length = pim_encode_addr_ucast(b1, &p);
 	b1length += length;
 

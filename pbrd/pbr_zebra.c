@@ -460,7 +460,7 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		p.family = AF_INET;
 		p.u.prefix4.s_addr = nhop->gate.ipv4.s_addr;
-		p.prefixlen = 32;
+		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:

@@ -174,7 +174,7 @@ int rfapiQprefix2Raddr(struct prefix *qprefix, struct rfapi_ip_addr *raddr)
 	raddr->addr_family = qprefix->family;
 	switch (qprefix->family) {
 	case AF_INET:
-		if (qprefix->prefixlen != 32)
+		if (qprefix->prefixlen != IPV4_MAX_BITLEN)
 			return -1;
 		raddr->addr.v4 = qprefix->u.prefix4;
 		break;
@@ -1734,7 +1734,7 @@ int rfapiCliGetPrefixAddr(struct vty *vty, const char *str, struct prefix *p)
 	}
 	switch (p->family) {
 	case AF_INET:
-		if (p->prefixlen != 32) {
+		if (p->prefixlen != IPV4_MAX_BITLEN) {
 			vty_out(vty, "Not a host address: \"%s\"%s", str,
 				HVTYNL);
 			return CMD_WARNING;

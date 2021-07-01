@@ -3055,7 +3055,7 @@ static int ip_address_install(struct vty *vty, struct interface *ifp,
 	}
 
 	if (peer_str) {
-		if (lp.prefixlen != 32) {
+		if (lp.prefixlen != IPV4_MAX_BITLEN) {
 			vty_out(vty,
 				"%% Local prefix length for P-t-P address must be /32\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -3186,7 +3186,7 @@ static int ip_address_uninstall(struct vty *vty, struct interface *ifp,
 	}
 
 	if (peer_str) {
-		if (lp.prefixlen != 32) {
+		if (lp.prefixlen != IPV4_MAX_BITLEN) {
 			vty_out(vty,
 				"%% Local prefix length for P-t-P address must be /32\n");
 			return CMD_WARNING_CONFIG_FAILED;

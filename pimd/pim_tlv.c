@@ -626,7 +626,7 @@ int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
 		   messages
 		   received with any other mask length.
 		*/
-		if (mask_len != 32) {
+		if (mask_len != IPV4_MAX_BITLEN) {
 			zlog_warn("%s: IPv4 bad source address mask: %d",
 				  __func__, mask_len);
 			return -4;

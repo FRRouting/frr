@@ -505,7 +505,7 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	sg.grp.s_addr = stream_get_ipv4(mp->ibuf);
 	sg.src.s_addr = stream_get_ipv4(mp->ibuf);
 
-	if (prefix_len != 32) {
+	if (prefix_len != IPV4_MAX_BITLEN) {
 		/* ignore SA update if the prefix length is not 32 */
 		flog_err(EC_PIM_MSDP_PACKET,
 			 "rxed sa update with invalid prefix length %d",
