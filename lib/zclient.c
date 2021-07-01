@@ -1441,7 +1441,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		}
 		break;
 	case AF_INET6:
-		if (api->prefix.prefixlen > IPV6_MAX_PREFIXLEN) {
+		if (api->prefix.prefixlen > IPV6_MAX_BITLEN) {
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: v6 prefixlen is %d which should not be more than 128",
@@ -1460,7 +1460,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
 		api->src_prefix.family = AF_INET6;
 		STREAM_GETC(s, api->src_prefix.prefixlen);
-		if (api->src_prefix.prefixlen > IPV6_MAX_PREFIXLEN) {
+		if (api->src_prefix.prefixlen > IPV6_MAX_BITLEN) {
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: SRC Prefix prefixlen received: %d is too large",

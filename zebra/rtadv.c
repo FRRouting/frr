@@ -693,7 +693,7 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	/* Create entry for neighbor if not known. */
 	p.family = AF_INET6;
 	IPV6_ADDR_COPY(&p.u.prefix6, &addr->sin6_addr);
-	p.prefixlen = IPV6_MAX_PREFIXLEN;
+	p.prefixlen = IPV6_MAX_BITLEN;
 
 	if (!nbr_connected_check(ifp, &p))
 		nbr_connected_add_ipv6(ifp, &addr->sin6_addr);

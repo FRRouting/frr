@@ -662,7 +662,7 @@ static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
 	/* Lookup nexthop in IPv6 routing table. */
 	memset(&p, 0, sizeof(struct prefix_ipv6));
 	p.family = AF_INET6;
-	p.prefixlen = IPV6_MAX_PREFIXLEN;
+	p.prefixlen = IPV6_MAX_BITLEN;
 	p.prefix = nexthop->gate.ipv6;
 
 	rn = route_node_match(table, (struct prefix *)&p);

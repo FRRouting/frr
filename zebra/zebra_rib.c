@@ -352,7 +352,7 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 		p.prefixlen = IPV4_MAX_PREFIXLEN;
 	} else {
 		p.u.prefix6 = addr->ipv6;
-		p.prefixlen = IPV6_MAX_PREFIXLEN;
+		p.prefixlen = IPV6_MAX_BITLEN;
 	}
 
 	rn = route_node_match(table, &p);
