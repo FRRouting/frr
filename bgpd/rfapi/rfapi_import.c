@@ -414,7 +414,7 @@ int rfapiGetVncTunnelUnAddr(struct attr *attr, struct prefix *p)
 				case 20:
 					if (p) {
 						p->family = AF_INET6;
-						p->prefixlen = 128;
+						p->prefixlen = IPV6_MAX_BITLEN;
 						memcpy(p->u.val, pEncap->value,
 						       16);
 					}
@@ -452,7 +452,7 @@ int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bpi, struct prefix *p)
 			if (p) {
 				p->family = bpi->extra->vnc.import.un_family;
 				p->u.prefix6 = bpi->extra->vnc.import.un.addr6;
-				p->prefixlen = 128;
+				p->prefixlen = IPV6_MAX_BITLEN;
 			}
 			return 0;
 		default:
@@ -2524,7 +2524,7 @@ void rfapiNexthop2Prefix(struct attr *attr, struct prefix *p)
 
 	case AF_INET6:
 		p->u.prefix6 = attr->mp_nexthop_global;
-		p->prefixlen = 128;
+		p->prefixlen = IPV6_MAX_BITLEN;
 		break;
 
 	default:
@@ -2876,7 +2876,7 @@ static int rfapiGetNexthop(struct attr *attr, struct prefix *prefix)
 		break;
 	case AF_INET6:
 		prefix->family = AF_INET6;
-		prefix->prefixlen = 128;
+		prefix->prefixlen = IPV6_MAX_BITLEN;
 		prefix->u.prefix6 = attr->mp_nexthop_global;
 		break;
 	default:

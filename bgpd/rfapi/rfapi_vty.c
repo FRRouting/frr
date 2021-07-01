@@ -264,7 +264,7 @@ int rfapiRaddr2Qprefix(struct rfapi_ip_addr *hia, struct prefix *pfx)
 		pfx->u.prefix4 = hia->addr.v4;
 		break;
 	case AF_INET6:
-		pfx->prefixlen = 128;
+		pfx->prefixlen = IPV6_MAX_BITLEN;
 		pfx->u.prefix6 = hia->addr.v6;
 		break;
 	default:
