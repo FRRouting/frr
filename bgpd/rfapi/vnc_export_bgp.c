@@ -164,7 +164,7 @@ static int getce(struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
 		memset((uint8_t *)pfx_ce, 0, sizeof(*pfx_ce));
 		memcpy(&pfx_ce->u.prefix4, ecp + 2, 4);
 		pfx_ce->family = AF_INET;
-		pfx_ce->prefixlen = 32;
+		pfx_ce->prefixlen = IPV4_MAX_BITLEN;
 
 		return 0;
 	}
