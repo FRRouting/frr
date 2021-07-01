@@ -230,7 +230,7 @@ struct route_node *route_node_match_ipv4(struct route_table *table,
 
 	memset(&p, 0, sizeof(struct prefix_ipv4));
 	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	p.prefixlen = IPV4_MAX_BITLEN;
 	p.prefix = *addr;
 
 	return route_node_match(table, (struct prefix *)&p);

@@ -115,7 +115,7 @@ int pim_is_group_224_0_0_0_24(struct in_addr group_addr)
 
 	group.family = AF_INET;
 	group.u.prefix4 = group_addr;
-	group.prefixlen = IPV4_MAX_PREFIXLEN;
+	group.prefixlen = IPV4_MAX_BITLEN;
 
 	return prefix_match(&group_224, &group);
 }

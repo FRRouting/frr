@@ -481,7 +481,7 @@ int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size)
 		p->family = AF_INET; /* notice: AF_INET !=
 					PIM_MSG_ADDRESS_FAMILY_IPV4 */
 		memcpy(&p->u.prefix4, addr, sizeof(struct in_addr));
-		p->prefixlen = IPV4_MAX_PREFIXLEN;
+		p->prefixlen = IPV4_MAX_BITLEN;
 		addr += sizeof(struct in_addr);
 
 		break;

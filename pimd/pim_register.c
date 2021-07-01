@@ -393,7 +393,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			plist = prefix_list_lookup(AFI_IP, pim->register_plist);
 
 			src.family = AF_INET;
-			src.prefixlen = IPV4_MAX_PREFIXLEN;
+			src.prefixlen = IPV4_MAX_BITLEN;
 			src.u.prefix4 = sg.src;
 
 			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {

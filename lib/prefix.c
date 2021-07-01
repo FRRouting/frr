@@ -577,7 +577,7 @@ int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 
 		/* Get prefix length. */
 		plen = (uint8_t)atoi(++pnt);
-		if (plen > IPV4_MAX_PREFIXLEN)
+		if (plen > IPV4_MAX_BITLEN)
 			return 0;
 
 		p->family = AF_INET;
@@ -1128,7 +1128,7 @@ void apply_classful_mask_ipv4(struct prefix_ipv4 *p)
 
 	destination = ntohl(p->prefix.s_addr);
 
-	if (p->prefixlen == IPV4_MAX_PREFIXLEN)
+	if (p->prefixlen == IPV4_MAX_BITLEN)
 		;
 	/* do nothing for host routes */
 	else if (IN_CLASSC(destination)) {
@@ -1148,12 +1148,13 @@ in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen)
 	struct in_addr mask;
 
 	masklen2ip(masklen, &mask);
-	return (masklen != IPV4_MAX_PREFIXLEN - 1) ?
-		/* normal case */
-		(hostaddr | ~mask.s_addr)
-		   :
-		/* For prefix 31 return 255.255.255.255 (RFC3021) */
-		htonl(0xFFFFFFFF);
+	return (masklen != IPV4_MAX_BITLEN - 1)
+		       ?
+		       /* normal case */
+		       (hostaddr | ~mask.s_addr)
+		       :
+		       /* For prefix 31 return 255.255.255.255 (RFC3021) */
+		       htonl(0xFFFFFFFF);
 }
 
 /* Utility function to convert ipv4 netmask to prefixes

@@ -1139,7 +1139,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 
 	p.family = AF_INET;
 	p.u.prefix4 = addr;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	p.prefixlen = IPV4_MAX_BITLEN;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 				  neigh)) {

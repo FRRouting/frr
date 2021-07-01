@@ -124,7 +124,7 @@ void pim_rp_init(struct pim_instance *pim)
 	}
 	rp_info->group.family = AF_INET;
 	rp_info->rp.rpf_addr.family = AF_INET;
-	rp_info->rp.rpf_addr.prefixlen = IPV4_MAX_PREFIXLEN;
+	rp_info->rp.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
 	rp_info->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
 
 	listnode_add(pim->rp_list, rp_info);
@@ -417,7 +417,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
 	rp_info->rp.rpf_addr.family = AF_INET;
-	rp_info->rp.rpf_addr.prefixlen = IPV4_MAX_PREFIXLEN;
+	rp_info->rp.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
 	rp_info->rp.rpf_addr.u.prefix4 = rp_addr;
 	prefix_copy(&rp_info->group, &group);
 	rp_info->rp_src = rp_src_flag;

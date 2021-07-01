@@ -372,7 +372,6 @@ union prefixconstptr {
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
 #define IPV4_MAX_BITLEN    32
-#define IPV4_MAX_PREFIXLEN 32
 #define IPV4_ADDR_CMP(D,S)   memcmp ((D), (S), IPV4_MAX_BYTELEN)
 
 static inline bool ipv4_addr_same(const struct in_addr *a,
