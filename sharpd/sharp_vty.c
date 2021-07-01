@@ -97,7 +97,7 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 
 	if (n) {
 		type_import = false;
-		p.prefixlen = 128;
+		p.prefixlen = IPV6_MAX_BITLEN;
 		memcpy(&p.u.prefix6, &nhop, 16);
 		p.family = AF_INET6;
 	} else {
@@ -243,7 +243,7 @@ DEFPY (install_routes,
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = start6;
 	}
 	sg.r.orig_prefix = prefix;
@@ -387,7 +387,7 @@ DEFPY (install_seg6_routes,
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = start6;
 	}
 	sg.r.orig_prefix = prefix;
@@ -572,7 +572,7 @@ DEFPY (remove_routes,
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = start6;
 	}
 

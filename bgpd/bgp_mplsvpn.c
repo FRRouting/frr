@@ -1457,7 +1457,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	case AF_INET6:
 		/* save */
 		nexthop_orig.u.prefix6 = path_vpn->attr->mp_nexthop_global;
-		nexthop_orig.prefixlen = 128;
+		nexthop_orig.prefixlen = IPV6_MAX_BITLEN;
 
 		if (CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
 			       BGP_CONFIG_VRF_TO_VRF_IMPORT)) {

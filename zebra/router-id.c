@@ -98,7 +98,7 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	case AFI_IP6:
 		p->u.prefix6 = in6addr_any;
 		p->family = AF_INET6;
-		p->prefixlen = 128;
+		p->prefixlen = IPV6_MAX_BITLEN;
 		if (!router_id_v6_is_any(&zvrf->rid6_user_assigned))
 			addr = &zvrf->rid6_user_assigned.u.prefix6;
 		else if (!list_isempty(zvrf->rid6_lo_sorted_list)) {
@@ -313,7 +313,7 @@ DEFUN (ipv6_router_id,
 	if (!inet_pton(AF_INET6, argv[idx]->arg, &rid.u.prefix6))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	rid.prefixlen = 128;
+	rid.prefixlen = IPV6_MAX_BITLEN;
 	rid.family = AF_INET6;
 
 	argv_find(argv, argc, "NAME", &idx);
@@ -372,7 +372,7 @@ DEFUN (ipv6_router_id_in_vrf,
 	if (!inet_pton(AF_INET6, argv[idx]->arg, &rid.u.prefix6))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	rid.prefixlen = 128;
+	rid.prefixlen = IPV6_MAX_BITLEN;
 	rid.family = AF_INET6;
 
 	router_id_set(AFI_IP6, &rid, zvrf);
@@ -601,5 +601,5 @@ void router_id_init(struct zebra_vrf *zvrf)
 	zvrf->rid_user_assigned.family = AF_INET;
 	zvrf->rid_user_assigned.prefixlen = 32;
 	zvrf->rid6_user_assigned.family = AF_INET6;
-	zvrf->rid6_user_assigned.prefixlen = 128;
+	zvrf->rid6_user_assigned.prefixlen = IPV6_MAX_BITLEN;
 }

@@ -446,7 +446,7 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	struct nexthop nh = {};
 
 	p.family = AF_INET6;
-	p.prefixlen = 128;
+	p.prefixlen = IPV6_MAX_BITLEN;
 	p.prefix = *sid;
 
 	api.vrf_id = VRF_DEFAULT;

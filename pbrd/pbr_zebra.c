@@ -466,7 +466,7 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		p.family = AF_INET6;
 		memcpy(&p.u.prefix6, &nhop->gate.ipv6, 16);
-		p.prefixlen = 128;
+		p.prefixlen = IPV6_MAX_BITLEN;
 		if (IN6_IS_ADDR_LINKLOCAL(&nhop->gate.ipv6))
 			/*
 			 * Don't bother tracking link locals, just track their

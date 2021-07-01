@@ -179,7 +179,7 @@ int rfapiQprefix2Raddr(struct prefix *qprefix, struct rfapi_ip_addr *raddr)
 		raddr->addr.v4 = qprefix->u.prefix4;
 		break;
 	case AF_INET6:
-		if (qprefix->prefixlen != 128)
+		if (qprefix->prefixlen != IPV6_MAX_BITLEN)
 			return -1;
 		raddr->addr.v6 = qprefix->u.prefix6;
 		break;
@@ -1741,7 +1741,7 @@ int rfapiCliGetPrefixAddr(struct vty *vty, const char *str, struct prefix *p)
 		}
 		break;
 	case AF_INET6:
-		if (p->prefixlen != 128) {
+		if (p->prefixlen != IPV6_MAX_BITLEN) {
 			vty_out(vty, "Not a host address: \"%s\"%s", str,
 				HVTYNL);
 			return CMD_WARNING;
