@@ -26,6 +26,14 @@
 extern "C" {
 #endif
 
+/* Macro to log debug message */
+#define bgp_orr_debug(...)                                                     \
+	do {                                                                   \
+		if (BGP_DEBUG(optimal_route_reflection, ORR))                  \
+			zlog_debug("[BGP-ORR] " __VA_ARGS__);                  \
+	} while (0)
+
+
 /* BGP ORR Message Type */
 typedef enum {
 	BGP_ORR_IMSG_INVALID = 0,

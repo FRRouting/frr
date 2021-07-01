@@ -66,9 +66,8 @@ static struct bgp_orr_group *bgp_orr_group_lookup(struct bgp *bgp, afi_t afi,
 		if (strcmp(group->name, name) == 0)
 			return group;
 
-	if (BGP_DEBUG(optimal_route_reflection, ORR))
-		zlog_debug("[BGP_ORR] %s: For %s, ORR Group '%s' Not Found.",
-			   __func__, get_afi_safi_str(afi, safi, false), name);
+	bgp_orr_debug("%s: For %s, ORR Group '%s' Not Found.", __func__,
+		      get_afi_safi_str(afi, safi, false), name);
 
 	return NULL;
 }
@@ -88,13 +87,11 @@ static char *bgp_orr_group_rrclient_lookup(struct bgp_orr_group *orr_group,
 		if (strcmp(rrclient, rr_client_host) == 0)
 			return rrclient;
 
-	if (BGP_DEBUG(optimal_route_reflection, ORR))
-		zlog_debug(
-			"[BGP_ORR] %s: For %s, %s Not Found in ORR Group '%s' RR Client list",
-			__func__,
-			get_afi_safi_str(orr_group->afi, orr_group->safi,
-					 false),
-			rr_client_host, orr_group->name);
+	bgp_orr_debug(
+		"%s: For %s, %s Not Found in ORR Group '%s' RR Client list",
+		__func__,
+		get_afi_safi_str(orr_group->afi, orr_group->safi, false),
+		rr_client_host, orr_group->name);
 
 	return NULL;
 }
@@ -112,11 +109,9 @@ static void bgp_orr_group_rrclient_update(struct peer *peer, afi_t afi,
 	/* Get BGP ORR entry for the given address-family */
 	orr_group = bgp_orr_group_lookup(peer->bgp, afi, safi, orr_group_name);
 	if (!orr_group) {
-		if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug(
-				"[BGP_ORR] %s: For %s, ORR Group '%s' Not Found.",
-				__func__, get_afi_safi_str(afi, safi, false),
-				orr_group_name);
+		bgp_orr_debug("%s: For %s, ORR Group '%s' Not Found.", __func__,
+			      get_afi_safi_str(afi, safi, false),
+			      orr_group_name);
 		return;
 	}
 
@@ -135,22 +130,22 @@ static void bgp_orr_group_rrclient_update(struct peer *peer, afi_t afi,
 		rr_client = XSTRDUP(MTYPE_BGP_PEER_HOST, peer->host);
 
 		listnode_add(rr_client_list, rr_client);
-		if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug(
-				"[BGP_ORR] %s: For %s, %s is Added to ORR Group '%s' RR Client list.",
-				__func__, get_afi_safi_str(afi, safi, false),
-				peer->host, orr_group_name);
+
+		bgp_orr_debug(
+			"%s: For %s, %s is Added to ORR Group '%s' RR Client list.",
+			__func__, get_afi_safi_str(afi, safi, false),
+			peer->host, orr_group_name);
 	} else {
 		/* Delete BGP ORR RR client entry from the ORR Group */
 		listnode_delete(orr_group->rr_client_list, rr_client);
 		XFREE(MTYPE_BGP_PEER_HOST, rr_client);
 		if (!orr_group->rr_client_list->count)
 			list_delete(&orr_group->rr_client_list);
-		if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug(
-				"[BGP_ORR] %s: For %s, %s is Removed from ORR Group '%s' RR Client list.",
-				__func__, get_afi_safi_str(afi, safi, false),
-				peer->host, orr_group_name);
+
+		bgp_orr_debug(
+			"%s: For %s, %s is Removed from ORR Group '%s' RR Client list.",
+			__func__, get_afi_safi_str(afi, safi, false),
+			peer->host, orr_group_name);
 	}
 }
 
@@ -164,13 +159,12 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 	bool tertiary_reachable = false;
 	struct bgp_orr_group *orr_group = NULL;
 
-	if (BGP_DEBUG(optimal_route_reflection, ORR))
-		zlog_debug(
-			"[BGP_ORR] %s: For %s, ORR Group '%s' Primary %s Secondary %s Tertiary %s",
-			__func__, get_afi_safi_str(afi, safi, false), name,
-			primary ? primary->host : "NULL",
-			secondary ? secondary->host : "NULL",
-			tertiary ? tertiary->host : "NULL");
+	bgp_orr_debug(
+		"%s: For %s, ORR Group '%s' Primary %s Secondary %s Tertiary %s",
+		__func__, get_afi_safi_str(afi, safi, false), name,
+		primary ? primary->host : "NULL",
+		secondary ? secondary->host : "NULL",
+		tertiary ? tertiary->host : "NULL");
 
 	/* Get BGP ORR entry for the given address-family */
 	orr_group = bgp_orr_group_lookup(bgp, afi, safi, name);
@@ -178,12 +172,10 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		/* Create BGP ORR entry for the given address-family */
 		orr_group = bgp_orr_group_new(bgp, afi, safi, name);
 		if (!orr_group) {
-			if (BGP_DEBUG(optimal_route_reflection, ORR))
-				zlog_debug(
-					"[BGP_ORR] %s: For %s, Failed to create ORR Group '%s'.",
-					__func__,
-					get_afi_safi_str(afi, safi, false),
-					name);
+			bgp_orr_debug(
+				"%s: For %s, Failed to create ORR Group '%s'.",
+				__func__, get_afi_safi_str(afi, safi, false),
+				name);
 			return CMD_WARNING;
 		}
 	}
@@ -193,9 +185,9 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (!orr_group->primary
 		    || strcmp(orr_group->primary->host, primary->host))
 			orr_group->primary = primary;
-		else if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug("[BGP_ORR] %s: No Change in Primary Root",
-				   __func__);
+		else
+			bgp_orr_debug("%s: No Change in Primary Root",
+				      __func__);
 
 		/* Update Active Root if there is a change and primary is
 		 * reachable. */
@@ -214,11 +206,12 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 				bgp_orr_igp_metric_register(primary, afi, safi,
 							    true);
 				orr_group->active = primary;
-			} else if (BGP_DEBUG(optimal_route_reflection, ORR))
-				zlog_debug("[BGP_ORR] %s: %s", __func__,
-					   orr_group->primary->host
-						   ? "No Change in Active Root"
-						   : "Primary Root is NULL");
+			} else
+				bgp_orr_debug(
+					"%s: %s", __func__,
+					orr_group->primary->host
+						? "No Change in Active Root"
+						: "Primary Root is NULL");
 		}
 	} else {
 		if (orr_group->primary) {
@@ -238,9 +231,9 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (!orr_group->secondary
 		    || strcmp(orr_group->secondary->host, secondary->host))
 			orr_group->secondary = secondary;
-		else if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug("[BGP_ORR] %s: No Change in Secondary Root",
-				   __func__);
+		else
+			bgp_orr_debug("%s: No Change in Secondary Root",
+				      __func__);
 
 		/* Update Active Root if Primary is not reachable */
 		if (secondary->afc_nego[afi][safi]
@@ -258,9 +251,9 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 				bgp_orr_igp_metric_register(secondary, afi,
 							    safi, true);
 				orr_group->active = secondary;
-			} else if (BGP_DEBUG(optimal_route_reflection, ORR))
-				zlog_debug(
-					"[BGP_ORR] %s: %s", __func__,
+			} else
+				bgp_orr_debug(
+					"%s: %s", __func__,
 					primary_reachable
 						? "Primary is Active Root"
 						: orr_group->secondary->host
@@ -285,9 +278,9 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (!orr_group->tertiary
 		    || strcmp(orr_group->tertiary->host, tertiary->host))
 			orr_group->tertiary = tertiary;
-		else if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug("[BGP_ORR] %s: No Change in Tertiay Root",
-				   __func__);
+		else
+			bgp_orr_debug("%s: No Change in Tertiay Root",
+				      __func__);
 
 		/* Update Active Root if Primary & Secondary are not reachable
 		 */
@@ -307,9 +300,9 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 				bgp_orr_igp_metric_register(tertiary, afi, safi,
 							    true);
 				orr_group->active = tertiary;
-			} else if (BGP_DEBUG(optimal_route_reflection, ORR))
-				zlog_debug(
-					"[BGP_ORR] %s: %s", __func__,
+			} else
+				bgp_orr_debug(
+					"%s: %s", __func__,
 					primary_reachable
 						? "Primary is Active Root"
 						: secondary_reachable
@@ -338,11 +331,9 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		orr_group->active = NULL;
 	}
 
-	if (BGP_DEBUG(optimal_route_reflection, ORR))
-		zlog_debug(
-			"[BGP_ORR] %s: For %s, ORR Group '%s' Active Root is %s",
-			__func__, get_afi_safi_str(afi, safi, false), name,
-			orr_group->active ? orr_group->active->host : "NULL");
+	bgp_orr_debug("%s: For %s, ORR Group '%s' Active Root is %s", __func__,
+		      get_afi_safi_str(afi, safi, false), name,
+		      orr_group->active ? orr_group->active->host : "NULL");
 
 	return CMD_SUCCESS;
 }
@@ -358,13 +349,12 @@ int bgp_afi_safi_orr_group_unset(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Check if there are any neighbors configured with this ORR Group */
 	if (orr_group->rr_client_list) {
-		if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug(
-				"[BGP_ORR] %s: For %s, ORR Group '%s' not Removed as '%s' is configured on neighbor(s)",
-				__func__,
-				get_afi_safi_str(orr_group->afi,
-						 orr_group->safi, false),
-				name, name);
+		bgp_orr_debug(
+			"%s: For %s, ORR Group '%s' not Removed as '%s' is configured on neighbor(s)",
+			__func__,
+			get_afi_safi_str(orr_group->afi, orr_group->safi,
+					 false),
+			name, name);
 		return CMD_WARNING;
 	}
 
@@ -399,12 +389,10 @@ static int peer_orr_group_set(struct peer *peer, afi_t afi, safi_t safi,
 		orr_group =
 			bgp_orr_group_new(peer->bgp, afi, safi, orr_group_name);
 		if (!orr_group) {
-			if (BGP_DEBUG(optimal_route_reflection, ORR))
-				zlog_debug(
-					"[BGP_ORR] %s: For %s, Failed to create ORR Group '%s'.",
-					__func__,
-					get_afi_safi_str(afi, safi, false),
-					orr_group_name);
+			bgp_orr_debug(
+				"%s: For %s, Failed to create ORR Group '%s'.",
+				__func__, get_afi_safi_str(afi, safi, false),
+				orr_group_name);
 			return CMD_WARNING;
 		}
 	}
@@ -412,12 +400,10 @@ static int peer_orr_group_set(struct peer *peer, afi_t afi, safi_t safi,
 	/* Skip processing if there is no change in ORR Group */
 	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP)) {
 		if (!strcmp(peer->orr_group_name[afi][safi], orr_group_name)) {
-			if (BGP_DEBUG(optimal_route_reflection, ORR))
-				zlog_debug(
-					"[BGP_ORR] %s: For %s, ORR Group '%s' is Already Configured on %s",
-					__func__,
-					get_afi_safi_str(afi, safi, false),
-					orr_group_name, peer->host);
+			bgp_orr_debug(
+				"%s: For %s, ORR Group '%s' is Already Configured on %s",
+				__func__, get_afi_safi_str(afi, safi, false),
+				orr_group_name, peer->host);
 			return CMD_SUCCESS;
 		} else {
 			/* Remove the peer from ORR Group's peer list */
@@ -448,11 +434,10 @@ static int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
 
 	if (!peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP)
 	    || strcmp(peer->orr_group_name[afi][safi], orr_group_name)) {
-		if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug(
-				"[BGP_ORR] %s: For %s, ORR Group '%s' is Not Configured on %s",
-				__func__, get_afi_safi_str(afi, safi, false),
-				orr_group_name, peer->host);
+		bgp_orr_debug(
+			"%s: For %s, ORR Group '%s' is Not Configured on %s",
+			__func__, get_afi_safi_str(afi, safi, false),
+			orr_group_name, peer->host);
 		return CMD_ERR_NO_MATCH;
 	}
 
@@ -468,11 +453,10 @@ static int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
 		&& !strcmp(orr_group->secondary->host, peer->host))
 	    || (orr_group->tertiary
 		&& !strcmp(orr_group->tertiary->host, peer->host))) {
-		if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug(
-				"[BGP_ORR] %s: For %s, %s is one of the Root nodes of ORR Group '%s'",
-				__func__, get_afi_safi_str(afi, safi, false),
-				peer->host, orr_group_name);
+		bgp_orr_debug(
+			"%s: For %s, %s is one of the Root nodes of ORR Group '%s'",
+			__func__, get_afi_safi_str(afi, safi, false),
+			peer->host, orr_group_name);
 		return CMD_WARNING;
 	}
 
@@ -812,11 +796,10 @@ void bgp_orr_update_active_root(struct peer *peer)
 		bgp_orr_igp_metric_register(orr_group->active, afi, safi,
 					    false);
 		orr_group->active = NULL;
-		if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug(
-				"[BGP_ORR] %s: For %s, ORR Group '%s' currently no active",
-				__func__, get_afi_safi_str(afi, safi, false),
-				peer->orr_group_name[afi][safi]);
+
+		bgp_orr_debug("%s: For %s, ORR Group '%s' currently no active",
+			      __func__, get_afi_safi_str(afi, safi, false),
+			      peer->orr_group_name[afi][safi]);
 	}
 }
 
@@ -847,21 +830,21 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 
 	if (BGP_DEBUG(optimal_route_reflection, ORR)) {
 		zlog_debug(
-			"[BGP_ORR] %s: Received metric update from protocol %s instance %d",
+			"[BGP-ORR] %s: Received metric update from protocol %s instance %d",
 			__func__,
 			igp == ORR_IGP_ISIS
 				? "ISIS"
 				: (igp == ORR_IGP_OSPF ? "OSPF" : "OSPF6"),
 			instId);
-		zlog_debug("[BGP_ORR] %s: Address family %s", __func__,
+		zlog_debug("[BGP-ORR] %s: Address family %s", __func__,
 			   get_afi_safi_str(afi, safi, false));
-		zlog_debug("[BGP_ORR] %s: Root %s", __func__,
+		zlog_debug("[BGP-ORR] %s: Root %s", __func__,
 			   prefix2str(&root, buf, sizeof(buf)));
-		zlog_debug("[BGP_ORR] %s: Number of entries %d", __func__,
+		zlog_debug("[BGP-ORR] %s: Number of entries %d", __func__,
 			   numEntries);
-		zlog_debug("[BGP_ORR] %s: Prefix Table :", __func__);
+		zlog_debug("[BGP-ORR] %s: Prefix Table :", __func__);
 		for (entry = 0; entry < numEntries; entry++)
-			zlog_debug("[BGP_ORR] %s: %s\t\t\t\t\t\t%d", __func__,
+			zlog_debug("[BGP-ORR] %s: %s\t\t\t\t\t\t%d", __func__,
 				   prefix2str(&table->nexthop[entry].prefix,
 					      buf, sizeof(buf)),
 				   table->nexthop[entry].metric);
@@ -879,9 +862,8 @@ void bgp_orr_igp_metric_register(struct peer *active_root, afi_t afi,
 
 	memset(&msg, 0, sizeof(msg));
 	if (str2prefix(active_root->host, &p) == 0) {
-		if (BGP_DEBUG(optimal_route_reflection, ORR))
-			zlog_debug("[BGP_ORR] %s: Malformed prefix for %s",
-				   __func__, active_root->host);
+		bgp_orr_debug("%s: Malformed prefix for %s", __func__,
+			      active_root->host);
 		return;
 	}
 
@@ -890,15 +872,13 @@ void bgp_orr_igp_metric_register(struct peer *active_root, afi_t afi,
 	msg.safi = safi;
 	msg.prefix.family = afi;
 
-	if (BGP_DEBUG(optimal_route_reflection, ORR))
-		zlog_debug(
-			"[BGP_ORR] %s: %s with IGP Protocol for Metric Calculation from loacation %s",
-			__func__, reg ? "Register" : "Unregister",
-			active_root->host);
+	bgp_orr_debug(
+		"%s: %s with IGP Protocol for Metric Calculation from loacation %s",
+		__func__, reg ? "Register" : "Unregister", active_root->host);
 
 	if (zclient_send_opaque(zclient, ORR_IGP_METRIC_REGISTER,
-				(uint8_t *)&msg,
-				sizeof(msg) == ZCLIENT_SEND_FAILURE))
+				(uint8_t *)&msg, sizeof(msg))
+	    == ZCLIENT_SEND_FAILURE)
 		zlog_warn("[BGP-ORR] %s: Failed to send message to IGP.",
 			  __func__);
 }
