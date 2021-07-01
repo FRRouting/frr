@@ -267,10 +267,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    :ref:`bfd-pim-peer-config`
 
 
-.. _pim-multicast-rib-insertion:
+.. _pim-multicast-rib:
 
-PIM Multicast RIB insertion:
-============================
+PIM Multicast RIB
+=================
 
 In order to influence Multicast RPF lookup, it is possible to insert
 into zebra routes for the Multicast RIB. These routes are only
