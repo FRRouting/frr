@@ -148,6 +148,13 @@ extern const char *ospf6_rejected_reason_desc[];
 
 extern void ospf6_gr_helper_init(struct ospf6 *ospf6);
 extern void ospf6_gr_helper_deinit(struct ospf6 *ospf6);
+extern void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
+				 enum ospf6_helper_exit_reason reason);
 extern int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 				   struct ospf6_neighbor *nbr);
+extern void ospf6_process_maxage_grace_lsa(struct ospf6 *ospf,
+					   struct ospf6_lsa *lsa,
+					   struct ospf6_neighbor *nbr);
+extern void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6,
+					 struct ospf6_lsa *lsa);
 #endif /* OSPF6_GR_H */
