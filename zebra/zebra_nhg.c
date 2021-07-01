@@ -2052,7 +2052,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	    && ((top->family == AF_INET && top->prefixlen == IPV4_MAX_BITLEN
 		 && nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr)
 		|| (top->family == AF_INET6 && top->prefixlen == IPV6_MAX_BITLEN
-		    && memcmp(&nexthop->gate.ipv6, &top->u.prefix6, 16)
+		    && memcmp(&nexthop->gate.ipv6, &top->u.prefix6,
+			      IPV6_MAX_BYTELEN)
 			       == 0))) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(

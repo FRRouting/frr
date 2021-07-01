@@ -286,11 +286,13 @@ static void route_add_helper(struct zapi_route *api, struct nexthop_group nhg,
 			api_nh->ifindex = nhop->ifindex;
 			break;
 		case NEXTHOP_TYPE_IPV6:
-			memcpy(&api_nh->gate.ipv6, &nhop->gate.ipv6, 16);
+			memcpy(&api_nh->gate.ipv6, &nhop->gate.ipv6,
+			       IPV6_MAX_BYTELEN);
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			api_nh->ifindex = nhop->ifindex;
-			memcpy(&api_nh->gate.ipv6, &nhop->gate.ipv6, 16);
+			memcpy(&api_nh->gate.ipv6, &nhop->gate.ipv6,
+			       IPV6_MAX_BYTELEN);
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
 			api_nh->bh_type = nhop->bh_type;
@@ -465,7 +467,7 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		p.family = AF_INET6;
-		memcpy(&p.u.prefix6, &nhop->gate.ipv6, 16);
+		memcpy(&p.u.prefix6, &nhop->gate.ipv6, IPV6_MAX_BYTELEN);
 		p.prefixlen = IPV6_MAX_BITLEN;
 		if (IN6_IS_ADDR_LINKLOCAL(&nhop->gate.ipv6))
 			/*
