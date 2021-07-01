@@ -1010,53 +1010,55 @@ static void ospf6_asbr_routemap_unset(struct ospf6_redist *red)
 
 static int ospf6_asbr_routemap_update_timer(struct thread *thread)
 {
-	void **arg;
-	int arg_type;
-	struct ospf6 *ospf6;
+	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	struct ospf6_redist *red;
-
-	arg = THREAD_ARG(thread);
-	ospf6 = (struct ospf6 *)arg[0];
-	arg_type = (int)(intptr_t)arg[1];
+	int type;
 
 	ospf6->t_distribute_update = NULL;
 
-	red = ospf6_redist_lookup(ospf6, arg_type, 0);
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		red = ospf6_redist_lookup(ospf6, type, 0);
 
-	if (red && ROUTEMAP_NAME(red))
-		ROUTEMAP(red) = route_map_lookup_by_name(ROUTEMAP_NAME(red));
-	if (red && ROUTEMAP(red)) {
-		if (IS_OSPF6_DEBUG_ASBR)
-			zlog_debug("%s: route-map %s update, reset redist %s",
-				   __func__, ROUTEMAP_NAME(red),
-				   ZROUTE_NAME(arg_type));
+		if (!red)
+			continue;
 
-		ospf6_zebra_no_redistribute(arg_type, ospf6->vrf_id);
-		ospf6_zebra_redistribute(arg_type, ospf6->vrf_id);
+		if (!CHECK_FLAG(red->flag, OSPF6_IS_RMAP_CHANGED))
+			continue;
+
+		if (ROUTEMAP_NAME(red))
+			ROUTEMAP(red) =
+				route_map_lookup_by_name(ROUTEMAP_NAME(red));
+
+		if (ROUTEMAP(red)) {
+			if (IS_OSPF6_DEBUG_ASBR)
+				zlog_debug(
+					"%s: route-map %s update, reset redist %s",
+					__func__, ROUTEMAP_NAME(red),
+					ZROUTE_NAME(type));
+
+			ospf6_zebra_no_redistribute(type, ospf6->vrf_id);
+			ospf6_zebra_redistribute(type, ospf6->vrf_id);
+		}
+
+		UNSET_FLAG(red->flag, OSPF6_IS_RMAP_CHANGED);
 	}
 
-	XFREE(MTYPE_OSPF6_DIST_ARGS, arg);
 	return 0;
 }
 
-void ospf6_asbr_distribute_list_update(int type, struct ospf6 *ospf6)
+void ospf6_asbr_distribute_list_update(struct ospf6 *ospf6,
+				       struct ospf6_redist *red)
 {
-	void **args = NULL;
+	SET_FLAG(red->flag, OSPF6_IS_RMAP_CHANGED);
 
 	if (ospf6->t_distribute_update)
 		return;
 
-	args = XCALLOC(MTYPE_OSPF6_DIST_ARGS, sizeof(void *) * 2);
-
-	args[0] = ospf6;
-	args[1] = (void *)((ptrdiff_t)type);
-
 	if (IS_OSPF6_DEBUG_ASBR)
-		zlog_debug("%s: trigger redistribute %s reset thread", __func__,
-			   ZROUTE_NAME(type));
+		zlog_debug("%s: trigger redistribute reset thread", __func__);
 
 	ospf6->t_distribute_update = NULL;
-	thread_add_timer_msec(master, ospf6_asbr_routemap_update_timer, args,
+	thread_add_timer_msec(master, ospf6_asbr_routemap_update_timer, ospf6,
 			      OSPF_MIN_LS_INTERVAL,
 			      &ospf6->t_distribute_update);
 }
@@ -1092,8 +1094,7 @@ void ospf6_asbr_routemap_update(const char *mapname)
 								type));
 
 				route_map_counter_increment(ROUTEMAP(red));
-
-				ospf6_asbr_distribute_list_update(type, ospf6);
+				ospf6_asbr_distribute_list_update(ospf6, red);
 			} else {
 				/*
 				* if the mapname matches a
@@ -1131,7 +1132,7 @@ static void ospf6_asbr_routemap_event(const char *name)
 			red = ospf6_redist_lookup(ospf6, type, 0);
 			if (red && ROUTEMAP_NAME(red)
 			    && (strcmp(ROUTEMAP_NAME(red), name) == 0))
-				ospf6_asbr_distribute_list_update(type, ospf6);
+				ospf6_asbr_distribute_list_update(ospf6, red);
 		}
 	}
 }
