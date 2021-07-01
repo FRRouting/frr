@@ -52,7 +52,8 @@ static void static_nht_update_path(struct route_node *rn,
 			nh->nh_valid = !!nh_num;
 
 		if (nhp->family == AF_INET6
-		    && memcmp(&nhp->u.prefix6, &nh->addr.ipv6, 16) == 0)
+		    && memcmp(&nhp->u.prefix6, &nh->addr.ipv6, IPV6_MAX_BYTELEN)
+			       == 0)
 			nh->nh_valid = !!nh_num;
 
 		if (nh->state == STATIC_START)

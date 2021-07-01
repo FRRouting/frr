@@ -4114,10 +4114,11 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		gw_afi = AF_INET;
 	} else {
 		SET_IPADDR_V6(&p.prefix.prefix_addr.ip);
-		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v6, pfx, 16);
-		pfx += 16;
-		memcpy(&evpn.gw_ip.ipv6, pfx, 16);
-		pfx += 16;
+		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v6, pfx,
+		       IPV6_MAX_BYTELEN);
+		pfx += IPV6_MAX_BYTELEN;
+		memcpy(&evpn.gw_ip.ipv6, pfx, IPV6_MAX_BYTELEN);
+		pfx += IPV6_MAX_BYTELEN;
 		gw_afi = AF_INET6;
 	}
 

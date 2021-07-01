@@ -98,7 +98,7 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	if (n) {
 		type_import = false;
 		p.prefixlen = IPV6_MAX_BITLEN;
-		memcpy(&p.u.prefix6, &nhop, 16);
+		memcpy(&p.u.prefix6, &nhop, IPV6_MAX_BYTELEN);
 		p.family = AF_INET6;
 	} else {
 		type_import = true;

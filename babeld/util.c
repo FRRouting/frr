@@ -220,9 +220,9 @@ unsigned char *
 mask_prefix(unsigned char *restrict ret,
             const unsigned char *restrict prefix, unsigned char plen)
 {
-    if(plen >= 128) {
-        memcpy(ret, prefix, 16);
-        return ret;
+	if (plen >= IPV6_MAX_BITLEN) {
+		memcpy(ret, prefix, IPV6_MAX_BYTELEN);
+		return ret;
     }
 
     memset(ret, 0, 16);
@@ -309,9 +309,10 @@ parse_address(const char *address, unsigned char *addr_r, int *af_r)
 
     rc = inet_pton(AF_INET6, address, &ina6);
     if(rc > 0) {
-        memcpy(addr_r, &ina6, 16);
-        if(af_r) *af_r = AF_INET6;
-        return 0;
+	    memcpy(addr_r, &ina6, IPV6_MAX_BYTELEN);
+	    if (af_r)
+		    *af_r = AF_INET6;
+	    return 0;
     }
 
     return -1;
@@ -413,13 +414,13 @@ uchar_to_inaddr(struct in_addr *dest, const unsigned char *src)
 void
 in6addr_to_uchar(unsigned char *dest, const struct in6_addr *src)
 {
-    memcpy(dest, src, 16);
+	memcpy(dest, src, IPV6_MAX_BYTELEN);
 }
 
 void
 uchar_to_in6addr(struct in6_addr *dest, const unsigned char *src)
 {
-    memcpy(dest, src, 16);
+	memcpy(dest, src, IPV6_MAX_BYTELEN);
 }
 
 int
