@@ -126,7 +126,7 @@ struct advRtr {
 };
 
 #define OSPF6_HELPER_ENABLE_RTR_COUNT(ospf)                                    \
-	(ospf6->ospf6_helper_cfg.enableRtrList->count)
+	(ospf6->ospf6_helper_cfg.enable_rtr_list->count)
 
 /* Check , it is a planned restart */
 #define OSPF6_GR_IS_PLANNED_RESTART(reason)                                    \
@@ -146,6 +146,7 @@ extern const char *ospf6_exit_reason_desc[];
 extern const char *ospf6_restart_reason_desc[];
 extern const char *ospf6_rejected_reason_desc[];
 
+extern void ospf6_gr_helper_config_init(void);
 extern void ospf6_gr_helper_init(struct ospf6 *ospf6);
 extern void ospf6_gr_helper_deinit(struct ospf6 *ospf6);
 extern void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
@@ -157,4 +158,6 @@ extern void ospf6_process_maxage_grace_lsa(struct ospf6 *ospf,
 					   struct ospf6_neighbor *nbr);
 extern void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6,
 					 struct ospf6_lsa *lsa);
+extern int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6);
+extern int config_write_ospf6_debug_gr_helper(struct vty *vty);
 #endif /* OSPF6_GR_H */
