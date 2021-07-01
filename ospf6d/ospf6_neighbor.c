@@ -622,7 +622,7 @@ int inactivity_timer(struct thread *thread)
 		ospf6_neighbor_delete(on);
 
 	} else {
-		if (IS_DEBUG_OSPF6_GR_HELPER)
+		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
 				"%s, Acting as HELPER for this neighbour, So restart the dead timer.",
 				__PRETTY_FUNCTION__);

@@ -515,7 +515,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (twoway)
 		thread_execute(master, twoway_received, on, 0);
 	else {
-		if (IS_DEBUG_OSPF6_GR_HELPER)
+		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
 				"%s, Received oneway hello from RESTARTER so ignore here.",
 				__PRETTY_FUNCTION__);
@@ -545,7 +545,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 		 * period, it can handle if there is any change before GR and
 		 * after GR.
 		 */
-		if (IS_DEBUG_OSPF6_GR_HELPER)
+		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
 				"%s, Neighbor is under GR Restart, hence ignoring the ISM Events",
 				__PRETTY_FUNCTION__);
@@ -1302,7 +1302,7 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 	case OSPF6_LSTYPE_GRACE_LSA:
 		if (lsalen < OSPF6_LSA_HEADER_SIZE + GRACE_PERIOD_TLV_SIZE
 				     + GRACE_RESTART_REASON_TLV_SIZE) {
-			if (IS_DEBUG_OSPF6_GR_HELPER)
+			if (IS_DEBUG_OSPF6_GR)
 				zlog_debug("%s: Undersized GraceLSA.",
 					   __func__);
 			return MSG_NG;
