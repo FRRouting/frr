@@ -477,7 +477,8 @@ static void netlink_install_filter(int sock, __u32 pid, __u32 dplane_pid)
 }
 
 void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
-		struct rtattr *rta, int len, unsigned short flags)
+				struct rtattr *rta, int len,
+				unsigned short flags)
 {
 	unsigned short type;
 
@@ -1455,12 +1456,25 @@ void kernel_init(struct zebra_ns *zns)
 		exit(-1);
 	}
 
-	snprintf(zns->netlink_dplane.name, sizeof(zns->netlink_dplane.name),
-		 "netlink-dp (NS %u)", zns->ns_id);
-	zns->netlink_dplane.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane, 0, zns->ns_id) < 0) {
+	/* Outbound socket for dplane programming of the host OS. */
+	snprintf(zns->netlink_dplane_out.name,
+		 sizeof(zns->netlink_dplane_out.name), "netlink-dp (NS %u)",
+		 zns->ns_id);
+	zns->netlink_dplane_out.sock = -1;
+	if (netlink_socket(&zns->netlink_dplane_out, 0, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
-			 zns->netlink_dplane.name);
+			 zns->netlink_dplane_out.name);
+		exit(-1);
+	}
+
+	/* Inbound socket for OS events coming to the dplane. */
+	snprintf(zns->netlink_dplane_in.name,
+		 sizeof(zns->netlink_dplane_in.name), "netlink-dp-in (NS %u)",
+		 zns->ns_id);
+	zns->netlink_dplane_in.sock = -1;
+	if (netlink_socket(&zns->netlink_dplane_in, groups, zns->ns_id) < 0) {
+		zlog_err("Failure to create %s socket",
+			 zns->netlink_dplane_in.name);
 		exit(-1);
 	}
 
@@ -1483,8 +1497,8 @@ void kernel_init(struct zebra_ns *zns)
 			    errno, safe_strerror(errno));
 
 	one = 1;
-	ret = setsockopt(zns->netlink_dplane.sock, SOL_NETLINK, NETLINK_EXT_ACK,
-			 &one, sizeof(one));
+	ret = setsockopt(zns->netlink_dplane_out.sock, SOL_NETLINK,
+			 NETLINK_EXT_ACK, &one, sizeof(one));
 
 	if (ret < 0)
 		zlog_notice("Registration for extended dp ACK failed : %d %s",
@@ -1496,8 +1510,8 @@ void kernel_init(struct zebra_ns *zns)
 	 * setsockopt fails, ignore the error.
 	 */
 	one = 1;
-	ret = setsockopt(zns->netlink_dplane.sock, SOL_NETLINK, NETLINK_CAP_ACK,
-			 &one, sizeof(one));
+	ret = setsockopt(zns->netlink_dplane_out.sock, SOL_NETLINK,
+			 NETLINK_CAP_ACK, &one, sizeof(one));
 	if (ret < 0)
 		zlog_notice(
 			"Registration for reduced ACK packet size failed, probably running an early kernel");
@@ -1512,20 +1526,33 @@ void kernel_init(struct zebra_ns *zns)
 		zlog_err("Can't set %s socket error: %s(%d)",
 			 zns->netlink_cmd.name, safe_strerror(errno), errno);
 
-	if (fcntl(zns->netlink_dplane.sock, F_SETFL, O_NONBLOCK) < 0)
+	if (fcntl(zns->netlink_dplane_out.sock, F_SETFL, O_NONBLOCK) < 0)
 		zlog_err("Can't set %s socket error: %s(%d)",
-			 zns->netlink_dplane.name, safe_strerror(errno), errno);
+			 zns->netlink_dplane_out.name, safe_strerror(errno),
+			 errno);
+
+	if (fcntl(zns->netlink_dplane_in.sock, F_SETFL, O_NONBLOCK) < 0)
+		zlog_err("Can't set %s socket error: %s(%d)",
+			 zns->netlink_dplane_in.name, safe_strerror(errno),
+			 errno);
 
 	/* Set receive buffer size if it's set from command line */
 	if (nl_rcvbufsize) {
 		netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
 		netlink_recvbuf(&zns->netlink_cmd, nl_rcvbufsize);
-		netlink_recvbuf(&zns->netlink_dplane, nl_rcvbufsize);
+		netlink_recvbuf(&zns->netlink_dplane_out, nl_rcvbufsize);
+		netlink_recvbuf(&zns->netlink_dplane_in, nl_rcvbufsize);
 	}
 
-	netlink_install_filter(zns->netlink.sock,
+	/* Set filter for inbound sockets, to exclude events we've generated
+	 * ourselves.
+	 */
+	netlink_install_filter(zns->netlink.sock, zns->netlink_cmd.snl.nl_pid,
+			       zns->netlink_dplane_out.snl.nl_pid);
+
+	netlink_install_filter(zns->netlink_dplane_in.sock,
 			       zns->netlink_cmd.snl.nl_pid,
-			       zns->netlink_dplane.snl.nl_pid);
+			       zns->netlink_dplane_out.snl.nl_pid);
 
 	zns->t_netlink = NULL;
 
@@ -1549,13 +1576,18 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 		zns->netlink_cmd.sock = -1;
 	}
 
+	if (zns->netlink_dplane_in.sock >= 0) {
+		close(zns->netlink_dplane_in.sock);
+		zns->netlink_dplane_in.sock = -1;
+	}
+
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.
 	 */
 	if (complete) {
-		if (zns->netlink_dplane.sock >= 0) {
-			close(zns->netlink_dplane.sock);
-			zns->netlink_dplane.sock = -1;
+		if (zns->netlink_dplane_out.sock >= 0) {
+			close(zns->netlink_dplane_out.sock);
+			zns->netlink_dplane_out.sock = -1;
 		}
 	}
 }
