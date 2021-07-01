@@ -2177,9 +2177,9 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 	 * two messages in some 'update' cases.
 	 */
 	if (is_update)
-		zns->netlink_dplane.seq += 2;
+		zns->netlink_dplane_out.seq += 2;
 	else
-		zns->netlink_dplane.seq++;
+		zns->netlink_dplane_out.seq++;
 #endif	/* HAVE_NETLINK */
 
 	return AOK;
@@ -4709,7 +4709,7 @@ static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 
 #if defined(HAVE_NETLINK)
 	ns_info->is_cmd = true;
-	ns_info->nls = zns->netlink_dplane;
+	ns_info->nls = zns->netlink_dplane_out;
 #endif /* NETLINK */
 }
 
