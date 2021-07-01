@@ -2049,7 +2049,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	}
 
 	if (top
-	    && ((top->family == AF_INET && top->prefixlen == 32
+	    && ((top->family == AF_INET && top->prefixlen == IPV4_MAX_BITLEN
 		 && nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr)
 		|| (top->family == AF_INET6 && top->prefixlen == IPV6_MAX_BITLEN
 		    && memcmp(&nexthop->gate.ipv6, &top->u.prefix6, 16)
@@ -2151,7 +2151,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		 * host route.
 		 */
 		if (prefix_same(&rn->p, top))
-			if (((afi == AFI_IP) && (rn->p.prefixlen != 32))
+			if (((afi == AFI_IP)
+			     && (rn->p.prefixlen != IPV4_MAX_BITLEN))
 			    || ((afi == AFI_IP6)
 				&& (rn->p.prefixlen != IPV6_MAX_BITLEN))) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)

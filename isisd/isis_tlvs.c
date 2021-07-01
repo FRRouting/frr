@@ -2057,7 +2057,7 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 	rv->down = (control & ISIS_EXTENDED_IP_REACH_DOWN);
 	rv->prefix.family = AF_INET;
 	rv->prefix.prefixlen = control & 0x3f;
-	if (rv->prefix.prefixlen > 32) {
+	if (rv->prefix.prefixlen > IPV4_MAX_BITLEN) {
 		sbuf_push(log, indent, "Prefixlen %u is implausible for IPv4\n",
 			  rv->prefix.prefixlen);
 		goto out;

@@ -751,8 +751,8 @@ lde_update_label(struct fec_node *fn)
 	/* should we allocate a label for this fec? */
 	switch (fn->fec.type) {
 	case FEC_TYPE_IPV4:
-		if ((ldeconf->ipv4.flags & F_LDPD_AF_ALLOCHOSTONLY) &&
-		    fn->fec.u.ipv4.prefixlen != 32)
+		if ((ldeconf->ipv4.flags & F_LDPD_AF_ALLOCHOSTONLY)
+		    && fn->fec.u.ipv4.prefixlen != IPV4_MAX_BITLEN)
 			return (NO_LABEL);
 		if (lde_acl_check(ldeconf->ipv4.acl_label_allocate_for,
 		    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,

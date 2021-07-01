@@ -141,7 +141,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 
 	if (n) {
 		type_import = false;
-		p.prefixlen = 32;
+		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = nhop;
 		p.family = AF_INET;
 	}
@@ -239,7 +239,7 @@ DEFPY (install_routes,
 
 	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
@@ -383,7 +383,7 @@ DEFPY (install_seg6_routes,
 
 	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
@@ -568,7 +568,7 @@ DEFPY (remove_routes,
 
 	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
@@ -878,7 +878,7 @@ DEFPY (neigh_discover,
 
 	if (dst4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = dst4;
 	} else {
 		prefix.family = AF_INET6;

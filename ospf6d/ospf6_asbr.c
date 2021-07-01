@@ -1400,7 +1400,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 		/* create/update binding in external_id_table */
 		prefix_id.family = AF_INET;
-		prefix_id.prefixlen = 32;
+		prefix_id.prefixlen = IPV4_MAX_BITLEN;
 		prefix_id.u.prefix4.s_addr = htonl(info->id);
 		node = route_node_get(ospf6->external_id_table, &prefix_id);
 		node->info = match;
@@ -1465,7 +1465,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 	/* create/update binding in external_id_table */
 	prefix_id.family = AF_INET;
-	prefix_id.prefixlen = 32;
+	prefix_id.prefixlen = IPV4_MAX_BITLEN;
 	prefix_id.u.prefix4.s_addr = htonl(info->id);
 	node = route_node_get(ospf6->external_id_table, &prefix_id);
 	node->info = route;
@@ -1548,7 +1548,7 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 
 	/* remove binding in external_id_table */
 	prefix_id.family = AF_INET;
-	prefix_id.prefixlen = 32;
+	prefix_id.prefixlen = IPV4_MAX_BITLEN;
 	prefix_id.u.prefix4.s_addr = htonl(info->id);
 	node = route_node_lookup(ospf6->external_id_table, &prefix_id);
 	assert(node);

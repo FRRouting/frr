@@ -267,7 +267,7 @@ struct rfapi {
 
 #define RFAPI_HOST_PREFIX(prefix)                                              \
 	(((prefix)->family == AF_INET)                                         \
-		 ? ((prefix)->prefixlen == 32)                                 \
+		 ? ((prefix)->prefixlen == IPV4_MAX_BITLEN)                    \
 		 : (((prefix)->family == AF_INET6)                             \
 			    ? ((prefix)->prefixlen == IPV6_MAX_BITLEN)         \
 			    : 0))

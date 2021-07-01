@@ -1953,7 +1953,7 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 		g.family = AF_INET;
 		g.u.prefix4 = rec_group;
-		g.prefixlen = 32;
+		g.prefixlen = IPV4_MAX_BITLEN;
 
 		/* determine filtering status for group */
 		filtered = pim_is_group_filtered(ifp->info, &rec_group);
