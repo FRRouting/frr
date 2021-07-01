@@ -269,7 +269,7 @@ struct rfapi {
 	(((prefix)->family == AF_INET)                                         \
 		 ? ((prefix)->prefixlen == 32)                                 \
 		 : (((prefix)->family == AF_INET6)                             \
-			    ? ((prefix)->prefixlen == 128)                     \
+			    ? ((prefix)->prefixlen == IPV6_MAX_BITLEN)         \
 			    : 0))
 
 extern int rfapi_find_rfd(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,

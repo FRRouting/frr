@@ -391,7 +391,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		}
 
 		if ((afi == AFI_IP && p.prefixlen > 32)
-		    || (afi == AFI_IP6 && p.prefixlen > 128))
+		    || (afi == AFI_IP6 && p.prefixlen > IPV6_MAX_BITLEN))
 			return BGP_NLRI_PARSE_ERROR_PREFIX_LENGTH;
 
 		/* Fetch prefix from NLRI packet */

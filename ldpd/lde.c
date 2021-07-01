@@ -760,8 +760,8 @@ lde_update_label(struct fec_node *fn)
 			return (NO_LABEL);
 		break;
 	case FEC_TYPE_IPV6:
-		if ((ldeconf->ipv6.flags & F_LDPD_AF_ALLOCHOSTONLY) &&
-		    fn->fec.u.ipv6.prefixlen != 128)
+		if ((ldeconf->ipv6.flags & F_LDPD_AF_ALLOCHOSTONLY)
+		    && fn->fec.u.ipv6.prefixlen != IPV6_MAX_BITLEN)
 			return (NO_LABEL);
 		if (lde_acl_check(ldeconf->ipv6.acl_label_allocate_for,
 		    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,

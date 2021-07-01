@@ -600,7 +600,7 @@ encap_attr_export(struct attr *new, struct attr *orig,
 			orig_nexthop.prefixlen = 32;
 			orig_nexthop.u.prefix4 = orig->mp_nexthop_global_in;
 		} else if (orig_nexthop.family == AF_INET6) {
-			orig_nexthop.prefixlen = 128;
+			orig_nexthop.prefixlen = IPV6_MAX_BITLEN;
 			orig_nexthop.u.prefix6 = orig->mp_nexthop_global;
 		} else {
 			return -1; /* FAIL - can't compute nexthop */
