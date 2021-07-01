@@ -1043,7 +1043,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 			if (OSPF6_LSA_IS_MAXAGE(new)) {
 
-				if (IS_DEBUG_OSPF6_GR_HELPER)
+				if (IS_DEBUG_OSPF6_GR)
 					zlog_debug(
 						"%s, Received a maxage GraceLSA from router %pI4",
 						__func__,
@@ -1052,7 +1052,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					ospf6_process_maxage_grace_lsa(
 						ospf6, new, from);
 				} else {
-					if (IS_DEBUG_OSPF6_GR_HELPER)
+					if (IS_DEBUG_OSPF6_GR)
 						zlog_debug(
 							"%s, GraceLSA doesn't exist in lsdb, so discarding GraceLSA",
 							__func__);
@@ -1060,7 +1060,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				}
 			} else {
 
-				if (IS_DEBUG_OSPF6_GR_HELPER)
+				if (IS_DEBUG_OSPF6_GR)
 					zlog_debug(
 						"%s, Received a GraceLSA from router %pI4",
 						__func__,
@@ -1068,7 +1068,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 				if (ospf6_process_grace_lsa(ospf6, new, from)
 				    == OSPF6_GR_NOT_HELPER) {
-					if (IS_DEBUG_OSPF6_GR_HELPER)
+					if (IS_DEBUG_OSPF6_GR)
 						zlog_debug(
 							"%s, Not moving to HELPER role, So dicarding GraceLSA",
 							__func__);

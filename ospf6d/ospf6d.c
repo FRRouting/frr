@@ -45,6 +45,7 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
+#include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
 
@@ -96,6 +97,7 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_abr(vty);
 	config_write_ospf6_debug_flood(vty);
 	config_write_ospf6_debug_nssa(vty);
+	config_write_ospf6_debug_gr_helper(vty);
 
 	return 0;
 }
@@ -1402,6 +1404,7 @@ void ospf6_init(struct thread_master *master)
 	ospf6_intra_init();
 	ospf6_asbr_init();
 	ospf6_abr_init();
+	ospf6_gr_helper_config_init();
 
 	/* initialize hooks for modifying filter rules */
 	prefix_list_add_hook(ospf6_plist_add);

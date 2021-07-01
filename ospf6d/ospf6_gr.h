@@ -36,15 +36,13 @@
 /* Debug option */
 extern unsigned char conf_debug_ospf6_gr;
 
-#define OSPF6_DEBUG_GR_HELPER 0x01
+#define OSPF6_DEBUG_GR 0x01
 
-#define OSPF6_DEBUG_GR_HELPER_ON()                                             \
-	(conf_debug_ospf6_gr |= OSPF6_DEBUG_GR_HELPER)
+#define OSPF6_DEBUG_GR_ON() (conf_debug_ospf6_gr |= OSPF6_DEBUG_GR)
 
-#define OSPF6_DEBUG_GR_HELPER_OFF()                                            \
-	(conf_debug_ospf6_gr &= ~OSPF6_DEBUG_GR_HELPER)
+#define OSPF6_DEBUG_GR_OFF() (conf_debug_ospf6_gr &= ~OSPF6_DEBUG_GR)
 
-#define IS_DEBUG_OSPF6_GR_HELPER conf_debug_ospf6_gr
+#define IS_DEBUG_OSPF6_GR conf_debug_ospf6_gr
 
 
 enum ospf6_helper_exit_reason {
@@ -98,7 +96,7 @@ struct tlv_header {
 #define TLV_HDR_NEXT(tlvh)                                                     \
 	(struct tlv_header *)((char *)(tlvh) + TLV_SIZE(tlvh))
 
-/* Ref RFC5187 appendex-A */
+/* Ref RFC5187 appendix-A */
 /* Grace period TLV */
 #define GRACE_PERIOD_TYPE 1
 #define GRACE_PERIOD_LENGTH 4
@@ -126,7 +124,7 @@ struct advRtr {
 };
 
 #define OSPF6_HELPER_ENABLE_RTR_COUNT(ospf)                                    \
-	(ospf6->ospf6_helper_cfg.enableRtrList->count)
+	(ospf6->ospf6_helper_cfg.enable_rtr_list->count)
 
 /* Check , it is a planned restart */
 #define OSPF6_GR_IS_PLANNED_RESTART(reason)                                    \
@@ -146,6 +144,7 @@ extern const char *ospf6_exit_reason_desc[];
 extern const char *ospf6_restart_reason_desc[];
 extern const char *ospf6_rejected_reason_desc[];
 
+extern void ospf6_gr_helper_config_init(void);
 extern void ospf6_gr_helper_init(struct ospf6 *ospf6);
 extern void ospf6_gr_helper_deinit(struct ospf6 *ospf6);
 extern void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
@@ -157,4 +156,6 @@ extern void ospf6_process_maxage_grace_lsa(struct ospf6 *ospf,
 					   struct ospf6_neighbor *nbr);
 extern void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6,
 					 struct ospf6_lsa *lsa);
+extern int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6);
+extern int config_write_ospf6_debug_gr_helper(struct vty *vty);
 #endif /* OSPF6_GR_H */
