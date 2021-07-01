@@ -495,7 +495,7 @@ int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size)
 		}
 
 		p->family = AF_INET6;
-		p->prefixlen = IPV6_MAX_PREFIXLEN;
+		p->prefixlen = IPV6_MAX_BITLEN;
 		memcpy(&p->u.prefix6, addr, sizeof(struct in6_addr));
 		addr += sizeof(struct in6_addr);
 

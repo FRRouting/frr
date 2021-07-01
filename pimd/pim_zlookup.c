@@ -276,7 +276,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
 
 			p.family = AF_INET6;
-			p.prefixlen = IPV6_MAX_PREFIXLEN;
+			p.prefixlen = IPV6_MAX_BITLEN;
 			memcpy(&p.u.prefix6,
 			       &nexthop_tab[num_ifindex].nexthop_addr.u.prefix6,
 			       sizeof(struct in6_addr));

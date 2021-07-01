@@ -556,7 +556,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 			 + OSPF6_PREFIX_SPACE(external->prefix.prefix_length);
 		memset(&fwd_addr, 0, sizeof(struct prefix));
 		fwd_addr.family = AF_INET6;
-		fwd_addr.prefixlen = IPV6_MAX_PREFIXLEN;
+		fwd_addr.prefixlen = IPV6_MAX_BITLEN;
 		memcpy(&fwd_addr.u.prefix6, (caddr_t)external + offset,
 		       sizeof(struct in6_addr));
 

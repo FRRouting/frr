@@ -1079,7 +1079,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		p.family = AF_INET6;
 		p.u.prefix6 = dest.sin6.sin6_addr;
 		if (flags & RTF_HOST)
-			p.prefixlen = IPV6_MAX_PREFIXLEN;
+			p.prefixlen = IPV6_MAX_BITLEN;
 		else
 			p.prefixlen = ip6_masklen(mask.sin6.sin6_addr);
 

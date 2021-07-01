@@ -2537,8 +2537,8 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	 */
 	memcpy(&p.u, &pw->nexthop, sizeof(pw->nexthop));
 	p.family = pw->af;
-	p.prefixlen = ((pw->af == AF_INET) ?
-		       IPV4_MAX_PREFIXLEN : IPV6_MAX_PREFIXLEN);
+	p.prefixlen =
+		((pw->af == AF_INET) ? IPV4_MAX_PREFIXLEN : IPV6_MAX_BITLEN);
 
 	afi = (pw->af == AF_INET) ? AFI_IP : AFI_IP6;
 	table = zebra_vrf_table(afi, SAFI_UNICAST, pw->vrf_id);
