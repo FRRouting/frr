@@ -925,7 +925,7 @@ static const char *zebra_pbr_prefix2str(union prefixconstptr pu,
 	const struct prefix *p = pu.p;
 	char buf[PREFIX2STR_BUFFER];
 
-	if ((p->family == AF_INET && p->prefixlen == IPV4_MAX_PREFIXLEN)
+	if ((p->family == AF_INET && p->prefixlen == IPV4_MAX_BITLEN)
 	    || (p->family == AF_INET6 && p->prefixlen == IPV6_MAX_BITLEN)) {
 		snprintf(str, size, "%s", inet_ntop(p->family, &p->u.prefix,
 						    buf, PREFIX2STR_BUFFER));

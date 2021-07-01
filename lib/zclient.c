@@ -1432,7 +1432,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETC(s, api->prefix.prefixlen);
 	switch (api->prefix.family) {
 	case AF_INET:
-		if (api->prefix.prefixlen > IPV4_MAX_PREFIXLEN) {
+		if (api->prefix.prefixlen > IPV4_MAX_BITLEN) {
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: V4 prefixlen is %d which should not be more than 32",

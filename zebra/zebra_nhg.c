@@ -2118,7 +2118,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	switch (afi) {
 	case AFI_IP:
 		p.family = AF_INET;
-		p.prefixlen = IPV4_MAX_PREFIXLEN;
+		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = *ipv4;
 		break;
 	case AFI_IP6:

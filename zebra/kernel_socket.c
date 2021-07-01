@@ -1066,7 +1066,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		p.family = AF_INET;
 		p.u.prefix4 = dest.sin.sin_addr;
 		if (flags & RTF_HOST)
-			p.prefixlen = IPV4_MAX_PREFIXLEN;
+			p.prefixlen = IPV4_MAX_BITLEN;
 		else
 			p.prefixlen = ip_masklen(mask.sin.sin_addr);
 
