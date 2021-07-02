@@ -10913,6 +10913,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 						       "N E1");
 				json_object_int_add(json_route, "cost",
 						    er->cost);
+				json_object_int_add(json_route, "tag",
+						    er->u.ext.tag);
 			} else {
 				vty_out(vty,
 					"N E1 %-18s    [%d] tag: %" ROUTE_TAG_PRI
@@ -10926,6 +10928,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 						       "N E2");
 				json_object_int_add(json_route, "cost",
 						    er->cost);
+				json_object_int_add(json_route, "type2cost",
+						    er->u.ext.type2_cost);
+				json_object_int_add(json_route, "tag",
+						    er->u.ext.tag);
 			} else {
 				vty_out(vty,
 					"N E2 %-18s    [%d/%d] tag: %" ROUTE_TAG_PRI
