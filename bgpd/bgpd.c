@@ -1369,7 +1369,7 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
 	peer->password = NULL;
-	peer->max_packet_size = BGP_MAX_PACKET_SIZE;
+	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -1465,6 +1465,8 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->tcp_mss = peer_src->tcp_mss;
 	(void)peer_sort(peer_dst);
 	peer_dst->rmap_type = peer_src->rmap_type;
+
+	peer_dst->max_packet_size = peer_src->max_packet_size;
 
 	/* Timers */
 	peer_dst->holdtime = peer_src->holdtime;
