@@ -1840,7 +1840,7 @@ static void ospf_te_update_subnet(struct ls_ted *ted, struct ls_vertex *vertex,
 
 /**
  * Delete Subnet that correspond to the given IPv4 address and export deletion
- * information before removal. Prefix length is fixed to IPV4_MAX_PREFIXLEN.
+ * information before removal. Prefix length is fixed to IPV4_MAX_BITLEN.
  *
  * @param ted	Links State Database
  * @param addr	IPv4 address
@@ -1852,7 +1852,7 @@ static void ospf_te_delete_subnet(struct ls_ted *ted, struct in_addr addr)
 
 	/* Search subnet that correspond to the address/32 as prefix */
 	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = addr;
 	subnet = ls_find_subnet(ted, p);
 
@@ -1944,7 +1944,7 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 					    ntohs(rl->link[i].metric));
 			/* Add corresponding subnet */
 			p.family = AF_INET;
-			p.prefixlen = IPV4_MAX_PREFIXLEN;
+			p.prefixlen = IPV4_MAX_BITLEN;
 			p.u.prefix4 = rl->link[i].link_data;
 			metric = ntohs(rl->link[i].metric);
 			ospf_te_update_subnet(ted, vertex, p, metric);
@@ -1952,7 +1952,7 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 		case LSA_LINK_TYPE_STUB:
 			/* Keep only /32 prefix */
 			p.prefixlen = ip_masklen(rl->link[i].link_data);
-			if (p.prefixlen == IPV4_MAX_PREFIXLEN) {
+			if (p.prefixlen == IPV4_MAX_BITLEN) {
 				p.family = AF_INET;
 				p.u.prefix4 = rl->link[i].link_id;
 				metric = ntohs(rl->link[i].metric);
@@ -2086,12 +2086,12 @@ static void ospf_te_update_remote_asbr(struct ls_ted *ted, struct ls_edge *edge)
 
 	/* Update corresponding Subnets */
 	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = attr->standard.local;
 	ospf_te_update_subnet(ted, edge->source, p, attr->standard.te_metric);
 
 	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = attr->standard.remote_addr;
 	ospf_te_update_subnet(ted, vertex, p, attr->standard.te_metric);
 

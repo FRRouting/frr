@@ -2174,7 +2174,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 	np = prefix_list_lookup(AFI_IP, nlist);
 
 	g.family = AF_INET;
-	g.prefixlen = IPV4_MAX_PREFIXLEN;
+	g.prefixlen = IPV4_MAX_BITLEN;
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr != INADDR_ANY)

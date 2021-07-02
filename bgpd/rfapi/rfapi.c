@@ -1613,9 +1613,9 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 			memset(&rprefix, 0, sizeof(rprefix));
 			rprefix.prefix.addr_family = target->addr_family;
 			if (target->addr_family == AF_INET) {
-				rprefix.length = 32;
+				rprefix.length = IPV4_MAX_BITLEN;
 			} else {
-				rprefix.length = 128;
+				rprefix.length = IPV6_MAX_BITLEN;
 			}
 
 			pNHE = rfapiEthRouteTable2NextHopList(
@@ -1690,9 +1690,9 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 		memset(&rprefix, 0, sizeof(rprefix));
 		rprefix.prefix.addr_family = target->addr_family;
 		if (target->addr_family == AF_INET) {
-			rprefix.length = 32;
+			rprefix.length = IPV4_MAX_BITLEN;
 		} else {
-			rprefix.length = 128;
+			rprefix.length = IPV6_MAX_BITLEN;
 		}
 
 		pNHE = rfapiEthRouteNode2NextHopList(

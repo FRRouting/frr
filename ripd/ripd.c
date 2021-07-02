@@ -2143,7 +2143,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					       &rp->p)) {
 					if ((ifc->address->prefixlen
 					     != rp->p.prefixlen)
-					    && (rp->p.prefixlen != 32))
+					    && (rp->p.prefixlen
+						!= IPV4_MAX_BITLEN))
 						continue;
 				} else {
 					memcpy(&classfull, &rp->p,
@@ -2429,7 +2430,7 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 				/* use specified broadcast or peer destination
 				 * addr */
 				to.sin_addr = ifc->destination->u.prefix4;
-			else if (ifc->address->prefixlen < IPV4_MAX_PREFIXLEN)
+			else if (ifc->address->prefixlen < IPV4_MAX_BITLEN)
 				/* calculate the appropriate broadcast address
 				 */
 				to.sin_addr.s_addr = ipv4_broadcast_addr(

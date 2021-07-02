@@ -1194,7 +1194,7 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 
 		/* - is the prefix length valid (i.e., between 0 and 128,
 		   inclusive) */
-		if (rte->prefixlen > 128) {
+		if (rte->prefixlen > IPV6_MAX_BITLEN) {
 			zlog_warn("Invalid prefix length %pI6/%d from %pI6%%%s",
 				  &rte->addr, rte->prefixlen,
 				  &from->sin6_addr, ifp->name);

@@ -97,8 +97,8 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 
 	if (n) {
 		type_import = false;
-		p.prefixlen = 128;
-		memcpy(&p.u.prefix6, &nhop, 16);
+		p.prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&p.u.prefix6, &nhop, IPV6_MAX_BYTELEN);
 		p.family = AF_INET6;
 	} else {
 		type_import = true;
@@ -141,7 +141,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 
 	if (n) {
 		type_import = false;
-		p.prefixlen = 32;
+		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = nhop;
 		p.family = AF_INET;
 	}
@@ -239,11 +239,11 @@ DEFPY (install_routes,
 
 	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = start6;
 	}
 	sg.r.orig_prefix = prefix;
@@ -383,11 +383,11 @@ DEFPY (install_seg6_routes,
 
 	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = start6;
 	}
 	sg.r.orig_prefix = prefix;
@@ -568,11 +568,11 @@ DEFPY (remove_routes,
 
 	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = start6;
 	}
 
@@ -878,7 +878,7 @@ DEFPY (neigh_discover,
 
 	if (dst4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = dst4;
 	} else {
 		prefix.family = AF_INET6;

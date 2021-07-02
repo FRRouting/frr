@@ -138,7 +138,7 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	ifp = c->ifp;
 	p = *c->address;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	p.prefixlen = IPV4_MAX_BITLEN;
 
 	rn = route_node_lookup(IF_OIFS(ifp), &p);
 	if (!rn) {

@@ -405,7 +405,7 @@ int rfapiGetVncTunnelUnAddr(struct attr *attr, struct prefix *p)
 				case 8:
 					if (p) {
 						p->family = AF_INET;
-						p->prefixlen = 32;
+						p->prefixlen = IPV4_MAX_BITLEN;
 						memcpy(p->u.val, pEncap->value,
 						       4);
 					}
@@ -414,7 +414,7 @@ int rfapiGetVncTunnelUnAddr(struct attr *attr, struct prefix *p)
 				case 20:
 					if (p) {
 						p->family = AF_INET6;
-						p->prefixlen = 128;
+						p->prefixlen = IPV6_MAX_BITLEN;
 						memcpy(p->u.val, pEncap->value,
 						       16);
 					}
@@ -445,14 +445,14 @@ int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bpi, struct prefix *p)
 			if (p) {
 				p->family = bpi->extra->vnc.import.un_family;
 				p->u.prefix4 = bpi->extra->vnc.import.un.addr4;
-				p->prefixlen = 32;
+				p->prefixlen = IPV4_MAX_BITLEN;
 			}
 			return 0;
 		case AF_INET6:
 			if (p) {
 				p->family = bpi->extra->vnc.import.un_family;
 				p->u.prefix6 = bpi->extra->vnc.import.un.addr6;
-				p->prefixlen = 128;
+				p->prefixlen = IPV6_MAX_BITLEN;
 			}
 			return 0;
 		default:
@@ -2519,12 +2519,12 @@ void rfapiNexthop2Prefix(struct attr *attr, struct prefix *p)
 	switch (p->family = BGP_MP_NEXTHOP_FAMILY(attr->mp_nexthop_len)) {
 	case AF_INET:
 		p->u.prefix4 = attr->mp_nexthop_global_in;
-		p->prefixlen = 32;
+		p->prefixlen = IPV4_MAX_BITLEN;
 		break;
 
 	case AF_INET6:
 		p->u.prefix6 = attr->mp_nexthop_global;
-		p->prefixlen = 128;
+		p->prefixlen = IPV6_MAX_BITLEN;
 		break;
 
 	default:
@@ -2537,7 +2537,7 @@ void rfapiUnicastNexthop2Prefix(afi_t afi, struct attr *attr, struct prefix *p)
 {
 	if (afi == AFI_IP) {
 		p->family = AF_INET;
-		p->prefixlen = 32;
+		p->prefixlen = IPV4_MAX_BITLEN;
 		p->u.prefix4 = attr->nexthop;
 	} else {
 		rfapiNexthop2Prefix(attr, p);
@@ -2871,12 +2871,12 @@ static int rfapiGetNexthop(struct attr *attr, struct prefix *prefix)
 	switch (BGP_MP_NEXTHOP_FAMILY(attr->mp_nexthop_len)) {
 	case AF_INET:
 		prefix->family = AF_INET;
-		prefix->prefixlen = 32;
+		prefix->prefixlen = IPV4_MAX_BITLEN;
 		prefix->u.prefix4 = attr->mp_nexthop_global_in;
 		break;
 	case AF_INET6:
 		prefix->family = AF_INET6;
-		prefix->prefixlen = 128;
+		prefix->prefixlen = IPV6_MAX_BITLEN;
 		prefix->u.prefix6 = attr->mp_nexthop_global;
 		break;
 	default:

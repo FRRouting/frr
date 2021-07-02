@@ -101,9 +101,8 @@ static int bgp_md5_set_socket(int socket, union sockunion *su,
 		su2.sin6.sin6_port = 0;
 
 	/* For addresses, use the non-extended signature functionality */
-	if ((su2.sa.sa_family == AF_INET && prefixlen == IPV4_MAX_PREFIXLEN)
-	    || (su2.sa.sa_family == AF_INET6
-		&& prefixlen == IPV6_MAX_PREFIXLEN))
+	if ((su2.sa.sa_family == AF_INET && prefixlen == IPV4_MAX_BITLEN)
+	    || (su2.sa.sa_family == AF_INET6 && prefixlen == IPV6_MAX_BITLEN))
 		ret = sockopt_tcp_signature(socket, &su2, password);
 	else
 		ret = sockopt_tcp_signature_ext(socket, &su2, prefixlen,
@@ -164,8 +163,8 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 			    peer->su.sa.sa_family) {
 				uint16_t prefixlen =
 					peer->su.sa.sa_family == AF_INET
-					? IPV4_MAX_PREFIXLEN
-					: IPV6_MAX_PREFIXLEN;
+						? IPV4_MAX_BITLEN
+						: IPV6_MAX_BITLEN;
 
 				/*
 				 * if we have stored a BGP vrf instance in the
@@ -745,8 +744,8 @@ int bgp_connect(struct peer *peer)
 
 	if (peer->password) {
 		uint16_t prefixlen = peer->su.sa.sa_family == AF_INET
-					     ? IPV4_MAX_PREFIXLEN
-					     : IPV6_MAX_PREFIXLEN;
+					     ? IPV4_MAX_BITLEN
+					     : IPV6_MAX_BITLEN;
 
 		bgp_md5_set_connect(peer->fd, &peer->su, prefixlen,
 				    peer->password);

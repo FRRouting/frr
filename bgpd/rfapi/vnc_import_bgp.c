@@ -108,9 +108,9 @@ static int is_host_prefix(const struct prefix *p)
 {
 	switch (p->family) {
 	case AF_INET:
-		return (p->prefixlen == 32);
+		return (p->prefixlen == IPV4_MAX_BITLEN);
 	case AF_INET6:
-		return (p->prefixlen == 128);
+		return (p->prefixlen == IPV6_MAX_BITLEN);
 	}
 	return 0;
 }
@@ -1073,7 +1073,7 @@ static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
 	vnaddr.addr_family = vn_pfx->family;
 	switch (vn_pfx->family) {
 	case AF_INET:
-		if (vn_pfx->prefixlen != 32) {
+		if (vn_pfx->prefixlen != IPV4_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
 				"%s: redist VN plen (%d) != 32, skipping",
 				__func__, vn_pfx->prefixlen);
@@ -1083,7 +1083,7 @@ static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
 		break;
 
 	case AF_INET6:
-		if (vn_pfx->prefixlen != 128) {
+		if (vn_pfx->prefixlen != IPV6_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
 				"%s: redist VN plen (%d) != 128, skipping",
 				__func__, vn_pfx->prefixlen);
@@ -1147,7 +1147,7 @@ static void vnc_import_bgp_del_route_mode_nvegroup(struct bgp *bgp,
 	vnaddr.addr_family = vn_pfx->family;
 	switch (vn_pfx->family) {
 	case AF_INET:
-		if (vn_pfx->prefixlen != 32) {
+		if (vn_pfx->prefixlen != IPV4_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
 				"%s: redist VN plen (%d) != 32, skipping",
 				__func__, vn_pfx->prefixlen);
@@ -1157,7 +1157,7 @@ static void vnc_import_bgp_del_route_mode_nvegroup(struct bgp *bgp,
 		break;
 
 	case AF_INET6:
-		if (vn_pfx->prefixlen != 128) {
+		if (vn_pfx->prefixlen != IPV6_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
 				"%s: redist VN plen (%d) != 128, skipping",
 				__func__, vn_pfx->prefixlen);

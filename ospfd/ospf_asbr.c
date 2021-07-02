@@ -361,7 +361,7 @@ bool is_valid_summary_addr(struct prefix_ipv4 *p)
 		return false;
 
 	/*Host route shouldn't be configured as summary addres*/
-	if (p->prefixlen == IPV4_MAX_PREFIXLEN)
+	if (p->prefixlen == IPV4_MAX_BITLEN)
 		return false;
 
 	return true;

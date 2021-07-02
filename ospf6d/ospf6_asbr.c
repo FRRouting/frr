@@ -556,7 +556,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 			 + OSPF6_PREFIX_SPACE(external->prefix.prefix_length);
 		memset(&fwd_addr, 0, sizeof(struct prefix));
 		fwd_addr.family = AF_INET6;
-		fwd_addr.prefixlen = IPV6_MAX_PREFIXLEN;
+		fwd_addr.prefixlen = IPV6_MAX_BITLEN;
 		memcpy(&fwd_addr.u.prefix6, (caddr_t)external + offset,
 		       sizeof(struct in6_addr));
 
@@ -1400,7 +1400,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 		/* create/update binding in external_id_table */
 		prefix_id.family = AF_INET;
-		prefix_id.prefixlen = 32;
+		prefix_id.prefixlen = IPV4_MAX_BITLEN;
 		prefix_id.u.prefix4.s_addr = htonl(info->id);
 		node = route_node_get(ospf6->external_id_table, &prefix_id);
 		node->info = match;
@@ -1465,7 +1465,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 	/* create/update binding in external_id_table */
 	prefix_id.family = AF_INET;
-	prefix_id.prefixlen = 32;
+	prefix_id.prefixlen = IPV4_MAX_BITLEN;
 	prefix_id.u.prefix4.s_addr = htonl(info->id);
 	node = route_node_get(ospf6->external_id_table, &prefix_id);
 	node->info = route;
@@ -1548,7 +1548,7 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 
 	/* remove binding in external_id_table */
 	prefix_id.family = AF_INET;
-	prefix_id.prefixlen = 32;
+	prefix_id.prefixlen = IPV4_MAX_BITLEN;
 	prefix_id.u.prefix4.s_addr = htonl(info->id);
 	node = route_node_lookup(ospf6->external_id_table, &prefix_id);
 	assert(node);

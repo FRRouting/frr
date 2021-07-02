@@ -1066,7 +1066,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		p.family = AF_INET;
 		p.u.prefix4 = dest.sin.sin_addr;
 		if (flags & RTF_HOST)
-			p.prefixlen = IPV4_MAX_PREFIXLEN;
+			p.prefixlen = IPV4_MAX_BITLEN;
 		else
 			p.prefixlen = ip_masklen(mask.sin.sin_addr);
 
@@ -1079,7 +1079,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		p.family = AF_INET6;
 		p.u.prefix6 = dest.sin6.sin6_addr;
 		if (flags & RTF_HOST)
-			p.prefixlen = IPV6_MAX_PREFIXLEN;
+			p.prefixlen = IPV6_MAX_BITLEN;
 		else
 			p.prefixlen = ip6_masklen(mask.sin6.sin6_addr);
 

@@ -2048,11 +2048,13 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		return 1;
 	}
 
-	if (top &&
-	    ((top->family == AF_INET && top->prefixlen == 32
-	      && nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr)
-	     || (top->family == AF_INET6 && top->prefixlen == 128
-		 && memcmp(&nexthop->gate.ipv6, &top->u.prefix6, 16) == 0))) {
+	if (top
+	    && ((top->family == AF_INET && top->prefixlen == IPV4_MAX_BITLEN
+		 && nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr)
+		|| (top->family == AF_INET6 && top->prefixlen == IPV6_MAX_BITLEN
+		    && memcmp(&nexthop->gate.ipv6, &top->u.prefix6,
+			      IPV6_MAX_BYTELEN)
+			       == 0))) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"        :%s: Attempting to install a max prefixlength route through itself",
@@ -2118,12 +2120,12 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	switch (afi) {
 	case AFI_IP:
 		p.family = AF_INET;
-		p.prefixlen = IPV4_MAX_PREFIXLEN;
+		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = *ipv4;
 		break;
 	case AFI_IP6:
 		p.family = AF_INET6;
-		p.prefixlen = IPV6_MAX_PREFIXLEN;
+		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = nexthop->gate.ipv6;
 		break;
 	default:
@@ -2150,8 +2152,10 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		 * host route.
 		 */
 		if (prefix_same(&rn->p, top))
-			if (((afi == AFI_IP) && (rn->p.prefixlen != 32))
-			    || ((afi == AFI_IP6) && (rn->p.prefixlen != 128))) {
+			if (((afi == AFI_IP)
+			     && (rn->p.prefixlen != IPV4_MAX_BITLEN))
+			    || ((afi == AFI_IP6)
+				&& (rn->p.prefixlen != IPV6_MAX_BITLEN))) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
 						"        %s: Matched against ourself and prefix length is not max bit length",

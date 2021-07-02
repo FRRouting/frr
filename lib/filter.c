@@ -108,10 +108,14 @@ static int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
 		masklen2ip(p->prefixlen, &mask);
 		check_mask = mask.s_addr & ~filter->mask_mask.s_addr;
 
-		if (memcmp(&check_addr, &filter->addr.s_addr, 4) == 0
-		    && memcmp(&check_mask, &filter->mask.s_addr, 4) == 0)
+		if (memcmp(&check_addr, &filter->addr.s_addr, IPV4_MAX_BYTELEN)
+			    == 0
+		    && memcmp(&check_mask, &filter->mask.s_addr,
+			      IPV4_MAX_BYTELEN)
+			       == 0)
 			return 1;
-	} else if (memcmp(&check_addr, &filter->addr.s_addr, 4) == 0)
+	} else if (memcmp(&check_addr, &filter->addr.s_addr, IPV4_MAX_BYTELEN)
+		   == 0)
 		return 1;
 
 	return 0;

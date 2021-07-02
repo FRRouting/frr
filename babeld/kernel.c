@@ -176,11 +176,11 @@ zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
 	switch (family) {
         case AF_INET:
             uchar_to_inaddr(&api_nh->gate.ipv4, gate);
-            if (IPV4_ADDR_SAME (&api_nh->gate.ipv4, &quagga_prefix.u.prefix4) &&
-                    quagga_prefix.prefixlen == 32) {
-                api_nh->type = NEXTHOP_TYPE_IFINDEX;
-            } else {
-                api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	    if (IPV4_ADDR_SAME(&api_nh->gate.ipv4, &quagga_prefix.u.prefix4)
+		&& quagga_prefix.prefixlen == IPV4_MAX_BITLEN) {
+		    api_nh->type = NEXTHOP_TYPE_IFINDEX;
+	    } else {
+		    api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
             }
             break;
         case AF_INET6:

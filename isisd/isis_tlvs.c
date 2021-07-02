@@ -967,7 +967,7 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 	}
 
 	p.prefixlen = stream_getc(s);
-	if (p.prefixlen > 128) {
+	if (p.prefixlen > IPV6_MAX_BITLEN) {
 		sbuf_push(log, indent, "Prefixlen %u is implausible for IPv6\n",
 			  p.prefixlen);
 		return 1;
@@ -2057,7 +2057,7 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 	rv->down = (control & ISIS_EXTENDED_IP_REACH_DOWN);
 	rv->prefix.family = AF_INET;
 	rv->prefix.prefixlen = control & 0x3f;
-	if (rv->prefix.prefixlen > 32) {
+	if (rv->prefix.prefixlen > IPV4_MAX_BITLEN) {
 		sbuf_push(log, indent, "Prefixlen %u is implausible for IPv4\n",
 			  rv->prefix.prefixlen);
 		goto out;
@@ -2542,7 +2542,7 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 
 	rv->prefix.family = AF_INET6;
 	rv->prefix.prefixlen = stream_getc(s);
-	if (rv->prefix.prefixlen > 128) {
+	if (rv->prefix.prefixlen > IPV6_MAX_BITLEN) {
 		sbuf_push(log, indent, "Prefixlen %u is implausible for IPv6\n",
 			  rv->prefix.prefixlen);
 		goto out;

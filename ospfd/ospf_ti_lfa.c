@@ -849,7 +849,7 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area,
 
 	stub_prefix.family = AF_INET;
 	child_prefix.family = AF_INET;
-	child_prefix.prefixlen = IPV4_MAX_PREFIXLEN;
+	child_prefix.prefixlen = IPV4_MAX_BITLEN;
 
 	p = ((uint8_t *)root->lsa) + OSPF_LSA_HEADER_SIZE + 4;
 	lim = ((uint8_t *)root->lsa) + ntohs(root->lsa->length);
