@@ -682,7 +682,7 @@ static int vtysh_execute_func(const char *line, int pager)
 			 * Need make it better
 			 */
 			if (!strcmp(cmd->string, "hostname WORD")
-			    || !strcmp(cmd->string, "doaminname WORD"))
+			    || !strcmp(cmd->string, "domainname WORD"))
 				(*cmd->func)(cmd, vty, 1, (struct cmd_token **)line);
 			else
 				(*cmd->func)(cmd, vty, 0, NULL);
