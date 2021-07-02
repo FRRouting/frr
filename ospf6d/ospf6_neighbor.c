@@ -90,6 +90,22 @@ struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t router_id,
 	return (struct ospf6_neighbor *)NULL;
 }
 
+struct ospf6_neighbor *ospf6_area_neighbor_lookup(struct ospf6_area *area,
+						  uint32_t router_id)
+{
+	struct ospf6_interface *oi;
+	struct ospf6_neighbor *nbr;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(area->if_list, node, oi)) {
+		nbr = ospf6_neighbor_lookup(router_id, oi);
+		if (nbr)
+			return nbr;
+	}
+
+	return NULL;
+}
+
 /* create ospf6_neighbor */
 struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 					     struct ospf6_interface *oi)

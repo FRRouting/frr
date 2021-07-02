@@ -1383,6 +1383,7 @@ void ospf6_init(struct thread_master *master)
 	ospf6_intra_init();
 	ospf6_asbr_init();
 	ospf6_abr_init();
+	ospf6_gr_init();
 	ospf6_gr_helper_config_init();
 
 	/* initialize hooks for modifying filter rules */

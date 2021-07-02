@@ -264,8 +264,17 @@ Redistribute routes to OSPF6
    argument injects the default route regardless of it being present in the
    router. Metric values and route-map can also be specified optionally.
 
-Graceful Restart Helper
-=======================
+Graceful Restart
+================
+
+.. clicmd:: graceful-restart [grace-period (1-1800)]
+
+
+   Configure Graceful Restart (RFC 5187) restarting support.
+   When enabled, the default grace period is 120 seconds.
+
+   To perform a graceful shutdown, the "graceful-restart prepare ipv6 ospf"
+   EXEC-level command needs to be issued before restarting the ospf6d daemon.
 
 .. clicmd:: graceful-restart helper-only [A.B.C.D]
 
@@ -296,6 +305,16 @@ Graceful Restart Helper
    It helps to support as HELPER only for planned
    restarts. By default, it supports both planned and
    unplanned outages.
+
+.. clicmd:: graceful-restart prepare ipv6 ospf
+
+
+   Initiate a graceful restart for all OSPFv3 instances configured with the
+   "graceful-restart" command. The ospf6d daemon should be restarted during
+   the instance-specific grace period, otherwise the graceful restart will fail.
+
+   This is an EXEC-level command.
+
 
 .. _showing-ospf6-information:
 
