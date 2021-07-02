@@ -256,6 +256,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	from_peer->last_major_event = last_maj_evt;
 	peer->remote_id = from_peer->remote_id;
 	peer->last_reset = from_peer->last_reset;
+	peer->max_packet_size = from_peer->max_packet_size;
 
 	peer->peer_gr_present_state = from_peer->peer_gr_present_state;
 	peer->peer_gr_new_status_flag = from_peer->peer_gr_new_status_flag;
