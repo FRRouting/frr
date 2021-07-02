@@ -39,7 +39,8 @@ static struct bgp_orr_group *bgp_orr_group_new(struct bgp *bgp, afi_t afi,
 
 	orr_group_list = bgp->orr_group[afi][safi];
 	orr_group = XCALLOC(MTYPE_BGP_ORR_GROUP, sizeof(struct bgp_orr_group));
-
+	if (!orr_group)
+		return NULL;
 
 	listnode_add(orr_group_list, orr_group);
 

@@ -33,5 +33,6 @@
 
 extern int ospf_orr_igp_metric_register(struct orr_igp_metric_reg orr_reg);
 extern void ospf_orr_igp_metric_send_update(struct prefix root);
+extern void ospf_orr_root_table_update(struct ospf_lsa *lsa, bool add);
 
 #endif /* _ZEBRA_OSPF_ORR_H */

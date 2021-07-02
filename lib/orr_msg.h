@@ -50,6 +50,19 @@ struct orr_igp_metric_info {
 	} nexthop[0];
 };
 
+/* BGP ORR Root node */
+struct orr_root {
+	/* MPLS_TE router ID */
+	struct in_addr router_id;
+
+	/* Advertising OSPF Router ID. */
+	struct in_addr adv_router;
+
+	/* Routing tables from root node */
+	struct route_table *old_table; /* Old routing table. */
+	struct route_table *new_table; /* Current routing table. */
+};
+
 /* Prototypes. */
 
 #ifdef __cplusplus

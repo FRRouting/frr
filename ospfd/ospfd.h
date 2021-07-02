@@ -390,6 +390,9 @@ struct ospf {
 	bool ti_lfa_enabled;
 	enum protection_type ti_lfa_protection_type;
 
+	/* BGP ORR Root node list */
+	struct list *orr_root[AFI_MAX][SAFI_MAX];
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(ospf);
