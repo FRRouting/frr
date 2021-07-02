@@ -290,21 +290,21 @@ add the mapping in the following macros in ``frrscript.h``:
 
 .. code-block:: diff
 
-   #define ENCODE_ARGS_WITH_STATE(L, value) \
+     #define ENCODE_ARGS_WITH_STATE(L, value) \
           _Generic((value), \
           ...
-   -struct peer * : lua_pushpeer \
-   +struct peer * : lua_pushpeer, \
-   +struct prefix * : lua_pushprefix \
-   )(L, value)
+   - struct peer * : lua_pushpeer \
+   + struct peer * : lua_pushpeer, \
+   + struct prefix * : lua_pushprefix \
+     )(L, value)
 
-   #define DECODE_ARGS_WITH_STATE(L, value) \
+     #define DECODE_ARGS_WITH_STATE(L, value) \
           _Generic((value), \
           ...
-   -struct peer * : lua_decode_peer \
-   +struct peer * : lua_decode_peer, \
-   +struct prefix * : lua_decode_prefix \
-   )(L, -1, value)
+   - struct peer * : lua_decode_peer \
+   + struct peer * : lua_decode_peer, \
+   + struct prefix * : lua_decode_prefix \
+     )(L, -1, value)
 
 
 At compile time, the compiler will search for encoders/decoders for the type of
@@ -322,11 +322,11 @@ For that, use ``lua_decode_noop``:
 
 .. code-block:: diff
 
-   #define DECODE_ARGS_WITH_STATE(L, value) \
+     #define DECODE_ARGS_WITH_STATE(L, value) \
           _Generic((value), \
           ...
-   +const struct prefix * : lua_decode_noop \
-   )(L, -1, value)
+   + const struct prefix * : lua_decode_noop \
+     )(L, -1, value)
 
 
 .. note::
