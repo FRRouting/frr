@@ -43,28 +43,9 @@
 #include "ns.h"
 
 #include "cmgd/cmgd.h"
-#if 0
-#include "cmgd/cmgd_attr.h"
-#include "cmgd/cmgd_route.h"
-#include "cmgd/cmgd_mplsvpn.h"
-#include "cmgd/cmgd_aspath.h"
-#include "cmgd/cmgd_dump.h"
-#include "cmgd/cmgd_route.h"
-#include "cmgd/cmgd_nexthop.h"
-#include "cmgd/cmgd_regex.h"
-#include "cmgd/cmgd_clist.h"
-#include "cmgd/cmgd_debug.h"
-#include "cmgd/cmgd_errors.h"
-#include "cmgd/cmgd_filter.h"
-#include "cmgd/cmgd_zebra.h"
-#include "cmgd/cmgd_packet.h"
-#include "cmgd/cmgd_keepalives.h"
-#include "cmgd/cmgd_network.h"
-#include "cmgd/cmgd_errors.h"
-#include "cmgd/cmgd_script.h"
-#endif
 
 #include "lib/routing_nb.h"
+#include "staticd/static_nb.h"
 
 #if 0
 #include "cmgd/cmgd_nb.h"
@@ -426,6 +407,7 @@ static const struct frr_yang_module_info *const cmgd_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_routing_info,
 	&frr_vrf_info,
+	&frr_staticd_info,
 };
 
 FRR_DAEMON_INFO(cmgd, CMGD, .vty_port = CMGD_VTY_PORT,

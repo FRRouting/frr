@@ -47,7 +47,6 @@
 #include "cmgd/cmgd_vty.h"
 #include "lib/cmgd_bcknd_client.h"
 
-
 static int static_route_leak(struct vty *vty, const char *svrf,
 			     const char *nh_svrf, afi_t afi, safi_t safi,
 			     const char *negate, const char *dest_str,
@@ -185,7 +184,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			assert(dnode);
 			yang_dnode_get_path(dnode, ab_xpath, XPATH_MAXLEN);
 
-			nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY,
+			NB_ENQEUE_CLI_COMMAND(vty, ab_xpath, NB_OP_DESTROY,
 					      NULL);
 		}
 
@@ -362,6 +361,7 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 				 table_str, false, NULL);
 }
 
+#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 /* Write static route configuration. */
 int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 		  safi_t safi, const char *cmd)
@@ -484,6 +484,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 	}
 	return write;
 }
+#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY_YANG (ip_mroute_dist,
@@ -1130,6 +1131,7 @@ DEFPY_YANG(ipv6_route_vrf,
 				 table_str, false, color_str);
 }
 
+#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "[no] debug static [{events$events|route$route}]",
 	   NO_STR DEBUG_STR STATICD_STR
@@ -1194,7 +1196,7 @@ static void static_cmgd_bcknd_client_connect(
 
 	assert(lib_hndl == cmgd_lib_hndl);
 
-	zlog_err("Got %s %s CMGD Backend Client Server", 
+	zlog_debug("Got %s %s CMGD Backend Client Server", 
 		 connected ? "connected" : "disconnected", 
 		 connected ? "to" : "from");
 
@@ -1221,11 +1223,14 @@ void static_cmgd_destroy(void)
 {
 	cmgd_bcknd_client_lib_destroy(cmgd_lib_hndl);
 }
+#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 
 void static_vty_init(void)
 {
+#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 	install_node(&debug_node);
 	install_node(&ip_node);
+#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
@@ -1243,7 +1248,9 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
 
+#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
+#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 }

@@ -39,7 +39,7 @@
 #include "filter.h"
 #include "frrstr.h"
 
-// #define INCLUDE_CMGD_CMDDEFS_ONLY
+#define INCLUDE_CMGD_CMDDEFS_ONLY
 
 #include "lib/command.h"
 #include "cmgd/cmgd.h"
@@ -51,25 +51,34 @@
 
 #ifndef VTYSH_EXTRACT_PL
 #include "cmgd/cmgd_vty_clippy.c"
-#endif
 
 /*
- * Client-specific command definitions first.
+ * Include backend component command handlers as well.
  */
 // #include "staticd/static_vty.c"
+#endif
+
+
+/* 
+ * Declare prototypes for command initialization routines defined by
+ * backend components.
+ */
+extern void static_vty_init(void);
+
 
 void cmgd_enqueue_nb_commands(struct vty *vty, const char *xpath,
 				enum nb_operation operation,
 				const char *value)
 {
 	zlog_err("%s, cmd: '%s', xpath: '%s' ", __func__, vty->buf, xpath);
-
+	vty_out(vty, "CMGD: Equeued XPATH '%s'\n", xpath);
 }
 
 int cmgd_apply_nb_commands(struct vty *vty, const char *xpath_base_fmt,
 				...)
 {
 	zlog_err("%s, cmd: '%s'", __func__, vty->buf);
+	vty_out(vty, "CMGD: Applying commands\n");
 	return 0;
 }
 
@@ -125,7 +134,13 @@ DEFPY(show_cmgd_trxn,
 void cmgd_vty_init(void)
 {
 	/* Initialize command handling from VTYSH connection */
-	cmgd_init_bcknd_cmd();
+	// cmgd_init_bcknd_cmd();
+
+	/* 
+	 * Call command initialization routines defined by
+	 * backend components.
+	 */
+	static_vty_init();
 
 	install_element(VIEW_NODE, &show_cmgd_bcknd_adapter_cmd);
 	install_element(VIEW_NODE, &show_cmgd_frntnd_adapter_cmd);

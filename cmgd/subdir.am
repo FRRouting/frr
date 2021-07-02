@@ -20,8 +20,10 @@ EXTRA_DIST += cmgd/cmgd_daemons.pl
 BUILT_SOURCES += cmgd/cmgd_daemons.h
 
 # force cmgd_daemons.h
-$(cmgd_cmgd_OBJECTS): cmgd/cmgd_daemons.h cmgd/cmgd_bcknd_cmd.c
-CLEANFILES += cmgd/cmgd_daemons.h
+# $(cmgd_cmgd_OBJECTS): cmgd/cmgd_daemons.h cmgd/cmgd_bcknd_cmd.c
+# CLEANFILES += cmgd/cmgd_daemons.h cmgd/cmgd_bcknd_cmd.c
+$(cmgd_cmgd_OBJECTS): cmgd/cmgd_daemons.h yang/frr-staticd.yang.c
+CLEANFILES += cmgd/cmgd_daemons.h yang/frr-staticd.yang.c
 
 cmgd/cmgd_daemons.h:
 	$(PERL) $(top_srcdir)/cmgd/cmgd_daemons.pl $(cmgd_daemons) > cmgd/cmgd_daemons.h
@@ -43,12 +45,44 @@ else
 CMGD_HAVE_FABRICD =
 endif
 
-cmgd/cmgd_bcknd_cmd.c: cmgd/cmgd_extract.pl $(cmgd_scan)
-	$(AM_CMGD_EXTRACT) $^ $(CMGD_HAVE_ISISD) $(CMGD_HAVE_FABRICD) > cmgd/cmgd_bcknd_cmd.c
+clippy_scan += \
+	cmgd/cmgd_vty.c \
+	# end
+
+# cmgd/cmgd_bcknd_cmd.c: cmgd/cmgd_extract.pl $(cmgd_scan)
+#	$(AM_CMGD_EXTRACT) $^ $(CMGD_HAVE_ISISD) $(CMGD_HAVE_FABRICD) > cmgd/cmgd_bcknd_cmd.c
+#
+# nodist_cmgd_cmgd_SOURCES = \
+#	cmgd/cmgd_bcknd_cmd.c \
+#	end
+# BUILT_SOURCES += cmgd/cmgd_bcknd_cmd.c
+# CLEANFILES += cmgd/cmgd_bcknd_cmd.c
+
+# clippy_scan += \
+#	cmgd/cmgd_bcknd_cmd.c \
+#	# end
 
 # cmgd/cmgd_vty.c: \
-# 	staticd/static_vty_clippy.c \
-# 	staticd/static_vty.c
+#	staticd/static_vty_clippy.c \
+#	staticd/static_vty.c
+
+# nodist_cmgd_cmgd_SOURCES = \
+#	yang/frr-staticd.yang.c \
+#	# end
+
+lib_LTLIBRARIES += cmgd/libcmgd_bcknd_nb.la
+nodist_cmgd_libcmgd_bcknd_nb_la_SOURCES = \
+	yang/frr-staticd.yang.c \
+	staticd/static_vty.c \
+	staticd/static_nb.c \
+	staticd/static_nb_config.c \
+	# end
+cmgd_libcmgd_bcknd_nb_la_CFLAGS = $(AM_CFLAGS) -DINCLUDE_CMGD_CMDDEFS_ONLY -DINCLUDE_CMGD_VALIDATE_ONLY
+cmgd_libcmgd_bcknd_nb_la_CPPFLAGS = $(AM_CPPFLAGS) -DINCLUDE_CMGD_CMDDEFS_ONLY -DINCLUDE_CMGD_VALIDATE_ONLY
+# cmgd_libcmgd_bcknd_nb_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
+# cmgd_libcmgd_bcknd_nb_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+cmgd_libcmgd_bcknd_nb_la_LDFLAGS = -version-info 0:0:0
+cmgd_libcmgd_bcknd_nb_la_LIBADD = lib/libfrr.la
 
 cmgd_libcmgd_a_SOURCES = \
 	cmgd/cmgd.c \
@@ -77,15 +111,10 @@ cmgd_cmgd_SOURCES = \
 	cmgd/cmgd_main.c \
 	# end
 
-nodist_cmgd_cmgd_SOURCES = \
-	cmgd/cmgd_bcknd_cmd.c \
-	end
-BUILT_SOURCES += cmgd/cmgd_bcknd_cmd.c
-CLEANFILES += cmgd/cmgd_bcknd_cmd.c
-
 cmgd_cmgd_CFLAGS = $(AM_CFLAGS) -I ./
 
 cmgd_cmgd_LDADD = cmgd/libcmgd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
+cmgd_cmgd_LDADD += cmgd/libcmgd_bcknd_nb.la
 
 cmgd_cmgd_test_frntnd_SOURCES = \
 	cmgd/cmgd_test_frntnd.c \
@@ -93,9 +122,4 @@ cmgd_cmgd_test_frntnd_SOURCES = \
 cmgd_cmgd_test_frntnd_CFLAGS = $(AM_CFLAGS)
 
 cmgd_cmgd_test_frntnd_LDADD = lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
-
-clippy_scan += \
-	cmgd/cmgd_vty.c \
-	cmgd/cmgd_bcknd_cmd.c \
-	# end
 

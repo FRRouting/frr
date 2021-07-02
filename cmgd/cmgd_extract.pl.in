@@ -30,6 +30,7 @@ print <<EOF;
 #include <zebra.h>
 
 #include "command.h"
+#include "yang.h"
 #include "linklist.h"
 
 #include "vtysh/vtysh.h"
@@ -284,13 +285,31 @@ foreach (sort keys %live) {
     $proto = join ("|", @{$oproto{$key}});
     $cmd = $ocmd{$key};
     $func = "cmgd_" . $cmd;
+    $func1 = $func . "_cmd2xpath";
     $func =~ s/_cmd//;
     $defunorig{$key} =~ s/\n/\n * /g;
-    printf "/* \n * File: $fileorig{$key} \n * $defunorig{$key} \n */\n";
+    printf "/*\n * Function: $func1\n * \n";
+    printf " * The following function needs to be impelemented by corresponding\n";
+    printf " * backend component and included in a separate dynamic library that\n";
+    printf " * then needs to be linked with the CMGD daemon binary.\n */\n";
+    printf "extern int $func1(\n\tconst struct cmd_element *cmd, struct vty *vty,\n";
+    printf "\tint argc, struct cmd_token *argv\[\], char *xpath)\;\n\n";
+    printf "/* \n * File: $fileorig{$key}\n * $defunorig{$key}\n */\n";
     printf "$defsh{$key}($func$odefun{$key})\n";
 
     print <<EOF;
 {
+    // char xpath[XPATH_MAXLEN];
+EOF
+
+    printf "\t// if ($func1(self, vty, argc, argv, xpath) != 0) {\n";
+    printf "\t//\tvty_out(vty, \"Error converting command to YANG xpath!!\\n\");\n";
+    printf "\t//\treturn(CMD_ERR_NO_MATCH);\n";
+    printf "\t//}\n";
+
+    print <<EOF;
+
+    // return (cmgd_hndl_bknd_cmd(self, vty, argc, argv, xpath));
     return (cmgd_hndl_bknd_cmd(self, vty, argc, argv));
 }
 
