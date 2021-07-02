@@ -32,6 +32,10 @@
 
 #define OSPF6_MAX_GRACE_INTERVAL 1800
 #define OSPF6_MIN_GRACE_INTERVAL 1
+#define OSPF6_DFLT_GRACE_INTERVAL 120
+
+/* Forward declaration(s). */
+struct ospf6_neighbor;
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_gr;
@@ -67,7 +71,8 @@ enum ospf6_gr_helper_rejected_reason {
 	OSPF6_HELPER_NOT_A_VALID_NEIGHBOUR,
 	OSPF6_HELPER_PLANNED_ONLY_RESTART,
 	OSPF6_HELPER_TOPO_CHANGE_RTXMT_LIST,
-	OSPF6_HELPER_LSA_AGE_MORE
+	OSPF6_HELPER_LSA_AGE_MORE,
+	OSPF6_HELPER_RESTARTING,
 };
 
 #ifdef roundup
@@ -119,6 +124,11 @@ struct grace_tlv_restart_reason {
 #define OSPF6_GRACE_LSA_MIN_SIZE                                               \
 	GRACE_PERIOD_TLV_SIZE + GRACE_RESTART_REASON_TLV_SIZE
 
+struct ospf6_grace_lsa {
+	struct grace_tlv_graceperiod tlv_period;
+	struct grace_tlv_restart_reason tlv_reason;
+};
+
 struct advRtr {
 	in_addr_t advRtrAddr;
 };
@@ -156,6 +166,13 @@ extern void ospf6_process_maxage_grace_lsa(struct ospf6 *ospf,
 					   struct ospf6_neighbor *nbr);
 extern void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6,
 					 struct ospf6_lsa *lsa);
+extern int config_write_ospf6_gr(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_gr_helper(struct vty *vty);
+
+extern void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf,
+					    struct ospf6_area *area);
+extern void ospf6_gr_nvm_read(struct ospf6 *ospf);
+extern void ospf6_gr_init(void);
+
 #endif /* OSPF6_GR_H */

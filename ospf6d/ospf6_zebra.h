@@ -65,6 +65,8 @@ extern uint8_t ospf6_distance_apply(struct prefix_ipv6 *p,
 				    struct ospf6_route * or,
 				    struct ospf6 *ospf6);
 
+extern int ospf6_zebra_gr_enable(struct ospf6 *ospf6, uint32_t stale_time);
+extern int ospf6_zebra_gr_disable(struct ospf6 *ospf6);
 extern int ospf6_distance_set(struct vty *vty, struct ospf6 *ospf6,
 			      const char *distance_str, const char *ip_str,
 			      const char *access_list_str);
