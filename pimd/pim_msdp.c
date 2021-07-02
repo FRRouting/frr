@@ -918,7 +918,7 @@ static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
 	THREAD_OFF(mp->hold_timer);
 	if (start) {
 		thread_add_timer(pim->msdp.master, pim_msdp_peer_hold_timer_cb,
-				 mp, PIM_MSDP_PEER_HOLD_TIME, &mp->hold_timer);
+				 mp, pim->msdp.hold_time, &mp->hold_timer);
 	}
 }
 
@@ -944,7 +944,7 @@ static void pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start)
 	if (start) {
 		thread_add_timer(mp->pim->msdp.master,
 				 pim_msdp_peer_ka_timer_cb, mp,
-				 PIM_MSDP_PEER_KA_TIME, &mp->ka_timer);
+				 mp->pim->msdp.keep_alive, &mp->ka_timer);
 	}
 }
 
@@ -1006,9 +1006,9 @@ static void pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
 	THREAD_OFF(mp->cr_timer);
 	if (start) {
-		thread_add_timer(
-			mp->pim->msdp.master, pim_msdp_peer_cr_timer_cb, mp,
-			PIM_MSDP_PEER_CONNECT_RETRY_TIME, &mp->cr_timer);
+		thread_add_timer(mp->pim->msdp.master,
+				 pim_msdp_peer_cr_timer_cb, mp,
+				 mp->pim->msdp.connection_retry, &mp->cr_timer);
 	}
 }
 

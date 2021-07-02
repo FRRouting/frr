@@ -267,10 +267,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    :ref:`bfd-pim-peer-config`
 
 
-.. _pim-multicast-rib-insertion:
+.. _pim-multicast-rib:
 
-PIM Multicast RIB insertion:
-============================
+PIM Multicast RIB
+=================
 
 In order to influence Multicast RPF lookup, it is possible to insert
 into zebra routes for the Multicast RIB. These routes are only
@@ -317,6 +317,21 @@ MSDP can be setup in different ways:
 
 Commands available for MSDP:
 
+.. clicmd:: ip msdp timers (2-600) (3-600) [(1-600)]
+
+   Configure global MSDP timers.
+
+   First value is the keep-alive interval and it must be less than the
+   second value which is hold-time. This configures the interval in
+   seconds between keep-alive messages. The default value is 60 seconds.
+
+   Second value is the hold-time and it must be greater than the keep-alive
+   interval. This configures the interval in seconds before closing a non
+   responding connection. The default value is 75.
+
+   Third value is the connection retry interval and it is optional. This
+   configures the interval between connection attempts. The default value
+   is 30 seconds.
 
 .. clicmd:: ip msdp mesh-group WORD member A.B.C.D
 
