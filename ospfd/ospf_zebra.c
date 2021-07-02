@@ -52,6 +52,7 @@
 #include "ospfd/ospf_te.h"
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ldp_sync.h"
+#include "ospfd/ospf_orr.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table");
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
@@ -2041,7 +2042,7 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		break;
 	case ORR_IGP_METRIC_REGISTER:
 		STREAM_GET(&orr_reg, s, sizeof(orr_reg));
-		// ret = ospf_orr_igp_metric_register(orr_reg);
+		ret = ospf_orr_igp_metric_register(orr_reg);
 		break;
 	default:
 		break;

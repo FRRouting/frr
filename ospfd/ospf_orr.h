@@ -1,7 +1,7 @@
 /*
- * Structures common to BGP, OSPF and ISIS for BGP Optimal Route Reflection
+ * OSPF BGP-IGP IGP metric update handling routines
  * Copyright (C) 2021 Samsung R&D Institute India - Bangalore.
- *			Madhurilatha Kuruganti
+ * 			Madhurilatha Kuruganti
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -18,42 +18,20 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_ORR_MSG_H
-#define _FRR_ORR_MSG_H
+#ifndef _ZEBRA_OSPF_ORR_H
+#define _ZEBRA_OSPF_ORR_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define BGP_OSPF_LSINFINITY 65535
 
-/* BGP-IGP Register for IGP metric */
-struct orr_igp_metric_reg {
-	bool reg;
-	uint8_t proto;
-	safi_t safi;
-	struct prefix prefix;
-};
+/* Macro to log debug message */
+#define ospf_orr_debug(...)                                                    \
+	do {                                                                   \
+		if (IS_DEBUG_OSPF_ORR)                                         \
+			zlog_debug("[OSPF-ORR] "__VA_ARGS__);                  \
+	} while (0)
 
-/* IGP-BGP message structures */
-struct orr_igp_metric_info {
-	/* IGP instance data. */
-	uint8_t proto;
-	uint32_t instId;
 
-	safi_t safi;
+extern int ospf_orr_igp_metric_register(struct orr_igp_metric_reg orr_reg);
+extern void ospf_orr_igp_metric_send_update(struct prefix root);
 
-	/* IGP metric from Active Root. */
-	struct prefix root;
-	uint32_t num_entries;
-	struct {
-		uint32_t metric;
-		struct prefix prefix;
-	} nexthop[0];
-};
-
-/* Prototypes. */
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* _FRR_ORR_MSG_H */
+#endif /* _ZEBRA_OSPF_ORR_H */

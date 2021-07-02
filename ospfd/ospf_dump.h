@@ -69,6 +69,8 @@
 
 #define OSPF_DEBUG_BFD_LIB 0x01
 
+#define OSPF_DEBUG_ORR 0x01
+
 /* Macro for setting debug option. */
 #define CONF_DEBUG_PACKET_ON(a, b)	    conf_debug_ospf_packet[a] |= (b)
 #define CONF_DEBUG_PACKET_OFF(a, b)	    conf_debug_ospf_packet[a] &= ~(b)
@@ -127,6 +129,8 @@
 #define AREA_NAME(A)    ospf_area_name_string ((A))
 #define IF_NAME(I)      ospf_if_name_string ((I))
 
+#define IS_DEBUG_OSPF_ORR IS_DEBUG_OSPF(orr, ORR)
+
 /* Extern debug flag. */
 extern unsigned long term_debug_ospf_packet[];
 extern unsigned long term_debug_ospf_event;
@@ -143,6 +147,7 @@ extern unsigned long term_debug_ospf_defaultinfo;
 extern unsigned long term_debug_ospf_ldp_sync;
 extern unsigned long term_debug_ospf_gr;
 extern unsigned long term_debug_ospf_bfd;
+extern unsigned long term_debug_ospf_orr;
 
 /* Message Strings. */
 extern char *ospf_lsa_type_str[];

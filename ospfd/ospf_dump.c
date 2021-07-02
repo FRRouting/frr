@@ -62,6 +62,7 @@ unsigned long conf_debug_ospf_defaultinfo = 0;
 unsigned long conf_debug_ospf_ldp_sync = 0;
 unsigned long conf_debug_ospf_gr = 0;
 unsigned long conf_debug_ospf_bfd;
+unsigned long conf_debug_ospf_orr;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -79,6 +80,7 @@ unsigned long term_debug_ospf_defaultinfo;
 unsigned long term_debug_ospf_ldp_sync;
 unsigned long term_debug_ospf_gr = 0;
 unsigned long term_debug_ospf_bfd;
+unsigned long term_debug_ospf_orr;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -1596,6 +1598,35 @@ DEFPY(debug_ospf_bfd, debug_ospf_bfd_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_ospf_orr,
+       debug_ospf_orr_cmd,
+       "debug ospf orr",
+       DEBUG_STR
+       OSPF_STR
+       "OSPF ORR information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(orr, ORR);
+	TERM_DEBUG_ON(orr, ORR);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_ospf_orr,
+       no_debug_ospf_orr_cmd,
+       "no debug ospf orr",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "OSPF ORR information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(orr, ORR);
+	TERM_DEBUG_OFF(orr, ORR);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1633,6 +1664,8 @@ DEFUN (no_debug_ospf,
 
 		for (i = 0; i < 5; i++)
 			DEBUG_PACKET_OFF(i, flag);
+
+		DEBUG_OFF(orr, ORR);
 	}
 
 	for (i = 0; i < 5; i++)
@@ -1659,6 +1692,7 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
 	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
+	TERM_DEBUG_OFF(orr, ORR);
 
 	return CMD_SUCCESS;
 }
@@ -1771,6 +1805,10 @@ static int show_debugging_ospf_common(struct vty *vty)
 	if (IS_DEBUG_OSPF(bfd, BFD_LIB) == OSPF_DEBUG_BFD_LIB)
 		vty_out(vty,
 			"  OSPF BFD integration library debugging is on\n");
+
+	/* Show debug status for ORR. */
+	if (IS_DEBUG_OSPF(orr, ORR) == OSPF_DEBUG_ORR)
+		vty_out(vty, "  OSPF ORR debugging is on\n");
 
 	vty_out(vty, "\n");
 
@@ -1964,6 +2002,12 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf orr */
+	if (IS_CONF_DEBUG_OSPF(orr, ORR) == OSPF_DEBUG_ORR) {
+		vty_out(vty, "debug ospf%s orr\n", str);
+		write = 1;
+	}
+
 	return write;
 }
 
@@ -1984,6 +2028,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_ti_lfa_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_orr_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -1995,6 +2040,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_ti_lfa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_orr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_bfd_cmd);
 
@@ -2029,6 +2075,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_ti_lfa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_orr_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
@@ -2039,6 +2086,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_ti_lfa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_orr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_bfd_cmd);
 
