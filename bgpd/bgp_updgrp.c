@@ -339,6 +339,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			  key);
 	key = jhash_1word(peer->v_routeadv, key);
 	key = jhash_1word(peer->change_local_as, key);
+	key = jhash_1word(peer->max_packet_size, key);
 
 	if (peer->group)
 		key = jhash_1word(jhash(peer->group->name,
