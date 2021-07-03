@@ -13970,6 +13970,7 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 
 	if (bdistance->distance != distance) {
 		vty_out(vty, "Distance does not match configured\n");
+		bgp_dest_unlock_node(dest);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
