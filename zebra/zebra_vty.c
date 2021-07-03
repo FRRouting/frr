@@ -1121,8 +1121,10 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 
 	prefix2str(&rn->p, buf, sizeof(buf));
 	json_object_object_add(json, buf, json_prefix);
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+	vty_out(vty, "%s\n",
+		json_object_to_json_string_ext(
+			json, JSON_C_TO_STRING_PRETTY
+				      | JSON_C_TO_STRING_NOSLASHESCAPE));
 	json_object_free(json);
 }
 
@@ -1234,8 +1236,11 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
-						JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json,
+				JSON_C_TO_STRING_PRETTY
+					| JSON_C_TO_STRING_NOSLASHESCAPE));
 		json_object_free(json);
 	}
 }
