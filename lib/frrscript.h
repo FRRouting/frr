@@ -119,16 +119,12 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs);
  */
 void frrscript_init(const char *scriptdir);
 
-#define ENCODE_ARGS(name, value)                                               \
-	do {                                                                   \
-		ENCODE_ARGS_WITH_STATE(L, value);                              \
-		lua_setglobal(L, name);                                        \
-	} while (0)
+#define ENCODE_ARGS(name, value) ENCODE_ARGS_WITH_STATE(lfs->L, value)
 
 #define DECODE_ARGS(name, value)                                               \
 	do {                                                                   \
-		lua_getglobal(L, name);                                        \
-		DECODE_ARGS_WITH_STATE(L, value);                              \
+		lua_getfield(lfs->L, 1, name);                                 \
+		DECODE_ARGS_WITH_STATE(lfs->L, value);                         \
 	} while (0)
 
 /*
@@ -179,7 +175,7 @@ const struct prefix * : lua_decode_noop                         \
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
  */
-int _frrscript_call(struct frrscript *fs);
+int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
 
 /*
  * Wrapper for call script. Maps values passed in to their encoder
@@ -191,15 +187,32 @@ int _frrscript_call(struct frrscript *fs);
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
  */
-#define frrscript_call(fs, ...)                                                \
-	({                                                                     \
-		lua_State *L = fs->L;                                          \
-		MAP_LISTS(ENCODE_ARGS, ##__VA_ARGS__);                         \
-		int ret = _frrscript_call(fs);                                 \
-		if (ret == 0) {                                                \
-			MAP_LISTS(DECODE_ARGS, ##__VA_ARGS__);                 \
-		}                                                              \
-		ret;                                                           \
+
+#define frrscript_call(fs, f, ...)                                           \
+	({                                                                         \
+		struct lua_function_state lookup = {.name = f};                          \
+		struct lua_function_state *lfs;                                          \
+		lfs = hash_lookup(fs->lua_function_hash, &lookup);                       \
+		lfs == NULL ? ({                                                         \
+			zlog_err(                                                              \
+				"Lua script call: tried to call '%s' in '%s' which was not loaded",  \
+				f, fs->name);                                                        \
+			1;                                                                     \
+		})                                                                       \
+		: ({                                                                     \
+			  MAP_LISTS(ENCODE_ARGS, ##__VA_ARGS__);                               \
+			  _frrscript_call_lua(lfs, PP_NARG(__VA_ARGS__));                      \
+		  }) != 0                                                                \
+			? ({                                                                   \
+				  zlog_err(                                                          \
+					  "Lua script call: '%s' in '%s' returned non-zero exit code",     \
+					  f, fs->name);                                                    \
+				  1;                                                                 \
+			  })                                                                   \
+			: ({                                                                   \
+				  MAP_LISTS(DECODE_ARGS, ##__VA_ARGS__);                             \
+				  0;                                                                 \
+			  });                                                                  \
 	})
 
 /*
