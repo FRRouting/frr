@@ -69,8 +69,10 @@ typedef enum {
 	SPF_FLAG_ABR_STATUS_CHANGE,
 	SPF_FLAG_ASBR_STATUS_CHANGE,
 	SPF_FLAG_CONFIG_CHANGE,
+	SPF_FLAG_ORR_ROOT_CHANGE,
 } ospf_spf_reason_t;
 
+extern unsigned int ospf_get_spf_reason_flags(void);
 extern void ospf_spf_calculate_schedule(struct ospf *, ospf_spf_reason_t);
 extern void ospf_spf_calculate(struct ospf_area *area,
 			       struct ospf_lsa *root_lsa,

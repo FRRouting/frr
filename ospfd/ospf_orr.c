@@ -39,7 +39,9 @@
 #include "ospf_orr.h"
 #include "ospf_dump.h"
 #include "ospf_lsa.h"
-#include "ospfd/ospf_te.h"
+#include "ospf_spf.h"
+#include "ospf_te.h"
+#include "ospf_route.h"
 
 extern struct zclient *zclient;
 
@@ -65,7 +67,7 @@ static struct orr_root *ospf_orr_root_new(struct ospf *ospf, afi_t afi,
 	listnode_add(orr_root_list, root);
 
 	IPV4_ADDR_COPY(&root->router_id, &p->u.prefix4);
-	root->old_table = NULL;
+	root->new_rtrs = NULL;
 	root->new_table = NULL;
 
 	ospf_orr_debug("%s: For %s %s, created ORR Root entry %s.", __func__,
@@ -97,6 +99,83 @@ static struct orr_root *ospf_orr_root_lookup(struct ospf *ospf, afi_t afi,
 	return NULL;
 }
 
+static struct orr_root *ospf_orr_root_lookup_by_adv_rid(struct ospf *ospf,
+							afi_t afi, safi_t safi,
+							struct in_addr *rid)
+{
+	struct list *orr_root_list = NULL;
+	struct orr_root *root = NULL;
+	struct listnode *node;
+
+	assert(ospf);
+
+	orr_root_list = ospf->orr_root[afi][safi];
+	if (!orr_root_list)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(orr_root_list, node, root))
+		if (IPV4_ADDR_SAME(&root->adv_router, rid))
+			return root;
+
+	return NULL;
+}
+
+/*
+ * Lookup each area's LSDB if is there is any opaque area LSA received and
+ * update the root database with the advertising router.
+ */
+static struct ospf_lsa *
+ospf_orr_lookup_opaque_area_lsa_by_id(struct in_addr rid)
+{
+	struct ospf_lsa *lsa = NULL;
+	struct ospf_area *area = NULL;
+	struct ospf *ospf = NULL;
+	struct listnode *node = NULL, *nnode = NULL;
+
+	/* if ospf is not enabled ignore */
+	if (!(ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT)))
+		return NULL;
+
+	/* Lookup for Opaque area LSA in each area. */
+	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
+		lsa = ospf_lsa_lookup_by_mpls_te_rid(area, OSPF_OPAQUE_AREA_LSA,
+						     rid);
+		if (!lsa)
+			continue;
+		zlog_debug("%s: Opaque Area LSA found in area %pI4 for %pI4",
+			   __func__, &area->area_id, &rid);
+		return lsa;
+	}
+	return NULL;
+}
+
+/*
+ * Lookup each area's LSDB if is there is any opaque area LSA received and
+ * update the root database with the advertising router.
+ */
+static struct ospf_lsa *ospf_orr_lookup_router_lsa_by_id(struct in_addr rid)
+{
+	struct ospf_lsa *lsa = NULL;
+	struct ospf_area *area = NULL;
+	struct ospf *ospf = NULL;
+	struct listnode *node = NULL, *nnode = NULL;
+
+	/* if ospf is not enabled ignore */
+	if (!(ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT)))
+		return NULL;
+
+	/* Lookup for Router LSA in each area. */
+	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
+		lsa = ospf_lsa_lookup_by_adv_rid(area, OSPF_ROUTER_LSA, rid);
+		if (!lsa)
+			continue;
+		zlog_debug("%s: Router LSA found in area %pI4 for %pI4",
+			   __func__, &area->area_id, &rid);
+		return lsa;
+	}
+	return NULL;
+}
+
 /*
  * BGP-IGP IGP metric msg between BGP and IGP
  */
@@ -104,13 +183,13 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 {
 	afi_t afi;
 	safi_t safi;
-	struct ospf *ospf;
+	struct ospf *ospf = NULL;
+	struct ospf_lsa *lsa = NULL;
 	char buf[PREFIX2STR_BUFFER];
 	struct orr_root *root = NULL;
 
 	/* if ospf is not enabled ignore */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
+	if (!(ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT)))
 		return -1;
 
 	if (msg.proto != ZEBRA_ROUTE_BGP)
@@ -131,8 +210,8 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 	if ((root && msg.reg) || (!root && !msg.reg))
 		return -1;
 
+	/* Create ORR Root entry and calculate SPF from root */
 	if (!root) {
-		/* Create ORR Root entry */
 		root = ospf_orr_root_new(ospf, afi, safi, &msg.prefix);
 		if (!root) {
 			ospf_orr_debug(
@@ -140,16 +219,37 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 				__func__, afi2str(afi), safi2str(safi), buf);
 			return -1;
 		}
-	} else {
-		/* Delete ORR Root entry */
+		ospf->orr_spf_request++;
+
+		lsa = ospf_orr_lookup_opaque_area_lsa_by_id(root->router_id);
+		if (!lsa || !lsa->data)
+			return -1;
+
+		IPV4_ADDR_COPY(&root->adv_router, &lsa->data->adv_router);
+
+		/* Lookup LSDB for Router LSA */
+		if (!root->router_lsa_rcvd) {
+			lsa = ospf_orr_lookup_router_lsa_by_id(
+				root->adv_router);
+			if (!lsa || !lsa->data)
+				return -1;
+			root->router_lsa_rcvd = lsa;
+		}
+
+		/* Compute SPF for all root nodes */
+		ospf_spf_calculate_schedule(ospf, SPF_FLAG_ORR_ROOT_CHANGE);
+	}
+	/* Delete ORR Root entry. SPF calculation not required. */
+	else {
 		listnode_delete(ospf->orr_root[afi][safi], root);
 		XFREE(MTYPE_OSPF_ORR_ROOT, root);
 
-		/* If last node is deleted in the list*/
+		/* If last node is deleted in the list */
 		if (!ospf->orr_root[afi][safi]->count)
 			list_delete(&ospf->orr_root[afi][safi]);
-	}
 
+		ospf->orr_spf_request--;
+	}
 	ospf_show_orr(ospf, afi, safi);
 	return 0;
 }
@@ -213,8 +313,7 @@ void ospf_orr_root_table_update(struct ospf_lsa *lsa, bool add)
 	struct ospf *ospf = NULL;
 
 	/* if ospf is not enabled ignore */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
+	if (!(ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT)))
 		return;
 
 	if (opaque_type != OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA)
@@ -257,4 +356,75 @@ void ospf_orr_root_table_update(struct ospf_lsa *lsa, bool add)
 		}
 	}
 	return;
+}
+
+void ospf_orr_root_update_rcvd_lsa(struct ospf_lsa *lsa)
+{
+	afi_t afi;
+	safi_t safi;
+	struct orr_root *root = NULL;
+
+	if (!lsa || !lsa->area || !lsa->area->ospf)
+		return;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		root = ospf_orr_root_lookup_by_adv_rid(
+			lsa->area->ospf, afi, safi, &lsa->data->adv_router);
+		if (!root)
+			continue;
+
+		ospf_orr_debug("%s: Received LSA[Type%d:%pI4]", __func__,
+			       lsa->data->type, &lsa->data->adv_router);
+
+		root->router_lsa_rcvd = lsa;
+		/* Compute SPF for all root nodes */
+		ospf_spf_calculate_schedule(lsa->area->ospf,
+					    SPF_FLAG_ORR_ROOT_CHANGE);
+		return;
+	}
+}
+
+/* Install routes to root table. */
+void ospf_orr_route_install(struct orr_root *root, struct route_table *rt)
+{
+	struct route_node *rn;
+	struct ospf_route * or ;
+
+	/* rt contains new routing table, new_table contains an old one.
+	   updating pointers */
+	if (root->old_table)
+		ospf_route_table_free(root->old_table);
+
+	root->old_table = root->new_table;
+	root->new_table = rt;
+#if 0
+        /* Delete old routes. */
+        if (root->old_table)
+                ospf_route_delete_uniq(root, root->old_table, rt);
+#endif
+	/* Install new routes. */
+	for (rn = route_top(rt); rn; rn = route_next(rn))
+		if ((or = rn->info) != NULL) {
+			if (or->type == OSPF_DESTINATION_NETWORK) {
+				if (!ospf_route_match_same(
+					    root->old_table,
+					    (struct prefix_ipv4 *)&rn->p, or)) {
+#if 0
+                                        ospf_zebra_add(
+                                                ospf,
+                                                (struct prefix_ipv4 *)&rn->p,
+                                                or);
+#endif
+				}
+			} else if (or->type == OSPF_DESTINATION_DISCARD)
+				if (!ospf_route_match_same(
+					    root->old_table,
+					    (struct prefix_ipv4 *)&rn->p, or)) {
+#if 0
+                                        ospf_zebra_add_discard(
+                                                ospf,
+                                                (struct prefix_ipv4 *)&rn->p);
+#endif
+				}
+		}
 }

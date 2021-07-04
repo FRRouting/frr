@@ -391,6 +391,7 @@ struct ospf {
 	enum protection_type ti_lfa_protection_type;
 
 	/* BGP ORR Root node list */
+	uint32_t orr_spf_request;
 	struct list *orr_root[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS;
@@ -578,6 +579,9 @@ struct ospf_area {
 	uint32_t act_ints;  /* Active interfaces. */
 	uint32_t full_nbrs; /* Fully adjacent neighbors. */
 	uint32_t full_vls;  /* Fully adjacent virtual neighbors. */
+
+	/* BGP-ORR Received LSAs */
+	struct ospf_lsa *router_lsa_rcvd;
 };
 
 /* OSPF config network structure. */

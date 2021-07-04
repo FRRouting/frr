@@ -34,5 +34,9 @@
 extern int ospf_orr_igp_metric_register(struct orr_igp_metric_reg orr_reg);
 extern void ospf_orr_igp_metric_send_update(struct prefix root);
 extern void ospf_orr_root_table_update(struct ospf_lsa *lsa, bool add);
+extern struct orr_root *ospf_get_orr(struct ospf *ospf, afi_t afi, safi_t safi);
+extern void ospf_orr_root_update_rcvd_lsa(struct ospf_lsa *lsa);
+extern void ospf_orr_route_install(struct orr_root *root,
+				   struct route_table *rt);
 
 #endif /* _ZEBRA_OSPF_ORR_H */

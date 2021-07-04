@@ -69,7 +69,6 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound_db.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
-	lib/orr_msg.c \
 	lib/pid_output.c \
 	lib/plist.c \
 	lib/prefix.c \

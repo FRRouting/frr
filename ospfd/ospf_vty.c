@@ -55,6 +55,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_ldp_sync.h"
+#include "ospfd/ospf_orr.h"
 
 
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
@@ -11147,6 +11148,32 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 	/* Show Router routes. */
 	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
+
+	/* Show ORR routes */
+	if (ospf->orr_spf_request) {
+		afi_t afi;
+		safi_t safi;
+		struct orr_root *root = NULL;
+		struct listnode *node = NULL;
+		struct list *orr_root_list = NULL;
+		FOREACH_AFI_SAFI (afi, safi) {
+			orr_root_list = ospf->orr_root[afi][safi];
+			if (!orr_root_list)
+				continue;
+			for (ALL_LIST_ELEMENTS_RO(orr_root_list, node, root)) {
+				if (!root->new_table)
+					continue;
+				vty_out(vty, "Calculated from location %pI4 \n",
+					&root->router_id);
+				show_ip_ospf_route_network(
+					vty, ospf, root->new_table, json_vrf);
+				if (!root->new_rtrs)
+					continue;
+				show_ip_ospf_route_router(
+					vty, ospf, root->new_rtrs, json_vrf);
+			}
+		}
+	}
 
 	/* Show AS External routes. */
 	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,

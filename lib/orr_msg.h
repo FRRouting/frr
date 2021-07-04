@@ -25,6 +25,9 @@
 extern "C" {
 #endif
 
+/* Library code */
+DEFINE_MTYPE_STATIC(LIB, ORR_MSG_INFO, "ORR Msg info");
+
 /* BGP-IGP Register for IGP metric */
 struct orr_igp_metric_reg {
 	bool reg;
@@ -58,9 +61,15 @@ struct orr_root {
 	/* Advertising OSPF Router ID. */
 	struct in_addr adv_router;
 
+	/* BGP-ORR Received LSAs */
+	struct ospf_lsa *router_lsa_rcvd;
+
 	/* Routing tables from root node */
 	struct route_table *old_table; /* Old routing table. */
 	struct route_table *new_table; /* Current routing table. */
+
+	struct route_table *old_rtrs; /* Old ABR/ASBR RT. */
+	struct route_table *new_rtrs; /* New ABR/ASBR RT. */
 };
 
 /* Prototypes. */
