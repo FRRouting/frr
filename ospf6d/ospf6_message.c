@@ -2083,12 +2083,72 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 
 		if ((on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT)
 		    || (on->ospf6_if->state == OSPF6_INTERFACE_DR)
+<<<<<<< HEAD
 		    || (on->ospf6_if->state == OSPF6_INTERFACE_BDR)) {
 			ospf6_send(on->ospf6_if->linklocal_addr,
 				   &allspfrouters6, on->ospf6_if, oh);
 		} else {
 			ospf6_send(on->ospf6_if->linklocal_addr,
 				   &on->linklocal_addr, on->ospf6_if, oh);
+=======
+		    || (on->ospf6_if->state == OSPF6_INTERFACE_BDR))
+			op->dst = allspfrouters6;
+		else
+			op->dst = on->linklocal_addr;
+		oi = on->ospf6_if;
+	} else if (oi) {
+		if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT)
+		    || (oi->state == OSPF6_INTERFACE_DR)
+		    || (oi->state == OSPF6_INTERFACE_BDR))
+			op->dst = allspfrouters6;
+		else
+			op->dst = alldrouters6;
+	}
+	if (oi) {
+		ospf6_packet_add(oi, op);
+		/* If ospf instance is being deleted, send the packet
+		 * immediately
+		 */
+		if ((oi->area == NULL) || (oi->area->ospf6 == NULL))
+			return;
+		if (oi->area->ospf6->inst_shutdown) {
+			if (oi->on_write_q == 0) {
+				listnode_add(oi->area->ospf6->oi_write_q, oi);
+				oi->on_write_q = 1;
+			}
+			thread_execute(master, ospf6_write, oi->area->ospf6, 0);
+		} else
+			OSPF6_MESSAGE_WRITE_ON(oi);
+	}
+}
+
+static uint16_t ospf6_make_lsupdate_list(struct ospf6_neighbor *on,
+					 struct ospf6_packet **op, int *lsa_cnt)
+{
+	uint16_t length = OSPF6_LS_UPD_MIN_SIZE;
+	struct ospf6_lsa *lsa, *lsanext;
+
+	/* skip over fixed header */
+	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
+
+	for (ALL_LSDB(on->lsupdate_list, lsa, lsanext)) {
+		if ((length + (unsigned int)OSPF6_LSA_SIZE(lsa->header)
+		     + OSPF6_HEADER_SIZE)
+		    > ospf6_packet_max(on->ospf6_if)) {
+			ospf6_fill_header(on->ospf6_if, (*op)->s,
+					  length + OSPF6_HEADER_SIZE);
+			(*op)->length = length + OSPF6_HEADER_SIZE;
+			ospf6_fill_lsupdate_header((*op)->s, *lsa_cnt);
+			ospf6_send_lsupdate(on, NULL, *op);
+
+			/* refresh packet */
+			*op = ospf6_packet_new(on->ospf6_if->ifmtu);
+			length = OSPF6_LS_UPD_MIN_SIZE;
+			*lsa_cnt = 0;
+			ospf6_make_header(OSPF6_MESSAGE_TYPE_LSUPDATE,
+					  on->ospf6_if, (*op)->s);
+			stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
+>>>>>>> 7359e9ba7 (ospf6d : Send LSA update immediately when ospf instance is deleted)
 		}
 	} else if (oi) {
 
