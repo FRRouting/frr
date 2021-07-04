@@ -138,39 +138,55 @@ static void lua_function_free(struct lua_function_state *lfs)
 
 /* Generic script APIs */
 
-int _frrscript_call(struct frrscript *fs)
+int _frrscript_call_lua(struct lua_function_state *lfs, int nargs)
 {
 
-	int ret = lua_pcall(fs->L, 0, 0, 0);
+	int ret;
+	ret = lua_pcall(lfs->L, nargs, 1, 0);
 
 	switch (ret) {
 	case LUA_OK:
 		break;
 	case LUA_ERRRUN:
-		zlog_err("Script '%s' runtime error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : runtime error: %s", lfs->name,
+			 lua_tostring(lfs->L, -1));
 		break;
 	case LUA_ERRMEM:
-		zlog_err("Script '%s' memory error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : memory error: %s", lfs->name,
+			 lua_tostring(lfs->L, -1));
 		break;
 	case LUA_ERRERR:
-		zlog_err("Script '%s' error handler error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : error handler error: %s",
+			 lfs->name, lua_tostring(lfs->L, -1));
 		break;
 	case LUA_ERRGCMM:
-		zlog_err("Script '%s' garbage collector error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : garbage collector error: %s",
+			 lfs->name, lua_tostring(lfs->L, -1));
 		break;
 	default:
-		zlog_err("Script '%s' unknown error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : unknown error: %s", lfs->name,
+			 lua_tostring(lfs->L, -1));
 		break;
 	}
 
 	if (ret != LUA_OK) {
-		lua_pop(fs->L, 1);
+		lua_pop(lfs->L, 1);
 		goto done;
+	}
+
+	if (lua_gettop(lfs->L) != 1) {
+		zlog_err(
+			"Lua hook call '%s': Lua function should return only 1 result",
+			lfs->name);
+		ret = 1;
+		goto done;
+	}
+
+	if (lua_istable(lfs->L, 1) != 1) {
+		zlog_err(
+			"Lua hook call '%s': Lua function should return a Lua table",
+			lfs->name);
+		ret = 1;
 	}
 
 done:
