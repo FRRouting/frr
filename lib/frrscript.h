@@ -45,7 +45,6 @@ struct lua_function_state {
 	lua_State *L;
 };
 
-
 struct frrscript {
 	/* Script name */
 	char *name;
