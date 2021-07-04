@@ -24,14 +24,30 @@
 int main(int argc, char **argv)
 {
 	frrscript_init("./lib");
+	struct frrscript *fs = frrscript_new("script1");
+	int result;
 
-	struct frrscript *fs = frrscript_load("script1", NULL);
 	long long a = 100, b = 200;
-	int result = frrscript_call(fs, ("a", &a), ("b", &b));
 
+	result = frrscript_load(fs, "foo", NULL);
+	assert(result == 0);
+	result = frrscript_call(fs, "foo", ("a", &a), ("b", &b));
 	assert(result == 0);
 	assert(a == 300);
 	assert(b == 200);
+
+	result = frrscript_load(fs, "does_not_exist", NULL);
+	assert(result == 1);
+
+	result = frrscript_call(fs, "does_not_exist", ("a", &a), ("b", &b));
+	assert(result == 1);
+
+	frrscript_load(fs, "fact", NULL);
+	long long n = 5;
+
+	result = frrscript_call(fs, "fact", ("n", &n));
+	assert(result == 0);
+	assert(n == 120);
 
 	return 0;
 }
