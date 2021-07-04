@@ -368,10 +368,17 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	const char *scriptname = rule;
 	struct bgp_path_info *path = (struct bgp_path_info *)object;
 
-	struct frrscript *fs = frrscript_load(scriptname, NULL);
+	struct frrscript *fs = frrscript_new(scriptname);
+
 
 	if (!fs) {
-		zlog_err("Issue loading script rule; defaulting to no match");
+		zlog_err("Issue loading script file; defaulting to no match");
+		return RMAP_NOMATCH;
+	}
+
+	if (frrscript_load(fs, "route_match", NULL)) {
+		zlog_err(
+			"Issue loading script function; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
@@ -383,7 +390,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	struct attr newattr = *path->attr;
 
 	int result = frrscript_call(
-		fs, ("RM_FAILURE", (long long *)&lrm_status),
+		fs, "route_match", ("RM_FAILURE", (long long *)&lrm_status),
 		("RM_NOMATCH", (long long *)&status_nomatch),
 		("RM_MATCH", (long long *)&status_match),
 		("RM_MATCH_AND_CHANGE", (long long *)&status_match_and_change),
