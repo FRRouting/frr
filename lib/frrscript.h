@@ -79,8 +79,13 @@ struct frrscript_env {
 /*
  * Create new FRR script.
  */
-struct frrscript *frrscript_load(const char *name,
-				 int (*load_cb)(struct frrscript *));
+struct frrscript *frrscript_new(const char *name);
+
+/*
+ * Load a function into frrscript, run callback if any
+ */
+int frrscript_load(struct frrscript *fs, const char *function_name,
+		   int (*load_cb)(struct frrscript *));
 
 /*
  * Destroy FRR script.

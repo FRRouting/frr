@@ -217,56 +217,76 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs)
 		frrscript_register_type_codec(&codecs[i]);
 }
 
-struct frrscript *frrscript_load(const char *name,
-				 int (*load_cb)(struct frrscript *))
+struct frrscript *frrscript_new(const char *name)
 {
 	struct frrscript *fs = XCALLOC(MTYPE_SCRIPT, sizeof(struct frrscript));
 
 	fs->name = XSTRDUP(MTYPE_SCRIPT, name);
-	fs->L = luaL_newstate();
-	frrlua_export_logging(fs->L);
+	fs->lua_function_hash =
+		hash_create(lua_function_hash_key, lua_function_hash_cmp,
+			    "Lua function state hash");
+	return fs;
+}
+
+int frrscript_load(struct frrscript *fs, const char *function_name,
+		   int (*load_cb)(struct frrscript *))
+{
+
+	/* Set up the Lua script */
+	lua_State *L = luaL_newstate();
+	frrlua_export_logging(L);
 
 	char fname[MAXPATHLEN * 2];
-	snprintf(fname, sizeof(fname), "%s/%s.lua", scriptdir, fs->name);
 
-	int ret = luaL_loadfile(fs->L, fname);
+	snprintf(fname, sizeof(fname), "%s/%s.lua", scriptdir, fs->name);
+	int ret = luaL_dofile(L, fname);
 
 	switch (ret) {
 	case LUA_OK:
 		break;
 	case LUA_ERRSYNTAX:
 		zlog_err("Failed loading script '%s': syntax error: %s", fname,
-			 lua_tostring(fs->L, -1));
+			 lua_tostring(L, -1));
 		break;
 	case LUA_ERRMEM:
 		zlog_err("Failed loading script '%s': out-of-memory error: %s",
-			 fname, lua_tostring(fs->L, -1));
+			 fname, lua_tostring(L, -1));
 		break;
 	case LUA_ERRGCMM:
 		zlog_err(
 			"Failed loading script '%s': garbage collector error: %s",
-			fname, lua_tostring(fs->L, -1));
+			fname, lua_tostring(L, -1));
 		break;
 	case LUA_ERRFILE:
 		zlog_err("Failed loading script '%s': file read error: %s",
-			 fname, lua_tostring(fs->L, -1));
+			 fname, lua_tostring(L, -1));
 		break;
 	default:
 		zlog_err("Failed loading script '%s': unknown error: %s", fname,
-			 lua_tostring(fs->L, -1));
+			 lua_tostring(L, -1));
 		break;
 	}
 
 	if (ret != LUA_OK)
 		goto fail;
 
+	/* Push the Lua function we want */
+	lua_getglobal(L, function_name);
+	if (lua_isfunction(L, lua_gettop(L)) == 0)
+		goto fail;
+
 	if (load_cb && (*load_cb)(fs) != 0)
 		goto fail;
 
-	return fs;
+	/* Add the Lua function state to frrscript */
+	struct lua_function_state key = {.name = function_name, .L = L};
+
+	hash_get(fs->lua_function_hash, &key, lua_function_alloc);
+
+	return 0;
 fail:
-	frrscript_unload(fs);
-	return NULL;
+	lua_close(L);
+	return 1;
 }
 
 void frrscript_unload(struct frrscript *fs)
