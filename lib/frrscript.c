@@ -102,6 +102,40 @@ static void codec_free(struct codec *c)
 }
 #endif
 
+
+unsigned int lua_function_hash_key(const void *data)
+{
+	const struct lua_function_state *lfs = data;
+
+	return string_hash_make(lfs->name);
+}
+
+bool lua_function_hash_cmp(const void *d1, const void *d2)
+{
+	const struct lua_function_state *lfs1 = d1;
+	const struct lua_function_state *lfs2 = d2;
+
+	return strmatch(lfs1->name, lfs2->name);
+}
+
+void *lua_function_alloc(void *arg)
+{
+	struct lua_function_state *tmp = arg;
+
+	struct lua_function_state *lfs =
+		XCALLOC(MTYPE_SCRIPT, sizeof(struct lua_function_state));
+	lfs->name = tmp->name;
+	lfs->L = tmp->L;
+	return lfs;
+}
+
+static void lua_function_free(struct lua_function_state *lfs)
+{
+	XFREE(MTYPE_TMP, lfs->name);
+	lua_close(lfs->L);
+	XFREE(MTYPE_TMP, lfs);
+}
+
 /* Generic script APIs */
 
 int _frrscript_call(struct frrscript *fs)

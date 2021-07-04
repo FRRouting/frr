@@ -40,13 +40,30 @@ struct frrscript_codec {
 	decoder_func decoder;
 };
 
+struct lua_function_state {
+	const char *name;
+	lua_State *L;
+};
+
+
 struct frrscript {
 	/* Script name */
 	char *name;
 
-	/* Lua state */
-	struct lua_State *L;
+	/* Hash of Lua function name to Lua function state */
+	struct hash *lua_function_hash;
 };
+
+
+/*
+ * Hash related functions for lua_function_hash
+ */
+
+void *lua_function_alloc(void *arg);
+
+unsigned int lua_function_hash_key(const void *data);
+
+bool lua_function_hash_cmp(const void *d1, const void *d2);
 
 struct frrscript_env {
 	/* Value type */
