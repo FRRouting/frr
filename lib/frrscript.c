@@ -208,9 +208,6 @@ void *frrscript_get_result(struct frrscript *fs,
 		return NULL;
 	}
 
-	lua_getglobal(fs->L, result->name);
-	r = codec->decoder(fs->L, -1);
-	lua_pop(fs->L, 1);
 
 	return r;
 }
@@ -307,7 +304,6 @@ fail:
 
 void frrscript_unload(struct frrscript *fs)
 {
-	lua_close(fs->L);
 	XFREE(MTYPE_SCRIPT, fs->name);
 	XFREE(MTYPE_SCRIPT, fs);
 }
