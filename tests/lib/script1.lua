@@ -18,3 +18,15 @@ function fact(n)
     n = helper(n)
   }
 end
+
+function bad_return1()
+end
+
+function bad_return2()
+  return 1
+end
+
+function bad_return3()
+  error("Something bad!")
+end
+

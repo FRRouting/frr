@@ -36,18 +36,36 @@ int main(int argc, char **argv)
 	assert(a == 300);
 	assert(b == 200);
 
-	result = frrscript_load(fs, "does_not_exist", NULL);
-	assert(result == 1);
-
-	result = frrscript_call(fs, "does_not_exist", ("a", &a), ("b", &b));
-	assert(result == 1);
-
 	frrscript_load(fs, "fact", NULL);
 	long long n = 5;
 
 	result = frrscript_call(fs, "fact", ("n", &n));
 	assert(result == 0);
 	assert(n == 120);
+
+	/* Function does not exist in script file*/
+	result = frrscript_load(fs, "does_not_exist", NULL);
+	assert(result == 1);
+
+	/* Function does not exist in script file*/
+	result = frrscript_load(fs, "does_not_exist", NULL);
+	assert(result == 1);
+
+	/* Function was not (successfully) loaded */
+	result = frrscript_call(fs, "does_not_exist", ("a", &a), ("b", &b));
+	assert(result == 1);
+
+	/* Function returns void */
+	result = frrscript_call(fs, "bad_return1");
+	assert(result == 1);
+
+	/* Function returns number */
+	result = frrscript_call(fs, "bad_return2");
+	assert(result == 1);
+
+	/* Function throws exception */
+	result = frrscript_call(fs, "bad_return3");
+	assert(result == 1);
 
 	return 0;
 }
