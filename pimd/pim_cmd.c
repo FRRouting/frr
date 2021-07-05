@@ -1154,6 +1154,12 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			json_object_int_add(
 				json_row, "overrideIntervalHighest",
 				pim_ifp->pim_neighbors_highest_override_interval_msec);
+			if (pim_ifp->bsm_enable)
+				json_object_boolean_true_add(json_row,
+							     "bsmEnabled");
+			if (pim_ifp->ucast_bsm_accept)
+				json_object_boolean_true_add(json_row,
+							     "ucastBsmEnabled");
 			json_object_object_add(json, ifp->name, json_row);
 
 		} else {
@@ -1306,6 +1312,15 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 				pim_ifp->pim_override_interval_msec);
 			vty_out(vty, "Override Interval (Highest) : %d msec\n",
 				pim_ifp->pim_neighbors_highest_override_interval_msec);
+			vty_out(vty, "\n");
+			vty_out(vty, "\n");
+
+			vty_out(vty, "BSM Status\n");
+			vty_out(vty, "----------\n");
+			vty_out(vty, "Bsm Enabled          : %s\n",
+				pim_ifp->bsm_enable ? "yes" : "no");
+			vty_out(vty, "Unicast Bsm Enabled  : %s\n",
+				pim_ifp->ucast_bsm_accept ? "yes" : "no");
 			vty_out(vty, "\n");
 			vty_out(vty, "\n");
 		}
