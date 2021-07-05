@@ -351,8 +351,8 @@ module frr-pim {
     }
 
     leaf hello-holdtime {
-      type uint8 {
-        range "1..180";
+      type uint16 {
+        range "1..630";
       }
       must ". > ./../hello-interval" {
       error-message "HoldTime must be greater than Hello";
