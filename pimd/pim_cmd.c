@@ -8786,7 +8786,7 @@ DEFUN (interface_no_ip_mroute,
 
 DEFUN (interface_ip_pim_hello,
        interface_ip_pim_hello_cmd,
-       "ip pim hello (1-180) [(1-180)]",
+       "ip pim hello (1-180) [(1-630)]",
        IP_STR
        PIM_STR
        IFACE_PIM_HELLO_STR
@@ -8821,7 +8821,7 @@ DEFUN (interface_ip_pim_hello,
 
 DEFUN (interface_no_ip_pim_hello,
        interface_no_ip_pim_hello_cmd,
-       "no ip pim hello [(1-180) [(1-180)]]",
+       "no ip pim hello [(1-180) [(1-630)]]",
        NO_STR
        IP_STR
        PIM_STR
