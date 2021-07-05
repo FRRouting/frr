@@ -92,8 +92,8 @@ struct igmp_sock {
 	struct thread
 		*t_igmp_query_timer; /* timer: issue IGMP general queries */
 	struct thread *t_other_querier_timer; /* timer: other querier present */
-
-	int querier_query_interval;      /* QQI */
+	struct in_addr querier_addr;	  /* IP address of the querier */
+	int querier_query_interval;	   /* QQI */
 	int querier_robustness_variable; /* QRV */
 	int startup_query_count;
 

@@ -167,6 +167,8 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 			       sizeof(ifaddr_str));
 		zlog_debug("%s: Querier %s resuming", __func__, ifaddr_str);
 	}
+	/* Mark the interface address as querier address */
+	igmp->querier_addr = igmp->ifaddr;
 
 	/*
 	  We are the current querier, then
@@ -397,6 +399,8 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 				ntohl(igmp->ifaddr.s_addr), from_str,
 				ntohl(from.s_addr));
 		}
+		if (ntohl(from.s_addr) < ntohl(igmp->querier_addr.s_addr))
+			igmp->querier_addr.s_addr = from.s_addr;
 
 		pim_igmp_other_querier_timer_on(igmp);
 	}
@@ -969,6 +973,7 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->fd = fd;
 	igmp->interface = ifp;
 	igmp->ifaddr = ifaddr;
+	igmp->querier_addr = ifaddr;
 	igmp->t_igmp_read = NULL;
 	igmp->t_igmp_query_timer = NULL;
 	igmp->t_other_querier_timer = NULL; /* no other querier present */

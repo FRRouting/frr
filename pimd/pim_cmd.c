@@ -497,6 +497,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	struct interface *ifp;
 	time_t now;
 	char buf[PREFIX_STRLEN];
+	char quer_buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 
@@ -506,7 +507,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"Interface         State          Address  V  Querier  Query Timer    Uptime\n");
+			"Interface         State          Address  V  Querier          QuerierIp  Query Timer    Uptime\n");
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -544,6 +545,10 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 							       "queryTimer",
 							       query_hhmmss);
 				}
+				json_object_string_add(
+					json_row, "querierIp",
+					inet_ntop(AF_INET, &igmp->querier_addr,
+						  quer_buf, sizeof(quer_buf)));
 
 				json_object_object_add(json, ifp->name,
 						       json_row);
@@ -554,18 +559,19 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				}
 			} else {
 				vty_out(vty,
-					"%-16s  %5s  %15s  %d  %7s  %11s  %8s\n",
+					"%-16s  %5s  %15s  %d  %7s  %17pI4  %11s  %8s\n",
 					ifp->name,
 					if_is_up(ifp)
-					? (igmp->mtrace_only ? "mtrc"
-					   : "up")
-					: "down",
-					inet_ntop(AF_INET, &igmp->ifaddr,
-						  buf, sizeof(buf)),
+						? (igmp->mtrace_only ? "mtrc"
+								     : "up")
+						: "down",
+					inet_ntop(AF_INET, &igmp->ifaddr, buf,
+						  sizeof(buf)),
 					pim_ifp->igmp_version,
 					igmp->t_igmp_query_timer ? "local"
-					: "other",
-					query_hhmmss, uptime);
+								 : "other",
+					&igmp->querier_addr, query_hhmmss,
+					uptime);
 			}
 		}
 	}
@@ -586,6 +592,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 	struct listnode *sock_node;
 	struct pim_interface *pim_ifp;
 	char uptime[10];
+	char quer_buf[PREFIX_STRLEN];
 	char query_hhmmss[10];
 	char other_hhmmss[10];
 	int found_ifname = 0;
@@ -670,6 +677,10 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 						       igmp->t_igmp_query_timer
 						       ? "local"
 						       : "other");
+				json_object_string_add(
+					json_row, "querierIp",
+					inet_ntop(AF_INET, &igmp->querier_addr,
+						  quer_buf, sizeof(quer_buf)));
 				json_object_int_add(json_row, "queryStartCount",
 						    igmp->startup_query_count);
 				json_object_string_add(json_row,
@@ -739,6 +750,14 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				vty_out(vty, "Querier     : %s\n",
 					igmp->t_igmp_query_timer ? "local"
 					: "other");
+				vty_out(vty, "QuerierIp   : %pI4",
+					&igmp->querier_addr);
+				if (pim_ifp->primary_address.s_addr
+				    == igmp->querier_addr.s_addr)
+					vty_out(vty, " (this router)\n");
+				else
+					vty_out(vty, "\n");
+
 				vty_out(vty, "Start Count : %d\n",
 					igmp->startup_query_count);
 				vty_out(vty, "Query Timer : %s\n",
