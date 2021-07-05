@@ -1613,7 +1613,7 @@ int lib_interface_pim_hello_holdtime_modify(struct nb_cb_modify_args *args)
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
 		pim_ifp->pim_default_holdtime =
-			yang_dnode_get_uint8(args->dnode, NULL);
+			yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
