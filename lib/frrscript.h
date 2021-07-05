@@ -25,6 +25,7 @@
 
 #include <lua.h>
 #include "frrlua.h"
+#include "../bgpd/bgp_script.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,6 +97,56 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs);
  */
 void frrscript_init(const char *scriptdir);
 
+#define ENCODE_ARGS(name, value)                                               \
+	do {                                                                   \
+		ENCODE_ARGS_WITH_STATE(L, value);                              \
+		lua_setglobal(L, name);                                        \
+	} while (0)
+
+#define DECODE_ARGS(name, value)                                               \
+	do {                                                                   \
+		lua_getglobal(L, name);                                        \
+		DECODE_ARGS_WITH_STATE(L, value);                              \
+	} while (0)
+
+/*
+ * Maps the type of value to its encoder/decoder.
+ * Add new mappings here.
+ *
+ * L
+ *    Lua state
+ * scriptdir
+ *    Directory in which to look for scripts
+ */
+#define ENCODE_ARGS_WITH_STATE(L, value)                                       \
+	_Generic((value), \
+long long * : lua_pushintegerp,                                 \
+struct prefix * : lua_pushprefix,                               \
+struct interface * : lua_pushinterface,                         \
+struct in_addr * : lua_pushinaddr,                              \
+struct in6_addr * : lua_pushin6addr,                            \
+union sockunion * : lua_pushsockunion,                          \
+time_t * : lua_pushtimet,                                       \
+char * : lua_pushstring_wrapper,                                \
+struct attr * : lua_pushattr,                                   \
+struct peer * : lua_pushpeer,                                   \
+const struct prefix * : lua_pushprefix                          \
+)(L, value)
+
+#define DECODE_ARGS_WITH_STATE(L, value)                                       \
+	_Generic((value), \
+long long * : lua_decode_integerp,                              \
+struct prefix * : lua_decode_prefix,                            \
+struct interface * : lua_decode_interface,                      \
+struct in_addr * : lua_decode_inaddr,                           \
+struct in6_addr * : lua_decode_in6addr,                         \
+union sockunion * : lua_decode_sockunion,                       \
+time_t * : lua_decode_timet,                                    \
+char * : lua_decode_stringp,                                    \
+struct attr * : lua_decode_attr,                                \
+struct peer * : lua_decode_noop,                                \
+const struct prefix * : lua_decode_noop                         \
+)(L, -1, value)
 
 /*
  * Call script.
@@ -103,14 +154,31 @@ void frrscript_init(const char *scriptdir);
  * fs
  *    The script to call; this is obtained from frrscript_load().
  *
- * env
- *    The script's environment. Specify this as an array of frrscript_env.
+ * Returns:
+ *    0 if the script ran successfully, nonzero otherwise.
+ */
+int _frrscript_call(struct frrscript *fs);
+
+/*
+ * Wrapper for call script. Maps values passed in to their encoder
+ * and decoder types.
+ *
+ * fs
+ *    The script to call; this is obtained from frrscript_load().
  *
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
  */
-int frrscript_call(struct frrscript *fs, struct frrscript_env *env);
-
+#define frrscript_call(fs, ...)                                                \
+	({                                                                     \
+		lua_State *L = fs->L;                                          \
+		MAP_LISTS(ENCODE_ARGS, ##__VA_ARGS__);                         \
+		int ret = _frrscript_call(fs);                                 \
+		if (ret == 0) {                                                \
+			MAP_LISTS(DECODE_ARGS, ##__VA_ARGS__);                 \
+		}                                                              \
+		ret;                                                           \
+	})
 
 /*
  * Get result from finished script.
