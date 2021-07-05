@@ -97,6 +97,14 @@ static void pm_check_retries_common(struct pm_echo *pme)
 
 static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
 {
+	char buf[SU_ADDRSTRLEN];
+	char s_ip[INET6_ADDRSTRLEN];
+	char d_ip[INET6_ADDRSTRLEN];
+	struct in_addr saddr, daddr;
+	struct iphdr *ip;
+	struct icmphdr *icmp;
+	struct icmp6_hdr *icmp6;
+
 	if (pme->retries_mode != PM_RETRIES_MODE_THRESHOLD)
 		return false;
 	pm_check_retries_common(pme);
@@ -124,10 +132,13 @@ static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
 
 	if (pme->retry.retry_table_count_good >= pme->retries_threshold) {
 		THREAD_OFF(pme->t_echo_tmo);
-		if (pm_debug_echo)
-			zlog_debug("%s: %d / %d, threshold",
-				   __func__, pme->retry.retry_table_count_good,
-				   pme->retries_threshold);
+		if (pm_debug_echo) {
+			sockunion2str(&pme->peer, buf, sizeof(buf));
+			zlog_debug("%s: %d / %d, threshold OK. Dest %s Seq %d ID 0x%x",
+					   __func__, pme->retry.retry_table_count_good,
+					   pme->retries_threshold, buf, pme->icmp_sequence - 1,
+					   pme->discriminator_id  & 0xffff);
+		}
 		if (retry_up)
 			return false;
 		/* even when timeout or packet did not arrive in time,
@@ -136,12 +147,48 @@ static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
 		return true;
 	}
 	/* the number of successful pings is below the limit */
-	ret = false;
 	THREAD_OFF(pme->t_echo_tmo);
-	if (pm_debug_echo)
-		zlog_debug("%s: %d / %d, threshold is not reached",
+	if (pm_debug_echo) {
+		sockunion2str(&pme->peer, buf, sizeof(buf));
+		zlog_debug("%s: %d / %d, threshold is not reached. Dest %s Seq %d ID 0x%x",
 				   __func__, pme->retry.retry_table_count_good,
-				   pme->retries_threshold);
+				   pme->retries_threshold, buf, pme->icmp_sequence - 1,
+				   pme->discriminator_id  & 0xffff);
+		if (sockunion_family(&pme->peer) == AF_INET) {
+			if (pme->rx_buf) {
+				ip = (struct iphdr *)pme->rx_buf;
+				saddr.s_addr = ip->saddr;
+				inet_ntop(AF_INET, &saddr, s_ip, sizeof(s_ip));
+				daddr.s_addr = ip->daddr;
+				inet_ntop(AF_INET, &daddr, d_ip, sizeof(d_ip));
+				if (ip->protocol == IPPROTO_ICMP) {
+					/* icmp */
+					icmp = (struct icmphdr *)(pme->rx_buf + (ip->ihl << 2));
+					if (icmp->type == ICMP_ECHOREPLY) {
+						zlog_debug("rx_buf contains ICMP reply packet from %s to %s Seq %d ID 0x%x",
+							      s_ip, d_ip, ntohs(icmp->un.echo.sequence),
+							      ntohs(icmp->un.echo.id));
+					} else
+						zlog_debug("rx_buf contains a ICMP packet from %s to %s Type %d",
+							 s_ip, d_ip, icmp->type);
+				} else
+					zlog_debug("rx_buf contains a IP packet from %s to %s proto %d",
+						 s_ip, d_ip, ip->protocol);
+			} else
+				zlog_debug("rx_buf is NULL");
+		} else {
+			if (pme->rx_buf) {
+				icmp6 = (struct icmp6_hdr *)(pme->rx_buf);
+				if (icmp6->icmp6_type == ICMP6_ECHO_REPLY) {
+					zlog_debug("rx_buf contains a ICMPv6 reply packet Seq %d ID 0x%x",
+						 ntohs(icmp6->icmp6_seq),
+						 ntohs(icmp6->icmp6_id));
+				} else
+					zlog_debug("rx_buf contains a ICMPv6 packet type %d", icmp6->icmp6_type);
+			} else
+				zlog_debug("rx_buf is NULL");
+		}
+	}
 	if (!retry_up)
 		return false;
 	/* even when success,
@@ -195,7 +242,7 @@ int pm_echo_tmo(struct thread *thread)
 		return 0;
 	/* else fall on timeout */
 	if (pme->oper_receive) {
-		zlog_info("PMD: packet already received. cancel tmo");
+		zlog_info("packet already received. cancel tmo");
 		return 0;
 	}
 	pme->stats_rx_timeout++;
@@ -220,7 +267,10 @@ int pm_echo_receive(struct thread *thread)
 	socklen_t fromlen = sizeof(from);
 	int hlen, ret = 0;
 	struct iphdr *ip;
+	char s_ip[INET6_ADDRSTRLEN];
+	char d_ip[INET6_ADDRSTRLEN];
 	char buf[INET6_ADDRSTRLEN];
+	struct in_addr saddr, daddr;
 
 	if ((sockunion_family(&pme->peer) == AF_INET
 	     && pme->echofd < 0) ||
@@ -240,7 +290,7 @@ int pm_echo_receive(struct thread *thread)
 	ret = recvfrom(fd, pme->rx_buf,
 		       pme->packet_size, 0, &from, &fromlen);
 	if (ret < 0 || fd < 0) {
-		zlog_err("PMD: error when receiving ICMP echo.");
+		zlog_err("error when receiving ICMP echo.");
 		return 0;
 	}
 	monotime(&pme->end);
@@ -249,58 +299,52 @@ int pm_echo_receive(struct thread *thread)
 		hlen = ip->ihl << 2;
 		icmp = (struct icmphdr *)(pme->rx_buf + hlen);
 		if (ret < hlen + ICMP_MINLEN) {
-			zlog_err("PMD: packet too short. retrying");
+			zlog_err("packet too short. retrying");
 			return 0;
+		}
+		if (pm_debug_echo) {
+			saddr.s_addr = ip->saddr;
+			inet_ntop(AF_INET, &saddr, s_ip, sizeof(s_ip));
+			daddr.s_addr = ip->daddr;
+			inet_ntop(AF_INET, &daddr, d_ip, sizeof(d_ip));
 		}
 		if (icmp->type != ICMP_ECHOREPLY) {
 			if (pm_debug_echo) {
-				char buf2[INET6_ADDRSTRLEN];
-				struct in_addr daddr;
-
-				daddr.s_addr = ip->daddr;
-				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
-					  buf, sizeof(buf));
-				inet_ntop(AF_INET, &daddr, buf2, sizeof(buf2));
-				zlog_err("PMD: ICMP from %s to %s ECHO REPLY expected (got type %u)",
-					 buf, buf2, icmp->type);
+				zlog_debug("ICMP from %s to %s ECHO REPLY expected (got type %u)",
+					 s_ip, d_ip, icmp->type);
 			}
 			return 0;
+		}
+		if (pm_debug_echo) {
+			zlog_debug("received ICMP reply packet from %s to %s Seq %d ID 0x%x",
+				 s_ip, d_ip, ntohs(icmp->un.echo.sequence),
+				 ntohs(icmp->un.echo.id));
 		}
 		/* check that destination address matches
 		 * our local address configured
 		 */
 		if (ip->saddr != pme->peer.sin.sin_addr.s_addr) {
 			if (pm_debug_echo) {
-				char buf2[INET6_ADDRSTRLEN];
-				struct in_addr saddr;
-
-				saddr.s_addr = ip->saddr;
-				inet_ntop(AF_INET, &saddr, buf, sizeof(buf));
 				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
-					  buf2, sizeof(buf2));
-				zlog_err("PMD: wrong src address %s, expected %s. retrying",
-					 buf, buf2);
+					  buf, sizeof(buf));
+				zlog_debug("wrong src address %s, expected %s. retrying",
+					 s_ip, buf);
 			}
 			return 0;
 		}
 		if (sockunion_family(&pm->key.local) == AF_INET &&
 		    ip->daddr != pm->key.local.sin.sin_addr.s_addr) {
 			if (pm_debug_echo) {
-				char buf2[INET6_ADDRSTRLEN];
-				struct in_addr daddr;
-
-				daddr.s_addr = ip->daddr;
-				inet_ntop(AF_INET, &daddr, buf, sizeof(buf));
 				inet_ntop(AF_INET, &pm->key.local.sin.sin_addr,
-					  buf2, sizeof(buf2));
-				zlog_err("PMD: wrong dst address %s, expected %s. retrying",
-					 buf, buf2);
+					  buf, sizeof(buf));
+				zlog_debug("wrong dst address %s, expected %s. retrying",
+					 d_ip, buf);
 			}
 			return 0;
 		}
 		if (ntohs(icmp->un.echo.id) != (pme->discriminator_id & 0xffff)) {
 			if (pm_debug_echo) {
-				zlog_err("PMD: received ID 0x%x whereas local ID is 0x%x, discard",
+				zlog_debug("received ID 0x%x whereas local ID is 0x%x, discard",
 					 ntohs(icmp->un.echo.id),
 					 pme->discriminator_id & 0xffff);
 			}
@@ -308,15 +352,8 @@ int pm_echo_receive(struct thread *thread)
 		}
 		if (ntohs(icmp->un.echo.sequence) != (pme->icmp_sequence - 1)) {
 			if (pm_debug_echo) {
-				char buf2[INET6_ADDRSTRLEN];
-				struct in_addr daddr;
-
-				daddr.s_addr = ip->daddr;
-				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
-					  buf, sizeof(buf));
-				inet_ntop(AF_INET, &daddr, buf2, sizeof(buf2));
-				zlog_err("PMD: ICMP from %s to %s rx seq %u, expected %u",
-					 buf, buf2,
+				zlog_debug("received ICMP from %s to %s Seq %u, expected Seq %u",
+					 s_ip, d_ip,
 					 ntohs(icmp->un.echo.sequence),
 					 pme->icmp_sequence - 1);
 			}
@@ -324,32 +361,32 @@ int pm_echo_receive(struct thread *thread)
 		}
 	} else {
 		icmp6 = (struct icmp6_hdr *)(pme->rx_buf);
+		if (pm_debug_echo)
+			inet_ntop(AF_INET6, &pme->peer.sin6.sin6_addr,
+				  buf, sizeof(buf));
 		if (icmp6->icmp6_type != ICMP6_ECHO_REPLY) {
-			if (pm_debug_echo) {
-				inet_ntop(AF_INET6, &pme->peer.sin6.sin6_addr,
-					  buf, sizeof(buf));
-				zlog_err("PMD: ICMP from %s ECHO REPLY expected (got type %u)",
+			if (pm_debug_echo)
+				zlog_debug("ICMP from %s ECHO REPLY expected (got type %u)",
 					 buf, icmp->type);
-			}
 			return 0;
 		}
+		if (pm_debug_echo)
+			zlog_debug("received ICMPv6 reply packet Seq %d ID 0x%x",
+				 ntohs(icmp6->icmp6_seq),
+				 ntohs(icmp6->icmp6_id));
 		if (ntohs(icmp6->icmp6_id) != (pme->discriminator_id & 0xffff)) {
-			if (pm_debug_echo) {
-				zlog_err("PMD: received ID 0x%x whereas local ID is 0x%x, discard",
+			if (pm_debug_echo)
+				zlog_debug("received ID 0x%x whereas local ID is 0x%x, discard",
 					 ntohs(icmp6->icmp6_id),
 					 pme->discriminator_id & 0xffff);
-			}
 			return 0;
 		}
 		if (ntohs(icmp6->icmp6_seq) != (pme->icmp_sequence - 1)) {
-			if (pm_debug_echo) {
-				inet_ntop(AF_INET6, &pme->peer.sin6.sin6_addr,
-					  buf, sizeof(buf));
-				zlog_err("PMD: ICMP from %s rx seq %u, expected %u",
+			if (pm_debug_echo)
+				zlog_err("received ICMP from %s Seq %u, expected Seq %u",
 					 buf,
 					 ntohs(icmp6->icmp6_seq),
 					 pme->icmp_sequence - 1);
-			}
 			return 0;
 		}
 	}
@@ -547,7 +584,7 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 					 vrf->vrf_id, bind_interface);
 	}
 	if (pme->echofd == -1) {
-		zlog_err("PMD: pm_echo, failed to allocate socket");
+		zlog_err("pm_echo, failed to allocate socket");
 		return -1;
 	}
 	/* create extra socket for reception */
@@ -560,7 +597,7 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 							 bind_interface);
 		}
 		if (pme->echofd_rx_ipv6 == -1) {
-			zlog_err("PMD: pm_echo, failed to allocate socket (%u)",
+			zlog_err("pm_echo, failed to allocate socket (%u)",
 				 errno);
 			close(pme->echofd);
 			return -1;
@@ -580,7 +617,7 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 		char buf[SU_ADDRSTRLEN];
 
 		sockunion2str(&pme->peer, buf, sizeof(buf));
-		zlog_err("PMD: pm_echo, use IP_HDRINCL for session to %s failed (err %d)",
+		zlog_err("pm_echo, use IP_HDRINCL for session to %s failed (err %d)",
 			 buf, errno);
 	}
 	return 0;
@@ -599,6 +636,7 @@ int pm_echo_send(struct thread *thread)
 	size_t siz;
 	union g_addr *src_ip = NULL;
 	int family;
+	char buf[SU_ADDRSTRLEN];
 
 	if (pme->echofd < 0)
 		return 0;
@@ -633,10 +671,8 @@ int pm_echo_send(struct thread *thread)
 				   (struct sockaddr *)&pm->key.local.sa,
 				   sizeof(struct sockaddr_in));
 		if (ret < 0) {
-			char buf[SU_ADDRSTRLEN];
-
 			sockunion2str(&pm->key.local, buf, sizeof(buf));
-			zlog_warn("PMD: pm_echo, bind with %s failed (err %d)",
+			zlog_warn("pm_echo, bind with %s failed (err %d)",
 				  buf, errno);
 			pme->oper_bind = false;
 			goto label_end_tried_sending;
@@ -654,10 +690,8 @@ int pm_echo_send(struct thread *thread)
 				      sizeof(struct sockaddr_in));
 		}
 		if (ret < 0) {
-			char buf[SU_ADDRSTRLEN];
-
 			sockunion2str(&pme->gw, buf, sizeof(buf));
-			zlog_warn("PMD: pm_echo, connect with %s failed (err %d)",
+			zlog_warn("pm_echo, connect with %s failed (err %d)",
 				  buf, errno);
 			pme->oper_connect = false;
 			goto label_end_tried_sending;
@@ -678,8 +712,6 @@ int pm_echo_send(struct thread *thread)
 		/* source ip not set systematically */
 		src_ip = pm_echo_choose_src_ip(pm);
 		if (!src_ip) {
-			char buf[SU_ADDRSTRLEN];
-
 			sockunion2str(&pme->peer, buf, sizeof(buf));
 			zlog_warn("cancel ICMP echo send to %s without src IP",
 				  buf);
@@ -707,8 +739,6 @@ int pm_echo_send(struct thread *thread)
 		       sizeof(struct in6_addr));
 		src_ip = pm_echo_choose_src_ip(pm);
 		if (!src_ip) {
-			char buf[SU_ADDRSTRLEN];
-
 			sockunion2str(&pme->peer, buf, sizeof(buf));
 			zlog_warn("cancel sending ICMP echo to %s without src IP",
 				  buf);
@@ -761,17 +791,34 @@ int pm_echo_send(struct thread *thread)
 	ret = sendto(pme->echofd, (char *)pme->tx_buf,
 		     pme->packet_size, 0,
 		     &pme->gw.sa, siz);
-	if (ret < 0) {
-		char buf[SU_ADDRSTRLEN];
 
+	sockunion2str(&pme->peer, buf, sizeof(buf));
+	if (ret < 0) {
 		pme->last_errno = errno;
-		sockunion2str(&pme->peer, buf, sizeof(buf));
-		zlog_err("PMD: error when sending ICMP echo to %s (%x)",
-			 buf, pme->last_errno);
+		if (sockunion_family(&pme->peer) == AF_INET)
+			zlog_err("error when sending ICMP echo to %s Seq %d ID 0x%x (error %x)",
+				 buf, ntohs(icmp->un.echo.sequence),
+				 ntohs(icmp->un.echo.id),
+				 pme->last_errno);
+		else
+			zlog_err("error when sending ICMP echo to %s Seq %d ID 0x%x (error %x)",
+				 buf, ntohs(icmp6->icmp6_seq),
+				 ntohs(icmp6->icmp6_id),
+				 pme->last_errno);
 		pm_echo_trigger_down_event(pm);
 	} else {
 		pme->last_errno = 0;
 		pme->stats_tx++;
+		if (pm_debug_echo) {
+			if (sockunion_family(&pme->peer) == AF_INET)
+				zlog_debug("sent ICMP echo to %s Seq %d ID 0x%x",
+					 buf, ntohs(icmp->un.echo.sequence),
+					 ntohs(icmp->un.echo.id));
+			else
+				zlog_debug("sent ICMP echo to %s Seq %d ID 0x%x",
+					 buf, ntohs(icmp6->icmp6_seq),
+					 ntohs(icmp6->icmp6_id));
+		}
 	}
  label_end_tried_sending:
 	pme->retry.retry_already_counted = false;
