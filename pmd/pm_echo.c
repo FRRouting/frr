@@ -98,13 +98,11 @@ static void pm_check_retries_common(struct pm_echo *pme)
 
 static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
 {
-	bool ret = false;
-
 	if (pme->retries_mode != PM_RETRIES_MODE_THRESHOLD)
 		return false;
 	pm_check_retries_common(pme);
 	/* if table is overriden, update the number of successful
-	 * pings in global couter
+	 * pings in global counter
 	 */
 	if (pme->retry.retry_table[pme->retry.retry_table_iterator] !=
 	    PM_ECHO_RETRY_INIT)
@@ -127,27 +125,25 @@ static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
 
 	if (pme->retry.retry_table_count_good >= pme->retries_threshold) {
 		EVENT_OFF(pme->t_echo_tmo);
-		ret = false;
 		if (pm_debug_echo)
 			zlog_debug("%s: %d / %d, threshold",
 				   __func__, pme->retry.retry_table_count_good,
 				   pme->retries_threshold);
 		if (retry_up)
-			return ret;
+			return false;
 		/* even when timeout or packet did not arrive in time,
 		 * the session is still up. do not change status
 		 */
 		return true;
 	}
 	/* the number of successful pings is below the limit */
-	ret = false;
 	EVENT_OFF(pme->t_echo_tmo);
 	if (pm_debug_echo)
 		zlog_debug("%s: %d / %d, threshold is not reached",
 				   __func__, pme->retry.retry_table_count_good,
 				   pme->retries_threshold);
 	if (!retry_up)
-		return ret;
+		return false;
 	/* even when success,
 	 * the session is still down. do not change status
 	 */
