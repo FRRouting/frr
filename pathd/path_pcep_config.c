@@ -332,6 +332,7 @@ int path_pcep_config_initiate_path(struct path *path)
 			candidate = srte_candidate_add(
 				policy, path->nbkey.preference,
 				SRTE_ORIGIN_PCEP, path->originator);
+			candidate->policy->srp_id = path->srp_id;
 			strlcpy(candidate->name, path->name,
 				sizeof(candidate->name));
 			SET_FLAG(candidate->flags, F_CANDIDATE_NEW);
@@ -387,6 +388,7 @@ int path_pcep_config_update_path(struct path *path)
 	if (!candidate)
 		return 0;
 
+	candidate->policy->srp_id = path->srp_id;
 	// first clean up old segment list if present
 	if (candidate->lsp->segment_list) {
 		SET_FLAG(candidate->lsp->segment_list->flags,
