@@ -444,9 +444,9 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	/* check latency against hello period */
 	if (on->hello_in)
 		latency = monotime_since(&on->last_hello, NULL)
-			  - (oi->hello_interval * 1000000);
+			  - ((int64_t)oi->hello_interval * 1000000);
 	/* log if latency exceeds the hello period */
-	if (latency > (oi->hello_interval * 1000000))
+	if (latency > ((int64_t)oi->hello_interval * 1000000))
 		zlog_warn("%s RX %pI4 high latency %" PRId64 "us.", __func__,
 			  &on->router_id, latency);
 	on->last_hello = timestamp;
@@ -1897,7 +1897,6 @@ static int ospf6_write(struct thread *thread)
 	struct ospf6_header *oh;
 	struct ospf6_packet *op;
 	struct listnode *node;
-	char srcname[64], dstname[64];
 	struct iovec iovector[2];
 	int pkt_count = 0;
 	int len;
@@ -1934,26 +1933,45 @@ static int ospf6_write(struct thread *thread)
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Could not send entire message");
 
-		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND)) {
-			inet_ntop(AF_INET6, &op->dst, dstname, sizeof(dstname));
-			inet_ntop(AF_INET6, oi->linklocal_addr, srcname,
-				  sizeof(srcname));
+		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND_HDR)) {
 			zlog_debug("%s send on %s",
 				   lookup_msg(ospf6_message_type_str, oh->type,
 					      NULL),
 				   oi->interface->name);
-			zlog_debug("    src: %s", srcname);
-			zlog_debug("    dst: %s", dstname);
+			zlog_debug("    src: %pI6", oi->linklocal_addr);
+			zlog_debug("    dst: %pI6", &op->dst);
+			switch (oh->type) {
+			case OSPF6_MESSAGE_TYPE_HELLO:
+				ospf6_hello_print(oh, OSPF6_ACTION_SEND);
+				break;
+			case OSPF6_MESSAGE_TYPE_DBDESC:
+				ospf6_dbdesc_print(oh, OSPF6_ACTION_SEND);
+				break;
+			case OSPF6_MESSAGE_TYPE_LSREQ:
+				ospf6_lsreq_print(oh, OSPF6_ACTION_SEND);
+				break;
+			case OSPF6_MESSAGE_TYPE_LSUPDATE:
+				ospf6_lsupdate_print(oh, OSPF6_ACTION_SEND);
+				break;
+			case OSPF6_MESSAGE_TYPE_LSACK:
+				ospf6_lsack_print(oh, OSPF6_ACTION_SEND);
+				break;
+			default:
+				zlog_debug("Unknown message");
+				assert(0);
+				break;
+			}
 		}
 		switch (oh->type) {
 		case OSPF6_MESSAGE_TYPE_HELLO:
 			monotime(&timestamp);
 			if (oi->hello_out)
 				latency = monotime_since(&oi->last_hello, NULL)
-					  - (oi->hello_interval * 1000000);
+					  - ((int64_t)oi->hello_interval
+					     * 1000000);
 
 			/* log if latency exceeds the hello period */
-			if (latency > (oi->hello_interval * 1000000))
+			if (latency > ((int64_t)oi->hello_interval * 1000000))
 				zlog_warn("%s hello TX high latency %" PRId64
 					  "us.",
 					  __func__, latency);
@@ -1963,19 +1981,15 @@ static int ospf6_write(struct thread *thread)
 			break;
 		case OSPF6_MESSAGE_TYPE_DBDESC:
 			oi->db_desc_out++;
-			ospf6_dbdesc_print(oh, OSPF6_ACTION_SEND);
 			break;
 		case OSPF6_MESSAGE_TYPE_LSREQ:
 			oi->ls_req_out++;
-			ospf6_lsreq_print(oh, OSPF6_ACTION_SEND);
 			break;
 		case OSPF6_MESSAGE_TYPE_LSUPDATE:
 			oi->ls_upd_out++;
-			ospf6_lsupdate_print(oh, OSPF6_ACTION_SEND);
 			break;
 		case OSPF6_MESSAGE_TYPE_LSACK:
 			oi->ls_ack_out++;
-			ospf6_lsack_print(oh, OSPF6_ACTION_SEND);
 			break;
 		default:
 			zlog_debug("Unknown message");
