@@ -1597,6 +1597,7 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 						bool sync)
 {
 	char ipbuf[INET6_ADDRSTRLEN];
+	char mac_buf[MAC_BUF_SIZE];
 	uint32_t tmp_seq;
 	const char *n_type;
 
@@ -1611,19 +1612,14 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 	if (seq < tmp_seq) {
 		/* if the mac was never advertised to bgp we must accept
 		 * whatever sequence number bgp sends
-		 * XXX - check with Vivek
 		 */
-		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
-		    && !zebra_evpn_mac_is_ready_for_bgp(mac->flags)) {
-			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC
-			    || IS_ZEBRA_DEBUG_VXLAN) {
-				char mac_buf[MAC_BUF_SIZE];
-
+		if (zebra_vxlan_accept_bgp_seq()) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC ||
+			    IS_ZEBRA_DEBUG_VXLAN) {
 				zlog_debug(
 					"%s-macip accept vni %u %s-mac %pEA%s%s lower seq %u f %s",
 					sync ? "sync" : "rem", zevpn->vni,
-					n_type,
-					&mac->macaddr,
+					n_type, &mac->macaddr,
 					ipa_len ? " IP " : "",
 					ipa_len ? ipaddr2str(ipaddr, ipbuf,
 							     sizeof(ipbuf))
@@ -1637,8 +1633,6 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 		}
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC || IS_ZEBRA_DEBUG_VXLAN) {
-			char mac_buf[MAC_BUF_SIZE];
-
 			zlog_debug(
 				"%s-macip ignore vni %u %s-mac %pEA%s%s as existing has higher seq %u f %s",
 				sync ? "sync" : "rem", zevpn->vni, n_type,
@@ -1651,6 +1645,7 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 				zebra_evpn_zebra_mac_flag_dump(
 					mac, mac_buf, sizeof(mac_buf)));
 		}
+
 		return false;
 	}
 
