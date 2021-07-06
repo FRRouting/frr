@@ -14377,6 +14377,7 @@ int bgp_distance_unset(uint8_t distance, const char *ip_str,
 	if (bdistance->distance != distance) {
 		snprintf(errmsg, errmsg_len,
 			 "Distance does not match configured\n");
+		bgp_dest_unlock_node(dest);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
