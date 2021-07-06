@@ -34,7 +34,7 @@ void pm_rtt_calculate(struct timeval *start, struct timeval *stop,
 		      struct timeval *result, uint32_t *result_ms)
 {
 	time_t result_sec = stop->tv_sec - start->tv_sec;
-	int usecs = stop->tv_sec - start->tv_sec;
+	suseconds_t usecs = stop->tv_usec - start->tv_usec;
 
 	if (usecs < 0) {
 		usecs = 1000000 + usecs;
