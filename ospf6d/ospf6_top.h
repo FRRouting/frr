@@ -93,6 +93,17 @@ struct ospf6 {
 	struct route_table *external_id_table;
 	uint32_t external_id;
 
+	/** Summary address fields. */
+	struct route_table *summary_table;
+
+	/**
+	 * Summary address process event.
+	 *
+	 * Thread event pointer to avoid duplicated events and make it
+	 * cancellable.
+	 */
+	struct thread *summary_ev;
+
 	/* OSPF6 redistribute configuration */
 	struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
