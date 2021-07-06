@@ -21,14 +21,6 @@ else
   CONF_RPKI=--disable-rpki
 endif
 
-ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
-  DH_WITHOUT_SYSTEMD=
-  CONF_SYSTEMD=--enable-systemd=yes
-else
-  DH_WITHOUT_SYSTEMD=--without=systemd
-  CONF_SYSTEMD=--enable-systemd=no
-endif
-
 ifeq ($(filter pkg.frr.lua,$(DEB_BUILD_PROFILES)),)
   CONF_LUA=--disable-scripting
 else
@@ -38,7 +30,7 @@ endif
 export PYTHON=python3
 
 %:
-	dh $@ $(DH_WITHOUT_SYSTEMD)
+	dh $@
 
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
@@ -52,7 +44,6 @@ override_dh_auto_configure:
 		LIBTOOLFLAGS="-rpath /usr/lib/$(DEB_HOST_MULTIARCH)/frr" \
 		--disable-dependency-tracking \
 		\
-		$(CONF_SYSTEMD) \
 		$(CONF_RPKI) \
 		$(CONF_LUA) \
 		--with-libpam \
@@ -80,9 +71,7 @@ override_dh_auto_install:
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/generate_support_bundle.py
 
 # let dh_systemd_* and dh_installinit do their thing automatically
-ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
 	cp tools/frr.service debian/frr.service
-endif
 	cp tools/frrinit.sh debian/frr.init
 	-rm -f debian/tmp/usr/lib/frr/frr
 

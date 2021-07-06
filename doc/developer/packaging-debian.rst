@@ -53,7 +53,7 @@ buster.)
    Where `$options` may contain any or all of the following items:
 
    * build profiles specified with ``-P``, e.g.
-     ``-Ppkg.frr.nortrlib,pkg.frr.nosystemd``.
+     ``-Ppkg.frr.nortrlib,pkg.frr.rtrlib``.
      Multiple values are separated by commas and there must not be a space
      after the ``-P``.
 
@@ -64,14 +64,6 @@ buster.)
      +================+===================+=========================================+
      | pkg.frr.rtrlib | pkg.frr.nortrlib  | builds frr-rpki-rtrlib package (or not) |
      +----------------+-------------------+-----------------------------------------+
-     | n/a            | pkg.frr.nosystemd | removes libsystemd dependency and       |
-     |                |                   | disables unit file installation         |
-     +----------------+-------------------+-----------------------------------------+
-
-     .. note::
-
-        The ``pkg.frr.nosystemd`` option is only intended to support Ubuntu
-        14.04 (and should be enabled when building for that.)
 
    * the ``-uc -us`` options to disable signing the packages with your GPG key
 

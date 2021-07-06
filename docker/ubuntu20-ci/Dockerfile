@@ -7,8 +7,8 @@ RUN apt update && \
     apt-get install -y \
       git autoconf automake libtool make libreadline-dev texinfo \
       pkg-config libpam0g-dev libjson-c-dev bison flex python3-pytest \
-      libc-ares-dev python3-dev libsystemd-dev python-ipaddress python3-sphinx \
-      install-info build-essential libsystemd-dev libsnmp-dev perl \
+      libc-ares-dev python3-dev python-ipaddress python3-sphinx \
+      install-info build-essential libsnmp-dev perl \
       libcap-dev python2 libelf-dev \
       sudo gdb curl iputils-ping time \
       libgrpc++-dev libgrpc-dev protobuf-compiler-grpc \
