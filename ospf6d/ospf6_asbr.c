@@ -690,7 +690,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 		if (ospf6_check_and_set_router_abr(ospf6))
 			oa = ospf6->backbone;
 		else
-			oa = listgetdata(listhead(ospf6->area_list));
+			oa = listnode_head(ospf6->area_list);
 	}
 
 	if (oa == NULL) {
