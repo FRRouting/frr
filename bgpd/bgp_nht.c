@@ -793,7 +793,18 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 				|| IN6_IS_ADDR_LINKLOCAL(
 					&pi->attr->mp_nexthop_global)))
 				p->u.prefix6 = pi->attr->mp_nexthop_local;
-			else
+			/* If we receive MR_REACH with (GA)::(LL)
+			 * then check for route-map to choose GA or LL
+			 */
+			else if (pi->attr->mp_nexthop_len
+				 == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+				if (pi->attr->mp_nexthop_prefer_global)
+					p->u.prefix6 =
+						pi->attr->mp_nexthop_global;
+				else
+					p->u.prefix6 =
+						pi->attr->mp_nexthop_local;
+			} else
 				p->u.prefix6 = pi->attr->mp_nexthop_global;
 			p->prefixlen = IPV6_MAX_BITLEN;
 		}
