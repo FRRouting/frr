@@ -408,7 +408,7 @@ static int kernel_read(struct thread *thread)
  * so that we only had to write one way to handle incoming
  * address add/delete changes.
  */
-static void netlink_install_filter(int sock, __u32 pid, __u32 dplane_pid)
+static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 {
 	/*
 	 * BPF_JUMP instructions and where you jump to are based upon
