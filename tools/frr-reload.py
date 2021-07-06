@@ -198,6 +198,9 @@ class Context(object):
         for ligne in lines:
             self.dlines[ligne] = True
 
+    def __str__(self):
+        return str(self.keys) + " : " + str(self.lines)
+
     def add_lines(self, lines):
         """
         Add lines to specified context
@@ -329,7 +332,7 @@ class Config(object):
         Return the parsed context as strings for display, log etc.
         """
         for (_, ctx) in sorted(iteritems(self.contexts)):
-            print(str(ctx) + "\n")
+            print(str(ctx))
 
     def save_contexts(self, key, lines):
         """
