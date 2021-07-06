@@ -193,7 +193,8 @@ static struct assegment *assegment_prepend_asns(struct assegment *seg,
 	if (num >= AS_SEGMENT_MAX)
 		return seg; /* we don't do huge prepends */
 
-	if ((newas = assegment_data_new(seg->length + num)) == NULL)
+	newas = assegment_data_new(seg->length + num);
+	if (newas == NULL)
 		return seg;
 
 	for (i = 0; i < num; i++)

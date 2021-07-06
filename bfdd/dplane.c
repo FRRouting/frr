@@ -651,8 +651,6 @@ static struct bfd_dplane_ctx *bfd_dplane_ctx_new(int sock)
 	struct bfd_dplane_ctx *bdc;
 
 	bdc = XCALLOC(MTYPE_BFDD_DPLANE_CTX, sizeof(*bdc));
-	if (bdc == NULL)
-		return NULL;
 
 	bdc->sock = sock;
 	bdc->inbuf = stream_new(BFD_DPLANE_CLIENT_BUF_SIZE);

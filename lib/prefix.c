@@ -1034,7 +1034,8 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		l = strlen(buf);
 		buf[l++] = '/';
 		byte = p->prefixlen;
-		if ((tmp = p->prefixlen - 100) >= 0) {
+		tmp = p->prefixlen - 100;
+		if (tmp >= 0) {
 			buf[l++] = '1';
 			z = true;
 			byte = tmp;
