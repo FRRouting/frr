@@ -339,6 +339,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			  key);
 	key = jhash_1word(peer->v_routeadv, key);
 	key = jhash_1word(peer->change_local_as, key);
+	key = jhash_1word(peer->max_packet_size, key);
 
 	if (peer->group)
 		key = jhash_1word(jhash(peer->group->name,
@@ -572,6 +573,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 	struct update_subgroup *subgrp;
 	struct peer_af *paf;
 	struct bgp_filter *filter;
+	struct peer *peer = UPDGRP_PEER(updgrp);
 	int match = 0;
 
 	if (!ctx)
@@ -663,6 +665,9 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			CHECK_FLAG(subgrp->flags, SUBGRP_FLAG_NEEDS_REFRESH)
 				? "R"
 				: "");
+		if (peer)
+			vty_out(vty, "    Max packet size: %d\n",
+				peer->max_packet_size);
 		if (subgrp->peer_count > 0) {
 			vty_out(vty, "    Peers:\n");
 			SUBGRP_FOREACH_PEER (subgrp, paf)
