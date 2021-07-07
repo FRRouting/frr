@@ -598,8 +598,7 @@ static const int RNH_INVALID_NH_FLAGS = (NEXTHOP_FLAG_RECURSIVE |
 					 NEXTHOP_FLAG_DUPLICATE |
 					 NEXTHOP_FLAG_RNH_FILTERED);
 
-static bool rnh_nexthop_valid(const struct route_entry *re,
-			      const struct nexthop *nh)
+bool rnh_nexthop_valid(const struct route_entry *re, const struct nexthop *nh)
 {
 	return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
 		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)

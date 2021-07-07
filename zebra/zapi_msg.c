@@ -682,6 +682,8 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	stream_put_in_addr(s, &addr);
 
 	if (re) {
+		struct nexthop_group *nhg;
+
 		stream_putc(s, re->distance);
 		stream_putl(s, re->metric);
 		num = 0;
@@ -689,15 +691,11 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 		nump = stream_get_endp(s);
 		/* reserve room for nexthop_num */
 		stream_putc(s, 0);
-		/*
-		 * Only non-recursive routes are elegible to resolve the
-		 * nexthop we are looking up. Therefore, we will just iterate
-		 * over the top chain of nexthops.
-		 */
-		for (nexthop = re->nhe->nhg.nexthop; nexthop;
-		     nexthop = nexthop->next)
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		nhg = rib_get_fib_nhg(re);
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+			if (rnh_nexthop_valid(re, nexthop))
 				num += zserv_encode_nexthop(s, nexthop);
+		}
 
 		/* store nexthop_num */
 		stream_putc_at(s, nump, num);
