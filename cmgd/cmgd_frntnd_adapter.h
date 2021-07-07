@@ -34,6 +34,7 @@ typedef struct cmgd_frntnd_sessn_ctxt_ {
 	struct cmgd_frntnd_client_adapter_ *adptr;
         cmgd_client_id_t client_id;
 	cmgd_trxn_id_t	trxn_id;
+	cmgd_trxn_id_t	cfg_trxn_id;
 
 	struct cmgd_frntnd_sessn_list_item list_linkage;
 } cmgd_frntnd_sessn_ctxt_t;
@@ -85,15 +86,24 @@ extern cmgd_frntnd_client_adapter_t *cmgd_frntnd_create_adapter(
 
 extern cmgd_frntnd_client_adapter_t *cmgd_frntnd_get_adapter(const char *name);
 
+extern int cmgd_frntnd_send_set_cfg_reply(cmgd_session_id_t session_id,
+        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_client_req_id_t req_id, cmgd_result_t result,
+        char *error_if_any);
+
 extern int cmgd_frntnd_send_commit_cfg_reply(cmgd_session_id_t session_id,
-        cmgd_trxn_id_t trxn_id, cmgd_result_t result, char *error_if_any);
+        cmgd_trxn_id_t trxn_id, cmgd_database_id_t src_db_id,
+        cmgd_database_id_t dst_db_id, cmgd_client_req_id_t req_id,
+	bool validate_only, cmgd_result_t result,
+	char *error_if_any);
 
 extern int cmgd_frntnd_send_get_data_reply(cmgd_session_id_t session_id,
-        cmgd_trxn_id_t trxn_id, cmgd_result_t result,
+        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_client_req_id_t req_id, cmgd_result_t result,
         cmgd_yang_data_t *data_resp[], int num_data, char *error_if_any);
 
 extern int cmgd_frntnd_send_data_notify(
-        cmgd_yang_data_t *data_resp[], int num_data);
+        cmgd_database_id_t db_id, cmgd_yang_data_t *data_resp[], int num_data);
 
 extern void cmgd_frntnd_adapter_status_write(struct vty *vty);
 

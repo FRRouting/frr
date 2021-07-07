@@ -161,14 +161,14 @@ static int cmgd_frntnd_client_send_msg(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	bytes_written = write(clnt_ctxt->conn_fd, (void *)msg_buf, msg_size);
 	if (bytes_written != (int) msg_size) {
 		CMGD_FRNTND_CLNT_ERR(
-			"Could not write all %d bytes (wrote: %d) to CMGD Backend server socket. Err: '%s'", 
+			"Could not write all %d bytes (wrote: %d) to CMGD Frontend server socket. Err: '%s'", 
 			(int) msg_size, bytes_written, safe_strerror(errno));
 		cmgd_frntnd_server_disconnect(clnt_ctxt, true);
 		return -1;
 	}
 
 	CMGD_FRNTND_CLNT_DBG(
-		"Wrote %d bytes of message to CMGD Backend server socket.'", 
+		"Wrote %d bytes of message to CMGD Frontend server socket.'", 
 		bytes_written);
 	return 0;
 }
@@ -254,6 +254,7 @@ static int cmgd_frntnd_send_setcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd__frntnd_set_config_req__init(&setcfg_req);
 	setcfg_req.session_id = (uint64_t) sessn->session_id;
 	setcfg_req.db_id = db_id;
+	setcfg_req.req_id = req_id;
 	setcfg_req.data = data_req;
 	setcfg_req.n_data = (size_t) num_data_reqs;
 
@@ -281,6 +282,7 @@ static int cmgd_frntnd_send_commitcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	commitcfg_req.session_id = (uint64_t) sessn->session_id;
 	commitcfg_req.src_db_id = src_db_id;
 	commitcfg_req.dst_db_id = dest_db_id;
+	commitcfg_req.req_id = req_id;
 	commitcfg_req.validate_only = validate_only;
 
 	cmgd__frntnd_message__init(&frntnd_msg);
@@ -303,6 +305,7 @@ static int cmgd_frntnd_send_getcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd__frntnd_get_config_req__init(&getcfg_req);
 	getcfg_req.session_id = (uint64_t) sessn->session_id;
 	getcfg_req.db_id = db_id;
+	getcfg_req.req_id = req_id;
 	getcfg_req.data = data_req;
 	getcfg_req.n_data = (size_t) num_data_reqs;
 
@@ -326,6 +329,7 @@ static int cmgd_frntnd_send_getdata_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd__frntnd_get_data_req__init(&getdata_req);
 	getdata_req.session_id = (uint64_t) sessn->session_id;
 	getdata_req.db_id = db_id;
+	getdata_req.req_id = req_id;
 	getdata_req.data = data_req;
 	getdata_req.n_data = (size_t) num_data_reqs;
 
@@ -368,7 +372,8 @@ static int cmgd_frntnd_client_handle_msg(
 
 	switch(frntnd_msg->type) {
 	case CMGD__FRNTND_MESSAGE__TYPE__SESSION_REPLY:
-		assert(frntnd_msg->message_case == CMGD__FRNTND_MESSAGE__MESSAGE_SESSN_REPLY);
+		assert(frntnd_msg->message_case == 
+			CMGD__FRNTND_MESSAGE__MESSAGE_SESSN_REPLY);
 		if (frntnd_msg->sessn_reply->create &&
 			frntnd_msg->sessn_reply->has_client_conn_id) {
 			CMGD_FRNTND_CLNT_DBG(
@@ -406,7 +411,55 @@ static int cmgd_frntnd_client_handle_msg(
 				sessn->client_id,
 				frntnd_msg->sessn_reply->create,
 				frntnd_msg->sessn_reply->success,
-				(cmgd_session_id_t) sessn, 0, sessn->user_ctxt);
+				(cmgd_session_id_t) sessn, sessn->user_ctxt);
+		break;
+	case CMGD__FRNTND_MESSAGE__TYPE__SET_CONFIG_REPLY:
+		assert(frntnd_msg->message_case == 
+			CMGD__FRNTND_MESSAGE__MESSAGE_SETCFG_REPLY);
+
+		CMGD_FRNTND_CLNT_DBG(
+			"Got Set Config Reply Msg for session-id %llu", 
+				frntnd_msg->setcfg_reply->session_id);
+
+		sessn = cmgd_frntnd_find_session_by_sessn_id(
+				clnt_ctxt, frntnd_msg->setcfg_reply->session_id);
+
+		if (sessn && sessn->clnt_ctxt &&
+		    sessn->clnt_ctxt->client_params.set_config_result_cb)
+			(*sessn->clnt_ctxt->client_params.set_config_result_cb)(
+				(cmgd_lib_hndl_t)clnt_ctxt,
+				clnt_ctxt->client_params.user_data,
+				sessn->client_id, (cmgd_session_id_t) sessn,
+				frntnd_msg->setcfg_reply->req_id, 
+				sessn->user_ctxt,
+				frntnd_msg->setcfg_reply->db_id, 
+				frntnd_msg->setcfg_reply->success,
+				frntnd_msg->setcfg_reply->error_if_any);
+		break;
+	case CMGD__FRNTND_MESSAGE__TYPE__COMMIT_CONFIG_REPLY:
+		assert(frntnd_msg->message_case == 
+			CMGD__FRNTND_MESSAGE__MESSAGE_COMMCFG_REPLY);
+
+		CMGD_FRNTND_CLNT_DBG(
+			"Got Commit Config Reply Msg for session-id %llu", 
+				frntnd_msg->commcfg_reply->session_id);
+
+		sessn = cmgd_frntnd_find_session_by_sessn_id(
+				clnt_ctxt, frntnd_msg->commcfg_reply->session_id);
+
+		if (sessn && sessn->clnt_ctxt &&
+		    sessn->clnt_ctxt->client_params.commit_cfg_result_cb)
+			(*sessn->clnt_ctxt->client_params.commit_cfg_result_cb)(
+				(cmgd_lib_hndl_t)clnt_ctxt,
+				clnt_ctxt->client_params.user_data,
+				sessn->client_id, (cmgd_session_id_t) sessn,
+				frntnd_msg->commcfg_reply->req_id, 
+				sessn->user_ctxt,
+				frntnd_msg->commcfg_reply->src_db_id, 
+				frntnd_msg->commcfg_reply->dst_db_id, 
+				frntnd_msg->commcfg_reply->success,
+				frntnd_msg->commcfg_reply->validate_only,
+				frntnd_msg->commcfg_reply->error_if_any);
 		break;
 	default:
 		break;
@@ -522,13 +575,13 @@ static int cmgd_frntnd_client_read(struct thread *thread)
 		bytes_read = stream_read_try(
 				clnt_ctxt->ibuf_work, clnt_ctxt->conn_fd, bytes_left);
 		CMGD_FRNTND_CLNT_DBG(
-			"Got %d bytes of message from CMGD Backend daemon", 
+			"Got %d bytes of message from CMGD Frontend server", 
 			bytes_read);
 		if (bytes_read <= 0) {
 			if (!total_bytes) {
 				/* Looks like connection closed */
 				CMGD_FRNTND_CLNT_ERR(
-					"Got error (%d) while reading from CMGD Backend adapter daemon. Err: '%s'", 
+					"Got error (%d) while reading from CMGD Frontend server. Err: '%s'", 
 					bytes_read, safe_strerror(errno));
 				cmgd_frntnd_server_disconnect(clnt_ctxt, true);
 				return -1;
@@ -585,7 +638,7 @@ static int cmgd_frntnd_client_read(struct thread *thread)
 	if (msg_cnt)
 		cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_PROC_MSG);
 
-	cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_PROC_MSG);
+	cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_READ);
 
 	return 0;
 }
@@ -605,7 +658,7 @@ static int cmgd_frntnd_server_connect(cmgd_frntnd_client_ctxt_t *clnt_ctxt)
 	int ret, sock, len;
 	struct sockaddr_un addr;
 
-	CMGD_FRNTND_CLNT_DBG("Trying to connect to CMGD Backend server at %s",
+	CMGD_FRNTND_CLNT_DBG("Trying to connect to CMGD Frontend server at %s",
 		CMGD_FRNTND_SERVER_PATH);
 
 	assert(!clnt_ctxt->conn_fd);
@@ -616,7 +669,7 @@ static int cmgd_frntnd_server_connect(cmgd_frntnd_client_ctxt_t *clnt_ctxt)
 		goto cmgd_frntnd_server_connect_failed;
 	}
 
-	CMGD_FRNTND_CLNT_DBG("Created CMGD Backend server socket successfully!");
+	CMGD_FRNTND_CLNT_DBG("Created CMGD Frontend server socket successfully!");
 
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
@@ -630,13 +683,13 @@ static int cmgd_frntnd_server_connect(cmgd_frntnd_client_ctxt_t *clnt_ctxt)
 	ret = connect(sock, (struct sockaddr *)&addr, len);
 	if (ret < 0) {
 		CMGD_FRNTND_CLNT_ERR(
-			"Failed to connect to CMGD Backend Server at %s. Err: %s",
+			"Failed to connect to CMGD Frontend Server at %s. Err: %s",
 			addr.sun_path, safe_strerror(errno));
 		close(sock);
 		goto cmgd_frntnd_server_connect_failed;
 	}
 
-	CMGD_FRNTND_CLNT_DBG("Connected to CMGD Backend Server at %s successfully!",
+	CMGD_FRNTND_CLNT_DBG("Connected to CMGD Frontend Server at %s successfully!",
 		addr.sun_path);
 	clnt_ctxt->conn_fd = sock;
 
@@ -708,7 +761,7 @@ static void cmgd_frntnd_client_register_event(
 static void cmgd_frntnd_client_schedule_conn_retry(
 	cmgd_frntnd_client_ctxt_t *clnt_ctxt, unsigned long intvl_secs)
 {
-	CMGD_FRNTND_CLNT_DBG("Scheduling CMGD Backend server connection retry after %lu seconds",
+	CMGD_FRNTND_CLNT_DBG("Scheduling CMGD Frontend server connection retry after %lu seconds",
 		intvl_secs);
 	clnt_ctxt->conn_retry_tmr = thread_add_timer(
 		clnt_ctxt->tm, cmgd_frntnd_client_conn_timeout,
@@ -975,7 +1028,7 @@ void cmgd_frntnd_client_lib_destroy(cmgd_lib_hndl_t lib_hndl)
 	clnt_ctxt = (cmgd_frntnd_client_ctxt_t *)lib_hndl;
 	assert(clnt_ctxt);
 
-	CMGD_FRNTND_CLNT_DBG("Destroying CMGD Backend Client '%s'", 
+	CMGD_FRNTND_CLNT_DBG("Destroying CMGD Frontend Client '%s'", 
 		clnt_ctxt->client_params.name);
 
 	cmgd_frntnd_server_disconnect(clnt_ctxt, false);

@@ -202,6 +202,8 @@ struct vty {
 	char frame[1024];
 
 	cmgd_session_id_t cmgd_session_id;
+	cmgd_client_req_id_t cmgd_req_id;
+	bool cmgd_req_pending;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)

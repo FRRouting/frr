@@ -271,56 +271,66 @@ message FrntndLockDbReply {
 message FrntndSetConfigReq {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
-  repeated YangCfgDataReq data = 3;
+  required uint64 req_id = 3;
+  repeated YangCfgDataReq data = 4;
 }
 
 message FrntndSetConfigReply {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
-  required bool success = 3;
-  optional string error_if_any = 4;
+  required uint64 req_id = 3;
+  required bool success = 4;
+  optional string error_if_any = 5;
 }
 
 message FrntndCommitConfigReq {
   required uint64 session_id = 1;
   required DatabaseId src_db_id = 2;
   required DatabaseId dst_db_id = 3;
-  required bool validate_only = 4;
+  required uint64 req_id = 4;
+  required bool validate_only = 5;
 }
 
 message FrntndCommitConfigReply {
   required uint64 session_id = 1;
   required DatabaseId src_db_id = 2;
   required DatabaseId dst_db_id = 3;
-  required bool validate_only = 4;
-  required bool success = 5;
+  required uint64 req_id = 4;
+  required bool validate_only = 5;
+  required bool success = 6;
+  optional string error_if_any = 7;
 }
 
 message FrntndGetConfigReq {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
-  repeated YangGetDataReq data = 3;
+  required uint64 req_id = 3;
+  repeated YangGetDataReq data = 4;
 }
 
 message FrntndGetConfigReply {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
-  required bool success = 3;
-  optional string error = 4;
-  optional YangDataReply data = 5;
+  required uint64 req_id = 3;
+  required bool success = 4;
+  optional string error_if_any = 5;
+  optional YangDataReply data = 6;
 }
 
 message FrntndGetDataReq {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
-  repeated YangGetDataReq data = 3;
+  required uint64 req_id = 3;
+  repeated YangGetDataReq data = 4;
 }
 
 message FrntndGetDataReply {
   required uint64 session_id = 1;
-  required bool success = 2;
-  optional string error = 3;
-  optional YangDataReply data = 4;
+  required DatabaseId db_id = 2;
+  required uint64 req_id = 3;
+  required bool success = 4;
+  optional string error_if_any = 5;
+  optional YangDataReply data = 6;
 }
 
 message FrntndNotifyDataReq {
@@ -331,7 +341,8 @@ message FrntndRegisterNotifyReq {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
   required bool register_req = 3;
-  repeated YangDataXPath data_xpath = 4;
+  required uint64 req_id = 4;
+  repeated YangDataXPath data_xpath = 5;
 }
 
 message FrntndMessage {

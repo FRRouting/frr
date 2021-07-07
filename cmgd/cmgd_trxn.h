@@ -26,6 +26,16 @@
 #include "lib/cmgd_pb.h"
 #include "cmgd/cmgd_bcknd_adapter.h"
 #include "cmgd/cmgd_frntnd_adapter.h"
+#include "cmgd/cmgd.h"
+
+#define CMGD_TRXN_PROC_DELAY_MSEC       100
+
+PREDECL_LIST(cmgd_trxn_list);
+
+struct cmgd_master;
+
+struct cmgd_trxn_ctx_;
+typedef struct cmgd_trxn_ctxt_ cmgd_trxn_ctxt_t;
 
 typedef enum cmgd_trxn_type_ {
         CMGD_TRXN_TYPE_NONE = 0,
@@ -33,49 +43,24 @@ typedef enum cmgd_trxn_type_ {
         CMGD_TRXN_TYPE_SHOW
 } cmgd_trxn_type_t;
 
-PREDECL_LIST(cmgd_trxn_list);
+static inline const char* cmgd_trxn_type2str(cmgd_trxn_type_t type)
+{
+        switch (type) {
+        case CMGD_TRXN_TYPE_NONE:
+                return "None";
+                break;
+        case CMGD_TRXN_TYPE_CONFIG:
+                return "CONFIG";
+                break;
+        case CMGD_TRXN_TYPE_SHOW:
+                return "SHOW";
+                break;
+        default:
+                break;
+        }
 
-#define FOREACH_TRXN_IN_LIST(cm, trxn)					\
-	for ((trxn) = cmgd_trxn_list_first(&(cm)->cmgd_trxns); (trxn);	\
-		(trxn) = cmgd_trxn_list_next(&(cm)->cmgd_trxns, (trxn)))
-
-struct cmgd_master;
-
-typedef struct cmgd_trxn_ctxt_ {
-        cmgd_session_id_t session_id; /* One transaction per client session */
-        cmgd_trxn_type_t type;
-
-	struct cmgd_master *cm;
-
-        // struct thread *conn_read_ev;
-        // struct thread *conn_write_ev;
-        // struct thread *proc_msg_ev;
-        // char name[CMGD_CLIENT_NAME_MAX_LEN];
-        // uint8_t num_xpath_reg;
-        // char xpath_reg[CMGD_MAX_NUM_XPATH_REG][CMGD_MAX_XPATH_LEN];
-
-        /* List of backend adapters involved in this transaction */
-        struct cmgd_trxn_badptr_list_head bcknd_adptrs;
-
-        /* IO streams for read and write */
-	// pthread_mutex_t ibuf_mtx;
-	// struct stream_fifo *ibuf_fifo;
-	// pthread_mutex_t obuf_mtx;
-	// struct stream_fifo *obuf_fifo;
-
-	// /* Private I/O buffers */
-	// struct stream *ibuf_work;
-	// struct stream *obuf_work;
-
-	/* Buffer of data waiting to be written to client. */
-	// struct buffer *wb;
-
-        int refcount;
-
-        struct cmgd_trxn_list_item list_linkage;
-} cmgd_trxn_ctxt_t;
-
-DECLARE_LIST(cmgd_trxn_list, cmgd_trxn_ctxt_t, list_linkage);
+        return "Unknown";
+}
 
 extern int cmgd_trxn_init(struct cmgd_master *cm);
 
@@ -83,25 +68,33 @@ extern void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn);
 
 extern void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn);
 
+extern cmgd_session_id_t cmgd_config_trxn_in_progress(void);
+
 extern cmgd_trxn_id_t cmgd_create_trxn(
         cmgd_session_id_t session_id, cmgd_trxn_type_t type);
 
 extern void cmgd_destroy_trxn(cmgd_trxn_id_t trxn_id);
 
+extern cmgd_trxn_type_t cmgd_get_trxn_type(cmgd_trxn_id_t trxn_id);
+
 extern int cmgd_trxn_send_set_config_req(
-        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
+        cmgd_database_id_t db_id, 
         cmgd_yang_cfgdata_req_t *cfg_req[], int num_req);
 
 extern int cmgd_trxn_send_commit_config_req(
-        cmgd_trxn_id_t trxn_id, cmgd_database_id_t src_db_id,
-        cmgd_database_id_t dst_db_id);
+        cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
+        cmgd_database_id_t src_db_id, cmgd_database_id_t dst_db_id,
+        bool validate_only);
 
 extern int cmgd_trxn_send_get_config_req(
-        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
+        cmgd_database_id_t db_id,
         cmgd_yang_getdata_req_t *data_req, int num_reqs);
 
 extern int cmgd_trxn_send_get_data_req(
-        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
+        cmgd_database_id_t db_id,
         cmgd_yang_getdata_req_t *data_req, int num_reqs);
 
 extern void cmgd_trxn_status_write(struct vty *vty);

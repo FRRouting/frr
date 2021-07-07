@@ -3143,8 +3143,7 @@ static void vty_cmgd_server_connected(
 static void vty_cmgd_session_created(
 	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
 	cmgd_client_id_t client_id, bool create, bool success,
-	cmgd_session_id_t session_id, cmgd_client_req_id_t req_id,
-	uintptr_t user_ctxt)
+	cmgd_session_id_t session_id, uintptr_t user_ctxt)
 {
 	struct vty *vty;
 
@@ -3154,6 +3153,7 @@ static void vty_cmgd_session_created(
 		zlog_err("ERROR: %s session for client %lu failed!", 
 			create ? "Creating" : "Destroying", client_id);
 		assert(!"CMGD session creation for VTY failed!");
+		return;
 	}
 
 	zlog_err("%s session for client %lu successfully!", 
@@ -3164,10 +3164,77 @@ static void vty_cmgd_session_created(
 	// 	vty->cmgd_session_id = 0;
 }
 
+static void vty_cmgd_set_config_result_notified(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
+	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
+	cmgd_database_id_t db_id, char *errmsg_if_any)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)client_id;
+
+	if (!success) {
+		zlog_err("ERROR: SET_CONFIG request for client 0x%lx failed! Error: '%s'", 
+			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: SET_CONFIG request failed! Error: %s\n",
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+		// assert(!"CMGD SET_CONFIG request for VTY failed!");
+		return;
+	}
+
+	zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
+		client_id, req_id);
+	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
+		if (cmgd_frntnd_commit_config_data(
+			cmgd_lib_hndl, vty->cmgd_session_id,
+			vty->cmgd_req_id, CMGD_DB_CANDIDATE, CMGD_DB_RUNNING, false)
+			!= CMGD_SUCCESS) {
+			zlog_err("Failed to send COMMIT-REQ to CMGD for req-id %lu/%lu!",
+				vty->cmgd_req_id, req_id);
+			vty_out(vty, "Failed to send COMMIT-REQ to CMGD!");
+			return;
+		}
+
+		zlog_err("Sent COMMIT_CONFIG request for client 0x%lx, req-id: %lu!",
+			client_id, vty->cmgd_req_id);
+	} else {
+		vty_out(vty, "\n");
+	}
+}
+
+static void vty_cmgd_commit_config_result_notified(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
+	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
+	cmgd_database_id_t src_db_id, cmgd_database_id_t dst_db_id,
+	bool validate_only, char *errmsg_if_any)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)client_id;
+
+	if (!success) {
+		zlog_err("ERROR: COMMIT_CONFIG request for client 0x%lx failed! Error: '%s'", 
+			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: COMMIT_CONFIG request failed! Error: %s\n",
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+		// assert(!"CMGD COMMIT_CONFIG request for VTY failed!");
+		return;
+	}
+
+	zlog_err("COMMIT_CONFIG request for client 0x%lx req-id %lu was successfull!",
+		client_id, req_id);
+
+	vty_out(vty, "\n");
+}
+
 static cmgd_frntnd_client_params_t client_params = {
 	.name = "LIB-VTY",
 	.conn_notify_cb = vty_cmgd_server_connected,
 	.sess_req_result_cb = vty_cmgd_session_created,
+	.set_config_result_cb = vty_cmgd_set_config_result_notified,
+	.commit_cfg_result_cb = vty_cmgd_commit_config_result_notified,
 };
 
 void vty_init_cmgd(void)
@@ -3215,13 +3282,17 @@ void vty_cmgd_send_config_data(struct vty *vty)
 			cnt++;
 		}
 
+		vty->cmgd_req_id++;
 		if (cnt && cmgd_frntnd_set_config_data(
-			cmgd_lib_hndl, vty->cmgd_session_id, 1,
-			CMGD_DB_CANDIDATE, cfgreq, cnt)
+			cmgd_lib_hndl, vty->cmgd_session_id,
+			vty->cmgd_req_id, CMGD_DB_CANDIDATE, cfgreq, cnt)
 			!= CMGD_SUCCESS) {
 			zlog_err("Failed to send %d Config Xpaths to CMGD!!",
 				(int) indx);
+			return;
 		}
+
+		vty->cmgd_req_pending = true;
 	}
 }
 

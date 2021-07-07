@@ -27,10 +27,10 @@
 #include "lib/northbound_cli.h"
 #include "cmgd/cmgd_defines.h"
 
-extern void cmgd_enqueue_nb_commands(struct vty *vty, const char *xpath,
+extern void cmgd_enqueue_vty_nb_command(struct vty *vty, const char *xpath,
 				enum nb_operation operation,
 				const char *value);
-extern int cmgd_apply_nb_commands(struct vty *vty, const char *xpath_base_fmt, ...);
+extern int cmgd_apply_vty_nb_commands(struct vty *vty, const char *xpath_base_fmt, ...);
 extern int cmgd_hndl_bknd_cmd(const struct cmd_element *, struct vty *, int,
 				struct cmd_token *[]);
 
@@ -44,9 +44,9 @@ extern int cmgd_hndl_bknd_cmd(const struct cmd_element *, struct vty *, int,
 #ifdef INCLUDE_CMGD_CMDDEFS_ONLY
 
 #define NB_ENQEUE_CLI_COMMAND(vty, xpath, op, val)					\
-	cmgd_enqueue_nb_commands(vty, xpath, op, val)
+	cmgd_enqueue_vty_nb_command(vty, xpath, op, val)
 #define NB_APPLY_CLI_COMMANDS(vty, xpath...)						\
-	cmgd_apply_nb_commands(vty, xpath)
+	cmgd_apply_vty_nb_commands(vty, xpath)
 
 #else /* INCLUDE_CMGD_CMDDEFS_ONLY */
 

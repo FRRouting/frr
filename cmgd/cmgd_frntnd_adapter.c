@@ -100,6 +100,8 @@ static cmgd_frntnd_sessn_ctxt_t *cmgd_frntnd_create_session(
 	assert(sessn);
 	sessn->client_id = client_id;
 	sessn->adptr = adptr;
+	sessn->trxn_id = CMGD_TRXN_ID_NONE;
+	sessn->cfg_trxn_id = CMGD_TRXN_ID_NONE;
 	cmgd_frntnd_adapter_lock(adptr);
 	cmgd_frntnd_sessn_list_add_tail(&adptr->frntnd_sessns, sessn);
 
@@ -140,14 +142,14 @@ static int cmgd_frntnd_adapter_send_msg(cmgd_frntnd_client_adapter_t *adptr,
 	bytes_written = write(adptr->conn_fd, (void *)msg_buf, msg_size);
 	if (bytes_written != (int) msg_size) {
 		CMGD_FRNTND_ADPTR_ERR(
-			"Could not write all %d bytes (wrote: %d) to CMGD Backend client '%s'. Err: '%s'", 
+			"Could not write all %d bytes (wrote: %d) to CMGD Frontend client '%s'. Err: '%s'", 
 			(int) msg_size, bytes_written, adptr->name, safe_strerror(errno));
 		cmgd_frntnd_adapter_disconnect(adptr);
 		return -1;
 	}
 
 	CMGD_FRNTND_ADPTR_DBG(
-		"Wrote %d bytes of message to CMGD Backend client '%s'.'", 
+		"Wrote %d bytes of message to CMGD Frontend client '%s'.'", 
 		bytes_written, adptr->name);
 	return 0;
 }
@@ -179,7 +181,8 @@ static int cmgd_frntnd_send_session_reply(cmgd_frntnd_client_adapter_t *adptr,
 }
 
 static int cmgd_frntnd_send_setcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
-	cmgd_database_id_t db_id, bool success, const char *error_if_any)
+	cmgd_database_id_t db_id, cmgd_client_req_id_t req_id,
+	bool success, const char *error_if_any)
 {
 	Cmgd__FrntndMessage frntnd_msg;
 	Cmgd__FrntndSetConfigReply setcfg_reply;
@@ -189,6 +192,7 @@ static int cmgd_frntnd_send_setcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	cmgd__frntnd_set_config_reply__init(&setcfg_reply);
 	setcfg_reply.session_id = (uint64_t) sessn;
 	setcfg_reply.db_id = db_id;
+	setcfg_reply.req_id = req_id;
 	setcfg_reply.success = success;
 	if (error_if_any) {
 		setcfg_reply.error_if_any = (char *) error_if_any;
@@ -200,6 +204,37 @@ static int cmgd_frntnd_send_setcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	frntnd_msg.setcfg_reply = &setcfg_reply;
 
 	CMGD_FRNTND_ADPTR_DBG("Sending SET_CONFIG_REPLY message to CMGD Frontend client '%s'",
+		sessn->adptr->name);
+
+	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
+}
+
+static int cmgd_frntnd_send_commitcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
+	cmgd_database_id_t src_db_id, cmgd_database_id_t dst_db_id,
+	cmgd_client_req_id_t req_id, bool success, bool validate_only,
+	const char *error_if_any)
+{
+	Cmgd__FrntndMessage frntnd_msg;
+	Cmgd__FrntndCommitConfigReply commcfg_reply;
+
+	assert(sessn->adptr);
+
+	cmgd__frntnd_commit_config_reply__init(&commcfg_reply);
+	commcfg_reply.session_id = (uint64_t) sessn;
+	commcfg_reply.src_db_id = src_db_id;
+	commcfg_reply.dst_db_id = dst_db_id;
+	commcfg_reply.req_id = req_id;
+	commcfg_reply.success = success;
+	if (error_if_any) {
+		commcfg_reply.error_if_any = (char *) error_if_any;
+	}
+
+	cmgd__frntnd_message__init(&frntnd_msg);
+	frntnd_msg.type = CMGD__FRNTND_MESSAGE__TYPE__COMMIT_CONFIG_REPLY;
+	frntnd_msg.message_case = CMGD__FRNTND_MESSAGE__MESSAGE_COMMCFG_REPLY;
+	frntnd_msg.commcfg_reply = &commcfg_reply;
+
+	CMGD_FRNTND_ADPTR_DBG("Sending COMMIT_CONFIG_REPLY message to CMGD Frontend client '%s'",
 		sessn->adptr->name);
 
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
@@ -274,21 +309,90 @@ static int cmgd_frntnd_session_handle_config_req_msg(
 	 */
 	if (setcfg_req->db_id != CMGD_DB_CANDIDATE) {
 		cmgd_frntnd_send_setcfg_reply(sessn,
-			setcfg_req->db_id, false,
+			setcfg_req->db_id, setcfg_req->req_id, false,
 			"Set-Config on databases other than Candidate DB not permitted!");
 		return 0;
 	}
 
-	/*
-	 * TODO: Check first if the current session can run a CONFIG
-	 * transaction or not. Report failure if a CONFIG transaction
-	 * from another session is already in progress.
-	 */
+	if (sessn->cfg_trxn_id == CMGD_TRXN_ID_NONE) {
+		/*
+		 * Check first if the current session can run a CONFIG
+		 * transaction or not. Report failure if a CONFIG transaction
+		 * from another session is already in progress.
+		 */
+		if (cmgd_config_trxn_in_progress() != (cmgd_session_id_t) sessn) {
+			cmgd_frntnd_send_setcfg_reply(sessn,
+				setcfg_req->db_id, setcfg_req->req_id, false,
+				"Configuration already in-progress through a different user session!");
+			return 0;
 
+		}
+
+		/*
+		 * TODO: Try taking write-lock on the requested DB (if not already).
+		 */
+
+		/*
+		 * Start a CONFIG Transaction (if not started already)
+		 */
+		sessn->cfg_trxn_id = cmgd_create_trxn(
+			(cmgd_session_id_t) sessn, CMGD_TRXN_TYPE_CONFIG);
+		if (sessn->cfg_trxn_id == CMGD_SESSION_ID_NONE) {
+			cmgd_frntnd_send_setcfg_reply(sessn,
+				setcfg_req->db_id, setcfg_req->req_id, false,
+				"Failed to create a Configuration session!");
+			return 0;
+		}
+	}
+
+	if (cmgd_trxn_send_set_config_req(
+		sessn->cfg_trxn_id, setcfg_req->req_id, setcfg_req->db_id,
+		setcfg_req->data, setcfg_req->n_data) != 0)
+	{
+		cmgd_frntnd_send_setcfg_reply(sessn,
+				setcfg_req->db_id, setcfg_req->req_id, false,
+				"Request processing for SET-CONFIG failed!");
+		return 0;
+	}
+
+	return 0;
+}
+
+static int cmgd_frntnd_session_handle_commit_config_req_msg(
+	cmgd_frntnd_sessn_ctxt_t *sessn,
+	Cmgd__FrntndCommitConfigReq *commcfg_req)
+{
 	/*
-	 * TODO: Start a CONFIG Transaction (if not started already)
-	 * and try taking write-lock on the requested DB (if not already).
+	 * Next check first if the SET_CONFIG_REQ is for Candidate DB 
+	 * or not. Report failure if its not. CMGD currently only
+	 * supports editing the Candidate DB.
 	 */
+	if (commcfg_req->dst_db_id != CMGD_DB_RUNNING) {
+		cmgd_frntnd_send_commitcfg_reply(sessn,
+			commcfg_req->src_db_id, commcfg_req->dst_db_id,
+			commcfg_req->req_id, false, commcfg_req->validate_only,
+			"Set-Config on databases other than Running DB not permitted!");
+		return 0;
+	}
+
+	if (sessn->cfg_trxn_id == CMGD_TRXN_ID_NONE) {
+		cmgd_frntnd_send_commitcfg_reply(sessn,
+			commcfg_req->src_db_id, commcfg_req->dst_db_id,
+			commcfg_req->req_id, false, commcfg_req->validate_only,
+			"No config commands has been entered after last commit!");
+		return 0;
+	}
+
+	if (cmgd_trxn_send_commit_config_req(
+		sessn->cfg_trxn_id, commcfg_req->req_id, commcfg_req->src_db_id,
+		commcfg_req->src_db_id, commcfg_req->validate_only) != 0)
+	{
+		cmgd_frntnd_send_commitcfg_reply(sessn,
+			commcfg_req->src_db_id, commcfg_req->dst_db_id,
+			commcfg_req->req_id, false, commcfg_req->validate_only,
+			"Request processing for COMMIT-CONFIG failed!");
+		return 0;
+	}
 
 	return 0;
 }
@@ -349,6 +453,18 @@ static int cmgd_frntnd_adapter_handle_msg(
 
 		cmgd_frntnd_session_handle_config_req_msg(
 				sessn, frntnd_msg->setcfg_req);
+		break;
+	case CMGD__FRNTND_MESSAGE__TYPE__COMMIT_CONFIG_REQ:
+		assert(frntnd_msg->message_case == CMGD__FRNTND_MESSAGE__MESSAGE_COMMCFG_REQ);
+		sessn = (cmgd_frntnd_sessn_ctxt_t *)
+				frntnd_msg->commcfg_req->session_id;
+		CMGD_FRNTND_ADPTR_DBG(
+				"Got Commit Config Req Msg for src-DB:%d dst-DB:%d on session-id %llu from '%s'", 
+				frntnd_msg->commcfg_req->src_db_id,
+				frntnd_msg->commcfg_req->dst_db_id,
+				frntnd_msg->commcfg_req->session_id, adptr->name);
+		cmgd_frntnd_session_handle_commit_config_req_msg(
+			sessn, frntnd_msg->commcfg_req);
 		break;
 	default:
 		break;
@@ -580,6 +696,7 @@ static void cmgd_frntnd_adptr_register_event(
 		break;
 	default:
 		assert(!"cmgd_frntnd_adptr_post_event() called incorrectly");
+		break;
 	}
 }
 
@@ -656,8 +773,10 @@ cmgd_frntnd_client_adapter_t *cmgd_frntnd_get_adapter(const char *name)
 	return cmgd_frntnd_find_adapter_by_name(name);
 }
 
-int cmgd_frntnd_send_commit_cfg_reply(cmgd_session_id_t session_id,
-        cmgd_trxn_id_t trxn_id, cmgd_result_t result, char *error_if_any)
+int cmgd_frntnd_send_set_cfg_reply(cmgd_session_id_t session_id,
+        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_client_req_id_t req_id, cmgd_result_t result,
+	char *error_if_any)
 {
 	cmgd_frntnd_sessn_ctxt_t *sessn;
 
@@ -665,11 +784,30 @@ int cmgd_frntnd_send_commit_cfg_reply(cmgd_session_id_t session_id,
 	if (!sessn || sessn->trxn_id != trxn_id)
 		return -1;
 
-	return 0;
+	return cmgd_frntnd_send_setcfg_reply(sessn, db_id, req_id,
+		result == CMGD_SUCCESS, error_if_any);
+}
+
+int cmgd_frntnd_send_commit_cfg_reply(cmgd_session_id_t session_id,
+        cmgd_trxn_id_t trxn_id, cmgd_database_id_t src_db_id,
+        cmgd_database_id_t dst_db_id, cmgd_client_req_id_t req_id,
+	bool validate_only, cmgd_result_t result,
+	char *error_if_any)
+{
+	cmgd_frntnd_sessn_ctxt_t *sessn;
+
+	sessn = (cmgd_frntnd_sessn_ctxt_t *)session_id;
+	if (!sessn || sessn->trxn_id != trxn_id)
+		return -1;
+
+	return cmgd_frntnd_send_commitcfg_reply(sessn,
+			src_db_id, dst_db_id, req_id, result == CMGD_SUCCESS,
+			validate_only, error_if_any);
 }
 
 int cmgd_frntnd_send_get_data_reply(cmgd_session_id_t session_id,
-        cmgd_trxn_id_t trxn_id, cmgd_result_t result,
+        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_client_req_id_t req_id, cmgd_result_t result,
         cmgd_yang_data_t *data_resp[], int num_data, char *error_if_any)
 {
 	cmgd_frntnd_sessn_ctxt_t *sessn;
@@ -682,7 +820,7 @@ int cmgd_frntnd_send_get_data_reply(cmgd_session_id_t session_id,
 }
 
 int cmgd_frntnd_send_data_notify(
-        cmgd_yang_data_t *data_resp[], int num_data)
+        cmgd_database_id_t db_id, cmgd_yang_data_t *data_resp[], int num_data)
 {
 	// cmgd_frntnd_sessn_ctxt_t *sessn;
 

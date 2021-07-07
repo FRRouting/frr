@@ -69,7 +69,9 @@ typedef enum cmgd_event_ {
 } cmgd_event_t;
 
 typedef uintptr_t cmgd_trxn_id_t;
+#define CMGD_TRXN_ID_NONE	0
 
 typedef uintptr_t cmgd_trxn_batch_id_t;
+#define CMGD_TRXN_BATCH_ID_NONE	0
 
 #endif /* _FRR_CMGD_DEFINES_H */

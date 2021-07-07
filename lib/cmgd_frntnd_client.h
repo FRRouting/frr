@@ -57,8 +57,10 @@ extern "C" {
  ***************************************************************/
 
 typedef uintptr_t cmgd_session_id_t;
+#define CMGD_SESSION_ID_NONE	0
 
 typedef uintptr_t cmgd_client_id_t;
+#define CMGD_CLIENT_ID_NONE	0
 
 typedef uintptr_t cmgd_client_req_id_t;
 
@@ -93,8 +95,7 @@ typedef void (*cmgd_frntnd_client_connect_notify_t)(
 typedef void (*cmgd_frntnd_client_session_notify_t)(
 	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
 	cmgd_client_id_t client_id, bool create, bool success,
-	cmgd_session_id_t session_id, cmgd_client_req_id_t req_id,
-	uintptr_t user_ctxt);
+	cmgd_session_id_t session_id, uintptr_t user_ctxt);
 
 /*
  * Single handler to notify results of UN/LOCK_DB_REQ sent earlier to CMGD.

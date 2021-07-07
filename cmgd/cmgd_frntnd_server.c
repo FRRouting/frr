@@ -1,5 +1,5 @@
 /*
- * CMGD Backend Server
+ * CMGD Frontend Server
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
@@ -63,7 +63,7 @@ static int cmgd_frntnd_conn_accept(struct thread *thread)
 	/* We can handle IPv4 or IPv6 socket. */
 	client_conn_fd = sockunion_accept(cmgd_frntnd_listen_fd, &su);
 	if (client_conn_fd < 0) {
-		CMGD_FRNTND_SRVR_ERR("Failed to accept CMGD Backend client connection : %s",
+		CMGD_FRNTND_SRVR_ERR("Failed to accept CMGD Frontend client connection : %s",
 			 safe_strerror(errno));
 		return -1;
 	}
@@ -115,7 +115,7 @@ static int cmgd_frntnd_conn_accept(struct thread *thread)
 			  safe_strerror(errno));
 #endif
 
-	CMGD_FRNTND_SRVR_DBG("Got a new CMGD Backend connection");
+	CMGD_FRNTND_SRVR_DBG("Got a new CMGD Frontend connection");
 
 	cmgd_frntnd_create_adapter(client_conn_fd, &su);
 
@@ -185,7 +185,7 @@ static void cmgd_frntnd_server_start(const char *hostname)
 	cmgd_frntnd_listen_fd = sock;
 	cmgd_frntnd_server_register_event(CMGD_FRNTND_SERVER);
 
-	CMGD_FRNTND_SRVR_DBG("Started CMGD Backend Server!");
+	CMGD_FRNTND_SRVR_DBG("Started CMGD Frontend Server!");
 	return;
 
 cmgd_frntnd_server_start_failed:
@@ -199,7 +199,7 @@ cmgd_frntnd_server_start_failed:
 int cmgd_frntnd_server_init(struct thread_master *master)
 {
 	if (cmgd_frntnd_listen_tm) {
-		CMGD_FRNTND_SRVR_DBG("CMGD Backend Server already running!");
+		CMGD_FRNTND_SRVR_DBG("CMGD Frontend Server already running!");
 		return 0;
 	}
 
@@ -213,7 +213,7 @@ int cmgd_frntnd_server_init(struct thread_master *master)
 void cmgd_frntnd_server_destroy(void)
 {
 	if (cmgd_frntnd_listen_tm) {
-		CMGD_FRNTND_SRVR_DBG("Closing CMGD Backend Server!");
+		CMGD_FRNTND_SRVR_DBG("Closing CMGD Frontend Server!");
 
 		if (cmgd_frntnd_listen_ev) {
 			THREAD_OFF(cmgd_frntnd_listen_ev);
