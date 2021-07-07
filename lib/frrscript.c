@@ -137,7 +137,7 @@ static void lua_function_free(struct hash_bucket *b, void *data)
 	XFREE(MTYPE_SCRIPT, lfs);
 }
 
-/* Generic script APIs */
+/* internal frrscript APIs */
 
 int _frrscript_call_lua(struct lua_function_state *lfs, int nargs)
 {
@@ -214,7 +214,9 @@ void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 	lua_getfield(lfs->L, 1, name);
 	if (lua_isnil(lfs->L, -1)) {
 		lua_pop(lfs->L, 1);
-		zlog_err("No result in results table with that name %s", name);
+		zlog_warn(
+			"frrscript: '%s.lua': '%s': tried to decode '%s' as result but failed",
+			fs->name, function_name, name);
 		return NULL;
 	}
 	p = lua_to(lfs->L, 2);
@@ -259,34 +261,39 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	lua_State *L = luaL_newstate();
 	frrlua_export_logging(L);
 
-	char fname[MAXPATHLEN * 2];
+	char script_name[MAXPATHLEN * 2];
 
-	snprintf(fname, sizeof(fname), "%s/%s.lua", scriptdir, fs->name);
-	int ret = luaL_dofile(L, fname);
+	snprintf(script_name, sizeof(script_name), "%s/%s.lua", scriptdir,
+		 fs->name);
+	int ret = luaL_dofile(L, script_name);
 
 	switch (ret) {
 	case LUA_OK:
 		break;
 	case LUA_ERRSYNTAX:
-		zlog_err("Failed loading script '%s': syntax error: %s", fname,
-			 lua_tostring(L, -1));
+		zlog_err(
+			"frrscript: failed loading script '%s.lua': syntax error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	case LUA_ERRMEM:
-		zlog_err("Failed loading script '%s': out-of-memory error: %s",
-			 fname, lua_tostring(L, -1));
+		zlog_err(
+			"frrscript: failed loading script '%s.lua': out-of-memory error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	case LUA_ERRGCMM:
 		zlog_err(
-			"Failed loading script '%s': garbage collector error: %s",
-			fname, lua_tostring(L, -1));
+			"frrscript: failed loading script '%s.lua': garbage collector error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	case LUA_ERRFILE:
-		zlog_err("Failed loading script '%s': file read error: %s",
-			 fname, lua_tostring(L, -1));
+		zlog_err(
+			"frrscript: failed loading script '%s.lua': file read error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	default:
-		zlog_err("Failed loading script '%s': unknown error: %s", fname,
-			 lua_tostring(L, -1));
+		zlog_err(
+			"frrscript: failed loading script '%s.lua': unknown error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	}
 
