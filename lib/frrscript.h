@@ -123,7 +123,12 @@ void frrscript_init(const char *scriptdir);
 #define DECODE_ARGS(name, value)                                               \
 	do {                                                                   \
 		lua_getfield(lfs->L, 1, name);                                 \
-		DECODE_ARGS_WITH_STATE(lfs->L, value);                         \
+		if (lua_isnil(lfs->L, 2)) {                                    \
+			lua_pop(lfs->L, 1);                                    \
+		} else {                                                       \
+			DECODE_ARGS_WITH_STATE(lfs->L, value);                 \
+		}                                                              \
+		assert(lua_gettop(lfs->L) == 1);                               \
 	} while (0)
 
 /*
