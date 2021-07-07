@@ -898,8 +898,15 @@ preference, these are:
 
    This is the preferred way for all FRR knobs.  Not all daemons and features
    are fully YANGified yet, so in some cases new features cannot rely on a
-   YANG interface.  However, if a new feature/PR *can* implement a YANG
-   interface, it probably *should*.
+   YANG interface.  If a daemon already implements a YANG interface (even
+   partial), new CLI options must be implemented through a YANG model.
+
+   .. warning::
+
+      Unlike everything else in this section being guidelines with some slack,
+      implementing and using a YANG interface for new CLI options in (even
+      partially!) YANGified daemons is a hard requirement.
+
 
 -  at configuration/runtime, through the CLI.
 
