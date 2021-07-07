@@ -15,7 +15,7 @@ function fact(n)
     end
   end
   return {
-    n = helper(n)
+    ans = helper(n)
   }
 end
 
