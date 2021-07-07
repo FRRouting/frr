@@ -864,6 +864,9 @@ comments should be eschewed in favor of a suitable ``description`` statement.
 In short, a diff between your input file and the output of ``yanglint`` should
 either be empty or contain only comments.
 
+It is also a requirement that all new CLI introduced must use YANG if the
+daemon is already converted or partially converted to YANG.
+
 Specific Exceptions
 ^^^^^^^^^^^^^^^^^^^
 
