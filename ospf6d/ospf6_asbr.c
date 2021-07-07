@@ -2554,6 +2554,37 @@ static void ospf6_routemap_init(void)
 	install_element(RMAP_NODE, &ospf6_routemap_no_set_forwarding_cmd);
 }
 
+DEFPY(ospf6_summary_address_config, ospf6_summary_address_config_cmd,
+      "[no] summary-address X:X::X:X/M$addr [tag (1-4294967295)$tag]",
+      NO_STR
+      "External summary address\n"
+      "Summary address prefix\n"
+      "Router tag\n"
+      "Router tag value\n")
+{
+	struct summary_address *sum;
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+
+	sum = summary_address_match(o, (const struct prefix *)addr);
+	if (no) {
+		if (sum == NULL)
+			return CMD_SUCCESS;
+
+		SET_FLAG(sum->flags, SUMMARY_ADDRESS_F_DELETED);
+		summary_address_free(&sum);
+	} else {
+		if (sum == NULL)
+			sum = summary_address_new(o,
+						  (const struct prefix *)addr);
+
+		sum->tag = tag_str ? (route_tag_t)tag : 0;
+	}
+
+	summary_address_schedule_process(o);
+
+	return CMD_SUCCESS;
+}
+
 /* Display functions */
 static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 						  char *buf, int buflen,
@@ -2814,6 +2845,8 @@ void ospf6_asbr_init(void)
 	install_element(OSPF6_NODE, &ospf6_redistribute_cmd);
 	install_element(OSPF6_NODE, &ospf6_redistribute_routemap_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_redistribute_cmd);
+
+	install_element(OSPF6_NODE, &ospf6_summary_address_config_cmd);
 }
 
 void ospf6_asbr_redistribute_disable(struct ospf6 *ospf6)
@@ -2948,6 +2981,21 @@ static void ospf6_default_originate_write(struct vty *vty, struct ospf6 *o)
 	vty_out(vty, "\n");
 }
 
+static void ospf6_summary_address_write(struct vty *vty, struct ospf6 *o)
+{
+	struct route_node *rn;
+	struct summary_address *sum;
+
+	for (rn = route_top(o->summary_table); rn; rn = route_next(rn)) {
+		sum = rn->info;
+
+		vty_out(vty, " summary-address %pFX", &rn->p);
+		if (sum->tag)
+			vty_out(vty, " tag %u", sum->tag);
+		vty_out(vty, "\n");
+	}
+}
+
 int ospf6_distribute_config_write(struct vty *vty, struct ospf6 *o)
 {
 	if (o == NULL)
@@ -2956,6 +3004,9 @@ int ospf6_distribute_config_write(struct vty *vty, struct ospf6 *o)
 	/* Print default originate configuration. */
 	if (o->default_originate != DEFAULT_ORIGINATE_NONE)
 		ospf6_default_originate_write(vty, o);
+
+	/* Print summary address configuration. */
+	ospf6_summary_address_write(vty, o);
 
 	return 0;
 }
