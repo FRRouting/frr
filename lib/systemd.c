@@ -66,8 +66,8 @@ static void systemd_send_information(const char *info)
 		sun.sun_path[0] = '\0';
 
 	/* nothing we can do if this errors out... */
-	sendto(sock, info, strlen(info), 0, (struct sockaddr *)&sun,
-	       sizeof(sun));
+	(void)sendto(sock, info, strlen(info), 0, (struct sockaddr *)&sun,
+		     sizeof(sun));
 
 	close(sock);
 }
