@@ -20,6 +20,7 @@
 #include <zebra.h>
 
 #include "lib/frrscript.h"
+#include "lib/frrlua.h"
 
 int main(int argc, char **argv)
 {
@@ -36,12 +37,16 @@ int main(int argc, char **argv)
 	assert(a == 300);
 	assert(b == 200);
 
-	frrscript_load(fs, "fact", NULL);
 	long long n = 5;
 
+	result = frrscript_load(fs, "fact", NULL);
+	assert(result == 0);
 	result = frrscript_call(fs, "fact", ("n", &n));
 	assert(result == 0);
-	assert(n == 120);
+	long long *ansptr =
+		frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
+	assert(*ansptr == 120);
+	XFREE(MTYPE_TMP, ansptr);
 
 	/* Function does not exist in script file*/
 	result = frrscript_load(fs, "does_not_exist", NULL);
