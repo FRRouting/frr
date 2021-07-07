@@ -192,31 +192,33 @@ int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
  *    0 if the script ran successfully, nonzero otherwise.
  */
 
-#define frrscript_call(fs, f, ...)                                           \
-	({                                                                         \
-		struct lua_function_state lookup = {.name = f};                          \
-		struct lua_function_state *lfs;                                          \
-		lfs = hash_lookup(fs->lua_function_hash, &lookup);                       \
-		lfs == NULL ? ({                                                         \
-			zlog_err(                                                              \
-				"Lua script call: tried to call '%s' in '%s' which was not loaded",  \
-				f, fs->name);                                                        \
-			1;                                                                     \
-		})                                                                       \
-		: ({                                                                     \
-			  MAP_LISTS(ENCODE_ARGS, ##__VA_ARGS__);                               \
-			  _frrscript_call_lua(lfs, PP_NARG(__VA_ARGS__));                      \
-		  }) != 0                                                                \
-			? ({                                                                   \
-				  zlog_err(                                                          \
-					  "Lua script call: '%s' in '%s' returned non-zero exit code",     \
-					  f, fs->name);                                                    \
-				  1;                                                                 \
-			  })                                                                   \
-			: ({                                                                   \
-				  MAP_LISTS(DECODE_ARGS, ##__VA_ARGS__);                             \
-				  0;                                                                 \
-			  });                                                                  \
+#define frrscript_call(fs, f, ...)                                                                                   \
+	({                                                                                                           \
+		struct lua_function_state lookup = {.name = f};                                                      \
+		struct lua_function_state *lfs;                                                                      \
+		lfs = hash_lookup(fs->lua_function_hash, &lookup);                                                   \
+		lfs == NULL ? ({                                                                                     \
+			zlog_err(                                                                                    \
+				"Lua script call: tried to call '%s' in '%s' which was not loaded",                  \
+				f, fs->name);                                                                        \
+			1;                                                                                           \
+		})                                                                                                   \
+			    : ({                                                                                     \
+				      MAP_LISTS(ENCODE_ARGS, ##__VA_ARGS__);                                         \
+				      _frrscript_call_lua(                                                           \
+					      lfs, PP_NARG(__VA_ARGS__));                                            \
+			      }) != 0                                                                                \
+				      ? ({                                                                           \
+						zlog_err(                                                            \
+							"Lua script call: '%s' in '%s' returned non-zero exit code", \
+							f, fs->name);                                                \
+						1;                                                                   \
+					})                                                                           \
+				      : ({                                                                           \
+						MAP_LISTS(DECODE_ARGS,                                               \
+							  ##__VA_ARGS__);                                            \
+						0;                                                                   \
+					});                                                                          \
 	})
 
 /*
