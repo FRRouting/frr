@@ -72,5 +72,7 @@ int main(int argc, char **argv)
 	result = frrscript_call(fs, "bad_return3");
 	assert(result == 1);
 
+	frrscript_unload(fs);
+
 	return 0;
 }
