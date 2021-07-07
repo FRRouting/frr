@@ -588,8 +588,17 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
  * check in a couple of places, so this is a single home for the logic we
  * use.
  */
+<<<<<<< HEAD
 static bool rnh_nexthop_valid(const struct route_entry *re,
 			      const struct nexthop *nh)
+=======
+
+static const int RNH_INVALID_NH_FLAGS = (NEXTHOP_FLAG_RECURSIVE |
+					 NEXTHOP_FLAG_DUPLICATE |
+					 NEXTHOP_FLAG_RNH_FILTERED);
+
+bool rnh_nexthop_valid(const struct route_entry *re, const struct nexthop *nh)
+>>>>>>> b59839af7 (zebra: When passing lookup information back pass the fully resolved)
 {
 	return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
 		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
