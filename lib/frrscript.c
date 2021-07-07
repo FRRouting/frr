@@ -102,6 +102,7 @@ static void codec_free(struct codec *c)
 }
 #endif
 
+/* Lua function hash utils */
 
 unsigned int lua_function_hash_key(const void *data)
 {
@@ -129,11 +130,11 @@ void *lua_function_alloc(void *arg)
 	return lfs;
 }
 
-static void lua_function_free(struct lua_function_state *lfs)
+static void lua_function_free(struct hash_bucket *b, void *data)
 {
-	XFREE(MTYPE_TMP, lfs->name);
+	struct lua_function_state *lfs = (struct lua_function_state *)b->data;
 	lua_close(lfs->L);
-	XFREE(MTYPE_TMP, lfs);
+	XFREE(MTYPE_SCRIPT, lfs);
 }
 
 /* Generic script APIs */
@@ -313,6 +314,7 @@ fail:
 
 void frrscript_unload(struct frrscript *fs)
 {
+	hash_iterate(fs->lua_function_hash, lua_function_free, NULL);
 	XFREE(MTYPE_SCRIPT, fs->name);
 	XFREE(MTYPE_SCRIPT, fs);
 }
