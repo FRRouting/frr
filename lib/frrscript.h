@@ -233,8 +233,9 @@ int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
  * Returns:
  *    The script result of the specified name and type, or NULL.
  */
-void *frrscript_get_result(struct frrscript *fs,
-			   const struct frrscript_env *result);
+void *frrscript_get_result(struct frrscript *fs, const char *function_name,
+			   const char *name,
+			   void *(*lua_to)(lua_State *L, int idx));
 
 #ifdef __cplusplus
 }

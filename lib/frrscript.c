@@ -194,22 +194,31 @@ done:
 	return ret;
 }
 
-void *frrscript_get_result(struct frrscript *fs,
-			   const struct frrscript_env *result)
+void *frrscript_get_result(struct frrscript *fs, const char *function_name,
+			   const char *name,
+			   void *(*lua_to)(lua_State *L, int idx))
 {
-	void *r;
-	struct frrscript_codec c = {.typename = result->typename};
+	void *p;
+	struct lua_function_state *lfs;
+	struct lua_function_state lookup = {.name = function_name};
 
-	struct frrscript_codec *codec = hash_lookup(codec_hash, &c);
-	assert(codec && "No encoder for type");
+	lfs = hash_lookup(fs->lua_function_hash, &lookup);
 
-	if (!codec->decoder) {
-		zlog_err("No script decoder for type '%s'", result->typename);
+	if (lfs == NULL) {
 		return NULL;
 	}
 
+	/* results table is idx 1 on the stack, getfield pushes our item to idx
+	 * 2*/
+	lua_getfield(lfs->L, 1, name);
+	if (lua_isnil(lfs->L, -1)) {
+		lua_pop(lfs->L, 1);
+		zlog_err("No result in results table with that name %s", name);
+		return NULL;
+	}
+	p = lua_to(lfs->L, 2);
 
-	return r;
+	return p;
 }
 
 void frrscript_register_type_codec(struct frrscript_codec *codec)
