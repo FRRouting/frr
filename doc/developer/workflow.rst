@@ -880,6 +880,97 @@ doesn't warrant an update to checkpatch, it is documented here.
 | should be wrapped in parentheses         | all usages of the macro, which would be highly disruptive.    |
 +------------------------------------------+---------------------------------------------------------------+
 
+Types of configurables
+----------------------
+
+.. note::
+
+   This entire section essentially just argues to not make configuration
+   unnecessarily involved for the user.  Rather than rules, this is more of
+   a list of conclusions intended to help make FRR usable for operators.
+
+
+Almost every feature FRR has comes with its own set of switches and options.
+There are several stages at which configuration can be applied.  In order of
+preference, these are:
+
+-  at configuration/runtime, through YANG.
+
+   This is the preferred way for all FRR knobs.  Not all daemons and features
+   are fully YANGified yet, so in some cases new features cannot rely on a
+   YANG interface.  However, if a new feature/PR *can* implement a YANG
+   interface, it probably *should*.
+
+-  at configuration/runtime, through the CLI.
+
+   The "good old" way for all regular configuration.  More involved for users
+   to automate *correctly* than YANG.
+
+-  at startup, by loading additional modules.
+
+   If a feature introduces a dependency on additional libraries (e.g. libsnmp,
+   rtrlib, etc.), this is the best way to encapsulate the dependency.  Having
+   a separate module allows the distribution to create a separate package
+   with the extra dependency, so FRR can still be installed without pulling
+   everything in.
+
+   A module may also be appropriate if a feature is large and reasonably well
+   isolated.  Reducing the amount of running the code is a security benefit,
+   so even if there are no new external dependencies, modules can be useful.
+
+   While modules cannot currently be loaded at runtime, this is a tradeoff
+   decision that was made to allow modules to change/extend code that is very
+   hard to (re)adjust at runtime.  If there is a case for runtime (un)loading
+   of modules, this tradeoff can absolutely be reevaluated.
+
+-  at startup, with command line options.
+
+   This interface is only appropriate for options that have an effect very
+   early in FRR startup, i.e. before configuration is loaded.  Anything that
+   affects configuration load itself should be here, as well as options
+   changing the environment FRR runs in.
+
+   If a tunable can be changed at runtime, a command line option is only
+   acceptable if the configured value has an effect before configuration is
+   loaded (e.g. zebra reads routes from the kernel before loading config, so
+   the netlink buffer size is an appropriate command line option.)
+
+-  at compile time, with ``./configure`` options.
+
+   This is the absolute last preference for tunables, since the distribution
+   needs to make the decision for the user and/or the user needs to rebuild
+   FRR in order to change the option.
+
+   "Good" configure options do one of three things:
+
+   -  set distribution-specific parameters, most prominently all the path
+      options.  File system layout is a distribution/packaging choice, so the
+      user would hopefully never need to adjust these.
+
+   -  changing toolchain behavior, e.g. instrumentation, warnings,
+      optimizations and sanitizers.
+
+   -  enabling/disabling parts of the build, especially if they need
+      additional dependencies.  Being able to build only parts of FRR, or
+      without some library, is useful.  **The only effect these options should
+      have is adding or removing files from the build result.**  If a knob
+      in this category causes the same binary to exist in different variants,
+      it is likely implemented incorrectly!
+
+      .. note::
+
+         This last guideline is currently ignored by several configure options.
+         ``vtysh`` in general depends on the entire list of enabled daemons,
+         and options like ``--enable-bgp-vnc`` and ``--enable-ospfapi`` change
+         daemons internally.  Consider this more of an "ideal" than a "rule".
+
+
+Whenever adding new knobs, please try reasonably hard to go up as far as
+possible on the above list.  Especially ``./configure`` flags are often enough
+the "easy way out" but should be avoided when at all possible.  To a lesser
+degree, the same applies to command line options.
+
+
 Compile-time conditional code
 -----------------------------
 
