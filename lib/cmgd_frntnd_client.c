@@ -24,6 +24,7 @@
 #include "lib/cmgd_frntnd_client.h"
 #include "lib/cmgd_pb.h"
 #include "lib/network.h"
+#include "lib/stream.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define CMGD_FRNTND_CLNT_DBG(fmt, ...)					\
@@ -218,7 +219,7 @@ static int cmgd_frntnd_send_session_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 }
 
 static int cmgd_frntnd_send_lockdb_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
-	cmgd_frntnd_client_session_t *sessn, bool create,
+	cmgd_frntnd_client_session_t *sessn, bool lock,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id)
 {
 	(void) req_id;
@@ -228,11 +229,15 @@ static int cmgd_frntnd_send_lockdb_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd__frntnd_lock_db_req__init(&lockdb_req);
 	lockdb_req.session_id = (uint64_t) sessn->session_id;
 	lockdb_req.db_id = db_id;
+	lockdb_req.lock = lock;
 
 	cmgd__frntnd_message__init(&frntnd_msg);
 	frntnd_msg.type = CMGD__FRNTND_MESSAGE__TYPE__LOCK_DB_REQ;
 	frntnd_msg.message_case = CMGD__FRNTND_MESSAGE__MESSAGE_LOCKDB_REQ;
 	frntnd_msg.lockdb_req = &lockdb_req;
+
+	CMGD_FRNTND_CLNT_DBG("Sending %sLOCK_REQ message for Db:%d session %lu to CMGD Frontend server",
+		lock? "" : "UN", db_id, sessn->client_id);
 
 	return cmgd_frntnd_client_send_msg(clnt_ctxt, &frntnd_msg);
 }
@@ -240,7 +245,7 @@ static int cmgd_frntnd_send_lockdb_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 static int cmgd_frntnd_send_setcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd_frntnd_client_session_t *sessn,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id, 
-	cmgd_yang_cfgdata_req_t *data_req[], int num_data_reqs)
+	cmgd_yang_cfgdata_req_t **data_req, int num_data_reqs)
 {
 	(void) req_id;
 	Cmgd__FrntndMessage frntnd_msg;
@@ -256,6 +261,9 @@ static int cmgd_frntnd_send_setcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	frntnd_msg.type = CMGD__FRNTND_MESSAGE__TYPE__SET_CONFIG_REQ;
 	frntnd_msg.message_case = CMGD__FRNTND_MESSAGE__MESSAGE_SETCFG_REQ;
 	frntnd_msg.setcfg_req = &setcfg_req;
+
+	CMGD_FRNTND_CLNT_DBG("Sending SET_CONFIG_REQ message for Db:%d session %lu (#xpaths:%d) to CMGD Frontend server",
+		db_id, sessn->client_id, num_data_reqs);
 
 	return cmgd_frntnd_client_send_msg(clnt_ctxt, &frntnd_msg);
 }
@@ -831,7 +839,7 @@ cmgd_result_t cmgd_frntnd_lock_db(
 cmgd_result_t cmgd_frntnd_set_config_data(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
-	cmgd_yang_cfgdata_req_t *config_req[], int num_reqs)
+	cmgd_yang_cfgdata_req_t **config_req, int num_reqs)
 {
 	cmgd_frntnd_client_ctxt_t *clnt_ctxt;
 	cmgd_frntnd_client_session_t *sessn;

@@ -34,6 +34,7 @@
 #include "qobj.h"
 #include "compiler.h"
 #include "northbound.h"
+#include "cmgd_frntnd_client.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -199,6 +200,8 @@ struct vty {
 	 * without any output. */
 	size_t frame_pos;
 	char frame[1024];
+
+	cmgd_session_id_t cmgd_session_id;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -343,6 +346,9 @@ extern void vty_stdio_close(void);
 /* Send a fixed-size message to all vty terminal monitors; this should be
    an async-signal-safe function. */
 extern void vty_log_fixed(char *buf, size_t len);
+
+extern void vty_init_cmgd(void);
+extern void vty_cmgd_send_config_data(struct vty *vty);
 
 #ifdef __cplusplus
 }

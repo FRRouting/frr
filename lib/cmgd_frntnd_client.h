@@ -112,8 +112,7 @@ typedef void (*cmgd_frntnd_client_set_config_notify_t)(
 	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
 	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
 	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
-	cmgd_database_id_t db_id, bool validate_only, 
-	char *errmsg_if_any);
+	cmgd_database_id_t db_id, char *errmsg_if_any);
 
 /*
  * Single handler to notify results of COMMIT_CONFIG_REQ sent earlier to CMGD.
@@ -123,7 +122,7 @@ typedef void (*cmgd_frntnd_client_commit_config_notify_t)(
 	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
 	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
 	cmgd_database_id_t src_db_id, cmgd_database_id_t dst_db_id,
-	char *errmsg_if_any);
+	bool validate_only, char *errmsg_if_any);
 
 /*
  * Single hanlder to notify all or part of the results of a GET_CONFIG_REQ,
@@ -196,7 +195,7 @@ extern cmgd_result_t cmgd_frntnd_lock_db(
 extern cmgd_result_t cmgd_frntnd_set_config_data(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
-	cmgd_yang_cfgdata_req_t *config_req[], int num_req);
+	cmgd_yang_cfgdata_req_t **config_req, int num_req);
 
 /*
  * Send SET_CONFIG_REQ to CMGD for one or more config data(s).

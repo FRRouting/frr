@@ -73,6 +73,9 @@ enum event {
 #endif /* VTYSH */
 };
 
+static cmgd_lib_hndl_t cmgd_lib_hndl = 0;
+static bool cmgd_frntnd_connected = false;
+
 static void vty_event_serv(enum event event, int sock);
 static void vty_event(enum event, struct vty *);
 
@@ -1596,6 +1599,14 @@ struct vty *vty_new(void)
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
 
+	if (cmgd_lib_hndl) {
+		if (cmgd_frntnd_create_client_session(
+			cmgd_lib_hndl, (cmgd_client_id_t)new, 0)
+			!= CMGD_SUCCESS)
+			zlog_err("Failed to open a CMGD Frontend session for VTY session %p!!",
+				new);
+	}
+
 	return new;
 }
 
@@ -2189,6 +2200,12 @@ void vty_close(struct vty *vty)
 {
 	int i;
 	bool was_stdio = false;
+
+	if (cmgd_lib_hndl) {
+		cmgd_frntnd_destroy_client_session(
+			cmgd_lib_hndl, vty->cmgd_session_id);
+		vty->cmgd_session_id = 0;
+	}
 
 	/* Drop out of configure / transaction if needed. */
 	vty_config_exit(vty);
@@ -3107,6 +3124,107 @@ void vty_init_vtysh(void)
 	vtyvec = vector_init(VECTOR_MIN_SIZE);
 }
 
+static void vty_cmgd_server_connected(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	bool connected)
+{
+	zlog_err("%sGot %sconnected %s CMGD Frontend Server",
+		!connected ? "ERROR: " : "", !connected ? "dis: " : "",
+		!connected ? "from" : "to");
+
+	cmgd_frntnd_connected = connected;
+
+	/* 
+	 * TODO: Setup or teardown front-end sessions for existing
+	 * VTY connections.
+	 */
+}
+
+static void vty_cmgd_session_created(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_client_id_t client_id, bool create, bool success,
+	cmgd_session_id_t session_id, cmgd_client_req_id_t req_id,
+	uintptr_t user_ctxt)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)client_id;
+
+	if (!success) {
+		zlog_err("ERROR: %s session for client %lu failed!", 
+			create ? "Creating" : "Destroying", client_id);
+		assert(!"CMGD session creation for VTY failed!");
+	}
+
+	zlog_err("%s session for client %lu successfully!", 
+		create ? "Created" : "Destroyed", client_id);
+	if (create)
+		vty->cmgd_session_id = session_id;
+	// else
+	// 	vty->cmgd_session_id = 0;
+}
+
+static cmgd_frntnd_client_params_t client_params = {
+	.name = "LIB-VTY",
+	.conn_notify_cb = vty_cmgd_server_connected,
+	.sess_req_result_cb = vty_cmgd_session_created,
+};
+
+void vty_init_cmgd(void)
+{
+	if (!vty_master) {
+		zlog_err("Always call vty_cmgd_init() after vty_init()!!");
+		return;
+	}
+
+	assert(!cmgd_lib_hndl);
+	cmgd_lib_hndl = cmgd_frntnd_client_lib_init(&client_params, vty_master);
+	assert(cmgd_lib_hndl);
+}
+
+void vty_cmgd_send_config_data(struct vty *vty)
+{
+	cmgd_yang_data_value_t value[VTY_MAXCFGCHANGES];
+	cmgd_yang_data_t cfg_data[VTY_MAXCFGCHANGES];
+	cmgd_yang_cfgdata_req_t cfg_req[VTY_MAXCFGCHANGES];
+	cmgd_yang_cfgdata_req_t *cfgreq[VTY_MAXCFGCHANGES] = {0};
+	size_t indx;
+	int cnt;
+
+	if (cmgd_lib_hndl && vty->cmgd_session_id) {
+		cnt = 0;
+		for (indx = 0; indx < vty->num_cfg_changes; indx++) {
+			cmgd_yang_data_init(&cfg_data[cnt]);
+			cfg_data[cnt].xpath =
+				vty->cfg_changes[indx].xpath;
+
+			if (vty->cfg_changes[indx].value) {
+				cmgd_yang_data_value_init(&value[cnt]);
+				value[cnt].encoded_str_val = 
+					(char *)vty->cfg_changes[indx].value;
+				value[cnt].value_case = 
+					CMGD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
+				cfg_data[cnt].value = &value[cnt];
+			}
+				
+			cmgd_yang_cfg_data_req_init(&cfg_req[cnt]);
+			cfg_req[cnt].data = &cfg_data[cnt];
+			cfg_req[cnt].req_type = CMGD__CFG_DATA_REQ_TYPE__SET_DATA;
+
+			cfgreq[cnt] = &cfg_req[cnt];
+			cnt++;
+		}
+
+		if (cnt && cmgd_frntnd_set_config_data(
+			cmgd_lib_hndl, vty->cmgd_session_id, 1,
+			CMGD_DB_CANDIDATE, cfgreq, cnt)
+			!= CMGD_SUCCESS) {
+			zlog_err("Failed to send %d Config Xpaths to CMGD!!",
+				(int) indx);
+		}
+	}
+}
+
 /* Install vty's own commands like `who' command. */
 void vty_init(struct thread_master *master_thread, bool do_command_logging)
 {
@@ -3156,6 +3274,11 @@ void vty_init(struct thread_master *master_thread, bool do_command_logging)
 
 void vty_terminate(void)
 {
+	if (cmgd_lib_hndl) {
+		cmgd_frntnd_client_lib_destroy(cmgd_lib_hndl);
+		cmgd_lib_hndl = 0;
+	}
+
 	memset(vty_cwd, 0x00, sizeof(vty_cwd));
 
 	if (vtyvec && Vvty_serv_thread) {

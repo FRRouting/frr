@@ -178,6 +178,33 @@ static int cmgd_frntnd_send_session_reply(cmgd_frntnd_client_adapter_t *adptr,
 	return cmgd_frntnd_adapter_send_msg(adptr, &frntnd_msg);
 }
 
+static int cmgd_frntnd_send_setcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
+	cmgd_database_id_t db_id, bool success, const char *error_if_any)
+{
+	Cmgd__FrntndMessage frntnd_msg;
+	Cmgd__FrntndSetConfigReply setcfg_reply;
+
+	assert(sessn->adptr);
+
+	cmgd__frntnd_set_config_reply__init(&setcfg_reply);
+	setcfg_reply.session_id = (uint64_t) sessn;
+	setcfg_reply.db_id = db_id;
+	setcfg_reply.success = success;
+	if (error_if_any) {
+		setcfg_reply.error_if_any = (char *) error_if_any;
+	}
+
+	cmgd__frntnd_message__init(&frntnd_msg);
+	frntnd_msg.type = CMGD__FRNTND_MESSAGE__TYPE__SET_CONFIG_REPLY;
+	frntnd_msg.message_case = CMGD__FRNTND_MESSAGE__MESSAGE_SETCFG_REPLY;
+	frntnd_msg.setcfg_reply = &setcfg_reply;
+
+	CMGD_FRNTND_ADPTR_DBG("Sending SET_CONFIG_REPLY message to CMGD Frontend client '%s'",
+		sessn->adptr->name);
+
+	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
+}
+
 static cmgd_frntnd_client_adapter_t *cmgd_frntnd_find_adapter_by_fd(int conn_fd)
 {
 	cmgd_frntnd_client_adapter_t *adptr;
@@ -236,6 +263,36 @@ static void cmgd_frntnd_adapter_cleanup_old_conn(
 	}
 }
 
+static int cmgd_frntnd_session_handle_config_req_msg(
+	cmgd_frntnd_sessn_ctxt_t *sessn,
+	Cmgd__FrntndSetConfigReq *setcfg_req)
+{
+	/*
+	 * Next check first if the SET_CONFIG_REQ is for Candidate DB 
+	 * or not. Report failure if its not. CMGD currently only
+	 * supports editing the Candidate DB.
+	 */
+	if (setcfg_req->db_id != CMGD_DB_CANDIDATE) {
+		cmgd_frntnd_send_setcfg_reply(sessn,
+			setcfg_req->db_id, false,
+			"Set-Config on databases other than Candidate DB not permitted!");
+		return 0;
+	}
+
+	/*
+	 * TODO: Check first if the current session can run a CONFIG
+	 * transaction or not. Report failure if a CONFIG transaction
+	 * from another session is already in progress.
+	 */
+
+	/*
+	 * TODO: Start a CONFIG Transaction (if not started already)
+	 * and try taking write-lock on the requested DB (if not already).
+	 */
+
+	return 0;
+}
+
 static int cmgd_frntnd_adapter_handle_msg(
 	cmgd_frntnd_client_adapter_t *adptr, Cmgd__FrntndMessage *frntnd_msg)
 {
@@ -274,11 +331,24 @@ static int cmgd_frntnd_adapter_handle_msg(
 				"Got Session Destroy Req Msg for session-id %llu from '%s'", 
 				frntnd_msg->sessn_req->session_id, adptr->name);
 
-			sessn = cmgd_frntnd_find_session_by_id(adptr,
-				frntnd_msg->sessn_req->session_id);
+			sessn = (cmgd_frntnd_sessn_ctxt_t *)
+				frntnd_msg->sessn_req->session_id;
 			cmgd_frntnd_send_session_reply(
 				adptr, sessn, false, true);
 		}
+		break;
+	case CMGD__FRNTND_MESSAGE__TYPE__SET_CONFIG_REQ:
+		assert(frntnd_msg->message_case == CMGD__FRNTND_MESSAGE__MESSAGE_SETCFG_REQ);
+		sessn = (cmgd_frntnd_sessn_ctxt_t *)
+				frntnd_msg->setcfg_req->session_id;
+		CMGD_FRNTND_ADPTR_DBG(
+				"Got Set Config Req Msg (%d Xpaths) on DB:%d for session-id %llu from '%s'", 
+				(int) frntnd_msg->setcfg_req->n_data,
+				frntnd_msg->setcfg_req->db_id,
+				frntnd_msg->setcfg_req->session_id, adptr->name);
+
+		cmgd_frntnd_session_handle_config_req_msg(
+				sessn, frntnd_msg->setcfg_req);
 		break;
 	default:
 		break;
@@ -631,7 +701,7 @@ void cmgd_frntnd_adapter_status_write(struct vty *vty)
 		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adptr->conn_fd);
 		vty_out(vty, "    Sessions\n");
 		FOREACH_SESSN_IN_LIST(adptr, sessn) {
-			vty_out(vty, "      Client-Id: \t\t%lu\n",
+			vty_out(vty, "      Client-Id: \t\t0x%lx\n",
 				sessn->client_id);
 			vty_out(vty, "      Session-Id: \t\t%p\n", sessn);
 		}

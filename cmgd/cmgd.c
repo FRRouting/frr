@@ -47,6 +47,9 @@
 #include "cmgd/cmgd.h"
 #include "cmgd/cmgd_vty.h"
 #include "cmgd/cmgd_bcknd_server.h"
+#include "cmgd/cmgd_bcknd_adapter.h"
+#include "cmgd/cmgd_frntnd_server.h"
+#include "cmgd/cmgd_frntnd_adapter.h"
 #include "cmgd/cmgd_memory.h"
 
 // DEFINE_MTYPE_STATIC(CMGDD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
@@ -4758,58 +4761,28 @@ void cmgd_init(void)
 
 	/* allocates some vital data structures used by peer commands in
 	 * vty_init */
+	vty_init_cmgd();
 
 	/* pre-init pthreads */
 	cmgd_pthreads_init();
 
-	/* Init zebra. */
-	// cmgd_zebra_init(cm->master, instance);
+	/* Initialize CMGD Transaction module */
+	cmgd_trxn_init(cm);
 
-#ifdef ENABLE_CMGD_VNC
-	// vnc_zebra_init(cm->master);
-#endif
+	/* Initialize the CMGD Backend Adapter Module */
+	cmgd_bcknd_adapter_init(cm->master);
+	
+	/* Initialize the CMGD Frontend Adapter Module */
+	cmgd_frntnd_adapter_init(cm->master);
+
+	/* Start the CMGD Backend Server for clients to connect */
+	cmgd_bcknd_server_init(cm->master);
+
+	/* Start the CMGD Frontend Server for clients to connect */
+	cmgd_frntnd_server_init(cm->master);
 
 	/* CMGD VTY commands installation.  */
 	cmgd_vty_init();
-
-	/* CMGD inits. */
-	// cmgd_attr_init();
-	// cmgd_debug_init();
-	// cmgd_dump_init();
-	// cmgd_route_init();
-	// cmgd_route_map_init();
-	// cmgd_scan_vty_init();
-	// cmgd_mplsvpn_init();
-#ifdef ENABLE_CMGD_VNC
-	// rfapi_init();
-#endif
-	// cmgd_ethernetvpn_init();
-	// cmgd_flowspec_vty_init();
-
-	/* Access list initialize. */
-	// access_list_init();
-	// access_list_add_hook(peer_distribute_update);
-	// access_list_delete_hook(peer_distribute_update);
-
-	/* Filter list initialize. */
-	// cmgd_filter_init();
-	// as_list_add_hook(peer_aslist_add);
-	// as_list_delete_hook(peer_aslist_del);
-
-	/* Prefix list initialize.*/
-	// prefix_list_init();
-	// prefix_list_add_hook(peer_prefix_list_update);
-	// prefix_list_delete_hook(peer_prefix_list_update);
-
-	/* Community list initialize. */
-	// cmgd_clist = community_list_init();
-
-	/* BFD init */
-	// cmgd_bfd_init();
-
-	// cmgd_lp_vty_init();
-
-	// cmd_variable_handler_register(cmgd_viewvrf_var_handlers);
 }
 
 void cmgd_terminate(void)

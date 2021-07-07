@@ -23,6 +23,7 @@
 #include "lib/cmgd_bcknd_client.h"
 #include "lib/cmgd_pb.h"
 #include "lib/network.h"
+#include "lib/stream.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define CMGD_BCKND_CLNT_DBG(fmt, ...)					\

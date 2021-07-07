@@ -36,8 +36,7 @@ message YangDataXPath {
   required string xpath = 1;
 }
 
-message YangData {
-  required string xpath = 1;
+message YangDataValue {
   oneof value {
     bool bool_val = 2;
     double double_val = 3;
@@ -52,7 +51,13 @@ message YangData {
     uint32 uint8_val = 12;
     int32 int16_val = 13;
     uint32 uint16_val = 14;
+    string encoded_str_val = 15;
   }
+}
+
+message YangData {
+  required string xpath = 1;
+  optional YangDataValue value = 2;
 }
 
 enum CfgDataReqType {
@@ -251,13 +256,16 @@ enum DatabaseId {
 
 message FrntndLockDbReq {
   required uint64 session_id = 1;
-  required DatabaseId db_id = 2; 
+  required DatabaseId db_id = 2;
+  required bool lock = 3;
 }
 
 message FrntndLockDbReply {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
-  required bool success = 3; 
+  required bool lock = 3;
+  required bool success = 4;
+  optional string error_if_any = 5;
 }
 
 message FrntndSetConfigReq {
@@ -270,6 +278,7 @@ message FrntndSetConfigReply {
   required uint64 session_id = 1;
   required DatabaseId db_id = 2;
   required bool success = 3;
+  optional string error_if_any = 4;
 }
 
 message FrntndCommitConfigReq {

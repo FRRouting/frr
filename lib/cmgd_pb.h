@@ -24,8 +24,18 @@
 #include "lib/cmgd.pb-c.h"
 
 typedef Cmgd__YangDataXPath cmgd_yang_xpath_t;
+#define cmgd_yang_data_xpath_init(ptr) cmgd__yang_data_xpath__init(ptr)
+
+typedef Cmgd__YangDataValue cmgd_yang_data_value_t;
+#define cmgd_yang_data_value_init(ptr) cmgd__yang_data_value__init(ptr)
+
 typedef Cmgd__YangData cmgd_yang_data_t;
+#define cmgd_yang_data_init(ptr) cmgd__yang_data__init(ptr)
+
 typedef Cmgd__YangCfgDataReq cmgd_yang_cfgdata_req_t;
+#define cmgd_yang_cfg_data_req_init(ptr) cmgd__yang_cfg_data_req__init(ptr)
+
 typedef Cmgd__YangGetDataReq cmgd_yang_getdata_req_t;
+#define cmgd_yang_get_data_req_init(ptr) cmgd__yang_get_data_req__init(ptr)
 
 #endif /* _FRR_CMGD_PB_H_ */
