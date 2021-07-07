@@ -39,7 +39,7 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 	const char *vrf;
 	uint32_t table_id;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -97,7 +97,7 @@ static void static_path_list_destroy(struct nb_cb_destroy_args *args,
 	struct route_node *rn;
 	struct static_path *pn;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	pn = nb_running_unset_entry(args->dnode);
 	rn = nb_running_get_entry(rn_dnode, NULL, true);
@@ -112,7 +112,7 @@ static void static_path_list_tag_modify(struct nb_cb_modify_args *args,
 	struct route_node *rn;
 	route_tag_t tag;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	tag = yang_dnode_get_uint32(args->dnode, NULL);
 	pn = nb_running_get_entry(args->dnode, NULL, true);
@@ -151,7 +151,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 	struct nexthop_iter iter;
 	const char *ifname;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -233,7 +233,7 @@ static bool static_nexthop_destroy(struct nb_cb_destroy_args *args,
 	struct static_nexthop *nh;
 	int ret;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	nh = nb_running_unset_entry(args->dnode);
 	pn_dnode = yang_dnode_get_parent(args->dnode, "path-list");
@@ -260,7 +260,7 @@ static bool static_nexthop_destroy(struct nb_cb_destroy_args *args,
 
 static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -309,7 +309,7 @@ static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 static int
 nexthop_mpls_label_stack_entry_destroy(struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -350,7 +350,7 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 	uint32_t pos;
 	uint8_t index;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
 	pos = yang_get_list_pos(lyd_parent(args->dnode));
@@ -371,7 +371,7 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 {
 	static_types nh_type;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -411,7 +411,7 @@ static int static_nexthop_color_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
 	nh->color = yang_dnode_get_uint32(args->dnode, NULL);
@@ -423,7 +423,7 @@ static int static_nexthop_color_destroy(struct nb_cb_destroy_args *args)
 {
 	struct static_nexthop *nh;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	nh = nb_running_unset_entry(args->dnode);
 	nh->color = 0;
@@ -436,7 +436,7 @@ static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 {
 	static_types nh_type;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -566,7 +566,7 @@ int routing_control_plane_protocols_name_validate(
 {
 	const char *name;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	name = yang_dnode_get_string(args->dnode, "./name");
 	if (!strmatch(name, "staticd")) {
@@ -589,7 +589,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	afi_t afi;
 	safi_t safi;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -653,7 +653,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -691,7 +691,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -725,7 +725,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_tag_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -762,7 +762,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 {
 	const struct lyd_node *rn_dnode;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -799,7 +799,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -835,7 +835,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_bh_type_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return static_nexthop_bh_type_modify(args);
 }
@@ -847,7 +847,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_onlink_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return static_nexthop_onlink_modify(args);
 }
@@ -859,7 +859,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_color_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -884,7 +884,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_color_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -912,7 +912,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_create(
 	struct nb_cb_create_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return nexthop_mpls_label_stack_entry_create(args);
 }
@@ -920,7 +920,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return nexthop_mpls_label_stack_entry_destroy(args);
 }
@@ -932,7 +932,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_label_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -956,7 +956,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_label_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	/*
 	 * No operation is required in this call back.
@@ -986,7 +986,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1008,7 +1008,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1034,7 +1034,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1056,7 +1056,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1082,7 +1082,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create(
 	struct nb_cb_create_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1127,7 +1127,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1164,7 +1164,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_create(
 	struct nb_cb_create_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return static_path_list_create(args);
 }
@@ -1172,7 +1172,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1208,7 +1208,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_tag_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1246,7 +1246,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 {
 	const struct lyd_node *rn_dnode;
 
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1286,7 +1286,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1324,7 +1324,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_bh_type_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return static_nexthop_bh_type_modify(args);
 }
@@ -1336,7 +1336,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_onlink_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return static_nexthop_onlink_modify(args);
 }
@@ -1348,7 +1348,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_color_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1374,7 +1374,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_color_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1402,7 +1402,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_create(
 	struct nb_cb_create_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return nexthop_mpls_label_stack_entry_create(args);
 }
@@ -1410,7 +1410,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	return nexthop_mpls_label_stack_entry_destroy(args);
 }
@@ -1422,7 +1422,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_label_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1446,7 +1446,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_label_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	/*
 	 * No operation is required in this call back.
@@ -1476,7 +1476,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1498,7 +1498,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1524,7 +1524,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_modify(
 	struct nb_cb_modify_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1546,7 +1546,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	STATIC_NB_DBG("Called for event '%s", nb_event2str(args->event));
+	STATIC_NB_DBG("Called for event '%s", nb_event_name(args->event));
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:

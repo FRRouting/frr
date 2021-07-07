@@ -94,28 +94,6 @@ enum nb_event {
 	NB_EV_APPLY,
 };
 
-static inline const char *nb_event2str(enum nb_event ev)
-{
-	switch (ev) {
-	case NB_EV_VALIDATE:
-		return "VALIDATE";
-		break;
-	case NB_EV_PREPARE:
-		return "PREPARE";
-		break;
-	case NB_EV_ABORT:
-		return "ABORT";
-		break;
-	case NB_EV_APPLY:
-		return "APPLY";
-		break;
-	default:
-		break;
-	}
-
-	return "UNKNOWN";
-}
-
 /*
  * Northbound operations.
  *
@@ -134,49 +112,6 @@ enum nb_operation {
 	NB_OP_LOOKUP_ENTRY,
 	NB_OP_RPC,
 };
-
-static inline const char *nb_op2str(enum nb_operation op)
-{
-	switch (op) {
-	case NB_OP_CREATE:
-		return "VALIDATE";
-		break;
-	case NB_OP_MODIFY:
-		return "MODIFY";
-		break;
-	case NB_OP_DESTROY:
-		return "DESTROY";
-		break;
-	case NB_OP_MOVE:
-		return "MOVE";
-		break;
-	case NB_OP_PRE_VALIDATE:
-		return "PRE-VALIDATE";
-		break;
-	case NB_OP_APPLY_FINISH:
-		return "APPLY-FINISH";
-		break;
-	case NB_OP_GET_ELEM:
-		return "GET-ELEM";
-		break;
-	case NB_OP_GET_NEXT:
-		return "GET-NEXT";
-		break;
-	case NB_OP_GET_KEYS:
-		return "GET-KEYS";
-		break;
-	case NB_OP_LOOKUP_ENTRY:
-		return "LOOKUP";
-		break;
-	case NB_OP_RPC:
-		return "RPC";
-		break;
-	default:
-		break;
-	}
-
-	return "UNKNOWN";
-}
 
 union nb_resource {
 	int fd;
