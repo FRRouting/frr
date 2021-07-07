@@ -1537,7 +1537,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_OPAQUE)) {
 		STREAM_GETW(s, api->opaque.length);
-		assert(api->opaque.length < ZAPI_MESSAGE_OPAQUE_LENGTH);
+		assert(api->opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
 
 		STREAM_GET(api->opaque.data, s, api->opaque.length);
 	}
