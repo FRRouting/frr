@@ -2446,6 +2446,8 @@ DEFUN(script,
 	vty_out(vty, "p: %s\n", buf);
 	vty_out(vty, "Script result: %d\n", ret);
 
+	frrscript_unload(fs);
+
 	return CMD_SUCCESS;
 }
 #endif
