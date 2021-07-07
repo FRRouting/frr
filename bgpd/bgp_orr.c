@@ -31,6 +31,7 @@ static void bgp_orr_igp_metric_register(struct peer *active_root, safi_t safi,
 static struct bgp_orr_group *bgp_orr_group_new(struct bgp *bgp, afi_t afi,
 					       safi_t safi, const char *name)
 {
+	int ret;
 	struct list *orr_group_list = NULL;
 	struct bgp_orr_group *orr_group = NULL;
 
@@ -48,6 +49,18 @@ static struct bgp_orr_group *bgp_orr_group_new(struct bgp *bgp, afi_t afi,
 	orr_group->afi = afi;
 	orr_group->safi = safi;
 	orr_group->primary = orr_group->secondary = orr_group->tertiary = NULL;
+
+	/* Register for opaque messages from IGPs when first ORR group is
+	 * configured. */
+	if (!bgp->orr_group_count) {
+		ret = zclient_register_opaque(zclient, ORR_IGP_METRIC_UPDATE);
+		if (ret != ZCLIENT_SEND_SUCCESS)
+			zlog_debug(
+				"%s: zclient_register_opaque failed with ret = %d",
+				__func__, ret);
+	}
+
+	bgp->orr_group_count++;
 
 	return orr_group;
 }
@@ -371,6 +384,9 @@ int bgp_afi_safi_orr_group_unset(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	listnode_delete(bgp->orr_group[afi][safi], orr_group);
 	XFREE(MTYPE_BGP_ORR_GROUP, orr_group);
+
+	bgp->orr_group_count--;
+
 	if (!bgp->orr_group[afi][safi]->count)
 		list_delete(&bgp->orr_group[afi][safi]);
 	return CMD_SUCCESS;
@@ -817,7 +833,7 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 	assert(bgp && table);
 
 	proto = table->proto;
-	afi = table->root.family;
+	afi = family2afi(table->root.family);
 	safi = table->safi;
 	instId = table->instId;
 	numEntries = table->num_entries;
@@ -851,6 +867,7 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 				   prefix2str(&table->nexthop[entry].prefix,
 					      buf, sizeof(buf)),
 				   table->nexthop[entry].metric);
+		/* TODO: Update 'igp_metric_info' of orr-group */
 	}
 }
 
@@ -892,6 +909,9 @@ static void bgp_orr_igp_metric_register(struct peer *active_root, safi_t safi,
 int bgg_orr_message_process(bgp_orr_msg_type_t msg_type, void *msg)
 {
 	int ret = 0;
+
+	bgp_orr_debug("%s: Start", __func__);
+
 	assert(msg && msg_type > BGP_ORR_IMSG_INVALID
 	       && msg_type < BGP_ORR_IMSG_MAX);
 	switch (msg_type) {
@@ -918,6 +938,9 @@ int bgg_orr_message_process(bgp_orr_msg_type_t msg_type, void *msg)
 	default:
 		break;
 	}
+
+	bgp_orr_debug("%s: End", __func__);
+
 	/* Free Memory */
 	return ret;
 }

@@ -2065,6 +2065,10 @@ static int ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 
 			root->new_table = new_table;
 			root->new_rtrs = new_rtrs;
+
+			/* Send IGP Metric update to BGP */
+			ospf_orr_igp_metric_send_update(root, ospf->instance);
+
 		} /* ALL_LIST_ELEMENTS_RO() */
 	} /* FOREACH_AFI_SAFI() */
 

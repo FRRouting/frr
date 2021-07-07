@@ -66,6 +66,9 @@ static struct orr_root *ospf_orr_root_new(struct ospf *ospf, afi_t afi,
 
 	listnode_add(orr_root_list, root);
 
+	root->afi = afi;
+	root->safi = safi;
+	prefix_copy(&root->prefix, p);
 	IPV4_ADDR_COPY(&root->router_id, &p->u.prefix4);
 	root->new_rtrs = NULL;
 	root->new_table = NULL;
@@ -254,16 +257,63 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 	return 0;
 }
 
-void ospf_orr_igp_metric_send_update(struct prefix root)
+void ospf_orr_igp_metric_send_update(struct orr_root *root,
+				     unsigned short instance)
 {
-	ospf_orr_debug("%s: send IGP metric to BGP for Root", __func__);
-	/*
-		memset(&update, 0, sizeof(update));
-		update.proto = LDP_IGP_SYNC_IF_STATE_REQUEST;
+	int ret;
+	uint8_t count = 0;
+	struct route_node *rn;
+	struct ospf_route * or ;
+	struct orr_igp_metric_info msg;
 
-		zclient_send_opaque(zclient, ORR_IGP_METRIC_UPDATE,
-			(uint8_t *)&update, sizeof(update));
-	*/
+	ospf_orr_debug("%s: Start", __func__);
+
+	memset(&msg, 0, sizeof(msg));
+	msg.proto = ZEBRA_ROUTE_OSPF;
+	msg.safi = root->safi;
+	msg.instId = instance;
+	prefix_copy(&msg.root, &root->prefix);
+	msg.num_entries = root->new_table->count;
+
+	/* Update prefix table from ORR Route table */
+	for (rn = route_top(root->new_table); rn; rn = route_next(rn)) {
+		if (!(or = rn->info))
+			continue;
+
+		if (or->type != OSPF_DESTINATION_NETWORK)
+			continue;
+
+		if (count < ORR_MAX_PREFIX) {
+			prefix_copy(&msg.nexthop[count].prefix,
+				    (struct prefix_ipv4 *)&rn->p);
+			msg.nexthop[count].metric = or->cost;
+			count++;
+		} else {
+			msg.num_entries = count;
+			ret = zclient_send_opaque(zclient,
+						  ORR_IGP_METRIC_UPDATE,
+						  (uint8_t *)&msg, sizeof(msg));
+			if (ret != ZCLIENT_SEND_SUCCESS)
+				ospf_orr_debug(
+					"%s: Failed to send message to BGP.",
+					__func__);
+			count = 0;
+			prefix_copy(&msg.nexthop[count].prefix,
+				    (struct prefix_ipv4 *)&rn->p);
+			msg.nexthop[count].metric = or->cost;
+			count++;
+		}
+	}
+	if (count <= ORR_MAX_PREFIX) {
+		msg.num_entries = count;
+		ret = zclient_send_opaque(zclient, ORR_IGP_METRIC_UPDATE,
+					  (uint8_t *)&msg, sizeof(msg));
+		if (ret != ZCLIENT_SEND_SUCCESS)
+			ospf_orr_debug("%s: Failed to send message to BGP.",
+				       __func__);
+	}
+
+	ospf_orr_debug("%s: End", __func__);
 }
 
 static void ospf_show_orr_root(struct orr_root *root)

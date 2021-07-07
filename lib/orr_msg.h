@@ -28,6 +28,14 @@ extern "C" {
 /* Library code */
 DEFINE_MTYPE_STATIC(LIB, ORR_MSG_INFO, "ORR Msg info");
 
+/* REVISIT: Need to check if we can use zero length array */
+#define ORR_MAX_PREFIX 100
+
+struct orr_prefix_metric {
+	struct prefix prefix;
+	uint32_t metric;
+};
+
 /* BGP-IGP Register for IGP metric */
 struct orr_igp_metric_reg {
 	bool reg;
@@ -47,15 +55,16 @@ struct orr_igp_metric_info {
 	/* IGP metric from Active Root. */
 	struct prefix root;
 	uint32_t num_entries;
-	struct {
-		uint32_t metric;
-		struct prefix prefix;
-	} nexthop[0];
+	struct orr_prefix_metric nexthop[ORR_MAX_PREFIX];
 };
 
 /* BGP ORR Root node */
 struct orr_root {
-	/* MPLS_TE router ID */
+	afi_t afi;
+	safi_t safi;
+
+	/* MPLS_TE prefix and router ID */
+	struct prefix prefix;
 	struct in_addr router_id;
 
 	/* Advertising OSPF Router ID. */

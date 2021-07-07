@@ -2704,9 +2704,6 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	 * kick-start them?
 	 */
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
-
-	/* Request IGP to Calculate SPF from specified location */
-	zclient_register_opaque(zclient, ORR_IGP_METRIC_UPDATE);
 }
 
 static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
@@ -3532,8 +3529,12 @@ static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 
 	s = zclient->ibuf;
 
-	if (zclient_opaque_decode(s, &info) != 0)
+	bgp_orr_debug("%s: Start", __func__);
+
+	if (zclient_opaque_decode(s, &info) != 0) {
+		zlog_debug("%s: opaque decode failed!", __func__);
 		return -1;
+	}
 
 	switch (info.type) {
 	case ORR_IGP_METRIC_UPDATE:
@@ -3546,6 +3547,8 @@ static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	}
 
 stream_failure:
+
+	bgp_orr_debug("%s: End", __func__);
 
 	return ret;
 }

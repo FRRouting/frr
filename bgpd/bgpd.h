@@ -782,6 +782,7 @@ struct bgp {
 	struct list *srv6_functions;
 
 	/* BGP optimal route reflection group and Root Router configuration */
+	uint32_t orr_group_count;
 	struct list *orr_group[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS;
