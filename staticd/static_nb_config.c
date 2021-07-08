@@ -113,7 +113,7 @@ struct nexthop_iter {
 static int nexthop_iter_cb(const struct lyd_node *dnode, void *arg)
 {
 	struct nexthop_iter *iter = arg;
-	int nh_type;
+	enum static_types nh_type;
 
 	nh_type = yang_dnode_get_enum(dnode, "./nh-type");
 
@@ -135,7 +135,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 	struct static_path *pn;
 	struct ipaddr ipaddr;
 	struct static_nexthop *nh;
-	int nh_type;
+	enum static_types nh_type;
 	const char *ifname;
 	const char *nh_vrf;
 
@@ -313,7 +313,7 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
-	static_types nh_type;
+	enum static_types nh_type;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -361,7 +361,7 @@ static int static_nexthop_color_destroy(struct nb_cb_destroy_args *args)
 static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
-	static_types nh_type;
+	enum static_types nh_type;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -396,7 +396,7 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_p
 	const char *ifname;
 	const char *nh_vrf;
 	struct stable_info *info;
-	int nh_type;
+	enum static_types nh_type;
 
 	nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
 	ifname = yang_dnode_get_string(args->dnode, "./interface");
@@ -429,7 +429,7 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_s
 	const char *ifname;
 	const char *nh_vrf;
 	struct stable_info *info;
-	int nh_type;
+	enum static_types nh_type;
 
 	nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
 	ifname = yang_dnode_get_string(args->dnode, "./interface");
