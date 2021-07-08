@@ -258,9 +258,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->last_reset = from_peer->last_reset;
 	peer->max_packet_size = from_peer->max_packet_size;
 
-	peer->peer_gr_present_state = from_peer->peer_gr_present_state;
-	peer->peer_gr_new_status_flag = from_peer->peer_gr_new_status_flag;
-	bgp_peer_gr_flags_update(peer);
 
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
 							  peer->bgp->peer);
