@@ -25,8 +25,6 @@
 #include "yang_translator.h"
 #include "northbound.h"
 
-#include <libyang/user_types.h>
-
 DEFINE_MTYPE_STATIC(LIB, YANG_MODULE, "YANG module");
 DEFINE_MTYPE_STATIC(LIB, YANG_DATA, "YANG data structure");
 
@@ -42,14 +40,12 @@ void yang_module_embed(struct yang_module_embed *embed)
 	embedupd = &embed->next;
 }
 
-static const char *yang_module_imp_clb(const char *mod_name,
-				       const char *mod_rev,
-				       const char *submod_name,
-				       const char *submod_rev,
-				       void *user_data,
-				       LYS_INFORMAT *format,
-				       void (**free_module_data)
-						(void *, void*))
+static LY_ERR yang_module_imp_clb(const char *mod_name, const char *mod_rev,
+				  const char *submod_name,
+				  const char *submod_rev, void *user_data,
+				  LYS_INFORMAT *format,
+				  const char **module_data,
+				  void (**free_module_data)(void *, void *))
 {
 	struct yang_module_embed *e;
 
@@ -69,15 +65,17 @@ static const char *yang_module_imp_clb(const char *mod_name,
 		}
 
 		*format = e->format;
-		return e->data;
+		*module_data = e->data;
+		return LY_SUCCESS;
 	}
 
-	flog_warn(
-		EC_LIB_YANG_MODULE_LOAD,
+	/* We get here for indirect modules like ietf-inet-types */
+	zlog_debug(
 		"YANG model \"%s@%s\" \"%s@%s\"not embedded, trying external file",
 		mod_name, mod_rev ? mod_rev : "*",
 		submod_name ? submod_name : "*", submod_rev ? submod_rev : "*");
-	return NULL;
+
+	return LY_ENOTFOUND;
 }
 
 /* clang-format off */
@@ -111,7 +109,8 @@ struct yang_module *yang_module_load(const char *module_name)
 	struct yang_module *module;
 	const struct lys_module *module_info;
 
-	module_info = ly_ctx_load_module(ly_native_ctx, module_name, NULL);
+	module_info =
+		ly_ctx_load_module(ly_native_ctx, module_name, NULL, NULL);
 	if (!module_info) {
 		flog_err(EC_LIB_YANG_MODULE_LOAD,
 			 "%s: failed to load data model: %s", __func__,
@@ -147,62 +146,39 @@ struct yang_module *yang_module_find(const char *module_name)
 	return RB_FIND(yang_modules, &yang_modules, &s);
 }
 
-int yang_snodes_iterate_subtree(const struct lys_node *snode,
+int yang_snodes_iterate_subtree(const struct lysc_node *snode,
 				const struct lys_module *module,
 				yang_iterate_cb cb, uint16_t flags, void *arg)
 {
-	struct lys_node *child;
+	const struct lysc_node *child;
 	int ret = YANG_ITER_CONTINUE;
 
 	if (module && snode->module != module)
 		goto next;
 
-	if (CHECK_FLAG(flags, YANG_ITER_FILTER_IMPLICIT)) {
-		switch (snode->nodetype) {
-		case LYS_CASE:
-		case LYS_INPUT:
-		case LYS_OUTPUT:
-			if (CHECK_FLAG(snode->flags, LYS_IMPLICIT))
-				goto next;
-			break;
-		default:
-			break;
-		}
-	}
-
 	switch (snode->nodetype) {
 	case LYS_CONTAINER:
 		if (CHECK_FLAG(flags, YANG_ITER_FILTER_NPCONTAINERS)) {
-			struct lys_node_container *scontainer;
-
-			scontainer = (struct lys_node_container *)snode;
-			if (!scontainer->presence)
+			if (!CHECK_FLAG(snode->flags, LYS_PRESENCE))
 				goto next;
 		}
 		break;
 	case LYS_LEAF:
 		if (CHECK_FLAG(flags, YANG_ITER_FILTER_LIST_KEYS)) {
-			struct lys_node_leaf *sleaf;
-
 			/* Ignore list keys. */
-			sleaf = (struct lys_node_leaf *)snode;
-			if (lys_is_key(sleaf, NULL))
+			if (lysc_is_key(snode))
 				goto next;
 		}
 		break;
-	case LYS_GROUPING:
-		/* Return since we're not interested in the grouping subtree. */
-		return YANG_ITER_CONTINUE;
-	case LYS_USES:
-	case LYS_AUGMENT:
-		/* Always ignore nodes of these types. */
-		goto next;
 	case LYS_INPUT:
 	case LYS_OUTPUT:
 		if (CHECK_FLAG(flags, YANG_ITER_FILTER_INPUT_OUTPUT))
 			goto next;
 		break;
 	default:
+		assert(snode->nodetype != LYS_AUGMENT
+		       && snode->nodetype != LYS_GROUPING
+		       && snode->nodetype != LYS_USES);
 		break;
 	}
 
@@ -212,19 +188,17 @@ int yang_snodes_iterate_subtree(const struct lys_node *snode,
 
 next:
 	/*
-	 * YANG leafs and leaf-lists can't have child nodes, and trying to
-	 * access snode->child is undefined behavior.
+	 * YANG leafs and leaf-lists can't have child nodes.
 	 */
 	if (CHECK_FLAG(snode->nodetype, LYS_LEAF | LYS_LEAFLIST))
 		return YANG_ITER_CONTINUE;
 
-	LY_TREE_FOR (snode->child, child) {
+	LY_LIST_FOR (lysc_node_child(snode), child) {
 		ret = yang_snodes_iterate_subtree(child, module, cb, flags,
 						  arg);
 		if (ret == YANG_ITER_STOP)
 			return ret;
 	}
-
 	return ret;
 }
 
@@ -237,12 +211,24 @@ int yang_snodes_iterate(const struct lys_module *module, yang_iterate_cb cb,
 
 	idx = ly_ctx_internal_modules_count(ly_native_ctx);
 	while ((module_iter = ly_ctx_get_module_iter(ly_native_ctx, &idx))) {
-		struct lys_node *snode;
+		struct lysc_node *snode;
 
 		if (!module_iter->implemented)
 			continue;
 
-		LY_TREE_FOR (module_iter->data, snode) {
+		LY_LIST_FOR (module_iter->compiled->data, snode) {
+			ret = yang_snodes_iterate_subtree(snode, module, cb,
+							  flags, arg);
+			if (ret == YANG_ITER_STOP)
+				return ret;
+		}
+		LY_LIST_FOR (&module_iter->compiled->rpcs->node, snode) {
+			ret = yang_snodes_iterate_subtree(snode, module, cb,
+							  flags, arg);
+			if (ret == YANG_ITER_STOP)
+				return ret;
+		}
+		LY_LIST_FOR (&module_iter->compiled->notifs->node, snode) {
 			ret = yang_snodes_iterate_subtree(snode, module, cb,
 							  flags, arg);
 			if (ret == YANG_ITER_STOP)
@@ -253,38 +239,32 @@ int yang_snodes_iterate(const struct lys_module *module, yang_iterate_cb cb,
 	return ret;
 }
 
-void yang_snode_get_path(const struct lys_node *snode, enum yang_path_type type,
-			 char *xpath, size_t xpath_len)
+void yang_snode_get_path(const struct lysc_node *snode,
+			 enum yang_path_type type, char *xpath,
+			 size_t xpath_len)
 {
-	char *xpath_ptr;
-
 	switch (type) {
 	case YANG_PATH_SCHEMA:
-		xpath_ptr = lys_path(snode, 0);
+		(void)lysc_path(snode, LYSC_PATH_LOG, xpath, xpath_len);
 		break;
 	case YANG_PATH_DATA:
-		xpath_ptr = lys_data_path(snode);
+		(void)lysc_path(snode, LYSC_PATH_DATA, xpath, xpath_len);
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: unknown yang path type: %u",
 			 __func__, type);
 		exit(1);
 	}
-	strlcpy(xpath, xpath_ptr, xpath_len);
-	free(xpath_ptr);
 }
 
-struct lys_node *yang_snode_real_parent(const struct lys_node *snode)
+struct lysc_node *yang_snode_real_parent(const struct lysc_node *snode)
 {
-	struct lys_node *parent = snode->parent;
+	struct lysc_node *parent = snode->parent;
 
 	while (parent) {
-		struct lys_node_container *scontainer;
-
 		switch (parent->nodetype) {
 		case LYS_CONTAINER:
-			scontainer = (struct lys_node_container *)parent;
-			if (scontainer->presence)
+			if (CHECK_FLAG(parent->flags, LYS_PRESENCE))
 				return parent;
 			break;
 		case LYS_LIST:
@@ -298,9 +278,9 @@ struct lys_node *yang_snode_real_parent(const struct lys_node *snode)
 	return NULL;
 }
 
-struct lys_node *yang_snode_parent_list(const struct lys_node *snode)
+struct lysc_node *yang_snode_parent_list(const struct lysc_node *snode)
 {
-	struct lys_node *parent = snode->parent;
+	struct lysc_node *parent = snode->parent;
 
 	while (parent) {
 		switch (parent->nodetype) {
@@ -315,14 +295,14 @@ struct lys_node *yang_snode_parent_list(const struct lys_node *snode)
 	return NULL;
 }
 
-bool yang_snode_is_typeless_data(const struct lys_node *snode)
+bool yang_snode_is_typeless_data(const struct lysc_node *snode)
 {
-	struct lys_node_leaf *sleaf;
+	const struct lysc_node_leaf *sleaf;
 
 	switch (snode->nodetype) {
 	case LYS_LEAF:
-		sleaf = (struct lys_node_leaf *)snode;
-		if (sleaf->type.base == LY_TYPE_EMPTY)
+		sleaf = (struct lysc_node_leaf *)snode;
+		if (sleaf->type->basetype == LY_TYPE_EMPTY)
 			return true;
 		return false;
 	case LYS_LEAFLIST:
@@ -332,16 +312,16 @@ bool yang_snode_is_typeless_data(const struct lys_node *snode)
 	}
 }
 
-const char *yang_snode_get_default(const struct lys_node *snode)
+const char *yang_snode_get_default(const struct lysc_node *snode)
 {
-	struct lys_node_leaf *sleaf;
+	const struct lysc_node_leaf *sleaf;
 
 	switch (snode->nodetype) {
 	case LYS_LEAF:
-		sleaf = (struct lys_node_leaf *)snode;
-
-		/* NOTE: this might be null. */
-		return sleaf->dflt;
+		sleaf = (const struct lysc_node_leaf *)snode;
+		return sleaf->dflt ? lyd_value_get_canonical(sleaf->module->ctx,
+							     sleaf->dflt)
+				   : NULL;
 	case LYS_LEAFLIST:
 		/* TODO: check leaf-list default values */
 		return NULL;
@@ -350,29 +330,40 @@ const char *yang_snode_get_default(const struct lys_node *snode)
 	}
 }
 
-const struct lys_type *yang_snode_get_type(const struct lys_node *snode)
+const struct lysc_type *yang_snode_get_type(const struct lysc_node *snode)
 {
-	struct lys_node_leaf *sleaf = (struct lys_node_leaf *)snode;
-	struct lys_type *type;
+	struct lysc_node_leaf *sleaf = (struct lysc_node_leaf *)snode;
+	struct lysc_type *type;
 
 	if (!CHECK_FLAG(sleaf->nodetype, LYS_LEAF | LYS_LEAFLIST))
 		return NULL;
 
-	type = &sleaf->type;
-	while (type->base == LY_TYPE_LEAFREF)
-		type = &type->info.lref.target->type;
+	type = sleaf->type;
+	while (type->basetype == LY_TYPE_LEAFREF)
+		type = ((struct lysc_type_leafref *)type)->realtype;
 
 	return type;
+}
+
+unsigned int yang_snode_num_keys(const struct lysc_node *snode)
+{
+	const struct lysc_node_leaf *skey;
+	uint count = 0;
+
+	if (!CHECK_FLAG(snode->nodetype, LYS_LIST))
+		return 0;
+
+	/* Walk list of children */
+	LY_FOR_KEYS (snode, skey) {
+		count++;
+	}
+	return count;
 }
 
 void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
 			 size_t xpath_len)
 {
-	char *xpath_ptr;
-
-	xpath_ptr = lyd_path(dnode);
-	strlcpy(xpath, xpath_ptr, xpath_len);
-	free(xpath_ptr);
+	lyd_path(dnode, LYD_PATH_STD, xpath, xpath_len);
 }
 
 const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
@@ -398,55 +389,78 @@ const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
 	return dnode->schema->name;
 }
 
-struct lyd_node *yang_dnode_get(const struct lyd_node *dnode,
-				const char *xpath_fmt, ...)
+struct lyd_node *yang_dnode_get(const struct lyd_node *dnode, const char *xpath)
 {
-	va_list ap;
-	char xpath[XPATH_MAXLEN];
-	struct ly_set *set;
+	struct ly_set *set = NULL;
 	struct lyd_node *dnode_ret = NULL;
 
-	va_start(ap, xpath_fmt);
-	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
-	va_end(ap);
+	/*
+	 * XXX a lot of the code uses this for style I guess. It shouldn't, as
+	 * it adds to the xpath parsing complexity in libyang.
+	 */
+	if (xpath[0] == '.' && xpath[1] == '/')
+		xpath += 2;
 
-	set = lyd_find_path(dnode, xpath);
-	assert(set);
-	if (set->number == 0)
+	if (lyd_find_xpath(dnode, xpath, &set)) {
+		assert(0); /* XXX replicates old libyang1 base code */
+		goto exit;
+	}
+	if (set->count == 0)
 		goto exit;
 
-	if (set->number > 1) {
+	if (set->count > 1) {
 		flog_warn(EC_LIB_YANG_DNODE_NOT_FOUND,
 			  "%s: found %u elements (expected 0 or 1) [xpath %s]",
-			  __func__, set->number, xpath);
+			  __func__, set->count, xpath);
 		goto exit;
 	}
 
-	dnode_ret = set->set.d[0];
+	dnode_ret = set->dnodes[0];
 
 exit:
-	ly_set_free(set);
+	ly_set_free(set, NULL);
 
 	return dnode_ret;
 }
 
-bool yang_dnode_exists(const struct lyd_node *dnode, const char *xpath_fmt, ...)
+struct lyd_node *yang_dnode_getf(const struct lyd_node *dnode,
+				 const char *xpath_fmt, ...)
 {
 	va_list ap;
 	char xpath[XPATH_MAXLEN];
-	struct ly_set *set;
-	bool found;
 
 	va_start(ap, xpath_fmt);
 	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
 	va_end(ap);
 
-	set = lyd_find_path(dnode, xpath);
-	assert(set);
-	found = (set->number > 0);
-	ly_set_free(set);
+	return yang_dnode_get(dnode, xpath);
+}
 
-	return found;
+bool yang_dnode_exists(const struct lyd_node *dnode, const char *xpath)
+{
+	struct ly_set *set = NULL;
+	bool exists = false;
+
+	if (xpath[0] == '.' && xpath[1] == '/')
+		xpath += 2;
+	if (lyd_find_xpath(dnode, xpath, &set))
+		return false;
+	exists = set->count > 0;
+	ly_set_free(set, NULL);
+	return exists;
+}
+
+bool yang_dnode_existsf(const struct lyd_node *dnode, const char *xpath_fmt,
+			...)
+{
+	va_list ap;
+	char xpath[XPATH_MAXLEN];
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	return yang_dnode_exists(dnode, xpath);
 }
 
 void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
@@ -461,52 +475,42 @@ void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
 	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
 	va_end(ap);
 
-	set = lyd_find_path(dnode, xpath);
-	assert(set);
-	for (unsigned int i = 0; i < set->number; i++) {
+	if (lyd_find_xpath(dnode, xpath, &set)) {
+		assert(0); /* XXX libyang2: ly1 code asserted success */
+		return;
+	}
+	for (unsigned int i = 0; i < set->count; i++) {
 		int ret;
 
-		dnode = set->set.d[i];
-		ret = (*cb)(dnode, arg);
+		ret = (*cb)(set->dnodes[i], arg);
 		if (ret == YANG_ITER_STOP)
 			break;
 	}
 
-	ly_set_free(set);
+	ly_set_free(set, NULL);
 }
 
-bool yang_dnode_is_default(const struct lyd_node *dnode, const char *xpath_fmt,
-			   ...)
+bool yang_dnode_is_default(const struct lyd_node *dnode, const char *xpath)
 {
-	struct lys_node *snode;
-	struct lys_node_leaf *sleaf;
-	struct lys_node_container *scontainer;
+	const struct lysc_node *snode;
+	struct lysc_node_leaf *sleaf;
 
-	if (xpath_fmt) {
-		va_list ap;
-		char xpath[XPATH_MAXLEN];
-
-		va_start(ap, xpath_fmt);
-		vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
-		va_end(ap);
-
+	if (xpath)
 		dnode = yang_dnode_get(dnode, xpath);
-	}
 
 	assert(dnode);
 	snode = dnode->schema;
 	switch (snode->nodetype) {
 	case LYS_LEAF:
-		sleaf = (struct lys_node_leaf *)snode;
-		if (sleaf->type.base == LY_TYPE_EMPTY)
+		sleaf = (struct lysc_node_leaf *)snode;
+		if (sleaf->type->basetype == LY_TYPE_EMPTY)
 			return false;
-		return lyd_wd_default((struct lyd_node_leaf_list *)dnode);
+		return lyd_is_default(dnode);
 	case LYS_LEAFLIST:
 		/* TODO: check leaf-list default values */
 		return false;
 	case LYS_CONTAINER:
-		scontainer = (struct lys_node_container *)snode;
-		if (scontainer->presence)
+		if (CHECK_FLAG(snode->flags, LYS_PRESENCE))
 			return false;
 		return true;
 	default:
@@ -514,24 +518,39 @@ bool yang_dnode_is_default(const struct lyd_node *dnode, const char *xpath_fmt,
 	}
 }
 
+bool yang_dnode_is_defaultf(const struct lyd_node *dnode, const char *xpath_fmt,
+			    ...)
+{
+	if (!xpath_fmt)
+		return yang_dnode_is_default(dnode, NULL);
+	else {
+		va_list ap;
+		char xpath[XPATH_MAXLEN];
+
+		va_start(ap, xpath_fmt);
+		vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+		va_end(ap);
+
+		return yang_dnode_is_default(dnode, xpath);
+	}
+}
+
 bool yang_dnode_is_default_recursive(const struct lyd_node *dnode)
 {
-	struct lys_node *snode;
-	struct lyd_node *root, *next, *dnode_iter;
-
-	snode = dnode->schema;
-	if (CHECK_FLAG(snode->nodetype, LYS_LEAF | LYS_LEAFLIST))
-		return yang_dnode_is_default(dnode, NULL);
+	struct lyd_node *root, *dnode_iter;
 
 	if (!yang_dnode_is_default(dnode, NULL))
 		return false;
 
-	LY_TREE_FOR (dnode->child, root) {
-		LY_TREE_DFS_BEGIN (root, next, dnode_iter) {
+	if (CHECK_FLAG(dnode->schema->nodetype, LYS_LEAF | LYS_LEAFLIST))
+		return true;
+
+	LY_LIST_FOR (lyd_child(dnode), root) {
+		LYD_TREE_DFS_BEGIN (root, dnode_iter) {
 			if (!yang_dnode_is_default(dnode_iter, NULL))
 				return false;
 
-			LY_TREE_DFS_END(root, next, dnode_iter);
+			LYD_TREE_DFS_END(root, dnode_iter);
 		}
 	}
 
@@ -541,21 +560,15 @@ bool yang_dnode_is_default_recursive(const struct lyd_node *dnode)
 void yang_dnode_change_leaf(struct lyd_node *dnode, const char *value)
 {
 	assert(dnode->schema->nodetype == LYS_LEAF);
-	lyd_change_leaf((struct lyd_node_leaf_list *)dnode, value);
+	lyd_change_term(dnode, value);
 }
 
 struct lyd_node *yang_dnode_new(struct ly_ctx *ly_ctx, bool config_only)
 {
-	struct lyd_node *dnode;
-	int options;
+	struct lyd_node *dnode = NULL;
+	int options = config_only ? LYD_VALIDATE_NO_STATE : 0;
 
-	if (config_only)
-		options = LYD_OPT_CONFIG;
-	else
-		options = LYD_OPT_DATA | LYD_OPT_DATA_NO_YANGLIB;
-
-	dnode = NULL;
-	if (lyd_validate(&dnode, options, ly_ctx) != 0) {
+	if (lyd_validate_all(&dnode, ly_ctx, options, NULL) != 0) {
 		/* Should never happen. */
 		flog_err(EC_LIB_LIBYANG, "%s: lyd_validate() failed", __func__);
 		exit(1);
@@ -566,14 +579,18 @@ struct lyd_node *yang_dnode_new(struct ly_ctx *ly_ctx, bool config_only)
 
 struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode)
 {
-	return lyd_dup_withsiblings(dnode, 1);
+	struct lyd_node *dup = NULL;
+	LY_ERR err;
+	err = lyd_dup_siblings(dnode, NULL, LYD_DUP_RECURSIVE, &dup);
+	assert(!err);
+	return dup;
 }
 
 void yang_dnode_free(struct lyd_node *dnode)
 {
 	while (dnode->parent)
-		dnode = dnode->parent;
-	lyd_free_withsiblings(dnode);
+		dnode = lyd_parent(dnode);
+	lyd_free_all(dnode);
 }
 
 struct yang_data *yang_data_new(const char *xpath, const char *value)
@@ -679,18 +696,19 @@ const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
 void yang_debugging_set(bool enable)
 {
 	if (enable) {
-		ly_verb(LY_LLDBG);
-		ly_verb_dbg(0xFF);
+		ly_log_level(LY_LLDBG);
+		ly_log_dbg_groups(0xFF);
 	} else {
-		ly_verb(LY_LLERR);
-		ly_verb_dbg(0);
+		ly_log_level(LY_LLERR);
+		ly_log_dbg_groups(0);
 	}
 }
 
-struct ly_ctx *yang_ctx_new_setup(bool embedded_modules)
+struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 {
-	struct ly_ctx *ctx;
+	struct ly_ctx *ctx = NULL;
 	const char *yang_models_path = YANG_MODELS_PATH;
+	LY_ERR err;
 
 	if (access(yang_models_path, R_OK | X_OK)) {
 		yang_models_path = NULL;
@@ -703,8 +721,11 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules)
 				     YANG_MODELS_PATH);
 	}
 
-	ctx = ly_ctx_new(yang_models_path, LY_CTX_DISABLE_SEARCHDIR_CWD);
-	if (!ctx)
+	uint options = LY_CTX_NO_YANGLIBRARY | LY_CTX_DISABLE_SEARCHDIR_CWD;
+	if (explicit_compile)
+		options |= LY_CTX_EXPLICIT_COMPILE;
+	err = ly_ctx_new(yang_models_path, options, &ctx);
+	if (err)
 		return NULL;
 
 	if (embedded_modules)
@@ -713,20 +734,31 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules)
 	return ctx;
 }
 
-void yang_init(bool embedded_modules)
+void yang_init(bool embedded_modules, bool defer_compile)
 {
 	/* Initialize libyang global parameters that affect all containers. */
 	ly_set_log_clb(ly_log_cb, 1);
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
 	/* Initialize libyang container for native models. */
-	ly_native_ctx = yang_ctx_new_setup(embedded_modules);
+	ly_native_ctx = yang_ctx_new_setup(embedded_modules, defer_compile);
 	if (!ly_native_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
 
 	yang_translator_init();
+}
+
+void yang_init_loading_complete(void)
+{
+	/* Compile everything */
+	if (ly_ctx_compile(ly_native_ctx) != LY_SUCCESS) {
+		flog_err(EC_LIB_YANG_MODULE_LOAD,
+			 "%s: failed to compile loaded modules: %s", __func__,
+			 ly_errmsg(ly_native_ctx));
+		exit(1);
+	}
 }
 
 void yang_terminate(void)
@@ -748,7 +780,7 @@ void yang_terminate(void)
 		XFREE(MTYPE_YANG_MODULE, module);
 	}
 
-	ly_ctx_destroy(ly_native_ctx, NULL);
+	ly_ctx_destroy(ly_native_ctx);
 }
 
 const struct lyd_node *yang_dnode_get_parent(const struct lyd_node *dnode,
@@ -767,7 +799,7 @@ const struct lyd_node *yang_dnode_get_parent(const struct lyd_node *dnode,
 			break;
 		}
 
-		orig_dnode = orig_dnode->parent;
+		orig_dnode = lyd_parent(orig_dnode);
 	}
 
 	return NULL;
@@ -788,17 +820,17 @@ bool yang_is_last_list_dnode(const struct lyd_node *dnode)
 bool yang_is_last_level_dnode(const struct lyd_node *dnode)
 {
 	const struct lyd_node *parent;
-	const struct lys_node_list *snode;
 	const struct lyd_node *key_leaf;
 	uint8_t keys_size;
 
 	switch (dnode->schema->nodetype) {
 	case LYS_LIST:
 		assert(dnode->parent);
-		parent = dnode->parent;
-		snode = (struct lys_node_list *)parent->schema;
+		parent = lyd_parent(dnode);
+		uint snode_num_keys = yang_snode_num_keys(parent->schema);
+		/* XXX libyang2: q: really don't understand this code. */
 		key_leaf = dnode->prev;
-		for (keys_size = 1; keys_size < snode->keys_size; keys_size++)
+		for (keys_size = 1; keys_size < snode_num_keys; keys_size++)
 			key_leaf = key_leaf->prev;
 		if (key_leaf->prev == dnode)
 			return true;
@@ -812,13 +844,11 @@ bool yang_is_last_level_dnode(const struct lyd_node *dnode)
 	return false;
 }
 
-
 const struct lyd_node *
 yang_get_subtree_with_no_sibling(const struct lyd_node *dnode)
 {
 	bool parent = true;
 	const struct lyd_node *node;
-	const struct lys_node_container *snode;
 
 	node = dnode;
 	if (node->schema->nodetype != LYS_LIST)
@@ -827,13 +857,11 @@ yang_get_subtree_with_no_sibling(const struct lyd_node *dnode)
 	while (parent) {
 		switch (node->schema->nodetype) {
 		case LYS_CONTAINER:
-			snode = (struct lys_node_container *)node->schema;
-			if ((!snode->presence)
-			    && yang_is_last_level_dnode(node)) {
+			if (!CHECK_FLAG(node->schema->flags, LYS_PRESENCE)) {
 				if (node->parent
 				    && (node->parent->schema->module
 					== dnode->schema->module))
-					node = node->parent;
+					node = lyd_parent(node);
 				else
 					parent = false;
 			} else
@@ -845,7 +873,7 @@ yang_get_subtree_with_no_sibling(const struct lyd_node *dnode)
 				if (node->parent
 				    && (node->parent->schema->module
 					== dnode->schema->module))
-					node = node->parent;
+					node = lyd_parent(node);
 				else
 					parent = false;
 			} else
@@ -867,7 +895,7 @@ uint32_t yang_get_list_pos(const struct lyd_node *node)
 uint32_t yang_get_list_elements_count(const struct lyd_node *node)
 {
 	unsigned int count;
-	struct lys_node *schema;
+	const struct lysc_node *schema;
 
 	if (!node
 	    || ((node->schema->nodetype != LYS_LIST)
@@ -883,12 +911,4 @@ uint32_t yang_get_list_elements_count(const struct lyd_node *node)
 		node = node->next;
 	} while (node);
 	return count;
-}
-
-
-const struct lyd_node *yang_dnode_get_child(const struct lyd_node *dnode)
-{
-	if (dnode)
-		return dnode->child;
-	return NULL;
 }

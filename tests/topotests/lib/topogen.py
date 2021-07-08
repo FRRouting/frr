@@ -222,6 +222,22 @@ class Topogen(object):
         self.peern += 1
         return self.gears[name]
 
+    def add_host(self, name, ip, defaultRoute):
+        """
+        Adds a new host to the topology. This function has the following
+        parameters:
+        * `ip`: the peer address (e.g. '1.2.3.4/24')
+        * `defaultRoute`: the peer default route (e.g. 'via 1.2.3.1')
+        """
+        if name is None:
+            name = "host{}".format(self.peern)
+        if name in self.gears:
+            raise KeyError("host already exists")
+
+        self.gears[name] = TopoHost(self, name, ip=ip, defaultRoute=defaultRoute)
+        self.peern += 1
+        return self.gears[name]
+
     def add_link(self, node1, node2, ifname1=None, ifname2=None):
         """
         Creates a connection between node1 and node2. The nodes can be the
@@ -641,6 +657,8 @@ class TopoRouter(TopoGear):
 
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("{}/{}/*.log".format(self.logdir, self.name)))
+        # Remove old valgrind files
+        map(os.remove, glob.glob("{}/{}.valgrind.*".format(self.logdir, self.name)))
         # Remove old core files
         map(os.remove, glob.glob("{}/{}/*.dmp".format(self.logdir, self.name)))
 

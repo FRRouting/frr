@@ -380,6 +380,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				    strlen("bgp large-community-list"))
 				    == 0)
 			config = config_get(COMMUNITY_LIST_NODE, line);
+		else if (strncmp(line, "bgp community alias",
+				 strlen("bgp community alias")) == 0)
+			config = config_get(COMMUNITY_ALIAS_NODE, line);
 		else if (strncmp(line, "ip route", strlen("ip route")) == 0)
 			config = config_get(IP_NODE, line);
 		else if (strncmp(line, "ipv6 route", strlen("ipv6 route")) == 0)
@@ -427,6 +430,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(PROTOCOL_NODE, line);
 		else if (strncmp(line, "mpls", strlen("mpls")) == 0)
 			config = config_get(MPLS_NODE, line);
+		else if (strncmp(line, "segment-routing",
+				 strlen("segment-routing"))
+			 == 0)
+			config = config_get(SEGMENT_ROUTING_NODE, line);
 		else if (strncmp(line, "bfd", strlen("bfd")) == 0)
 			config = config_get(BFD_NODE, line);
 		else {
@@ -452,11 +459,12 @@ void vtysh_config_parse_line(void *arg, const char *line)
 #define NO_DELIMITER(I)                                                        \
 	((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE            \
 	 || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE                  \
-	 || (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE                  \
-	 || (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE                  \
-	 || (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE      \
-	 || (I) == NORTHBOUND_DEBUG_NODE || (I) == RMAP_DEBUG_NODE             \
-	 || (I) == RESOLVER_DEBUG_NODE || (I) == MPLS_NODE)
+	 || (I) == COMMUNITY_ALIAS_NODE || (I) == ACCESS_IPV6_NODE             \
+	 || (I) == ACCESS_MAC_NODE || (I) == PREFIX_IPV6_NODE                  \
+	 || (I) == FORWARDING_NODE || (I) == DEBUG_NODE || (I) == AAA_NODE     \
+	 || (I) == VRF_DEBUG_NODE || (I) == NORTHBOUND_DEBUG_NODE              \
+	 || (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE               \
+	 || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(void)
@@ -552,6 +560,7 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 int vtysh_read_config(const char *config_default_dir, bool dry_run)
 {
 	FILE *confp = NULL;
+	bool save;
 	int ret;
 
 	confp = fopen(config_default_dir, "r");
@@ -562,8 +571,13 @@ int vtysh_read_config(const char *config_default_dir, bool dry_run)
 		return CMD_ERR_NO_FILE;
 	}
 
+	save = vtysh_add_timestamp;
+	vtysh_add_timestamp = false;
+
 	ret = vtysh_read_file(confp, dry_run);
 	fclose(confp);
+
+	vtysh_add_timestamp = save;
 
 	return (ret);
 }

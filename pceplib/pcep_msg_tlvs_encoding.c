@@ -838,7 +838,15 @@ struct pcep_object_tlv_header *pcep_decode_tlv(const uint8_t *tlv_buf)
 		return NULL;
 	}
 
-	tlv_decoder_funcptr tlv_decoder = tlv_decoders[tlv_hdr.type];
+	tlv_decoder_funcptr tlv_decoder = NULL;
+	if (tlv_hdr.type == PCEP_OBJ_TYPE_CISCO_BSID) {
+		pcep_log(LOG_INFO,
+			 "%s: Cisco BSID TLV decoder found for TLV type [%d]",
+			 __func__, tlv_hdr.type);
+		tlv_decoder = tlv_decoders[PCEP_OBJ_TLV_TYPE_ARBITRARY];
+	} else {
+		tlv_decoder = tlv_decoders[tlv_hdr.type];
+	}
 	if (tlv_decoder == NULL) {
 		pcep_log(LOG_INFO, "%s: No TLV decoder found for TLV type [%d]",
 			 __func__, tlv_hdr.type);

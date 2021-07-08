@@ -455,11 +455,14 @@ submodule frr-bgp-common {
   grouping global-network-config {
     leaf import-check {
       type boolean;
-      default "false";
+      default "true";
       description
         "When set to 'true' bgp creates entries for network statements
          if a matching prefix exists in the rib. When set to 'false' bgp
-         creates entries for networks that the router cannot reach.";
+         creates entries for networks that the router cannot reach.
+
+         In FRR versions < 7.4 this used to default to 'false' this is an
+         incompatible backward change";
     }
   }
 

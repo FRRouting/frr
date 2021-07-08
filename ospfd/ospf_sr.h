@@ -61,7 +61,7 @@
 
 /* SID/Label Sub TLV - section 2.1 */
 #define SUBTLV_SID_LABEL		1
-#define SUBTLV_SID_LABEL_SIZE		8
+#define SUBTLV_SID_LABEL_SIZE		4
 struct subtlv_sid_label {
 	/* Length is 3 (20 rightmost bits MPLS label) or 4 (32 bits SID) */
 	struct tlv_header header;
@@ -88,6 +88,7 @@ struct ri_sr_tlv_sr_algorithm {
 /* RI SID/Label Range TLV used for SRGB & SRLB - section 3.2 & 3.3 */
 #define RI_SR_TLV_SRGB_LABEL_RANGE	9
 #define RI_SR_TLV_SRLB_LABEL_RANGE	14
+#define RI_SR_TLV_LABEL_RANGE_SIZE	12
 struct ri_sr_tlv_sid_label_range {
 	struct tlv_header header;
 /* Only 24 upper most bits are significant */
@@ -99,6 +100,7 @@ struct ri_sr_tlv_sid_label_range {
 
 /* RI Node/MSD TLV as per RFC 8476 */
 #define RI_SR_TLV_NODE_MSD		12
+#define RI_SR_TLV_NODE_MSD_SIZE		4
 struct ri_sr_tlv_node_msd {
 	struct tlv_header header;
 	uint8_t subtype; /* always = 1 */
@@ -184,10 +186,12 @@ struct ext_subtlv_lan_adj_sid {
 /* Default min and size of SR Global Block label range */
 #define DEFAULT_SRGB_LABEL        16000
 #define DEFAULT_SRGB_SIZE         8000
+#define DEFAULT_SRGB_END (DEFAULT_SRGB_LABEL + DEFAULT_SRGB_SIZE - 1)
 
 /* Default min and size of SR Local Block label range */
 #define DEFAULT_SRLB_LABEL        15000
 #define DEFAULT_SRLB_SIZE         1000
+#define DEFAULT_SRLB_END (DEFAULT_SRLB_LABEL + DEFAULT_SRLB_SIZE - 1)
 
 /* Structure aggregating SR Range Block info retrieved from an lsa */
 struct sr_block {

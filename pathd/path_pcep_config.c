@@ -32,6 +32,8 @@
 #define MAX_FLOAT_LEN 22
 #define INETADDR4_MAXLEN 16
 #define INETADDR6_MAXLEN 40
+#define INITIATED_CANDIDATE_PREFERENCE 255
+#define INITIATED_POLICY_COLOR 1
 
 
 static void copy_candidate_objfun_info(struct srte_candidate *candidate,
@@ -147,7 +149,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 		.plsp_id = 0,
 		.name = name,
 		.type = candidate->type,
-		.srp_id = 0,
+		.srp_id = policy->srp_id,
 		.req_id = 0,
 		.binding_sid = policy->binding_sid,
 		.status = status,
@@ -246,6 +248,10 @@ path_pcep_config_list_path_hops(struct srte_segment_list *segment_list)
 		switch (segment->nai_type) {
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
 		case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
 			memcpy(&hop->nai.local_addr, &segment->nai_local_addr,
 			       sizeof(struct ipaddr));
 			break;
@@ -272,12 +278,101 @@ path_pcep_config_list_path_hops(struct srte_segment_list *segment_list)
 	return hop;
 }
 
+int path_pcep_config_initiate_path(struct path *path)
+{
+	struct srte_policy *policy;
+	struct srte_candidate *candidate;
+
+	if (path->do_remove) {
+		zlog_warn("PCE %s tried to REMOVE pce-initiate a path ",
+			  path->originator);
+		candidate = lookup_candidate(&path->nbkey);
+		if (candidate) {
+			if (!path->is_delegated) {
+				zlog_warn(
+					"(%s)PCE tried to REMOVE but it's not Delegated!",
+					__func__);
+				return ERROR_19_1;
+			}
+			if (candidate->type != SRTE_CANDIDATE_TYPE_DYNAMIC) {
+				zlog_warn(
+					"(%s)PCE tried to REMOVE but it's not PCE origin!",
+					__func__);
+				return ERROR_19_9;
+			}
+			zlog_warn(
+				"(%s)PCE tried to REMOVE found canidate!, let's remove",
+				__func__);
+			candidate->policy->srp_id = path->srp_id;
+			SET_FLAG(candidate->policy->flags, F_POLICY_DELETED);
+			SET_FLAG(candidate->flags, F_CANDIDATE_DELETED);
+		} else {
+			zlog_warn("(%s)PCE tried to REMOVE not existing LSP!",
+				  __func__);
+			return ERROR_19_3;
+		}
+		srte_apply_changes();
+	} else {
+		assert(!IS_IPADDR_NONE(&path->nbkey.endpoint));
+
+		if (path->nbkey.preference == 0)
+			path->nbkey.preference = INITIATED_CANDIDATE_PREFERENCE;
+
+		if (path->nbkey.color == 0)
+			path->nbkey.color = INITIATED_POLICY_COLOR;
+
+		candidate = lookup_candidate(&path->nbkey);
+		if (!candidate) {
+			policy = srte_policy_add(
+				path->nbkey.color, &path->nbkey.endpoint,
+				SRTE_ORIGIN_PCEP, path->originator);
+			strlcpy(policy->name, path->name, sizeof(policy->name));
+			policy->binding_sid = path->binding_sid;
+			SET_FLAG(policy->flags, F_POLICY_NEW);
+			candidate = srte_candidate_add(
+				policy, path->nbkey.preference,
+				SRTE_ORIGIN_PCEP, path->originator);
+			candidate->policy->srp_id = path->srp_id;
+			strlcpy(candidate->name, path->name,
+				sizeof(candidate->name));
+			SET_FLAG(candidate->flags, F_CANDIDATE_NEW);
+		} else {
+			policy = candidate->policy;
+			if ((path->originator != candidate->originator)
+			    || (path->originator != policy->originator)) {
+				/* There is already an initiated path from
+				 * another PCE, show a warning and regect the
+				 * initiated path */
+				zlog_warn(
+					"PCE %s tried to initiate a path already initiated by PCE %s",
+					path->originator,
+					candidate->originator);
+				return 1;
+			}
+			if ((policy->protocol_origin != SRTE_ORIGIN_PCEP)
+			    || (candidate->protocol_origin
+				!= SRTE_ORIGIN_PCEP)) {
+				/* There is already an initiated path from
+				 * another PCE, show a warning and regect the
+				 * initiated path */
+				zlog_warn(
+					"PCE %s tried to initiate a path created localy",
+					path->originator);
+				return 1;
+			}
+		}
+		return path_pcep_config_update_path(path);
+	}
+	return 0;
+}
+
 int path_pcep_config_update_path(struct path *path)
 {
 	assert(path != NULL);
 	assert(path->nbkey.preference != 0);
 	assert(path->nbkey.endpoint.ipa_type == IPADDR_V4);
 
+	int number_of_sid_clashed = 0;
 	struct path_hop *hop;
 	struct path_metric *metric;
 	int index;
@@ -293,44 +388,49 @@ int path_pcep_config_update_path(struct path *path)
 	if (!candidate)
 		return 0;
 
+	candidate->policy->srp_id = path->srp_id;
 	// first clean up old segment list if present
 	if (candidate->lsp->segment_list) {
 		SET_FLAG(candidate->lsp->segment_list->flags,
 			 F_SEGMENT_LIST_DELETED);
+		srte_segment_list_del(candidate->lsp->segment_list);
 		candidate->lsp->segment_list = NULL;
 	}
 
-	if (path->first_hop != NULL) {
-		snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
-			 "%s-%u", path->name, path->plsp_id);
-		segment_list_name = segment_list_name_buff;
+	if (path->first_hop == NULL)
+		return PATH_NB_ERR;
 
-		segment_list = srte_segment_list_add(segment_list_name);
-		segment_list->protocol_origin = path->update_origin;
-		strlcpy(segment_list->originator, path->originator,
-			sizeof(segment_list->originator));
-		SET_FLAG(segment_list->flags, F_SEGMENT_LIST_NEW);
-		SET_FLAG(segment_list->flags, F_SEGMENT_LIST_MODIFIED);
+	snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
+		 "%s-%u", path->name, path->plsp_id);
+	segment_list_name = segment_list_name_buff;
 
-		for (hop = path->first_hop, index = 10; hop != NULL;
-		     hop = hop->next, index += 10) {
-			assert(hop->has_sid);
-			assert(hop->is_mpls);
+	segment_list = srte_segment_list_add(segment_list_name);
+	segment_list->protocol_origin = path->update_origin;
+	strlcpy(segment_list->originator, path->originator,
+		sizeof(segment_list->originator));
+	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_NEW);
+	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_MODIFIED);
 
-			segment = srte_segment_entry_add(segment_list, index);
+	for (hop = path->first_hop, index = 10; hop != NULL;
+	     hop = hop->next, index += 10) {
+		assert(hop->has_sid);
+		assert(hop->is_mpls);
 
-			segment->sid_value = (mpls_label_t)hop->sid.mpls.label;
-			SET_FLAG(segment->segment_list->flags,
-				 F_SEGMENT_LIST_MODIFIED);
+		segment = srte_segment_entry_add(segment_list, index);
 
-			if (hop->has_nai)
-				srte_segment_entry_set_nai(
-					segment, srte_nai_type(hop->nai.type),
-					&hop->nai.local_addr,
-					hop->nai.local_iface,
-					&hop->nai.remote_addr,
-					hop->nai.remote_iface);
-		}
+		segment->sid_value = (mpls_label_t)hop->sid.mpls.label;
+		SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
+
+		if (!hop->has_nai)
+			continue;
+		if (srte_segment_entry_set_nai(
+			    segment, srte_nai_type(hop->nai.type),
+			    &hop->nai.local_addr, hop->nai.local_iface,
+			    &hop->nai.remote_addr, hop->nai.remote_iface, 0, 0)
+		    == PATH_SID_ERROR)
+			/* TED queries don't match PCE */
+			/* Don't apply srte,zebra changes */
+			number_of_sid_clashed++;
 	}
 
 	candidate->lsp->segment_list = segment_list;
@@ -352,7 +452,11 @@ int path_pcep_config_update_path(struct path *path)
 		candidate->lsp->objfun = path->pce_objfun;
 	}
 
-	srte_apply_changes();
+	if (number_of_sid_clashed)
+		SET_FLAG(segment->segment_list->flags,
+			 F_SEGMENT_LIST_SID_CONFLICT);
+	else
+		srte_apply_changes();
 
 	return 0;
 }
@@ -368,8 +472,12 @@ struct srte_candidate *lookup_candidate(struct lsp_nb_key *key)
 
 char *candidate_name(struct srte_candidate *candidate)
 {
-	return asprintfrr(MTYPE_PCEP, "%s-%s", candidate->policy->name,
-			  candidate->name);
+	if (candidate->protocol_origin == SRTE_ORIGIN_PCEP
+	    || candidate->protocol_origin == SRTE_ORIGIN_BGP)
+		return asprintfrr(MTYPE_PCEP, "%s", candidate->policy->name);
+	else
+		return asprintfrr(MTYPE_PCEP, "%s-%s", candidate->policy->name,
+				  candidate->name);
 }
 
 enum pcep_lsp_operational_status
@@ -402,6 +510,16 @@ enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type)
 		return PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY;
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
 		return PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
+		return PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+		return PCEP_SR_SUBOBJ_NAI_IPV4_NODE;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+		return PCEP_SR_SUBOBJ_NAI_IPV6_NODE;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+		return PCEP_SR_SUBOBJ_NAI_IPV4_NODE;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
+		return PCEP_SR_SUBOBJ_NAI_IPV6_NODE;
 	default:
 		return PCEP_SR_SUBOBJ_NAI_UNKNOWN;
 	}

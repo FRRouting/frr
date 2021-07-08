@@ -572,9 +572,14 @@ int eigrp_read(struct thread *thread)
 	    && IS_DEBUG_EIGRP_TRANSMIT(0, PACKET_DETAIL))
 		eigrp_header_dump(eigrph);
 
-	//  if (MSG_OK != eigrp_packet_examin(eigrph, stream_get_endp(ibuf) -
-	//  stream_get_getp(ibuf)))
-	//    return -1;
+	if (ntohs(eigrph->ASNumber) != eigrp->AS) {
+		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
+			zlog_debug(
+				"ignoring packet from router %u sent to %pI4, wrong AS Number received: %u",
+				ntohs(eigrph->vrid), &iph->ip_dst,
+				ntohs(eigrph->ASNumber));
+		return 0;
+	}
 
 	/* If incoming interface is passive one, ignore it. */
 	if (eigrp_if_is_passive(ei)) {

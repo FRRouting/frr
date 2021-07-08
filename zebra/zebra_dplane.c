@@ -157,12 +157,17 @@ struct dplane_pw_info {
 	int af;
 	int status;
 	uint32_t flags;
+	uint32_t nhg_id;
 	union g_addr dest;
 	mpls_label_t local_label;
 	mpls_label_t remote_label;
 
-	/* Nexthops */
-	struct nexthop_group nhg;
+	/* Nexthops that are valid and installed */
+	struct nexthop_group fib_nhg;
+
+	/* Primary and backup nexthop sets, copied from the resolving route. */
+	struct nexthop_group primary_nhg;
+	struct nexthop_group backup_nhg;
 
 	union pw_protocol_fields fields;
 };
@@ -271,6 +276,11 @@ struct dplane_rule_info {
 	struct dplane_ctx_rule old;
 };
 
+struct dplane_gre_ctx {
+	uint32_t link_ifindex;
+	unsigned int mtu;
+	struct zebra_l2info_gre info;
+};
 /*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
@@ -327,6 +337,7 @@ struct zebra_dplane_ctx {
 			struct zebra_pbr_ipset_info info;
 		} ipset_entry;
 		struct dplane_neigh_table neightable;
+		struct dplane_gre_ctx gre;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -468,6 +479,9 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_neightable_in;
 	_Atomic uint32_t dg_neightable_errors;
+
+	_Atomic uint32_t dg_gre_set_in;
+	_Atomic uint32_t dg_gre_set_errors;
 
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
@@ -655,11 +669,21 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 		/* Free allocated nexthops */
-		if (ctx->u.pw.nhg.nexthop) {
+		if (ctx->u.pw.fib_nhg.nexthop) {
 			/* This deals with recursive nexthops too */
-			nexthops_free(ctx->u.pw.nhg.nexthop);
+			nexthops_free(ctx->u.pw.fib_nhg.nexthop);
 
-			ctx->u.pw.nhg.nexthop = NULL;
+			ctx->u.pw.fib_nhg.nexthop = NULL;
+		}
+		if (ctx->u.pw.primary_nhg.nexthop) {
+			nexthops_free(ctx->u.pw.primary_nhg.nexthop);
+
+			ctx->u.pw.primary_nhg.nexthop = NULL;
+		}
+		if (ctx->u.pw.backup_nhg.nexthop) {
+			nexthops_free(ctx->u.pw.backup_nhg.nexthop);
+
+			ctx->u.pw.backup_nhg.nexthop = NULL;
 		}
 		break;
 
@@ -713,6 +737,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			}
 			list_delete(&ctx->u.iptable.interface_name_list);
 		}
+		break;
+	case DPLANE_OP_GRE_SET:
+		break;
 	}
 }
 
@@ -978,6 +1005,10 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 		ret = "NEIGH_TABLE_UPDATE";
+		break;
+
+	case DPLANE_OP_GRE_SET:
+		ret = "GRE_SET";
 		break;
 	}
 
@@ -1614,7 +1645,23 @@ dplane_ctx_get_pw_nhg(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.pw.nhg);
+	return &(ctx->u.pw.fib_nhg);
+}
+
+const struct nexthop_group *
+dplane_ctx_get_pw_primary_nhg(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.primary_nhg);
+}
+
+const struct nexthop_group *
+dplane_ctx_get_pw_backup_nhg(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.backup_nhg);
 }
 
 /* Accessors for interface information */
@@ -1770,6 +1817,31 @@ uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.neigh.update_flags;
+}
+
+/* Accessor for GRE set */
+uint32_t
+dplane_ctx_gre_get_link_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.gre.link_ifindex;
+}
+
+unsigned int
+dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.gre.mtu;
+}
+
+const struct zebra_l2info_gre *
+dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.gre.info;
 }
 
 /* Accessors for PBR rule information */
@@ -2420,12 +2492,14 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 			      enum dplane_op_e op,
 			      struct zebra_pw *pw)
 {
+	int ret = EINVAL;
 	struct prefix p;
 	afi_t afi;
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *re;
 	const struct nexthop_group *nhg;
+	struct nexthop *nh, *newnh, *last_nh;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init dplane ctx %s: pw '%s', loc %u, rem %u",
@@ -2463,36 +2537,87 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	 */
 	memcpy(&p.u, &pw->nexthop, sizeof(pw->nexthop));
 	p.family = pw->af;
-	p.prefixlen = ((pw->af == AF_INET) ?
-		       IPV4_MAX_PREFIXLEN : IPV6_MAX_PREFIXLEN);
+	p.prefixlen = ((pw->af == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN);
 
 	afi = (pw->af == AF_INET) ? AFI_IP : AFI_IP6;
 	table = zebra_vrf_table(afi, SAFI_UNICAST, pw->vrf_id);
-	if (table) {
-		rn = route_node_match(table, &p);
-		if (rn) {
-			RNODE_FOREACH_RE(rn, re) {
-				if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
-					break;
-			}
+	if (table == NULL)
+		goto done;
 
-			if (re) {
-				nhg = rib_get_fib_nhg(re);
-				if (nhg && nhg->nexthop)
-					copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-						      nhg->nexthop, NULL);
+	rn = route_node_match(table, &p);
+	if (rn == NULL)
+		goto done;
 
-				/* Include any installed backup nexthops */
-				nhg = rib_get_fib_backup_nhg(re);
-				if (nhg && nhg->nexthop)
-					copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-						      nhg->nexthop, NULL);
-			}
-			route_unlock_node(rn);
-		}
+	re = NULL;
+	RNODE_FOREACH_RE(rn, re) {
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
+			break;
 	}
 
-	return AOK;
+	if (re) {
+		/* We'll capture a 'fib' list of nexthops that meet our
+		 * criteria: installed, and labelled.
+		 */
+		nhg = rib_get_fib_nhg(re);
+		last_nh = NULL;
+
+		if (nhg && nhg->nexthop) {
+			for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+				if (!CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
+				    || CHECK_FLAG(nh->flags,
+						  NEXTHOP_FLAG_RECURSIVE)
+				    || nh->nh_label == NULL)
+					continue;
+
+				newnh = nexthop_dup(nh, NULL);
+
+				if (last_nh)
+					NEXTHOP_APPEND(last_nh, newnh);
+				else
+					ctx->u.pw.fib_nhg.nexthop = newnh;
+				last_nh = newnh;
+			}
+		}
+
+		/* Include any installed backup nexthops also. */
+		nhg = rib_get_fib_backup_nhg(re);
+		if (nhg && nhg->nexthop) {
+			for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+				if (!CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
+				    || CHECK_FLAG(nh->flags,
+						  NEXTHOP_FLAG_RECURSIVE)
+				    || nh->nh_label == NULL)
+					continue;
+
+				newnh = nexthop_dup(nh, NULL);
+
+				if (last_nh)
+					NEXTHOP_APPEND(last_nh, newnh);
+				else
+					ctx->u.pw.fib_nhg.nexthop = newnh;
+				last_nh = newnh;
+			}
+		}
+
+		/* Copy primary nexthops; recursive info is included too */
+		assert(re->nhe != NULL); /* SA warning */
+		copy_nexthops(&(ctx->u.pw.primary_nhg.nexthop),
+			      re->nhe->nhg.nexthop, NULL);
+		ctx->u.pw.nhg_id = re->nhe->id;
+
+		/* Copy backup nexthop info, if present */
+		if (re->nhe->backup_info && re->nhe->backup_info->nhe) {
+			copy_nexthops(&(ctx->u.pw.backup_nhg.nexthop),
+				      re->nhe->backup_info->nhe->nhg.nexthop,
+				      NULL);
+		}
+	}
+	route_unlock_node(rn);
+
+	ret = AOK;
+
+done:
+	return ret;
 }
 
 /**
@@ -4126,6 +4251,71 @@ dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset)
 }
 
 /*
+ * Common helper api for GRE set
+ */
+enum zebra_dplane_result
+dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
+	       unsigned int mtu, const struct zebra_l2info_gre *gre_info)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	enum dplane_op_e op = DPLANE_OP_GRE_SET;
+	int ret;
+	struct zebra_ns *zns;
+
+	ctx = dplane_ctx_alloc();
+
+	if (!ifp)
+		return result;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("init dplane ctx %s: if %s link %s%s",
+			   dplane_op2str(op), ifp->name,
+			   ifp_link ? "set" : "unset", ifp_link ?
+			   ifp_link->name : "");
+	}
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	zns = zebra_ns_lookup(ifp->vrf_id);
+	if (!zns)
+		return result;
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	dplane_ctx_set_ifname(ctx, ifp->name);
+	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_ifindex = ifp->ifindex;
+	if (ifp_link)
+		ctx->u.gre.link_ifindex = ifp_link->ifindex;
+	else
+		ctx->u.gre.link_ifindex = 0;
+	if (gre_info)
+		memcpy(&ctx->u.gre.info, gre_info, sizeof(ctx->u.gre.info));
+	ctx->u.gre.mtu = mtu;
+
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	/* Enqueue context for processing */
+	ret = dplane_update_enqueue(ctx);
+
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_gre_set_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(
+			&zdplane_info.dg_gre_set_errors, 1,
+			memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+		result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+	return result;
+}
+
+/*
  * Handler for 'show dplane'
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
@@ -4234,6 +4424,13 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 				    memory_order_relaxed);
 	vty_out(vty, "Neighbor Table updates:       %"PRIu64"\n", incoming);
 	vty_out(vty, "Neighbor Table errors:        %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_gre_set_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_gre_set_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "GRE set updates:       %"PRIu64"\n", incoming);
+	vty_out(vty, "GRE set errors:        %"PRIu64"\n", errs);
 	return CMD_SUCCESS;
 }
 
@@ -4680,6 +4877,12 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_ifname(ctx),
 			   family2str(dplane_ctx_neightable_get_family(ctx)));
 		break;
+	case DPLANE_OP_GRE_SET:
+		zlog_debug("Dplane gre set op %s, ifp %s, link %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifname(ctx),
+			   ctx->u.gre.link_ifindex);
+		break;
 	}
 }
 
@@ -4808,6 +5011,12 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 				memory_order_relaxed);
 		break;
 
+	case DPLANE_OP_GRE_SET:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(
+				&zdplane_info.dg_gre_set_errors, 1,
+				memory_order_relaxed);
+		break;
 	/* Ignore 'notifications' - no-op */
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:

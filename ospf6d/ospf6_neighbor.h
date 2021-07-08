@@ -47,6 +47,10 @@ struct ospf6_neighbor {
 	uint32_t state_change;
 	struct timeval last_changed;
 
+	/* last received hello */
+	struct timeval last_hello;
+	uint32_t hello_in;
+
 	/* Neighbor Router ID */
 	in_addr_t router_id;
 
@@ -88,6 +92,9 @@ struct ospf6_neighbor {
 
 	/* Inactivity timer */
 	struct thread *inactivity_timer;
+
+	/* Timer to release the last dbdesc packet */
+	struct thread *last_dbdesc_release_timer;
 
 	/* Thread for sending message */
 	struct thread *thread_send_dbdesc;

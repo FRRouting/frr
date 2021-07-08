@@ -74,7 +74,7 @@ static int nb_cli_classic_commit(struct vty *vty)
 	default:
 		vty_out(vty, "%% Configuration failed.\n\n");
 		vty_show_nb_errors(vty, ret, errmsg);
-		if (vty->t_pending_commit)
+		if (vty->pending_commit)
 			vty_out(vty,
 				"The following commands were dynamically grouped into the same transaction and rejected:\n%s",
 				vty->pending_cmds_buf);
@@ -89,49 +89,22 @@ static int nb_cli_classic_commit(struct vty *vty)
 
 static void nb_cli_pending_commit_clear(struct vty *vty)
 {
-	THREAD_OFF(vty->t_pending_commit);
-	vty->backoff_cmd_count = 0;
+	vty->pending_commit = 0;
 	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
 	vty->pending_cmds_buflen = 0;
 	vty->pending_cmds_bufpos = 0;
 }
 
-static int nb_cli_pending_commit_cb(struct thread *thread)
+int nb_cli_pending_commit_check(struct vty *vty)
 {
-	struct vty *vty = THREAD_ARG(thread);
+	int ret = CMD_SUCCESS;
 
-	(void)nb_cli_classic_commit(vty);
-	nb_cli_pending_commit_clear(vty);
-
-	return 0;
-}
-
-void nb_cli_pending_commit_check(struct vty *vty)
-{
-	if (vty->t_pending_commit) {
-		(void)nb_cli_classic_commit(vty);
+	if (vty->pending_commit) {
+		ret = nb_cli_classic_commit(vty);
 		nb_cli_pending_commit_clear(vty);
 	}
-}
 
-static bool nb_cli_backoff_start(struct vty *vty)
-{
-	struct timeval now, delta;
-
-	/*
-	 * Start the configuration backoff timer only if 100 YANG-modeled
-	 * commands or more were entered within the last second.
-	 */
-	monotime(&now);
-	if (monotime_since(&vty->backoff_start, &delta) >= 1000000) {
-		vty->backoff_start = now;
-		vty->backoff_cmd_count = 1;
-		return false;
-	}
-	if (++vty->backoff_cmd_count < 100)
-		return false;
-
-	return true;
+	return ret;
 }
 
 static int nb_cli_schedule_command(struct vty *vty)
@@ -154,9 +127,7 @@ static int nb_cli_schedule_command(struct vty *vty)
 					   vty->pending_cmds_buflen);
 
 	/* Schedule the commit operation. */
-	THREAD_OFF(vty->t_pending_commit);
-	thread_add_timer_msec(master, nb_cli_pending_commit_cb, vty, 100,
-			      &vty->t_pending_commit);
+	vty->pending_commit = 1;
 
 	return CMD_SUCCESS;
 }
@@ -180,21 +151,16 @@ void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 	change->value = value;
 }
 
-int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
+static int nb_cli_apply_changes_internal(struct vty *vty,
+					 const char *xpath_base,
+					 bool clear_pending)
 {
-	char xpath_base[XPATH_MAXLEN] = {};
 	bool error = false;
 
+	if (xpath_base == NULL)
+		xpath_base = "";
+
 	VTY_CHECK_XPATH;
-
-	/* Parse the base XPath format string. */
-	if (xpath_base_fmt) {
-		va_list ap;
-
-		va_start(ap, xpath_base_fmt);
-		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
-		va_end(ap);
-	}
 
 	/* Edit candidate configuration. */
 	for (size_t i = 0; i < vty->num_cfg_changes; i++) {
@@ -207,10 +173,9 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		/* Handle relative XPaths. */
 		memset(xpath, 0, sizeof(xpath));
 		if (vty->xpath_index > 0
-		    && ((xpath_base_fmt && xpath_base[0] == '.')
-			|| change->xpath[0] == '.'))
+		    && (xpath_base[0] == '.' || change->xpath[0] == '.'))
 			strlcpy(xpath, VTY_CURR_XPATH, sizeof(xpath));
-		if (xpath_base_fmt) {
+		if (xpath_base[0]) {
 			if (xpath_base[0] == '.')
 				strlcat(xpath, xpath_base + 1, sizeof(xpath));
 			else
@@ -267,7 +232,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	}
 
 	/*
-	 * Do an implicit commit when using the classic CLI mode.
+	 * Maybe do an implicit commit when using the classic CLI mode.
 	 *
 	 * NOTE: the implicit commit might be scheduled to run later when
 	 * too many commands are being sent at the same time. This is a
@@ -276,12 +241,47 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	 * faster.
 	 */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
-		if (vty->t_pending_commit || nb_cli_backoff_start(vty))
+		if (clear_pending) {
+			if (vty->pending_commit)
+				return nb_cli_pending_commit_check(vty);
+		} else if (vty->pending_allowed)
 			return nb_cli_schedule_command(vty);
+		assert(!vty->pending_commit);
 		return nb_cli_classic_commit(vty);
 	}
 
 	return CMD_SUCCESS;
+}
+
+int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+	return nb_cli_apply_changes_internal(vty, xpath_base, false);
+}
+
+int nb_cli_apply_changes_clear_pending(struct vty *vty,
+				       const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+	return nb_cli_apply_changes_internal(vty, xpath_base, true);
 }
 
 int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
@@ -448,6 +448,7 @@ static int nb_cli_candidate_load_file(struct vty *vty,
 	struct ly_ctx *ly_ctx;
 	int ly_format;
 	char buf[BUFSIZ];
+	LY_ERR err;
 
 	switch (format) {
 	case NB_CFG_FMT_CMDS:
@@ -465,8 +466,10 @@ static int nb_cli_candidate_load_file(struct vty *vty,
 		ly_format = (format == NB_CFG_FMT_JSON) ? LYD_JSON : LYD_XML;
 
 		ly_ctx = translator ? translator->ly_ctx : ly_native_ctx;
-		dnode = lyd_parse_path(ly_ctx, path, ly_format, LYD_OPT_EDIT);
-		if (!dnode) {
+		err = lyd_parse_data_path(ly_ctx, path, ly_format,
+					  LYD_PARSE_ONLY | LYD_PARSE_NO_STATE,
+					  0, &dnode);
+		if (err || !dnode) {
 			flog_warn(EC_LIB_LIBYANG, "%s: lyd_parse_path() failed",
 				  __func__);
 			vty_out(vty, "%% Failed to load configuration:\n\n");
@@ -536,8 +539,6 @@ void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 	if (config->dnode == NULL)
 		return;
 
-	lyd_schema_sort(config->dnode, 1);
-
 	/*
 	 * Call lyd_validate() only to create default child nodes, ignoring
 	 * any possible validation error. This doesn't need to be done when
@@ -545,9 +546,8 @@ void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 	 * validated.
 	 */
 	if (config != running_config)
-		(void)lyd_validate(&config->dnode,
-				   LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
-				   ly_native_ctx);
+		(void)lyd_validate_all(&config->dnode, ly_native_ctx,
+				       LYD_VALIDATE_NO_STATE, NULL);
 }
 
 static void show_dnode_children_cmds(struct vty *vty, struct lyd_node *root,
@@ -559,7 +559,7 @@ static void show_dnode_children_cmds(struct vty *vty, struct lyd_node *root,
 	struct list *sort_list;
 	void *data;
 
-	LY_TREE_FOR (root->child, child) {
+	LY_LIST_FOR (lyd_child(root), child) {
 		nb_node = child->schema->priv;
 
 		/*
@@ -634,8 +634,9 @@ static void nb_cli_show_config_cmds(struct vty *vty, struct nb_config *config,
 	vty_out(vty, "frr version %s\n", FRR_VER_SHORT);
 	vty_out(vty, "frr defaults %s\n", frr_defaults_profile());
 
-	LY_TREE_FOR (config->dnode, root)
+	LY_LIST_FOR (config->dnode, root) {
 		nb_cli_show_dnode_cmds(vty, root, with_defaults);
+	}
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "end\n");
@@ -660,11 +661,11 @@ static int nb_cli_show_config_libyang(struct vty *vty, LYD_FORMAT format,
 		return CMD_WARNING;
 	}
 
-	SET_FLAG(options, LYP_FORMAT | LYP_WITHSIBLINGS);
+	SET_FLAG(options, LYD_PRINT_WITHSIBLINGS);
 	if (with_defaults)
-		SET_FLAG(options, LYP_WD_ALL);
+		SET_FLAG(options, LYD_PRINT_WD_ALL);
 	else
-		SET_FLAG(options, LYP_WD_TRIM);
+		SET_FLAG(options, LYD_PRINT_WD_TRIM);
 
 	if (lyd_print_mem(&strp, dnode, format, options) == 0 && strp) {
 		vty_out(vty, "%s", strp);
@@ -1401,7 +1402,7 @@ DEFPY (show_config_transaction,
 #endif /* HAVE_CONFIG_ROLLBACKS */
 }
 
-static int nb_cli_oper_data_cb(const struct lys_node *snode,
+static int nb_cli_oper_data_cb(const struct lysc_node *snode,
 			       struct yang_translator *translator,
 			       struct yang_data *data, void *arg)
 {
@@ -1427,12 +1428,12 @@ static int nb_cli_oper_data_cb(const struct lys_node *snode,
 	} else
 		ly_ctx = ly_native_ctx;
 
-	ly_errno = 0;
-	dnode = lyd_new_path(dnode, ly_ctx, data->xpath, (void *)data->value, 0,
-			     LYD_PATH_OPT_UPDATE);
-	if (!dnode && ly_errno) {
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
-			  __func__);
+	LY_ERR err =
+		lyd_new_path(dnode, ly_ctx, data->xpath, (void *)data->value,
+			     LYD_NEW_PATH_UPDATE, &dnode);
+	if (err) {
+		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %s",
+			  __func__, data->xpath, ly_errmsg(ly_native_ctx));
 		goto error;
 	}
 
@@ -1494,11 +1495,11 @@ DEFPY (show_yang_operational_data,
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
-	lyd_validate(&dnode, LYD_OPT_GET, ly_ctx);
+	(void)lyd_validate_all(&dnode, ly_ctx, 0, NULL);
 
 	/* Display the data. */
 	if (lyd_print_mem(&strp, dnode, format,
-			  LYP_FORMAT | LYP_WITHSIBLINGS | LYP_WD_ALL)
+			  LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL)
 		    != 0
 	    || !strp) {
 		vty_out(vty, "%% Failed to display operational data.\n");
@@ -1551,13 +1552,12 @@ DEFPY (show_yang_module,
 
 		snprintf(flags, sizeof(flags), "%c%c",
 			 module->implemented ? 'I' : ' ',
-			 (module->deviated == 1) ? 'D' : ' ');
+			 LY_ARRAY_COUNT(module->deviated_by) ? 'D' : ' ');
 
 		ttable_add_row(tt, "%s|%s|%s|%s|%s", module->name,
-			       (module->version == 2) ? "1.1" : "1.0",
-			       (module->rev_size > 0) ? module->rev[0].date
-						      : "-",
-			       flags, module->ns);
+			       (module->parsed->version == 2) ? "1.1" : "1.0",
+			       module->revision ? module->revision : "-", flags,
+			       module->ns);
 	}
 
 	/* Dump the generated table. */
@@ -1577,21 +1577,21 @@ DEFPY (show_yang_module,
 	return CMD_SUCCESS;
 }
 
-DEFPY (show_yang_module_detail,
-       show_yang_module_detail_cmd,
-       "show yang module\
+DEFPY(show_yang_module_detail, show_yang_module_detail_cmd,
+      "show yang module\
           [module-translator WORD$translator_family]\
-          WORD$module_name <summary|tree$tree|yang$yang|yin$yin>",
-       SHOW_STR
-       "YANG information\n"
-       "Show loaded modules\n"
-       "YANG module translator\n"
-       "YANG module translator\n"
-       "Module name\n"
-       "Display summary information about the module\n"
-       "Display module in the tree (RFC 8340) format\n"
-       "Display module in the YANG format\n"
-       "Display module in the YIN format\n")
+          WORD$module_name <compiled$compiled|summary|tree$tree|yang$yang|yin$yin>",
+      SHOW_STR
+      "YANG information\n"
+      "Show loaded modules\n"
+      "YANG module translator\n"
+      "YANG module translator\n"
+      "Module name\n"
+      "Display compiled module in YANG format\n"
+      "Display summary information about the module\n"
+      "Display module in the tree (RFC 8340) format\n"
+      "Display module in the YANG format\n"
+      "Display module in the YIN format\n")
 {
 	struct ly_ctx *ly_ctx;
 	struct yang_translator *translator = NULL;
@@ -1610,7 +1610,7 @@ DEFPY (show_yang_module_detail,
 	} else
 		ly_ctx = ly_native_ctx;
 
-	module = ly_ctx_get_module(ly_ctx, module_name, NULL, 0);
+	module = ly_ctx_get_module_latest(ly_ctx, module_name);
 	if (!module) {
 		vty_out(vty, "%% Module \"%s\" not found\n", module_name);
 		return CMD_WARNING;
@@ -1620,12 +1620,17 @@ DEFPY (show_yang_module_detail,
 		format = LYS_OUT_YANG;
 	else if (yin)
 		format = LYS_OUT_YIN;
+	else if (compiled)
+		format = LYS_OUT_YANG_COMPILED;
 	else if (tree)
 		format = LYS_OUT_TREE;
-	else
-		format = LYS_OUT_INFO;
+	else {
+		vty_out(vty,
+			"%% libyang v2 does not currently support summary\n");
+		return CMD_WARNING;
+	}
 
-	if (lys_print_mem(&strp, module, format, NULL, 0, 0) == 0) {
+	if (lys_print_mem(&strp, module, format, 0) == 0) {
 		vty_out(vty, "%s\n", strp);
 		free(strp);
 	} else {

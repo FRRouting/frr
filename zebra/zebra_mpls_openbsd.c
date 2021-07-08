@@ -458,6 +458,9 @@ int mpls_kernel_init(void)
 
 	kr_state.rtseq = 1;
 
+	/* Strict pseudowire reachability checking required for obsd */
+	mpls_pw_reach_strict = true;
+
 	return 0;
 }
 

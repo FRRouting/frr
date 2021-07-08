@@ -372,6 +372,20 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv4",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv4_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv4_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv6",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_destroy,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}

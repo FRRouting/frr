@@ -101,6 +101,7 @@ TESTCASES =
 2. OSPF Timers - Verify OSPF interface timer hello interval functionality
 3. OSPF Timers - Verify OSPF interface timer dead interval functionality
 4. Verify ospf show commands with json output.
+5. Verify NFSM events when ospf nbr changes with different MTU values.
  """
 
 
@@ -970,6 +971,153 @@ def test_ospf_dead_tc11_p0(request):
     )
     input_dict = {"r1": {"links": {"r0": {"ospf": {"timerDeadSecs": 40}}}}}
     dut = "r1"
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_ospf_tc4_mtu_ignore_p0(request):
+    """
+    OSPF NFSM - MTU change
+
+    Verify NFSM events when ospf nbr changes with different MTU values
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+    step(" Bring up the base config as per the topology")
+    step("Configure OSPF on all the routers of the topology.")
+    step("Verify that OSPF neighbors are FULL.")
+    reset_config_on_routers(tgen)
+    result = verify_ospf_neighbor(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Modify the MTU to non default Value on R0 to R1 interface. "
+        "Reset ospf neighbors on R0."
+    )
+
+    rtr0 = tgen.routers()["r0"]
+    rtr1 = tgen.routers()["r1"]
+
+    r0_r1_intf = topo["routers"]["r0"]["links"]["r1"]["interface"]
+    r1_r0_intf = topo["routers"]["r1"]["links"]["r0"]["interface"]
+
+    rtr0.run("ifconfig {} mtu 1200".format(r0_r1_intf))
+
+    clear_ospf(tgen, "r0")
+
+    step(
+        "Verify that OSPF neighborship between R0 and R1 is stuck in Exstart" " State."
+    )
+    result = verify_ospf_neighbor(tgen, topo, expected=False)
+    assert result is not True, (
+        "Testcase {} : Failed \n OSPF nbrs are Full "
+        "instead of Exstart. Error: {}".format(tc_name, result)
+    )
+
+    step(
+        "Verify that configured MTU value is updated in the show ip " "ospf interface."
+    )
+
+    dut = "r0"
+    input_dict = {"r0": {"links": {"r1": {"ospf": {"mtuBytes": 1200}}}}}
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Modify the MTU to non default Value on R0 to R1 interface. "
+        "Reset ospf neighbors on R0."
+    )
+    rtr0.run("ifconfig {} mtu 1500".format(r0_r1_intf))
+
+    clear_ospf(tgen, "r0")
+
+    step("Verify that OSPF neighborship between R0 and R1 becomes full.")
+    result = verify_ospf_neighbor(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Configure mtu ignore and change the value of the mtu to non default"
+        " on R0 to R1 interface. Reset ospf neighbors on R0."
+    )
+    r0_ospf_mtu = {"r0": {"links": {"r1": {"ospf": {"mtu_ignore": True}}}}}
+    result = config_ospf_interface(tgen, topo, r0_ospf_mtu)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r0"
+    input_dict = {"r0": {"links": {"r1": {"ospf": {"mtuMismatchDetect": True}}}}}
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    r1_ospf_mtu = {"r1": {"links": {"r0": {"ospf": {"mtu_ignore": True}}}}}
+    result = config_ospf_interface(tgen, topo, r1_ospf_mtu)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    rtr0.run("ifconfig {} mtu 1200".format(r0_r1_intf))
+
+    clear_ospf(tgen, "r0")
+
+    step("Verify that OSPF neighborship between R0 and R1 becomes full.")
+    result = verify_ospf_neighbor(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Unconfigure mtu-ignore command from the interface. "
+        "Reset ospf neighbors on R0."
+    )
+
+    r1_ospf_mtu = {
+        "r1": {"links": {"r0": {"ospf": {"mtu_ignore": True, "delete": True}}}}
+    }
+    result = config_ospf_interface(tgen, topo, r1_ospf_mtu)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    clear_ospf(tgen, "r0")
+
+    step(
+        "Verify that OSPF neighborship between R0 and R1 is stuck in Exstart" " State."
+    )
+    result = verify_ospf_neighbor(tgen, topo, expected=False)
+    assert result is not True, (
+        "Testcase {} : Failed \n OSPF nbrs are Full "
+        "instead of Exstart. Error: {}".format(tc_name, result)
+    )
+
+    step("Modify the MTU to again default valaue on R0 to R1 interface.")
+
+    rtr0.run("ifconfig {} mtu 1500".format(r0_r1_intf))
+
+    clear_ospf(tgen, "r0")
+
+    step("Verify that OSPF neighborship between R0 and R1 becomes full.")
+    result = verify_ospf_neighbor(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Configure ospf interface with jumbo MTU (9216)." "Reset ospf neighbors on R0."
+    )
+
+    rtr0.run("ifconfig {} mtu 9216".format(r0_r1_intf))
+    rtr1.run("ifconfig {} mtu 9216".format(r1_r0_intf))
+
+    clear_ospf(tgen, "r0")
+    clear_ospf(tgen, "r1")
+
+    step("Verify that OSPF neighborship between R0 and R1 becomes full.")
+    result = verify_ospf_neighbor(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that jumbo MTU is updated in the show ip ospf interface.")
+    dut = "r0"
+    input_dict = {"r0": {"links": {"r1": {"ospf": {"mtuBytes": 9216}}}}}
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 

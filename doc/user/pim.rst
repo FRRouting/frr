@@ -154,20 +154,6 @@ Certain signals have special meanings to *pimd*.
    urib-only
       Lookup in the Unicast Rib only.
 
-.. clicmd:: ip msdp mesh-group [WORD]
-
-   Create or Delete a multicast source discovery protocol mesh-group using
-   [WORD] as the group name.
-
-.. clicmd:: ip msdp mesh-group WORD member A.B.C.D
-
-   Attach or Delete A.B.C.D to the MSDP mesh group WORD specified.
-
-.. clicmd:: ip msdp mesh-group WORD source A.B.C.D
-
-   For the address specified A.B.C.D use that as the source address for
-   mesh group packets being sent.
-
 .. clicmd:: ip igmp generate-query-once [version (2-3)]
 
    Generate IGMP query (v2/v3) on user requirement. This will not depend on
@@ -281,10 +267,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    :ref:`bfd-pim-peer-config`
 
 
-.. _pim-multicast-rib-insertion:
+.. _pim-multicast-rib:
 
-PIM Multicast RIB insertion:
-============================
+PIM Multicast RIB
+=================
 
 In order to influence Multicast RPF lookup, it is possible to insert
 into zebra routes for the Multicast RIB. These routes are only
@@ -308,27 +294,58 @@ caution. Most of the time this will not be necessary.
 Multicast Source Discovery Protocol (MSDP) Configuration
 ========================================================
 
-.. clicmd:: ip msdp mesh-group [WORD] member A.B.C.D
+MSDP can be setup in different ways:
 
-   Include a MSDP peer as a member of a MSDP mesh-group.
+* MSDP meshed-group: where all peers are connected with each other creating
+  a fully meshed network. SAs (source active) messages are not forwarded in
+  this mode because the origin is able to send SAs to all members.
 
-.. clicmd:: ip msdp mesh-group [WORD] source A.B.C.D
+  This setup is commonly used with anycast.
 
-   Create a MSDP mesh-group, defining a name for it and an associated local source
-   address.
+* MSDP peering: when there is one or more peers that are not fully meshed. SAs
+  may be forwarded depending on the result of filtering and RPF checks.
+
+  This setup is commonly consistent with BGP peerings (for RPF checks).
+
+* MSDP default peer: there is only one peer and all SAs will be forwarded
+  there.
+
+.. note::
+
+   MSDP default peer and SA filtering is not implemented.
+
+
+Commands available for MSDP:
+
+.. clicmd:: ip msdp timers (2-600) (3-600) [(1-600)]
+
+   Configure global MSDP timers.
+
+   First value is the keep-alive interval and it must be less than the
+   second value which is hold-time. This configures the interval in
+   seconds between keep-alive messages. The default value is 60 seconds.
+
+   Second value is the hold-time and it must be greater than the keep-alive
+   interval. This configures the interval in seconds before closing a non
+   responding connection. The default value is 75.
+
+   Third value is the connection retry interval and it is optional. This
+   configures the interval between connection attempts. The default value
+   is 30 seconds.
+
+.. clicmd:: ip msdp mesh-group WORD member A.B.C.D
+
+   Create or update a mesh group to include the specified MSDP peer.
+
+.. clicmd:: ip msdp mesh-group WORD source A.B.C.D
+
+   Create or update a mesh group to set the source address used to connect to
+   peers.
 
 .. clicmd:: ip msdp peer A.B.C.D source A.B.C.D
 
-   Establish a MSDP connection with a peer.
+   Create a regular MSDP session with peer using the specified source address.
 
-
-   Remove a MSDP peer member from a MSDP mesh-group.
-
-
-   Delete a MSDP mesh-group.
-
-
-   Delete a MSDP peer connection.
 
 .. _show-pim-information:
 

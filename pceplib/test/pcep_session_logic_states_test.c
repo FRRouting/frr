@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -394,6 +395,7 @@ void test_handle_socket_comm_event_open()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(msg);
+	assert(msg != NULL);
 	CU_ASSERT_EQUAL(PCEP_TYPE_ERROR, msg->msg_header->type);
 	/* Verify the error object */
 	CU_ASSERT_EQUAL(1, msg->obj_list->num_entries);
@@ -456,6 +458,7 @@ void test_handle_socket_comm_event_open_error()
 	uint8_t *encoded_msg =
 		dll_delete_first_node(mock_info->sent_message_list);
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
+	assert(encoded_msg != NULL);
 	struct pcep_message *open_msg_corrected =
 		pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(open_msg_corrected);
@@ -463,6 +466,7 @@ void test_handle_socket_comm_event_open_error()
 		(struct pcep_object_open *)pcep_obj_get(
 			open_msg_corrected->obj_list, PCEP_OBJ_CLASS_OPEN);
 	CU_ASSERT_PTR_NOT_NULL(open_object_corrected);
+	assert(open_object_corrected != NULL);
 	/* Verify the Keep-alive and Dead timers have been negotiated */
 	CU_ASSERT_EQUAL(error_open_object->open_keepalive,
 			open_object_corrected->open_keepalive);
@@ -596,6 +600,7 @@ void test_handle_socket_comm_event_pcreq()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *error_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(error_msg);
+	assert(error_msg != NULL);
 	CU_ASSERT_EQUAL(PCEP_TYPE_ERROR, error_msg->msg_header->type);
 	/* Verify the error object */
 	CU_ASSERT_EQUAL(1, error_msg->obj_list->num_entries);
@@ -627,6 +632,7 @@ void test_handle_socket_comm_event_report()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *error_msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(error_msg);
+	assert(error_msg != NULL);
 	CU_ASSERT_EQUAL(PCEP_TYPE_ERROR, error_msg->msg_header->type);
 	/* Verify the error object */
 	CU_ASSERT_EQUAL(1, error_msg->obj_list->num_entries);
@@ -744,6 +750,7 @@ void test_handle_socket_comm_event_unknown_msg()
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
 	struct pcep_message *msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(msg);
+	assert(msg != NULL);
 	CU_ASSERT_EQUAL(PCEP_TYPE_ERROR, msg->msg_header->type);
 	/* Verify the error object */
 	CU_ASSERT_EQUAL(1, msg->obj_list->num_entries);
@@ -776,6 +783,7 @@ void test_handle_socket_comm_event_unknown_msg()
 	/* Verify the error message */
 	encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
+	assert(encoded_msg != NULL);
 	msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(msg);
 	CU_ASSERT_EQUAL(PCEP_TYPE_ERROR, msg->msg_header->type);
@@ -793,8 +801,10 @@ void test_handle_socket_comm_event_unknown_msg()
 	/* Verify the Close message */
 	encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
 	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
+	assert(encoded_msg != NULL);
 	msg = pcep_decode_message(encoded_msg);
 	CU_ASSERT_PTR_NOT_NULL(msg);
+	assert(msg != NULL);
 	CU_ASSERT_EQUAL(PCEP_TYPE_CLOSE, msg->msg_header->type);
 	/* Verify the error object */
 	CU_ASSERT_EQUAL(1, msg->obj_list->num_entries);

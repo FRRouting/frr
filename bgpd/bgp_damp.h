@@ -166,7 +166,7 @@ extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
 					   safi_t safi, bool use_json,
 					   json_object *json);
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t,
-					 uint8_t);
+					 uint16_t);
 extern void bgp_peer_damp_enable(struct peer *peer, afi_t afi, safi_t safi,
 				 time_t half, unsigned int reuse,
 				 unsigned int suppress, time_t max);

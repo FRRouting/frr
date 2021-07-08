@@ -505,7 +505,7 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	sg.grp.s_addr = stream_get_ipv4(mp->ibuf);
 	sg.src.s_addr = stream_get_ipv4(mp->ibuf);
 
-	if (prefix_len != 32) {
+	if (prefix_len != IPV4_MAX_BITLEN) {
 		/* ignore SA update if the prefix length is not 32 */
 		flog_err(EC_PIM_MSDP_PACKET,
 			 "rxed sa update with invalid prefix length %d",
@@ -522,11 +522,15 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	 * If the message group is not set, i.e. "default", then we assume that
 	 * the message must be forwarded.*/
 	for (ALL_LIST_ELEMENTS_RO(mp->pim->msdp.peer_list, peer_node, peer)) {
-		if (!pim_msdp_peer_rpf_check(peer, rp)
-		    && (strcmp(mp->mesh_group_name, peer->mesh_group_name)
-			|| !strcmp(mp->mesh_group_name, "default"))) {
-			pim_msdp_pkt_sa_tx_one_to_one_peer(peer, rp, sg);
-		}
+		/* Not a RPF peer, so skip it. */
+		if (pim_msdp_peer_rpf_check(peer, rp))
+			continue;
+		/* Don't forward inside the meshed group. */
+		if ((mp->flags & PIM_MSDP_PEERF_IN_GROUP)
+		    && strcmp(mp->mesh_group_name, peer->mesh_group_name) == 0)
+			continue;
+
+		pim_msdp_pkt_sa_tx_one_to_one_peer(peer, rp, sg);
 	}
 }
 

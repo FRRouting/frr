@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <CUnit/CUnit.h>
 
 #include "pcep_utils_queue.h"
@@ -41,6 +42,7 @@ void test_empty_queue()
 	queue_handle *handle = queue_initialize();
 
 	CU_ASSERT_PTR_NOT_NULL(handle);
+	assert(handle != NULL);
 	CU_ASSERT_PTR_NULL(handle->head);
 	CU_ASSERT_EQUAL(handle->num_entries, 0);
 

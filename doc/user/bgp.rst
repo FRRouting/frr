@@ -442,7 +442,7 @@ Require policy on EBGP
 
       exit1# show bgp summary
 
-      IPv4 Unicast Summary:
+      IPv4 Unicast Summary (VRF default):
       BGP router identifier 10.10.10.1, local AS number 65001 vrf-id 0
       BGP table version 4
       RIB entries 7, using 1344 bytes of memory
@@ -1597,15 +1597,66 @@ Configuring Peers
 
 .. clicmd:: bgp default ipv4-unicast
 
-   This command allows the user to specify that v4 peering is turned
-   on by default or not.  This command defaults to on and is not displayed.
+   This command allows the user to specify that the IPv4 Unicast address
+   family is turned on by default or not.  This command defaults to on
+   and is not displayed.
    The `no bgp default ipv4-unicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv4-multicast
+
+   This command allows the user to specify that the IPv4 Multicast address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv4-multicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv4-vpn
+
+   This command allows the user to specify that the IPv4 MPLS VPN address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv4-vpn` form of the command is displayed.
+
+.. clicmd:: bgp default ipv4-flowspec
+
+   This command allows the user to specify that the IPv4 Flowspec address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv4-flowspec` form of the command is displayed.
 
 .. clicmd:: bgp default ipv6-unicast
 
-   This command allows the user to specify that v6 peering is turned
-   on by default or not.  This command defaults to off and is not displayed.
+   This command allows the user to specify that the IPv6 Unicast address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
    The `bgp default ipv6-unicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv6-multicast
+
+   This command allows the user to specify that the IPv6 Multicast address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv6-multicast` form of the command is displayed.
+
+.. clicmd:: bgp default ipv6-vpn
+
+   This command allows the user to specify that the IPv6 MPLS VPN address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv6-vpn` form of the command is displayed.
+
+.. clicmd:: bgp default ipv6-flowspec
+
+   This command allows the user to specify that the IPv6 Flowspec address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default ipv6-flowspec` form of the command is displayed.
+
+.. clicmd:: bgp default l2vpn-evpn
+
+   This command allows the user to specify that the L2VPN EVPN address
+   family is turned on by default or not.  This command defaults to off
+   and is not displayed.
+   The `bgp default l2vpn-evpn` form of the command is displayed.
 
 .. clicmd:: bgp default show-hostname
 
@@ -2078,6 +2129,42 @@ is called as named community lists.
 
    This command defines a new expanded community list. The argument to
    (100-199) defines the list identifier.
+
+.. _bgp-community-alias:
+
+Community alias
+^^^^^^^^^^^^^^^
+
+BGP community aliases are useful to quickly identify what communities are set
+for a specific prefix in a human-readable format. Especially handy for a huge
+amount of communities. Accurately defined aliases can help you faster spot
+things on the wire.
+
+.. clicmd:: bgp community alias NAME ALIAS
+
+   This command creates an alias name for a community that will be used
+   later in various CLI outputs in a human-readable format.
+
+   .. code-block:: frr
+
+      ~# vtysh -c 'show run' | grep 'bgp community alias'
+      bgp community alias 65001:14 community-1
+      bgp community alias 65001:123:1 lcommunity-1
+
+      ~# vtysh -c 'show ip bgp 172.16.16.1/32'
+      BGP routing table entry for 172.16.16.1/32, version 21
+      Paths: (2 available, best #2, table default)
+        Advertised to non peer-group peers:
+        65030
+          192.168.0.2 from 192.168.0.2 (172.16.16.1)
+            Origin incomplete, metric 0, valid, external, best (Neighbor IP)
+            Community: 65001:12 65001:13 community-1 65001:65534
+            Large Community: lcommunity-1 65001:123:2
+            Last update: Fri Apr 16 12:51:27 2021
+
+.. clicmd:: show bgp [afi] [safi] [all] alias WORD [wide|json]
+
+   Display prefixes with matching BGP community alias.
 
 .. _bgp-using-communities-in-route-map:
 
@@ -2561,6 +2648,19 @@ address-family:
    The CLI will disallow attempts to configure incompatible leaking
    modes.
 
+.. _bgp-l3vpn-srv6:
+
+L3VPN SRv6
+----------
+
+.. clicmd:: segment-routing srv6
+
+   Use SRv6 backend with BGP L3VPN, and go to its configuration node.
+
+.. clicmd:: locator NAME
+
+   Specify the SRv6 locator to be used for SRv6 L3VPN. The Locator name must
+   be set in zebra, but user can set it in any order.
 
 .. _bgp-evpn:
 
@@ -2646,6 +2746,114 @@ remote VTEP.
 
 Note that you should not enable both the advertise-svi-ip and the advertise-default-gw
 at the same time.
+
+.. _bgp-evpn-overlay-index-gateway-ip:
+
+EVPN Overlay Index Gateway IP
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Draft https://tools.ietf.org/html/draft-ietf-bess-evpn-prefix-advertisement-11
+explains the use of overlay indexes for recursive route resolution for EVPN
+type-5 route.
+
+We support gateway IP overlay index.
+A gateway IP, advertised with EVPN prefix route, is used to find an EVPN MAC/IP
+route with its IP field same as the gateway IP. This MAC/IP entry provides the
+nexthop VTEP and the tunnel information required for the VxLAN encapsulation.
+
+Functionality:
+
+::
+
+  .      +--------+ BGP  +--------+ BGP  +--------+      +--------+
+    SN1  |        | IPv4 |        | EVPN |        |      |        |
+   ======+ Host1  +------+   PE1  +------+   PE2  +------+  Host2 +
+         |        |      |        |      |        |      |        |
+         +--------+      +--------+      +--------+      +--------+
+
+Consider above topology where prefix SN1 is connected behind host1. Host1
+advertises SN1 to PE1 over BGP IPv4 session. PE1 advertises SN1 to PE2 using
+EVPN type-5 route with host1 IP as the gateway IP. PE1 also advertises
+Host1 MAC/IP as type-2 route which is used to resolve host1 gateway IP.
+
+PE2 receives this type-5 route and imports it into the vrf based on route
+targets. BGP prefix imported into the vrf uses gateway IP as its BGP nexthop.
+This route is installed into zebra if following conditions are satisfied:
+
+1. Gateway IP nexthop is L3 reachable.
+2. PE2 has received EVPN type-2 route with IP field set to gateway IP.
+
+Topology requirements:
+
+1. This feature is supported for asymmetric routing model only. While
+   sending packets to SN1, ingress PE (PE2) performs routing and
+   egress PE (PE1) performs only bridging.
+2. This feature supports only tratitional(non vlan-aware) bridge model. Bridge
+   interface associated with L2VNI is an L3 interface. i.e., this interface is
+   configured with an address in the L2VNI subnet. Note that the gateway IP
+   should also have an address in the same subnet.
+3. As this feature works in asymmetric routing model, all L2VNIs and corresponding
+   VxLAN and bridge interfaces should be present at all the PEs.
+4. L3VNI configuration is required to generate and import EVPN type-5 routes.
+   L3VNI VxLAN and bridge interfaces also should be present.
+
+A PE can use one of the following two mechanisms to advertise an EVPN type-5
+route with gateway IP.
+
+1. CLI to add gateway IP while generating EVPN type-5 route from a BGP IPv4/IPv6
+prefix:
+
+.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip]
+
+When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
+type-5 routes are generated for BGP prefixes in the vrf. Nexthop of the BGP
+prefix becomes the gateway IP of the corresponding type-5 route.
+
+If the above command is configured without the "gateway-ip" keyword, type-5
+routes are generated without overlay index.
+
+2. Add gateway IP to EVPN type-5 route using a route-map:
+
+.. clicmd:: set evpn gateway-ip <ipv4|ipv6> <addr>
+
+When route-map with above set clause is applied as outbound policy in BGP, it
+will set the gateway-ip in EVPN type-5 NLRI.
+
+Example configuration:
+
+.. code-block:: frr
+
+   router bgp 100
+    neighbor 192.168.0.1 remote-as 101
+    !
+    address-family ipv4 l2vpn evpn
+     neighbor 192.168.0.1 route-map RMAP out
+    exit-address-family
+   !
+   route-map RMAP permit 10
+    set evpn gateway-ip 10.0.0.1
+    set evpn gateway-ip 10::1
+
+A PE that receives a type-5 route with gateway IP overlay index should have
+"enable-resolve-overlay-index" configuration enabled to recursively resolve the
+overlay index nexthop and install the prefix into zebra.
+
+.. clicmd:: enable-resolve-overlay-index
+
+Example configuration:
+
+.. code-block:: frr
+
+   router bgp 65001
+    bgp router-id 192.168.100.1
+    no bgp ebgp-requires-policy
+    neighbor 10.0.1.2 remote-as 65002
+    !
+    address-family l2vpn evpn
+     neighbor 10.0.1.2 activate
+     advertise-all-vni
+     enable-resolve-overlay-index
+    exit-address-family
+   !
 
 EVPN Multihoming
 ^^^^^^^^^^^^^^^^
@@ -3209,7 +3417,7 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
       exit1# show ip bgp summary wide
 
-      IPv4 Unicast Summary:
+      IPv4 Unicast Summary (VRF default):
       BGP router identifier 192.168.100.1, local AS number 65534 vrf-id 0
       BGP table version 3
       RIB entries 5, using 920 bytes of memory
@@ -3247,6 +3455,26 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    Show a bgp peer summary for peers that are succesfully exchanging routes
    for the specified address family, and subsequent address-family.
+
+.. clicmd:: show bgp [afi] [safi] [all] summary neighbor [PEER] [json]
+
+   Show a bgp summary for the specified peer, address family, and
+   subsequent address-family. The neighbor filter can be used in combination
+   with the failed, established filters.
+
+.. clicmd:: show bgp [afi] [safi] [all] summary remote-as <internal|external|ASN> [json]
+
+   Show a bgp peer summary for the specified remote-as ASN or type (``internal``
+   for iBGP and ``external`` for eBGP sessions), address family, and subsequent
+   address-family. The remote-as filter can be used in combination with the
+   failed, established filters.
+
+.. clicmd:: show bgp [afi] [safi] [all] summary terse [json]
+
+   Shorten the output. Do not show the following information about the BGP
+   instances: the number of RIB entries, the table version and the used memory.
+   The ``terse`` option can be used in combination with the remote-as, neighbor,
+   failed and established filters, and with the ``wide`` option as well.
 
 .. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [json]
 
@@ -3478,6 +3706,40 @@ Displaying Update Group Information
 .. clicmd:: show bgp update-groups statistics
 
    Display Information about update-group events in FRR.
+
+Segment-Routing IPv6
+--------------------
+
+.. clicmd:: show bgp segment-routing srv6
+
+   This command displays information about SRv6 L3VPN in bgpd.  Specifically,
+   what kind of Locator is being used, and its Locator chunk information.
+   And the SID of the SRv6 Function that is actually managed on bgpd.
+   In the following example, bgpd is using a Locator named loc1, and two SRv6
+   Functions are managed to perform VPNv6 VRF redirect for vrf10 and vrf20.
+
+::
+
+   router# show bgp segment-routing srv6
+   locator_name: loc1
+   locator_chunks:
+   - 2001:db8:1:1::/64
+   functions:
+   - sid: 2001:db8:1:1::100
+     locator: loc1
+   - sid: 2001:db8:1:1::200
+     locator: loc1
+   bgps:
+   - name: default
+     vpn_policy[AFI_IP].tovpn_sid: none
+     vpn_policy[AFI_IP6].tovpn_sid: none
+   - name: vrf10
+     vpn_policy[AFI_IP].tovpn_sid: none
+     vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::100
+   - name: vrf20
+     vpn_policy[AFI_IP].tovpn_sid: none
+     vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::200
+
 
 .. _bgp-route-reflector:
 
@@ -3908,6 +4170,147 @@ Example of how to set up a 6-Bone connection.
    log file bgpd.log
    !
 
+.. _bgp-tcp-mss:
+
+BGP tcp-mss support
+===================
+TCP provides a mechanism for the user to specify the max segment size.
+setsockopt API is used to set the max segment size for TCP session. We
+can configure this as part of BGP neighbor configuration.
+
+This document explains how to avoid ICMP vulnerability issues by limiting
+TCP max segment size when you are using MTU discovery. Using MTU discovery
+on TCP paths is one method of avoiding BGP packet fragmentation.
+
+TCP negotiates a maximum segment size (MSS) value during session connection
+establishment between two peers. The MSS value negotiated is primarily based
+on the maximum transmission unit (MTU) of the interfaces to which the
+communicating peers are directly connected. However, due to variations in
+link MTU on the path taken by the TCP packets, some packets in the network
+that are well within the MSS value might be fragmented when the packet size
+exceeds the link's MTU.
+
+This feature is supported with TCP over IPv4 and TCP over IPv6.
+
+CLI Configuration:
+------------------
+Below configuration can be done in router bgp mode and allows the user to
+configure the tcp-mss value per neighbor. The configuration gets applied
+only after hard reset is performed on that neighbor. If we configure tcp-mss
+on both the neighbors then both neighbors need to be reset.
+
+The configuration takes effect based on below rules, so there is a configured
+tcp-mss and a synced tcp-mss value per TCP session.
+
+By default if the configuration is not done then the TCP max segment size is
+set to the Maximum Transmission unit (MTU) – (IP/IP6 header size + TCP header
+size + ethernet header). For IPv4 its MTU – (20 bytes IP header + 20 bytes TCP
+header + 12 bytes ethernet header) and for IPv6 its MTU – (40 bytes IPv6 header
++ 20 bytes TCP header + 12 bytes ethernet header).
+
+If the config is done then it reduces 12-14 bytes for the ether header and
+uses it after synchronizing in TCP handshake.
+
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> tcp-mss (1-65535)
+
+When tcp-mss is configured kernel reduces 12-14 bytes for ethernet header.
+E.g. if tcp-mss is configured as 150 the synced value will be 138.
+
+Note: configured and synced value is different since TCP module will reduce
+12 bytes for ethernet header.
+
+Running config:
+---------------
+
+.. code-block:: frr
+
+   frr# show running-config
+   Building configuration...
+
+   Current configuration:
+   !
+   router bgp 100
+    bgp router-id 192.0.2.1
+    neighbor 198.51.100.2 remote-as 100
+    neighbor 198.51.100.2 tcp-mss 150       => new entry
+    neighbor 2001:DB8::2 remote-as 100
+    neighbor 2001:DB8::2 tcp-mss 400        => new entry
+
+Show command:
+-------------
+
+.. code-block:: frr
+
+   frr# show bgp neighbors 198.51.100.2
+   BGP neighbor is 198.51.100.2, remote AS 100, local AS 100, internal link
+   Hostname: frr
+     BGP version 4, remote router ID 192.0.2.2, local router ID 192.0.2.1
+     BGP state = Established, up for 02:15:28
+     Last read 00:00:28, Last write 00:00:28
+     Hold time is 180, keepalive interval is 60 seconds
+     Configured tcp-mss is 150, synced tcp-mss is 138     => new display
+
+.. code-block:: frr
+
+   frr# show bgp neighbors 2001:DB8::2
+   BGP neighbor is 2001:DB8::2, remote AS 100, local AS 100, internal link
+   Hostname: frr
+     BGP version 4, remote router ID 192.0.2.2, local router ID 192.0.2.1
+     BGP state = Established, up for 02:16:34
+     Last read 00:00:34, Last write 00:00:34
+     Hold time is 180, keepalive interval is 60 seconds
+     Configured tcp-mss is 400, synced tcp-mss is 388      => new display
+
+Show command json output:
+-------------------------
+
+.. code-block:: frr
+
+   frr# show bgp neighbors 2001:DB8::2 json
+   {
+     "2001:DB8::2":{
+       "remoteAs":100,
+       "localAs":100,
+       "nbrInternalLink":true,
+       "hostname":"frr",
+       "bgpVersion":4,
+       "remoteRouterId":"192.0.2.2",
+       "localRouterId":"192.0.2.1",
+       "bgpState":"Established",
+       "bgpTimerUpMsec":8349000,
+       "bgpTimerUpString":"02:19:09",
+       "bgpTimerUpEstablishedEpoch":1613054251,
+       "bgpTimerLastRead":9000,
+       "bgpTimerLastWrite":9000,
+       "bgpInUpdateElapsedTimeMsecs":8347000,
+       "bgpTimerHoldTimeMsecs":180000,
+       "bgpTimerKeepAliveIntervalMsecs":60000,
+       "bgpTcpMssConfigured":400,                                   => new entry
+       "bgpTcpMssSynced":388,                                  => new entry
+
+.. code-block:: frr
+
+   frr# show bgp neighbors 198.51.100.2 json
+   {
+     "198.51.100.2":{
+       "remoteAs":100,
+       "localAs":100,
+       "nbrInternalLink":true,
+       "hostname":"frr",
+       "bgpVersion":4,
+       "remoteRouterId":"192.0.2.2",
+       "localRouterId":"192.0.2.1",
+       "bgpState":"Established",
+       "bgpTimerUpMsec":8370000,
+       "bgpTimerUpString":"02:19:30",
+       "bgpTimerUpEstablishedEpoch":1613054251,
+       "bgpTimerLastRead":30000,
+       "bgpTimerLastWrite":30000,
+       "bgpInUpdateElapsedTimeMsecs":8368000,
+       "bgpTimerHoldTimeMsecs":180000,
+       "bgpTimerKeepAliveIntervalMsecs":60000,
+       "bgpTcpMssConfigured":150,                                  => new entry
+       "bgpTcpMssSynced":138,                                  => new entry
 
 .. include:: routeserver.rst
 

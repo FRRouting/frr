@@ -56,6 +56,10 @@ struct bgp_nexthop_cache {
 	time_t last_update;
 	uint16_t flags;
 
+/*
+ * If the nexthop is EVPN gateway IP NH, VALID flag is set only if the nexthop
+ * is RIB reachable as well as MAC/IP is present
+ */
 #define BGP_NEXTHOP_VALID             (1 << 0)
 #define BGP_NEXTHOP_REGISTERED        (1 << 1)
 #define BGP_NEXTHOP_CONNECTED         (1 << 2)
@@ -64,11 +68,29 @@ struct bgp_nexthop_cache {
 #define BGP_STATIC_ROUTE_EXACT_MATCH  (1 << 5)
 #define BGP_NEXTHOP_LABELED_VALID     (1 << 6)
 
+/*
+ * This flag is added for EVPN gateway IP nexthops.
+ * If the nexthop is RIB reachable, but a MAC/IP is not yet
+ * resolved, this flag is set.
+ * Following table explains the combination of L3 and L2 reachability w.r.t.
+ * VALID and INCOMPLETE flags
+ *
+ *                | MACIP resolved | MACIP unresolved
+ *----------------|----------------|------------------
+ * L3 reachable   | VALID      = 1 | VALID      = 0
+ *                | INCOMPLETE = 0 | INCOMPLETE = 1
+ * ---------------|----------------|--------------------
+ * L3 unreachable | VALID      = 0 | VALID      = 0
+ *                | INCOMPLETE = 0 | INCOMPLETE = 0
+ */
+#define BGP_NEXTHOP_EVPN_INCOMPLETE (1 << 7)
+
 	uint16_t change_flags;
 
 #define BGP_NEXTHOP_CHANGED           (1 << 0)
 #define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
 #define BGP_NEXTHOP_CONNECTED_CHANGED (1 << 2)
+#define BGP_NEXTHOP_MACIP_CHANGED (1 << 3)
 
 	/* Back pointer to the cache tree this entry belongs to. */
 	struct bgp_nexthop_cache_head *tree;
@@ -79,6 +101,11 @@ struct bgp_nexthop_cache {
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
 	struct bgp *bgp;
+
+	/* This flag is set to TRUE for a bnc that is gateway IP overlay index
+	 * nexthop.
+	 */
+	bool is_evpn_gwip_nexthop;
 };
 
 extern int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,

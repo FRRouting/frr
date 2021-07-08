@@ -152,8 +152,7 @@ Show EIGRP Information
    Display the list of interfaces associated with a particular eigrp
    instance.
 
-..index:: show ip eigrp [vrf NAME] neighbor
-..clicmd:: show ip eigrp [vrf NAME] neighbor
+.. clicmd:: show ip eigrp [vrf NAME] neighbor
 
    Display the list of neighbors that have been established within
    a particular eigrp instance.

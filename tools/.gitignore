@@ -8,3 +8,4 @@
 /frrcommon.sh
 /frr.service
 /frr@.service
+/frr-llvm-cg

@@ -481,6 +481,10 @@ module frr-isisd {
       description
         "TI-LFA configuration.";
       leaf enable {
+        must ". = 'false' or ../../lfa/enable = 'false'" {
+          error-message
+            "Can't enable both classic LFA and TI-LFA in the same interface.";
+        }
         type boolean;
         default false;
         description
@@ -804,10 +808,6 @@ module frr-isisd {
       container level-1 {
         description
           "Level-1 IP Fast-reroute configuration.";
-        must "./lfa/enable = 'false' or ./ti-lfa/enable = 'false'" {
-          error-message
-            "Can't enable both classic LFA and TI-LFA in the same interface.";
-        }
         uses interface-config-lfa;
         uses interface-config-remote-lfa;
         uses interface-config-ti-lfa;
@@ -815,10 +815,6 @@ module frr-isisd {
       container level-2 {
         description
           "Level-2 IP Fast-reroute configuration.";
-        must "./lfa/enable = 'false' or ./ti-lfa/enable = 'false'" {
-          error-message
-            "Can't enable both classic LFA and TI-LFA in the same interface.";
-        }
         uses interface-config-lfa;
         uses interface-config-remote-lfa;
         uses interface-config-ti-lfa;
@@ -1502,14 +1498,15 @@ module frr-isisd {
           container srgb {
             description
               "Global blocks to be advertised.";
-            must "./upper-bound > ./lower-bound";
             leaf lower-bound {
+                must "../upper-bound > .";
                 type uint32;
                 default "16000";
                 description
                   "Lower value in the label range.";
             }
             leaf upper-bound {
+                must ". > ../lower-bound";
                 type uint32;
                 default "23999";
                 description
@@ -1519,14 +1516,15 @@ module frr-isisd {
           container srlb {
             description
               "Local blocks to be advertised.";
-            must "./upper-bound > ./lower-bound";
             leaf lower-bound {
+                must "../upper-bound > .";
                 type uint32;
                 default "15000";
                 description
                   "Lower value in the label range.";
             }
             leaf upper-bound {
+                must ". > ../lower-bound";
                 type uint32;
                 default "15999";
                 description

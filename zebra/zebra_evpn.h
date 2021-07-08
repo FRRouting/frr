@@ -98,6 +98,9 @@ struct zebra_evpn_t_ {
 	/* Corresponding VxLAN interface. */
 	struct interface *vxlan_if;
 
+	/* Corresponding SVI interface. */
+	struct interface *svi_if;
+
 	/* List of remote VTEPs */
 	zebra_vtep_t *vteps;
 

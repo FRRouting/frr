@@ -56,6 +56,9 @@ struct vty *vty;
 /* VTY shell pager name. */
 char *vtysh_pager_name = NULL;
 
+/* VTY should add timestamp */
+bool vtysh_add_timestamp;
+
 /* VTY shell client structure */
 struct vtysh_client {
 	int fd;
@@ -483,6 +486,13 @@ static int vtysh_execute_func(const char *line, int pager)
 		}
 	}
 
+	if (vtysh_add_timestamp && strncmp(line, "exit", 4)) {
+		char ts[48];
+
+		(void)quagga_timestamp(3, ts, sizeof(ts));
+		vty_out(vty, "%% %s\n\n", ts);
+	}
+
 	saved_ret = ret = cmd_execute(vty, line, &cmd, 1);
 	saved_node = vty->node;
 
@@ -493,6 +503,7 @@ static int vtysh_execute_func(const char *line, int pager)
 	 */
 	while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 	       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
+	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && vty->node > CONFIG_NODE) {
 		vty->node = node_parent(vty->node);
 		ret = cmd_execute(vty, line, &cmd, 1);
@@ -794,6 +805,7 @@ int vtysh_mark_file(const char *filename)
 		 */
 		while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 		       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
+		       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
 			ret = cmd_execute_command_strict(vline, vty, &cmd);
@@ -1261,7 +1273,6 @@ static struct cmd_node pw_node = {
 	.prompt = "%s(config-pw)# ",
 };
 
-#if defined(HAVE_PATHD)
 static struct cmd_node segment_routing_node = {
 	.name = "segment-routing",
 	.node = SEGMENT_ROUTING_NODE,
@@ -1269,6 +1280,7 @@ static struct cmd_node segment_routing_node = {
 	.prompt = "%s(config-sr)# ",
 };
 
+#if defined(HAVE_PATHD)
 static struct cmd_node sr_traffic_eng_node = {
 	.name = "sr traffic-eng",
 	.node = SR_TRAFFIC_ENG_NODE,
@@ -1347,6 +1359,27 @@ static struct cmd_node rmap_node = {
 	.node = RMAP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-route-map)# ",
+};
+
+static struct cmd_node srv6_node = {
+	.name = "srv6",
+	.node = SRV6_NODE,
+	.parent_node = SEGMENT_ROUTING_NODE,
+	.prompt = "%s(config-srv6)# ",
+};
+
+static struct cmd_node srv6_locs_node = {
+	.name = "srv6-locators",
+	.node = SRV6_LOCS_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-locators)# ",
+};
+
+static struct cmd_node srv6_loc_node = {
+	.name = "srv6-locator",
+	.node = SRV6_LOC_NODE,
+	.parent_node = SRV6_LOCS_NODE,
+	.prompt = "%s(config-srv6-locator)# ",
 };
 
 #ifdef HAVE_PBRD
@@ -1485,6 +1518,13 @@ static struct cmd_node bmp_node = {
 	.node = BMP_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-bgp-bmp)# "
+};
+
+static struct cmd_node bgp_srv6_node = {
+	.name = "bgp srv6",
+	.node = BGP_SRV6_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-srv6)# ",
 };
 #endif /* HAVE_BGPD */
 
@@ -1659,6 +1699,31 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	return vtysh_end();
 }
 
+DEFUNSH(VTYSH_SR, srv6, srv6_cmd,
+	"srv6",
+	"Segment-Routing SRv6 configration\n")
+{
+	vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, srv6_locators, srv6_locators_cmd,
+	"locators",
+	"Segment-Routing SRv6 locators configration\n")
+{
+	vty->node = SRV6_LOCS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, srv6_locator, srv6_locator_cmd,
+	"locator WORD",
+	"Segment Routing SRv6 locator\n"
+	"Specify locator-name\n")
+{
+	vty->node = SRV6_LOC_NODE;
+	return CMD_SUCCESS;
+}
+
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
@@ -1813,6 +1878,39 @@ DEFUNSH(VTYSH_BGPD,
 	"Name of the BMP target group\n")
 {
 	vty->node = BMP_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+        bgp_srv6,
+        bgp_srv6_cmd,
+        "segment-routing srv6",
+        "Segment-Routing configuration\n"
+        "Segment-Routing SRv6 configuration\n")
+{
+	vty->node = BGP_SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+        exit_bgp_srv6,
+        exit_bgp_srv6_cmd,
+        "exit",
+        "exit Segment-Routing SRv6 configuration\n")
+{
+	if (vty->node == BGP_SRV6_NODE)
+		vty->node = BGP_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+        quit_bgp_srv6,
+        quit_bgp_srv6_cmd,
+        "quit",
+        "quit Segment-Routing SRv6 configuration\n")
+{
+	if (vty->node == BGP_SRV6_NODE)
+		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -1976,8 +2074,8 @@ DEFUNSH(VTYSH_BABELD, router_babel, router_babel_cmd, "router babel",
 #endif /* HAVE_BABELD */
 
 #ifdef HAVE_OSPF6D
-DEFUNSH(VTYSH_OSPF6D, router_ospf6, router_ospf6_cmd, "router ospf6",
-	ROUTER_STR OSPF6_STR)
+DEFUNSH(VTYSH_OSPF6D, router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
+	ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	vty->node = OSPF6_NODE;
 	return CMD_SUCCESS;
@@ -2083,8 +2181,7 @@ DEFUNSH(VTYSH_FABRICD, router_openfabric, router_openfabric_cmd, "router openfab
 }
 #endif /* HAVE_FABRICD */
 
-#if defined(HAVE_PATHD)
-DEFUNSH(VTYSH_PATHD, segment_routing, segment_routing_cmd,
+DEFUNSH(VTYSH_SR, segment_routing, segment_routing_cmd,
 	"segment-routing",
 	"Configure segment routing\n")
 {
@@ -2092,6 +2189,7 @@ DEFUNSH(VTYSH_PATHD, segment_routing, segment_routing_cmd,
 	return CMD_SUCCESS;
 }
 
+#if defined (HAVE_PATHD)
 DEFUNSH(VTYSH_PATHD, sr_traffic_eng, sr_traffic_eng_cmd,
 	"traffic-eng",
 	"Configure SR traffic engineering\n")
@@ -2366,6 +2464,30 @@ DEFUNSH(VTYSH_VRF, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
 	return CMD_SUCCESS;
 }
 
+DEFUNSH(VTYSH_SR, exit_srv6_config, exit_srv6_config_cmd, "exit",
+	"Exit from SRv6 configuration mode\n")
+{
+	if (vty->node == SRV6_NODE)
+		vty->node = SEGMENT_ROUTING_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, exit_srv6_locs_config, exit_srv6_locs_config_cmd, "exit",
+	"Exit from SRv6-locator configuration mode\n")
+{
+	if (vty->node == SRV6_LOCS_NODE)
+		vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_SR, exit_srv6_loc_config, exit_srv6_loc_config_cmd, "exit",
+	"Exit from SRv6-locators configuration mode\n")
+{
+	if (vty->node == SRV6_LOC_NODE)
+		vty->node = SRV6_LOCS_NODE;
+	return CMD_SUCCESS;
+}
+
 #ifdef HAVE_RIPD
 DEFUNSH(VTYSH_RIPD, vtysh_exit_ripd, vtysh_exit_ripd_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -2552,6 +2674,18 @@ DEFUNSH(VTYSH_KEYS, vtysh_quit_keys, vtysh_quit_keys_cmd, "quit",
 	return vtysh_exit_keys(self, vty, argc, argv);
 }
 
+DEFUNSH(VTYSH_SR, vtysh_exit_sr, vtysh_exit_sr_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_SR, vtysh_quit_sr, vtysh_quit_sr_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
 #if defined(HAVE_PATHD)
 DEFUNSH(VTYSH_PATHD, vtysh_exit_pathd, vtysh_exit_pathd_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -2727,7 +2861,6 @@ DEFUN (vtysh_show_poll,
 	return show_per_daemon(vty, argv, argc, "Thread statistics for %s:\n");
 }
 
-#ifndef EXCLUDE_CPU_TIME
 DEFUN (vtysh_show_thread,
        vtysh_show_thread_cmd,
        "show thread cpu [FILTER]",
@@ -2738,7 +2871,6 @@ DEFUN (vtysh_show_thread,
 {
 	return show_per_daemon(vty, argv, argc, "Thread statistics for %s:\n");
 }
-#endif
 
 DEFUN (vtysh_show_work_queues,
        vtysh_show_work_queues_cmd,
@@ -2889,6 +3021,37 @@ DEFUN (show_yang_operational_data,
 {
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
+
+DEFUN(show_yang_module, show_yang_module_cmd,
+      "show yang module [module-translator WORD] " DAEMONS_LIST,
+      SHOW_STR
+      "YANG information\n"
+      "Show loaded modules\n"
+      "YANG module translator\n"
+      "YANG module translator\n" DAEMONS_STR)
+{
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+}
+
+DEFUN(show_yang_module_detail, show_yang_module_detail_cmd,
+      "show yang module\
+          [module-translator WORD]\
+          WORD <compiled|summary|tree|yang|yin> " DAEMONS_LIST,
+      SHOW_STR
+      "YANG information\n"
+      "Show loaded modules\n"
+      "YANG module translator\n"
+      "YANG module translator\n"
+      "Module name\n"
+      "Display compiled module in YANG format\n"
+      "Display summary information about the module\n"
+      "Display module in the tree (RFC 8340) format\n"
+      "Display module in the YANG format\n"
+      "Display module in the YIN format\n" DAEMONS_STR)
+{
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+}
+
 
 DEFUNSH(VTYSH_ALL, debug_nb,
 	debug_nb_cmd,
@@ -3588,79 +3751,7 @@ DEFUN(find,
       "Find CLI command matching a regular expression\n"
       "Search pattern (POSIX regex)\n")
 {
-	const struct cmd_node *node;
-	const struct cmd_element *cli;
-	vector clis;
-	regex_t exp = {};
-	char *pattern = argv_concat(argv, argc, 1);
-	int cr = regcomp(&exp, pattern, REG_NOSUB | REG_EXTENDED);
-
-	XFREE(MTYPE_TMP, pattern);
-
-	if (cr != 0) {
-		switch (cr) {
-		case REG_BADBR:
-			vty_out(vty, "%% Invalid \\{...\\} expression\n");
-			break;
-		case REG_BADRPT:
-			vty_out(vty, "%% Bad repetition operator\n");
-			break;
-		case REG_BADPAT:
-			vty_out(vty, "%% Regex syntax error\n");
-			break;
-		case REG_ECOLLATE:
-			vty_out(vty, "%% Invalid collating element\n");
-			break;
-		case REG_ECTYPE:
-			vty_out(vty, "%% Invalid character class name\n");
-			break;
-		case REG_EESCAPE:
-			vty_out(vty,
-				"%% Regex ended with escape character (\\)\n");
-			break;
-		case REG_ESUBREG:
-			vty_out(vty,
-				"%% Invalid number in \\digit construction\n");
-			break;
-		case REG_EBRACK:
-			vty_out(vty, "%% Unbalanced square brackets\n");
-			break;
-		case REG_EPAREN:
-			vty_out(vty, "%% Unbalanced parentheses\n");
-			break;
-		case REG_EBRACE:
-			vty_out(vty, "%% Unbalanced braces\n");
-			break;
-		case REG_ERANGE:
-			vty_out(vty,
-				"%% Invalid endpoint in range expression\n");
-			break;
-		case REG_ESPACE:
-			vty_out(vty, "%% Failed to compile (out of memory)\n");
-			break;
-		}
-
-		goto done;
-	}
-
-
-	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
-		node = vector_slot(cmdvec, i);
-		if (!node)
-			continue;
-		clis = node->cmd_vector;
-		for (unsigned int j = 0; j < vector_active(clis); j++) {
-			cli = vector_slot(clis, j);
-
-			if (regexec(&exp, cli->string, 0, NULL, 0) == 0)
-				vty_out(vty, "  (%s)  %s\n",
-					node->name, cli->string);
-		}
-	}
-
-done:
-	regfree(&exp);
-	return CMD_SUCCESS;
+	return cmd_find_cmds(vty, argv, argc);
 }
 
 DEFUN_HIDDEN(show_cli_graph_vtysh,
@@ -4100,6 +4191,12 @@ void vtysh_init_vty(void)
 	install_element(BMP_NODE, &bmp_exit_cmd);
 	install_element(BMP_NODE, &bmp_quit_cmd);
 	install_element(BMP_NODE, &vtysh_end_all_cmd);
+
+	install_node(&bgp_srv6_node);
+	install_element(BGP_NODE, &bgp_srv6_cmd);
+	install_element(BGP_SRV6_NODE, &exit_bgp_srv6_cmd);
+	install_element(BGP_SRV6_NODE, &quit_bgp_srv6_cmd);
+	install_element(BGP_SRV6_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BGPD */
 
 	/* ripd */
@@ -4252,15 +4349,17 @@ void vtysh_init_vty(void)
 	install_element(BFD_PROFILE_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BFDD */
 
-#if defined(HAVE_PATHD)
 	install_node(&segment_routing_node);
+	install_element(SEGMENT_ROUTING_NODE, &vtysh_exit_sr_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &vtysh_quit_sr_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &vtysh_end_all_cmd);
+
+#if defined(HAVE_PATHD)
 	install_node(&sr_traffic_eng_node);
 	install_node(&srte_segment_list_node);
 	install_node(&srte_policy_node);
 	install_node(&srte_candidate_dyn_node);
 
-	install_element(SEGMENT_ROUTING_NODE, &vtysh_exit_pathd_cmd);
-	install_element(SEGMENT_ROUTING_NODE, &vtysh_quit_pathd_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_exit_pathd_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_quit_pathd_cmd);
 	install_element(SR_SEGMENT_LIST_NODE, &vtysh_exit_pathd_cmd);
@@ -4270,7 +4369,7 @@ void vtysh_init_vty(void)
 	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_exit_pathd_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_quit_pathd_cmd);
 
-	install_element(SEGMENT_ROUTING_NODE, &vtysh_end_all_cmd);
+
 	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_end_all_cmd);
 	install_element(SR_SEGMENT_LIST_NODE, &vtysh_end_all_cmd);
 	install_element(SR_POLICY_NODE, &vtysh_end_all_cmd);
@@ -4400,6 +4499,22 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_end_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_end_all_cmd);
 
+	/* SRv6 Data-plane */
+	install_node(&srv6_node);
+	install_element(SEGMENT_ROUTING_NODE, &srv6_cmd);
+	install_element(SRV6_NODE, &srv6_locators_cmd);
+	install_element(SRV6_NODE, &exit_srv6_config_cmd);
+	install_element(SRV6_NODE, &vtysh_end_all_cmd);
+
+	install_node(&srv6_locs_node);
+	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
+	install_element(SRV6_LOCS_NODE, &exit_srv6_locs_config_cmd);
+	install_element(SRV6_LOCS_NODE, &vtysh_end_all_cmd);
+
+	install_node(&srv6_loc_node);
+	install_element(SRV6_LOC_NODE, &exit_srv6_loc_config_cmd);
+	install_element(SRV6_LOC_NODE, &vtysh_end_all_cmd);
+
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
@@ -4449,6 +4564,8 @@ void vtysh_init_vty(void)
 	/* northbound */
 	install_element(ENABLE_NODE, &show_config_running_cmd);
 	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
+	install_element(ENABLE_NODE, &show_yang_module_cmd);
+	install_element(ENABLE_NODE, &show_yang_module_detail_cmd);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
 
@@ -4458,9 +4575,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
-#ifndef EXCLUDE_CPU_TIME
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
-#endif
 	install_element(VIEW_NODE, &vtysh_show_poll_cmd);
 
 	/* Logging */

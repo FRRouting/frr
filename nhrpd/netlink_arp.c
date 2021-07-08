@@ -25,7 +25,6 @@
 #include "netlink.h"
 #include "znl.h"
 
-int netlink_req_fd = -1;
 int netlink_nflog_group;
 static int netlink_log_fd = -1;
 static struct thread *netlink_log_thread;
@@ -202,11 +201,4 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 			: ZEBRA_NEIGH_STATE_FAILED;
 		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
-}
-
-void netlink_init(void)
-{
-	netlink_req_fd = znl_open(NETLINK_ROUTE, 0);
-	if (netlink_req_fd < 0)
-		return;
 }

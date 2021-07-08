@@ -25,12 +25,15 @@
 /lib/test_atomlist
 /lib/test_buffer
 /lib/test_checksum
+/lib/test_frrscript
+/lib/test_frrlua
 /lib/test_graph
 /lib/test_heavy
 /lib/test_heavy_thread
 /lib/test_heavy_wq
 /lib/test_idalloc
 /lib/test_memory
+/lib/test_nexthop
 /lib/test_nexthop_iter
 /lib/test_ntop
 /lib/test_prefix2str

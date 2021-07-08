@@ -42,6 +42,7 @@ enum bgp_show_type {
 	bgp_show_type_neighbor,
 	bgp_show_type_cidr_only,
 	bgp_show_type_prefix_longer,
+	bgp_show_type_community_alias,
 	bgp_show_type_community_all,
 	bgp_show_type_community,
 	bgp_show_type_community_exact,
@@ -590,6 +591,7 @@ DECLARE_HOOK(bgp_process,
 #define BGP_SHOW_OPT_ESTABLISHED (1 << 5)
 #define BGP_SHOW_OPT_FAILED (1 << 6)
 #define BGP_SHOW_OPT_DETAIL (1 << 7)
+#define BGP_SHOW_OPT_TERSE (1 << 8)
 
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
@@ -602,6 +604,9 @@ extern void bgp_announce_route(struct peer *, afi_t, safi_t);
 extern void bgp_stop_announce_route_timer(struct peer_af *paf);
 extern void bgp_announce_route_all(struct peer *);
 extern void bgp_default_originate(struct peer *, afi_t, safi_t, int);
+extern void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
+						const struct bgp_table *table,
+						const struct peer *peer);
 extern void bgp_soft_reconfig_in(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route_all(struct peer *);

@@ -51,8 +51,6 @@ enum test_type {
 #define F_LEVEL1_ONLY 0x08
 #define F_LEVEL2_ONLY 0x10
 
-static struct isis *isis;
-
 static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 			 const struct isis_test_node *root,
 			 struct isis_area *area, struct lspdb_head *lspdb,
@@ -257,8 +255,8 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	uint8_t fail_id[ISIS_SYS_ID_LEN] = {};
 
 	/* Init topology. */
-	memcpy(isis->sysid, root->sysid, sizeof(isis->sysid));
 	area = isis_area_create("1", NULL);
+	memcpy(area->isis->sysid, root->sysid, sizeof(area->isis->sysid));
 	area->is_type = IS_LEVEL_1_AND_2;
 	area->srdb.enabled = true;
 	if (test_topology_load(topology, area, area->lspdb) != 0) {
@@ -271,7 +269,7 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 		if (sysid2buff(fail_id, fail_sysid_str) == 0) {
 			struct isis_dynhn *dynhn;
 
-			dynhn = dynhn_find_by_name(fail_sysid_str);
+			dynhn = dynhn_find_by_name(area->isis, fail_sysid_str);
 			if (dynhn == NULL) {
 				vty_out(vty, "Invalid system id %s\n",
 					fail_sysid_str);
@@ -340,9 +338,6 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 
 	/* Cleanup IS-IS area. */
 	isis_area_destroy(area);
-
-	/* Cleanup hostnames. */
-	dyn_cache_cleanup_all();
 
 	return CMD_SUCCESS;
 }
@@ -470,7 +465,6 @@ static void vty_do_exit(int isexit)
 {
 	printf("\nend.\n");
 
-	isis_finish(isis);
 	cmd_terminate();
 	vty_terminate();
 	yang_terminate();
@@ -547,7 +541,7 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	cmd_hostname_set("test");
 	vty_init(master, false);
-	yang_init(true);
+	yang_init(true, false);
 	if (debug)
 		zlog_aux_init("NONE: ", LOG_DEBUG);
 	else
@@ -555,7 +549,6 @@ int main(int argc, char **argv)
 
 	/* IS-IS inits. */
 	yang_module_load("frr-isisd");
-	isis = isis_new(VRF_DEFAULT_NAME);
 	SET_FLAG(im->options, F_ISIS_UNIT_TEST);
 	debug_spf_events |= DEBUG_SPF_EVENTS;
 	debug_lfa |= DEBUG_LFA;

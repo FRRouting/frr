@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include <CUnit/CUnit.h>
@@ -47,6 +48,7 @@ void test_create_counters_group()
 
 	group = create_counters_group(group_name, num_subgroups);
 	CU_ASSERT_PTR_NOT_NULL(group);
+	assert(group != NULL);
 
 	CU_ASSERT_EQUAL(group->num_subgroups, 0);
 	CU_ASSERT_EQUAL(group->max_subgroups, num_subgroups);
@@ -76,6 +78,7 @@ void test_create_counters_subgroup()
 	subgroup = create_counters_subgroup(subgroup_name, subgroup_id,
 					    num_counters);
 	CU_ASSERT_PTR_NOT_NULL(subgroup);
+	assert(subgroup != NULL);
 
 	CU_ASSERT_EQUAL(subgroup->subgroup_id, subgroup_id);
 	CU_ASSERT_EQUAL(subgroup->num_counters, 0);

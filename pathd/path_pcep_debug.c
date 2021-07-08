@@ -780,6 +780,10 @@ const char *pcep_tlv_type_name(enum pcep_object_tlv_types tlv_type)
 	switch (tlv_type) {
 	case PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR:
 		return "NO_PATH_VECTOR";
+	case PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST:
+		return "OBJECTIVE_FUNCTION_LIST";
+	case PCEP_OBJ_TLV_TYPE_VENDOR_INFO:
+		return "VENDOR_INFO";
 	case PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY:
 		return "STATEFUL_PCE_CAPABILITY";
 	case PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME:
@@ -802,6 +806,18 @@ const char *pcep_tlv_type_name(enum pcep_object_tlv_types tlv_type)
 		return "PATH_SETUP_TYPE";
 	case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY:
 		return "PATH_SETUP_TYPE_CAPABILITY";
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID:
+		return "SRPOLICY_POL_ID";
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME:
+		return "SRPOLICY_POL_NAME";
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID:
+		return "SRPOLICY_CPATH_ID";
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE:
+		return "SRPOLICY_CPATH_PREFERENCE";
+	case PCEP_OBJ_TLV_TYPE_UNKNOWN:
+		return "UNKNOWN";
+	case PCEP_OBJ_TLV_TYPE_ARBITRARY:
+		return "ARBITRARY";
 	default:
 		return "UNKNOWN";
 	}
@@ -973,18 +989,6 @@ const char *format_pcep_message(struct pcep_message *msg)
 	PATHD_FORMAT_INIT();
 	_format_pcep_message(0, msg);
 	return PATHD_FORMAT_FINI();
-}
-
-const char *format_yang_dnode(struct lyd_node *dnode)
-{
-	char *buff;
-	int len;
-
-	lyd_print_mem(&buff, dnode, LYD_JSON, LYP_FORMAT);
-	len = strlen(buff);
-	memcpy(_debug_buff, buff, len);
-	free(buff);
-	return _debug_buff;
 }
 
 void _format_pcc_opts(int ps, struct pcc_opts *opts)

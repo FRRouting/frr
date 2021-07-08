@@ -176,7 +176,7 @@ BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
-BuildRequires:  libyang-devel >= 1.0.184
+BuildRequires:  libyang2-devel
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -199,8 +199,6 @@ Requires:       initscripts
 BuildRequires:  pam-devel
 %endif
 %if "%{initsystem}" == "systemd"
-BuildRequires:      systemd
-BuildRequires:      systemd-devel
 Requires(post):     systemd
 Requires(preun):    systemd
 Requires(postun):   systemd
@@ -396,9 +394,6 @@ routing state through standard SNMP MIBs.
     --disable-bgp-vnc \
 %endif
     --enable-isisd \
-%if "%{initsystem}" == "systemd"
-    --enable-systemd \
-%endif
     --enable-rpki \
 %if %{with_bfdd}
     --enable-bfdd \

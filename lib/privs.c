@@ -159,6 +159,10 @@ static struct {
 			{
 				1, (pvalue_t[]){CAP_FOWNER},
 			},
+		[ZCAP_IPC_LOCK] =
+			{
+				1, (pvalue_t[]){CAP_IPC_LOCK},
+			},
 #endif /* HAVE_LCAPS */
 };
 

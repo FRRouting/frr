@@ -39,6 +39,7 @@
 #include "ospf6_zebra.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE,   "OSPF6 route");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE_TABLE, "OSPF6 route table");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEXTHOP, "OSPF6 nexthop");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PATH,    "OSPF6 Path");
 
@@ -687,6 +688,9 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 		if (node->info == old) {
 			node->info = route;
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
+			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
+				zlog_debug("%s:  replace old route %s",
+					   __func__, buf);
 		}
 
 		if (old->prev)
@@ -744,12 +748,12 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 			UNSET_FLAG(next->flag, OSPF6_ROUTE_BEST);
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
 			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-				zlog_info(
+				zlog_debug(
 					"%s %p: route add %p cost %u: replacing previous best: %p cost %u",
 					ospf6_route_table_name(table),
 					(void *)table, (void *)route,
-					route->path.cost,
-					(void *)next, next->path.cost);
+					route->path.cost, (void *)next,
+					next->path.cost);
 		}
 
 		route->installed = now;
@@ -875,6 +879,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 		if (route->next && route->next->rnode == node) {
 			node->info = route->next;
 			SET_FLAG(route->next->flag, OSPF6_ROUTE_BEST);
+			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
+				zlog_debug("%s: remove route %s", __func__,
+					   buf);
 		} else {
 			node->info = NULL;
 			route->rnode = NULL;
@@ -1021,7 +1028,8 @@ void ospf6_route_remove_all(struct ospf6_route_table *table)
 struct ospf6_route_table *ospf6_route_table_create(int s, int t)
 {
 	struct ospf6_route_table *new;
-	new = XCALLOC(MTYPE_OSPF6_ROUTE, sizeof(struct ospf6_route_table));
+	new = XCALLOC(MTYPE_OSPF6_ROUTE_TABLE,
+		      sizeof(struct ospf6_route_table));
 	new->table = route_table_init();
 	new->scope_type = s;
 	new->table_type = t;
@@ -1033,13 +1041,13 @@ void ospf6_route_table_delete(struct ospf6_route_table *table)
 	ospf6_route_remove_all(table);
 	bf_free(table->idspace);
 	route_table_finish(table->table);
-	XFREE(MTYPE_OSPF6_ROUTE, table);
+	XFREE(MTYPE_OSPF6_ROUTE_TABLE, table);
 }
 
 
 /* VTY commands */
 void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
-		      json_object *json_array_routes, bool use_json)
+		      json_object *json_routes, bool use_json)
 {
 	int i;
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
@@ -1072,7 +1080,6 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
 
 	if (use_json) {
 		json_route = json_object_new_object();
-		json_object_string_add(json_route, "destination", destination);
 		json_object_boolean_add(json_route, "isBestRoute",
 					ospf6_route_is_best(route));
 		json_object_string_add(json_route, "destinationType",
@@ -1121,12 +1128,12 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
 	if (use_json) {
 		json_object_object_add(json_route, "nextHops",
 				       json_array_next_hops);
-		json_object_array_add(json_array_routes, json_route);
+		json_object_object_add(json_routes, destination, json_route);
 	}
 }
 
 void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
-			     json_object *json_array_routes, bool use_json)
+			     json_object *json_routes, bool use_json)
 {
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
 	char area_id[16], id[16], adv_router[16], capa[16], options[16];
@@ -1158,7 +1165,6 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 
 	if (use_json) {
 		json_route = json_object_new_object();
-		json_object_string_add(json_route, "destination", destination);
 		json_object_string_add(json_route, "destinationType",
 				       OSPF6_DEST_TYPE_NAME(route->type));
 	} else {
@@ -1311,7 +1317,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 	if (use_json) {
 		json_object_object_add(json_route, "nextHops",
 				       json_array_next_hops);
-		json_object_array_add(json_array_routes, json_route);
+		json_object_object_add(json_routes, destination, json_route);
 	} else
 		vty_out(vty, "\n");
 }
@@ -1377,24 +1383,23 @@ static void ospf6_route_show_table_prefix(struct vty *vty,
 					  json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
-	json_object *json_array_routes = NULL;
+	json_object *json_routes = NULL;
 
 	route = ospf6_route_lookup(prefix, table);
 	if (route == NULL)
 		return;
 
 	if (use_json)
-		json_array_routes = json_object_new_array();
+		json_routes = json_object_new_object();
 	ospf6_route_lock(route);
 	while (route && ospf6_route_is_prefix(prefix, route)) {
 		/* Specifying a prefix will always display details */
-		ospf6_route_show_detail(vty, route, json_array_routes,
-					use_json);
+		ospf6_route_show_detail(vty, route, json_routes, use_json);
 		route = ospf6_route_next(route);
 	}
 
 	if (use_json)
-		json_object_object_add(json, "routes", json_array_routes);
+		json_object_object_add(json, "routes", json_routes);
 	if (route)
 		ospf6_route_unlock(route);
 }
@@ -1405,24 +1410,23 @@ static void ospf6_route_show_table_address(struct vty *vty,
 					   json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
-	json_object *json_array_routes = NULL;
+	json_object *json_routes = NULL;
 
 	route = ospf6_route_lookup_bestmatch(prefix, table);
 	if (route == NULL)
 		return;
 
 	if (use_json)
-		json_array_routes = json_object_new_array();
+		json_routes = json_object_new_object();
 	prefix = &route->prefix;
 	ospf6_route_lock(route);
 	while (route && ospf6_route_is_prefix(prefix, route)) {
 		/* Specifying a prefix will always display details */
-		ospf6_route_show_detail(vty, route, json_array_routes,
-					use_json);
+		ospf6_route_show_detail(vty, route, json_routes, use_json);
 		route = ospf6_route_next(route);
 	}
 	if (use_json)
-		json_object_object_add(json, "routes", json_array_routes);
+		json_object_object_add(json, "routes", json_routes);
 	if (route)
 		ospf6_route_unlock(route);
 }
@@ -1433,24 +1437,23 @@ static void ospf6_route_show_table_match(struct vty *vty, int detail,
 					 json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
-	json_object *json_array_routes = NULL;
+	json_object *json_routes = NULL;
 
 	assert(prefix->family);
 
 	route = ospf6_route_match_head(prefix, table);
 	if (use_json)
-		json_array_routes = json_object_new_array();
+		json_routes = json_object_new_object();
 	while (route) {
 		if (detail)
-			ospf6_route_show_detail(vty, route, json_array_routes,
+			ospf6_route_show_detail(vty, route, json_routes,
 						use_json);
 		else
-			ospf6_route_show(vty, route, json_array_routes,
-					 use_json);
+			ospf6_route_show(vty, route, json_routes, use_json);
 		route = ospf6_route_match_next(prefix, route);
 	}
 	if (use_json)
-		json_object_object_add(json, "routes", json_array_routes);
+		json_object_object_add(json, "routes", json_routes);
 }
 
 static void ospf6_route_show_table_type(struct vty *vty, int detail,
@@ -1459,25 +1462,24 @@ static void ospf6_route_show_table_type(struct vty *vty, int detail,
 					json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
-	json_object *json_array_routes = NULL;
+	json_object *json_routes = NULL;
 
 	route = ospf6_route_head(table);
 	if (use_json)
-		json_array_routes = json_object_new_array();
+		json_routes = json_object_new_object();
 	while (route) {
 		if (route->path.type == type) {
 			if (detail)
-				ospf6_route_show_detail(vty, route,
-							json_array_routes,
+				ospf6_route_show_detail(vty, route, json_routes,
 							use_json);
 			else
-				ospf6_route_show(vty, route, json_array_routes,
+				ospf6_route_show(vty, route, json_routes,
 						 use_json);
 		}
 		route = ospf6_route_next(route);
 	}
 	if (use_json)
-		json_object_object_add(json, "routes", json_array_routes);
+		json_object_object_add(json, "routes", json_routes);
 }
 
 static void ospf6_route_show_table(struct vty *vty, int detail,
@@ -1485,22 +1487,21 @@ static void ospf6_route_show_table(struct vty *vty, int detail,
 				   json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
-	json_object *json_array_routes = NULL;
+	json_object *json_routes = NULL;
 
 	route = ospf6_route_head(table);
 	if (use_json)
-		json_array_routes = json_object_new_array();
+		json_routes = json_object_new_object();
 	while (route) {
 		if (detail)
-			ospf6_route_show_detail(vty, route, json_array_routes,
+			ospf6_route_show_detail(vty, route, json_routes,
 						use_json);
 		else
-			ospf6_route_show(vty, route, json_array_routes,
-					 use_json);
+			ospf6_route_show(vty, route, json_routes, use_json);
 		route = ospf6_route_next(route);
 	}
 	if (use_json)
-		json_object_object_add(json, "routes", json_array_routes);
+		json_object_object_add(json, "routes", json_routes);
 }
 
 int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,

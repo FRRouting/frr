@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <CUnit/CUnit.h>
 
 #include "pcep_utils_ordered_list.h"
@@ -55,6 +56,7 @@ void test_empty_list()
 		ordered_list_initialize(node_data_compare);
 
 	CU_ASSERT_PTR_NOT_NULL(handle);
+	assert(handle != NULL);
 	CU_ASSERT_PTR_NULL(handle->head);
 	CU_ASSERT_PTR_NOT_NULL(handle->compare_function);
 	CU_ASSERT_EQUAL(handle->num_entries, 0);
@@ -134,14 +136,17 @@ void test_find()
 
 	ordered_list_node *node = ordered_list_find(handle, &data1);
 	CU_ASSERT_PTR_NOT_NULL(node);
+	assert(node != NULL);
 	CU_ASSERT_PTR_EQUAL(node->data, &data1);
 
 	node = ordered_list_find(handle, &data2);
 	CU_ASSERT_PTR_NOT_NULL(node);
+	assert(node != NULL);
 	CU_ASSERT_PTR_EQUAL(node->data, &data2);
 
 	node = ordered_list_find(handle, &data3);
 	CU_ASSERT_PTR_NOT_NULL(node);
+	assert(node != NULL);
 	CU_ASSERT_PTR_EQUAL(node->data, &data3);
 
 	node = ordered_list_find(handle, &data_not_inList);

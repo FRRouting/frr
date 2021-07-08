@@ -39,6 +39,35 @@
 #include "sharpd/sharp_vty_clippy.c"
 #endif
 
+DEFINE_MTYPE_STATIC(SHARPD, SRV6_LOCATOR, "SRv6 Locator");
+
+DEFPY(watch_redistribute, watch_redistribute_cmd,
+      "sharp watch [vrf NAME$vrf_name] redistribute " FRR_REDIST_STR_SHARPD,
+      "Sharp routing Protocol\n"
+      "Watch for changes\n"
+      "The vrf we would like to watch if non-default\n"
+      "The NAME of the vrf\n"
+      "Redistribute into Sharp\n"
+      FRR_REDIST_HELP_STR_SHARPD)
+{
+	struct vrf *vrf;
+	int source;
+
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			vrf_name);
+		return CMD_WARNING;
+	}
+
+	source = proto_redistnum(AFI_IP, argv[argc-1]->text);
+	sharp_redistribute_vrf(vrf, source);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
       "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
       "Sharp routing Protocol\n"
@@ -68,8 +97,8 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 
 	if (n) {
 		type_import = false;
-		p.prefixlen = 128;
-		memcpy(&p.u.prefix6, &nhop, 16);
+		p.prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&p.u.prefix6, &nhop, IPV6_MAX_BYTELEN);
 		p.family = AF_INET6;
 	} else {
 		type_import = true;
@@ -112,7 +141,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 
 	if (n) {
 		type_import = false;
-		p.prefixlen = 32;
+		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = nhop;
 		p.family = AF_INET;
 	}
@@ -210,11 +239,11 @@ DEFPY (install_routes,
 
 	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = start6;
 	}
 	sg.r.orig_prefix = prefix;
@@ -305,7 +334,181 @@ DEFPY (install_routes,
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
-				    rts, sg.r.opaque);
+				    rts, 0, sg.r.opaque);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (install_seg6_routes,
+       install_seg6_routes_cmd,
+       "sharp install seg6-routes [vrf NAME$vrf_name]\
+	  <A.B.C.D$start4|X:X::X:X$start6>\
+	  nexthop-seg6 X:X::X:X$seg6_nh6 encap X:X::X:X$seg6_seg\
+	  (1-1000000)$routes [repeat (2-1000)$rpt]",
+       "Sharp routing Protocol\n"
+       "install some routes\n"
+       "Routes to install\n"
+       "The vrf we would like to install into if non-default\n"
+       "The NAME of the vrf\n"
+       "v4 Address to start /32 generation at\n"
+       "v6 Address to start /32 generation at\n"
+       "Nexthop-seg6 to use\n"
+       "V6 Nexthop address to use\n"
+       "Encap mode\n"
+       "Segment List to use\n"
+       "How many to create\n"
+       "Should we repeat this command\n"
+       "How many times to repeat this command\n")
+{
+	struct vrf *vrf;
+	struct prefix prefix;
+	uint32_t route_flags = 0;
+
+	sg.r.total_routes = routes;
+	sg.r.installed_routes = 0;
+
+	if (rpt >= 2)
+		sg.r.repeat = rpt * 2;
+	else
+		sg.r.repeat = 0;
+
+	memset(&prefix, 0, sizeof(prefix));
+	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
+	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.backup_nhop_group, 0, sizeof(sg.r.nhop_group));
+	sg.r.opaque[0] = '\0';
+	sg.r.inst = 0;
+
+	if (start4.s_addr != INADDR_ANY) {
+		prefix.family = AF_INET;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
+		prefix.u.prefix4 = start4;
+	} else {
+		prefix.family = AF_INET6;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
+		prefix.u.prefix6 = start6;
+	}
+	sg.r.orig_prefix = prefix;
+
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			vrf_name);
+		return CMD_WARNING;
+	}
+
+	sg.r.nhop.type = NEXTHOP_TYPE_IPV6;
+	sg.r.nhop.gate.ipv6 = seg6_nh6;
+	sg.r.nhop.vrf_id = vrf->vrf_id;
+	sg.r.nhop_group.nexthop = &sg.r.nhop;
+	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg);
+
+	sg.r.vrf_id = vrf->vrf_id;
+	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, 0,
+				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
+				    routes, route_flags, sg.r.opaque);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (install_seg6local_routes,
+       install_seg6local_routes_cmd,
+       "sharp install seg6local-routes [vrf NAME$vrf_name]\
+	  X:X::X:X$start6\
+	  nexthop-seg6local NAME$seg6l_oif\
+	     <End$seg6l_end|\
+	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
+	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
+	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
+	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table>\
+	  (1-1000000)$routes [repeat (2-1000)$rpt]",
+       "Sharp routing Protocol\n"
+       "install some routes\n"
+       "Routes to install\n"
+       "The vrf we would like to install into if non-default\n"
+       "The NAME of the vrf\n"
+       "v6 Address to start /32 generation at\n"
+       "Nexthop-seg6local to use\n"
+       "Output device to use\n"
+       "SRv6 End function to use\n"
+       "SRv6 End.X function to use\n"
+       "V6 Nexthop address to use\n"
+       "SRv6 End.T function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 End.DX4 function to use\n"
+       "V4 Nexthop address to use\n"
+       "SRv6 End.DT6 function to use\n"
+       "Redirect table id to use\n"
+       "How many to create\n"
+       "Should we repeat this command\n"
+       "How many times to repeat this command\n")
+{
+	struct vrf *vrf;
+	uint32_t route_flags = 0;
+	struct seg6local_context ctx = {};
+	enum seg6local_action_t action;
+
+	sg.r.total_routes = routes;
+	sg.r.installed_routes = 0;
+
+	if (rpt >= 2)
+		sg.r.repeat = rpt * 2;
+	else
+		sg.r.repeat = 0;
+
+	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
+	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.backup_nhop_group, 0, sizeof(sg.r.nhop_group));
+	sg.r.opaque[0] = '\0';
+	sg.r.inst = 0;
+	sg.r.orig_prefix.family = AF_INET6;
+	sg.r.orig_prefix.prefixlen = 128;
+	sg.r.orig_prefix.u.prefix6 = start6;
+
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			vrf_name);
+		return CMD_WARNING;
+	}
+
+	if (seg6l_enddx4) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
+		ctx.nh4 = seg6l_enddx4_nh4;
+	} else if (seg6l_endx) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		ctx.nh6 = seg6l_endx_nh6;
+	} else if (seg6l_endt) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_T;
+		ctx.table = seg6l_endt_table;
+	} else if (seg6l_enddt6) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		ctx.table = seg6l_enddt6_table;
+	} else {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+	}
+
+	sg.r.nhop.type = NEXTHOP_TYPE_IFINDEX;
+	sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);
+	sg.r.nhop.vrf_id = vrf->vrf_id;
+	sg.r.nhop_group.nexthop = &sg.r.nhop;
+	nexthop_add_srv6_seg6local(&sg.r.nhop, action, &ctx);
+
+	sg.r.vrf_id = vrf->vrf_id;
+	sharp_install_routes_helper(&sg.r.orig_prefix, sg.r.vrf_id, sg.r.inst,
+				    0, &sg.r.nhop_group,
+				    &sg.r.backup_nhop_group, routes,
+				    route_flags, sg.r.opaque);
 
 	return CMD_SUCCESS;
 }
@@ -365,11 +568,11 @@ DEFPY (remove_routes,
 
 	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = start4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = start6;
 	}
 
@@ -675,7 +878,7 @@ DEFPY (neigh_discover,
 
 	if (dst4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
-		prefix.prefixlen = 32;
+		prefix.prefixlen = IPV4_MAX_BITLEN;
 		prefix.u.prefix4 = dst4;
 	} else {
 		prefix.family = AF_INET6;
@@ -709,6 +912,40 @@ DEFPY (import_te,
 {
 	sg.ted = ls_ted_new(1, "Sharp", 0);
 	sharp_zebra_register_te();
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (sharp_srv6_manager_get_locator_chunk,
+       sharp_srv6_manager_get_locator_chunk_cmd,
+       "sharp srv6-manager get-locator-chunk NAME$locator_name",
+       SHARP_STR
+       "Segment-Routing IPv6\n"
+       "Get SRv6 locator-chunk\n"
+       "SRv6 Locator name\n")
+{
+	int ret;
+	struct listnode *node;
+	struct sharp_srv6_locator *loc;
+	struct sharp_srv6_locator *loc_found = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, node, loc)) {
+		if (strcmp(loc->name, locator_name))
+			continue;
+		loc_found = loc;
+		break;
+	}
+	if (!loc_found) {
+		loc = XCALLOC(MTYPE_SRV6_LOCATOR,
+			      sizeof(struct sharp_srv6_locator));
+		loc->chunks = list_new();
+		snprintf(loc->name, SRV6_LOCNAME_SIZE, "%s", locator_name);
+		listnode_add(sg.srv6_locators, loc);
+	}
+
+	ret = sharp_zebra_srv6_manager_get_locator_chunk(locator_name);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	return CMD_SUCCESS;
 }
@@ -834,6 +1071,88 @@ DEFUN (show_sharp_ted,
 				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (sharp_srv6_manager_release_locator_chunk,
+       sharp_srv6_manager_release_locator_chunk_cmd,
+       "sharp srv6-manager release-locator-chunk NAME$locator_name",
+       SHARP_STR
+       "Segment-Routing IPv6\n"
+       "Release SRv6 locator-chunk\n"
+       "SRv6 Locator name\n")
+{
+	int ret;
+	struct listnode *loc_node;
+	struct sharp_srv6_locator *loc;
+
+	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+		if (!strcmp(loc->name, locator_name)) {
+			list_delete_all_node(loc->chunks);
+			list_delete(&loc->chunks);
+			listnode_delete(sg.srv6_locators, loc);
+			break;
+		}
+	}
+
+	ret = sharp_zebra_srv6_manager_release_locator_chunk(locator_name);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_sharp_segment_routing_srv6,
+       show_sharp_segment_routing_srv6_cmd,
+       "show sharp segment-routing srv6 [json]",
+       SHOW_STR
+       SHARP_STR
+       "Segment-Routing\n"
+       "Segment-Routing IPv6\n"
+       JSON_STR)
+{
+	char str[256];
+	struct listnode *loc_node;
+	struct listnode *chunk_node;
+	struct sharp_srv6_locator *loc;
+	struct prefix_ipv6 *chunk;
+	bool uj = use_json(argc, argv);
+	json_object *jo_locs = NULL;
+	json_object *jo_loc = NULL;
+	json_object *jo_chunks = NULL;
+
+	if (uj) {
+		jo_locs = json_object_new_array();
+		for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+			jo_loc = json_object_new_object();
+			json_object_array_add(jo_locs, jo_loc);
+			json_object_string_add(jo_loc, "name", loc->name);
+			jo_chunks = json_object_new_array();
+			json_object_object_add(jo_loc, "chunks", jo_chunks);
+			for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node,
+						  chunk)) {
+				prefix2str(chunk, str, sizeof(str));
+				json_array_string_add(jo_chunks, str);
+			}
+		}
+
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+				jo_locs, JSON_C_TO_STRING_PRETTY));
+		json_object_free(jo_locs);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+			vty_out(vty, "Locator %s has %d prefix chunks\n",
+				loc->name, listcount(loc->chunks));
+			for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node,
+						  chunk)) {
+				prefix2str(chunk, str, sizeof(str));
+				vty_out(vty, "  %s\n", str);
+			}
+			vty_out(vty, "\n");
+		}
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -841,9 +1160,12 @@ void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
 	install_element(ENABLE_NODE, &install_routes_cmd);
+	install_element(ENABLE_NODE, &install_seg6_routes_cmd);
+	install_element(ENABLE_NODE, &install_seg6local_routes_cmd);
 	install_element(ENABLE_NODE, &remove_routes_cmd);
 	install_element(ENABLE_NODE, &vrf_label_cmd);
 	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
+	install_element(ENABLE_NODE, &watch_redistribute_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
 	install_element(ENABLE_NODE, &sharp_lsp_prefix_v4_cmd);
@@ -859,6 +1181,11 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_sharpd_cmd);
 	install_element(ENABLE_NODE, &show_sharp_ted_cmd);
+
+	install_element(ENABLE_NODE, &sharp_srv6_manager_get_locator_chunk_cmd);
+	install_element(ENABLE_NODE,
+			&sharp_srv6_manager_release_locator_chunk_cmd);
+	install_element(ENABLE_NODE, &show_sharp_segment_routing_srv6_cmd);
 
 	return;
 }

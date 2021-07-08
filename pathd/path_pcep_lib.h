@@ -37,7 +37,8 @@ struct pcep_message *pcep_lib_format_request(struct pcep_caps *caps,
 					     struct path *path);
 struct pcep_message *pcep_lib_format_request_cancelled(uint32_t reqid);
 
-struct pcep_message *pcep_lib_format_error(int error_type, int error_value);
+struct pcep_message *pcep_lib_format_error(int error_type, int error_value,
+					   struct path *path);
 struct path *pcep_lib_parse_path(struct pcep_message *msg);
 void pcep_lib_parse_capabilities(struct pcep_message *msg,
 				 struct pcep_caps *caps);

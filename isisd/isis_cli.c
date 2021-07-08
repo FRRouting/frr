@@ -110,7 +110,7 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
 
-	if (!yang_dnode_exists(
+	if (!yang_dnode_existsf(
 		    vty->candidate_config->dnode,
 		    "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
 		    vrf_name)) {
@@ -126,7 +126,7 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(
+	return nb_cli_apply_changes_clear_pending(
 		vty, "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
 		vrf_name);
 }
@@ -195,7 +195,7 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 
 	/* check if the interface is a loopback and if so set it as passive */
 	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (ifp && if_is_loopback(ifp))
+	if (ifp && if_is_loopback_or_vrf(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
 
@@ -252,7 +252,7 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 
 	/* check if the interface is a loopback and if so set it as passive */
 	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (ifp && if_is_loopback(ifp))
+	if (ifp && if_is_loopback_or_vrf(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
 
@@ -277,8 +277,8 @@ DEFPY_YANG(no_ip_router_isis, no_ip_router_isis_cmd,
 {
 	const struct lyd_node *dnode;
 
-	dnode = yang_dnode_get(vty->candidate_config->dnode,
-			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	dnode = yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (!dnode)
 		return CMD_SUCCESS;
 
@@ -345,8 +345,8 @@ DEFPY_YANG(isis_bfd,
 {
 	const struct lyd_node *dnode;
 
-	dnode = yang_dnode_get(vty->candidate_config->dnode,
-			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	dnode = yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
@@ -363,7 +363,7 @@ DEFPY_YANG(isis_bfd,
  */
 DEFPY_YANG(isis_bfd_profile,
       isis_bfd_profile_cmd,
-      "[no] isis bfd profile WORD",
+      "[no] isis bfd profile BFDPROF$profile",
       NO_STR PROTO_HELP
       "Enable BFD support\n"
       "Use a pre-configured profile\n"
@@ -371,15 +371,21 @@ DEFPY_YANG(isis_bfd_profile,
 {
 	const struct lyd_node *dnode;
 
-	dnode = yang_dnode_get(vty->candidate_config->dnode,
-			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	dnode = yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
 	}
 
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/bfd-monitoring/profile",
-			      NB_OP_MODIFY, no ? NULL : profile);
+	if (no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/bfd-monitoring/profile",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/bfd-monitoring/profile",
+				      NB_OP_MODIFY, profile);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -387,18 +393,16 @@ DEFPY_YANG(isis_bfd_profile,
 void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	const char *profile;
-
-	if (!yang_dnode_get_bool(dnode, "./enabled"))
-		vty_out(vty, " no");
-
-	vty_out(vty, " isis bfd\n");
-
-	if (yang_dnode_exists(dnode, "./profile")) {
-		profile = yang_dnode_get_string(dnode, "./profile");
-		if (profile[0] != '\0')
-			vty_out(vty, " isis bfd profile %s\n", profile);
+	if (!yang_dnode_get_bool(dnode, "./enabled")) {
+		if (show_defaults)
+			vty_out(vty, " no isis bfd\n");
+	} else {
+		vty_out(vty, " isis bfd\n");
 	}
+
+	if (yang_dnode_exists(dnode, "./profile"))
+		vty_out(vty, " isis bfd profile %s\n",
+			yang_dnode_get_string(dnode, "./profile"));
 }
 
 /*
@@ -1192,7 +1196,7 @@ DEFPY_YANG(no_isis_mpls_te_on, no_isis_mpls_te_on_cmd, "no mpls-te [on]",
 void cli_show_isis_mpls_te(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	vty_out(vty, "  mpls-te on\n");
+	vty_out(vty, " mpls-te on\n");
 }
 
 /*
@@ -1225,7 +1229,7 @@ DEFPY_YANG(no_isis_mpls_te_router_addr, no_isis_mpls_te_router_addr_cmd,
 void cli_show_isis_mpls_te_router_addr(struct vty *vty, struct lyd_node *dnode,
 				       bool show_defaults)
 {
-	vty_out(vty, "  mpls-te router-address %s\n",
+	vty_out(vty, " mpls-te router-address %s\n",
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -3088,8 +3092,8 @@ DEFPY(isis_mpls_if_ldp_sync, isis_mpls_if_ldp_sync_cmd,
 {
 	const struct lyd_node *dnode;
 
-	dnode = yang_dnode_get(vty->candidate_config->dnode,
-			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	dnode = yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
@@ -3119,8 +3123,8 @@ DEFPY(isis_mpls_if_ldp_sync_holddown, isis_mpls_if_ldp_sync_holddown_cmd,
 {
 	const struct lyd_node *dnode;
 
-	dnode = yang_dnode_get(vty->candidate_config->dnode,
-			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	dnode = yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
@@ -3139,8 +3143,8 @@ DEFPY(no_isis_mpls_if_ldp_sync_holddown, no_isis_mpls_if_ldp_sync_holddown_cmd,
 {
 	const struct lyd_node *dnode;
 
-	dnode = yang_dnode_get(vty->candidate_config->dnode,
-			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	dnode = yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;

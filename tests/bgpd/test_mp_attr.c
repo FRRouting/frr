@@ -1100,7 +1100,7 @@ int main(void)
 	peer = peer_create_accept(bgp);
 	peer->host = (char *)"foo";
 	peer->status = Established;
-	peer->curr = stream_new(BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE);
+	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	ifp.ifindex = 0;
 	peer->nexthop.ifp = &ifp;

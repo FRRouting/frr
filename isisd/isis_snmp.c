@@ -616,10 +616,43 @@ static uint8_t isis_null_sysid[ISIS_SYS_ID_LEN];
 #define ISIS_SNMP_ADJ_STATE_UP (3)
 #define ISIS_SNMP_ADJ_STATE_FAILED (4)
 
+static inline uint32_t isis_snmp_adj_state(enum isis_adj_state state)
+{
+	switch (state) {
+	case ISIS_ADJ_UNKNOWN:
+		return ISIS_SNMP_ADJ_STATE_DOWN;
+	case ISIS_ADJ_INITIALIZING:
+		return ISIS_SNMP_ADJ_STATE_INITIALIZING;
+	case ISIS_ADJ_UP:
+		return ISIS_SNMP_ADJ_STATE_UP;
+	case ISIS_ADJ_DOWN:
+		return ISIS_SNMP_ADJ_STATE_FAILED;
+	}
+
+	return 0; /* not reached */
+}
+
 #define ISIS_SNMP_ADJ_NEIGHTYPE_IS_L1 (1)
 #define ISIS_SNMP_ADJ_NEIGHTYPE_IS_L2 (2)
 #define ISIS_SNMP_ADJ_NEIGHTYPE_IS_L1_L2 (3)
 #define ISIS_SNMP_ADJ_NEIGHTYPE_UNKNOWN (4)
+
+static inline uint32_t isis_snmp_adj_neightype(enum isis_system_type type)
+{
+	switch (type) {
+	case ISIS_SYSTYPE_UNKNOWN:
+	case ISIS_SYSTYPE_ES:
+		return ISIS_SNMP_ADJ_NEIGHTYPE_UNKNOWN;
+	case ISIS_SYSTYPE_IS:
+		return ISIS_SNMP_ADJ_NEIGHTYPE_IS_L1_L2;
+	case ISIS_SYSTYPE_L1_IS:
+		return ISIS_SNMP_ADJ_NEIGHTYPE_IS_L1;
+	case ISIS_SYSTYPE_L2_IS:
+		return ISIS_SNMP_ADJ_NEIGHTYPE_IS_L2;
+	}
+
+	return 0; /* not reached */
+}
 
 #define ISIS_SNMP_INET_TYPE_V4 (1)
 #define ISIS_SNMP_INET_TYPE_V6 (2)
@@ -1045,7 +1078,7 @@ static int isis_snmp_circuit_level_lookup_next(
 {
 	oid off;
 	oid start;
-	struct isis_circuit *circuit;
+	struct isis_circuit *circuit = NULL;
 	int level;
 
 	start = 0;
@@ -1621,6 +1654,10 @@ static uint8_t *isis_snmp_find_router(struct variable *v, oid *name,
 	oid *oid_idx;
 	size_t oid_idx_len;
 	size_t off = 0;
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+
+	if (isis == NULL)
+		return NULL;
 
 	*write_method = NULL;
 
@@ -1654,7 +1691,7 @@ static uint8_t *isis_snmp_find_router(struct variable *v, oid *name,
 
 		cmp_level = (int)oid_idx[ISIS_SYS_ID_LEN + 1];
 
-		dyn = dynhn_find_by_id(cmp_buf);
+		dyn = dynhn_find_by_id(isis, cmp_buf);
 
 		if (dyn == NULL || dyn->level != cmp_level)
 			return NULL;
@@ -1706,7 +1743,7 @@ static uint8_t *isis_snmp_find_router(struct variable *v, oid *name,
 		 */
 		cmp_level = (int)(IS_LEVEL_2 + 1);
 
-	dyn = dynhn_snmp_next(cmp_buf, cmp_level);
+	dyn = dynhn_snmp_next(isis, cmp_buf, cmp_level);
 
 	if (dyn == NULL)
 		return NULL;
@@ -1950,8 +1987,6 @@ static uint8_t *isis_snmp_find_system_counter(struct variable *v, oid *name,
 	if (!level_match)
 		/* If level does not match all counters are zeros */
 		return SNMP_INTEGER(0);
-
-	val = 0;
 
 	switch (v->magic) {
 	case ISIS_SYSSTAT_CORRLSPS:
@@ -2512,24 +2547,7 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 
 	switch (v->magic) {
 	case ISIS_ISADJ_STATE:
-		val = ISIS_SNMP_ADJ_STATE_DOWN;
-
-		switch (adj->adj_state) {
-		case ISIS_ADJ_UNKNOWN:
-		case ISIS_ADJ_DOWN:
-			val = ISIS_SNMP_ADJ_STATE_DOWN;
-			break;
-
-		case ISIS_ADJ_INITIALIZING:
-			val = ISIS_SNMP_ADJ_STATE_INITIALIZING;
-			break;
-
-		case ISIS_ADJ_UP:
-			val = ISIS_SNMP_ADJ_STATE_UP;
-			break;
-		}
-
-		return SNMP_INTEGER(val);
+		return SNMP_INTEGER(isis_snmp_adj_state(adj->adj_state));
 
 	case ISIS_ISADJ_3WAYSTATE:
 		return SNMP_INTEGER(adj->threeway_state);
@@ -2541,28 +2559,7 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 	}
 
 	case ISIS_ISADJ_NEIGHSYSTYPE:
-		val = ISIS_SNMP_ADJ_NEIGHTYPE_UNKNOWN;
-
-		switch (adj->sys_type) {
-		case ISIS_SYSTYPE_UNKNOWN:
-		case ISIS_SYSTYPE_ES:
-			val = ISIS_SNMP_ADJ_NEIGHTYPE_UNKNOWN;
-			break;
-
-		case ISIS_SYSTYPE_IS:
-			val = ISIS_SNMP_ADJ_NEIGHTYPE_IS_L1_L2;
-			break;
-
-		case ISIS_SYSTYPE_L1_IS:
-			val = ISIS_SNMP_ADJ_NEIGHTYPE_IS_L1;
-			break;
-
-		case ISIS_SYSTYPE_L2_IS:
-			val = ISIS_SNMP_ADJ_NEIGHTYPE_IS_L2;
-			break;
-		}
-
-		return SNMP_INTEGER(val);
+		return SNMP_INTEGER(isis_snmp_adj_neightype(adj->sys_type));
 
 	case ISIS_ISADJ_NEIGHSYSID:
 		*var_len = sizeof(adj->sysid);
@@ -3349,25 +3346,7 @@ static int isis_snmp_adj_state_change_update(const struct isis_adjacency *adj)
 	lsp_id[ISIS_SYS_ID_LEN] = 0;
 	lsp_id[ISIS_SYS_ID_LEN + 1] = 0;
 
-	val = ISIS_SNMP_ADJ_STATE_DOWN;
-
-	switch (adj->adj_state) {
-	case ISIS_ADJ_UNKNOWN:
-		val = ISIS_SNMP_ADJ_STATE_DOWN;
-		break;
-
-	case ISIS_ADJ_INITIALIZING:
-		val = ISIS_SNMP_ADJ_STATE_INITIALIZING;
-		break;
-
-	case ISIS_ADJ_UP:
-		val = ISIS_SNMP_ADJ_STATE_UP;
-		break;
-
-	case ISIS_ADJ_DOWN:
-		val = ISIS_SNMP_ADJ_STATE_FAILED;
-		break;
-	}
+	val = isis_snmp_adj_state(adj->adj_state);
 
 	isis_snmp_update_worker_b(
 		adj->circuit, ISIS_TRAP_ADJ_STATE_CHANGE,

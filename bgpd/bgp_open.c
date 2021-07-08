@@ -1122,7 +1122,7 @@ int bgp_open_option_parse(struct peer *peer, uint8_t length, int *mp_capability)
 {
 	int ret = 0;
 	uint8_t *error;
-	uint8_t error_data[BGP_MAX_PACKET_SIZE];
+	uint8_t error_data[BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE];
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + length;
 
@@ -1217,8 +1217,8 @@ int bgp_open_option_parse(struct peer *peer, uint8_t length, int *mp_capability)
 	/* Extended Message Support */
 	peer->max_packet_size =
 		CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV)
-			? BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE
-			: BGP_MAX_PACKET_SIZE;
+			? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
+			: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
 	/* Check there are no common AFI/SAFIs and send Unsupported Capability
 	   error. */

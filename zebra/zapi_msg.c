@@ -60,6 +60,7 @@
 #include "zebra/connected.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
+#include "zebra/zebra_srv6.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
 
@@ -479,7 +480,7 @@ void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 
 	p.family = AF_INET6;
 	IPV6_ADDR_COPY(&p.u.prefix6, address);
-	p.prefixlen = IPV6_MAX_PREFIXLEN;
+	p.prefixlen = IPV6_MAX_BITLEN;
 
 	ifc = listnode_head(ifp->nbr_connected);
 	if (!ifc) {
@@ -504,7 +505,7 @@ void nbr_connected_delete_ipv6(struct interface *ifp, struct in6_addr *address)
 
 	p.family = AF_INET6;
 	IPV6_ADDR_COPY(&p.u.prefix6, address);
-	p.prefixlen = IPV6_MAX_PREFIXLEN;
+	p.prefixlen = IPV6_MAX_BITLEN;
 
 	ifc = nbr_connected_check(ifp, &p);
 	if (!ifc)
@@ -985,8 +986,7 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	union sockunion ip;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying Neighbor entry (%u)",
-			   __PRETTY_FUNCTION__, cmd);
+		zlog_debug("%s: Notifying Neighbor entry (%u)", __func__, cmd);
 
 	sockunion_family(&ip) = ipaddr_family(ipaddr);
 	afi = family2afi(sockunion_family(&ip));
@@ -1746,6 +1746,27 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			nexthop_add_labels(nexthop, label_type,
 					   api_nh->label_num,
 					   &api_nh->labels[0]);
+		}
+
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL)
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (IS_ZEBRA_DEBUG_RECV)
+				zlog_debug("%s: adding seg6local action %s",
+					   __func__,
+					   seg6local_action2str(
+						   api_nh->seg6local_action));
+
+			nexthop_add_srv6_seg6local(nexthop,
+						   api_nh->seg6local_action,
+						   &api_nh->seg6local_ctx);
+		}
+
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (IS_ZEBRA_DEBUG_RECV)
+				zlog_debug("%s: adding seg6", __func__);
+
+			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs);
 		}
 
 		if (IS_ZEBRA_DEBUG_RECV) {
@@ -2509,7 +2530,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	if (zapi_sr_policy_decode(s, &zp) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return;
 	}
 	zt = &zp.segment_list;
@@ -2517,7 +2538,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug(
 				"%s: SR-TE tunnel must contain at least one label",
-				__PRETTY_FUNCTION__);
+				__func__);
 		return;
 	}
 
@@ -2544,7 +2565,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	if (zapi_sr_policy_decode(s, &zp) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return;
 	}
 
@@ -2554,8 +2575,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
 	if (!policy) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to find SR-TE policy",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("%s: Unable to find SR-TE policy", __func__);
 		return;
 	}
 
@@ -2611,6 +2631,29 @@ int zsend_client_close_notify(struct zserv *client, struct zserv *closed_client)
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
+	return zserv_send_message(client, s);
+}
+
+int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
+						  vrf_id_t vrf_id,
+						  struct srv6_locator *loc)
+{
+	struct srv6_locator_chunk chunk = {};
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	strlcpy(chunk.locator_name, loc->name, sizeof(chunk.locator_name));
+	chunk.prefix = loc->prefix;
+	chunk.block_bits_length = loc->block_bits_length;
+	chunk.node_bits_length = loc->node_bits_length;
+	chunk.function_bits_length = loc->function_bits_length;
+	chunk.argument_bits_length = loc->argument_bits_length;
+	chunk.keep = 0;
+	chunk.proto = client->proto;
+	chunk.instance = client->instance;
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK, vrf_id);
+	zapi_srv6_locator_chunk_encode(s, &chunk);
+	stream_putw_at(s, 0, stream_get_endp(s));
 	return zserv_send_message(client, s);
 }
 
@@ -2805,7 +2848,7 @@ stream_failure:
 
 static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 {
-	/* to avoid sending other messages like ZERBA_INTERFACE_UP */
+	/* to avoid sending other messages like ZEBRA_INTERFACE_UP */
 	if (hdr->command == ZEBRA_TABLE_MANAGER_CONNECT)
 		zread_table_manager_connect(client, msg, zvrf_id(zvrf));
 	else {
@@ -2813,13 +2856,69 @@ static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 		if (!client->proto) {
 			flog_err(
 				EC_ZEBRA_TM_ALIENS,
-				"Got table request from an unidentified client");
+				"Got SRv6 request from an unidentified client");
 			return;
 		}
 		if (hdr->command == ZEBRA_GET_TABLE_CHUNK)
 			zread_get_table_chunk(client, msg, zvrf_id(zvrf));
 		else if (hdr->command == ZEBRA_RELEASE_TABLE_CHUNK)
 			zread_release_table_chunk(client, msg);
+	}
+}
+
+static void zread_srv6_manager_get_locator_chunk(struct zserv *client,
+						 struct stream *msg,
+						 vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = {0};
+
+	/* Get data. */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* call hook to get a chunk using wrapper */
+	struct srv6_locator *loc = NULL;
+	srv6_manager_get_locator_chunk_call(&loc, client, locator_name, vrf_id);
+
+stream_failure:
+	return;
+}
+
+static void zread_srv6_manager_release_locator_chunk(struct zserv *client,
+						     struct stream *msg,
+						     vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = {0};
+
+	/* Get data. */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* call hook to release a chunk using wrapper */
+	srv6_manager_release_locator_chunk_call(client, locator_name, vrf_id);
+
+stream_failure:
+	return;
+}
+
+static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
+{
+	switch (hdr->command) {
+	case ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK:
+		zread_srv6_manager_get_locator_chunk(client, msg,
+						     zvrf_id(zvrf));
+		break;
+	case ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK:
+		zread_srv6_manager_release_locator_chunk(client, msg,
+							 zvrf_id(zvrf));
+		break;
+	default:
+		zlog_err("%s: unknown SRv6 Manager command", __func__);
+		break;
 	}
 }
 
@@ -3240,6 +3339,61 @@ stream_failure:
 	return;
 }
 
+static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	ifindex_t idx;
+	struct interface *ifp;
+	struct zebra_if *zebra_if = NULL;
+	struct zebra_l2info_gre *gre_info;
+	struct interface *ifp_link = NULL;
+	vrf_id_t vrf_id_link = VRF_UNKNOWN;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+
+	s = msg;
+	STREAM_GETL(s, idx);
+	ifp  = if_lookup_by_index(idx, vrf_id);
+
+	if (ifp)
+		zebra_if = ifp->info;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_GRE_UPDATE, vrf_id);
+
+	if (ifp  && IS_ZEBRA_IF_GRE(ifp) && zebra_if) {
+		gre_info = &zebra_if->l2info.gre;
+
+		stream_putl(s, idx);
+		stream_putl(s, gre_info->ikey);
+		stream_putl(s, gre_info->ikey);
+		stream_putl(s, gre_info->ifindex_link);
+
+		ifp_link = if_lookup_by_index_per_ns(
+					zebra_ns_lookup(gre_info->link_nsid),
+					gre_info->ifindex_link);
+		if (ifp_link)
+			vrf_id_link = ifp_link->vrf_id;
+		stream_putl(s, vrf_id_link);
+		stream_putl(s, gre_info->vtep_ip.s_addr);
+		stream_putl(s, gre_info->vtep_ip_remote.s_addr);
+	} else {
+		stream_putl(s, idx);
+		stream_putl(s, 0);
+		stream_putl(s, 0);
+		stream_putl(s, IFINDEX_INTERNAL);
+		stream_putl(s, VRF_UNKNOWN);
+		stream_putl(s, 0);
+	}
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zserv_send_message(client, s);
+
+	return;
+ stream_failure:
+	return;
+}
+
 static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -3373,6 +3527,57 @@ stream_failure:
 	return;
 }
 
+static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	ifindex_t idx, link_idx;
+	vrf_id_t link_vrf_id;
+	struct interface *ifp;
+	struct interface *ifp_link;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+	struct zebra_if *zif, *gre_zif;
+	struct zebra_l2info_gre *gre_info;
+	unsigned int mtu;
+
+	s = msg;
+	STREAM_GETL(s, idx);
+	ifp  = if_lookup_by_index(idx, vrf_id);
+	STREAM_GETL(s, link_idx);
+	STREAM_GETL(s, link_vrf_id);
+	STREAM_GETL(s, mtu);
+
+	ifp_link  = if_lookup_by_index(link_idx, link_vrf_id);
+	if (!ifp_link || !ifp) {
+		zlog_warn("GRE (index %u, VRF %u) or GRE link interface (index %u, VRF %u) not found, when setting GRE params",
+			  idx, vrf_id, link_idx, link_vrf_id);
+		return;
+	}
+
+	if (!IS_ZEBRA_IF_GRE(ifp))
+		return;
+
+	gre_zif = (struct zebra_if *)ifp->info;
+	zif = (struct zebra_if *)ifp_link->info;
+	if (!zif || !gre_zif)
+		return;
+
+	gre_info = &zif->l2info.gre;
+	if (!gre_info)
+		return;
+
+	if (!mtu)
+		mtu = ifp->mtu;
+
+	/* if gre link already set or mtu did not change, do not set it */
+	if (gre_zif->link && gre_zif->link == ifp_link && mtu == ifp->mtu)
+		return;
+
+	dplane_gre_set(ifp, ifp_link, mtu, gre_info);
+
+ stream_failure:
+	return;
+}
+
 static void zsend_error_msg(struct zserv *client, enum zebra_error_types error,
 			    struct zmsghdr *bad_hdr)
 {
@@ -3476,6 +3681,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK] = zread_srv6_manager_request,
 	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,
@@ -3488,6 +3695,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
 	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
+	[ZEBRA_GRE_GET] = zebra_gre_get,
+	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
 };
 
 /*

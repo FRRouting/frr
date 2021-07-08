@@ -56,7 +56,4 @@ net.ipv6.neigh.default.base_reachable_time_ms=14400000
 
 # Use neigh information on selection of nexthop for multipath hops
 net.ipv4.fib_multipath_use_neigh=1
-
-# Allows Apps to Work with VRF
-net.ipv4.tcp_l3mdev_accept=1
 ```

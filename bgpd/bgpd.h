@@ -29,6 +29,7 @@
 #include "lib/json.h"
 #include "vrf.h"
 #include "vty.h"
+#include "srv6.h"
 #include "iana_afi.h"
 
 /* For union sockunion.  */
@@ -222,6 +223,7 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_LABEL_AUTO        (1 << 0)
 #define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
+#define BGP_VPN_POLICY_TOVPN_SID_AUTO          (1 << 3)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
@@ -234,6 +236,13 @@ struct vpn_policy {
 	 * vrf names that we are being exported to.
 	 */
 	struct list *export_vrf;
+
+	/*
+	 * Segment-Routing SRv6 Mode
+	 */
+	uint32_t tovpn_sid_index; /* unset => set to 0 */
+	struct in6_addr *tovpn_sid;
+	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 };
 
 /*
@@ -320,6 +329,11 @@ struct bgp_snmp_stats {
 	bool active;
 	uint32_t routes_added;
 	uint32_t routes_deleted;
+};
+
+struct bgp_srv6_function {
+	struct in6_addr sid;
+	char locator_name[SRV6_LOCNAME_SIZE];
 };
 
 /* BGP instance structure.  */
@@ -450,38 +464,41 @@ struct bgp {
 #define BGP_FLAG_DETERMINISTIC_MED        (1 << 1)
 #define BGP_FLAG_MED_MISSING_AS_WORST     (1 << 2)
 #define BGP_FLAG_MED_CONFED               (1 << 3)
-#define BGP_FLAG_NO_DEFAULT_IPV4          (1 << 4)
-#define BGP_FLAG_NO_CLIENT_TO_CLIENT      (1 << 5)
-#define BGP_FLAG_COMPARE_ROUTER_ID        (1 << 7)
-#define BGP_FLAG_ASPATH_IGNORE            (1 << 8)
-#define BGP_FLAG_IMPORT_CHECK             (1 << 9)
-#define BGP_FLAG_NO_FAST_EXT_FAILOVER     (1 << 10)
-#define BGP_FLAG_LOG_NEIGHBOR_CHANGES     (1 << 11)
+#define BGP_FLAG_NO_CLIENT_TO_CLIENT (1 << 4)
+#define BGP_FLAG_COMPARE_ROUTER_ID (1 << 5)
+#define BGP_FLAG_ASPATH_IGNORE (1 << 6)
+#define BGP_FLAG_IMPORT_CHECK (1 << 7)
+#define BGP_FLAG_NO_FAST_EXT_FAILOVER (1 << 8)
+#define BGP_FLAG_LOG_NEIGHBOR_CHANGES (1 << 9)
 
 /* This flag is set when we have full BGP Graceful-Restart mode enable */
-#define BGP_FLAG_GRACEFUL_RESTART         (1 << 12)
+#define BGP_FLAG_GRACEFUL_RESTART (1 << 10)
 
-#define BGP_FLAG_ASPATH_CONFED            (1 << 13)
-#define BGP_FLAG_ASPATH_MULTIPATH_RELAX   (1 << 14)
-#define BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY (1 << 15)
-#define BGP_FLAG_DISABLE_NH_CONNECTED_CHK (1 << 16)
-#define BGP_FLAG_MULTIPATH_RELAX_AS_SET   (1 << 17)
-#define BGP_FLAG_FORCE_STATIC_PROCESS     (1 << 18)
-#define BGP_FLAG_SHOW_HOSTNAME            (1 << 19)
-#define BGP_FLAG_GR_PRESERVE_FWD          (1 << 20)
-#define BGP_FLAG_GRACEFUL_SHUTDOWN        (1 << 21)
-#define BGP_FLAG_DELETE_IN_PROGRESS       (1 << 22)
-#define BGP_FLAG_SELECT_DEFER_DISABLE     (1 << 23)
-#define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
-#define BGP_FLAG_EBGP_REQUIRES_POLICY     (1 << 25)
-#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME    (1 << 26)
+#define BGP_FLAG_ASPATH_CONFED (1 << 11)
+#define BGP_FLAG_ASPATH_MULTIPATH_RELAX (1 << 12)
+#define BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY (1 << 13)
+#define BGP_FLAG_DISABLE_NH_CONNECTED_CHK (1 << 14)
+#define BGP_FLAG_MULTIPATH_RELAX_AS_SET (1 << 15)
+#define BGP_FLAG_FORCE_STATIC_PROCESS (1 << 16)
+#define BGP_FLAG_SHOW_HOSTNAME (1 << 17)
+#define BGP_FLAG_GR_PRESERVE_FWD (1 << 18)
+#define BGP_FLAG_GRACEFUL_SHUTDOWN (1 << 19)
+#define BGP_FLAG_DELETE_IN_PROGRESS (1 << 20)
+#define BGP_FLAG_SELECT_DEFER_DISABLE (1 << 21)
+#define BGP_FLAG_GR_DISABLE_EOR (1 << 22)
+#define BGP_FLAG_EBGP_REQUIRES_POLICY (1 << 23)
+#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1 << 24)
 
 /* This flag is set if the instance is in administrative shutdown */
-#define BGP_FLAG_SHUTDOWN                 (1 << 27)
-#define BGP_FLAG_SUPPRESS_FIB_PENDING     (1 << 28)
-#define BGP_FLAG_SUPPRESS_DUPLICATES      (1 << 29)
-#define BGP_FLAG_DEFAULT_IPV6             (1 << 30)
-#define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1 << 31)
+#define BGP_FLAG_SHUTDOWN (1 << 25)
+#define BGP_FLAG_SUPPRESS_FIB_PENDING (1 << 26)
+#define BGP_FLAG_SUPPRESS_DUPLICATES (1 << 27)
+#define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1 << 29)
+
+	/* BGP default address-families.
+	 * New peers inherit enabled afi/safis from bgp instance.
+	 */
+	uint16_t default_af[AFI_MAX][SAFI_MAX];
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
 				      [BGP_GLOBAL_GR_EVENT_CMD];
@@ -496,16 +513,18 @@ struct bgp {
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
-#define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST		(1 << 1)
-#define BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST		(1 << 2)
-#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4		(1 << 3)
-#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6		(1 << 4)
+#define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST (1 << 1)
+#define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP (1 << 2)
+#define BGP_L2VPN_EVPN_ADV_IPV6_UNICAST (1 << 3)
+#define BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP (1 << 4)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4 (1 << 5)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6 (1 << 6)
 /* import/export between address families */
-#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT		(1 << 5)
-#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT		(1 << 6)
+#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT (1 << 7)
+#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT (1 << 8)
 /* vrf-route leaking flags */
-#define BGP_CONFIG_VRF_TO_VRF_IMPORT			(1 << 7)
-#define BGP_CONFIG_VRF_TO_VRF_EXPORT			(1 << 8)
+#define BGP_CONFIG_VRF_TO_VRF_IMPORT (1 << 9)
+#define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
@@ -624,6 +643,14 @@ struct bgp {
 	/* EVI hash table */
 	struct hash *vnihash;
 
+	/*
+	 * VNI hash table based on SVI ifindex as its key.
+	 * We use SVI ifindex as key to lookup a VNI table for gateway IP
+	 * overlay index recursive lookup.
+	 * For this purpose, a hashtable is added which optimizes this lookup.
+	 */
+	struct hash *vni_svi_hash;
+
 	/* EVPN enable - advertise gateway macip routes */
 	int advertise_gw_macip;
 
@@ -668,6 +695,15 @@ struct bgp {
 
 	/* Hash table of EVPN nexthops maintained per-tenant-VRF */
 	struct hash *evpn_nh_table;
+
+	/*
+	 * Flag resolve_overlay_index is used for recursive resolution
+	 * procedures for EVPN type-5 route's gateway IP overlay index.
+	 * When this flag is set, we build remote-ip-hash for
+	 * all L2VNIs and resolve overlay index nexthops using this hash.
+	 * Overlay index nexthops remain unresolved if this flag is not set.
+	 */
+	bool resolve_overlay_index;
 
 	/* vrf flags */
 	uint32_t vrf_flags;
@@ -717,6 +753,12 @@ struct bgp {
 
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+
+	/* BGP VPN SRv6 backend */
+	bool srv6_enabled;
+	char srv6_locator_name[SRV6_LOCNAME_SIZE];
+	struct list *srv6_locator_chunks;
+	struct list *srv6_functions;
 
 	QOBJ_FIELDS;
 };
@@ -866,8 +908,9 @@ typedef enum {
 /* BGP message header and packet size.  */
 #define BGP_MARKER_SIZE		                16
 #define BGP_HEADER_SIZE		                19
-#define BGP_MAX_PACKET_SIZE                   4096
-#define BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE 65535
+#define BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE 4096
+#define BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE 65535
+#define BGP_MAX_PACKET_SIZE BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
 #define BGP_MAX_PACKET_SIZE_OVERFLOW          1024
 
 /*
@@ -1049,7 +1092,7 @@ struct peer {
 	struct stream_fifo *obuf; // packets waiting to be written
 
 	/* used as a block to deposit raw wire data to */
-	uint8_t ibuf_scratch[BGP_MAX_EXTENDED_MESSAGE_PACKET_SIZE
+	uint8_t ibuf_scratch[BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
 			     * BGP_READ_PACKET_MAX];
 	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
 	struct stream *obuf_work;  // WiP buffer used to construct packets
@@ -1241,14 +1284,14 @@ struct peer {
 #define PEER_FLAG_GRACEFUL_RESTART          (1U << 24) /* Graceful Restart */
 #define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1U << 25) /* Global-Inherit */
 #define PEER_FLAG_RTT_SHUTDOWN (1U << 26) /* shutdown rtt */
+#define PEER_FLAG_TIMER_DELAYOPEN (1U << 27) /* delayopen timer */
+#define PEER_FLAG_TCP_MSS (1U << 28)	 /* tcp-mss */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
 	 *& PEER_FLAG_GRACEFUL_RESTART_HELPER
 	 *and PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT
 	 */
-
-#define PEER_FLAG_TIMER_DELAYOPEN (1 << 27) /* delayopen timer */
 
 	struct bgp_peer_gr PEER_GR_FSM[BGP_PEER_GR_MODE][BGP_PEER_GR_EVENT_CMD];
 	enum peer_mode peer_gr_present_state;
@@ -1605,6 +1648,9 @@ struct peer {
 	/* Conditional advertisement */
 	bool advmap_config_change[AFI_MAX][SAFI_MAX];
 	bool advmap_table_change;
+
+	/* set TCP max segment size */
+	uint32_t tcp_mss;
 
 	QOBJ_FIELDS;
 };
@@ -2304,11 +2350,9 @@ static inline char *timestamp_string(time_t ts)
 	return ctime(&tbuf);
 }
 
-static inline int peer_established(struct peer *peer)
+static inline bool peer_established(struct peer *peer)
 {
-	if (peer->status == Established)
-		return 1;
-	return 0;
+	return peer->status == Established;
 }
 
 static inline int peer_dynamic_neighbor(struct peer *peer)
@@ -2382,8 +2426,6 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
-extern void bgp_unset_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
-
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
 
@@ -2409,4 +2451,6 @@ DECLARE_HOOK(bgp_rpki_prefix_status,
 
 void peer_nsf_stop(struct peer *peer);
 
+void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss);
+void peer_tcp_mss_unset(struct peer *peer);
 #endif /* _QUAGGA_BGPD_H */

@@ -92,7 +92,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->ecmp_enable = false;
 	pim->ecmp_rebalance_enable = false;
 
-	pim->vrf_id = vrf->vrf_id;
 	pim->vrf = vrf;
 
 	pim->spt.switchover = PIM_SPT_IMMEDIATE;
@@ -126,6 +125,12 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_instance_mlag_init(pim);
 
 	pim->last_route_change_time = -1;
+
+	/* MSDP global timer defaults. */
+	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
+	pim->msdp.keep_alive = PIM_MSDP_PEER_KA_TIME;
+	pim->msdp.connection_retry = PIM_MSDP_PEER_CONNECT_RETRY_TIME;
+
 	return pim;
 }
 
@@ -175,8 +180,17 @@ static int pim_vrf_delete(struct vrf *vrf)
 static int pim_vrf_enable(struct vrf *vrf)
 {
 	struct pim_instance *pim = (struct pim_instance *)vrf->info;
+	struct interface *ifp;
 
-	zlog_debug("%s: for %s", __func__, vrf->name);
+	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		if (!ifp->info)
+			continue;
+
+		pim_if_create_pimreg(pim);
+		break;
+	}
 
 	pim_mroute_socket_enable(pim);
 

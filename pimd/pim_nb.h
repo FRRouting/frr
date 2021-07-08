@@ -60,30 +60,21 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ssm_pingd_source_ip_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_create(
-	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_destroy(
-	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_mesh_group_name_modify(
-	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_mesh_group_name_destroy(
-	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_member_ip_create(
-	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_member_ip_destroy(
-	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_source_ip_modify(
-	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_source_ip_destroy(
-	struct nb_cb_destroy_args *args);
+int pim_msdp_hold_time_modify(struct nb_cb_modify_args *args);
+int pim_msdp_keep_alive_modify(struct nb_cb_modify_args *args);
+int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args);
+int pim_msdp_mesh_group_create(struct nb_cb_create_args *args);
+int pim_msdp_mesh_group_destroy(struct nb_cb_destroy_args *args);
+int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args);
+int pim_msdp_mesh_group_members_destroy(struct nb_cb_destroy_args *args);
+int pim_msdp_mesh_group_source_modify(struct nb_cb_modify_args *args);
+int pim_msdp_mesh_group_source_destroy(struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_destroy(
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_destroy(
-	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_destroy(
@@ -202,4 +193,6 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_IGMP_JOIN_XPATH                                             \
 	"./frr-igmp:igmp/address-family[address-family='%s']/"          \
 	"static-group[group-addr='%s'][source-addr='%s']"
+#define FRR_PIM_MSDP_XPATH FRR_PIM_AF_XPATH "/msdp"
+
 #endif /* _FRR_PIM_NB_H_ */

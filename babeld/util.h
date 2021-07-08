@@ -100,9 +100,6 @@ void timeval_min(struct timeval *d, const struct timeval *s);
 void timeval_min_sec(struct timeval *d, time_t secs);
 int parse_nat(const char *string) ATTRIBUTE ((pure));
 int parse_msec(const char *string) ATTRIBUTE ((pure));
-int in_prefix(const unsigned char *restrict address,
-              const unsigned char *restrict prefix, unsigned char plen)
-    ATTRIBUTE ((pure));
 unsigned char *mask_prefix(unsigned char *restrict ret,
                            const unsigned char *restrict prefix,
                            unsigned char plen);

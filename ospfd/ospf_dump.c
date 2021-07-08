@@ -241,7 +241,7 @@ const char *ospf_timer_dump(struct thread *t, char *buf, size_t size)
 static void ospf_packet_hello_dump(struct stream *s, uint16_t length)
 {
 	struct ospf_hello *hello;
-	int i;
+	int i, len;
 
 	hello = (struct ospf_hello *)stream_pnt(s);
 
@@ -256,9 +256,9 @@ static void ospf_packet_hello_dump(struct stream *s, uint16_t length)
 	zlog_debug("  DRouter %pI4", &hello->d_router);
 	zlog_debug("  BDRouter %pI4", &hello->bd_router);
 
-	length -= OSPF_HEADER_SIZE + OSPF_HELLO_MIN_SIZE;
-	zlog_debug("  # Neighbors %d", length / 4);
-	for (i = 0; length > 0; i++, length -= sizeof(struct in_addr))
+	len = length - OSPF_HEADER_SIZE - OSPF_HELLO_MIN_SIZE;
+	zlog_debug("  # Neighbors %d", len / 4);
+	for (i = 0; len > 0; i++, len -= sizeof(struct in_addr))
 		zlog_debug("    Neighbor %pI4", &hello->neighbors[i]);
 }
 
@@ -285,7 +285,8 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 {
 	char buf[BUFSIZ];
 	struct router_lsa *rl;
-	int i, len;
+	struct router_link *rlnk;
+	int i, len, sum;
 
 	rl = (struct router_lsa *)stream_pnt(s);
 
@@ -294,16 +295,15 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 		   ospf_router_lsa_flags_dump(rl->flags, buf, BUFSIZ));
 	zlog_debug("    # links %d", ntohs(rl->links));
 
-	len = ntohs(rl->header.length) - OSPF_LSA_HEADER_SIZE - 4;
-	for (i = 0; len > 0; i++) {
-		zlog_debug("    Link ID %pI4", &rl->link[i].link_id);
-		zlog_debug("    Link Data %pI4",
-			   &rl->link[i].link_data);
-		zlog_debug("    Type %d", (uint8_t)rl->link[i].type);
-		zlog_debug("    TOS %d", (uint8_t)rl->link[i].tos);
-		zlog_debug("    metric %d", ntohs(rl->link[i].metric));
-
-		len -= 12;
+	len = length - OSPF_LSA_HEADER_SIZE - 4;
+	rlnk = &rl->link[0];
+	sum = 0;
+	for (i = 0; sum < len && rlnk; sum += 12, rlnk = &rl->link[++i]) {
+		zlog_debug("    Link ID %pI4", &rlnk->link_id);
+		zlog_debug("    Link Data %pI4", &rlnk->link_data);
+		zlog_debug("    Type %d", (uint8_t)rlnk->type);
+		zlog_debug("    TOS %d", (uint8_t)rlnk->tos);
+		zlog_debug("    metric %d", ntohs(rlnk->metric));
 	}
 }
 
@@ -312,10 +312,11 @@ static void ospf_network_lsa_dump(struct stream *s, uint16_t length)
 	struct network_lsa *nl;
 	int i, cnt;
 
-	nl = (struct network_lsa *)stream_pnt(s);
-	cnt = (ntohs(nl->header.length) - (OSPF_LSA_HEADER_SIZE + 4)) / 4;
-
 	zlog_debug("  Network-LSA");
+
+	nl = (struct network_lsa *)stream_pnt(s);
+	cnt = (length - (OSPF_LSA_HEADER_SIZE + 4)) / 4;
+
 	/*
 	zlog_debug ("LSA total size %d", ntohs (nl->header.length));
 	zlog_debug ("Network-LSA size %d",
@@ -331,55 +332,53 @@ static void ospf_network_lsa_dump(struct stream *s, uint16_t length)
 static void ospf_summary_lsa_dump(struct stream *s, uint16_t length)
 {
 	struct summary_lsa *sl;
-	int size;
-	int i;
 
 	sl = (struct summary_lsa *)stream_pnt(s);
 
 	zlog_debug("  Summary-LSA");
 	zlog_debug("    Network Mask %pI4", &sl->mask);
-
-	size = ntohs(sl->header.length) - OSPF_LSA_HEADER_SIZE - 4;
-	for (i = 0; size > 0; size -= 4, i++)
-		zlog_debug("    TOS=%d metric %d", sl->tos,
-			   GET_METRIC(sl->metric));
+	zlog_debug("    TOS=%d metric %d", sl->tos, GET_METRIC(sl->metric));
 }
 
 static void ospf_as_external_lsa_dump(struct stream *s, uint16_t length)
 {
 	struct as_external_lsa *al;
-	int size;
+	struct as_route *asr;
+	int size, sum;
 	int i;
 
 	al = (struct as_external_lsa *)stream_pnt(s);
 	zlog_debug("  %s", ospf_lsa_type_msg[al->header.type].str);
 	zlog_debug("    Network Mask %pI4", &al->mask);
 
-	size = ntohs(al->header.length) - OSPF_LSA_HEADER_SIZE - 4;
-	for (i = 0; size > 0; size -= 12, i++) {
+	size = length - OSPF_LSA_HEADER_SIZE - 4;
+	asr = &al->e[0];
+	sum = 0;
+	for (i = 0; sum < size && asr; sum += 12, asr = &al->e[++i]) {
 		zlog_debug("    bit %s TOS=%d metric %d",
-			   IS_EXTERNAL_METRIC(al->e[i].tos) ? "E" : "-",
-			   al->e[i].tos & 0x7f, GET_METRIC(al->e[i].metric));
-		zlog_debug("    Forwarding address %pI4",
-			   &al->e[i].fwd_addr);
+			   IS_EXTERNAL_METRIC(asr->tos) ? "E" : "-",
+			   asr->tos & 0x7f, GET_METRIC(asr->metric));
+		zlog_debug("    Forwarding address %pI4", &asr->fwd_addr);
 		zlog_debug("    External Route Tag %" ROUTE_TAG_PRI,
-			   al->e[i].route_tag);
+			   asr->route_tag);
 	}
 }
 
 static void ospf_lsa_header_list_dump(struct stream *s, uint16_t length)
 {
 	struct lsa_header *lsa;
+	int len;
 
 	zlog_debug("  # LSA Headers %d", length / OSPF_LSA_HEADER_SIZE);
 
 	/* LSA Headers. */
-	while (length > 0) {
+	len = length;
+	while (len > 0) {
 		lsa = (struct lsa_header *)stream_pnt(s);
 		ospf_lsa_header_dump(lsa);
 
 		stream_forward_getp(s, OSPF_LSA_HEADER_SIZE);
-		length -= OSPF_LSA_HEADER_SIZE;
+		len -= OSPF_LSA_HEADER_SIZE;
 	}
 }
 
@@ -417,6 +416,7 @@ static void ospf_packet_ls_req_dump(struct stream *s, uint16_t length)
 	uint32_t ls_type;
 	struct in_addr ls_id;
 	struct in_addr adv_router;
+	int sum;
 
 	sp = stream_get_getp(s);
 
@@ -425,7 +425,8 @@ static void ospf_packet_ls_req_dump(struct stream *s, uint16_t length)
 	zlog_debug("Link State Request");
 	zlog_debug("  # Requests %d", length / 12);
 
-	for (; length > 0; length -= 12) {
+	sum = 0;
+	for (; sum < length; sum += 12) {
 		ls_type = stream_getl(s);
 		ls_id.s_addr = stream_get_ipv4(s);
 		adv_router.s_addr = stream_get_ipv4(s);
@@ -442,23 +443,23 @@ static void ospf_packet_ls_upd_dump(struct stream *s, uint16_t length)
 {
 	uint32_t sp;
 	struct lsa_header *lsa;
-	int lsa_len;
+	int lsa_len, len;
 	uint32_t count;
 
-	length -= OSPF_HEADER_SIZE;
+	len = length - OSPF_HEADER_SIZE;
 
 	sp = stream_get_getp(s);
 
 	count = stream_getl(s);
-	length -= 4;
+	len -= 4;
 
 	zlog_debug("Link State Update");
 	zlog_debug("  # LSAs %d", count);
 
-	while (length > 0 && count > 0) {
-		if (length < OSPF_HEADER_SIZE || length % 4 != 0) {
+	while (len > 0 && count > 0) {
+		if ((uint16_t)len < OSPF_LSA_HEADER_SIZE || len % 4 != 0) {
 			zlog_debug("  Remaining %d bytes; Incorrect length.",
-				   length);
+				   len);
 			break;
 		}
 
@@ -466,34 +467,39 @@ static void ospf_packet_ls_upd_dump(struct stream *s, uint16_t length)
 		lsa_len = ntohs(lsa->length);
 		ospf_lsa_header_dump(lsa);
 
+		/* Check that LSA length is valid */
+		if (lsa_len > len || lsa_len % 4 != 0) {
+			zlog_debug("  LSA length %d is incorrect!", lsa_len);
+			break;
+		}
 		switch (lsa->type) {
 		case OSPF_ROUTER_LSA:
-			ospf_router_lsa_dump(s, length);
+			ospf_router_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_NETWORK_LSA:
-			ospf_network_lsa_dump(s, length);
+			ospf_network_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_SUMMARY_LSA:
 		case OSPF_ASBR_SUMMARY_LSA:
-			ospf_summary_lsa_dump(s, length);
+			ospf_summary_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_AS_EXTERNAL_LSA:
-			ospf_as_external_lsa_dump(s, length);
+			ospf_as_external_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_AS_NSSA_LSA:
-			ospf_as_external_lsa_dump(s, length);
+			ospf_as_external_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_OPAQUE_LINK_LSA:
 		case OSPF_OPAQUE_AREA_LSA:
 		case OSPF_OPAQUE_AS_LSA:
-			ospf_opaque_lsa_dump(s, length);
+			ospf_opaque_lsa_dump(s, lsa_len);
 			break;
 		default:
 			break;
 		}
 
 		stream_forward_getp(s, lsa_len);
-		length -= lsa_len;
+		len -= lsa_len;
 		count--;
 	}
 

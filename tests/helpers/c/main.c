@@ -155,7 +155,6 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	vty_init(master, false);
 	lib_cmd_init();
-	yang_init(true);
 	nb_init(master, NULL, 0, false);
 
 	/* OSPF vty inits. */

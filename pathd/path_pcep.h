@@ -317,6 +317,16 @@ struct pcep_glob {
 
 extern struct pcep_glob *pcep_g;
 
+struct pcep_error {
+	struct path *path;
+	int error_type;
+	int error_value;
+	/* Rfc 8281 PcInitiated error on bad values */
+#define ERROR_19_1 1
+#define ERROR_19_3 2
+#define ERROR_19_9 3
+};
+
 /* Path Helper Functions */
 struct path *pcep_new_path(void);
 struct path_hop *pcep_new_hop(void);

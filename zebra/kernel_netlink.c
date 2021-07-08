@@ -493,6 +493,7 @@ void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 {
 	unsigned short type;
 
+	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
 		type = rta->rta_type & ~flags;
 		if ((type <= max) && (!tb[type]))
@@ -504,6 +505,7 @@ void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 			  int len)
 {
+	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
 		if (rta->rta_type <= max)
 			tb[rta->rta_type] = rta;
@@ -1359,6 +1361,9 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 		return FRR_NETLINK_ERROR;
+
+	case DPLANE_OP_GRE_SET:
+		return netlink_put_gre_set_msg(bth, ctx);
 
 	case DPLANE_OP_NONE:
 		return FRR_NETLINK_ERROR;

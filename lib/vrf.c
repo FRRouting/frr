@@ -582,29 +582,38 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	cmd_variable_handler_register(vrf_var_handlers);
 }
 
+static void vrf_terminate_single(struct vrf *vrf)
+{
+	/* Clear configured flag and invoke delete. */
+	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
+	vrf_delete(vrf);
+}
+
 /* Terminate VRF module. */
 void vrf_terminate(void)
 {
-	struct vrf *vrf;
+	struct vrf *vrf, *tmp;
 
 	if (debug_vrf)
 		zlog_debug("%s: Shutting down vrf subsystem", __func__);
 
-	while (!RB_EMPTY(vrf_id_head, &vrfs_by_id)) {
-		vrf = RB_ROOT(vrf_id_head, &vrfs_by_id);
+	RB_FOREACH_SAFE (vrf, vrf_id_head, &vrfs_by_id, tmp) {
+		if (vrf->vrf_id == VRF_DEFAULT)
+			continue;
 
-		/* Clear configured flag and invoke delete. */
-		UNSET_FLAG(vrf->status, VRF_CONFIGURED);
-		vrf_delete(vrf);
+		vrf_terminate_single(vrf);
 	}
 
-	while (!RB_EMPTY(vrf_name_head, &vrfs_by_name)) {
-		vrf = RB_ROOT(vrf_name_head, &vrfs_by_name);
+	RB_FOREACH_SAFE (vrf, vrf_name_head, &vrfs_by_name, tmp) {
+		if (vrf->vrf_id == VRF_DEFAULT)
+			continue;
 
-		/* Clear configured flag and invoke delete. */
-		UNSET_FLAG(vrf->status, VRF_CONFIGURED);
-		vrf_delete(vrf);
+		vrf_terminate_single(vrf);
 	}
+
+	/* Finally terminate default VRF */
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	vrf_terminate_single(vrf);
 }
 
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
@@ -675,7 +684,7 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 	if (strlen(vrfname) > VRF_NAMSIZ) {
 		if (vty)
 			vty_out(vty,
-				"%% VRF name %s invalid: length exceeds %d bytes",
+				"%% VRF name %s invalid: length exceeds %d bytes\n",
 				vrfname, VRF_NAMSIZ);
 		else
 			flog_warn(
@@ -690,10 +699,9 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 			 vrfname);
 
 		nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
-		ret = nb_cli_apply_changes(vty, xpath_list);
+		ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
 		if (ret == CMD_SUCCESS) {
 			VTY_PUSH_XPATH(VRF_NODE, xpath_list);
-			nb_cli_pending_commit_check(vty);
 			vrfp = vrf_lookup_by_name(vrfname);
 			if (vrfp)
 				VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
@@ -781,8 +789,6 @@ DEFUN_NOSH(vrf_exit,
 	   "exit-vrf",
 	   "Exit current mode and down to previous mode\n")
 {
-	/* We have to set vrf context to default vrf */
-	VTY_PUSH_CONTEXT(VRF_NODE, vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME));
 	cmd_exit(vty);
 	return CMD_SUCCESS;
 }
@@ -821,10 +827,24 @@ DEFUN_YANG (no_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
+		/*
+		 * Remove the VRF interface config. Currently, we allow to
+		 * remove only inactive VRFs, so we use VRF_DEFAULT_NAME here,
+		 * because when the VRF is removed from kernel, the interface
+		 * is moved to the default VRF. If we ever allow removing
+		 * active VRFs, this code have to be updated accordingly.
+		 */
+		snprintf(xpath_list, sizeof(xpath_list),
+			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			 vrfname, VRF_DEFAULT_NAME);
+		nb_cli_enqueue_change(vty, xpath_list, NB_OP_DESTROY, NULL);
+	}
+
 	snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH, vrfname);
 
 	nb_cli_enqueue_change(vty, xpath_list, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, xpath_list);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -994,25 +1014,50 @@ const char *vrf_get_default_name(void)
 	return vrf_default_name;
 }
 
-int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
+int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 {
 	int ret = 0;
 	struct interface *ifp;
+	struct vrf *vrf;
 
-	if (fd < 0 || name == NULL)
-		return fd;
-	/* the device should exist
-	 * otherwise we should return
-	 * case ifname = vrf in netns mode => return
-	 */
-	ifp = if_lookup_by_name(name, vrf_id);
-	if (!ifp)
-		return fd;
+	if (fd < 0)
+		return -1;
+
+	if (vrf_id == VRF_UNKNOWN)
+		return -1;
+
+	/* can't bind to a VRF that doesn't exist */
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf_is_enabled(vrf))
+		return -1;
+
+	if (ifname && strcmp(ifname, vrf->name)) {
+		/* binding to a regular interface */
+
+		/* can't bind to an interface that doesn't exist */
+		ifp = if_lookup_by_name(ifname, vrf_id);
+		if (!ifp)
+			return -1;
+	} else {
+		/* binding to a VRF device */
+
+		/* nothing to do for netns */
+		if (vrf_is_backend_netns())
+			return 0;
+
+		/* nothing to do for default vrf */
+		if (vrf_id == VRF_DEFAULT)
+			return 0;
+
+		ifname = vrf->name;
+	}
+
 #ifdef SO_BINDTODEVICE
-	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);
+	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname,
+			 strlen(ifname) + 1);
 	if (ret < 0)
-		zlog_debug("bind to interface %s failed, errno=%d", name,
-			   errno);
+		zlog_err("bind to interface %s failed, errno=%d", ifname,
+			 errno);
 #endif /* SO_BINDTODEVICE */
 	return ret;
 }
@@ -1214,7 +1259,8 @@ const struct frr_yang_module_info frr_vrf_info = {
 				.get_next = lib_vrf_get_next,
 				.get_keys = lib_vrf_get_keys,
 				.lookup_entry = lib_vrf_lookup_entry,
-			}
+			},
+			.priority = NB_DFLT_PRIORITY - 2,
 		},
 		{
 			.xpath = "/frr-vrf:lib/vrf/state/id",

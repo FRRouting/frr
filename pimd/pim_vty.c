@@ -171,11 +171,12 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	struct pim_ssm *ssm = pim->ssm_info;
 	char spaces[10];
 
-	if (pim->vrf_id == VRF_DEFAULT)
+	if (pim->vrf->vrf_id == VRF_DEFAULT)
 		snprintf(spaces, sizeof(spaces), "%s", "");
 	else
 		snprintf(spaces, sizeof(spaces), "%s", " ");
 
+	writes += pim_msdp_peer_config_write(vty, pim, spaces);
 	writes += pim_msdp_config_write(pim, vty, spaces);
 
 	if (!pim->send_v6_secondary) {
@@ -185,16 +186,24 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 
 	writes += pim_rp_config_write(pim, vty, spaces);
 
-	if (router->register_suppress_time
-	    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
-		vty_out(vty, "%sip pim register-suppress-time %d\n", spaces,
-			router->register_suppress_time);
-		++writes;
-	}
-	if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
-		vty_out(vty, "%sip pim join-prune-interval %d\n", spaces,
-			router->t_periodic);
-		++writes;
+	if (pim->vrf->vrf_id == VRF_DEFAULT) {
+		if (router->register_suppress_time
+		    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
+			vty_out(vty, "%sip pim register-suppress-time %d\n",
+					spaces, router->register_suppress_time);
+			++writes;
+		}
+		if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
+			vty_out(vty, "%sip pim join-prune-interval %d\n",
+				spaces, router->t_periodic);
+			++writes;
+		}
+
+		if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
+			vty_out(vty, "%sip pim packets %d\n", spaces,
+				router->packet_process);
+			++writes;
+		}
 	}
 	if (pim->keep_alive_time != PIM_KEEPALIVE_PERIOD) {
 		vty_out(vty, "%sip pim keep-alive-timer %d\n", spaces,
@@ -204,11 +213,6 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	if (pim->rp_keep_alive_time != (unsigned int)PIM_RP_KEEPALIVE_PERIOD) {
 		vty_out(vty, "%sip pim rp keep-alive-timer %d\n", spaces,
 			pim->rp_keep_alive_time);
-		++writes;
-	}
-	if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
-		vty_out(vty, "%sip pim packets %d\n", spaces,
-			router->packet_process);
 		++writes;
 	}
 	if (ssm->plist_name) {
@@ -257,6 +261,17 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			vty_out(vty, "%sip ssmpingd %s\n", spaces, source_str);
 			++writes;
 		}
+	}
+
+	if (pim->msdp.hold_time != PIM_MSDP_PEER_HOLD_TIME
+	    || pim->msdp.keep_alive != PIM_MSDP_PEER_KA_TIME
+	    || pim->msdp.connection_retry != PIM_MSDP_PEER_CONNECT_RETRY_TIME) {
+		vty_out(vty, "%sip msdp timers %u %u", spaces,
+			pim->msdp.hold_time, pim->msdp.keep_alive);
+		if (pim->msdp.connection_retry
+		    != PIM_MSDP_PEER_CONNECT_RETRY_TIME)
+			vty_out(vty, " %u", pim->msdp.connection_retry);
+		vty_out(vty, "\n");
 	}
 
 	return writes;

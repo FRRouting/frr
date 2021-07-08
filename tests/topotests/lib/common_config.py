@@ -19,7 +19,7 @@
 #
 
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 from copy import deepcopy
 from subprocess import call
@@ -37,12 +37,14 @@ import socket
 import ipaddress
 import platform
 
-if sys.version_info[0] > 2:
-    import io
-    import configparser
-else:
-    import StringIO
+try:
+    # Imports from python2
+    from StringIO import StringIO
     import ConfigParser as configparser
+except ImportError:
+    # Imports from python3
+    from io import StringIO
+    import configparser
 
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter, get_topogen
@@ -123,7 +125,24 @@ DEBUG_LOGS = {
         "debug ospf te",
         "debug ospf zebra",
     ],
+    "ospf6": [
+        "debug ospf6 event",
+        "debug ospf6 ism",
+        "debug ospf6 lsa",
+        "debug ospf6 nsm",
+        "debug ospf6 nssa",
+        "debug ospf6 packet all",
+        "debug ospf6 sr",
+        "debug ospf6 te",
+        "debug ospf6 zebra",
+    ],
 }
+
+def is_string(value):
+    try:
+        return isinstance(value, basestring)
+    except NameError:
+        return isinstance(value, str)
 
 if config.has_option("topogen", "verbosity"):
     loglevel = config.get("topogen", "verbosity")
@@ -422,7 +441,10 @@ def check_router_status(tgen):
                     daemons.append("zebra")
                 if "pimd" in result:
                     daemons.append("pimd")
-
+                if "ospfd" in result:
+                    daemons.append("ospfd")
+                if "ospf6d" in result:
+                    daemons.append("ospf6d")
                 rnode.startDaemons(daemons)
 
     except Exception as e:
@@ -432,16 +454,6 @@ def check_router_status(tgen):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
-
-
-def getStrIO():
-    """
-    Return a StringIO object appropriate for the current python version.
-    """
-    if sys.version_info[0] > 2:
-        return io.StringIO()
-    else:
-        return StringIO.StringIO()
 
 
 def reset_config_on_routers(tgen, routerName=None):
@@ -515,7 +527,7 @@ def reset_config_on_routers(tgen, routerName=None):
             raise InvalidCLIError("Unknown error in %s", output)
 
         f = open(dname, "r")
-        delta = getStrIO()
+        delta = StringIO()
         delta.write("configure terminal\n")
         t_delta = f.read()
 
@@ -549,7 +561,7 @@ def reset_config_on_routers(tgen, routerName=None):
         output = router.vtysh_multicmd(delta.getvalue(), pretty_output=False)
 
         delta.close()
-        delta = getStrIO()
+        delta = StringIO()
         cfg = router.run("vtysh -c 'show running'")
         for line in cfg.split("\n"):
             line = line.strip()
@@ -700,20 +712,36 @@ def generate_support_bundle():
 
     tgen = get_topogen()
     router_list = tgen.routers()
-    test_name = sys._getframe(2).f_code.co_name
+    test_name = os.environ.get('PYTEST_CURRENT_TEST').split(':')[-1].split(' ')[0]
+
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
+    bundle_procs = {}
     for rname, rnode in router_list.items():
-        logger.info("Generating support bundle for {}".format(rname))
+        logger.info("Spawn collection of support bundle for %s", rname)
         rnode.run("mkdir -p /var/log/frr")
+        bundle_procs[rname] = tgen.net[rname].popen(
+            "/usr/lib/frr/generate_support_bundle.py",
+            stdin=None,
+            stdout=SUB_PIPE,
+            stderr=SUB_PIPE,
+        )
 
-        # Support only python3 going forward
-        bundle_log = rnode.run("env python3 /usr/lib/frr/generate_support_bundle.py")
-
-        logger.info(bundle_log)
-
+    for rname, rnode in router_list.items():
         dst_bundle = "{}/{}/support_bundles/{}".format(TMPDIR, rname, test_name)
         src_bundle = "/var/log/frr"
+
+        output, error = bundle_procs[rname].communicate()
+
+        logger.info("Saving support bundle for %s", rname)
+        if output:
+            logger.info(
+                "Output from collecting support bundle for %s:\n%s", rname, output
+            )
+        if error:
+            logger.warning(
+                "Error from collecting support bundle for %s:\n%s", rname, error
+            )
         rnode.run("rm -rf {}".format(dst_bundle))
         rnode.run("mkdir -p {}".format(dst_bundle))
         rnode.run("mv -f {}/* {}".format(src_bundle, dst_bundle))
@@ -890,6 +918,10 @@ def topo_daemons(tgen, topo):
         for val in topo["routers"][rtr]["links"].values():
             if "pim" in val and "pimd" not in daemon_list:
                 daemon_list.append("pimd")
+            if "ospf" in val and "ospfd" not in daemon_list:
+                daemon_list.append("ospfd")
+            if "ospf6" in val and "ospf6d" not in daemon_list:
+                daemon_list.append("ospf6d")
                 break
 
     return daemon_list
@@ -1601,60 +1633,99 @@ def interface_status(tgen, topo, input_dict):
     return True
 
 
-def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict=False):
+def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
     """
-    Retries function execution, if return is an errormsg or exception
+    Fixture: Retries function while it's return value is an errormsg (str), False, or it raises an exception.
 
-    * `attempts`: Number of attempts to make
-    * `wait`: Number of seconds to wait between each attempt
-    * `return_is_str`: Return val is an errormsg in case of failure
-    * `initial_wait`: Sleeps for this much seconds before executing function
-
+    * `retry_timeout`: Retry for at least this many seconds; after waiting initial_wait seconds
+    * `initial_wait`: Sleeps for this many seconds before first executing function
+    * `expected`: if False then the return logic is inverted, except for exceptions,
+                      (i.e., a False or errmsg (str) function return ends the retry loop,
+                      and returns that False or str value)
+    * `diag_pct`: Percentage of `retry_timeout` to keep testing after negative result would have
+                  been returned in order to see if a positive result comes after. This is an
+                  important diagnostic tool, and normally should not be disabled. Calls to wrapped
+                  functions though, can override the `diag_pct` value to make it larger in case more
+                  diagnostic retrying is appropriate.
     """
 
     def _retry(func):
         @wraps(func)
         def func_retry(*args, **kwargs):
-            _wait = kwargs.pop("wait", wait)
-            _attempts = kwargs.pop("attempts", attempts)
-            _attempts = int(_attempts)
-            if _attempts < 0:
-                raise ValueError("attempts must be 0 or greater")
+            # We will continue to retry diag_pct of the timeout value to see if test would have passed with a
+            # longer retry timeout value.
+            saved_failure = None
+
+            retry_sleep = 2
+
+            # Allow the wrapped function's args to override the fixtures
+            _retry_timeout = kwargs.pop("retry_timeout", retry_timeout)
+            _expected = kwargs.pop("expected", expected)
+            _initial_wait = kwargs.pop("initial_wait", initial_wait)
+            _diag_pct = kwargs.pop("diag_pct", diag_pct)
+
+            start_time = datetime.now()
+            retry_until = datetime.now() + timedelta(seconds=_retry_timeout + _initial_wait)
 
             if initial_wait > 0:
                 logger.info("Waiting for [%s]s as initial delay", initial_wait)
                 sleep(initial_wait)
 
-            _return_is_str = kwargs.pop("return_is_str", return_is_str)
-            _return_is_dict = kwargs.pop("return_is_str", return_is_dict)
-            _expected = kwargs.setdefault("expected", True)
-            kwargs.pop("expected")
-            for i in range(1, _attempts + 1):
+            invert_logic = not _expected
+            while True:
+                seconds_left = (retry_until - datetime.now()).total_seconds()
                 try:
                     ret = func(*args, **kwargs)
                     logger.debug("Function returned %s", ret)
-                    if _return_is_str and isinstance(ret, bool) and _expected:
-                        return ret
-                    if (
-                        isinstance(ret, str) or isinstance(ret, unicode)
-                    ) and _expected is False:
-                        return ret
-                    if _return_is_dict and isinstance(ret, dict):
-                        return ret
 
-                    if _attempts == i:
-                        generate_support_bundle()
-                        return ret
-                except Exception as err:
-                    if _attempts == i:
-                        generate_support_bundle()
-                        logger.info("Max number of attempts (%r) reached", _attempts)
-                        raise
-                    else:
-                        logger.info("Function returned %s", err)
-                if i < _attempts:
-                    logger.info("Retry [#%r] after sleeping for %ss" % (i, _wait))
-                    sleep(_wait)
+                    negative_result = ret is False or is_string(ret)
+                    if negative_result == invert_logic:
+                        # Simple case, successful result in time
+                        if not saved_failure:
+                            return ret
+
+                        # Positive result, but happened after timeout failure, very important to
+                        # note for fixing tests.
+                        logger.warning("RETRY DIAGNOSTIC: SUCCEED after FAILED with requested timeout of %.1fs; however, succeeded in %.1fs, investigate timeout timing",
+                                       _retry_timeout, (datetime.now() - start_time).total_seconds())
+                        if isinstance(saved_failure, Exception):
+                            raise saved_failure             # pylint: disable=E0702
+                        return saved_failure
+
+                except Exception as error:
+                    logger.info("Function raised exception: %s", str(error))
+                    ret = error
+
+                if seconds_left < 0 and saved_failure:
+                    logger.info("RETRY DIAGNOSTIC: Retry timeout reached, still failing")
+                    if isinstance(saved_failure, Exception):
+                        raise saved_failure                 # pylint: disable=E0702
+                    return saved_failure
+
+                if seconds_left < 0:
+                    logger.info("Retry timeout of %ds reached", _retry_timeout)
+
+                    saved_failure = ret
+                    retry_extra_delta = timedelta(seconds=seconds_left + _retry_timeout * _diag_pct)
+                    retry_until = datetime.now() + retry_extra_delta
+                    seconds_left = retry_extra_delta.total_seconds()
+
+                    # Generate bundle after setting remaining diagnostic retry time
+                    generate_support_bundle()
+
+                    # If user has disabled diagnostic retries return now
+                    if not _diag_pct:
+                        if isinstance(saved_failure, Exception):
+                            raise saved_failure
+                        return saved_failure
+
+                if saved_failure:
+                    logger.info("RETRY DIAG: [failure] Sleeping %ds until next retry with %.1f retry time left - too see if timeout was too short",
+                                retry_sleep, seconds_left)
+                else:
+                    logger.info("Sleeping %ds until next retry with %.1f retry time left",
+                                retry_sleep, seconds_left)
+                sleep(retry_sleep)
 
         func_retry._original = func
         return func_retry
@@ -1788,6 +1859,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     "network",
                     "priority",
                     "cost",
+                    "mtu_ignore"
                 ]
                 if "ospf" in data:
                     interface_data += _create_interfaces_ospf_cfg(
@@ -2862,7 +2934,7 @@ def configure_interface_mac(tgen, input_dict):
 #############################################
 # Verification APIs
 #############################################
-@retry(attempts=6, wait=2, return_is_str=True)
+@retry(retry_timeout=12)
 def verify_rib(
     tgen,
     addr_type,
@@ -3271,7 +3343,7 @@ def verify_rib(
     return True
 
 
-@retry(attempts=6, wait=2, return_is_str=True)
+@retry(retry_timeout=12)
 def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
     """
     Data will be read from input_dict or input JSON file, API will generate
@@ -3675,7 +3747,7 @@ def verify_prefix_lists(tgen, input_dict):
     return True
 
 
-@retry(attempts=3, wait=4, return_is_str=True)
+@retry(retry_timeout=12)
 def verify_route_maps(tgen, input_dict):
     """
     Running "show route-map" command and verifying given route-map
@@ -3727,7 +3799,7 @@ def verify_route_maps(tgen, input_dict):
     return True
 
 
-@retry(attempts=4, wait=4, return_is_str=True)
+@retry(retry_timeout=16)
 def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
     """
     API to veiryf BGP large community is attached in route for any given
@@ -3963,7 +4035,7 @@ def verify_cli_json(tgen, input_dict):
     return True
 
 
-@retry(attempts=3, wait=4, return_is_str=True)
+@retry(retry_timeout=12)
 def verify_evpn_vni(tgen, input_dict):
     """
     API to verify evpn vni details using "show evpn vni detail json"
@@ -4081,7 +4153,7 @@ def verify_evpn_vni(tgen, input_dict):
     return False
 
 
-@retry(attempts=3, wait=4, return_is_str=True)
+@retry(retry_timeout=12)
 def verify_vrf_vni(tgen, input_dict):
     """
     API to verify vrf vni details using "show vrf vni json"
@@ -4486,51 +4558,3 @@ def verify_ip_nht(tgen, input_dict):
 
     logger.debug("Exiting lib API: verify_ip_nht()")
     return False
-
-
-def kernel_requires_l3mdev_adjustment():
-    """
-    Checks if the L3 master device needs to be adjusted to handle VRF traffic
-    based on kernel version.
-
-    Returns
-    -------
-    1 or 0
-    """
-
-    if version_cmp(platform.release(), "4.15") >= 0:
-        return 1
-    return 0
-
-
-def adjust_router_l3mdev(tgen, router):
-    """
-    Adjusts a routers L3 master device to handle VRF traffic depending on kernel
-    version.
-
-    Parameters
-    ----------
-    * `tgen`   : tgen object
-    * `router` : router id to be configured.
-
-    Returns
-    -------
-    True
-    """
-
-    l3mdev_accept = kernel_requires_l3mdev_adjustment()
-
-    logger.info(
-        "router {0}: setting net.ipv4.tcp_l3mdev_accept={1}".format(
-            router, l3mdev_accept
-        )
-    )
-
-    output = tgen.net[router].cmd("sysctl -n net.ipv4.tcp_l3mdev_accept")
-    logger.info("router {0}: existing tcp_l3mdev_accept was {1}".format(router, output))
-
-    tgen.net[router].cmd(
-        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept)
-    )
-
-    return True

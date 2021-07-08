@@ -82,6 +82,9 @@ extern struct host host;
 /* Vector which store each vty structure. */
 static vector vtyvec;
 
+/* Vector for vtysh connections. */
+static vector vtyshvec;
+
 /* Vty timeout value. */
 static unsigned long vty_timeout_val = VTY_TIMEOUT_DEFAULT;
 
@@ -499,37 +502,37 @@ static int vty_command(struct vty *vty, char *buf)
 		zlog_notice("%s%s", prompt_str, buf);
 	}
 
-#ifdef CONSUMED_TIME_CHECK
-	{
-		RUSAGE_T before;
-		RUSAGE_T after;
-		unsigned long realtime, cputime;
+	RUSAGE_T before;
+	RUSAGE_T after;
+	unsigned long walltime, cputime;
 
-		GETRUSAGE(&before);
-#endif /* CONSUMED_TIME_CHECK */
+	/* cmd_execute() may change cputime_enabled if we're executing the
+	 * "service cputime-stats" command, which can result in nonsensical
+	 * and very confusing warnings
+	 */
+	bool cputime_enabled_here = cputime_enabled;
 
-		ret = cmd_execute(vty, buf, NULL, 0);
+	GETRUSAGE(&before);
 
-		/* Get the name of the protocol if any */
-		protocolname = frr_protoname;
+	ret = cmd_execute(vty, buf, NULL, 0);
 
-#ifdef CONSUMED_TIME_CHECK
-		GETRUSAGE(&after);
-		realtime = thread_consumed_time(&after, &before, &cputime);
-		if (cputime > CONSUMED_TIME_CHECK) {
-			/* Warn about CPU hog that must be fixed. */
-			flog_warn(
-				EC_LIB_SLOW_THREAD_CPU,
-				"CPU HOG: command took %lums (cpu time %lums): %s",
-				realtime / 1000, cputime / 1000, buf);
-		} else if (realtime > CONSUMED_TIME_CHECK) {
-			flog_warn(
-				EC_LIB_SLOW_THREAD_WALL,
-				"STARVATION: command took %lums (cpu time %lums): %s",
-				realtime / 1000, cputime / 1000, buf);
-		}
-	}
-#endif /* CONSUMED_TIME_CHECK */
+	GETRUSAGE(&after);
+
+	walltime = thread_consumed_time(&after, &before, &cputime);
+
+	if (cputime_enabled_here && cputime_enabled && cputime_threshold
+	    && cputime > cputime_threshold)
+		/* Warn about CPU hog that must be fixed. */
+		flog_warn(EC_LIB_SLOW_THREAD_CPU,
+			  "CPU HOG: command took %lums (cpu time %lums): %s",
+			  walltime / 1000, cputime / 1000, buf);
+	else if (walltime_threshold && walltime > walltime_threshold)
+		flog_warn(EC_LIB_SLOW_THREAD_WALL,
+			  "STARVATION: command took %lums (cpu time %lums): %s",
+			  walltime / 1000, cputime / 1000, buf);
+
+	/* Get the name of the protocol if any */
+	protocolname = frr_protoname;
 
 	if (ret != CMD_SUCCESS)
 		switch (ret) {
@@ -2038,6 +2041,7 @@ static int vtysh_accept(struct thread *thread)
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
 	vty->node = VIEW_NODE;
+	vector_set_index(vtyshvec, sock, vty);
 
 	vty_event(VTYSH_READ, vty);
 
@@ -2211,8 +2215,12 @@ void vty_close(struct vty *vty)
 	}
 
 	/* Unset vector. */
-	if (vty->fd != -1)
-		vector_unset(vtyvec, vty->fd);
+	if (vty->fd != -1) {
+		if (vty->type == VTY_SHELL_SERV)
+			vector_unset(vtyshvec, vty->fd);
+		else
+			vector_unset(vtyvec, vty->fd);
+	}
 
 	if (vty->wfd > 0 && vty->type == VTY_FILE)
 		fsync(vty->wfd);
@@ -2571,6 +2579,41 @@ void vty_log_fixed(char *buf, size_t len)
 	}
 }
 
+static void update_xpath(struct vty *vty, const char *oldpath,
+			 const char *newpath)
+{
+	int i;
+
+	for (i = 0; i < vty->xpath_index; i++) {
+		if (!frrstr_startswith(vty->xpath[i], oldpath))
+			break;
+
+		char *tmp = frrstr_replace(vty->xpath[i], oldpath, newpath);
+		strlcpy(vty->xpath[i], tmp, sizeof(vty->xpath[0]));
+		XFREE(MTYPE_TMP, tmp);
+	}
+}
+
+void vty_update_xpath(const char *oldpath, const char *newpath)
+{
+	struct vty *vty;
+	unsigned int i;
+
+	for (i = 0; i < vector_active(vtyshvec); i++) {
+		if ((vty = vector_slot(vtyshvec, i)) == NULL)
+			continue;
+
+		update_xpath(vty, oldpath, newpath);
+	}
+
+	for (i = 0; i < vector_active(vtyvec); i++) {
+		if ((vty = vector_slot(vtyvec, i)) == NULL)
+			continue;
+
+		update_xpath(vty, oldpath, newpath);
+	}
+}
+
 int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 {
 	if (exclusive && nb_running_lock(NB_CLIENT_CLI, vty)) {
@@ -2622,8 +2665,8 @@ int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
 
-	/* Perform pending commit if any. */
-	nb_cli_pending_commit_check(vty);
+	/* Perform any pending commits. */
+	(void)nb_cli_pending_commit_check(vty);
 
 	/* Check if there's a pending confirmed commit. */
 	if (vty->t_confirmed_commit_timeout) {
@@ -3114,6 +3157,7 @@ void vty_init(struct thread_master *master_thread, bool do_command_logging)
 	vty_save_cwd();
 
 	vtyvec = vector_init(VECTOR_MIN_SIZE);
+	vtyshvec = vector_init(VECTOR_MIN_SIZE);
 
 	vty_master = master_thread;
 
@@ -3164,5 +3208,9 @@ void vty_terminate(void)
 		vector_free(Vvty_serv_thread);
 		vtyvec = NULL;
 		Vvty_serv_thread = NULL;
+	}
+	if (vtyshvec) {
+		vector_free(vtyshvec);
+		vtyshvec = NULL;
 	}
 }

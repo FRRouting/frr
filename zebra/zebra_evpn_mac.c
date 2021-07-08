@@ -1323,7 +1323,7 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr,
  */
 struct hash *zebra_mac_db_create(const char *desc)
 {
-	return hash_create(mac_hash_keymake, mac_cmp, desc);
+	return hash_create_size(8, mac_hash_keymake, mac_cmp, desc);
 }
 
 /* program sync mac flags in the dataplane  */

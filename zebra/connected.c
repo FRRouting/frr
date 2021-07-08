@@ -38,7 +38,6 @@
 #include "zebra/connected.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_mpls.h"
-#include "zebra/debug.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
 
@@ -76,7 +75,7 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 
 	if (!if_is_loopback(ifp) && ifc->address->family == AF_INET &&
 	    !IS_ZEBRA_IF_VRF(ifp)) {
-		if (ifc->address->prefixlen == 32)
+		if (ifc->address->prefixlen == IPV4_MAX_BITLEN)
 			SET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
 		else
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
@@ -199,7 +198,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
 	afi_t afi;
-	struct prefix p = {0};
+	struct prefix p;
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
@@ -208,6 +207,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
 	uint32_t flags = 0;
+	uint32_t count = 0;
+	struct listnode *cnode;
+	struct connected *c;
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
@@ -220,7 +222,10 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
 
-	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
+	/* Ensure 'down' flag is cleared */
+	UNSET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
+
+	prefix_copy(&p, CONNECTED_PREFIX(ifc));
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
@@ -263,6 +268,28 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	if (zrouter.asic_offloaded)
 		flags |= ZEBRA_FLAG_OFFLOADED;
 
+	/*
+	 * It's possible to add the same network and mask
+	 * to an interface over and over.  This would
+	 * result in an equivalent number of connected
+	 * routes.  Just add one connected route in
+	 * for all the addresses on an interface that
+	 * resolve to the same network and mask
+	 */
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		struct prefix cp;
+
+		prefix_copy(&cp, CONNECTED_PREFIX(c));
+		apply_mask(&cp);
+
+		if (prefix_same(&cp, &p) &&
+		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
+			count++;
+
+		if (count >= 2)
+			return;
+	}
+
 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
 		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
 
@@ -303,8 +330,8 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 	p = prefix_ipv4_new();
 	p->family = AF_INET;
 	p->prefix = *addr;
-	p->prefixlen = CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_PREFIXLEN
-							 : prefixlen;
+	p->prefixlen =
+		CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_BITLEN : prefixlen;
 	ifc->address = (struct prefix *)p;
 
 	/* If there is a peer address. */
@@ -331,8 +358,7 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 	}
 
 	/* no destination address was supplied */
-	if (!dest && (prefixlen == IPV4_MAX_PREFIXLEN)
-		&& if_is_pointopoint(ifp))
+	if (!dest && (prefixlen == IPV4_MAX_BITLEN) && if_is_pointopoint(ifp))
 		zlog_debug(
 			"PtP interface %s with addr %pI4/%d needs a peer address",
 			ifp->name, addr, prefixlen);
@@ -358,12 +384,15 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		.vrf_id = ifp->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
+	uint32_t count = 0;
+	struct listnode *cnode;
+	struct connected *c;
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
 		flog_err(
 			EC_ZEBRA_VRF_NOT_FOUND,
-			"%s: Received Up for interface but no associated zvrf: %d",
+			"%s: Received Down for interface but no associated zvrf: %d",
 			__func__, ifp->vrf_id);
 		return;
 	}
@@ -371,7 +400,18 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
 
-	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
+	/* Skip if we've already done this; this can happen if we have a
+	 * config change that takes an interface down, then we receive kernel
+	 * notifications about the downed interface and its addresses.
+	 */
+	if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_DOWN)) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%s: ifc %p, %pFX already DOWN",
+				   __func__, ifc, ifc->address);
+		return;
+	}
+
+	prefix_copy(&p, CONNECTED_PREFIX(ifc));
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
@@ -394,6 +434,30 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	default:
 		zlog_warn("Unknown AFI: %s", afi2str(afi));
 		break;
+	}
+
+	/* Mark the address as 'down' */
+	SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
+
+	/*
+	 * It's possible to have X number of addresses
+	 * on a interface that all resolve to the same
+	 * network and mask.  Find them and just
+	 * allow the deletion when are removing the last
+	 * one.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		struct prefix cp;
+
+		prefix_copy(&cp, CONNECTED_PREFIX(c));
+		apply_mask(&cp);
+
+		if (prefix_same(&p, &cp) &&
+		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
+			count++;
+
+		if (count >= 1)
+			return;
 	}
 
 	/*
@@ -447,8 +511,8 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 	memset(&p, 0, sizeof(struct prefix));
 	p.family = AF_INET;
 	p.u.prefix4 = *addr;
-	p.prefixlen = CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_PREFIXLEN
-							: prefixlen;
+	p.prefixlen =
+		CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_BITLEN : prefixlen;
 
 	if (dest) {
 		memset(&d, 0, sizeof(struct prefix));

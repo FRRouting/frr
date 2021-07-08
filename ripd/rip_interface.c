@@ -160,7 +160,7 @@ static void rip_request_interface_send(struct interface *ifp, uint8_t version)
 				 * destination addr */
 				to.sin_addr = connected->destination->u.prefix4;
 			else if (connected->address->prefixlen
-				 < IPV4_MAX_PREFIXLEN)
+				 < IPV4_MAX_BITLEN)
 				/* calculate the appropriate broadcast
 				 * address */
 				to.sin_addr.s_addr = ipv4_broadcast_addr(
@@ -493,6 +493,9 @@ int rip_if_down(struct interface *ifp)
 	struct listnode *listnode = NULL, *nextnode = NULL;
 
 	ri = ifp->info;
+
+	THREAD_OFF(ri->t_wakeup);
+
 	rip = ri->rip;
 	if (rip) {
 		for (rp = route_top(rip->table); rp; rp = route_next(rp))
@@ -1113,7 +1116,7 @@ static int rip_interface_config_write(struct vty *vty)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct lyd_node *dnode;
 
-			dnode = yang_dnode_get(
+			dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
 				ifp->name, vrf->name);

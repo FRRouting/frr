@@ -388,8 +388,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 			if (IS_DEBUG_OSPF_GR_HELPER)
 				zlog_debug(
 					"%s, Received a maxage GRACE-LSA from router %pI4",
-					__PRETTY_FUNCTION__,
-					&new->data->adv_router);
+					__func__, &new->data->adv_router);
 
 			if (current) {
 				ospf_process_maxage_grace_lsa(ospf, new, nbr);
@@ -397,22 +396,21 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 				if (IS_DEBUG_OSPF_GR_HELPER)
 					zlog_debug(
 						"%s, Grace LSA doesn't exist in lsdb, so discarding grace lsa",
-						__PRETTY_FUNCTION__);
+						__func__);
 				return -1;
 			}
 		} else {
 			if (IS_DEBUG_OSPF_GR_HELPER)
 				zlog_debug(
 					"%s, Received a GRACE-LSA from router %pI4",
-					__PRETTY_FUNCTION__,
-					&new->data->adv_router);
+					__func__, &new->data->adv_router);
 
 			if (ospf_process_grace_lsa(ospf, new, nbr)
 			    == OSPF_GR_NOT_HELPER) {
 				if (IS_DEBUG_OSPF_GR_HELPER)
 					zlog_debug(
 						"%s, Not moving to HELPER role, So discarding grace LSA",
-						__PRETTY_FUNCTION__);
+						__func__);
 				return -1;
 			}
 		}
@@ -599,7 +597,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		   Designated Router, chances are that all the neighbors have
 		   received the LSA already. */
 		if (NBR_IS_DR(inbr) || NBR_IS_BDR(inbr)) {
-			if (IS_DEBUG_OSPF_NSSA)
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 				zlog_debug("%s: DR/BDR NOT SEND to int %s (%s)",
 					   __func__, IF_NAME(oi),
 					   ospf_get_name(oi->ospf));
@@ -613,7 +611,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		   end up retransmitting the updates. */
 
 		if (oi->state == ISM_Backup) {
-			if (IS_DEBUG_OSPF_NSSA)
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 				zlog_debug(
 					"%s: ISM_Backup NOT SEND to int %s (%s)",
 					__func__, IF_NAME(oi),
@@ -628,8 +626,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 	   (which	must be	> 0) when it is copied into the outgoing Link
 	   State Update packet (until the LS age field reaches the maximum
 	   value of MaxAge). */
-	/* XXX HASSO: Is this IS_DEBUG_OSPF_NSSA really correct? */
-	if (IS_DEBUG_OSPF_NSSA)
+	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 		zlog_debug("%s: DR/BDR sending upd to int %s (%s)", __func__,
 			   IF_NAME(oi), ospf_get_name(oi->ospf));
 

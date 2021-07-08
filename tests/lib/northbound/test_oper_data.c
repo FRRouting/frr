@@ -399,7 +399,6 @@ int main(int argc, char **argv)
 	cmd_hostname_set("test");
 	vty_init(master, false);
 	lib_cmd_init();
-	yang_init(true);
 	nb_init(master, modules, array_size(modules), false);
 
 	/* Create artificial data. */

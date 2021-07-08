@@ -12,18 +12,11 @@ described in :rfc:`2740`.
 OSPF6 router
 ============
 
-.. clicmd:: router ospf6
+.. clicmd:: router ospf6 [vrf NAME]
 
 .. clicmd:: ospf6 router-id A.B.C.D
 
    Set router's Router-ID.
-
-.. clicmd:: interface IFNAME area (0-4294967295)
-
-.. clicmd:: interface IFNAME area A.B.C.D
-
-   Bind interface to specified area, and start sending OSPF packets. `area` can
-   be specified as 0.
 
 .. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
@@ -77,18 +70,53 @@ OSPF6 router
    Use this command to control the maximum number of parallel routes that
    OSPFv3 can support. The default is 64.
 
+.. clicmd:: write-multiplier (1-100)
+
+   Use this command to tune the amount of work done in the packet read and
+   write threads before relinquishing control. The parameter is the number
+   of packets to process before returning. The default value of this parameter
+   is 20.
+
+.. clicmd:: clear ipv6 ospf6 process [vrf NAME]
+
+   This command clears up the database and routing tables and resets the
+   neighborship by restarting the interface state machine. This will be
+   helpful when there is a change in router-id and if user wants the router-id
+   change to take effect, user can use this cli instead of restarting the
+   ospf6d daemon.
 
 .. _ospf6-area:
 
 OSPF6 area
 ==========
 
-Area support for OSPFv3 is not yet implemented.
+.. clicmd:: area A.B.C.D nssa
+
+NSSA Support in OSPFv3
+=======================
+
+The configuration of NSSA areas in OSPFv3 is supported using the CLI command
+``area A.B.C.D nssa`` in ospf6 router configuration mode.
+The following functionalities are implemented as per RFC 3101:
+
+1. Advertising Type-7 LSA into NSSA area when external route is redistributed
+   into OSPFv3
+2. Processing Type-7 LSA received from neighbor and installing route in the
+   route table
+3. Support for NSSA ABR functionality which is generating Type-5 LSA when
+   backbone area is configured. Currently translation of Type-7 LSA to Type-5 LSA
+   is enabled by default.
+4. Support for NSSA Translator functionality when there are multiple NSSA ABR
+   in an area
 
 .. _ospf6-interface:
 
 OSPF6 interface
 ===============
+
+.. clicmd:: ipv6 ospf6 area <A.B.C.D|(0-4294967295)>
+
+   Enable OSPFv3 on the interface and add it to the specified area.
 
 .. clicmd:: ipv6 ospf6 cost COST
 
@@ -139,7 +167,6 @@ Redistribute routes to OSPF6
 
    Redistribute routes from other protocols into OSPFv3.
 
-.. index:: default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]
 .. clicmd:: default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]
 
    The command injects default route in the connected areas. The always
@@ -151,56 +178,52 @@ Redistribute routes to OSPF6
 Showing OSPF6 information
 =========================
 
-.. clicmd:: show ipv6 ospf6 [INSTANCE_ID] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] [json]
 
-   INSTANCE_ID is an optional OSPF instance ID. To see router ID and OSPF
-   instance ID, simply type "show ipv6 ospf6 <cr>". JSON output can be
-   obtained by appending 'json' to the end of command.
+   Show information on a variety of general OSPFv3 and area state and
+   configuration information. JSON output can be obtained by appending 'json'
+   to the end of command.
 
-.. clicmd:: show ipv6 ospf6 database [<detail|dump|internal>] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database [<detail|dump|internal>] [json]
 
    This command shows LSAs present in the LSDB. There are three view options.
    These options helps in viewing all the parameters of the LSAs. JSON output
    can be obtained by appending 'json' to the end of command. JSON option is
    not applicable with 'dump' option.
 
-.. clicmd:: show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [json]
 
    These options filters out the LSA based on its type. The three views options
    works here as well. JSON output can be obtained by appending 'json' to the
    end of command.
 
-.. clicmd:: show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database adv-router A.B.C.D linkstate-id A.B.C.D [json]
 
    The LSAs additinally can also be filtered with the linkstate-id and
    advertising-router fields. We can use the LSA type filter and views with
    this command as well and visa-versa. JSON output can be obtained by
    appending 'json' to the end of command.
 
-.. clicmd:: show ipv6 ospf6 database self-originated [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] database self-originated [json]
 
    This command is used to filter the LSAs which are originated by the present
    router. All the other filters are applicable here as well.
 
-.. clicmd:: show ipv6 ospf6 interface [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] interface [json]
 
    To see OSPF interface configuration like costs. JSON output can be
    obtained by appending "json" in the end.
 
-.. clicmd:: show ipv6 ospf6 neighbor [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] neighbor [json]
 
    Shows state and chosen (Backup) DR of neighbor. JSON output can be
    obtained by appending 'json' at the end.
 
-.. clicmd:: show ipv6 ospf6 interface traffic [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] interface traffic [json]
 
    Shows counts of different packets that have been recieved and transmitted
    by the interfaces. JSON output can be obtained by appending "json" at the
    end.
-
-.. clicmd:: show ipv6 ospf6 request-list A.B.C.D
-
-   Shows requestlist of neighbor.
 
 .. clicmd:: show ipv6 route ospf6
 
@@ -211,12 +234,12 @@ Showing OSPF6 information
    Shows state about what is being redistributed between zebra and OSPF6.
    JSON output can be obtained by appending "json" at the end.
 
-.. clicmd:: show ipv6 ospf6 redistribute [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] redistribute [json]
 
    Shows the routes which are redistributed by the router. JSON output can
    be obtained by appending 'json' at the end.
 
-.. clicmd:: show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
 
    This command displays the ospfv3 routing table as determined by the most
    recent SPF calculations. Options are provided to view the different types
@@ -224,18 +247,18 @@ Showing OSPF6 information
    and summary. JSON output can be obtained by appending 'json' to the end of
    command.
 
-.. clicmd:: show ipv6 ospf6 route X:X::X:X/M match [detail] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] route X:X::X:X/M match [detail] [json]
 
    The additional match option will match the given address to the destination
    of the routes, and return the result accordingly.
 
-.. clicmd:: show ipv6 ospf6 interface [IFNAME] prefix [detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]] [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] interface [IFNAME] prefix [detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]] [json]
 
    This command shows the prefixes present in the interface routing table.
    Interface name can also be given. JSON output can be obtained by appending
    'json' to the end of command.
 
-.. clicmd:: show ipv6 ospf6 spf tree [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] spf tree [json]
 
    This commands shows the spf tree from the recent spf calculation with the
    calling router as the root. If json is appended in the end, we can get the
@@ -252,12 +275,12 @@ Example of ospf6d configured on one interface and area:
 .. code-block:: frr
 
    interface eth0
+    ipv6 ospf6 area 0.0.0.0
     ipv6 ospf6 instance-id 0
    !
    router ospf6
     ospf6 router-id 212.17.55.53
     area 0.0.0.0 range 2001:770:105:2::/64
-    interface eth0 area 0.0.0.0
    !
 
 
@@ -269,6 +292,7 @@ Larger example with policy and various options set:
    debug ospf6 neighbor state
    !
    interface fxp0
+    ipv6 ospf6 area 0.0.0.0
     ipv6 ospf6 cost 1
     ipv6 ospf6 hello-interval 10
     ipv6 ospf6 dead-interval 40
@@ -289,7 +313,6 @@ Larger example with policy and various options set:
    router ospf6
     router-id 255.1.1.1
     redistribute static route-map static-ospf6
-    interface fxp0 area 0.0.0.0
    !
    access-list access4 permit 127.0.0.1/32
    !
@@ -309,3 +332,13 @@ Larger example with policy and various options set:
     ipv6 access-class access6
     exec-timeout 0 0
    !
+
+
+Configuration Limits
+====================
+
+Ospf6d currently supports 100 interfaces addresses if MTU is set to
+default value, and 200 interface addresses if MTU is set to jumbo
+packet size or larger.
+
+  

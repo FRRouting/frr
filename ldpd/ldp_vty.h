@@ -34,6 +34,7 @@ extern struct cmd_node ldp_debug_node;
 union ldpd_addr;
 int	 ldp_get_address(const char *, int *, union ldpd_addr *);
 int	 ldp_vty_mpls_ldp (struct vty *, const char *);
+int	 ldp_vty_allow_broken_lsp(struct vty *, const char *);
 int	 ldp_vty_address_family (struct vty *, const char *, const char *);
 int	 ldp_vty_disc_holdtime(struct vty *, const char *, enum hello_type, long);
 int	 ldp_vty_disc_interval(struct vty *, const char *, enum hello_type, long);

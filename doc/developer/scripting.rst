@@ -135,24 +135,20 @@ A typical execution call looks something like this:
    int status_ok = 0, status_fail = 1;
    struct prefix p = ...;
 
-   struct frrscript_env env[] = {
-           {"integer", "STATUS_FAIL", &status_fail},
-           {"integer", "STATUS_OK", &status_ok},
-           {"prefix", "myprefix", &p},
-           {}};
-
-   int result = frrscript_call(fs, env);
+   int result = frrscript_call(fs,
+                ("STATUS_FAIL", &status_fail),
+                ("STATUS_OK", &status_ok),
+                ("prefix", &p));
 
 
 To execute a loaded script, we need to define the inputs. These inputs are
-passed by binding values to variable names that will be accessible within the
+passed in by binding values to variable names that will be accessible within the
 Lua environment. Basically, all communication with the script takes place via
 global variables within the script, and to provide inputs we predefine globals
-before the script runs. This is done by passing ``frrscript_call()`` an array
-of ``struct frrscript_env``. Each struct has three fields. The first identifies
-the type of the value being passed; more on this later. The second defines the
-name of the global variable within the script environment to bind the third
-argument (the value) to.
+before the script runs. This is done by passing ``frrscript_call()`` a list of
+parenthesized pairs, where the first and second fields identify, respectively,
+the name of the global variable within the script environment and the value it
+is bound to.
 
 The script is then executed and returns a general status code. In the success
 case this will be 0, otherwise it will be nonzero. The script itself does not
@@ -162,32 +158,10 @@ determine this code, it is provided by the Lua interpreter.
 Querying State
 ^^^^^^^^^^^^^^
 
-When a chunk is executed, its state at exit is preserved and can be inspected.
+.. todo::
 
-After running a script, results may be retrieved by querying the script's
-state. Again this is done by retrieving the values of global variables, which
-are known to the script author to be "output" variables.
-
-A result is retrieved like so:
-
-.. code-block:: c
-
-   struct frrscript_env myresult = {"string", "myresult"};
-
-   char *myresult = frrscript_get_result(fs, &myresult);
-
-   ... do something ...
-
-   XFREE(MTYPE_TMP, myresult);
-
-
-As with arguments, results are retrieved by providing a ``struct
-frrscript_env`` specifying a type and a global name. No value is necessary, nor
-is it modified by ``frrscript_get_result()``. That function simply extracts the
-requested value from the script state and returns it.
-
-In most cases the returned value will be allocated with ``MTYPE_TMP`` and will
-need to be freed after use.
+   This section will be updated once ``frrscript_get_result`` has been
+   updated to work with the new ``frrscript_call`` and the rest of the new API.
 
 
 Unloading
@@ -199,21 +173,14 @@ To destroy a script and its associated state:
 
    frrscript_unload(fs);
 
-Values returned by ``frrscript_get_result`` are still valid after the script
-they were retrieved from is unloaded.
-
-Note that you must unload and then load the script if you want to reset its
-state, for example to run it again with different inputs. Otherwise the state
-from the previous run carries over into subsequent runs.
-
 
 .. _marshalling:
 
 Marshalling
 ^^^^^^^^^^^
 
-Earlier sections glossed over the meaning of the type name field in ``struct
-frrscript_env`` and how data is passed between C and Lua. Lua, as a dynamically
+Earlier sections glossed over the types of values that can be passed into
+``frrscript_call`` and how data is passed between C and Lua. Lua, as a dynamically
 typed, garbage collected language, cannot directly use C values without some
 kind of marshalling / unmarshalling system to translate types between the two
 runtimes.
@@ -222,31 +189,10 @@ Lua communicates with C code using a stack. C code wishing to provide data to
 Lua scripts must provide a function that marshalls the C data into a Lua
 representation and pushes it on the stack. C code wishing to retrieve data from
 Lua must provide a corresponding unmarshalling function that retrieves a Lua
-value from the stack and converts it to the corresponding C type. These two
-functions, together with a chosen name of the type they operate on, are
-referred to as ``codecs`` in FRR.
+value from the stack and converts it to the corresponding C type. These
+functions are known as encoders and decoders in FRR.
 
-A codec is defined as:
-
-.. code-block:: c
-
-   typedef void (*encoder_func)(lua_State *, const void *);
-   typedef void *(*decoder_func)(lua_State *, int);
-
-   struct frrscript_codec {
-           const char *typename;
-           encoder_func encoder;
-           decoder_func decoder;
-   };
-
-A typename string and two function pointers.
-
-``typename`` can be anything you want. For example, for the combined types of
-``struct prefix`` and its equivalent in Lua I have chosen the name ``prefix``.
-There is no restriction on naming here, it is just a human name used as a key
-and specified when passing and retrieving values.
-
-``encoder`` is a function that takes a ``lua_State *`` and a C type and pushes
+An encoder is a function that takes a ``lua_State *`` and a C type and pushes
 onto the Lua stack a value representing the C type. For C structs, the usual
 case, this will typically be a Lua table (tables are the only datastructure Lua
 has). For example, here is the encoder function for ``struct prefix``:
@@ -254,7 +200,7 @@ has). For example, here is the encoder function for ``struct prefix``:
 
 .. code-block:: c
 
-   void lua_pushprefix(lua_State *L, const struct prefix *prefix)
+   void lua_pushprefix(lua_State *L, struct prefix *prefix)
    {
            char buffer[PREFIX_STRLEN];
 
@@ -269,17 +215,48 @@ has). For example, here is the encoder function for ``struct prefix``:
            lua_setfield(L, -2, "family");
    }
 
-This function pushes a single value onto the Lua stack. It is a table whose equivalent in Lua is:
+This function pushes a single value onto the Lua stack. It is a table whose
+equivalent in Lua is:
 
 .. code-block:: c
 
    { ["network"] = "1.2.3.4/24", ["prefixlen"] = 24, ["family"] = 2 }
 
 
-``decoder`` does the reverse; it takes a ``lua_State *`` and an index into the
-stack, and unmarshalls a Lua value there into the corresponding C type. Again
-for ``struct prefix``:
+Decoders are a bit more involved. They do the reverse; a decoder function takes
+a ``lua_State *``, pops a value off the Lua stack and converts it back into its
+C type.
+However, since Lua programs have the ability to directly modify their inputs
+(i.e. values passed in via ``frrscript_call``), we need two separate decoder
+functions, called ``lua_decode_*`` and ``lua_to*``.
 
+A ``lua_decode_*`` function takes a ``lua_State*``, an index, and a C type, and
+unmarshalls a Lua value into that C type.
+Again, for ``struct prefix``:
+
+.. code-block:: c
+
+   void lua_decode_prefix(lua_State *L, int idx, struct prefix *prefix)
+   {
+        lua_getfield(L, idx, "network");
+        (void)str2prefix(lua_tostring(L, -1), prefix);
+        lua_pop(L, 1);
+        /* pop the table */
+        lua_pop(L, 1);
+   }
+
+.. warning::
+
+   ``lua_decode_prefix`` functions should leave the Lua stack completely empty
+   when they return.
+   For decoders that unmarshall fields from tables, remember to pop the table
+   at the end.
+
+
+A ``lua_to*`` function perform a similar role except that it first allocates
+memory for the new C type before decoding the value from the Lua stack, then
+returns a pointer to the newly allocated C type.
+This function can and should be implemented using ``lua_decode_*``:
 
 .. code-block:: c
 
@@ -287,39 +264,70 @@ for ``struct prefix``:
    {
            struct prefix *p = XCALLOC(MTYPE_TMP, sizeof(struct prefix));
 
-           lua_getfield(L, idx, "network");
-           str2prefix(lua_tostring(L, -1), p);
-           lua_pop(L, 1);
-
+           lua_decode_prefix(L, idx, p);
            return p;
    }
 
-By convention these functions should be called ``lua_to*``, as this is the
-naming convention used by the Lua C library for the basic types e.g.
-``lua_tointeger`` and ``lua_tostring``.
 
 The returned data must always be copied off the stack and the copy must be
 allocated with ``MTYPE_TMP``. This way it is possible to unload the script
 (destroy the state) without invalidating any references to values stored in it.
+Note that it is the caller's responsibility to free the data.
 
-To register a new type with its corresponding encoding functions:
+For consistency, we should always name functions of the first type
+``lua_decode_*``.
+Functions of the second type should be named ``lua_to*``, as this is the
+naming convention used by the Lua C library for the basic types e.g.
+``lua_tointeger`` and ``lua_tostring``.
 
-.. code-block:: c
+This two-function design allows the compiler to warn if a value passed into
+``frrscript_call`` does not have a encoder and decoder for that type.
+The ``lua_to*`` functions enable us to easily create decoders for nested
+structures.
 
-   struct frrscript_codec frrscript_codecs_lib[] = {    
-             {.typename = "prefix",    
-              .encoder = (encoder_func)lua_pushprefix,    
-              .decoder = lua_toprefix},    
-             {.typename = "sockunion",    
-              .encoder = (encoder_func)lua_pushsockunion,    
-              .decoder = lua_tosockunion},    
-              ...
-              {}};
+To register a new type with its corresponding encoding and decoding functions,
+add the mapping in the following macros in ``frrscript.h``:
 
-   frrscript_register_type_codecs(frrscript_codecs_lib);
+.. code-block:: diff
 
-From this point on the type names are available to be used when calling any
-script and getting its results.
+     #define ENCODE_ARGS_WITH_STATE(L, value) \
+          _Generic((value), \
+          ...
+   - struct peer * : lua_pushpeer \
+   + struct peer * : lua_pushpeer, \
+   + struct prefix * : lua_pushprefix \
+     )(L, value)
+
+     #define DECODE_ARGS_WITH_STATE(L, value) \
+          _Generic((value), \
+          ...
+   - struct peer * : lua_decode_peer \
+   + struct peer * : lua_decode_peer, \
+   + struct prefix * : lua_decode_prefix \
+     )(L, -1, value)
+
+
+At compile time, the compiler will search for encoders/decoders for the type of
+each value passed in via ``frrscript_call``. If a encoder/decoder cannot be
+found, it will appear as a compile warning. Note that the types must
+match *exactly*.
+In the above example, we defined encoders/decoders for a value of
+``struct prefix *``, but not ``struct prefix`` or ``const struct prefix *``.
+
+``const`` values are a special case. We want to use them in our Lua scripts
+but not modify them, so creating a decoder for them would be meaningless.
+But we still need a decoder for the type of value so that the compiler will be
+satisfied.
+For that, use ``lua_decode_noop``:
+
+.. code-block:: diff
+
+     #define DECODE_ARGS_WITH_STATE(L, value) \
+          _Generic((value), \
+          ...
+   + const struct prefix * : lua_decode_noop \
+     )(L, -1, value)
+
 
 .. note::
 

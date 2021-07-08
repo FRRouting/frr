@@ -276,7 +276,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
 
 			p.family = AF_INET6;
-			p.prefixlen = IPV6_MAX_PREFIXLEN;
+			p.prefixlen = IPV6_MAX_BITLEN;
 			memcpy(&p.u.prefix6,
 			       &nexthop_tab[num_ifindex].nexthop_addr.u.prefix6,
 			       sizeof(struct in6_addr));
@@ -544,7 +544,8 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 		return -1;
 
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS, c_oil->pim->vrf_id);
+	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS,
+			      c_oil->pim->vrf->vrf_id);
 	stream_put_in_addr(s, &c_oil->oil.mfcc_origin);
 	stream_put_in_addr(s, &c_oil->oil.mfcc_mcastgrp);
 	stream_putl(s, ifp->ifindex);

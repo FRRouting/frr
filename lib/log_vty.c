@@ -34,6 +34,7 @@
 #define ZLOG_MAXLVL(a, b) MAX(a, b)
 
 DEFINE_HOOK(zlog_rotate, (), ());
+DEFINE_HOOK(zlog_cli_show, (struct vty * vty), (vty));
 
 static const int log_default_lvl = LOG_DEBUG;
 
@@ -57,7 +58,7 @@ static struct zlog_cfg_filterfile zt_filterfile = {
 	},
 };
 
-static const char *zlog_progname;
+const char *zlog_progname;
 static const char *zlog_protoname;
 
 static const struct facility_map {
@@ -94,7 +95,14 @@ static const char * const zlog_priority[] = {
 	"notifications", "informational", "debugging", NULL,
 };
 
-static const char *facility_name(int facility)
+const char *zlog_priority_str(int priority)
+{
+	if (priority > LOG_DEBUG)
+		return "???";
+	return zlog_priority[priority];
+}
+
+const char *facility_name(int facility)
 {
 	const struct facility_map *fm;
 
@@ -104,7 +112,7 @@ static const char *facility_name(int facility)
 	return "";
 }
 
-static int facility_match(const char *str)
+int facility_match(const char *str)
 {
 	const struct facility_map *fm;
 
@@ -194,6 +202,8 @@ DEFUN_NOSH (show_logging,
 	vty_out(vty, "Record priority: %s\n",
 		(zt_file.record_priority ? "enabled" : "disabled"));
 	vty_out(vty, "Timestamp precision: %d\n", zt_file.ts_subsec);
+
+	hook_call(zlog_cli_show, vty);
 	return CMD_SUCCESS;
 }
 
@@ -588,8 +598,9 @@ DEFUN (no_config_log_filterfile,
 
 DEFPY (log_filter,
        log_filter_cmd,
-       "[no] log-filter WORD$filter",
+       "[no] log filter-text WORD$filter",
        NO_STR
+       "Logging control\n"
        FILTER_LOG_STR
        "String to filter by\n")
 {
@@ -616,8 +627,9 @@ DEFPY (log_filter,
 /* Clear all log filters */
 DEFPY (log_filter_clear,
        log_filter_clear_cmd,
-       "clear log-filter",
+       "clear log filter-text",
        CLEAR_STR
+       "Logging control\n"
        FILTER_LOG_STR)
 {
 	zlog_filter_clear();
@@ -627,8 +639,9 @@ DEFPY (log_filter_clear,
 /* Show log filter */
 DEFPY (show_log_filter,
        show_log_filter_cmd,
-       "show log-filter",
+       "show logging filter-text",
        SHOW_STR
+       "Show current logging configuration\n"
        FILTER_LOG_STR)
 {
 	char log_filters[ZLOG_FILTERS_MAX * (ZLOG_FILTER_LENGTH_MAX + 3)] = "";

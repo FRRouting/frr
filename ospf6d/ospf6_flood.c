@@ -40,6 +40,7 @@
 #include "ospf6_neighbor.h"
 
 #include "ospf6_flood.h"
+#include "ospf6_nssa.h"
 
 unsigned char conf_debug_ospf6_flooding;
 
@@ -213,12 +214,19 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 {
 	struct timeval now;
 	struct ospf6_lsa *old;
+	struct ospf6_area *area = NULL;
 
 	/* Remove the old instance from all neighbors' Link state
 	   retransmission list (RFC2328 13.2 last paragraph) */
 	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				lsa->header->adv_router, lsa->lsdb);
 	if (old) {
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
+			if (IS_OSPF6_DEBUG_NSSA)
+				zlog_debug("%s : old LSA %s", __func__,
+					   lsa->name);
+			lsa->external_lsa_id = old->external_lsa_id;
+		}
 		THREAD_OFF(old->expire);
 		THREAD_OFF(old->refresh);
 		ospf6_flood_clear(old);
@@ -265,6 +273,22 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	lsa->installed = now;
 	ospf6_lsdb_add(lsa, lsa->lsdb);
 
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
+		area = OSPF6_AREA(lsa->lsdb->data);
+		ospf6_translated_nssa_refresh(area, lsa, NULL);
+		ospf6_schedule_abr_task(area->ospf6);
+	}
+
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER) {
+		area = OSPF6_AREA(lsa->lsdb->data);
+		if (old == NULL) {
+			if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
+			    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
+				zlog_debug("%s: New router LSA %s", __func__,
+					   lsa->name);
+			ospf6_abr_nssa_check_status(area->ospf6);
+		}
+	}
 	return;
 }
 
@@ -275,7 +299,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 {
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
-	struct ospf6_lsa *req;
+	struct ospf6_lsa *req, *old;
 	int retrans_added = 0;
 	int is_debug = 0;
 
@@ -370,7 +394,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 			continue;
 		}
 
-		if (oi->area->ospf6->inst_shutdown) {
+		if ((oi->area->ospf6->inst_shutdown)
+		    || CHECK_FLAG(lsa->flag, OSPF6_LSA_FLUSH)) {
 			if (is_debug)
 				zlog_debug(
 					"%s: Send LSA %s (age %d) update now",
@@ -381,13 +406,29 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		} else {
 			/* (d) add retrans-list, schedule retransmission */
 			if (is_debug)
-				zlog_debug("Add retrans-list of this neighbor");
-			ospf6_increment_retrans_count(lsa);
-			ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
-			thread_add_timer(master, ospf6_lsupdate_send_neighbor,
-					 on, on->ospf6_if->rxmt_interval,
-					 &on->thread_send_lsupdate);
-			retrans_added++;
+				zlog_debug("Add retrans-list of neighbor %s ",
+					   on->name);
+
+			/* Do not increment the retrans count if the lsa is
+			 * already present in the retrans list.
+			 */
+			old = ospf6_lsdb_lookup(
+				lsa->header->type, lsa->header->id,
+				lsa->header->adv_router, on->retrans_list);
+			if (!old) {
+				if (is_debug)
+					zlog_debug(
+						"Increment %s from retrans_list of %s",
+						lsa->name, on->name);
+				ospf6_increment_retrans_count(lsa);
+				ospf6_lsdb_add(ospf6_lsa_copy(lsa),
+					       on->retrans_list);
+				thread_add_timer(
+					master, ospf6_lsupdate_send_neighbor,
+					on, on->ospf6_if->rxmt_interval,
+					&on->thread_send_lsupdate);
+				retrans_added++;
+			}
 		}
 	}
 
@@ -395,7 +436,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	if (retrans_added == 0) {
 		if (is_debug)
 			zlog_debug(
-				"No retransmission scheduled, next interface");
+				"No retransmission scheduled, next interface %s",
+				oi->interface->name);
 		return;
 	}
 
@@ -484,7 +526,12 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 			continue;
 
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(oa))
+		    && (IS_AREA_STUB(oa) || IS_AREA_NSSA(oa)))
+			continue;
+
+		/* Check for NSSA LSA */
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+		    && !IS_AREA_NSSA(oa) && !OSPF6_LSA_IS_MAXAGE(lsa))
 			continue;
 
 		ospf6_flood_area(from, lsa, oa);
@@ -524,7 +571,7 @@ static void ospf6_flood_clear_interface(struct ospf6_lsa *lsa,
 	}
 }
 
-static void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
+void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_interface *oi;
@@ -553,7 +600,11 @@ static void ospf6_flood_clear_process(struct ospf6_lsa *lsa,
 			continue;
 
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(oa))
+		    && (IS_AREA_STUB(oa) || (IS_AREA_NSSA(oa))))
+			continue;
+		/* Check for NSSA LSA */
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+		    && !IS_AREA_NSSA(oa))
 			continue;
 
 		ospf6_flood_clear_area(lsa, oa);
@@ -565,6 +616,8 @@ void ospf6_flood_clear(struct ospf6_lsa *lsa)
 	struct ospf6 *ospf6;
 
 	ospf6 = ospf6_get_by_lsdb(lsa);
+	if (ospf6 == NULL)
+		return;
 	ospf6_flood_clear_process(lsa, ospf6);
 }
 
@@ -773,6 +826,18 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 	ismore_recent = 1;
 	assert(from);
 
+	/* if we receive a LSA with invalid seqnum drop it */
+	if (ntohl(lsa_header->seqnum) - 1 == OSPF_MAX_SEQUENCE_NUMBER) {
+		if (IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa_header->type)) {
+			zlog_debug(
+				"received lsa [%s Id:%pI4 Adv:%pI4] with invalid seqnum 0x%x, ignore",
+				ospf6_lstype_name(lsa_header->type),
+				&lsa_header->id, &lsa_header->adv_router,
+				ntohl(lsa_header->seqnum));
+		}
+		return;
+	}
+
 	/* make lsa structure for received lsa */
 	new = ospf6_lsa_create(lsa_header);
 
@@ -936,11 +1001,12 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		/* if no database copy, should go above state (5) */
 		assert(old);
 
-		if (is_debug) {
-			zlog_debug(
-				"Received is not newer, on the neighbor's request-list");
-			zlog_debug("BadLSReq, discard the received LSA");
-		}
+		zlog_warn(
+			"Received is not newer, on the neighbor %s request-list",
+			from->name);
+		zlog_warn(
+			"BadLSReq, discard the received LSA lsa %s send badLSReq",
+			new->name);
 
 		/* BadLSReq */
 		thread_add_event(master, bad_lsreq, from, 0, NULL);
@@ -1016,18 +1082,20 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					if (is_debug)
 						zlog_debug(
 							"%s: Current copy of LSA %s is MAXAGE, but new has recent age, flooding/installing.",
-							old->name, __PRETTY_FUNCTION__);
+							__PRETTY_FUNCTION__, old->name);
 					ospf6_lsa_purge(old);
 					ospf6_flood(from, new);
 					ospf6_install_lsa(new);
-				} else {
-					if (is_debug)
-						zlog_debug(
-							"%s: Current copy of self-originated LSA %s is MAXAGE, but new has recent age, ignoring new.",
-							old->name, __PRETTY_FUNCTION__);
-					ospf6_lsa_delete(new);
+					return;
 				}
-				return;
+				/* For self-originated LSA, only trust
+				 * ourselves. Fall through and send
+				 * LS Update with our current copy.
+				 */
+				if (is_debug)
+					zlog_debug(
+						"%s: Current copy of self-originated LSA %s is MAXAGE, but new has recent age, re-sending current one.",
+						__PRETTY_FUNCTION__, old->name);
 			}
 
 			/* XXX, MinLSArrival check !? RFC 2328 13 (8) */
