@@ -152,6 +152,14 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 				return NB_ERR_VALIDATION;
 			}
 		}
+		nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
+		nh_vrf = yang_dnode_get_string(args->dnode, "./vrf");
+		if (nh_type == STATIC_BLACKHOLE && nh_vrf) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Nexthop cannot be a blackhole with a nexthop-vrf");
+			return NB_ERR_VALIDATION;
+		}
 
 		iter.count = 0;
 		iter.blackhole = false;
