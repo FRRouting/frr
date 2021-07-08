@@ -67,6 +67,7 @@ static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
 #endif
 
 unsigned char conf_debug_ospf6_asbr = 0;
+unsigned char conf_debug_ospf6_summary = 0;
 
 #define ZROUTE_NAME(x) zebra_route_string(x)
 
@@ -2536,6 +2537,21 @@ void ospf6_asbr_terminate(void)
 	route_map_finish();
 }
 
+DEFPY(debug_ospf6_summary, debug_ospf6_summary_cmd,
+      "[no] debug ospf6 summary-address",
+      NO_STR
+      DEBUG_STR
+      OSPF6_STR
+      "External summary address\n")
+{
+	if (!no)
+		OSPF6_DEBUG_SUMMARY_ON();
+	else
+		OSPF6_DEBUG_SUMMARY_OFF();
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_ospf6_asbr,
        debug_ospf6_asbr_cmd,
        "debug ospf6 asbr",
@@ -2565,6 +2581,8 @@ int config_write_ospf6_debug_asbr(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_ASBR)
 		vty_out(vty, "debug ospf6 asbr\n");
+	if (IS_OSPF6_DEBUG_SUMMARY)
+		vty_out(vty, "debug ospf6 summary-address\n");
 	return 0;
 }
 
@@ -2612,4 +2630,7 @@ void install_element_ospf6_debug_asbr(void)
 	install_element(ENABLE_NODE, &no_debug_ospf6_asbr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_asbr_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_asbr_cmd);
+
+	install_element(ENABLE_NODE, &debug_ospf6_summary_cmd);
+	install_element(CONFIG_NODE, &debug_ospf6_summary_cmd);
 }

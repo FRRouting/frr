@@ -34,6 +34,11 @@ extern unsigned char conf_debug_ospf6_asbr;
 #define OSPF6_DEBUG_ASBR_OFF() (conf_debug_ospf6_asbr = 0)
 #define IS_OSPF6_DEBUG_ASBR (conf_debug_ospf6_asbr)
 
+extern unsigned char conf_debug_ospf6_summary;
+#define OSPF6_DEBUG_SUMMARY_ON() (conf_debug_ospf6_summary = 1)
+#define OSPF6_DEBUG_SUMMARY_OFF() (conf_debug_ospf6_summary = 0)
+#define IS_OSPF6_DEBUG_SUMMARY (conf_debug_ospf6_summary)
+
 struct ospf6_external_info {
 	/* External route type */
 	int type;
