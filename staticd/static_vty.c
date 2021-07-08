@@ -501,7 +501,7 @@ DEFPY_YANG(ip_route_blackhole,
       ip_route_blackhole_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
-	<reject|blackhole>$flag                                               \
+	<reject|blackhole|Null0>$flag                                         \
 	[{                                                                    \
 	  tag (1-4294967295)                                                  \
 	  |(1-255)$distance                                                   \
@@ -516,6 +516,7 @@ DEFPY_YANG(ip_route_blackhole,
       "IP destination prefix mask\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
+      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -533,7 +534,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
       ip_route_blackhole_vrf_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
-	<reject|blackhole>$flag                                               \
+	<reject|blackhole|Null0>$flag                                         \
 	[{                                                                    \
 	  tag (1-4294967295)                                                  \
 	  |(1-255)$distance                                                   \
@@ -547,6 +548,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
       "IP destination prefix mask\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
+      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -581,7 +583,7 @@ DEFPY_YANG(ip_route_address_interface,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
 	A.B.C.D$gate                                   \
-	<INTERFACE|Null0>$ifname                       \
+	INTERFACE$ifname                               \
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
@@ -599,7 +601,6 @@ DEFPY_YANG(ip_route_address_interface,
       "IP destination prefix mask\n"
       "IP gateway address\n"
       "IP gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -615,10 +616,6 @@ DEFPY_YANG(ip_route_address_interface,
 	const char *nh_vrf;
 	const char *flag = NULL;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	if (!vrf)
 		vrf = VRF_DEFAULT_NAME;
 
@@ -638,7 +635,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
 	A.B.C.D$gate                                   \
-	<INTERFACE|Null0>$ifname                       \
+	INTERFACE$ifname                               \
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
@@ -655,7 +652,6 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       "IP destination prefix mask\n"
       "IP gateway address\n"
       "IP gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -680,10 +676,6 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	}
 	vrfname = yang_dnode_get_string(vrf_dnode, "./name");
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	if (nexthop_vrf)
 		nh_vrf = nexthop_vrf;
 	else
@@ -699,7 +691,7 @@ DEFPY_YANG(ip_route,
       ip_route_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
-	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
+	<A.B.C.D$gate|INTERFACE$ifname>                \
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
@@ -716,7 +708,6 @@ DEFPY_YANG(ip_route,
       "IP destination prefix mask\n"
       "IP gateway address\n"
       "IP gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -730,11 +721,6 @@ DEFPY_YANG(ip_route,
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
-
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 
 	if (!vrf)
 		vrf = VRF_DEFAULT_NAME;
@@ -754,7 +740,7 @@ DEFPY_YANG(ip_route_vrf,
       ip_route_vrf_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
-	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
+	<A.B.C.D$gate|INTERFACE$ifname>                \
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
@@ -770,7 +756,6 @@ DEFPY_YANG(ip_route_vrf,
       "IP destination prefix mask\n"
       "IP gateway address\n"
       "IP gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -795,10 +780,6 @@ DEFPY_YANG(ip_route_vrf,
 
 	vrfname = yang_dnode_get_string(vrf_dnode, "./name");
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	if (nexthop_vrf)
 		nh_vrf = nexthop_vrf;
 	else
@@ -813,7 +794,7 @@ DEFPY_YANG(ip_route_vrf,
 DEFPY_YANG(ipv6_route_blackhole,
       ipv6_route_blackhole_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <reject|blackhole>$flag                          \
+          <reject|blackhole|Null0>$flag                    \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -829,6 +810,7 @@ DEFPY_YANG(ipv6_route_blackhole,
       "IPv6 source prefix\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
+      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -845,7 +827,7 @@ DEFPY_YANG(ipv6_route_blackhole,
 DEFPY_YANG(ipv6_route_blackhole_vrf,
       ipv6_route_blackhole_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <reject|blackhole>$flag                          \
+          <reject|blackhole|Null0>$flag                    \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -860,6 +842,7 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
       "IPv6 source prefix\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
+      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -895,7 +878,7 @@ DEFPY_YANG(ipv6_route_address_interface,
       ipv6_route_address_interface_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
-          <INTERFACE|Null0>$ifname                         \
+          INTERFACE$ifname                                 \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -914,7 +897,6 @@ DEFPY_YANG(ipv6_route_address_interface,
       "IPv6 source prefix\n"
       "IPv6 gateway address\n"
       "IPv6 gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -929,11 +911,6 @@ DEFPY_YANG(ipv6_route_address_interface,
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
-
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 
 	if (!vrf)
 		vrf = VRF_DEFAULT_NAME;
@@ -953,7 +930,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
       ipv6_route_address_interface_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
-          <INTERFACE|Null0>$ifname                         \
+          INTERFACE$ifname                                 \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -971,7 +948,6 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
       "IPv6 source prefix\n"
       "IPv6 gateway address\n"
       "IPv6 gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1001,10 +977,6 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	else
 		nh_vrf = vrfname;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	return static_route_leak(vty, vrfname, nh_vrf, AFI_IP6, SAFI_UNICAST,
 				 no, prefix_str, NULL, from_str, gate_str,
 				 ifname, flag, tag_str, distance_str, label,
@@ -1014,7 +986,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 DEFPY_YANG(ipv6_route,
       ipv6_route_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <X:X::X:X$gate|<INTERFACE|Null0>$ifname>         \
+          <X:X::X:X$gate|INTERFACE$ifname>                 \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -1032,7 +1004,6 @@ DEFPY_YANG(ipv6_route,
       "IPv6 source prefix\n"
       "IPv6 gateway address\n"
       "IPv6 gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1055,10 +1026,6 @@ DEFPY_YANG(ipv6_route,
 	else
 		nh_vrf = vrf;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	return static_route_leak(vty, vrf, nh_vrf, AFI_IP6, SAFI_UNICAST, no,
 				 prefix_str, NULL, from_str, gate_str, ifname,
 				 flag, tag_str, distance_str, label, table_str,
@@ -1068,7 +1035,7 @@ DEFPY_YANG(ipv6_route,
 DEFPY_YANG(ipv6_route_vrf,
       ipv6_route_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <X:X::X:X$gate|<INTERFACE|Null0>$ifname>                 \
+          <X:X::X:X$gate|INTERFACE$ifname>                 \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -1085,7 +1052,6 @@ DEFPY_YANG(ipv6_route_vrf,
       "IPv6 source prefix\n"
       "IPv6 gateway address\n"
       "IPv6 gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1114,10 +1080,6 @@ DEFPY_YANG(ipv6_route_vrf,
 	else
 		nh_vrf = vrfname;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	return static_route_leak(vty, vrfname, nh_vrf, AFI_IP6, SAFI_UNICAST,
 				 no, prefix_str, NULL, from_str, gate_str,
 				 ifname, flag, tag_str, distance_str, label,
