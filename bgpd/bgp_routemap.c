@@ -435,7 +435,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		break;
 	}
 
-	frrscript_unload(fs);
+	frrscript_delete(fs);
 
 	return status;
 }
