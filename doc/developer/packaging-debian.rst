@@ -30,28 +30,25 @@ buster.)
 
    .. code-block:: shell
 
-      sudo mk-build-deps --install debian/control
+      sudo mk-build-deps --install --remove debian/control
 
    Alternatively, you can manually install build dependencies for your
    platform as outlined in :ref:`building`.
 
-4. Run ``tools/tarsource.sh -V``:
+4. Install `git-buildpackage` package:
 
    .. code-block:: shell
 
-      ./tools/tarsource.sh -V
-
-   This script sets up the ``debian/changelog-auto`` file with proper version
-   information.
+      sudo apt-get install git-buildpackage
 
 5. (optional) Append a distribution identifier if needed (see below under
    :ref:`multi-dist`.)
 
-6. Build Debian Package:
+6. Build Debian Binary and/or Source Packages:
 
    .. code-block:: shell
 
-      dpkg-buildpackage $options
+      gbp buildpackage --git-builder=dpkg-buildpackage --git-debian-branch="$(git rev-parse --abbrev-ref HEAD)" $options
 
    Where `$options` may contain any or all of the following items:
 
@@ -81,6 +78,18 @@ buster.)
      (git builds of the `master` or `stable/X.X` branches won't be signed by
      default since their target release is set to ``UNRELEASED``.)
 
+   * the ``--build=type`` accepts following options (see ``dpkg-buildpackage`` manual page):
+
+     * ``source`` builds the source package
+     * ``any`` builds the architecture specific binary packages
+     * ``all`` build the architecture independent binary packages
+     * ``binary`` build the architecture specific and independent binary packages (alias for ``any,all``)
+     * ``full`` builds everything (alias for ``source,any,all``)
+
+   Alternatively, you might want to replace ``dpkg-buildpackage`` with
+   ``debuild`` wrapper that also runs ``lintian`` and ``debsign`` on the final
+   packages.
+
 7. Done!
 
    If all worked correctly, then you should end up with the Debian packages in
@@ -97,12 +106,6 @@ buster.)
    a manually maintained changelog that contains proper Debian release
    versioning.
 
-   Furthermore, official Debian packages are built in ``3.0 (quilt)`` format
-   with an "orig" tarball and a "debian" tarball.  These tarballs are created
-   by the ``tarsource.sh`` tool on any branch.  The git repository however
-   contains a ``3.0 (git)`` source format specifier to easily allow direct
-   git builds.
-
 
 .. _multi-dist:
 
@@ -111,7 +114,6 @@ Multi-Distribution builds
 
 You can optionally append a distribution identifier in case you want to
 make multiple versions of the package available in the same repository.
-Do the following after creating the changelog with `tarsource.sh`:
 
 .. code-block:: shell
 
