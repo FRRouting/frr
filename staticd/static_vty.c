@@ -73,9 +73,24 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	route_tag_t tag = 0;
 	uint32_t table_id = 0;
 	const struct lyd_node *dnode;
+	const char *flag = flag_str;
+	const char *ifp = ifname;
 
 	memset(buf_src_prefix, 0, PREFIX_STRLEN);
 	memset(buf_nh_type, 0, PREFIX_STRLEN);
+
+	if (ifname) {
+		if (!strncasecmp(ifname, "Null0", 5)) {
+			flag = "Null0";
+			ifp = NULL;
+		} else if (!strncasecmp(ifname, "blackhole", 9)) {
+			flag = "blackhole";
+			ifp = NULL;
+		} else if (!strncasecmp(ifname, "reject", 6)) {
+			flag = "reject";
+			ifp = NULL;
+		}
+	}
 
 	ret = str2prefix(dest_str, &p);
 	if (ret <= 0) {
@@ -121,14 +136,14 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	else
 		buf_gate_str = "";
 
-	if (gate_str == NULL && ifname == NULL)
+	if (gate_str == NULL && ifp == NULL)
 		type = STATIC_BLACKHOLE;
-	else if (gate_str && ifname) {
+	else if (gate_str && ifp) {
 		if (afi == AFI_IP)
 			type = STATIC_IPV4_GATEWAY_IFNAME;
 		else
 			type = STATIC_IPV6_GATEWAY_IFNAME;
-	} else if (ifname)
+	} else if (ifp)
 		type = STATIC_IFNAME;
 	else {
 		if (afi == AFI_IP)
@@ -160,7 +175,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
 				 buf_src_prefix, table_id, buf_nh_type, nh_svrf,
-				 buf_gate_str, ifname);
+				 buf_gate_str, ifp);
 		else
 			snprintf(ab_xpath, sizeof(ab_xpath),
 				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
@@ -168,7 +183,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
 				 table_id, buf_nh_type, nh_svrf, buf_gate_str,
-				 ifname);
+				 ifp);
 
 		/*
 		 * If there's already the same nexthop but with a different
@@ -213,7 +228,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 		snprintf(ab_xpath, sizeof(ab_xpath),
 			 FRR_STATIC_ROUTE_NH_KEY_XPATH, buf_nh_type, nh_svrf,
-			 buf_gate_str, ifname);
+			 buf_gate_str, ifp);
 		strlcpy(xpath_nexthop, xpath_prefix, sizeof(xpath_nexthop));
 		strlcat(xpath_nexthop, ab_xpath, sizeof(xpath_nexthop));
 		nb_cli_enqueue_change(vty, xpath_nexthop, NB_OP_CREATE, NULL);
@@ -224,8 +239,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				sizeof(ab_xpath));
 
 			/* Route flags */
-			if (flag_str) {
-				switch (flag_str[0]) {
+			if (flag) {
+				switch (flag[0]) {
 				case 'r':
 					bh_type = "reject";
 					break;
@@ -313,7 +328,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
 				 buf_src_prefix, table_id, buf_nh_type, nh_svrf,
-				 buf_gate_str, ifname);
+				 buf_gate_str, ifp);
 		else
 			snprintf(ab_xpath, sizeof(ab_xpath),
 				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
@@ -321,7 +336,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
 				 table_id, buf_nh_type, nh_svrf, buf_gate_str,
-				 ifname);
+				 ifp);
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode) {
@@ -339,6 +354,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 	return ret;
 }
+
 static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 			const char *negate, const char *dest_str,
 			const char *mask_str, const char *src_str,
@@ -615,10 +631,6 @@ DEFPY_YANG(ip_route_address_interface,
 	const char *nh_vrf;
 	const char *flag = NULL;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	if (!vrf)
 		vrf = VRF_DEFAULT_NAME;
 
@@ -680,10 +692,6 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	}
 	vrfname = yang_dnode_get_string(vrf_dnode, "./name");
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	if (nexthop_vrf)
 		nh_vrf = nexthop_vrf;
 	else
@@ -730,11 +738,6 @@ DEFPY_YANG(ip_route,
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
-
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 
 	if (!vrf)
 		vrf = VRF_DEFAULT_NAME;
@@ -795,10 +798,6 @@ DEFPY_YANG(ip_route_vrf,
 
 	vrfname = yang_dnode_get_string(vrf_dnode, "./name");
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	if (nexthop_vrf)
 		nh_vrf = nexthop_vrf;
 	else
@@ -930,11 +929,6 @@ DEFPY_YANG(ipv6_route_address_interface,
 	const char *nh_vrf;
 	const char *flag = NULL;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
-
 	if (!vrf)
 		vrf = VRF_DEFAULT_NAME;
 
@@ -1001,10 +995,6 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	else
 		nh_vrf = vrfname;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	return static_route_leak(vty, vrfname, nh_vrf, AFI_IP6, SAFI_UNICAST,
 				 no, prefix_str, NULL, from_str, gate_str,
 				 ifname, flag, tag_str, distance_str, label,
@@ -1055,10 +1045,6 @@ DEFPY_YANG(ipv6_route,
 	else
 		nh_vrf = vrf;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	return static_route_leak(vty, vrf, nh_vrf, AFI_IP6, SAFI_UNICAST, no,
 				 prefix_str, NULL, from_str, gate_str, ifname,
 				 flag, tag_str, distance_str, label, table_str,
@@ -1114,10 +1100,6 @@ DEFPY_YANG(ipv6_route_vrf,
 	else
 		nh_vrf = vrfname;
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 	return static_route_leak(vty, vrfname, nh_vrf, AFI_IP6, SAFI_UNICAST,
 				 no, prefix_str, NULL, from_str, gate_str,
 				 ifname, flag, tag_str, distance_str, label,
